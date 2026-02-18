@@ -11,7 +11,7 @@ use gpui::*;
 struct MnmApp;
 
 impl Render for MnmApp {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .flex()
             .flex_col()
@@ -200,7 +200,7 @@ fn main() {
     env_logger::init();
     
     Application::new()
-        .run(|cx: &mut AppContext| {
+        .run(|cx: &mut App| {
             cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(Bounds {
@@ -217,8 +217,8 @@ fn main() {
                     }),
                     ..Default::default()
                 },
-                |cx| {
-                    cx.new_view(|_cx| MnmApp)
+                |_window, cx| {
+                    cx.new(|_cx| MnmApp)
                 },
             )
             .unwrap();
