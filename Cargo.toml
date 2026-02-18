@@ -7,8 +7,9 @@ license = "MIT"
 repository = "https://github.com/pantheon-assistant/mnm"
 
 [dependencies]
-# Use GPUI from Zed's git repo for latest fixes
-gpui = { git = "https://github.com/zed-industries/zed", branch = "main" }
+# GPUI Community Edition + Component Library
+gpui = "0.2.2"
+gpui-component = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
