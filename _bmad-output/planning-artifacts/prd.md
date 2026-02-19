@@ -68,6 +68,22 @@ MnM targets small teams (1-6 people) and product engineers working in agentic, s
 - **FR2.4.2** — Prevent agents from modifying files outside their scope
 - **FR2.4.3** — Display scope boundaries in agent dashboard
 
+**FR2.5** — Spec-as-Interface (Interactive Document Actions)
+- **FR2.5.1** — Render markdown documents as interactive control surfaces, not static text
+- **FR2.5.2** — Each heading/section becomes an actionable element with contextual actions on hover
+- **FR2.5.3** — Provide section-level actions based on document type:
+  - On PRD sections: [TLDR] [Clarify] [Generate Stories] [Architecture Review]
+  - On Story sections: [TLDR] [Dev] [TDD] [E2E] [Code Review] [Acceptance Criteria]
+  - On Epic sections: [Expand] [Prioritize] [Estimate] [Sprint Planning]
+- **FR2.5.4** — Display agent presence indicators per section:
+  - 👁️ "Viewing" — agent has this section in context
+  - 🔨 "Working" — agent is actively modifying related code
+  - ✅ "Completed" — agent finished work on this section
+- **FR2.5.5** — Show section status badges inline: Done ✅ / In Progress 🔄 / Backlog 📋
+- **FR2.5.6** — Actions appear contextually (on hover/focus) — not cluttered, premium UX
+- **FR2.5.7** — Support multi-select sections to launch bulk agent actions
+- **FR2.5.8** — Clicking an action opens agent launch dialog pre-populated with section context
+
 ### FR3: Progress & Drift Detection
 
 **FR3.1** — Track workflow and story completion
