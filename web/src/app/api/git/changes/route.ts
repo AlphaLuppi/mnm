@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as specChangesRepo from "@/lib/db/repositories/spec-changes";
 import { runChangeDetection } from "@/lib/git/change-detector";
+import { eventBus } from "@/lib/events/event-bus";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
 export async function POST() {
   try {
     const result = await runChangeDetection();
+    eventBus.notifyMany(["git", "dashboard"]);
     return NextResponse.json({
       headChanged: result.headChanged,
       changesDetected: result.changes.length,

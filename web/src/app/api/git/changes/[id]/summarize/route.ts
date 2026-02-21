@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { summarizeChangeById } from "@/lib/git/change-summarizer";
+import { eventBus } from "@/lib/events/event-bus";
 
 export async function POST(
   _request: NextRequest,
@@ -8,6 +9,7 @@ export async function POST(
   try {
     const { id } = await params;
     const summary = await summarizeChangeById(id);
+    eventBus.notify("git");
     return NextResponse.json({ summary });
   } catch (err) {
     return NextResponse.json(

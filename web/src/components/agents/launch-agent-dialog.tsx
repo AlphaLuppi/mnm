@@ -51,8 +51,7 @@ export function LaunchAgentDialog({
 }: LaunchAgentDialogProps) {
   const { data } = useSWR<{ agentTypes: DiscoveredAgentType[] }>(
     "/api/discovery/agents",
-    fetcher,
-    { refreshInterval: 30000 }
+    fetcher
   );
 
   const agentTypes = data?.agentTypes ?? [];

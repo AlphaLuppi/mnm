@@ -12,7 +12,10 @@ type EventChannel =
   | "dashboard"
   | "workflows"
   | "discovery"
-  | "projects";
+  | "projects"
+  | "git"
+  | "specs"
+  | "performance";
 
 /**
  * Map of event channels → SWR cache key patterns to invalidate.
@@ -26,8 +29,11 @@ const CHANNEL_KEYS: Record<EventChannel, (string | RegExp)[]> = {
   "cross-doc-drift": ["/api/drift/cross-doc"],
   dashboard: ["/api/dashboard"],
   workflows: ["/api/workflows", /^\/api\/workflows\//],
-  discovery: ["/api/discovery/results", /^\/api\/discovery\/results\?/],
+  discovery: ["/api/discovery/results", /^\/api\/discovery\/results\?/, "/api/discovery/agents"],
   projects: ["/api/projects"],
+  git: ["/api/git/status", /^\/api\/git\/changes/],
+  specs: ["/api/specs", /^\/api\/specs\//],
+  performance: ["/api/performance"],
 };
 
 /**

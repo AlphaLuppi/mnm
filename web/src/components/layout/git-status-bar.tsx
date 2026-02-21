@@ -7,9 +7,7 @@ import { Badge } from "@/components/ui/badge";
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function GitStatusBar() {
-  const { data, error } = useSWR("/api/git/status", fetcher, {
-    refreshInterval: 10_000,
-  });
+  const { data, error } = useSWR("/api/git/status", fetcher);
 
   if (error) {
     return (

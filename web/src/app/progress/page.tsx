@@ -12,15 +12,10 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function ProgressPage() {
   const { data: specsData, isLoading: specsLoading } = useSWR<{ specs: Spec[] }>(
     "/api/specs",
-    fetcher,
-    { refreshInterval: 10000 }
+    fetcher
   );
-  const { data: agentsData } = useSWR<Agent[]>("/api/agents", fetcher, {
-    refreshInterval: 10000,
-  });
-  const { data: driftsData } = useSWR<DriftDetection[]>("/api/drift", fetcher, {
-    refreshInterval: 10000,
-  });
+  const { data: agentsData } = useSWR<Agent[]>("/api/agents", fetcher);
+  const { data: driftsData } = useSWR<DriftDetection[]>("/api/drift", fetcher);
 
   const isLoading = specsLoading;
 
