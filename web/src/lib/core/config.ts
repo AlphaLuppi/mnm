@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+export type AuthType = "api_key" | "oauth_token";
+
 export interface MnMConfig {
   repositoryPath: string;
   driftDetectionEnabled: boolean;
@@ -17,6 +19,9 @@ export interface MnMConfig {
   performancePanelEnabled: boolean;
   showHelpHints: boolean;
   lastCleanShutdown?: number;
+  anthropicApiKey?: string; // Stored API key
+  anthropicOAuthToken?: string; // OAuth token from `claude setup-token`
+  authType?: AuthType; // Which auth method to use
 }
 
 const DEFAULT_CONFIG: MnMConfig = {
@@ -68,8 +73,65 @@ export function saveConfig(config: Partial<MnMConfig>): MnMConfig {
   return merged;
 }
 
+export interface AuthCredentials {
+  token: string;
+  type: AuthType;
+}
+
+export function getAnthropicCredentials(): AuthCredentials | undefined {
+  // Priority: environment variable > stored config
+  const envKey = process.env.ANTHROPIC_API_KEY;
+  if (envKey) {
+    // Detect type from token prefix
+    const type = envKey.startsWith("sk-ant-oat") ? "oauth_token" : "api_key";
+    return { token: envKey, type };
+  }
+
+  const config = loadConfig();
+
+  // Check preferred auth type
+  if (config.authType === "oauth_token" && config.anthropicOAuthToken) {
+    return { token: config.anthropicOAuthToken, type: "oauth_token" };
+  }
+
+  if (config.anthropicApiKey) {
+    return { token: config.anthropicApiKey, type: "api_key" };
+  }
+
+  if (config.anthropicOAuthToken) {
+    return { token: config.anthropicOAuthToken, type: "oauth_token" };
+  }
+
+  return undefined;
+}
+
+// Legacy function for backward compatibility
 export function getAnthropicApiKey(): string | undefined {
-  return process.env.ANTHROPIC_API_KEY;
+  return getAnthropicCredentials()?.token;
+}
+
+export function setAnthropicApiKey(apiKey: string): void {
+  saveConfig({ anthropicApiKey: apiKey, authType: "api_key" });
+}
+
+export function setAnthropicOAuthToken(token: string): void {
+  saveConfig({ anthropicOAuthToken: token, authType: "oauth_token" });
+}
+
+export function validateApiKey(key: string): { valid: boolean; type: AuthType } {
+  // OAuth tokens from `claude setup-token` start with sk-ant-oat
+  if (key.startsWith("sk-ant-oat") && key.length > 20) {
+    return { valid: true, type: "oauth_token" };
+  }
+  // API keys from console.anthropic.com start with sk-ant-api
+  if (key.startsWith("sk-ant-api") && key.length > 20) {
+    return { valid: true, type: "api_key" };
+  }
+  // Legacy format or other valid formats
+  if (key.startsWith("sk-ant-") && key.length > 20) {
+    return { valid: true, type: "api_key" };
+  }
+  return { valid: false, type: "api_key" };
 }
 
 export function getDatabasePath(): string {

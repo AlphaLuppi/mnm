@@ -140,3 +140,19 @@ export const crossDocDrifts = sqliteTable("cross_doc_drifts", {
   resolutionRationale: text("resolution_rationale"),
   detectedAt: integer("detected_at", { mode: "timestamp" }).notNull(),
 });
+
+// ── drift_scan_runs ───────────────────────────────────────
+// Tracks manual drift scans for history and cold-start support
+export const driftScanRuns = sqliteTable("drift_scan_runs", {
+  id: text("id").primaryKey(),
+  specId: text("spec_id").references(() => specs.id),
+  scope: text("scope").notNull(), // JSON array of file paths
+  triggerType: text("trigger_type").notNull(), // 'manual' | 'agent_complete' | 'discovery' | 'spec_save'
+  status: text("status").notNull().default("pending"), // 'pending' | 'running' | 'completed' | 'failed'
+  driftDetectionId: text("drift_detection_id").references(() => driftDetections.id),
+  errorMessage: text("error_message"),
+  startedAt: integer("started_at").notNull(),
+  completedAt: integer("completed_at"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});

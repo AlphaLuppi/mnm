@@ -3,10 +3,16 @@ import { detectDrift } from "./detector";
 import * as agentRepo from "@/lib/db/repositories/agents";
 import { createChildLogger } from "@/lib/core/logger";
 
-export { detectDrift } from "./detector";
+export { detectDrift, type DriftDetectionOptions } from "./detector";
 export { analyzeDrift, type DriftResult } from "./analyzer";
 export { loadCustomInstructions } from "./instructions";
 export { buildDriftPrompt } from "./prompts";
+export {
+  inferScopeFromSpec,
+  getSuggestedScope,
+  scanRepositoryForCodeFiles,
+  type InferredScope,
+} from "./scope-inference";
 
 const log = createChildLogger({ module: "drift" });
 

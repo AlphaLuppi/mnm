@@ -17,6 +17,10 @@ so that I can understand what drifted and why.
 5. The detail view shows "Accept Drift" and "Reject Drift" action buttons
 6. Drift alerts are color-coded by severity: green (minor), amber (moderate), red (critical)
 7. Pending drifts are visually distinct from resolved ones
+8. **[COLD-START] Drift panel shows "Scan for Drift" button prominently when no results exist**
+9. **[COLD-START] Empty state shows "No drift detected" with helpful text, NOT a blank page**
+10. **[COLD-START] "Last scanned: X minutes ago" timestamp displays below the filter tabs**
+11. **[COLD-START] Drift panel works even when no agents have run (integrates with Story 6.5)**
 
 ## Tasks / Subtasks
 
@@ -55,10 +59,17 @@ so that I can understand what drifted and why.
     - `critical`: red (text-red-600, bg-red-100 / dark: text-red-400, bg-red-950)
   - [ ] Create `src/components/shared/severity-badge.tsx` reusable component
   - [ ] Apply colors consistently to badges, card borders, and detail headers
-- [ ] Task 5: Empty and loading states
-  - [ ] Show "No drift detections yet" with an icon when the list is empty
+- [ ] Task 5: Empty and loading states (AC: #8, #9, #10, #11) **[ENHANCED]**
+  - [ ] Show "No drift detected" with helpful message when the list is empty
+  - [ ] Add prominent "Scan for Drift" button in empty state (opens scan dialog)
   - [ ] Show skeleton cards while loading (shadcn `Skeleton`)
   - [ ] Show error state if API fails
+  - [ ] Display "Last scanned: X minutes ago" below filter tabs
+  - [ ] Fetch last scan time from `GET /api/drift/status` endpoint
+- [ ] Task 6: Scan for Drift button (AC: #8) **[NEW]**
+  - [ ] Add "Scan for Drift" button in page header (always visible)
+  - [ ] Button opens a dialog from Story 6.5 (or inline spec selector)
+  - [ ] After scan completes, refresh drift list automatically
 
 ## Dev Notes
 

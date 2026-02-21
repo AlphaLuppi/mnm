@@ -17,6 +17,10 @@ export const SHORTCUTS: ShortcutDef[] = [
   { key: "b", meta: true, label: "Toggle Sidebar", category: "Navigation", action: "toggle-sidebar" },
   { key: ",", meta: true, label: "Settings", category: "Navigation", action: "nav-settings" },
 
+  // Terminal
+  { key: "`", meta: true, label: "Toggle Claude Terminal", category: "Terminal", action: "toggle-terminal" },
+  { key: "j", meta: true, label: "Open Claude Terminal", category: "Terminal", action: "open-terminal" },
+
   // Agent
   { key: "l", meta: true, shift: true, label: "Launch Agent", category: "Agent", action: "launch-agent" },
   { key: "t", meta: true, shift: true, label: "Terminate Agent", category: "Agent", action: "terminate-agent" },
