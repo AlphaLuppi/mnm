@@ -44,9 +44,12 @@ export class ClaudeProvider implements AIProvider {
     let version: string | undefined;
 
     try {
-      const whichResult = execSync("which claude", {
+      // Use 'where' on Windows, 'which' on Unix
+      const checkCmd = process.platform === "win32" ? "where claude" : "which claude";
+      const whichResult = execSync(checkCmd, {
         encoding: "utf-8",
         timeout: 3000,
+        stdio: ["pipe", "pipe", "pipe"],
       }).trim();
       installed = !!whichResult;
     } catch {
@@ -316,16 +319,35 @@ export class ClaudeProvider implements AIProvider {
   private getRunningClaudePids(): Set<number> {
     const pids = new Set<number>();
     try {
-      const output = execSync("pgrep -f claude", {
-        encoding: "utf-8",
-        timeout: 3000,
-      }).trim();
-      for (const line of output.split("\n")) {
-        const pid = parseInt(line.trim(), 10);
-        if (!isNaN(pid)) pids.add(pid);
+      if (process.platform === "win32") {
+        // Windows: use tasklist to find claude processes
+        const output = execSync('tasklist /FI "IMAGENAME eq claude.exe" /FO CSV /NH', {
+          encoding: "utf-8",
+          timeout: 3000,
+          stdio: ["pipe", "pipe", "pipe"],
+        }).trim();
+        // Parse CSV output: "claude.exe","1234","Console","1","12,345 K"
+        for (const line of output.split("\n")) {
+          const match = line.match(/"claude\.exe","(\d+)"/i);
+          if (match) {
+            const pid = parseInt(match[1], 10);
+            if (!isNaN(pid)) pids.add(pid);
+          }
+        }
+      } else {
+        // Unix: use pgrep
+        const output = execSync("pgrep -f claude", {
+          encoding: "utf-8",
+          timeout: 3000,
+          stdio: ["pipe", "pipe", "pipe"],
+        }).trim();
+        for (const line of output.split("\n")) {
+          const pid = parseInt(line.trim(), 10);
+          if (!isNaN(pid)) pids.add(pid);
+        }
       }
     } catch {
-      // pgrep returns exit code 1 if no matches
+      // pgrep/tasklist returns exit code 1 if no matches
     }
     return pids;
   }

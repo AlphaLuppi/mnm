@@ -103,7 +103,7 @@ development_status:
 
   # Epic 5: Polish & Production Readiness
   epic-5: in-progress
-  5-1-first-run-onboarding-flow: ready-for-dev
+  5-1-first-run-onboarding-flow: ready-for-dev  # NOTE: Superseded by 6.3 (conversational onboarding)
   5-2-settings-panel: ready-for-dev
   5-3-keyboard-shortcuts-accessibility: ready-for-dev
   5-4-agent-sandboxing-scope-enforcement: ready-for-dev
@@ -114,3 +114,14 @@ development_status:
   5-9-production-build-distribution: ready-for-dev
   5-10-crash-recovery-state-persistence: ready-for-dev
   epic-5-retrospective: optional
+
+  # Epic 6: LLM-Powered Discovery & Interaction (Added 2026-02-20 via Correct Course)
+  # Implements: FR7 (Workflow Viewer), FR8 (Cross-Doc Drift), FR9 (LLM Discovery), FR10 (Conversational Onboarding)
+  epic-6: in-progress
+  6-1-workflow-viewer-ui: ready-for-dev
+  6-2-cross-document-drift-ui: ready-for-dev
+  6-3-conversational-onboarding-chat: ready-for-dev  # Replaces wizard-based 5.1
+  6-4-llm-driven-spec-classification: ready-for-dev
+  6-5-cold-start-drift-trigger: ready-for-dev  # QUICK WIN - implement first
+  6-6-cross-doc-drift-auto-trigger: ready-for-dev
+  epic-6-retrospective: optional
