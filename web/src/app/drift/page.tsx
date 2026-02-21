@@ -8,7 +8,7 @@ import { GitCompare, Search, Clock } from "lucide-react";
 import { useDriftDetections, useDriftStatus } from "@/hooks/use-drift";
 import { DriftCard } from "@/components/drift/drift-card";
 import { CrossDocDriftPanel } from "@/components/drift/cross-doc-drift-panel";
-import { ScanDriftDialog } from "@/components/drift/scan-drift-dialog";
+import { launchTask } from "@/hooks/use-tasks";
 import type { DriftDetection } from "@/lib/core/types";
 
 function formatRelativeTime(timestamp: number | null): string {
@@ -27,7 +27,6 @@ export default function DriftPage() {
   const { drifts, isLoading } = useDriftDetections();
   const { status } = useDriftStatus();
   const [tab, setTab] = useState("code-vs-spec");
-  const [scanDialogOpen, setScanDialogOpen] = useState(false);
 
   const pending = drifts.filter(
     (d) => d.userDecision === "pending" || !d.userDecision
@@ -35,6 +34,10 @@ export default function DriftPage() {
   const resolved = drifts.filter(
     (d) => d.userDecision === "accepted" || d.userDecision === "rejected"
   );
+
+  function handleScanClick() {
+    launchTask("scan-cross-doc-drift");
+  }
 
   return (
     <div className="space-y-4">
@@ -45,7 +48,7 @@ export default function DriftPage() {
             Review when code diverges from specifications, or when specs are inconsistent with each other
           </p>
         </div>
-        <Button onClick={() => setScanDialogOpen(true)}>
+        <Button onClick={handleScanClick}>
           <Search className="mr-2 h-4 w-4" />
           Scan for Drift
         </Button>
@@ -73,7 +76,7 @@ export default function DriftPage() {
             pending={pending}
             resolved={resolved}
             isLoading={isLoading}
-            onScanClick={() => setScanDialogOpen(true)}
+            onScanClick={handleScanClick}
           />
         </TabsContent>
 
@@ -81,11 +84,6 @@ export default function DriftPage() {
           <CrossDocDriftPanel />
         </TabsContent>
       </Tabs>
-
-      <ScanDriftDialog
-        open={scanDialogOpen}
-        onOpenChange={setScanDialogOpen}
-      />
     </div>
   );
 }
@@ -152,7 +150,7 @@ function CodeVsSpecTab({
               ? "No pending drift detections. All detected drifts have been resolved."
               : subtab === "resolved"
                 ? "No resolved drift detections yet."
-                : "Click \"Scan for Drift\" to check if your code matches your specifications. You can scan any spec, even without running agents first."}
+                : "Click \"Scan for Drift\" to check if your code matches your specifications."}
           </p>
           {subtab === "all" && (
             <Button onClick={onScanClick} className="mt-4">

@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import * as specRepo from "@/lib/db/repositories/specs";
-import { loadConfig } from "@/lib/core/config";
-import { getAnthropicApiKey } from "@/lib/core/config";
+import { getAnthropicAuthHeaders } from "@/lib/core/config";
+import { getMnMRoot } from "@/lib/core/paths";
 import { createChildLogger } from "@/lib/core/logger";
 import { DriftError } from "@/lib/core/errors";
 import { getComparablePairs } from "./hierarchy-model";
@@ -28,11 +28,10 @@ const BASE_DELAY_MS = 1000;
  * Run cross-document drift detection on all comparable spec pairs.
  */
 export async function detectCrossDocDrift(): Promise<CrossDocDrift[]> {
-  const config = loadConfig();
-  const repoRoot = config.repositoryPath;
-  const apiKey = getAnthropicApiKey();
+  const repoRoot = getMnMRoot();
+  const authHeaders = getAnthropicAuthHeaders();
 
-  if (!apiKey) {
+  if (!authHeaders) {
     log.warn("No API key configured, skipping cross-doc drift detection");
     return [];
   }
@@ -48,7 +47,7 @@ export async function detectCrossDocDrift(): Promise<CrossDocDrift[]> {
         pair.upstream,
         pair.downstream,
         repoRoot,
-        apiKey
+        authHeaders
       );
       allDrifts.push(...drifts);
     } catch (err) {
@@ -78,7 +77,7 @@ async function detectPairDrift(
   upstream: { specId: string; filePath: string; specType: string },
   downstream: { specId: string; filePath: string; specType: string },
   repoRoot: string,
-  apiKey: string
+  authHeaders: Record<string, string>
 ): Promise<CrossDocDrift[]> {
   // Load spec content from disk
   const upstreamSpec = specRepo.findById(upstream.specId);
@@ -132,7 +131,7 @@ async function detectPairDrift(
     }
   );
 
-  const response = await callClaudeApi(prompt, apiKey);
+  const response = await callClaudeApi(prompt, authHeaders);
   const parsed = parseResponse(response);
 
   return parsed.map((d) => ({
@@ -148,7 +147,7 @@ async function detectPairDrift(
 
 async function callClaudeApi(
   prompt: string,
-  apiKey: string
+  authHeaders: Record<string, string>
 ): Promise<Record<string, unknown>> {
   let lastError: Error | null = null;
 
@@ -163,7 +162,7 @@ async function callClaudeApi(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          ...authHeaders,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrchestrator } from "@/lib/agent";
 import { AgentError, LockConflictError, MnMError } from "@/lib/core/errors";
+import { eventBus } from "@/lib/events/event-bus";
 
 // GET /api/agents/[id] -- get agent detail
 export async function GET(
@@ -55,6 +56,7 @@ export async function PATCH(
     }
 
     const agent = orchestrator.getStatus(id);
+    eventBus.notifyMany(["agents", "dashboard"]);
     return NextResponse.json(agent);
   } catch (error) {
     return handleError(error);
@@ -69,6 +71,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     getOrchestrator().terminate(id);
+    eventBus.notifyMany(["agents", "dashboard"]);
     return new Response(null, { status: 204 });
   } catch (error) {
     return handleError(error);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
+import { getMnMRoot } from "@/lib/core/paths";
 
 interface TreeNode {
   name: string;
@@ -56,7 +57,7 @@ function buildTree(dirPath: string, relativeTo: string): TreeNode[] {
 }
 
 export async function GET() {
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+  const repoRoot = getMnMRoot();
 
   try {
     const tree = buildTree(repoRoot, repoRoot);

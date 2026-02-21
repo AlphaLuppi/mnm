@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMnMRoot } from "@/lib/core/paths";
 import simpleGit from "simple-git";
 import { parseUnifiedDiff } from "@/lib/git/diff-parser";
 
@@ -6,7 +7,7 @@ export async function GET(request: NextRequest) {
   const file = request.nextUrl.searchParams.get("file");
   const base = request.nextUrl.searchParams.get("base");
   const head = request.nextUrl.searchParams.get("head");
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+  const repoRoot = getMnMRoot();
 
   if (!file) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as crossDocDriftRepo from "@/lib/db/repositories/cross-doc-drifts";
 import { createChildLogger } from "@/lib/core/logger";
+import { eventBus } from "@/lib/events/event-bus";
 
 const log = createChildLogger({ module: "api-cross-doc-resolve" });
 
@@ -42,6 +43,7 @@ export async function POST(
     const updated = crossDocDriftRepo.resolve(driftId, status, rationale);
 
     log.info({ driftId, status }, "Cross-doc drift resolved");
+    eventBus.notifyMany(["cross-doc-drift", "dashboard"]);
 
     return NextResponse.json({ success: true, drift: updated });
   } catch (err) {

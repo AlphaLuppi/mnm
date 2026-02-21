@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAnthropicApiKey, loadConfig } from "@/lib/core/config";
+import { getAnthropicApiKey, getAnthropicAuthHeaders, loadConfig } from "@/lib/core/config";
 import { createChildLogger } from "@/lib/core/logger";
 import { buildOnboardingSystemPrompt } from "@/lib/onboarding/system-prompt";
 import { getClaudeCLIStatus, streamPromptToCLI } from "@/lib/claude/cli";
@@ -49,9 +49,10 @@ export async function POST(request: NextRequest) {
       return handleCLIChat(messages, systemPrompt, request.signal);
     }
 
-    // Fall back to API if we have a key
-    if (apiKey) {
-      return handleAPIChat(messages, systemPrompt, apiKey);
+    // Fall back to API if we have credentials
+    const authHeaders = getAnthropicAuthHeaders();
+    if (authHeaders) {
+      return handleAPIChat(messages, systemPrompt, authHeaders);
     }
 
     // No auth available
@@ -150,13 +151,13 @@ function handleCLIChat(
 async function handleAPIChat(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
   systemPrompt: string,
-  apiKey: string
+  authHeaders: Record<string, string>
 ): Promise<Response> {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
+      ...authHeaders,
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({

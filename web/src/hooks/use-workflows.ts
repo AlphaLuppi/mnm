@@ -30,8 +30,7 @@ interface WorkflowsResponse {
 export function useWorkflows() {
   const { data, error, isLoading, mutate } = useSWR<WorkflowsResponse>(
     "/api/workflows",
-    fetcher,
-    { refreshInterval: 30000 }
+    fetcher
   );
 
   const workflows = Array.isArray(data?.workflows) ? data.workflows : [];

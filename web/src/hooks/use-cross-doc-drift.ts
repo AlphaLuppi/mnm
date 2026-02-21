@@ -34,8 +34,7 @@ export interface CrossDocDriftAlert {
 export function useCrossDocDrifts() {
   const { data, error, isLoading, mutate } = useSWR<CrossDocDriftAlert[]>(
     "/api/drift/cross-doc",
-    fetcher,
-    { refreshInterval: 10000 }
+    fetcher
   );
 
   const drifts = Array.isArray(data) ? data : [];

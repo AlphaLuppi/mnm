@@ -4,7 +4,7 @@ import { useEffect, useState, createContext, useContext, useCallback } from "rea
 import { useRouter } from "next/navigation";
 import { SHORTCUTS, matchesShortcut } from "@/lib/core/keyboard-shortcuts";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useClaudeContext } from "@/components/claude";
+import { useChat } from "@/components/chat";
 import { ShortcutReference } from "./shortcut-reference";
 
 interface ShortcutContextValue {
@@ -24,7 +24,8 @@ export function useShortcutDialog() {
 export function ShortcutProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { toggleSidebar } = useSidebar();
-  const { toggle: toggleClaude, open: openClaude } = useClaudeContext();
+  const { toggleChat: toggleClaude, setIsOpen } = useChat();
+  const openClaude = () => setIsOpen(true);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   const handleKeyDown = useCallback(
@@ -93,7 +94,7 @@ export function ShortcutProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [router, toggleSidebar, toggleClaude, openClaude]
+    [router, toggleSidebar, toggleClaude, setIsOpen]
   );
 
   useEffect(() => {

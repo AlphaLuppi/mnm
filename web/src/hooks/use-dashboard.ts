@@ -19,8 +19,7 @@ export interface DashboardData {
 export function useDashboard() {
   const { data, error, isLoading } = useSWR<DashboardData>(
     "/api/dashboard",
-    fetcher,
-    { refreshInterval: 5000 }
+    fetcher
   );
 
   return {

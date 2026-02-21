@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { buildWelcomeMessage } from "@/lib/onboarding/system-prompt";
-import { useClaudeContext } from "@/components/claude";
+import { useChat } from "@/components/chat";
 import type { ChatMessage as ChatMessageType, ProjectContext } from "@/lib/onboarding/types";
 import { ArrowRight, Sparkles } from "lucide-react";
 
@@ -19,7 +19,8 @@ interface OnboardingChatProps {
 export function OnboardingChat({ initialContext }: OnboardingChatProps) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { open: openClaude } = useClaudeContext();
+  const { setIsOpen } = useChat();
+  const openClaude = () => setIsOpen(true);
   const [context, setContext] = useState<ProjectContext>(initialContext);
   const [messages, setMessages] = useState<ChatMessageType[]>(() => {
     const welcomeMessages: ChatMessageType[] = [
@@ -48,7 +49,7 @@ export function OnboardingChat({ initialContext }: OnboardingChatProps) {
         id: "api-key-prompt",
         role: "assistant",
         content:
-          "To use MnM's AI features, I'll need access to Claude. Please enter your Anthropic API key below, or [install Claude Code](https://claude.ai/code) for subscription-based access.",
+          "To use MnM's AI features, I'll need access to Claude. Enter an **API key** from console.anthropic.com, or paste a **Setup Token** from your Claude subscription (run `claude setup-token` in terminal).",
         timestamp: Date.now() + 1,
         action: { type: "api_key_input" },
       });

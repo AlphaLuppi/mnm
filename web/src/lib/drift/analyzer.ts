@@ -1,5 +1,5 @@
 import { DriftError } from "@/lib/core/errors";
-import { getAnthropicApiKey } from "@/lib/core/config";
+import { getAnthropicAuthHeaders } from "@/lib/core/config";
 import { createChildLogger } from "@/lib/core/logger";
 import { buildDriftPrompt } from "./prompts";
 
@@ -21,8 +21,8 @@ export async function analyzeDrift(
   diff: string,
   customInstructions?: string | null
 ): Promise<DriftResult> {
-  const apiKey = getAnthropicApiKey();
-  if (!apiKey) {
+  const authHeaders = getAnthropicAuthHeaders();
+  if (!authHeaders) {
     throw DriftError.apiError("ANTHROPIC_API_KEY not configured");
   }
 
@@ -42,7 +42,7 @@ export async function analyzeDrift(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          ...authHeaders,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({

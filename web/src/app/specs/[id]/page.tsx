@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getMnMRoot } from "@/lib/core/paths";
 import { notFound } from "next/navigation";
 import matter from "gray-matter";
 import * as specsRepo from "@/lib/db/repositories/specs";
@@ -42,7 +43,7 @@ export default async function SpecDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+  const repoRoot = getMnMRoot();
   const absPath = path.join(repoRoot, spec.filePath);
 
   let rawContent = "";

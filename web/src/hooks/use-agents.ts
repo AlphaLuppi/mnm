@@ -8,8 +8,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export function useAgents() {
   const { data, error, isLoading, mutate } = useSWR<Agent[]>(
     "/api/agents",
-    fetcher,
-    { refreshInterval: 2000 }
+    fetcher
   );
 
   return {
@@ -23,8 +22,7 @@ export function useAgents() {
 export function useAgent(id: string) {
   const { data, error, isLoading, mutate } = useSWR<Agent>(
     `/api/agents/${id}`,
-    fetcher,
-    { refreshInterval: 2000 }
+    fetcher
   );
 
   return {

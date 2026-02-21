@@ -33,7 +33,8 @@ function classifyFile(filePath: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const repoPath = body.repoPath || process.env.MNM_REPO_ROOT || process.cwd();
+    const { getMnMRoot } = await import("@/lib/core/paths");
+    const repoPath = body.repoPath || getMnMRoot();
 
     const entries = await fg(SPEC_PATTERNS, {
       cwd: repoPath,

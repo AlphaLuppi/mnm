@@ -1,4 +1,5 @@
 import simpleGit, { type SimpleGit, type StatusResult } from "simple-git";
+import { getMnMRoot } from "@/lib/core/paths";
 
 export interface GitRepoInfo {
   repoPath: string;
@@ -22,7 +23,7 @@ export interface NoRepoInfo {
 export type RepoInfoResult = GitRepoInfo | NoRepoInfo;
 
 function getGit(): SimpleGit {
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+  const repoRoot = getMnMRoot();
   return simpleGit(repoRoot);
 }
 
@@ -49,7 +50,7 @@ export async function getRepoInfo(): Promise<RepoInfoResult> {
 
   return {
     isRepo: true,
-    repoPath: process.env.MNM_REPO_ROOT ?? process.cwd(),
+    repoPath: getMnMRoot(),
     branch: branchSummary.current,
     latestCommitSha: latestCommit?.hash ?? "",
     latestCommitMessage: latestCommit?.message ?? "",

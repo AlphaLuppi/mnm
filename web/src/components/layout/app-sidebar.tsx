@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./theme-toggle";
+import { ProjectSwitcher } from "@/components/projects/project-switcher";
 
 const navItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -46,10 +47,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <div className="flex items-center gap-2 font-semibold">
-          <span className="text-lg">MnM</span>
-          <span className="text-xs text-muted-foreground">POC</span>
-        </div>
+        <ProjectSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

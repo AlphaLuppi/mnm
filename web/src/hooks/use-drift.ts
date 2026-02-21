@@ -38,8 +38,7 @@ export interface InferredScope {
 export function useDriftDetections() {
   const { data, error, isLoading, mutate } = useSWR<DriftDetection[]>(
     "/api/drift",
-    fetcher,
-    { refreshInterval: 5000 }
+    fetcher
   );
 
   async function triggerScan(
@@ -86,8 +85,7 @@ export function useDriftDetections() {
 export function useDriftStatus() {
   const { data, error, isLoading, mutate } = useSWR<DriftStatus>(
     "/api/drift/status",
-    fetcher,
-    { refreshInterval: 10000 }
+    fetcher
   );
 
   return {
@@ -101,8 +99,7 @@ export function useDriftStatus() {
 export function usePendingDrifts() {
   const { data, error, isLoading } = useSWR<DriftDetection[]>(
     "/api/drift?status=pending",
-    fetcher,
-    { refreshInterval: 5000 }
+    fetcher
   );
 
   return {

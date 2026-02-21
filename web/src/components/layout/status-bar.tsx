@@ -2,13 +2,13 @@
 
 import { Bot, GitCompare, Sparkles } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { useClaudeContext } from "@/components/claude";
+import { useChat } from "@/components/chat";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function StatusBar() {
   const { dashboard } = useDashboard();
-  const { isOpen, toggle } = useClaudeContext();
+  const { isOpen, toggleChat: toggle } = useChat();
 
   const runningAgents = dashboard?.agents?.running ?? 0;
   const pendingDrifts = dashboard?.drift?.pending ?? 0;

@@ -1,5 +1,5 @@
 import { createChildLogger } from "@/lib/core/logger";
-import { getAnthropicApiKey } from "@/lib/core/config";
+import { getAnthropicAuthHeaders } from "@/lib/core/config";
 import { MnMError } from "@/lib/core/errors";
 import type { RepoOverview } from "./repo-scanner";
 
@@ -21,8 +21,8 @@ export interface ClassificationResult {
 export async function classifyWithLLM(
   overview: RepoOverview
 ): Promise<ClassificationResult[]> {
-  const apiKey = getAnthropicApiKey();
-  if (!apiKey) {
+  const authHeaders = getAnthropicAuthHeaders();
+  if (!authHeaders) {
     log.warn("No ANTHROPIC_API_KEY configured, skipping LLM classification");
     return classifyWithHeuristics(overview);
   }
@@ -43,7 +43,7 @@ export async function classifyWithLLM(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          ...authHeaders,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({

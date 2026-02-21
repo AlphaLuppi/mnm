@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as crossDocDriftRepo from "@/lib/db/repositories/cross-doc-drifts";
 import { detectCrossDocDrift } from "@/lib/drift/cross-doc-detector";
 import { createChildLogger } from "@/lib/core/logger";
+import { eventBus } from "@/lib/events/event-bus";
 
 const log = createChildLogger({ module: "api-cross-doc-drift" });
 
@@ -56,6 +57,7 @@ export async function POST() {
       }
     }
 
+    eventBus.notifyMany(["cross-doc-drift", "dashboard"]);
     return NextResponse.json({
       scanned: drifts.length,
       inserted,

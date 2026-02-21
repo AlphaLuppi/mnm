@@ -1,5 +1,5 @@
 import { getGit } from "@/lib/git/repository";
-import { getAnthropicApiKey } from "@/lib/core/config";
+import { getAnthropicAuthHeaders } from "@/lib/core/config";
 import { createChildLogger } from "@/lib/core/logger";
 import fs from "node:fs";
 import path from "node:path";
@@ -63,9 +63,9 @@ export async function classifyFiles(
   repoRoot: string,
   files: string[]
 ): Promise<FileClassification[]> {
-  const apiKey = getAnthropicApiKey();
+  const authHeaders = getAnthropicAuthHeaders();
 
-  if (!apiKey) {
+  if (!authHeaders) {
     logger.warn("No ANTHROPIC_API_KEY set; using heuristic classification");
     return files.map((f) => heuristicClassify(f));
   }
@@ -75,7 +75,7 @@ export async function classifyFiles(
 
   for (let i = 0; i < files.length; i += BATCH_SIZE) {
     const batch = files.slice(i, i + BATCH_SIZE);
-    const batchResults = await classifyBatch(repoRoot, batch, apiKey);
+    const batchResults = await classifyBatch(repoRoot, batch, authHeaders);
     results.push(...batchResults);
   }
 
@@ -85,7 +85,7 @@ export async function classifyFiles(
 async function classifyBatch(
   repoRoot: string,
   files: string[],
-  apiKey: string
+  authHeaders: Record<string, string>
 ): Promise<FileClassification[]> {
   const fileInfos = files.map((f) => ({
     path: f,
@@ -106,7 +106,7 @@ Respond with ONLY a JSON array:
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
+        ...authHeaders,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
