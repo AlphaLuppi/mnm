@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as specChangesRepo from "@/lib/db/repositories/spec-changes";
+import { eventBus } from "@/lib/events/event-bus";
 
 export async function PATCH(
   _request: NextRequest,
@@ -8,6 +9,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     specChangesRepo.markViewed(id);
+    eventBus.notify("git");
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json(

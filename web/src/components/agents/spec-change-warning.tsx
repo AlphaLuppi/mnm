@@ -34,8 +34,7 @@ export function SpecChangeWarning({
   const [dismissed, setDismissed] = useState(false);
   const { data } = useSWR(
     `/api/agents/${agentId}/spec-changes`,
-    fetcher,
-    { refreshInterval: 5_000 }
+    fetcher
   );
 
   const changes: SpecChangeItem[] = data?.changes ?? [];

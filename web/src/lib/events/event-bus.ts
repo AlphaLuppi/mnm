@@ -16,7 +16,10 @@ export type EventChannel =
   | "dashboard"
   | "workflows"
   | "discovery"
-  | "projects";
+  | "projects"
+  | "git"
+  | "specs"
+  | "performance";
 
 /**
  * Global singleton event bus for server → client push notifications.

@@ -11,9 +11,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function SpecChangeBadge() {
   const [open, setOpen] = useState(false);
-  const { data } = useSWR("/api/git/changes?viewed=false", fetcher, {
-    refreshInterval: 10_000,
-  });
+  const { data } = useSWR("/api/git/changes?viewed=false", fetcher);
 
   const count = data?.changes?.length ?? 0;
 

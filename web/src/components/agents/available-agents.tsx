@@ -29,8 +29,7 @@ interface AvailableAgentsProps {
 export function AvailableAgents({ onLaunch }: AvailableAgentsProps) {
   const { data, isLoading } = useSWR<{ agentTypes: DiscoveredAgentType[] }>(
     "/api/discovery/agents",
-    fetcher,
-    { refreshInterval: 30000 }
+    fetcher
   );
 
   const agentTypes = data?.agentTypes ?? [];

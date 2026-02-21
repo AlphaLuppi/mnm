@@ -26,8 +26,7 @@ interface Metric {
 export function PerformancePanel() {
   const { data } = useSWR<{ metrics: Metric[] }>(
     "/api/performance",
-    fetcher,
-    { refreshInterval: 5000 }
+    fetcher
   );
 
   const metrics = data?.metrics ?? [];

@@ -21,6 +21,6 @@ export async function POST() {
   const result = await indexSpecs(repoRoot);
   const allSpecs = specsRepo.findAll();
 
-  eventBus.notifyMany(["dashboard"]);
+  eventBus.notifyMany(["specs", "dashboard"]);
   return NextResponse.json({ result, specs: allSpecs }, { status: 201 });
 }
