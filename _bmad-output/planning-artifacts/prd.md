@@ -1,7 +1,7 @@
 ---
-date: 2026-02-20
+date: 2026-02-21
 author: Pantheon
-version: 2.0
+version: 2.1
 status: Draft
 classification:
   domain: developer_tools
@@ -12,6 +12,7 @@ inputDocuments:
   - architecture-web.md
   - brainstorm-v2-2026-02-19.md
   - prd-validation-report.md
+  - src-tauri/src/terminal.rs (native PTY implementation)
 ---
 
 # Product Requirements Document: MnM v2.0
@@ -58,6 +59,7 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 8. Conversational onboarding (guided first-run setup)
 9. Configurable LLM provider settings (Claude API for MVP)
 10. E2E test suite validating all features with Playwright
+11. Native Claude Code terminal integration (desktop app via Tauri)
 
 ### Out of Scope (Post-MVP)
 
@@ -66,7 +68,7 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 - MCP connectors (GitHub, Linear, Slack)
 - Code editing within MnM
 - Real-time multi-user collaboration
-- Mobile or desktop native apps
+- Mobile apps (desktop app is in-scope via Tauri wrapper)
 - Enterprise features (RBAC, SSO, audit logs)
 
 ---
@@ -356,6 +358,31 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 - **FR10.3.1** — System can display a summary of what was discovered and how MnM will help
 - **FR10.3.2** — System can suggest next actions based on project state ("You have 3 stories with unresolved drift")
 
+### FR11: Native Claude Code Terminal Integration
+
+**FR11.1** — User can access Claude Code from within MnM
+- **FR11.1.1** — User can open a Claude Code terminal panel from the MnM interface
+- **FR11.1.2** — System can spawn a native PTY terminal session via Tauri backend
+- **FR11.1.3** — System can auto-launch Claude Code CLI in the terminal session
+- **FR11.1.4** — User can see real-time terminal output with proper ANSI rendering
+
+**FR11.2** — System can leverage existing Claude Code authentication
+- **FR11.2.1** — System can pass through user environment variables (APPDATA, HOME, PATH) to terminal session
+- **FR11.2.2** — System can use user's existing Claude Code OAuth session (no separate API key required)
+- **FR11.2.3** — User can work with Claude Code using their existing subscription without additional configuration
+
+**FR11.3** — User can control the terminal session
+- **FR11.3.1** — User can resize the terminal panel (minimize/maximize)
+- **FR11.3.2** — User can restart the Claude Code session from the panel
+- **FR11.3.3** — User can close the terminal panel without terminating the session
+- **FR11.3.4** — System can handle terminal resize events and communicate new dimensions to PTY
+
+**FR11.4** — Terminal panel integrates with MnM UI
+- **FR11.4.1** — User can toggle terminal panel via keyboard shortcut (Ctrl+Shift+C)
+- **FR11.4.2** — Terminal panel displays styled xterm.js with app-matching theme
+- **FR11.4.3** — Terminal panel shows connection status (connecting, connected, disconnected)
+- **FR11.4.4** — User can access Claude Code panel via floating action button
+
 ---
 
 ## Non-Functional Requirements
@@ -440,6 +467,8 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 **NFR6.3** — Credential management
 - **NFR6.3.1** — System can store LLM provider API keys in local encrypted config
 - **NFR6.3.2** — System must never log or display API keys in plain text
+- **NFR6.3.3** — System can leverage Claude Code CLI OAuth authentication as alternative to API keys
+- **NFR6.3.4** — Native terminal inherits user's environment for seamless Claude authentication
 
 ### NFR7: Testing
 
@@ -487,15 +516,18 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 - **C1.3** — shadcn/ui + Tailwind CSS for UI components
 - **C1.4** — Claude API as MVP LLM provider (via Anthropic SDK)
 - **C1.5** — Playwright for E2E testing
+- **C1.6** — Tauri v2 for desktop app wrapper with native PTY terminal
 
 ### C2: Platform Support
 - **C2.1** — MVP targets modern browsers (Chrome, Firefox, Safari, Edge)
 - **C2.2** — Runs as local Next.js development server
+- **C2.3** — Desktop app via Tauri (Windows, macOS, Linux) for native terminal features
 
 ### C3: Dependencies
 - **C3.1** — Requires git installed and accessible
-- **C3.2** — Requires LLM API access (user-provided API key) for discovery and drift analysis
+- **C3.2** — Requires LLM access via API key OR Claude Code CLI with OAuth session
 - **C3.3** — Graceful degradation when API unavailable (cached discovery, disabled drift)
+- **C3.4** — Desktop app requires Tauri runtime for native terminal features
 
 ### C4: Data Storage
 - **C4.1** — All data stored locally in `.mnm/` directory within repository
@@ -509,7 +541,7 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 ### A1: User Environment
 - **A1.1** — Users have a modern web browser
 - **A1.2** — Users have git repository with product specs already committed
-- **A1.3** — Users have an LLM API key (Claude API for MVP)
+- **A1.3** — Users have an LLM API key (Claude API) OR Claude Code CLI with existing subscription
 
 ### A2: Workflow Assumptions
 - **A2.1** — Specs live in git (not in JIRA, Linear, or Notion)
@@ -543,14 +575,15 @@ MnM acts as an **intelligent wrapper** over existing development tool configurat
 
 ## Next Steps
 
-1. **Create implementation epics and stories** from FR7-FR10 (new features)
+1. **Create implementation epics and stories** from FR7-FR11 (new features)
 2. **Set up Playwright E2E testing infrastructure** with test database seeding and LLM mocking
 3. **Implement FR9 (Auto-Discovery)** first — this unlocks FR7, FR8, and FR10
 4. **Enhance dashboard** to display real discovered data
 5. **Implement FR8 (Cross-Document Drift)** leveraging existing drift module
 6. **Implement FR7 (Workflow Viewer)** from discovered workflow data
-7. **Write E2E tests** for each completed feature
+7. **FR11 (Native Claude Code Terminal)** — implemented via Tauri desktop wrapper
+8. **Write E2E tests** for each completed feature
 
 ---
 
-*PRD v2.0 — Revised by Validation Architect, 2026-02-20. Addresses all findings from PRD Validation Report.*
+*PRD v2.1 — Updated 2026-02-21. Added FR11: Native Claude Code Terminal Integration (Tauri desktop app with native PTY terminal and OAuth authentication support).*
