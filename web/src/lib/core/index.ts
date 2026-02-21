@@ -7,6 +7,8 @@ export {
   ensureMnMDir,
   getMnMDir,
   getAnthropicApiKey,
+  getAnthropicAuthHeaders,
+  buildAnthropicAuthHeaders,
   getDatabasePath,
   type MnMConfig,
 } from "./config";

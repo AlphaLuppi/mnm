@@ -3,6 +3,7 @@ import { detectDrift } from "@/lib/drift";
 import * as driftScanRepo from "@/lib/db/repositories/drift-scans";
 import * as specRepo from "@/lib/db/repositories/specs";
 import { DriftError, MnMError } from "@/lib/core/errors";
+import { eventBus } from "@/lib/events/event-bus";
 
 export interface ScanDriftRequest {
   specId: string;
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
       scope: finalScope,
     };
 
+    eventBus.notifyMany(["drift", "drift-status", "dashboard"]);
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
     // Update scan as failed

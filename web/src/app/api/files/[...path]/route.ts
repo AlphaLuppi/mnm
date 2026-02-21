@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
+import { getMnMRoot } from "@/lib/core/paths";
 
 const MAX_SIZE = 1024 * 1024; // 1MB
 
@@ -17,7 +18,7 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { path: segments } = await params;
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+  const repoRoot = getMnMRoot();
   const filePath = segments.join("/");
 
   const absPath = validatePath(filePath, repoRoot);

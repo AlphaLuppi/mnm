@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as driftRepo from "@/lib/db/repositories/drift";
 import { detectDrift } from "@/lib/drift";
 import { DriftError, MnMError } from "@/lib/core/errors";
+import { eventBus } from "@/lib/events/event-bus";
 
 // GET /api/drift -- list drift detections
 export async function GET(request: NextRequest) {
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     const detection = await detectDrift(agentId ?? "manual", specId);
+    eventBus.notifyMany(["drift", "drift-status", "dashboard"]);
     return NextResponse.json(detection, { status: 201 });
   } catch (error) {
     if (error instanceof DriftError) {

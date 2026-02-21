@@ -5,6 +5,7 @@ import { ensureMnMDir } from "@/lib/core/config";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { getMnMRoot } from "@/lib/core/paths";
 
 export async function GET() {
   try {
@@ -20,7 +21,7 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+    const repoRoot = getMnMRoot();
     const classifications = await detectImportantFiles(repoRoot);
 
     const now = Date.now();

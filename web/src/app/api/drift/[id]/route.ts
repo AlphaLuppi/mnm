@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as driftRepo from "@/lib/db/repositories/drift";
+import { eventBus } from "@/lib/events/event-bus";
 
 // GET /api/drift/[id] -- get single drift detection
 export async function GET(
@@ -58,6 +59,7 @@ export async function PATCH(
       );
     }
 
+    eventBus.notifyMany(["drift", "drift-status", "dashboard"]);
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update drift error:", error);

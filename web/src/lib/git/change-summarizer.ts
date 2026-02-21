@@ -1,4 +1,4 @@
-import { getAnthropicApiKey } from "@/lib/core/config";
+import { getAnthropicAuthHeaders } from "@/lib/core/config";
 import * as specChangesRepo from "@/lib/db/repositories/spec-changes";
 import { createChildLogger } from "@/lib/core/logger";
 
@@ -11,9 +11,9 @@ export async function summarizeChange(
   newContent: string,
   filePath: string
 ): Promise<string> {
-  const apiKey = getAnthropicApiKey();
+  const authHeaders = getAnthropicAuthHeaders();
 
-  if (!apiKey) {
+  if (!authHeaders) {
     return `File changed: ${filePath}`;
   }
 
@@ -38,7 +38,7 @@ Summarize what changed and why it matters in 1-3 sentences. Be specific about th
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
+        ...authHeaders,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
