@@ -29,8 +29,7 @@ export function useDiscoveryResults(type?: string) {
 
   const { data, error, isLoading, mutate } = useSWR<DiscoveryResponse>(
     url,
-    fetcher,
-    { refreshInterval: 30000 }
+    fetcher
   );
 
   const results = Array.isArray(data?.results) ? data.results : [];

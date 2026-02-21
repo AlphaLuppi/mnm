@@ -6,6 +6,7 @@ import { runIncrementalDiscovery } from "@/lib/discovery/discovery-service";
 import type { ProviderState } from "@/lib/providers/types";
 import type { DiscoverySummary } from "@/lib/discovery/discovery-service";
 import { createChildLogger } from "@/lib/core/logger";
+import { getMnMRoot } from "@/lib/core/paths";
 
 const log = createChildLogger({ module: "bootstrap" });
 
@@ -28,7 +29,7 @@ export async function ensureBootstrapped(): Promise<BootstrapResult> {
 }
 
 async function runBootstrap(): Promise<BootstrapResult> {
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+  const repoRoot = getMnMRoot();
   log.info({ repoRoot }, "Starting bootstrap");
 
   // Run spec indexing and commit scanning in parallel
@@ -73,6 +74,11 @@ async function runBootstrap(): Promise<BootstrapResult> {
   );
 
   return result;
+}
+
+export function resetBootstrap(): void {
+  _result = null;
+  _promise = null;
 }
 
 export async function refreshProviders(): Promise<ProviderState[]> {

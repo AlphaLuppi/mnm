@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
 import { useAgentLogs, type LogEntry } from "@/hooks/use-agent-logs";
@@ -9,9 +8,10 @@ import { useAgentLogs, type LogEntry } from "@/hooks/use-agent-logs";
 interface AgentLogViewerProps {
   agentId: string;
   isRunning: boolean;
+  className?: string;
 }
 
-export function AgentLogViewer({ agentId, isRunning }: AgentLogViewerProps) {
+export function AgentLogViewer({ agentId, isRunning, className }: AgentLogViewerProps) {
   const { logs, isConnected } = useAgentLogs(agentId, isRunning);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -35,9 +35,11 @@ export function AgentLogViewer({ agentId, isRunning }: AgentLogViewerProps) {
     }
   }
 
+  const heightClass = className ?? "h-64";
+
   return (
-    <div className="relative">
-      <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/50 text-xs text-muted-foreground">
+    <div className={`relative flex flex-col ${heightClass}`}>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/50 text-xs text-muted-foreground shrink-0">
         <span>
           {isRunning
             ? isConnected
@@ -47,20 +49,18 @@ export function AgentLogViewer({ agentId, isRunning }: AgentLogViewerProps) {
         </span>
         <span>{logs.length} lines</span>
       </div>
-      <ScrollArea className="h-64">
-        <div
-          ref={scrollRef}
-          className="h-64 overflow-y-auto p-3 font-mono text-xs leading-relaxed"
-          onScroll={handleScroll}
-        >
-          {logs.length === 0 && (
-            <div className="text-muted-foreground">No log output yet.</div>
-          )}
-          {logs.map((entry, i) => (
-            <LogLine key={i} entry={entry} />
-          ))}
-        </div>
-      </ScrollArea>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed"
+        onScroll={handleScroll}
+      >
+        {logs.length === 0 && (
+          <div className="text-muted-foreground">No log output yet.</div>
+        )}
+        {logs.map((entry, i) => (
+          <LogLine key={i} entry={entry} />
+        ))}
+      </div>
       {!autoScroll && (
         <Button
           variant="secondary"

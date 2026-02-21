@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { getMnMRoot } from "@/lib/core/paths";
 import { createChildLogger } from "@/lib/core/logger";
 import type {
   AIProvider,
@@ -22,7 +23,7 @@ export class ClaudeProvider implements AIProvider {
   name = "Claude Code";
 
   async detect(): Promise<ProviderState> {
-    const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
+    const repoRoot = getMnMRoot();
     const [presence, sessions, teams, commands] = await Promise.all([
       this.detectPresence(repoRoot),
       this.detectSessions(repoRoot),

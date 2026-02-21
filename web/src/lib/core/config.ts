@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getMnMRoot } from "./paths";
 
 export type AuthType = "api_key" | "oauth_token";
 
@@ -24,25 +25,26 @@ export interface MnMConfig {
   authType?: AuthType; // Which auth method to use
 }
 
-const DEFAULT_CONFIG: MnMConfig = {
-  repositoryPath: process.cwd(),
-  driftDetectionEnabled: true,
-  maxConcurrentAgents: 5,
-  agentTimeoutSeconds: 300,
-  onboardingCompleted: false,
-  theme: "system",
-  fontSize: 14,
-  defaultAgentType: "implementation",
-  autoDetectFiles: true,
-  gitHooksEnabled: false,
-  telemetryEnabled: false,
-  performancePanelEnabled: false,
-  showHelpHints: true,
-};
+function getDefaultConfig(): MnMConfig {
+  return {
+    repositoryPath: getMnMRoot(),
+    driftDetectionEnabled: true,
+    maxConcurrentAgents: 5,
+    agentTimeoutSeconds: 300,
+    onboardingCompleted: false,
+    theme: "system",
+    fontSize: 14,
+    defaultAgentType: "implementation",
+    autoDetectFiles: true,
+    gitHooksEnabled: false,
+    telemetryEnabled: false,
+    performancePanelEnabled: false,
+    showHelpHints: true,
+  };
+}
 
 export function getMnMDir(): string {
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
-  return path.join(repoRoot, ".mnm");
+  return path.join(getMnMRoot(), ".mnm");
 }
 
 function getConfigPath(): string {
@@ -57,18 +59,20 @@ export function ensureMnMDir(): void {
 }
 
 export function loadConfig(): MnMConfig {
+  const defaults = getDefaultConfig();
   const configPath = getConfigPath();
   if (!fs.existsSync(configPath)) {
-    return { ...DEFAULT_CONFIG };
+    return defaults;
   }
   const raw = fs.readFileSync(configPath, "utf-8");
-  return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+  // Always override repositoryPath with current active root
+  return { ...defaults, ...JSON.parse(raw), repositoryPath: getMnMRoot() };
 }
 
 export function saveConfig(config: Partial<MnMConfig>): MnMConfig {
   ensureMnMDir();
   const current = loadConfig();
-  const merged = { ...current, ...config };
+  const merged = { ...current, ...config, repositoryPath: getMnMRoot() };
   fs.writeFileSync(getConfigPath(), JSON.stringify(merged, null, 2), "utf-8");
   return merged;
 }
@@ -110,6 +114,34 @@ export function getAnthropicApiKey(): string | undefined {
   return getAnthropicCredentials()?.token;
 }
 
+/**
+ * Build the correct auth headers for the Anthropic API.
+ * API keys use `x-api-key`. Setup tokens use `Authorization: Bearer`
+ * with the `anthropic-beta: oauth-2025-04-20,claude-code-20250219` flag.
+ */
+export function getAnthropicAuthHeaders(): Record<string, string> | undefined {
+  const creds = getAnthropicCredentials();
+  if (!creds) return undefined;
+  return buildAnthropicAuthHeaders(creds.token, creds.type);
+}
+
+/**
+ * Build auth headers for a given token and type.
+ * Setup tokens (sk-ant-oat*) require the oauth beta flag.
+ */
+export function buildAnthropicAuthHeaders(
+  token: string,
+  type: AuthType
+): Record<string, string> {
+  if (type === "oauth_token") {
+    return {
+      Authorization: `Bearer ${token}`,
+      "anthropic-beta": "oauth-2025-04-20,claude-code-20250219",
+    };
+  }
+  return { "x-api-key": token };
+}
+
 export function setAnthropicApiKey(apiKey: string): void {
   saveConfig({ anthropicApiKey: apiKey, authType: "api_key" });
 }
@@ -135,6 +167,5 @@ export function validateApiKey(key: string): { valid: boolean; type: AuthType } 
 }
 
 export function getDatabasePath(): string {
-  const repoRoot = process.env.MNM_REPO_ROOT ?? process.cwd();
-  return path.join(repoRoot, ".mnm", "state.db");
+  return path.join(getMnMRoot(), ".mnm", "state.db");
 }
