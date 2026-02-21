@@ -32,13 +32,12 @@ export function ShortcutProvider({ children }: { children: React.ReactNode }) {
     (e: KeyboardEvent) => {
       // Don't fire shortcuts when typing in inputs (except for Claude panel toggle)
       const target = e.target as HTMLElement;
-      const isInClaude = target.closest(".claude-panel");
       const isInput =
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
 
-      // Allow Claude toggle even when in panel or input (Ctrl+Shift+C)
+      // Allow Claude toggle even when in input (Ctrl+Shift+C)
       if (e.key === "c" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
         e.preventDefault();
         toggleClaude();
@@ -53,7 +52,7 @@ export function ShortcutProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Block other shortcuts when in inputs
-      if (isInput || isInClaude) {
+      if (isInput) {
         return;
       }
 
