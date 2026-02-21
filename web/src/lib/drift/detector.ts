@@ -9,13 +9,20 @@ import { createChildLogger } from "@/lib/core/logger";
 import { DriftError } from "@/lib/core/errors";
 import { analyzeDrift } from "./analyzer";
 import { loadCustomInstructions } from "./instructions";
+import { getSuggestedScope } from "./scope-inference";
 import type { DriftDetection } from "@/lib/core/types";
 
 const log = createChildLogger({ module: "drift-detector" });
 
+export interface DriftDetectionOptions {
+  overrideScope?: string[];
+  inferFromSpec?: boolean;
+}
+
 export async function detectDrift(
   agentId: string,
-  specId: string
+  specId: string,
+  options: DriftDetectionOptions = {}
 ): Promise<DriftDetection> {
   const config = loadConfig();
   const repoRoot = config.repositoryPath;
@@ -39,14 +46,29 @@ export async function detectDrift(
     );
   }
 
-  // Step 3: Get agent's file scope
-  const agent = agentRepo.findById(agentId);
+  // Step 3: Get file scope (priority: override > agent scope > spec inference)
   let scope: string[] = [];
-  if (agent?.scope) {
-    try {
-      scope = JSON.parse(agent.scope);
-    } catch {
-      scope = [];
+
+  if (options.overrideScope && options.overrideScope.length > 0) {
+    // Use explicit override scope
+    scope = options.overrideScope;
+    log.info({ scopeCount: scope.length }, "Using override scope");
+  } else {
+    // Try to get scope from agent
+    const agent = agentRepo.findById(agentId);
+    if (agent?.scope) {
+      try {
+        scope = JSON.parse(agent.scope);
+      } catch {
+        scope = [];
+      }
+    }
+
+    // If no agent scope and inferFromSpec is enabled, infer from spec content
+    if (scope.length === 0 && options.inferFromSpec) {
+      const inferred = getSuggestedScope(specContent);
+      scope = inferred.files;
+      log.info({ scopeCount: scope.length, confidence: inferred.confidence }, "Using inferred scope from spec");
     }
   }
 

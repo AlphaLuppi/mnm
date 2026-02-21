@@ -127,6 +127,19 @@ function ensureTables(db: Database.Database): void {
       resolution_rationale TEXT,
       detected_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS drift_scan_runs (
+      id TEXT PRIMARY KEY,
+      spec_id TEXT REFERENCES specs(id),
+      scope TEXT NOT NULL,
+      trigger_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      drift_detection_id TEXT REFERENCES drift_detections(id),
+      error_message TEXT,
+      started_at INTEGER NOT NULL,
+      completed_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 }
 

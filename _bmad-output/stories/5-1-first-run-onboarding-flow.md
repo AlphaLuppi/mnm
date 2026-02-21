@@ -2,6 +2,14 @@
 
 Status: ready-for-dev
 
+> **⚠️ SUPERSEDED BY STORY 6.3**
+>
+> This story describes a **wizard-based** onboarding flow. Per Sprint Change Proposal (2026-02-20),
+> onboarding should be **conversational chat-based** instead. See **Story 6.3** for the approved approach.
+>
+> This story is retained for reference but should be implemented as described in Story 6.3.
+> The acceptance criteria below represent the **fallback** if chat-based onboarding cannot be delivered.
+
 ## Story
 
 As a new user,

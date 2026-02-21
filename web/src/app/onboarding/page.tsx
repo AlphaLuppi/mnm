@@ -1,117 +1,67 @@
-"use client";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { OnboardingChat } from "@/components/onboarding/onboarding-chat";
+import { loadConfig, getAnthropicApiKey } from "@/lib/core/config";
+import { getDb } from "@/lib/db";
+import * as specRepo from "@/lib/db/repositories/specs";
+import * as workflowRepo from "@/lib/db/repositories/workflows";
+import { ClaudeProvider } from "@/lib/providers/claude";
+import { getClaudeCLIStatus } from "@/lib/claude/cli";
+import type { ProjectContext } from "@/lib/onboarding/types";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { WelcomeStep } from "@/components/onboarding/steps/welcome-step";
-import { RepoSelectStep } from "@/components/onboarding/steps/repo-select-step";
-import { ApiKeyStep } from "@/components/onboarding/steps/api-key-step";
-import { DetectFilesStep } from "@/components/onboarding/steps/detect-files-step";
-import { DiscoveryStep } from "@/components/onboarding/steps/discovery-step";
-import { CompleteStep } from "@/components/onboarding/steps/complete-step";
+export default async function OnboardingPage() {
+  // Check if already onboarded via cookie
+  const cookieStore = await cookies();
+  const onboardingCookie = cookieStore.get("mnm-onboarding-complete");
 
-const STEPS = [
-  "Welcome",
-  "Repository",
-  "API Key",
-  "Detect Files",
-  "Discovery",
-  "Complete",
-];
+  // Initialize database
+  getDb();
 
-export default function OnboardingPage() {
-  const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [repoPath, setRepoPath] = useState("");
-  const [apiKeyValid, setApiKeyValid] = useState(false);
+  // Build initial context
+  const config = loadConfig();
+  const apiKey = getAnthropicApiKey();
+  const specs = specRepo.findAll();
+  const workflows = workflowRepo.findAll();
 
-  function handleSkip() {
-    fetch("/api/onboarding/complete", { method: "POST" }).then(() =>
-      router.push("/")
-    );
+  // Check Claude Code status (directory presence)
+  const claudeProvider = new ClaudeProvider();
+  const claudeState = await claudeProvider.detect();
+  const claudeConfigured =
+    claudeState.presence.installed && claudeState.presence.configured;
+
+  // Check Claude CLI authentication status
+  const cliStatus = await getClaudeCLIStatus();
+  const canChat = (cliStatus.installed && cliStatus.authenticated) || !!apiKey;
+
+  // If already onboarded via cookie, redirect to dashboard
+  if (onboardingCookie?.value === "true") {
+    redirect("/");
   }
 
-  function handleComplete() {
-    fetch("/api/onboarding/complete", { method: "POST" }).then(() =>
-      router.push("/")
-    );
+  // If config says onboarding completed but cookie is missing (e.g., cookies cleared),
+  // redirect to API route that sets the cookie and then redirects to dashboard.
+  // This breaks the 307 loop between middleware and this page.
+  if (config.onboardingCompleted) {
+    redirect("/api/onboarding/sync-cookie");
   }
 
-  const lastStep = STEPS.length - 1;
+  const context: ProjectContext = {
+    hasRepository: !!config.repositoryPath,
+    repositoryPath: config.repositoryPath,
+    specCount: specs.length,
+    workflowCount: workflows.length,
+    hasApiKey: !!apiKey,
+    discoveryComplete: specs.length > 0 || workflows.length > 0,
+    claudeCodeInstalled: cliStatus.installed,
+    claudeCodeConfigured: claudeConfigured,
+    claudeCLIAuthenticated: cliStatus.authenticated,
+    claudeCLIVersion: cliStatus.version,
+    canChat,
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
-        <CardContent className="pt-6">
-          {/* Step indicator */}
-          <div className="mb-6 flex items-center justify-center gap-2">
-            {STEPS.map((label, i) => (
-              <div key={label} className="flex items-center gap-2">
-                <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${
-                    i === step
-                      ? "bg-primary text-primary-foreground"
-                      : i < step
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {i + 1}
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className={`h-px w-6 ${i < step ? "bg-primary" : "bg-muted"}`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Steps */}
-          {step === 0 && <WelcomeStep />}
-          {step === 1 && (
-            <RepoSelectStep value={repoPath} onChange={setRepoPath} />
-          )}
-          {step === 2 && (
-            <ApiKeyStep onValidated={(valid) => setApiKeyValid(valid)} />
-          )}
-          {step === 3 && <DetectFilesStep repoPath={repoPath} />}
-          {step === 4 && <DiscoveryStep />}
-          {step === 5 && <CompleteStep />}
-
-          {/* Navigation */}
-          <div className="mt-6 flex items-center justify-between">
-            <div>
-              {step > 0 && step < lastStep && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStep((s) => s - 1)}
-                >
-                  Back
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {step < lastStep && (
-                <Button variant="ghost" size="sm" onClick={handleSkip}>
-                  Skip Setup
-                </Button>
-              )}
-              {step < lastStep - 1 && (
-                <Button onClick={() => setStep((s) => s + 1)}>Next</Button>
-              )}
-              {step === lastStep - 1 && (
-                <Button onClick={() => setStep(lastStep)}>Finish</Button>
-              )}
-              {step === lastStep && (
-                <Button onClick={handleComplete}>Open Dashboard</Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-background to-muted/20 p-4">
+      <OnboardingChat initialContext={context} />
     </div>
   );
 }

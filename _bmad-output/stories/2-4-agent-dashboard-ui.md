@@ -10,14 +10,18 @@ so that I can understand what's happening in my project.
 
 ## Acceptance Criteria
 
-1. The Agents page (`/agents`) displays two sections: Available Agents and Running Agents
+1. The Agents page (`/agents`) displays three sections: Available Agents, **Discovered Workflows**, and Running Agents
 2. Available Agents shows agent types (TDD, Implementation, E2E, Review) with descriptions and Launch buttons
-3. Running Agents shows a real-time table of active agent sessions
-4. Each running agent row displays: name, status badge, spec link, file scope, control buttons
-5. Status badges use color coding: Running (blue), Paused (yellow), Completed (green), Error (red)
-6. Dashboard polls for updates every 2 seconds using SWR
-7. Clicking a spec link navigates to the spec view
-8. The table handles 10 concurrent agents without performance issues
+3. **Discovered Workflows section shows BMAD workflows discovered from the repository** (fetched from `/api/discovery/workflows`)
+4. **Each workflow card displays: workflow name, phase badge (analysis/planning/solutioning/implementation), description**
+5. **Clicking a workflow's "Launch" button opens the Launch Agent dialog pre-populated with workflow context**
+6. Running Agents shows a real-time table of active agent sessions
+7. Each running agent row displays: name, status badge, spec link, file scope, control buttons
+8. Status badges use color coding: Running (blue), Paused (yellow), Completed (green), Error (red)
+9. Dashboard polls for updates every 2 seconds using SWR
+10. Clicking a spec link navigates to the spec view
+11. The table handles 10 concurrent agents without performance issues
+12. **Empty state for workflows: "No workflows discovered. Run discovery to scan for BMAD workflows."**
 
 ## Tasks / Subtasks
 
@@ -28,6 +32,12 @@ so that I can understand what's happening in my project.
   - [ ] Create `src/components/agents/available-agents.tsx`
   - [ ] Define agent type configs: name, description, icon
   - [ ] Add Launch button per agent type (opens launch dialog -- Story 2.5)
+- [ ] Task 2b: Build Discovered Workflows section (AC: #3, #4, #5, #12) **[ENHANCEMENT]**
+  - [ ] Create `src/components/agents/discovered-workflows.tsx`
+  - [ ] Fetch workflows from `GET /api/discovery/workflows` using SWR
+  - [ ] Display workflow cards with: name, phase badge, description
+  - [ ] Add Launch button that opens LaunchAgentDialog with workflow as agentType
+  - [ ] Handle empty state when no workflows discovered
 - [ ] Task 3: Build Running Agents table (AC: #3, #4, #5, #8)
   - [ ] Create `src/components/agents/agent-table.tsx`
   - [ ] Use shadcn Table component with columns: Name, Status, Spec, Scope, Actions
