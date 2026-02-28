@@ -68,7 +68,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Application desktop avec accès filesystem + process + Git | PRD (contrainte technique) | Electron ou Tauri obligatoire |
 | Internet requis pour LLM (drift detection, agents) | PRD (Connectivity) | Pas de mode offline, gestion des déconnexions |
 | Pas de backend serveur | PRD (Connectivity) | Tout est local, pas de sync cloud |
-| Claude Code CLI comme agent principal (MVP) | PRD (scope) | Subprocess wrapping, parsing stdout |
+| Claude Code CLI comme agent principal (MVP) | PRD (scope) | SDK spawn + file watching (voir Annexe A — validé par POC) |
 | Event-driven (pas de polling) | PRD (Technical Success) | Architecture pub/sub ou event bus |
 | Cross-platform macOS/Linux/Windows | PRD (Platform Support) | Abstraction OS pour filesystem, process, Git |
 | Équipe 3 devs, pas d'expérience desktop | Product Brief (Resources) | Prioriser la simplicité, stack web-first |
@@ -1020,3 +1020,283 @@ type TestRunResult = {
 | **N/A** | 4 (6.8%) | 4 (7%) |
 
 Les 22 partiels restants sont des détails d'implémentation (heuristiques de blocage, seuils configurables, abstraction OS) qui seront précisés dans les stories d'implémentation. Aucun n'est bloquant pour le démarrage du développement.
+
+---
+
+## ANNEXE A — Integration Claude Code : SDK spawn + file watching (POC-validated)
+
+> **Contexte :** Cette section remplace l'approche "subprocess wrapping, parsing stdout" mentionnée plus haut. Le POC (dossier `poc/`) a validé que l'approche SDK spawn + file watching fonctionne sur Windows, macOS et Linux. Les schemas ci-dessous sont extraits de données réelles observées sur la machine de développement.
+
+### A.1 ADR-002 : SDK spawn + file watching (remplace subprocess wrapping)
+
+**Contexte :** MnM doit observer l'activité de N agents Claude Code simultanément, incluant leurs messages inter-agents, tâches et transcriptions.
+
+**Décision :** Lancer les agents via `@anthropic-ai/claude-agent-sdk` et observer leur activité via chokidar sur `~/.claude/`.
+
+**Justification :**
+- Agent Teams écrit TOUT son état sur disque en temps réel (sessions JSONL, tasks JSON, todos JSON)
+- Le file watching est non-intrusif (zéro modification de Claude Code)
+- Le stdout parsing est fragile et ne supporte qu'un agent à la fois
+- Le SDK fournit un lifecycle propre (start, stream messages, stop)
+- **Validé par POC** : 261 sessions découvertes, 2 sessions actives simultanées observées en temps réel
+
+**Conséquences :** Dépendance au format des fichiers `~/.claude/` (non documenté officiellement). Nécessite une couche de validation (zod) et une veille sur les releases Claude Code.
+
+### A.2 Structure réelle de `~/.claude/` (POC-validated)
+
+```
+~/.claude/
+├── projects/
+│   └── {project-dir-encoded}/            # ex: C--Users-andri-IdeaProjects-BVN
+│       ├── sessions-index.json           # Index de toutes les sessions du projet
+│       ├── {sessionId}.jsonl             # Transcript principal (JSONL, 1 JSON/ligne)
+│       ├── {sessionId}/
+│       │   ├── subagents/
+│       │   │   ├── agent-{agentId}.jsonl     # Transcript sub-agent
+│       │   │   └── agent-acompact-{id}.jsonl # Sub-agent compacté (archivé)
+│       │   └── tool-results/             # Résultats longs des outils
+│       └── CLAUDE.md                     # Instructions projet
+├── tasks/
+│   └── {sessionId}/
+│       └── {taskId}.json                 # Tâche individuelle
+├── todos/
+│   └── {sessionId}-agent-{agentId}.json  # Liste de todos par agent
+├── plans/
+│   └── {slug}.md                         # Plans en markdown
+├── history.jsonl                         # Historique global
+└── settings.json                         # Configuration utilisateur
+```
+
+### A.3 Schemas réels (extraits du POC)
+
+#### sessions-index.json
+
+```json
+{
+  "version": 1,
+  "entries": [
+    {
+      "sessionId": "uuid",
+      "fullPath": "absolute path to .jsonl",
+      "fileMtime": 1740765935115,
+      "firstPrompt": "truncated first user message",
+      "messageCount": 484,
+      "created": "2026-02-28T15:08:51.731Z",
+      "modified": "2026-02-28T19:25:35.115Z",
+      "gitBranch": "master",
+      "projectPath": "C:\\Users\\andri\\IdeaProjects\\AlphaLuppi\\mnm",
+      "isSidechain": false
+    }
+  ]
+}
+```
+
+**Attention :** `sessions-index.json` n'est PAS toujours à jour. Certaines sessions JSONL existent sur disque mais ne sont pas dans l'index. Il faut TOUJOURS scanner aussi les fichiers `.jsonl` directement.
+
+#### Session JSONL (une ligne = un JSON)
+
+```json
+{
+  "parentUuid": "uuid-or-null",
+  "isSidechain": false,
+  "userType": "external",
+  "cwd": "C:\\Users\\andri\\IdeaProjects\\AlphaLuppi\\mnm",
+  "sessionId": "1a4d6084-0e82-418a-9567-e1a06ca6ae4f",
+  "version": "2.1.63",
+  "gitBranch": "master",
+  "slug": "jiggly-booping-honey",
+  "type": "system|summary|user|assistant|progress|agent_progress|hook_progress|bash_progress|file-history-snapshot",
+  "message": {
+    "model": "claude-opus-4-6",
+    "role": "user|assistant",
+    "stop_reason": "end_turn|tool_use",
+    "content": [
+      { "type": "text", "text": "..." },
+      { "type": "tool_use", "id": "toolu_xxx", "name": "Read", "input": { "file_path": "..." } },
+      { "type": "tool_result", "tool_use_id": "toolu_xxx", "content": "..." }
+    ],
+    "usage": {
+      "input_tokens": 3,
+      "output_tokens": 140,
+      "cache_creation_input_tokens": 6384,
+      "cache_read_input_tokens": 19218
+    }
+  },
+  "uuid": "unique-message-id",
+  "timestamp": "2026-02-28T15:08:51.731Z"
+}
+```
+
+**Types d'entrées observés (par fréquence):**
+
+| Type | Fréquence | Usage |
+|------|-----------|-------|
+| `progress` | ~670/session | Updates opérationnels (hooks, bash) |
+| `agent_progress` | ~484/session | Activité sub-agents |
+| assistant (role) | ~481/session | Réponses IA |
+| user (role) | ~411/session | Messages utilisateur |
+| `hook_progress` | ~135/session | Hooks lifecycle |
+| `bash_progress` | ~48/session | Progression commandes bash |
+| `file-history-snapshot` | ~14/session | Snapshots fichiers |
+| `system` | ~11/session | Events système (bridge status, etc.) |
+
+#### Sub-agent JSONL
+
+Même format que la session principale, avec un champ `agentId` additionnel :
+
+```json
+{
+  "agentId": "a0f0d1aace02cdfa6",
+  "slug": "jiggly-booping-honey",
+  "isSidechain": true,
+  ...
+}
+```
+
+Les sub-agents compactés (`agent-acompact-{id}.jsonl`) sont des agents archivés/résumés.
+
+#### Task JSON (`~/.claude/tasks/{sessionId}/{taskId}.json`)
+
+```json
+{
+  "id": "8",
+  "subject": "Create guest-storage.ts utility",
+  "description": "Pure localStorage utility for guest conversations...",
+  "activeForm": "Creating guest storage utility",
+  "status": "pending|in_progress|completed|deleted",
+  "blocks": ["9", "10"],
+  "blockedBy": ["7"]
+}
+```
+
+#### Todo JSON (`~/.claude/todos/{sessionId}-agent-{agentId}.json`)
+
+```json
+[
+  {
+    "content": "Explore project structure and identify all components",
+    "status": "in_progress",
+    "activeForm": "Exploring project structure"
+  }
+]
+```
+
+### A.4 Detection du statut d'une session (POC-validated)
+
+| Condition | Statut | UI |
+|-----------|--------|-----|
+| Dernier message `role: "user"` | **processing** | Point bleu pulsant |
+| Dernier message `role: "assistant"` + `stop_reason: "end_turn"` | **waiting** | Point orange |
+| Dernier message `role: "assistant"` + `stop_reason: "tool_use"` | **working** | Point vert pulsant |
+| Pas d'activité récente (> 5 min) | **idle** | Point gris |
+
+### A.5 Context window usage (POC-validated)
+
+Le pourcentage d'utilisation du contexte se calcule à partir du champ `usage` du dernier message assistant :
+
+```
+contextPercent = (input_tokens + cache_read_input_tokens) / 200000 × 100
+```
+
+Observé en temps réel : 48% → 55% → 59% au cours d'une session.
+
+### A.6 Spawn via SDK
+
+```typescript
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
+async function spawnAgent(config) {
+  const conversation = query({
+    prompt: config.prompt,
+    options: {
+      cwd: config.projectDir,
+      settingSources: ['project', 'user'],     // REQUIS pour activer CLAUDE.md
+      systemPrompt: { type: 'preset', preset: 'claude_code' },  // REQUIS
+      permissionMode: "bypassPermissions",
+      maxTurns: config.maxTurns ?? 250,
+      env: {
+        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"  // Active Agent Teams
+      }
+    }
+  });
+
+  for await (const message of conversation) {
+    // Lifecycle events du SDK
+  }
+}
+```
+
+### A.7 Validation zod des schemas (recommandé)
+
+Les fichiers `~/.claude/` ne sont pas documentés officiellement. Il est **critique** de valider chaque entrée avec zod :
+
+```typescript
+const SessionEntrySchema = z.object({
+  uuid: z.string(),
+  parentUuid: z.string().nullable(),
+  sessionId: z.string(),
+  type: z.string(),
+  message: z.object({
+    role: z.enum(['user', 'assistant']).optional(),
+    stop_reason: z.string().optional(),
+    content: z.any().optional(),
+    usage: z.object({
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cache_creation_input_tokens: z.number().optional(),
+      cache_read_input_tokens: z.number().optional()
+    }).optional()
+  }).optional(),
+  timestamp: z.string().optional()
+});
+
+const TaskSchema = z.object({
+  id: z.string(),
+  subject: z.string(),
+  status: z.enum(['pending', 'in_progress', 'completed', 'deleted']),
+  activeForm: z.string().optional(),
+  blocks: z.array(z.string()).optional(),
+  blockedBy: z.array(z.string()).optional()
+});
+```
+
+### A.8 Chokidar : config validée sur Windows
+
+```javascript
+chokidar.watch(CLAUDE_DIR, {
+  persistent: true,
+  ignoreInitial: true,
+  usePolling: true,       // REQUIS sur Windows pour détecter les appends JSONL
+  interval: 500,          // 500ms = bon compromis latence/CPU
+  ignored: [
+    '**/cache/**', '**/image-cache/**', '**/paste-cache/**',
+    '**/backups/**', '**/shell-snapshots/**', '**/statsig/**',
+    '**/telemetry/**', '**/debug/**', '**/chrome/**',
+    '**/ide/**', '**/downloads/**', '**/file-history/**',
+  ],
+  depth: 5
+});
+```
+
+**Attention :** Les glob patterns ne fonctionnent PAS de manière fiable sur Windows. Il faut watcher le répertoire parent entier avec `usePolling: true` et filtrer les événements dans le handler.
+
+### A.9 Hooks Claude Code (complémentaire au file watching)
+
+MnM peut installer des hooks dans `.claude/settings.local.json` :
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "*",
+      "hooks": [{ "type": "command", "command": "node /path/to/mnm/hooks/pre-tool-use.js $TOOL_NAME" }]
+    }],
+    "PostToolUse": [{
+      "matcher": "*",
+      "hooks": [{ "type": "command", "command": "node /path/to/mnm/hooks/post-tool-use.js $TOOL_NAME" }]
+    }]
+  }
+}
+```
+
+**Note :** Certains hooks (SessionStart, SessionEnd, TeammateIdle, TaskCompleted) ne supportent que des handlers TypeScript (.ts).
