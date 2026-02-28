@@ -1,17 +1,12 @@
 ---
-stepsCompleted: [step-01-document-discovery, step-02-prd-analysis, step-03-epic-coverage-validation, step-04-ux-alignment, step-05-epic-quality-review, step-06-final-assessment]
-project_name: mnm
-user_name: Gabri
-date: 2026-02-28
-assessor: Claude (Expert PM & Scrum Master)
-documentsUsed:
-  prd: planning-artifacts/prd.md
-  prd_validation: planning-artifacts/prd-validation-report.md
-  architecture: planning-artifacts/architecture.md
-  product_brief: planning-artifacts/product-brief-mnm-2026-02-22.md
-  technical_research: planning-artifacts/technical-research-mnm-2026-02-22.md
-  epics: null
-  ux: null
+stepsCompleted: [1, 2, 3, 4, 5, 6]
+status: 'complete'
+completedAt: '2026-02-28'
+inputDocuments:
+  - planning-artifacts/prd.md
+  - planning-artifacts/architecture.md
+  - planning-artifacts/ux-design-specification.md
+  - planning-artifacts/epics.md
 ---
 
 # Implementation Readiness Assessment Report
@@ -19,341 +14,392 @@ documentsUsed:
 **Date:** 2026-02-28
 **Project:** MnM
 
-## 1. Document Inventory
+## Document Inventory
 
-### Documents trouves et utilises pour l'evaluation
+### PRD
+- `planning-artifacts/prd.md` — Whole document, complet (status: complete)
 
-| Type | Fichier | Taille | Date | Statut |
-|------|---------|--------|------|--------|
-| **PRD** | prd.md | 30,963 octets | 2026-02-22 | Complet (48 FRs, 11 NFRs) |
-| **PRD Validation** | prd-validation-report.md | 16,193 octets | 2026-02-22 | Complet |
-| **Architecture** | architecture.md | 39,915 octets | 2026-02-28 | Complet (13 sections, 6 ADRs) |
-| **Product Brief** | product-brief-mnm-2026-02-22.md | 13,221 octets | 2026-02-22 | Complet |
-| **Recherche Technique** | technical-research-mnm-2026-02-22.md | 72,766 octets | 2026-02-28 | Complet (8 sections) |
-| **Epics & Stories** | -- | -- | -- | MANQUANT |
-| **UX Design** | -- | -- | -- | MANQUANT |
+### Architecture
+- `planning-artifacts/architecture.md` — Whole document, complet (status: complete, completedAt: 2026-02-22)
 
-### Problemes d'inventaire
+### Epics & Stories
+- `planning-artifacts/epics.md` — Whole document, complet (status: complete, completedAt: 2026-02-27)
 
-- Aucun doublon detecte
-- **MANQUANT** : Epics & Stories -- aucun document d'epics/stories
-- **MANQUANT** : UX Design -- aucun document UX
+### UX Design
+- `planning-artifacts/ux-design-specification.md` — Whole document, complet (status: complete, completedAt: 2026-02-23)
 
-## 2. PRD Analysis
+### Autres documents (référence)
+- `planning-artifacts/product-brief-mnm-2026-02-22.md` — Product Brief
+- `planning-artifacts/technical-research-mnm-2026-02-22.md` — Technical Research
+- `planning-artifacts/prd-validation-report.md` — PRD Validation Report
 
-### Functional Requirements (48 FRs)
+### Issues
+- Aucun doublon détecté
+- Aucun document manquant
+- Aucun conflit de version
 
-#### Groupe 1 : Agent Monitoring & Supervision (FR1-FR8)
-- **FR1:** L'utilisateur peut voir la liste de tous les agents actifs avec leur statut mis a jour en continu (actif, en pause, bloque, termine) -- latence definie par NFR1
-- **FR2:** L'utilisateur peut voir l'indicateur de sante de chaque agent (vert/orange/rouge) sans navigation -- visible depuis la vue principale
-- **FR3:** L'utilisateur peut voir la timeline d'activite de chaque agent sous forme de frise chronologique avec des checkpoints
-- **FR4:** L'utilisateur peut cliquer sur un checkpoint de la timeline pour naviguer au moment exact dans le chat de l'agent
-- **FR5:** L'utilisateur peut voir quand un agent est bloque et acceder au point de blocage en un clic
-- **FR6:** L'utilisateur peut lancer un agent sur une tache depuis MnM
-- **FR7:** L'utilisateur peut arreter un agent en cours d'execution
-- **FR8:** L'utilisateur peut voir la progression d'un agent sous forme d'etapes (taches du todolist ou checkpoints emis par l'agent) avec distinction entre completees et restantes
+## PRD Analysis
 
-#### Groupe 2 : Context Visualization & Management (FR9-FR13)
-- **FR9:** L'utilisateur peut voir la liste des fichiers de contexte que chaque agent consulte, mise a jour en continu -- latence definie par NFR1
-- **FR10:** L'utilisateur peut ajouter un fichier de contexte a un agent (drag & drop ou selection)
-- **FR11:** L'utilisateur peut retirer un fichier de contexte d'un agent
-- **FR12:** L'utilisateur peut voir les fichiers de contexte sous forme de cards visuelles avec badges indiquant quel agent les utilise
-- **FR13:** L'utilisateur peut etre notifie quand un agent modifie un fichier de contexte
+### Functional Requirements
 
-#### Groupe 3 : Drift Detection (FR14-FR20)
-- **FR14:** Le systeme peut detecter automatiquement les incoherences entre documents de la hierarchie (Product Brief -> PRD -> Architecture -> Stories -> Code)
-- **FR15:** Le systeme peut declencher la drift detection par evenement (quand un fichier de contexte est modifie)
-- **FR16:** L'utilisateur peut lancer une verification de drift a la demande sur un ensemble de documents
-- **FR17:** L'utilisateur peut voir une alerte actionnable quand un drift est detecte, avec le diff exact entre les documents concernes
-- **FR18:** L'utilisateur peut resoudre un drift depuis l'alerte (corriger le document source, corriger le document derive, ou ignorer)
-- **FR19:** Le systeme peut associer un score de confiance a chaque drift detecte
-- **FR20:** L'utilisateur peut configurer le seuil de confiance en dessous duquel les alertes ne sont pas surfacees
+FR1: L'utilisateur peut voir la liste de tous les agents actifs avec leur statut mis à jour en continu (actif, en pause, bloqué, terminé) — latence définie par NFR1
+FR2: L'utilisateur peut voir l'indicateur de santé de chaque agent (vert/orange/rouge) sans navigation — visible depuis la vue principale
+FR3: L'utilisateur peut voir la timeline d'activité de chaque agent sous forme de frise chronologique avec des checkpoints
+FR4: L'utilisateur peut cliquer sur un checkpoint de la timeline pour naviguer au moment exact dans le chat de l'agent
+FR5: L'utilisateur peut voir quand un agent est bloqué et accéder au point de blocage en un clic
+FR6: L'utilisateur peut lancer un agent sur une tâche depuis MnM
+FR7: L'utilisateur peut arrêter un agent en cours d'exécution
+FR8: L'utilisateur peut voir la progression d'un agent sous forme d'étapes (tâches du todolist ou checkpoints émis par l'agent) avec distinction entre complétées et restantes
+FR9: L'utilisateur peut voir la liste des fichiers de contexte que chaque agent consulte, mise à jour en continu — latence définie par NFR1
+FR10: L'utilisateur peut ajouter un fichier de contexte à un agent (drag & drop ou sélection)
+FR11: L'utilisateur peut retirer un fichier de contexte d'un agent
+FR12: L'utilisateur peut voir les fichiers de contexte sous forme de cards visuelles avec badges indiquant quel agent les utilise
+FR13: L'utilisateur peut être notifié quand un agent modifie un fichier de contexte
+FR14: Le système peut détecter automatiquement les incohérences entre documents de la hiérarchie (Product Brief → PRD → Architecture → Stories → Code)
+FR15: Le système peut déclencher la drift detection par événement (quand un fichier de contexte est modifié)
+FR16: L'utilisateur peut lancer une vérification de drift à la demande sur un ensemble de documents
+FR17: L'utilisateur peut voir une alerte actionnable quand un drift est détecté, avec le diff exact entre les documents concernés
+FR18: L'utilisateur peut résoudre un drift depuis l'alerte (corriger le document source, corriger le document dérivé, ou ignorer)
+FR19: Le système peut associer un score de confiance à chaque drift détecté
+FR20: L'utilisateur peut configurer le seuil de confiance en dessous duquel les alertes ne sont pas surfacées
+FR21: L'utilisateur peut voir un dashboard cockpit à l'ouverture de MnM avec la santé globale du projet
+FR22: L'utilisateur peut voir le nombre d'agents actifs, leur statut, et les alertes de drift en cours depuis le cockpit
+FR23: L'utilisateur peut voir les stories en cours avec leur état d'avancement (ratio tâches complétées / tâches totales, source : fichiers Markdown BMAD)
+FR24: L'utilisateur peut naviguer du cockpit vers n'importe quel agent, alerte, ou story en un clic
+FR25: L'utilisateur peut voir un workflow BMAD sous forme de diagramme de flux visuel (noeuds et connexions)
+FR26: L'utilisateur peut voir l'ordre d'exécution des étapes et les branches parallèles dans le diagramme
+FR27: L'utilisateur peut ajouter un noeud (étape) à un workflow existant via l'éditeur visuel
+FR28: L'utilisateur peut supprimer un noeud d'un workflow
+FR29: L'utilisateur peut réorganiser les connexions entre noeuds
+FR30: L'utilisateur peut configurer les propriétés d'un noeud (rôle, instructions)
+FR31: Le système peut synchroniser les modifications visuelles avec le fichier source du workflow (YAML/XML)
+FR32: L'utilisateur peut voir l'exécution d'un workflow en continu (étape en cours mise en évidence visuellement) — latence définie par NFR1
+FR33: L'utilisateur peut voir les tests organisés en miroir de la hiérarchie des specs (tâche → unitaires, story → unitaires groupés, epic → intégration, projet → e2e)
+FR34: L'utilisateur peut voir le statut de chaque test (pass/fail/pending)
+FR35: L'utilisateur peut naviguer d'une spec vers ses tests associés et inversement
+FR36: L'utilisateur peut lancer l'exécution des tests associés à une spec depuis MnM
+FR37: L'utilisateur peut voir l'interface en layout 3 volets : Contexte (gauche) / Agents (centre) / Tests & Validation (droite)
+FR38: L'utilisateur peut naviguer dans la hiérarchie du projet (Projet → Epic → Story → Tâche) et les 3 volets se synchronisent automatiquement
+FR39: L'utilisateur peut redimensionner, maximiser ou masquer chaque volet
+FR40: L'utilisateur peut voir la timeline d'activité dans un panneau bas persistant
+FR41: Le système peut détecter les modifications de fichiers par événement (file watching) — délai défini par NFR9
+FR42: Le système peut attribuer une modification de fichier à l'agent qui l'a produite
+FR43: L'utilisateur peut voir l'historique Git du projet et des fichiers de contexte
+FR44: L'utilisateur peut voir le contexte tel qu'il était à un commit donné (versioning de contexte via Git)
+FR45: L'utilisateur peut ouvrir un projet en sélectionnant un répertoire Git local
+FR46: Le système peut détecter automatiquement la structure BMAD dans un répertoire de projet (présence de `_bmad/`, `_bmad-output/`, fichiers de workflow)
+FR47: Le système peut lire l'historique Git du projet (commits, branches, diffs) sans nécessiter de privilèges élevés
+FR48: Le système peut parser les fichiers de workflow BMAD (YAML/Markdown) pour les restituer dans le Workflow Editor visuel
 
-#### Groupe 4 : Dashboard & Project Overview (FR21-FR24)
-- **FR21:** L'utilisateur peut voir un dashboard cockpit a l'ouverture de MnM avec la sante globale du projet
-- **FR22:** L'utilisateur peut voir le nombre d'agents actifs, leur statut, et les alertes de drift en cours depuis le cockpit
-- **FR23:** L'utilisateur peut voir les stories en cours avec leur etat d'avancement (ratio taches completees / taches totales, source : fichiers Markdown BMAD)
-- **FR24:** L'utilisateur peut naviguer du cockpit vers n'importe quel agent, alerte, ou story en un clic
+**Total FRs: 48**
 
-#### Groupe 5 : Workflow Visualization & Editing (FR25-FR32)
-- **FR25:** L'utilisateur peut voir un workflow BMAD sous forme de diagramme de flux visuel (noeuds et connexions)
-- **FR26:** L'utilisateur peut voir l'ordre d'execution des etapes et les branches paralleles dans le diagramme
-- **FR27:** L'utilisateur peut ajouter un noeud (etape) a un workflow existant via l'editeur visuel
-- **FR28:** L'utilisateur peut supprimer un noeud d'un workflow
-- **FR29:** L'utilisateur peut reorganiser les connexions entre noeuds
-- **FR30:** L'utilisateur peut configurer les proprietes d'un noeud (role, instructions)
-- **FR31:** Le systeme peut synchroniser les modifications visuelles avec le fichier source du workflow (YAML/XML)
-- **FR32:** L'utilisateur peut voir l'execution d'un workflow en continu (etape en cours mise en evidence visuellement) -- latence definie par NFR1
+### Non-Functional Requirements
 
-#### Groupe 6 : Test Visualization (FR33-FR36)
-- **FR33:** L'utilisateur peut voir les tests organises en miroir de la hierarchie des specs (tache -> unitaires, story -> unitaires groupes, epic -> integration, projet -> e2e)
-- **FR34:** L'utilisateur peut voir le statut de chaque test (pass/fail/pending)
-- **FR35:** L'utilisateur peut naviguer d'une spec vers ses tests associes et inversement
-- **FR36:** L'utilisateur peut lancer l'execution des tests associes a une spec depuis MnM
+NFR1: Les mises à jour de la timeline d'activité doivent apparaître dans l'UI en moins de 500ms après l'événement source
+NFR2: Le file watching événementiel ne doit pas consommer plus de 5% CPU au repos
+NFR3: Le rendu du Workflow Editor visuel doit rester fluide (>30 FPS) pour des workflows jusqu'à 50 noeuds
+NFR4: La drift detection sur une paire de documents doit retourner un résultat en moins de 30 secondes
+NFR5: Le démarrage de l'application (cold start) doit prendre moins de 5 secondes jusqu'au cockpit affiché
+NFR6: L'application ne doit pas bloquer le thread UI plus de 100ms pendant l'exécution simultanée de 3 agents
+NFR7: La consommation mémoire de MnM doit rester sous 500 MB en usage normal
+NFR8: MnM doit intercepter l'output de Claude Code CLI via stdout/stderr avec une latence inférieure à 500ms
+NFR9: Le file watching doit détecter les modifications de fichiers dans un délai de 1 seconde
+NFR10: MnM doit pouvoir spawner et monitorer des process système sans privilèges élevés
+NFR11: Les intégrations filesystem et process doivent passer la même suite de tests sur macOS, Linux et Windows
 
-#### Groupe 7 : Navigation & Layout (FR37-FR40)
-- **FR37:** L'utilisateur peut voir l'interface en layout 3 volets : Contexte (gauche) / Agents (centre) / Tests & Validation (droite)
-- **FR38:** L'utilisateur peut naviguer dans la hierarchie du projet (Projet -> Epic -> Story -> Tache) et les 3 volets se synchronisent automatiquement
-- **FR39:** L'utilisateur peut redimensionner, maximiser ou masquer chaque volet
-- **FR40:** L'utilisateur peut voir la timeline d'activite dans un panneau bas persistant
+**Total NFRs: 11**
 
-#### Groupe 8 : File & Git Integration (FR41-FR44)
-- **FR41:** Le systeme peut detecter les modifications de fichiers par evenement (file watching) -- delai defini par NFR9
-- **FR42:** Le systeme peut attribuer une modification de fichier a l'agent qui l'a produite
-- **FR43:** L'utilisateur peut voir l'historique Git du projet et des fichiers de contexte
-- **FR44:** L'utilisateur peut voir le contexte tel qu'il etait a un commit donne (versioning de contexte via Git)
+### Additional Requirements
 
-#### Groupe 9 : Project & Integration (FR45-FR48)
-- **FR45:** L'utilisateur peut ouvrir un projet en selectionnant un repertoire Git local
-- **FR46:** Le systeme peut detecter automatiquement la structure BMAD dans un repertoire de projet (presence de `_bmad/`, `_bmad-output/`, fichiers de workflow)
-- **FR47:** Le systeme peut lire l'historique Git du projet (commits, branches, diffs) sans necessiter de privileges eleves
-- **FR48:** Le systeme peut parser les fichiers de workflow BMAD (YAML/Markdown) pour les restituer dans le Workflow Editor visuel
-
-**Total FRs : 48**
-
-### Non-Functional Requirements (11 NFRs)
-
-#### Performance (NFR1-NFR7)
-- **NFR1:** Timeline UI < 500ms apres evenement source
-- **NFR2:** File watching < 5% CPU au repos
-- **NFR3:** Workflow Editor > 30 FPS pour 50 noeuds
-- **NFR4:** Drift detection < 30s par paire de documents (pipeline local < 2s)
-- **NFR5:** Cold start < 5s jusqu'au cockpit affiche
-- **NFR6:** Pas de block UI > 100ms avec 3 agents simultanes
-- **NFR7:** RAM < 500 MB en usage normal (cockpit + 3 agents)
-
-#### Integration (NFR8-NFR11)
-- **NFR8:** Interception output Claude Code CLI < 500ms sans modifier le comportement agent
-- **NFR9:** File watching < 1s pour detecter les modifications
-- **NFR10:** Spawn et monitor process sans privileges eleves (pas de sudo/admin)
-- **NFR11:** Meme suite de tests passe sur macOS, Linux et Windows
-
-**Total NFRs : 11**
-
-### Contraintes additionnelles extraites du PRD
-
-- **C1:** App desktop (Electron ou Tauri) -- decide : Electron (ADR-001)
-- **C2:** Internet requis (appels LLM + agents Claude) -- pas de mode offline
-- **C3:** Pas de backend serveur, pas de compte utilisateur, pas de sync cloud
-- **C4:** Open source
-- **C5:** Architecture evenementielle (pas de polling)
-- **C6:** 3 utilisateurs cibles (Gabri, Tom, Nikou)
-- **C7:** Cross-platform : macOS, Linux, Windows
+- Application desktop cross-platform (Electron), accès filesystem + process + Git
+- Internet requis pour les appels LLM (drift detection, agents Claude Code)
+- Pas de backend serveur, tout est local
+- Packaging cross-platform : macOS (.dmg), Linux (.AppImage), Windows (.exe)
+- Gestion des permissions filesystem sur chaque OS
+- Update manuelle pour le MVP
 
 ### PRD Completeness Assessment
 
-Le PRD est **complet et de bonne qualite** :
-- 48 FRs couvrent les 9 domaines fonctionnels identifies
-- 11 NFRs avec des seuils quantitatifs mesurables
-- 3 user journeys concrets (Tom, Gabri, Nikou)
-- Scope MVP clairement defini en 3 blocs
-- Risques identifies avec mitigations
-- Classification projet et criteres de succes
+Le PRD est complet et bien structuré :
+- 48 FRs clairement numérotées et testables, organisées en 8 catégories fonctionnelles
+- 11 NFRs avec des métriques quantitatives précises (temps, CPU, mémoire, FPS)
+- 3 user journeys détaillées (Tom, Gabri, Nikou) qui couvrent les cas d'usage principaux
+- Scope MVP clairement délimité avec features post-MVP identifiées
+- Risques techniques documentés avec mitigations
+- Classification projet claire (desktop app, greenfield, medium complexity)
 
-**Points forts :**
-- Les FRs sont numerotees et tracables
-- Les NFRs ont des seuils chiffres specifiques
-- Le scope MVP est bien delimite (pas d'ambiguite)
+## Epic Coverage Validation
 
-**Points d'attention :**
-- Les FRs ne mentionnent pas explicitement Agent Teams / multi-agent (FR1-FR8 parlent d'"agents" au pluriel mais pas de communication inter-agents)
-- FR10/FR11 (drag & drop contexte) presupposent une mecanique pas encore detaillee dans l'architecture
-- FR23 (stories en cours) depend de fichiers BMAD specifiques non decrits en detail
+### Coverage Matrix
 
-## 3. Epic Coverage Validation
+| FR | PRD Requirement | Epic | Story | Statut |
+|---|---|---|---|---|
+| FR1 | Liste agents actifs avec statut temps réel | Epic 2 | 2.2 | Couvert |
+| FR2 | Indicateur de santé agent (vert/orange/rouge) | Epic 2 | 2.2 | Couvert |
+| FR3 | Timeline d'activité agent (frise chronologique) | Epic 2 | 2.4 | Couvert |
+| FR4 | Navigation checkpoint timeline → chat agent | Epic 2 | 2.5 | Couvert |
+| FR5 | Détection agent bloqué + accès 1 clic | Epic 2 | 2.3 | Couvert |
+| FR6 | Lancer un agent sur une tâche | Epic 2 | 2.1 | Couvert |
+| FR7 | Arrêter un agent en cours | Epic 2 | 2.1 | Couvert |
+| FR8 | Progression agent (étapes complétées/restantes) | Epic 2 | 2.3 | Couvert |
+| FR9 | Liste fichiers de contexte par agent | Epic 3 | 3.2 | Couvert |
+| FR10 | Ajouter contexte à un agent (drag & drop) | Epic 3 | 3.3 | Couvert |
+| FR11 | Retirer contexte d'un agent | Epic 3 | 3.3 | Couvert |
+| FR12 | Context cards avec badges agent | Epic 3 | 3.2 | Couvert |
+| FR13 | Notification modification fichier contexte | Epic 3 | 3.4 | Couvert |
+| FR14 | Drift detection automatique cross-document | Epic 4 | 4.1 | Couvert |
+| FR15 | Drift detection par événement (file change) | Epic 4 | 4.2 | Couvert |
+| FR16 | Drift detection à la demande | Epic 4 | 4.3 | Couvert |
+| FR17 | Alerte actionnable avec diff exact | Epic 4 | 4.4 | Couvert |
+| FR18 | Résolution drift depuis l'alerte | Epic 4 | 4.5 | Couvert |
+| FR19 | Score de confiance par drift | Epic 4 | 4.1 | Couvert |
+| FR20 | Configuration seuil de confiance | Epic 4 | 4.3 | Couvert |
+| FR21 | Dashboard cockpit à l'ouverture | Epic 5 | 5.1 | Couvert |
+| FR22 | Agents actifs + alertes drift dans cockpit | Epic 5 | 5.2 | Couvert |
+| FR23 | Stories en cours avec avancement | Epic 5 | 5.3 | Couvert |
+| FR24 | Navigation cockpit → agent/alerte/story en 1 clic | Epic 5 | 5.4 | Couvert |
+| FR25 | Workflow BMAD en diagramme visuel | Epic 6 | 6.2 | Couvert |
+| FR26 | Ordre d'exécution + branches parallèles | Epic 6 | 6.2 | Couvert |
+| FR27 | Ajouter un noeud workflow | Epic 6 | 6.3 | Couvert |
+| FR28 | Supprimer un noeud workflow | Epic 6 | 6.3 | Couvert |
+| FR29 | Réorganiser connexions entre noeuds | Epic 6 | 6.3 | Couvert |
+| FR30 | Configurer propriétés d'un noeud | Epic 6 | 6.3 | Couvert |
+| FR31 | Sync modifications visuelles → fichier source | Epic 6 | 6.4 | Couvert |
+| FR32 | Exécution workflow en temps réel | Epic 6 | 6.5 | Couvert |
+| FR33 | Tests en miroir hiérarchie specs | Epic 7 | 7.1 | Couvert |
+| FR34 | Statut test (pass/fail/pending) | Epic 7 | 7.2 | Couvert |
+| FR35 | Navigation spec ↔ tests | Epic 7 | 7.3 | Couvert |
+| FR36 | Lancer tests depuis MnM | Epic 7 | 7.4 | Couvert |
+| FR37 | Layout 3 volets | Epic 1 | 1.2 | Couvert |
+| FR38 | Navigation hiérarchique synchronisée | Epic 1 | 1.4 | Couvert |
+| FR39 | Redimensionner/maximiser/masquer volets | Epic 1 | 1.2 | Couvert |
+| FR40 | Timeline panneau bas persistant | Epic 1 | 1.2 | Couvert |
+| FR41 | File watching événementiel | Epic 3 | 3.1 | Couvert |
+| FR42 | Attribution modification → agent | Epic 3 | 3.1 | Couvert |
+| FR43 | Historique Git projet | Epic 3 | 3.5 | Couvert |
+| FR44 | Versioning contexte via Git | Epic 3 | 3.5 | Couvert |
+| FR45 | Ouvrir projet via répertoire Git | Epic 1 | 1.3 | Couvert |
+| FR46 | Détection structure BMAD | Epic 1 | 1.3 | Couvert |
+| FR47 | Lecture historique Git | Epic 3 | 3.1 | Couvert |
+| FR48 | Parsing fichiers workflow BMAD | Epic 6 | 6.1 | Couvert |
 
-### Statut : IMPOSSIBLE -- Document Epics & Stories MANQUANT
+### Missing Requirements
 
-Aucun document d'epics et stories n'a ete trouve dans `planning-artifacts/`. Le workflow BMAD "create-epics-and-stories" n'a pas encore ete execute.
+Aucun FR manquant. Couverture complète.
 
-### Couverture FR : 0/48 (0%)
+### Coverage Statistics
 
-| FR | Description resumee | Epic Coverage | Statut |
-|----|-------------------|---------------|--------|
-| FR1-FR8 | Agent Monitoring & Supervision | -- | MANQUANT |
-| FR9-FR13 | Context Visualization & Management | -- | MANQUANT |
-| FR14-FR20 | Drift Detection | -- | MANQUANT |
-| FR21-FR24 | Dashboard & Project Overview | -- | MANQUANT |
-| FR25-FR32 | Workflow Visualization & Editing | -- | MANQUANT |
-| FR33-FR36 | Test Visualization | -- | MANQUANT |
-| FR37-FR40 | Navigation & Layout | -- | MANQUANT |
-| FR41-FR44 | File & Git Integration | -- | MANQUANT |
-| FR45-FR48 | Project & Integration | -- | MANQUANT |
+- Total PRD FRs: 48
+- FRs couverts dans les epics: 48
+- Pourcentage de couverture: **100%**
 
-### Statistiques de couverture
+## UX Alignment Assessment
 
-- **Total PRD FRs :** 48
-- **FRs couverts dans les epics :** 0
-- **Pourcentage de couverture :** 0%
+### UX Document Status
 
-### Impact
+**Trouvé** — `ux-design-specification.md` (14 steps, complet, 2026-02-23)
 
-C'est un **bloqueur majeur** pour l'implementation. Sans epics et stories :
-- Aucune unite de travail planifiable
-- Aucune tracabilite FR -> implementation
-- Impossible de valider l'ordre de construction
-- Impossible de distribuer le travail entre les 3 developpeurs
+### UX ↔ PRD Alignment
 
-### Recommandation
+| Aspect | PRD | UX | Alignement |
+|---|---|---|---|
+| Layout principal | FR37 : 3 volets (Contexte/Agents/Tests) | Direction C "Hybrid Cockpit" : 3 volets 25/50/25% | Aligné |
+| Timeline | FR3, FR40 : frise chronologique + panneau bas | TimelineBar 120px bottom, horizontal, temporal scrubbing | Aligné |
+| Agents | FR1-FR8 : statut, santé, progression, chat | AgentCard, HealthIndicator, AgentProgressBar, AgentChatViewer | Aligné |
+| Contexte | FR9-FR13 : contexte par agent, drag & drop | ContextFileCard, drag & drop, badges agent | Aligné |
+| Drift | FR14-FR20 : détection, alertes, résolution | DriftAlert, DriftDiffView, score confiance, résolution 3 options | Aligné |
+| Dashboard | FR21-FR24 : cockpit, santé, navigation 1 clic | "Cockpit Glance" < 5 sec, widgets agents/drift/stories | Aligné |
+| Workflow | FR25-FR32 : diagramme, édition, exécution | WorkflowCanvas (React Flow), 3 modes (view/edit/executing) | Aligné |
+| Tests | FR33-FR36 : hiérarchie miroir, statut, exécution | Test hierarchy view, badges pass/fail/pending | Aligné |
+| User Journeys | Tom, Gabri, Nikou | 3 flows détaillés correspondant aux 3 journeys PRD | Aligné |
 
-Executer le workflow BMAD `create-epics-and-stories` en utilisant le PRD (48 FRs) et l'architecture (13 sections, 29 etapes de construction) comme inputs. L'architecture section 13 ("Ordre de construction") fournit deja une structure en 4 phases / 29 etapes qui peut servir de base.
+**Pas de misalignment détecté entre UX et PRD.**
 
-## 4. UX Alignment Assessment
+### UX ↔ Architecture Alignment
 
-### UX Document Status : MANQUANT
+| Aspect | Architecture | UX | Alignement |
+|---|---|---|---|
+| Stack frontend | React 19 + Tailwind CSS 4 + Zustand 5 | shadcn/ui + Tailwind CSS 4, store per feature | Aligné |
+| Composants | Radix UI + React Flow | shadcn/ui (basé Radix) + WorkflowCanvas (React Flow) | Aligné |
+| IPC | Invoke + Stream channels typés | Composants UI consomment les streams (agent-chat, file-change, drift-alert) | Aligné |
+| Event bus | EventEmitter (main) + mitt (renderer) | Real-time updates dans les composants via events | Aligné |
+| Performance | NFR1 < 500ms, NFR5 < 5s cold start, NFR3 > 30 FPS | Animations < 300ms, Cockpit Glance < 5s, workflow fluide | Aligné |
+| Accessibility | Non spécifié en détail dans archi | WCAG 2.1 AA, keyboard-first, ARIA via Radix, eslint-plugin-jsx-a11y | UX enrichit l'architecture (pas de conflit) |
+| Responsive | Non spécifié dans archi (desktop Electron) | Desktop-only, 4 breakpoints, ResizablePanel | UX enrichit l'architecture (pas de conflit) |
+| Dark mode | Non spécifié dans archi | Dark mode par défaut, palette complète définie | UX enrichit l'architecture (pas de conflit) |
 
-Aucun document UX (wireframes, design system, specifications d'interface) n'a ete trouve.
+**Pas de conflit détecté.** L'UX enrichit l'architecture sur 3 aspects (accessibilité, responsive, dark mode) sans contradiction.
 
-### UX est-il implicite dans le PRD ?
+### Warnings
 
-**OUI -- fortement.** MnM est essentiellement un produit d'interface. Le PRD decrit en detail :
+Aucun warning. L'UX est complet et aligné avec le PRD et l'Architecture.
 
-| Element UX implicite | FRs concernees | Detail dans le PRD |
-|---------------------|----------------|-------------------|
-| **Layout 3 volets** | FR37-FR40 | Contexte (gauche) / Agents (centre) / Tests (droite) |
-| **Dashboard cockpit** | FR21-FR24 | Vue d'ensemble a l'ouverture, sante globale |
-| **Timeline d'activite** | FR3, FR4, FR40 | Frise chronologique, checkpoints, panneau bas persistant |
-| **Cards visuelles** | FR12 | Context cards avec badges par agent |
-| **Indicateurs de sante** | FR2, FR5 | Vert/orange/rouge, detection de blocage |
-| **Drag & drop** | FR10 | Ajout de contexte a un agent |
-| **Diagramme de flux** | FR25-FR32 | Workflow editor visuel (noeuds, connexions, branches) |
-| **Navigation hierarchique** | FR38 | Projet -> Epic -> Story -> Tache, 3 volets synchronises |
-| **Alertes actionnables** | FR17-FR18 | Drift alerts avec diff et actions (corriger/ignorer) |
+## Epic Quality Review
 
-### Alignment UX <-> Architecture
+### Epic Structure Validation
 
-L'architecture (section 9) decrit :
-- Le layout principal (3 volets + timeline) -- aligne avec FR37-FR40
-- La navigation hierarchique synchronisee (4 niveaux) -- aligne avec FR38
-- L'arbre de composants React (23 composants listes) -- couvre les FRs UI
-- Le pattern event-driven pour les mises a jour temps reel -- aligne avec NFR1
+#### A. User Value Focus
 
-**Points d'alignement corrects :**
-- Architecture section 9.1 (layout) repond a FR37, FR39, FR40
-- Architecture section 9.2 (navigation) repond a FR38
-- Architecture section 9.3 (composants) couvre AgentPanel, Timeline, TaskBoard, MessageFeed, DriftAlert, WorkflowEditor
+| Epic | Titre | Goal User-Centric | Verdict |
+|---|---|---|---|
+| 1 | Application Foundation & Project Shell | "ouvrir MnM, sélectionner un projet Git, voir le layout" | User value via le résultat visible |
+| 2 | Agent Monitoring & Supervision | "voir agents, santé, timeline, lancer/arrêter" | User value direct |
+| 3 | Context Visibility & File Intelligence | "voir fichiers contexte, drag & drop, notifications, Git" | User value direct |
+| 4 | Drift Detection & Document Alignment | "alerté quand documents dérivent, voir diffs, résoudre" | User value direct |
+| 5 | Dashboard Cockpit & Project Overview | "voir santé projet d'un coup d'oeil, naviguer en 1 clic" | User value direct |
+| 6 | Workflow Visualization & Editing | "voir workflows en diagramme, éditer, suivre exécution" | User value direct |
+| 7 | Test Visualization & Execution | "voir tests miroir specs, lancer tests" | User value direct |
+| 8 | Packaging, CI/CD & Cross-Platform | "installer MnM comme app desktop native" | User value via le résultat |
 
-**Gaps identifies :**
+**Résultat : 8/8 epics délivrent de la valeur utilisateur.**
 
-| Gap | Severite | Description |
-|-----|----------|-------------|
-| **Pas de design system** | Warning | Aucune specification de couleurs, typographie, spacing, composants UI de base. Tailwind CSS est choisi mais pas de tokens design definis. |
-| **Pas de wireframes** | Warning | Le layout est decrit en ASCII mais aucun wireframe haute fidelite. Pour un produit "cockpit", la disposition precise des elements est critique. |
-| **Indicateurs de sante non specifies** | Warning | FR2 dit "vert/orange/rouge" mais les regles de transition (quand passer de vert a orange ? combien de temps avant rouge ?) ne sont definies ni dans le PRD ni dans l'archi. |
-| **Drag & drop non detaille** | Info | FR10 mentionne le drag & drop mais ni le PRD ni l'archi ne specifient les zones de drop, le feedback visuel, ou les contraintes. |
-| **Responsive behavior non adresse** | Info | Le comportement sur differentes tailles d'ecran n'est pas evoque (normal pour un IDE desktop, mais a confirmer). |
+#### B. Epic Independence
 
-### Verdict UX
+| Test | Résultat |
+|---|---|
+| Epic 1 standalone | Oui — scaffold + layout + ouverture projet, aucune dépendance |
+| Epic 2 sans Epic 3+ | Oui — agents fonctionnent sans contexte/drift/dashboard |
+| Epic 3 sans Epic 4+ | Oui — file watching + git fonctionnent sans drift/dashboard |
+| Epic 4 sans Epic 5+ | Oui — drift detection fonctionne sans dashboard/workflow/tests |
+| Epic 5 sans Epic 6+ | Oui — cockpit agrège les données existantes, empty states si epics précédents absents |
+| Epic 6 sans Epic 7+ | Oui — workflow editor fonctionne sans tests |
+| Epic 7 sans Epic 8 | Oui — tests fonctionnent sans packaging |
+| Epic 8 sans rien d'autre | Nécessite Epic 1 minimum (app à packager) |
 
-**Severite : WARNING** (pas bloquant mais risque de retravail)
+**Résultat : Aucune dépendance circulaire. Flux forward uniquement.**
 
-L'absence de document UX n'est pas un bloqueur pour le demarrage de l'implementation (Phase 0 : fondation technique), mais elle le deviendra des la Phase 1 (visibilite) quand il faudra implementer les composants visuels. Sans wireframes, chaque developpeur fera ses propres choix de layout, ce qui menera a des incoherences.
+### Story Quality Assessment
 
-**Recommandation :** Creer au minimum un document UX leger contenant :
-1. Wireframes basse fidelite des 4 vues principales (cockpit, agent view, workflow editor, drift alert)
-2. Design tokens (couleurs, typographie, spacing)
-3. Regles de transition des indicateurs de sante (vert/orange/rouge)
+#### A. Story Sizing
 
-## 5. Epic Quality Review
+| Story | Taille | Completable par 1 agent | Verdict |
+|---|---|---|---|
+| 1.1 Scaffold + IPC + Event Bus | Moyenne | Oui — scaffold automatisé + config | OK |
+| 1.2 Three-Pane Layout | Petite | Oui — composants shadcn/ui | OK |
+| 1.3 Open Project + BMAD | Petite | Oui — file dialog + détection | OK |
+| 1.4 Navigation + Sync | Moyenne | Oui — sidebar + sync logic | OK |
+| 2.1 Agent Harness | Moyenne | Oui — subprocess management | OK |
+| 4.1 LLM + Drift Engine | Grande | Borderline — combine LLM service + drift engine + cache | Acceptable (tightly coupled) |
+| 6.3 Édition Noeuds | Grande | Borderline — add + delete + reorganize + configure | Acceptable (all node editing) |
+| Autres (24 stories) | Petite-Moyenne | Oui | OK |
 
-### Statut : IMPOSSIBLE -- Document Epics & Stories MANQUANT
+#### B. Acceptance Criteria Review
 
-L'evaluation de la qualite des epics ne peut pas etre executee car aucun document d'epics et stories n'existe.
+- **Format Given/When/Then :** 31/31 stories utilisent le format BDD correct
+- **Testabilité :** Tous les ACs sont vérifiables et spécifiques
+- **Conditions d'erreur :** Couvertes dans les stories critiques (1.3 non-Git, 4.1 no API key, 6.1 malformed file)
+- **Métriques quantitatives :** Les NFRs sont référencés dans les ACs pertinents (NFR1 < 500ms, NFR5 < 5s, NFR9 < 1s, etc.)
 
-### Evaluation pre-emptive basee sur l'architecture
+### Dependency Analysis
 
-L'architecture (section 13) propose un ordre de construction en 4 phases / 29 etapes. Si ces etapes sont converties en epics/stories, voici les points de vigilance :
+#### A. Within-Epic Dependencies
 
-#### Risques potentiels a surveiller lors de la creation des epics
+Toutes les stories suivent un flux séquentiel forward :
+- Epic 1 : 1.1 → 1.2 → 1.3 → 1.4 (scaffold → layout → projet → navigation)
+- Epic 2 : 2.1 → 2.2 → 2.3 → 2.4 → 2.5 (harness → liste → progression → timeline → chat)
+- Epic 3 : 3.1 → 3.2 → 3.3 → 3.4 → 3.5 (watcher → liste → drag&drop → notifs → historique)
+- Epic 4 : 4.1 → 4.2 → 4.3 → 4.4 → 4.5 (engine → events → manual → alertes → résolution)
+- Epic 5 : 5.1 → 5.2 → 5.3 → 5.4 (layout → widgets → stories → navigation)
+- Epic 6 : 6.1 → 6.2 → 6.3 → 6.4 → 6.5 (parser → viewer → editor → sync → execution)
+- Epic 7 : 7.1 → 7.2 → 7.3 → 7.4 (discovery → statut → navigation → execution)
+- Epic 8 : 8.1 → 8.2 → 8.3 (macOS → Linux/Win → CI/CD)
 
-| Risque | Description | Recommandation |
-|--------|-------------|----------------|
-| **Epics techniques sans valeur utilisateur** | "Setup Electron" ou "Integrer SDK" ne sont pas des epics valides | Formuler en valeur utilisateur : "L'utilisateur peut voir l'activite d'un agent en temps reel" |
-| **Dependances forward** | Phase 2 (multi-agents) depend de Phase 1 (single agent) -- normal, mais chaque story doit etre independante | Verifier que chaque story est completable seule |
-| **Story trop grosse** | "Implementer le ClaudeFileWatcher" est une story technique trop large | Decouper par evenement observable (inboxes, tasks, sessions) |
-| **Database/schema upfront** | Le modele de donnees (section 8) ne doit pas etre implemente en bloc | Chaque story cree les types dont elle a besoin |
-| **Phase 0 non-testable** | "Setup Electron + React" n'a pas de critere d'acceptation utilisateur clair | Definir : "L'app s'ouvre et affiche le layout 3 volets vide" |
+**Aucune dépendance forward détectée.**
 
-### Criteres de qualite a appliquer lors de la creation
+#### B. Data Creation Timing
 
-Quand les epics seront crees, ils devront respecter :
-- [ ] Chaque epic delivre de la valeur utilisateur (pas de "setup infrastructure")
-- [ ] Chaque epic est independant (Epic N ne necessite pas Epic N+1)
-- [ ] Chaque story est completable sans stories futures
-- [ ] Pas de dependances forward (Story 1.3 ne reference pas Story 2.1)
-- [ ] Criteres d'acceptation en format Given/When/Then
-- [ ] Tables/types crees quand necessaires (pas de schema upfront)
-- [ ] Tracabilite FR -> Story maintenue
+Pas de base de données. Persistence via JSON dans `.mnm/` :
+- Créé dans Story 1.3 (première ouverture de projet)
+- Enrichi au fur et à mesure par les stories qui en ont besoin
+- **Pas de création upfront massive.**
 
-## 6. Summary and Recommendations
+### Special Implementation Checks
+
+#### A. Starter Template
+
+Architecture spécifie : `npm create @quick-start/electron@latest mnm -- --template react-ts`
+Story 1.1 inclut exactement cette commande dans ses ACs.
+
+#### B. Greenfield Indicators
+
+- Story 1.1 : Setup initial du projet
+- Story 1.2 : Configuration de l'environnement de développement (layout)
+- Story 8.3 : Pipeline CI/CD
+
+### Best Practices Compliance Checklist
+
+| Epic | User Value | Indépendant | Stories bien taillées | Pas de dépendances forward | Data créée quand nécessaire | ACs clairs | Traçabilité FRs |
+|---|---|---|---|---|---|---|---|
+| 1 | OK | OK | OK | OK | OK | OK | OK |
+| 2 | OK | OK | OK | OK | OK | OK | OK |
+| 3 | OK | OK | OK | OK | OK | OK | OK |
+| 4 | OK | OK | OK | OK | OK | OK | OK |
+| 5 | OK | OK | OK | OK | OK | OK | OK |
+| 6 | OK | OK | OK | OK | OK | OK | OK |
+| 7 | OK | OK | OK | OK | OK | OK | OK |
+| 8 | OK | OK | OK | OK | N/A | OK | OK (NFRs) |
+
+### Findings by Severity
+
+#### Critical Violations
+
+**Aucune.**
+
+#### Major Issues
+
+**Aucun.**
+
+#### Minor Concerns
+
+1. **Story 1.1** — Le user type est "developer" au lieu de "user". Acceptable pour une story de scaffold greenfield car l'architecture l'impose, mais techniquement ce n'est pas une user story au sens strict.
+
+2. **Story 4.1** — Combine LLM Service + Drift Engine + Cache. Pourrait être scindée en 2 (LLM setup + Drift engine). Cependant, le LLM est exclusivement utilisé pour le drift, donc le couplage est justifié et la story reste réalisable par un agent.
+
+3. **Epic 5** — Les widgets cockpit (agents, drift, stories) ont une valeur réduite si les Epics 2-4 ne sont pas implémentés. Les ACs prévoient des empty states, ce qui est correct. L'ordre d'implémentation recommandé (Epics 1→2→3→4→5) élimine ce risque en pratique.
+
+4. **Story 8.3** (CI/CD Pipeline) — Plus orientée infrastructure que valeur utilisateur directe. Acceptable car elle est dans le dernier epic et supporte la distribution.
+
+## Summary and Recommendations
 
 ### Overall Readiness Status
 
-## NEEDS WORK
+**READY**
 
-Le projet MnM a un **PRD solide** (48 FRs, 11 NFRs, quantifies et tracables) et une **architecture complete** (13 sections, 6 ADRs, stack definie, composants detailles, integration Claude Code verifiee). Cependant, **deux artefacts critiques manquent** pour demarrer l'implementation.
+Le projet MnM est prêt pour l'implémentation. L'ensemble des artefacts de planification est complet, cohérent et aligné.
 
-### Bilan par artefact
+### Résumé des Findings
 
-| Artefact | Statut | Qualite | Bloqueur ? |
-|----------|--------|---------|------------|
-| **PRD** | Complet | Excellente -- 48 FRs numerotees, 11 NFRs quantifies, 3 user journeys, scope MVP clair | Non |
-| **Architecture** | Complet | Bonne -- 6 ADRs, stack justifiee, integration SDK verifiee, 29 etapes de construction, modele de donnees | Non |
-| **Recherche Technique** | Complet | Excellente -- 8 sections, SDK verifie, Agent Teams documente, projets validants identifies | Non |
-| **Product Brief** | Complet | Bonne | Non |
-| **Epics & Stories** | MANQUANT | N/A | **OUI -- BLOQUEUR** |
-| **UX Design** | MANQUANT | N/A | Non (warning) |
+| Catégorie | Résultat |
+|---|---|
+| PRD Completeness | 48 FRs + 11 NFRs, complet et bien structuré |
+| FR Coverage | 48/48 FRs couverts (100%) |
+| UX ↔ PRD Alignment | Aligné, aucun conflit |
+| UX ↔ Architecture Alignment | Aligné, UX enrichit l'archi sur 3 aspects |
+| Epic User Value | 8/8 epics délivrent de la valeur utilisateur |
+| Epic Independence | Aucune dépendance circulaire |
+| Story Dependencies | Flux forward uniquement, aucune dépendance vers le futur |
+| Story Quality | 31/31 stories avec ACs en format Given/When/Then |
+| Critical Violations | 0 |
+| Major Issues | 0 |
+| Minor Concerns | 4 |
 
-### Issues critiques necessitant une action immediate
+### Critical Issues Requiring Immediate Action
 
-#### BLOQUEUR 1 : Epics & Stories inexistants (Severite : CRITIQUE)
+**Aucun.** Aucune issue critique bloquant l'implémentation.
 
-**Constat :** 0% de couverture FR. Aucune unite de travail planifiable n'existe.
+### Minor Concerns (Non-bloquants)
 
-**Impact :** Impossible de demarrer l'implementation -- pas de stories a assigner, pas de criteres d'acceptation, pas d'ordre de construction valide au niveau granulaire.
-
-**Pourquoi c'est critique :** Le PRD a 48 FRs et l'architecture a 29 etapes de construction, mais sans epics/stories, il n'y a pas de pont entre les requirements et le code. Les developpeurs ne savent pas par quoi commencer ni quand une fonctionnalite est "finie".
-
-#### WARNING 2 : UX Design manquant (Severite : WARNING)
-
-**Constat :** MnM est un produit essentiellement visuel (cockpit, timeline, dashboard, workflow editor) mais aucun wireframe ni design system n'existe.
-
-**Impact :** Risque de retravail visuel des la Phase 1. Chaque developpeur fera des choix de layout independants qui devront etre harmonises apres coup.
-
-**Pourquoi ce n'est pas bloqueur :** Phase 0 (fondation technique) peut demarrer sans UX. Mais l'UX doit etre pret avant Phase 1 (visibilite).
-
-### Points forts du projet
-
-1. **PRD exemplaire** -- 48 FRs numerotees, tracables, avec seuils quantitatifs pour les NFRs
-2. **Architecture complete et verifiee** -- le pattern "SDK spawn + file watching" est valide par des projets existants (c9watch, clog, claude_code_agent_farm)
-3. **Recherche technique approfondie** -- 72,766 octets couvrant tous les choix techniques avec comparatifs
-4. **Decision architecturale cle prise** -- ADR-002 (SDK + file watching) resout la question fondamentale de l'integration Claude Code
-5. **Schemas JSON Agent Teams documentes** -- les structures de donnees a observer sont connues
-6. **Stack coherente** -- Electron + React 19 + TypeScript + Zustand + Tailwind + React Flow
-
-### Points d'attention (non bloquants)
-
-| # | Point | Severite | Detail |
-|---|-------|----------|--------|
-| 1 | Agent Teams experimental | Warning | Le flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` peut changer. L'archi prevoit une couche d'abstraction. |
-| 2 | Schemas JSON non documentes | Warning | Les schemas ~/.claude/ sont derives d'observation, pas de documentation officielle. Zod validation prevue. |
-| 3 | Indicateurs de sante non specifies | Info | Les regles vert/orange/rouge (FR2) ne sont definies ni dans le PRD ni dans l'archi. A definir dans les stories. |
-| 4 | Drag & drop non detaille | Info | FR10 mentionne le drag & drop sans specifier les zones, feedback visuel, contraintes. |
-| 5 | NFR8 vs architecture | Info | NFR8 parle de "stdout/stderr" mais l'archi utilise le file watching. L'approche est meilleure mais le NFR devrait etre mis a jour. |
+1. Story 1.1 utilise "developer" comme user type — normal pour un scaffold greenfield
+2. Story 4.1 pourrait être scindée en 2 — couplage justifié (LLM = drift only)
+3. Epic 5 cockpit dépend des données des Epics 2-4 — empty states prévus dans les ACs
+4. Story 8.3 CI/CD est infrastructure-heavy — acceptable dans le dernier epic
 
 ### Recommended Next Steps
 
-1. **Executer le workflow `create-epics-and-stories`** -- C'est le bloqueur #1. Utiliser le PRD (48 FRs) et l'architecture (section 13 : 4 phases / 29 etapes) comme inputs. Objectif : couverture 100% des 48 FRs.
-
-2. **Creer un document UX minimal** -- Wireframes basse fidelite pour les 4 vues principales (cockpit, agent view, workflow editor, drift alert) + design tokens (couleurs, typo, spacing) + regles indicateurs de sante.
-
-3. **Mettre a jour NFR8** -- Remplacer la reference "stdout/stderr" par "file watching sur ~/.claude/" pour aligner le PRD avec la decision architecturale ADR-002.
-
-4. **Re-executer ce workflow** -- Une fois les epics crees, relancer `check-implementation-readiness` pour valider la couverture FR et la qualite des epics.
+1. **Lancer l'implémentation** — Commencer par Epic 1 Story 1.1 (scaffold electron-vite)
+2. **Sprint Planning** — Utiliser `/bmad-bmm-sprint-planning` pour organiser le premier sprint
+3. **Ordre recommandé** — Suivre la séquence Epic 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 qui correspond à l'ordre de valeur incrémentale et à la séquence d'implémentation de l'architecture
 
 ### Final Note
 
-Cette evaluation a identifie **1 bloqueur critique** (epics manquants), **2 warnings** (UX manquant, schemas non documentes), et **3 points d'attention** mineurs. Le PRD et l'architecture sont de qualite suffisante pour passer a l'etape suivante -- la creation des epics et stories. La base technique est solide ; il manque la decomposition en unites de travail.
-
-**Assesseur :** Claude (Expert PM & Scrum Master)
-**Date :** 2026-02-28
+Cette évaluation a identifié **0 issues critiques**, **0 issues majeures**, et **4 concerns mineures** (toutes non-bloquantes). Le projet dispose de 4 artefacts de planification complets et alignés (PRD, Architecture, UX Design, Epics & Stories). La couverture des requirements est à 100%. **L'implémentation peut démarrer immédiatement.**
