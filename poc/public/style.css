@@ -457,6 +457,108 @@ body {
 .tool-tag.bash { color: var(--accent-purple); background: rgba(188, 140, 255, 0.12); border-color: rgba(188, 140, 255, 0.2); }
 .tool-tag.agent { color: var(--accent-cyan); background: rgba(57, 210, 192, 0.12); border-color: rgba(57, 210, 192, 0.2); }
 
+/* ─── Background Tasks ───────────────────── */
+
+.bg-task-item {
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-green);
+}
+
+.bg-task-item.stopped {
+  border-left-color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.bg-task-item.completed {
+  border-left-color: var(--accent-blue);
+  opacity: 0.7;
+}
+
+.bg-task-item.error {
+  border-left-color: var(--accent-red);
+}
+
+.bg-task-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.bg-task-desc {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bg-task-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.bg-task-status.running {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--accent-green);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.bg-task-status.stopped {
+  background: rgba(72, 79, 88, 0.15);
+  color: var(--text-muted);
+}
+
+.bg-task-status.completed {
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent-blue);
+}
+
+.bg-task-status.error {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--accent-red);
+}
+
+.bg-task-cmd {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.bg-task-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bg-task-output {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-height: 80px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.bg-task-output:empty { display: none; }
+
+.bg-task-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
 /* ─── Tasks ──────────────────────────────── */
 
 .task-item {

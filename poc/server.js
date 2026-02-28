@@ -127,6 +127,7 @@ function getOrCreateSession(sessionId) {
       messages: [],
       subagents: new Map(),
       tasks: [],
+      backgroundTasks: new Map(), // taskId -> { command, description, elapsed, output, totalLines, status }
     });
   }
   return sessions.get(sessionId);
@@ -138,8 +139,28 @@ function processEntry(sessionId, entry) {
   const role = entry.message?.role;
   const type = entry.type;
 
-  // Skip progress/hook entries for message tracking
-  if (type === 'progress' || type === 'hook_progress' || type === 'bash_progress' || type === 'agent_progress') {
+  // Process progress entries for background task tracking
+  if (type === 'progress') {
+    const data = entry.data;
+    if (data?.type === 'bash_progress') {
+      const taskId = data.taskId;
+      // Only update KNOWN background tasks — don't create entries from bash_progress
+      // (bash_progress fires for ALL bash commands, not just background ones)
+      if (taskId && session.backgroundTasks.has(taskId)) {
+        const existing = session.backgroundTasks.get(taskId);
+        existing.elapsed = data.elapsedTimeSeconds || 0;
+        existing.output = truncate((data.output || '').replace(/\x1b\[[0-9;]*m/g, ''), 500);
+        existing.totalLines = data.totalLines || 0;
+        existing.totalBytes = data.totalBytes || 0;
+        existing.status = 'running';
+        existing.lastUpdate = entry.timestamp || new Date().toISOString();
+      }
+    }
+    return;
+  }
+
+  // Skip non-message entries
+  if (type === 'hook_progress' || type === 'bash_progress' || type === 'agent_progress') {
     return;
   }
 
@@ -150,6 +171,23 @@ function processEntry(sessionId, entry) {
 
   // File history snapshots
   if (type === 'file-history-snapshot') {
+    return;
+  }
+
+  // Queue operations contain task completion notifications
+  if (type === 'queue-operation') {
+    const content = entry.content || '';
+    if (content.includes('<task-id>')) {
+      const notifRegex = /<task-id>(\S+)<\/task-id>[\s\S]*?<status>(completed|failed|error)<\/status>/g;
+      let m;
+      while ((m = notifRegex.exec(content)) !== null) {
+        const taskId = m[1];
+        const status = m[2] === 'failed' ? 'error' : m[2];
+        if (session.backgroundTasks.has(taskId)) {
+          session.backgroundTasks.get(taskId).status = status;
+        }
+      }
+    }
     return;
   }
 
@@ -181,6 +219,57 @@ function processEntry(sessionId, entry) {
       text: truncate(text, 500),
       timestamp: entry.timestamp,
     });
+
+    // Extract background task IDs and status from all content blocks
+    const blocks = entry.message?.content;
+    if (Array.isArray(blocks)) {
+      for (const block of blocks) {
+        const blockText = block.type === 'tool_result'
+          ? (typeof block.content === 'string' ? block.content :
+            Array.isArray(block.content) ? block.content.map(b => b.text || '').join(' ') : '')
+          : (block.type === 'text' ? (block.text || '') : '');
+
+        if (!blockText) continue;
+
+        // "Command running in background with ID: b8hirfy9p" (only in tool_result)
+        if (block.type === 'tool_result') {
+          const bgMatch = blockText.match(/running in background with ID:\s*(\S+)/);
+          if (bgMatch) {
+            const taskId = bgMatch[1].replace(/[.,]$/, '');
+            const toolUseId = block.tool_use_id;
+            if (session._pendingBgBash) {
+              const pending = session._pendingBgBash[toolUseId];
+              if (pending) {
+                pending.createdAt = entry.timestamp || new Date().toISOString();
+                session.backgroundTasks.set(taskId, pending);
+                delete session._pendingBgBash[toolUseId];
+              }
+            }
+          }
+
+          // "Successfully stopped task: xxx"
+          const stopMatch = blockText.match(/Successfully stopped task:\s*(\S+)/);
+          if (stopMatch) {
+            const taskId = stopMatch[1].replace(/[.,(].*$/, '');
+            if (session.backgroundTasks.has(taskId)) {
+              session.backgroundTasks.get(taskId).status = 'stopped';
+            }
+          }
+        }
+
+        // Task notifications: <task-id>xxx</task-id> ... <status>completed|failed</status>
+        // Multiple can appear in one block; each task-id is followed by its status
+        const notifRegex = /<task-id>(\S+)<\/task-id>[\s\S]*?<status>(completed|failed|error)<\/status>/g;
+        let notifMatch;
+        while ((notifMatch = notifRegex.exec(blockText)) !== null) {
+          const taskId = notifMatch[1];
+          const status = notifMatch[2] === 'failed' ? 'error' : notifMatch[2];
+          if (session.backgroundTasks.has(taskId)) {
+            session.backgroundTasks.get(taskId).status = status;
+          }
+        }
+      }
+    }
   }
 
   if (role === 'assistant') {
@@ -217,6 +306,29 @@ function processEntry(sessionId, entry) {
             addContextEntry(session, 'search', input.query);
           } else if (name === 'Agent') {
             addContextEntry(session, 'agent', input.description || input.subagent_type || 'subagent');
+          }
+
+          // Background bash tracking
+          if (name === 'Bash' && input.run_in_background) {
+            // We'll match this to bash_progress via taskId from tool_result later
+            // For now, store pending background command by tool_use id
+            session._pendingBgBash = session._pendingBgBash || {};
+            session._pendingBgBash[block.id] = {
+              command: truncate(input.command, 200),
+              description: input.description || '',
+              status: 'running',
+              elapsed: 0,
+              output: '',
+              totalLines: 0,
+            };
+          }
+
+          // TaskStop marks a background task as stopped
+          if (name === 'TaskStop') {
+            const taskId = input.task_id || input.shell_id;
+            if (taskId && session.backgroundTasks.has(taskId)) {
+              session.backgroundTasks.get(taskId).status = 'stopped';
+            }
           }
         }
       }
@@ -422,6 +534,8 @@ function broadcast(eventType, data) {
 }
 
 function sessionSummary(session) {
+  const bgTasks = [...session.backgroundTasks.values()];
+  const runningBg = bgTasks.filter(t => t.status === 'running');
   return {
     sessionId: session.sessionId,
     projectDir: session.projectDir,
@@ -435,6 +549,7 @@ function sessionSummary(session) {
     status: session.status,
     contextPercent: session.contextPercent,
     subagentCount: session.subagents.size,
+    backgroundTaskCount: runningBg.length,
     isActive: isActive(session),
     isSidechain: session.isSidechain,
   };
@@ -456,6 +571,16 @@ function sessionDetail(session) {
       isCompact: sa.isCompact,
     })),
     tasks: session.tasks,
+    backgroundTasks: [...session.backgroundTasks.entries()].map(([taskId, t]) => ({
+      taskId,
+      command: t.command,
+      description: t.description,
+      status: t.status,
+      elapsed: t.elapsed,
+      output: t.output,
+      totalLines: t.totalLines,
+      lastUpdate: t.lastUpdate,
+    })),
   };
 }
 
