@@ -10,9 +10,14 @@
 
 1. [Electron vs Tauri vs alternatives desktop](#1-electron-vs-tauri-vs-alternatives-desktop)
 2. [Interception de l'activite de Claude Code en temps reel](#2-interception-de-lactivite-de-claude-code-en-temps-reel)
+   - 2.1-2.5 : Strategies classiques (subprocess, MCP, file watching, historique)
+   - 2.6 : Claude Agent SDK -- Analyse verifiee des capacites *(ajout 2026-02-28)*
+   - 2.7 : Architecture interne d'Agent Teams -- Fichiers et protocoles *(ajout 2026-02-28)*
+   - 2.8 : Architecture recommandee revisee : SDK spawn + file watching *(ajout 2026-02-28)*
 3. [Parsing et visualisation de workflows BMAD](#3-parsing-et-visualisation-de-workflows-bmad)
 4. [Drift detection entre documents](#4-drift-detection-entre-documents)
 5. [Real-time file watching et Git integration](#5-real-time-file-watching-et-git-integration)
+6. [Synthese et recommandations globales](#6-synthese-et-recommandations-globales) *(revisee 2026-02-28)*
 
 ---
 
@@ -394,6 +399,348 @@ class AgentEventBus {
 1. Implementer un **serveur MCP** (Strategie B) pour une integration plus profonde
 2. Ajouter l'analyse de l'historique Claude (Strategie D) pour la reconstitution de sessions
 3. Generaliser le AgentHarness pour supporter d'autres agents (OpenHands, Aider, etc.)
+
+### 2.6 Claude Agent SDK -- Analyse verifiee des capacites (mis a jour 2026-02-28)
+
+> **IMPORTANT** : Cette section corrige et complete la section 2.5 suite a une verification approfondie du SDK reel.
+
+#### Architecture du SDK
+
+Le `@anthropic-ai/claude-agent-sdk` n'est **PAS** une API standalone. C'est un **wrapper TypeScript autour du binaire Claude Code CLI**. Le SDK :
+- Localise le binaire `claude` installe globalement
+- Le lance en mode subprocess avec des flags specifiques (`--output-format stream-json`)
+- Parse le flux JSON structure en sortie
+- Expose une API TypeScript propre (`query()`)
+
+```typescript
+import { query } from "@anthropic-ai/claude-agent-sdk";
+
+const conversation = query({
+  prompt: "Cree un composant React Button",
+  options: {
+    // CRITIQUE : sans settingSources, aucune feature Claude Code n'est activee
+    settingSources: ['project', 'user'],
+    // CRITIQUE : sans systemPrompt preset, pas de tools Claude Code
+    systemPrompt: { type: 'preset', preset: 'claude_code' },
+    // Permissions
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    // Limites
+    maxTurns: 100,
+    // Variables d'environnement pour features experimentales
+    env: {
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
+    }
+  }
+});
+
+// Le SDK retourne un AsyncIterable de messages
+for await (const message of conversation) {
+  if (message.type === "assistant") {
+    console.log(message.content);
+  }
+}
+```
+
+#### Tableau des features verifiees
+
+| Feature Claude Code | Support SDK | Methode d'acces | Notes |
+|---------------------|-------------|-----------------|-------|
+| **Sub-agents (Agent tool)** | OUI | Natif via query() | L'agent peut spawner des sub-agents automatiquement |
+| **Skills / Slash commands** | OUI | Via settingSources | Charge les skills depuis CLAUDE.md et project settings |
+| **Commandes BMAD** | OUI | Via settingSources | Les skills BMAD sont chargees comme n'importe quelle skill |
+| **CLAUDE.md** | OUI | Via settingSources: ['project'] | Charge automatiquement les instructions projet |
+| **MCP servers** | OUI | Via settingSources | Configuration MCP lue depuis les settings |
+| **Hooks (PreToolUse, PostToolUse...)** | OUI | Via settingSources | 18 types d'evenements, hooks executes automatiquement |
+| **Plugins** | OUI | Via settingSources: ['user'] | Extensions utilisateur chargees |
+| **Custom agents** | OUI | Via settingSources | Agents personnalises definis dans les settings |
+| **Permissions / Rules** | OUI | Via permissionMode | Controle total des permissions |
+| **Session resume** | OUI | Via sessionId option | Reprendre une conversation existante |
+| **File checkpointing** | OUI | Automatique | Points de restauration fichier actifs |
+| **Plan mode** | OUI | Via prompt | L'agent peut entrer/sortir du plan mode |
+| **Rules (.claude/rules/)** | OUI | Via settingSources | Regles projet chargees automatiquement |
+| **Agent Teams** | PARTIEL | Via env variable + prompt | Pas d'API directe pour l'orchestration de teams |
+| **Auto-Memory** | PARTIEL | Via settingSources | Lecture passive ok, ecriture memoire non garantie |
+| **Worktrees** | PARTIEL | Via hooks | Hooks uniquement, pas d'API directe |
+| **Task management** | PARTIEL | Observable via fichiers | Pas de controle direct des tasks via SDK |
+
+**Conclusion SDK** : Le SDK est suffisant pour **lancer** des agents avec toutes les features Claude Code. La limitation principale est l'**observation** : le SDK ne fournit pas de callbacks pour les evenements internes des agents. C'est la que le **file watching** devient essentiel.
+
+### 2.7 Architecture interne d'Agent Teams -- Fichiers et protocoles (decouverte 2026-02-28)
+
+> **Decouverte majeure** : Agent Teams ecrit TOUT son etat sur le disque en temps reel. Cette propriete rend possible la supervision externe sans modifier Claude Code.
+
+#### Structure des fichiers Agent Teams
+
+```
+~/.claude/
+  teams/
+    {team-name}/
+      config.json           # Configuration de l'equipe (membres, roles)
+      inboxes/
+        {agent-name}.json   # Boite aux lettres de chaque agent (messages JSON)
+  tasks/
+    {team-name}/
+      1.json                # Tache individuelle (JSON)
+      2.json
+      3.json
+      .lock                 # Verrou flock() pour exclusion mutuelle
+      .highwatermark        # Prochain ID de tache
+  projects/
+    {project-path-hash}/
+      sessions/
+        {session-id}.jsonl  # Transcription par agent (append-only JSONL)
+```
+
+#### Schema des fichiers
+
+**config.json** (equipe) :
+```json
+{
+  "members": [
+    {
+      "name": "team-lead",
+      "agentId": "abc-123-def",
+      "agentType": "leader"
+    },
+    {
+      "name": "frontend-dev",
+      "agentId": "ghi-456-jkl",
+      "agentType": "worker"
+    },
+    {
+      "name": "backend-dev",
+      "agentId": "mno-789-pqr",
+      "agentType": "worker"
+    }
+  ]
+}
+```
+
+**inboxes/{agent-name}.json** (messages) :
+```json
+[
+  {
+    "from": "team-lead",
+    "text": "{\"type\":\"task_assignment\",\"taskId\":\"1\",\"subject\":\"Creer le composant Button\"}",
+    "timestamp": "2026-02-28T10:30:00.000Z",
+    "read": false
+  },
+  {
+    "from": "backend-dev",
+    "text": "{\"type\":\"message\",\"content\":\"L'API /users est prete\"}",
+    "timestamp": "2026-02-28T10:35:00.000Z",
+    "read": true
+  }
+]
+```
+
+**Types de messages dans les inboxes :**
+
+| Type | Direction | Description |
+|------|-----------|-------------|
+| `task_assignment` | Leader -> Worker | Attribution d'une tache avec taskId |
+| `message` | Any -> Any | Communication libre entre agents |
+| `broadcast` | Leader -> All | Message diffuse a toute l'equipe |
+| `shutdown_request` | Leader -> Worker | Demande d'arret d'un agent |
+| `idle_notification` | Worker -> Leader | L'agent n'a plus de travail |
+| `plan_approval_request` | Worker -> Leader | Demande de validation d'un plan |
+| `plan_approval_response` | Leader -> Worker | Reponse a la demande de plan |
+
+**tasks/{team-name}/{id}.json** (tache individuelle) :
+```json
+{
+  "id": "3",
+  "subject": "Implementer le composant UserProfile",
+  "description": "Creer un composant React affichant les infos utilisateur...",
+  "owner": "frontend-dev",
+  "status": "in_progress",
+  "blocks": ["4"],
+  "blockedBy": ["1"],
+  "createdAt": "2026-02-28T10:30:00.000Z",
+  "updatedAt": "2026-02-28T11:15:00.000Z"
+}
+```
+
+**sessions/{session-id}.jsonl** (transcription agent) :
+
+Chaque ligne est un objet JSON complet avec chaining via uuid/parentUuid :
+```jsonl
+{"uuid":"a1b2c3","parentUuid":null,"type":"human","message":{"role":"user","content":"Implemente le Button"},"timestamp":"..."}
+{"uuid":"d4e5f6","parentUuid":"a1b2c3","type":"assistant","message":{"role":"assistant","content":"Je vais creer..."},"timestamp":"..."}
+{"uuid":"g7h8i9","parentUuid":"d4e5f6","type":"tool_use","tool":"Write","input":{"file_path":"src/Button.tsx"},"timestamp":"..."}
+```
+
+#### Mecanismes de synchronisation
+
+- **Verrous fichier** : `flock()` sur `.lock` pour les ecritures concurrentes de taches
+- **High watermark** : `.highwatermark` contient le prochain ID de tache disponible
+- **Append-only** : Les fichiers JSONL de session sont append-only (pas de modification)
+- **JSON atomique** : Les fichiers de taches et d'inbox sont reecrits entierement a chaque modification
+
+### 2.8 Architecture recommandee revisee : SDK spawn + file watching (2026-02-28)
+
+> Suite aux decouvertes sur Agent Teams, l'architecture d'interception est fondamentalement revisee.
+
+#### Le pattern "SDK spawn + file watching"
+
+L'ancienne recommandation (subprocess wrapping + stdout parsing) est remplacee par une approche plus robuste :
+
+```
+MnM IDE (Electron)
+│
+├─ [SPAWN] Claude Agent SDK query()
+│    │
+│    ├─ Agent 1 (team-lead)     ──┐
+│    ├─ Agent 2 (frontend-dev)  ──┤── Ecrivent en temps reel
+│    └─ Agent 3 (backend-dev)   ──┘   dans ~/.claude/
+│
+├─ [WATCH] chokidar sur ~/.claude/
+│    │
+│    ├─ teams/{name}/config.json    → Composition equipe
+│    ├─ teams/{name}/inboxes/*.json → Messages inter-agents
+│    ├─ tasks/{name}/*.json         → Creation/MAJ taches
+│    └─ projects/*/sessions/*.jsonl → Transcriptions temps reel
+│
+├─ [WATCH] chokidar sur {project}/
+│    │
+│    ├─ src/**/*                    → Fichiers modifies par agents
+│    └─ .claude/settings.local.json → Config projet
+│
+├─ [EVENT BUS] Zustand store
+│    │
+│    ├─ TeamState      → Membres, statuts, roles
+│    ├─ MessageState   → Messages inter-agents temps reel
+│    ├─ TaskState      → Taches, dependencies, progres
+│    ├─ SessionState   → Transcriptions, outils utilises
+│    └─ FileState      → Fichiers modifies, diffs
+│
+└─ [UI] React components
+     │
+     ├─ AgentPanel     → Vue par agent (statut, activite)
+     ├─ Timeline       → Chronologie des evenements
+     ├─ TaskBoard      → Kanban des taches
+     ├─ MessageFeed    → Flux de messages inter-agents
+     └─ FileExplorer   → Fichiers touches avec attribution
+```
+
+#### Avantages vs l'ancienne approche
+
+| Critere | Ancien (subprocess wrapping) | Nouveau (SDK + file watching) |
+|---------|------------------------------|-------------------------------|
+| **Multi-agents** | 1 process a la fois | N agents simultanes |
+| **Messages inter-agents** | Invisible | Visible via inboxes JSON |
+| **Taches** | Non observable | Observable via tasks JSON |
+| **Transcriptions** | Stdout brut, difficile a parser | JSONL structure, facile a parser |
+| **Robustesse** | Depend du format stdout | Depend de fichiers JSON stables |
+| **Intrusivite** | Doit wrapper le process | Zero modification de Claude Code |
+
+#### Implementation du watcher core
+
+```typescript
+import chokidar from 'chokidar';
+import { readFile } from 'fs/promises';
+import path from 'path';
+
+interface MnMWatcherConfig {
+  claudeDir: string;      // ~/.claude
+  projectDir: string;     // Repertoire du projet
+  teamName: string;       // Nom de l'equipe
+}
+
+class ClaudeTeamWatcher {
+  private watchers: chokidar.FSWatcher[] = [];
+
+  constructor(private config: MnMWatcherConfig) {}
+
+  start() {
+    // 1. Watcher inboxes (messages inter-agents)
+    const inboxPattern = path.join(
+      this.config.claudeDir, 'teams', this.config.teamName, 'inboxes', '*.json'
+    );
+    this.watchers.push(
+      chokidar.watch(inboxPattern, { awaitWriteFinish: { stabilityThreshold: 100 } })
+        .on('change', (filePath) => this.onInboxChange(filePath))
+    );
+
+    // 2. Watcher tasks (taches)
+    const tasksPattern = path.join(
+      this.config.claudeDir, 'tasks', this.config.teamName, '*.json'
+    );
+    this.watchers.push(
+      chokidar.watch(tasksPattern, { awaitWriteFinish: { stabilityThreshold: 100 } })
+        .on('change', (filePath) => this.onTaskChange(filePath))
+        .on('add', (filePath) => this.onTaskCreated(filePath))
+    );
+
+    // 3. Watcher sessions (transcriptions)
+    const sessionsPattern = path.join(
+      this.config.claudeDir, 'projects', '**', 'sessions', '*.jsonl'
+    );
+    this.watchers.push(
+      chokidar.watch(sessionsPattern, { awaitWriteFinish: { stabilityThreshold: 50 } })
+        .on('change', (filePath) => this.onSessionUpdate(filePath))
+    );
+
+    // 4. Watcher fichiers projet (modifications par agents)
+    this.watchers.push(
+      chokidar.watch(this.config.projectDir, {
+        ignored: [/(^|[\/\\])\./, '**/node_modules/**'],
+        awaitWriteFinish: { stabilityThreshold: 200 }
+      })
+        .on('change', (filePath) => this.onProjectFileChange(filePath))
+        .on('add', (filePath) => this.onProjectFileCreated(filePath))
+    );
+  }
+
+  private async onInboxChange(filePath: string) {
+    const agentName = path.basename(filePath, '.json');
+    const messages = JSON.parse(await readFile(filePath, 'utf-8'));
+    const unread = messages.filter((m: any) => !m.read);
+    // Emettre vers le store Zustand
+    eventBus.emit({ type: 'inbox_update', agent: agentName, messages: unread });
+  }
+
+  private async onTaskChange(filePath: string) {
+    const task = JSON.parse(await readFile(filePath, 'utf-8'));
+    eventBus.emit({ type: 'task_update', task });
+  }
+
+  private async onTaskCreated(filePath: string) {
+    const task = JSON.parse(await readFile(filePath, 'utf-8'));
+    eventBus.emit({ type: 'task_created', task });
+  }
+
+  private async onSessionUpdate(filePath: string) {
+    // Lire uniquement les nouvelles lignes (tail -f style)
+    const lastLine = await getLastLine(filePath);
+    const entry = JSON.parse(lastLine);
+    eventBus.emit({ type: 'session_entry', sessionFile: filePath, entry });
+  }
+
+  private onProjectFileChange(filePath: string) {
+    eventBus.emit({ type: 'file_changed', path: filePath });
+  }
+
+  private onProjectFileCreated(filePath: string) {
+    eventBus.emit({ type: 'file_created', path: filePath });
+  }
+
+  stop() {
+    this.watchers.forEach(w => w.close());
+  }
+}
+```
+
+#### Projets existants validant cette approche
+
+| Projet | Technique | Pertinence MnM |
+|--------|-----------|-----------------|
+| **c9watch** | Watch ~/.claude/ + dashboard web | Preuve directe que le file watching fonctionne |
+| **claude-code-hooks-multi-agent-observability** | Hooks + file watching combinés | Pattern hooks complementaire |
+| **claude_code_agent_farm** | Spawn SDK + monitoring | Validation du pattern SDK spawn |
+| **claude-code-teams-mcp** | MCP server pour teams | Integration MCP complementaire |
+| **clog** | Parse sessions JSONL | Validation du parsing de transcriptions |
 
 ---
 
@@ -1326,6 +1673,8 @@ class ContextVersioning {
 
 ## 6. Synthese et recommandations globales
 
+> **Mise a jour 2026-02-28** : Cette section integre les decouvertes sur l'Agent SDK et Agent Teams (sections 2.6-2.8). La strategie d'integration est fondamentalement revisee.
+
 ### Stack technique recommandee pour le MVP
 
 | Couche | Choix | Alternatives considerees |
@@ -1340,31 +1689,57 @@ class ContextVersioning {
 | **XML parsing** | fast-xml-parser | xml2js |
 | **File watching** | chokidar | @parcel/watcher |
 | **Git** | simple-git | isomorphic-git |
-| **Process management** | Node.js child_process | -- |
+| **Agent spawn** | @anthropic-ai/claude-agent-sdk | child_process.spawn('claude') |
+| **Agent observation** | chokidar sur ~/.claude/ | stdout parsing (ancien) |
 | **Drift detection** | LLM-as-judge (Claude API) | Embeddings locaux (post-MVP) |
 | **Markdown parsing** | remark / unified | marked |
 | **Packaging** | electron-builder | electron-forge |
 
-### Risques techniques identifies
+### Decision architecturale majeure : "SDK spawn + file watching"
+
+La strategie d'integration avec Claude Code repose sur deux piliers :
+
+1. **SPAWN via SDK** : Utiliser `@anthropic-ai/claude-agent-sdk` pour lancer les agents avec `settingSources: ['project', 'user']` et `env: { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" }`. Le SDK gere le lifecycle des agents.
+
+2. **OBSERVE via file watching** : Utiliser chokidar pour surveiller `~/.claude/` (teams, tasks, inboxes, sessions) et le repertoire projet. Les fichiers JSON/JSONL ecrits par Agent Teams constituent l'interface d'observation.
+
+**Pourquoi cette approche remplace le subprocess wrapping :**
+- Le stdout parsing est fragile et ne supporte qu'un agent a la fois
+- Agent Teams ecrit TOUT son etat sur disque en JSON/JSONL structure
+- Le file watching est non-intrusif (zero modification de Claude Code)
+- Permet d'observer N agents simultanement
+- Les schemas JSON sont stables et faciles a parser
+
+### Risques techniques identifies (revises)
 
 | Risque | Probabilite | Impact | Mitigation |
 |--------|-------------|--------|------------|
+| **Agent Teams API instable (experimental)** | Haute | Haut | Abstraire derriere une interface, tests de regression sur les schemas JSON, veille sur les releases Claude Code |
+| **Format des fichiers ~/.claude/ change** | Moyenne | Haut | Schema validation a l'entree, adapter pattern, monitoring des releases |
 | **Performance Electron sur gros projets** | Moyenne | Moyen | Virtualisation de listes, lazy loading, worker threads |
-| **Parsing stdout de Claude Code fragile** | Haute | Moyen | Couche d'abstraction, fallback sur file watching |
+| **File watching race conditions** | Moyenne | Moyen | awaitWriteFinish, debouncing, validation JSON avant traitement |
 | **Drift detection bruyante (faux positifs)** | Haute | Haut | Seuils configurables, bouton "ignorer", apprentissage |
 | **Sync workflow visuel <-> fichier** | Moyenne | Moyen | Pattern Source of Truth = Fichier, tests de regression |
 | **Complexite IPC Electron** | Moyenne | Moyen | Architecture claire, contextBridge, typage fort |
-| **Cout API LLM pour drift detection** | Basse | Bas | Cache, pre-filtre, modeles locaux en complement |
+| **settingSources non documente officiellement** | Moyenne | Moyen | Tests reguliers, fallback sur spawn CLI si SDK casse |
 
-### Ordre de developpement recommande
+### Ordre de developpement recommande (revise)
 
-1. **Fondation (Semaines 1-3)** : Setup Electron + React, layout 3 volets, file watching basique
-2. **Visibilite agents (Semaines 4-6)** : Subprocess wrapping de Claude Code, timeline d'activite, detection de modifications
-3. **Contexte visuel (Semaines 7-8)** : Affichage du contexte des agents, drag & drop
-4. **Git integration (Semaines 9-10)** : Historique, diffs, versioning de contexte
-5. **Drift detection (Semaines 11-13)** : LLM-as-judge, alertes actionnables
-6. **Workflow editor (Semaines 14-16)** : Parsing YAML/XML, React Flow, edition basique
+1. **Fondation (Semaines 1-3)** : Setup Electron + React + Vite, layout 3 volets, file watching basique (chokidar sur le projet)
+2. **SDK Integration (Semaines 4-5)** : Integration Claude Agent SDK, spawn d'un agent simple, capture du flux query(), verification settingSources
+3. **Agent Teams observation (Semaines 6-8)** : File watching sur ~/.claude/, parsing des inboxes/tasks/sessions, event bus Zustand, UI timeline
+4. **Multi-agent dashboard (Semaines 9-10)** : Vue multi-agents, kanban des taches, flux de messages inter-agents, attribution des modifications fichier
+5. **Git integration (Semaines 11-12)** : Historique, diffs, versioning de contexte
+6. **Drift detection (Semaines 13-15)** : LLM-as-judge, alertes actionnables
+7. **Workflow editor (Semaines 16-18)** : Parsing YAML/XML, React Flow, edition basique
+
+### Points de vigilance
+
+- **Agent Teams est experimental** (env flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`). Suivre l'evolution dans les changelogs Anthropic.
+- **Le SDK necessite le binaire CLI** installe globalement. MnM doit verifier la presence de `claude` au demarrage et guider l'installation si absent.
+- **Les schemas JSON ne sont pas documentes officiellement**. Les schemas decrits en section 2.7 sont derives d'observation directe. Implementer une couche de validation (zod) pour detecter les changements de format.
+- **Hooks TypeScript** : Certains hooks (SessionStart, SessionEnd, TeammateIdle, TaskCompleted) ne supportent que des handlers TypeScript (.ts), pas bash. MnM devra fournir des handlers .ts preconfigures.
 
 ---
 
-*Ce rapport est un document technique de reference pour la phase d'architecture de MnM. Il sera mis a jour au fur et a mesure des decisions architecturales.*
+*Ce rapport est un document technique de reference pour la phase d'architecture de MnM. Derniere mise a jour : 2026-02-28 (ajout sections 2.6-2.8, revision section 6).*
