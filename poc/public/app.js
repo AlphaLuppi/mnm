@@ -206,6 +206,7 @@ function renderSessionList() {
       <div class="card-footer">
         <span>${s.messageCount || 0} msgs</span>
         ${s.subagentCount ? `<span>${s.subagentCount} agents</span>` : ''}
+        ${s.backgroundTaskCount ? `<span style="color:var(--accent-green)">${s.backgroundTaskCount} bg</span>` : ''}
         <span>${timeAgo(s.modified)}</span>
       </div>
     </div>
@@ -240,6 +241,9 @@ function renderDetail(detail) {
   // Activity
   renderActivity(detail);
 
+  // Background tasks
+  renderBackgroundTasks(detail.backgroundTasks || []);
+
   // Tasks
   renderTasks(detail.tasks || []);
 
@@ -263,6 +267,44 @@ function renderActivity(detail) {
   } else {
     toolsEl.innerHTML = '';
   }
+}
+
+function renderBackgroundTasks(tasks) {
+  const container = document.getElementById('bg-task-list');
+  const countEl = document.getElementById('bg-count');
+  // Only show running tasks
+  const running = tasks.filter(t => t.status === 'running');
+  countEl.textContent = running.length;
+
+  if (running.length === 0) {
+    container.innerHTML = '<div class="bg-task-empty">No background processes</div>';
+    return;
+  }
+
+  container.innerHTML = running.map(t => {
+    const elapsed = t.elapsed ? formatElapsed(t.elapsed) : '';
+    return `
+      <div class="bg-task-item ${t.status}">
+        <div class="bg-task-header">
+          <span class="bg-task-desc">${escapeHtml(t.description || t.command || t.taskId)}</span>
+          <span class="bg-task-status ${t.status}">${t.status}</span>
+        </div>
+        ${t.command ? `<div class="bg-task-cmd">${escapeHtml(t.command)}</div>` : ''}
+        <div class="bg-task-meta">
+          ${elapsed ? `<span>&#9201; ${elapsed}</span>` : ''}
+          ${t.totalLines ? `<span>${t.totalLines} lines</span>` : ''}
+          ${t.taskId ? `<span>ID: ${escapeHtml(t.taskId)}</span>` : ''}
+        </div>
+        ${t.output ? `<div class="bg-task-output">${escapeHtml(t.output)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function formatElapsed(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
 function renderTasks(tasks) {
