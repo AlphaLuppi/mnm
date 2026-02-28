@@ -1,962 +1,1022 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments:
   - planning-artifacts/prd.md
   - planning-artifacts/product-brief-mnm-2026-02-22.md
   - planning-artifacts/technical-research-mnm-2026-02-22.md
 workflowType: 'architecture'
+lastStep: 8
+status: 'complete'
+completedAt: '2026-02-22'
 project_name: mnm
 user_name: Gabri
-date: 2026-02-28
+date: 2026-02-22
 ---
 
-# Architecture -- MnM IDE
+# Architecture Decision Document
 
-**Auteur :** Gabri / Architecture Technique
-**Date :** 2026-02-28
-**Statut :** Draft initial (base sur PRD valide + recherche technique + analyse SDK verifiee)
+_This document builds collaboratively through step-by-step discovery. Sections are appended as we work through each architectural decision together._
 
----
+## Project Context Analysis
 
-## Table des matieres
+### Requirements Overview
 
-1. [Vision technique](#1-vision-technique)
-2. [Decisions architecturales (ADR)](#2-decisions-architecturales-adr)
-3. [Stack technique](#3-stack-technique)
-4. [Architecture systeme](#4-architecture-systeme)
-5. [Architecture des composants](#5-architecture-des-composants)
-6. [Integration Claude Code -- SDK spawn + file watching](#6-integration-claude-code--sdk-spawn--file-watching)
-7. [Data flow et event bus](#7-data-flow-et-event-bus)
-8. [Modele de donnees](#8-modele-de-donnees)
-9. [Architecture UI et layout](#9-architecture-ui-et-layout)
-10. [Securite et permissions](#10-securite-et-permissions)
-11. [Performance et contraintes](#11-performance-et-contraintes)
-12. [Risques techniques et mitigations](#12-risques-techniques-et-mitigations)
-13. [Ordre de construction](#13-ordre-de-construction)
+**Functional Requirements:**
 
----
+48 FRs répartis en 9 domaines fonctionnels :
 
-## 1. Vision technique
+| Domaine | FRs | Implication architecturale |
+|---------|-----|---------------------------|
+| Agent Monitoring & Supervision | FR1-FR8 | Process management, stdout parsing, event correlation, health status engine |
+| Context Visualization & Management | FR9-FR13 | File tracking par agent, drag & drop IPC, notification system |
+| Drift Detection | FR14-FR20 | LLM integration async, document hierarchy model, confidence scoring, alert system |
+| Dashboard & Project Overview | FR21-FR24 | Aggregation layer, navigation routing, real-time counters |
+| Workflow Visualization & Editing | FR25-FR32 | Graph engine (React Flow), YAML/XML parser, bidirectional sync, execution tracking |
+| Test Visualization | FR33-FR36 | Test runner integration, hierarchical mapping specs ↔ tests |
+| Navigation & Layout | FR37-FR40 | Shell/layout manager, panel system, hierarchical navigation state |
+| File & Git Integration | FR41-FR44 | File watcher (chokidar), Git client (simple-git), event correlator |
+| Project & Integration | FR45-FR48 | Project loader, BMAD structure detector, Git reader, workflow parser |
 
-MnM est un **cockpit de supervision** pour le developpement agentique. L'architecture est concue autour de trois principes :
+**Non-Functional Requirements:**
 
-1. **Observation sans intrusion** -- MnM observe les agents via les fichiers qu'ils ecrivent sur disque (`~/.claude/`), sans modifier Claude Code ni intercepter ses appels API.
-2. **Event-driven** -- Toute l'UI se met a jour par evenements (fichier modifie, message inter-agent, tache creee). Pas de polling.
-3. **Local-first** -- Zero serveur distant. Tout tourne en local. La seule connexion internet est pour les appels LLM (drift detection) et le SDK Anthropic.
+11 NFRs répartis en 2 catégories, tous avec métriques quantifiées :
 
-### Contraintes PRD
+| NFR | Contrainte | Impact architectural |
+|-----|-----------|---------------------|
+| NFR1 | Timeline update < 500ms | Event bus performant, pas de polling |
+| NFR2 | File watching < 5% CPU au repos | chokidar avec filtering strict |
+| NFR3 | Workflow Editor > 30 FPS / 50 noeuds | React Flow avec virtualisation |
+| NFR4 | Drift detection < 30s (pipeline local < 2s) | LLM async avec cache |
+| NFR5 | Cold start < 5s | Lazy loading, pas de scan initial lourd |
+| NFR6 | UI thread < 100ms de blocage | Séparation stricte main/renderer, worker threads si nécessaire |
+| NFR7 | RAM < 500 MB | Monitoring mémoire, virtualisation de listes |
+| NFR8 | Interception Claude Code < 500ms | Subprocess capture optimisée |
+| NFR9 | File watching < 1s de délai | chokidar avec FSEvents (macOS) |
+| NFR10 | Process sans privilèges élevés | Architecture user-space only |
+| NFR11 | Cross-platform identique | Abstraction OS, CI multi-plateforme |
 
-- App desktop cross-platform (macOS, Linux, Windows)
-- Internet requis (appels LLM + agents Claude)
-- Pas de backend serveur, pas de compte utilisateur
-- Architecture evenementielle (NFR1 : < 500ms de latence)
-- 3 agents monitores simultanement (NFR6, NFR7)
-- Open source
+**Scale & Complexity:**
 
----
+- Domaine principal : Desktop application full-stack (Electron)
+- Niveau de complexité : **Medium-High**
+- Composants architecturaux estimés : **12-15** (shell, event bus, agent harness, file watcher, Git client, drift engine, workflow parser, workflow editor, timeline, context panel, test panel, dashboard, navigation state, IPC bridge, LLM service)
 
-## 2. Decisions architecturales (ADR)
+### Technical Constraints & Dependencies
 
-### ADR-001 : Electron comme runtime desktop
+| Contrainte | Source | Impact |
+|-----------|--------|--------|
+| Application desktop avec accès filesystem + process + Git | PRD (contrainte technique) | Electron ou Tauri obligatoire |
+| Internet requis pour LLM (drift detection, agents) | PRD (Connectivity) | Pas de mode offline, gestion des déconnexions |
+| Pas de backend serveur | PRD (Connectivity) | Tout est local, pas de sync cloud |
+| Claude Code CLI comme agent principal (MVP) | PRD (scope) | Subprocess wrapping, parsing stdout |
+| Event-driven (pas de polling) | PRD (Technical Success) | Architecture pub/sub ou event bus |
+| Cross-platform macOS/Linux/Windows | PRD (Platform Support) | Abstraction OS pour filesystem, process, Git |
+| Équipe 3 devs, pas d'expérience desktop | Product Brief (Resources) | Prioriser la simplicité, stack web-first |
 
-**Contexte :** MnM necessite un acces filesystem complet, process management, et Git natif. L'equipe a des competences web (React/TypeScript).
+### Cross-Cutting Concerns Identified
 
-**Decision :** Electron (derniere version stable).
+1. **Event System** — Le bus d'événements est le système nerveux de MnM. File changes, agent stdout, drift alerts, workflow execution, navigation — tout passe par des événements. L'architecture du bus (synchrone vs async, typed vs untyped, buffered vs unbuffered) est une décision fondatrice.
 
-**Justification :**
-- Courbe d'apprentissage minimale vs Tauri (pas de Rust requis)
-- Ecosysteme NPM complet (chokidar, simple-git, claude-agent-sdk)
-- Precedent VS Code / Cursor pour des IDEs complexes
-- Migration Tauri possible a terme si performance insuffisante
+2. **IPC Main ↔ Renderer** — Chaque feature nécessite une communication entre le main process Electron (filesystem, process, Git) et le renderer (React UI). Le design de la couche IPC (contextBridge, channels typés, serialization) impacte toute l'application.
 
-**Consequences :** Bundle 150-300 MB, RAM 150-400 MB. Acceptable pour un outil developpeur.
+3. **State Management** — L'état partagé entre les 3 volets (agents actifs, fichiers contexte, alertes drift, navigation hiérarchique, workflow courant) nécessite un store centralisé avec des mises à jour réactives performantes.
 
-### ADR-002 : SDK spawn + file watching (vs subprocess wrapping)
+4. **Async Error Handling** — Agents qui crashent, LLM qui timeout, filesystem inaccessible, Git corrompu — chaque composant dépend de ressources externes faillibles. La stratégie de gestion d'erreurs (retry, fallback, notification utilisateur) doit être cohérente.
 
-**Contexte :** MnM doit observer l'activite de N agents Claude Code simultanement, incluant leurs messages inter-agents, taches, et transcriptions.
+5. **Cross-Platform Abstraction** — Les différences entre macOS (FSEvents), Linux (inotify), et Windows (ReadDirectoryChangesW) pour le file watching, et les subtilités de process management, nécessitent une couche d'abstraction OS.
 
-**Decision :** Lancer les agents via `@anthropic-ai/claude-agent-sdk` et observer leur activite via chokidar sur `~/.claude/`.
+## Starter Template Evaluation
 
-**Justification :**
-- Agent Teams ecrit TOUT son etat sur disque en temps reel (inboxes JSON, tasks JSON, sessions JSONL)
-- Le file watching est non-intrusif (zero modification de Claude Code)
-- Le stdout parsing est fragile et ne supporte qu'un agent a la fois
-- Le SDK fournit un lifecycle propre (start, stream messages, stop)
-- Valide par 5 projets open-source existants (c9watch, clog, claude_code_agent_farm)
+### Primary Technology Domain
 
-**Consequences :** Dependance au format des fichiers `~/.claude/` (non documente officiellement). Necessite une couche de validation (zod) et une veille sur les releases Claude Code.
+Desktop application (Electron) basé sur l'analyse des requirements : accès filesystem, process management, Git integration, UI riche React.
 
-### ADR-003 : Zustand pour le state management
+### Versions Vérifiées (février 2026)
 
-**Contexte :** L'UI de MnM est pilotee par des evenements temps reel (file changes, messages, tasks) et doit supporter des updates a haute frequence.
+| Technologie | Version | Notes |
+|-------------|---------|-------|
+| Electron | 40.6.0 | Stable, 19 fév 2026 |
+| React | 19.2.4 | 26 jan 2026 |
+| electron-vite | 5.0.0 | Build tooling Vite pour Electron |
+| Zustand | 5.0.11 | State management |
+| Tailwind CSS | 4.x | CSS-first config, perf x5 |
+| Vitest | 4.0.18 | Testing framework Vite-native |
+| React Flow | latest | Node-based graph editor |
 
-**Decision :** Zustand avec des stores separes par domaine.
+### Starter Options Considered
 
-**Justification :**
-- Plus leger que Redux (pas de boilerplate)
-- Subscriptions selectrices (un composant ne re-render que quand son slice change)
-- Compatible avec les updates haute frequence depuis le main process Electron via IPC
-- API simple, TypeScript-native
+| Starter | Type | Verdict |
+|---------|------|---------|
+| **Official electron-vite scaffold** | CLI officiel (`npm create @quick-start/electron`) | **Sélectionné** — clean, officiel, bien maintenu |
+| guasam/electron-react-app | Template GitHub (Tailwind + Shadcn/UI) | Rejeté — opinions UI à défaire |
+| Electron Forge + Vite | Outil officiel Electron | Rejeté — Vite support expérimental (v7.5.0) |
+| 2skydev/electron-vite-react-ts-template | Template GitHub (feature-rich) | Rejeté — utilise Recoil + styled-components (pas notre stack) |
 
-### ADR-004 : React Flow pour le workflow editor
+### Selected Starter: Official electron-vite scaffold
 
-**Decision :** React Flow + dagre pour le layout automatique.
+**Rationale for Selection:**
 
-**Justification :** Voir section 3 de la recherche technique. React-native, nodes personnalisables, edges conditionnels, drag & drop, mini-map, performance (virtualisation).
+1. Fondation propre sans opinions à défaire — on ajoute exactement ce qu'on veut
+2. Officiellement maintenu (electron-vite v5.0)
+3. Séparation main/renderer/preload déjà configurée avec contextBridge (best practice sécurité)
+4. DX excellente (HMR, source maps, Chrome DevTools)
+5. Adapté à une équipe intermédiaire sans expérience desktop
 
-### ADR-005 : LLM-as-judge pour la drift detection (MVP)
+**Initialization Command:**
 
-**Decision :** Appels Claude API (mode comparaison) pour detecter les drifts entre documents.
-
-**Justification :** Plus simple a implementer que les embeddings+concepts, plus precis sur les contradictions fines. Cout acceptable (~$1/jour pour 3 utilisateurs). Migration vers l'architecture hybride 3 couches (embeddings + concepts + LLM) possible post-MVP.
-
-### ADR-006 : Architecture IPC stricte main/renderer
-
-**Decision :** Separation stricte main process / renderer process via contextBridge. Aucun acces Node.js depuis le renderer.
-
-**Justification :** Securite (le renderer ne peut pas executer de commandes systeme directement), testabilite (le renderer est un SPA React standard), preparation a une eventuelle migration web.
-
----
-
-## 3. Stack technique
-
-| Couche | Choix | Version cible | Justification |
-|--------|-------|---------------|---------------|
-| **Runtime desktop** | Electron | Derniere stable | ADR-001 |
-| **Build system** | electron-vite | Derniere stable | Vite rapide + support Electron natif |
-| **Frontend** | React 19 + TypeScript | 19.x | Standard, ecosysteme riche |
-| **State management** | Zustand | 5.x | ADR-003 |
-| **Styling** | Tailwind CSS | 4.x | Utility-first, rapid prototyping |
-| **Workflow editor** | React Flow + dagre | Dernieres stables | ADR-004 |
-| **Agent SDK** | @anthropic-ai/claude-agent-sdk | Derniere stable | ADR-002 |
-| **File watching** | chokidar | 4.x | Standard, FSEvents sur macOS, performant |
-| **Git** | simple-git | Derniere stable | API TypeScript complete, git natif |
-| **Schema validation** | zod | 3.x | Validation des JSON Claude a l'entree |
-| **YAML parsing** | js-yaml | 4.x | Standard, rapide |
-| **XML parsing** | fast-xml-parser | 4.x | Performant, bonne API |
-| **Markdown parsing** | remark / unified | Dernieres stables | AST Markdown, extraction sections |
-| **LLM calls** | Anthropic SDK (@anthropic-ai/sdk) | Derniere stable | Drift detection, extraction concepts |
-| **Packaging** | electron-builder | Derniere stable | Cross-platform (dmg, AppImage, exe) |
-| **Tests unitaires** | Vitest | Derniere stable | Rapide, compatible Vite |
-| **Tests E2E** | Playwright (Electron) | Derniere stable | Support Electron natif |
-
----
-
-## 4. Architecture systeme
-
-### Vue d'ensemble
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    ELECTRON MAIN PROCESS                      │
-│                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐ │
-│  │ Agent       │  │ File        │  │ Git                  │ │
-│  │ Manager     │  │ Watcher     │  │ Integration          │ │
-│  │             │  │ Service     │  │                      │ │
-│  │ - SDK spawn │  │ - ~/.claude │  │ - simple-git         │ │
-│  │ - lifecycle │  │ - project/  │  │ - status, diff, log  │ │
-│  │ - stream    │  │ - debounce  │  │ - file at commit     │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬───────────┘ │
-│         │                │                     │             │
-│         v                v                     v             │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │                   EVENT BUS (EventEmitter)               │ │
-│  │                                                         │ │
-│  │  AgentEvent | FileEvent | TaskEvent | MessageEvent |    │ │
-│  │  DriftEvent | GitEvent | SessionEvent               │   │ │
-│  └──────────────────────┬──────────────────────────────┘   │
-│                         │                                    │
-│  ┌──────────────────────┴──────────────────────────────┐   │
-│  │              IPC BRIDGE (contextBridge)               │   │
-│  │  preload.ts : expose API typee au renderer           │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-│                         │                                    │
-└─────────────────────────┼────────────────────────────────────┘
-                          │
-┌─────────────────────────┼────────────────────────────────────┐
-│                    ELECTRON RENDERER PROCESS                  │
-│                         │                                    │
-│  ┌──────────────────────┴──────────────────────────────┐   │
-│  │              ZUSTAND STORES                          │   │
-│  │                                                      │   │
-│  │  teamStore | agentStore | taskStore | messageStore | │   │
-│  │  fileStore | sessionStore | driftStore | gitStore  | │   │
-│  │  uiStore | workflowStore                           │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-│                         │                                    │
-│  ┌──────────────────────┴──────────────────────────────┐   │
-│  │              REACT UI                                │   │
-│  │                                                      │   │
-│  │  ┌─────────┐ ┌───────────┐ ┌─────────────────────┐ │   │
-│  │  │ Context │ │  Agents   │ │ Tests & Validation  │ │   │
-│  │  │ Panel   │ │  Panel    │ │ Panel               │ │   │
-│  │  │ (left)  │ │  (center) │ │ (right)             │ │   │
-│  │  └─────────┘ └───────────┘ └─────────────────────┘ │   │
-│  │  ┌─────────────────────────────────────────────────┐ │   │
-│  │  │            Timeline (bottom)                     │ │   │
-│  │  └─────────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+```bash
+npm create @quick-start/electron@latest mnm -- --template react-ts
 ```
 
-### Separation des responsabilites
+### Architectural Decisions Provided by Starter
 
-| Processus | Responsabilites | Acces |
-|-----------|-----------------|-------|
-| **Main process** | Agent lifecycle (SDK), file watching (chokidar), Git (simple-git), drift detection (LLM API), event bus | Node.js complet, filesystem, process |
-| **Preload** | Exposition d'une API typee (contextBridge), marshalling des evenements | Bridge securise |
-| **Renderer** | UI React, state management (Zustand), visualisation (React Flow) | Aucun acces Node.js |
+**Language & Runtime:**
+TypeScript strict, Electron 40.x, Node.js (main process), Chromium (renderer)
 
----
+**Build Tooling:**
+Vite 6.x via electron-vite 5.0 — HMR pour main + renderer, build optimisé
 
-## 5. Architecture des composants
+**Code Organization:**
+- `src/main/` — Electron main process (filesystem, process, Git, IPC)
+- `src/renderer/` — React application (UI, state, composants)
+- `src/preload/` — contextBridge scripts (pont sécurisé main ↔ renderer)
 
-### 5.1 Main process -- Services
+**IPC Pattern:**
+contextBridge + preload scripts — le renderer n'a pas d'accès direct à Node.js
 
-#### AgentManager
+**Development Experience:**
+Hot reload, source maps, Chrome DevTools intégré
 
-Gere le lifecycle des agents via le Claude Agent SDK.
+### Dependencies to Add
+
+| Catégorie | Package | Version | Justification |
+|-----------|---------|---------|---------------|
+| Styling | tailwindcss | 4.x | CSS-first config, rapide, léger |
+| State management | zustand | 5.0.x | Léger, performant, événements temps réel |
+| Workflow viz | @xyflow/react | latest | Node-based editor, React natif |
+| Graph layout | dagre | latest | Auto-layout de DAGs |
+| File watching | chokidar | latest | Standard, FSEvents natif macOS |
+| Git | simple-git | latest | API TypeScript complète, git natif |
+| YAML parsing | js-yaml | latest | Standard de facto |
+| XML parsing | fast-xml-parser | latest | Rapide, bien maintenu |
+| Testing | vitest | 4.0.x | Vite-native, rapide |
+| Markdown parsing | remark / unified | latest | AST structurel pour drift detection |
+| LLM integration | @anthropic-ai/sdk | latest | Appels Claude API pour drift detection |
+
+**Note:** L'initialisation du projet avec cette commande sera la première story d'implémentation.
+
+## Core Architectural Decisions
+
+### Decision Priority Analysis
+
+**Critical Decisions (Block Implementation):**
+1. Event bus architecture → EventEmitter (main) + mitt (renderer)
+2. IPC channel design → Hybride invoke + streaming
+3. Persistance locale → Fichiers JSON dans `.mnm/`
+4. LLM integration pattern → Service abstrait avec implémentation Claude
+
+**Important Decisions (Shape Architecture):**
+5. Component architecture → Hybrid (feature-based + shared layer)
+6. Packaging & distribution → electron-builder + GitHub Releases
+
+**Deferred Decisions (Post-MVP):**
+- Auto-update mechanism (gestion manuelle au MVP)
+- Plugin system pour agents additionnels (MVP = Claude Code uniquement)
+- Mécanisme de migration de données `.mnm/` (pas nécessaire tant que le format est simple)
+
+### Event Bus Architecture
+
+| Aspect | Décision |
+|--------|----------|
+| **Choix** | EventEmitter natif (main process) + mitt (renderer) |
+| **Version** | mitt latest, EventEmitter natif Node.js |
+| **Rationale** | EventEmitter est gratuit côté Node, mitt est ultra-léger (200 bytes) et typé côté renderer. Évite la complexité de RxJS pour le MVP. |
+| **Affects** | Tous les composants — c'est le système nerveux de l'app |
+
+**Pattern :**
+- Main process : `EventEmitter` Node.js natif pour les événements internes (file changes, agent stdout, Git events)
+- Renderer : `mitt` avec types stricts pour les événements UI (navigation, panel state, user actions)
+- Pont : Les événements traversent l'IPC via des channels typés (main émet → IPC bridge → mitt renderer)
+
+**Types d'événements :**
 
 ```typescript
-interface AgentManagerAPI {
-  // Lifecycle
-  spawnAgent(config: AgentSpawnConfig): Promise<AgentHandle>;
-  spawnTeam(config: TeamSpawnConfig): Promise<TeamHandle>;
-  stopAgent(agentId: string): Promise<void>;
-  stopTeam(teamName: string): Promise<void>;
+// src/shared/events.ts
+type MainEvents = {
+  'agent:output': { agentId: string; data: string; timestamp: number };
+  'agent:status': { agentId: string; status: AgentStatus };
+  'agent:chat-entry': { agentId: string; role: 'user' | 'assistant' | 'system'; content: string; checkpoint?: string; timestamp: number };
+  'file:changed': { path: string; type: 'create' | 'modify' | 'delete' };
+  'drift:detected': { id: string; severity: 'critical' | 'warning' | 'info'; documents: [string, string] };
+  'git:commit': { hash: string; message: string };
+  'workflow:node-status': { workflowId: string; nodeId: string; status: 'pending' | 'active' | 'done' | 'error' };
+  'test:result': { testId: string; specId: string; status: 'pass' | 'fail' | 'pending'; duration: number };
+};
 
-  // Queries
-  getActiveAgents(): AgentInfo[];
-  getTeamInfo(teamName: string): TeamInfo | null;
+type RendererEvents = {
+  'nav:select': { level: 'project' | 'epic' | 'story' | 'task'; id: string };
+  'panel:resize': { panel: 'context' | 'agents' | 'tests'; width: number };
+  'agent:launch': { task: string; context: string[] };
+};
+```
 
-  // Events (via event bus)
-  // -> agent_started, agent_stopped, agent_error, agent_output
+### IPC Channel Design
+
+| Aspect | Décision |
+|--------|----------|
+| **Choix** | Hybride invoke (request-response) + streaming (events push) |
+| **Rationale** | Les requêtes ponctuelles (getStatus, getFileHistory) utilisent invoke. Les flux temps réel (agent output, file watching) utilisent le streaming. Séparation claire des responsabilités. |
+| **Affects** | Toute la communication main ↔ renderer |
+
+**Pattern :**
+
+```typescript
+// src/shared/ipc-channels.ts
+
+// Request-Response (renderer → main → response)
+type IpcInvokeChannels = {
+  'git:status': { args: void; result: GitStatus };
+  'git:log': { args: { count: number }; result: GitLog };
+  'git:show-file': { args: { path: string; commitHash: string }; result: string };
+  'agent:launch': { args: { task: string; context: string[] }; result: { agentId: string } };
+  'agent:stop': { args: { agentId: string }; result: void };
+  'agent:get-chat': { args: { agentId: string; fromCheckpoint?: string }; result: ChatEntry[] };
+  'drift:check': { args: { docA: string; docB: string }; result: DriftReport };
+  'drift:resolve': { args: { driftId: string; action: 'fix-source' | 'fix-derived' | 'ignore'; content?: string }; result: void };
+  'project:open': { args: { path: string }; result: ProjectInfo };
+  'stories:list': { args: void; result: StoryProgress[] };
+  'workflow:save': { args: { workflowId: string; graph: WorkflowGraph }; result: void };
+  'test:run': { args: { specId?: string; scope: 'unit' | 'integration' | 'e2e' }; result: { runId: string } };
+  'test:list': { args: { specId?: string }; result: TestInfo[] };
+};
+
+// Streaming (main → renderer, push)
+type IpcStreamChannels = {
+  'stream:agent-output': { agentId: string; data: string; timestamp: number };
+  'stream:agent-chat': { agentId: string; role: 'user' | 'assistant' | 'system'; content: string; checkpoint?: string; timestamp: number };
+  'stream:file-change': { path: string; type: 'create' | 'modify' | 'delete'; agentId?: string };
+  'stream:drift-alert': { id: string; severity: string; summary: string };
+  'stream:agent-status': { agentId: string; status: AgentStatus };
+  'stream:workflow-node': { workflowId: string; nodeId: string; status: 'pending' | 'active' | 'done' | 'error' };
+  'stream:test-result': { testId: string; specId: string; status: 'pass' | 'fail' | 'pending'; duration: number; output?: string };
+};
+```
+
+**Fichier preload :** expose les channels typés via `contextBridge.exposeInMainWorld()`.
+
+### Local Data Persistence
+
+| Aspect | Décision |
+|--------|----------|
+| **Choix** | Fichiers JSON dans `.mnm/` à la racine du projet |
+| **Rationale** | Données simples au MVP (préférences, cache, historique). JSON est lisible, débuggable, versionnable. Migration vers SQLite possible post-MVP si les besoins évoluent. |
+| **Affects** | Settings, drift cache, agent history |
+
+**Structure :**
+
+```
+.mnm/
+├── settings.json            # Préférences utilisateur (seuils drift, layout, clé API)
+├── drift-cache/
+│   ├── concepts-{docHash}.json   # Concepts extraits par document
+│   └── results-{pairHash}.json   # Résultats de drift par paire
+├── agent-history/
+│   └── session-{timestamp}.json  # Historique des sessions agents
+└── project-state.json       # Dernier état du projet (navigation, panels)
+```
+
+**Règles :**
+- `.mnm/` est ajouté au `.gitignore` du projet (données locales, pas versionnées)
+- Lecture/écriture atomique (write to temp + rename)
+- Pas de migration de schema au MVP — format simple et extensible
+
+### LLM Integration Pattern
+
+| Aspect | Décision |
+|--------|----------|
+| **Choix** | Service abstrait `LLMService` + implémentation `ClaudeLLMService` |
+| **Version** | @anthropic-ai/sdk latest |
+| **Rationale** | Testable (mock), extensible (swap provider), centralise retries et rate limiting. |
+| **Affects** | Drift detection, potentiellement d'autres features LLM futures |
+
+**Interface :**
+
+```typescript
+// src/main/services/llm/llm-service.ts
+interface LLMService {
+  compareDocuments(parentDoc: string, childDoc: string): Promise<DriftReport>;
+  extractConcepts(document: string): Promise<Concept[]>;
 }
 
-interface AgentSpawnConfig {
-  prompt: string;
-  projectDir: string;
-  maxTurns?: number;
-  settingSources?: ('project' | 'user')[];
-  env?: Record<string, string>;
-}
-
-interface TeamSpawnConfig extends AgentSpawnConfig {
-  teamName: string;
-  // Active Agent Teams via env flag
-  // env: { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" }
+// src/main/services/llm/claude-llm-service.ts
+class ClaudeLLMService implements LLMService {
+  constructor(private apiKey: string, private model: string = 'claude-sonnet-4-6') {}
+  // Implémentation avec Anthropic SDK, retries, structured output
 }
 ```
 
-#### ClaudeFileWatcher
+**Gestion de la clé API :** Stockée dans `.mnm/settings.json`, lue au démarrage. Pas de hardcoding.
 
-Observe les fichiers `~/.claude/` pour extraire l'etat des agents en temps reel.
+### Frontend Component Architecture
 
-```typescript
-interface ClaudeFileWatcherAPI {
-  start(config: WatcherConfig): void;
-  stop(): void;
+| Aspect | Décision |
+|--------|----------|
+| **Choix** | Hybrid — feature-based pour les domaines, shared layer pour les communs |
+| **Rationale** | Les 3 domaines (agents, drift, workflow) sont indépendants. Les composants partagés (panels, nav, UI) vivent dans un dossier commun. |
+| **Affects** | Organisation du code renderer, navigation entre features |
 
-  // Events emis (via event bus) :
-  // -> team_config_changed(teamConfig)
-  // -> inbox_message(agentName, messages[])
-  // -> task_created(task)
-  // -> task_updated(task)
-  // -> session_entry(sessionId, entry)
-}
+**Structure :**
 
-interface WatcherConfig {
-  claudeDir: string;         // ~/.claude
-  teamName: string;
-  projectDir: string;
-  debounceMs?: number;       // defaut: 100
-}
+```
+src/renderer/
+├── features/
+│   ├── agents/          # Timeline, health indicators, agent panels
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── store.ts     # Zustand slice
+│   ├── drift/           # Drift detection, alerts, resolution
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── store.ts
+│   ├── workflow/        # Workflow editor, React Flow, parser
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── store.ts
+│   ├── tests/           # Test visualization, hierarchy
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── store.ts
+│   └── dashboard/       # Cockpit overview
+│       ├── components/
+│       └── hooks/
+├── shared/
+│   ├── components/      # UI kit (Button, Panel, Badge, etc.)
+│   ├── layout/          # Shell, 3-pane layout, navigation
+│   └── hooks/           # Hooks partagés (useIpc, useEventBus)
+├── stores/
+│   └── navigation.ts    # État de navigation hiérarchique (partagé entre features)
+└── App.tsx
 ```
 
-#### ProjectFileWatcher
+### Packaging & Distribution
 
-Observe les fichiers du projet pour detecter les modifications par les agents.
+| Aspect | Décision |
+|--------|----------|
+| **Choix** | electron-builder + GitHub Releases |
+| **Rationale** | Plus mature que Forge, pas de risque avec le Vite expérimental de Forge. Distribution via GitHub Releases (simple, gratuit). |
+| **Affects** | Build pipeline, CI/CD |
 
-```typescript
-interface ProjectFileWatcherAPI {
-  start(projectDir: string): void;
-  stop(): void;
+**Targets :** macOS (.dmg), Linux (.AppImage), Windows (.exe)
+**CI/CD :** GitHub Actions — build + test sur les 3 plateformes, release automatique sur tag.
 
-  // Events emis :
-  // -> project_file_changed(path, type)
-  // -> project_file_created(path)
-  // -> project_file_deleted(path)
-}
+### Decision Impact Analysis
+
+**Implementation Sequence :**
+1. Scaffold electron-vite + configuration de base (Tailwind, Zustand, Vitest)
+2. IPC bridge typé + preload setup
+3. Event bus (main + renderer)
+4. Shell layout 3 volets + navigation
+5. File watcher + Git integration (main process services)
+6. Agent harness (subprocess wrapping Claude Code)
+7. Timeline + dashboard (renderer features)
+8. Drift detection (LLM service + UI)
+9. Workflow editor (parser + React Flow)
+10. Packaging + CI/CD
+
+**Cross-Component Dependencies :**
+- Event bus → requis par tous les composants
+- IPC bridge → requis pour toute communication main ↔ renderer
+- File watcher → alimente le drift engine et le context panel
+- Agent harness → alimente la timeline et le context panel
+- Navigation store → synchronise les 3 volets
+
+## Implementation Patterns & Consistency Rules
+
+### Pattern Categories Defined
+
+**12 zones de conflit potentiel identifiées** où des agents IA pourraient coder différemment sans règles explicites.
+
+### Naming Patterns
+
+**Fichiers & Répertoires :**
+
+| Élément | Convention | Exemple |
+|---------|-----------|---------|
+| Composants React | PascalCase.tsx | `AgentTimeline.tsx` |
+| Hooks | camelCase, préfixe `use` | `useAgentStatus.ts` |
+| Stores Zustand | camelCase + `.store.ts` | `agents.store.ts` |
+| Services main process | kebab-case + `.service.ts` | `file-watcher.service.ts` |
+| Types/interfaces | kebab-case + `.types.ts` | `agent.types.ts` |
+| Tests | même nom + `.test.ts` co-localisé | `AgentTimeline.test.tsx` |
+| Constantes/config | kebab-case + `.config.ts` | `ipc.config.ts` |
+
+**Code :**
+
+| Élément | Convention | Exemple |
+|---------|-----------|---------|
+| Variables, fonctions | camelCase | `getAgentStatus()` |
+| Composants React | PascalCase | `<DriftAlert />` |
+| Types & Interfaces | PascalCase, préfixe `I` interdit | `type AgentStatus = ...` |
+| Enums | PascalCase + membres UPPER_SNAKE | `enum Status { ACTIVE, BLOCKED }` |
+| Constantes globales | UPPER_SNAKE_CASE | `MAX_AGENTS = 10` |
+| IPC channels | namespace:action en kebab | `'agent:launch'`, `'stream:file-change'` |
+| Event types | namespace:action en kebab | `'drift:detected'`, `'nav:select'` |
+
+### Structure Patterns
+
+**Tests co-localisés :**
+
+```
+features/agents/
+├── components/
+│   ├── AgentTimeline.tsx
+│   └── AgentTimeline.test.tsx
+├── hooks/
+│   ├── useAgentStatus.ts
+│   └── useAgentStatus.test.ts
+└── agents.store.ts
 ```
 
-#### GitService
+**Services main process :**
 
-Acces programmatique a Git via simple-git.
-
-```typescript
-interface GitServiceAPI {
-  getStatus(): Promise<StatusResult>;
-  getFileDiff(filePath: string): Promise<string>;
-  getFileHistory(filePath: string, maxCount?: number): Promise<LogResult>;
-  getFileAtCommit(filePath: string, commitHash: string): Promise<string>;
-  getRecentCommits(count?: number): Promise<LogResult>;
-  getBranches(): Promise<BranchSummary>;
-}
+```
+src/main/services/
+├── agent/
+│   ├── agent-harness.service.ts
+│   ├── agent-harness.service.test.ts
+│   └── agent.types.ts
+├── file-watcher/
+│   ├── file-watcher.service.ts
+│   └── file-watcher.service.test.ts
+├── git/
+│   ├── git.service.ts
+│   └── git.service.test.ts
+├── llm/
+│   ├── llm.service.ts
+│   ├── claude-llm.service.ts
+│   └── llm.types.ts
+└── drift/
+    ├── drift-engine.service.ts
+    └── drift.types.ts
 ```
 
-#### DriftDetector
-
-Detection de drift entre documents via LLM-as-judge.
+**Imports absolus avec alias :**
 
 ```typescript
-interface DriftDetectorAPI {
-  // Detection on-demand
-  checkDrift(parentDoc: string, childDoc: string): Promise<DriftReport>;
+// ✅ Bon
+import { AgentStatus } from '@shared/types/agent.types';
+import { useAgentStatus } from '@renderer/features/agents/hooks/useAgentStatus';
 
-  // Detection automatique (declenchee par file watcher)
-  enableAutoDetection(hierarchy: DocumentHierarchy): void;
-  disableAutoDetection(): void;
-
-  // Configuration
-  setConfidenceThreshold(threshold: number): void; // 0.0 - 1.0
-}
-
-interface DriftReport {
-  items: DriftItem[];
-  overallScore: number;      // 0 = coherent, 1 = drift total
-  timestamp: number;
-}
-
-interface DriftItem {
-  concept: string;
-  parentValue: string;
-  childValue: string;
-  severity: 'critical' | 'warning' | 'info';
-  confidence: number;        // 0.0 - 1.0
-  parentLocation: string;    // fichier + section
-  childLocation: string;
-  suggestion: string;
-}
+// ❌ Mauvais
+import { AgentStatus } from '../../../shared/types/agent.types';
 ```
 
-### 5.2 IPC Bridge -- Preload
+Alias configurés dans tsconfig paths : `@main/`, `@renderer/`, `@shared/`.
 
-Le preload expose une API typee au renderer via `contextBridge` :
+### Format Patterns
+
+**Erreurs normalisées :**
 
 ```typescript
-// preload.ts
-contextBridge.exposeInMainWorld('mnm', {
-  // Agents
-  agents: {
-    spawn: (config: AgentSpawnConfig) => ipcRenderer.invoke('agents:spawn', config),
-    spawnTeam: (config: TeamSpawnConfig) => ipcRenderer.invoke('agents:spawnTeam', config),
-    stop: (agentId: string) => ipcRenderer.invoke('agents:stop', agentId),
-    getActive: () => ipcRenderer.invoke('agents:getActive'),
-  },
-
-  // Git
-  git: {
-    getStatus: () => ipcRenderer.invoke('git:status'),
-    getFileDiff: (path: string) => ipcRenderer.invoke('git:fileDiff', path),
-    getFileHistory: (path: string) => ipcRenderer.invoke('git:fileHistory', path),
-  },
-
-  // Drift
-  drift: {
-    check: (parent: string, child: string) => ipcRenderer.invoke('drift:check', parent, child),
-    setThreshold: (t: number) => ipcRenderer.invoke('drift:setThreshold', t),
-  },
-
-  // Event subscriptions (main -> renderer)
-  on: (channel: EventChannel, callback: (data: any) => void) => {
-    ipcRenderer.on(channel, (_event, data) => callback(data));
-  },
-  off: (channel: EventChannel, callback: (data: any) => void) => {
-    ipcRenderer.removeListener(channel, callback);
-  },
-});
+// src/shared/types/error.types.ts
+type AppError = {
+  code: string;         // 'AGENT_CRASH' | 'LLM_TIMEOUT' | 'FILE_NOT_FOUND' | ...
+  message: string;      // Message lisible par l'humain
+  source: string;       // 'agent-harness' | 'drift-engine' | 'file-watcher' | ...
+  details?: unknown;    // Données additionnelles pour le debug
+};
 ```
 
-### 5.3 Renderer -- Zustand stores
+Toutes les erreurs du main process sont normalisées en `AppError` avant envoi au renderer.
 
-Chaque domaine a son propre store. Les stores sont alimentes par les evenements IPC.
+**IPC Streaming — tous les événements push incluent un timestamp :**
 
 ```typescript
-// stores/agentStore.ts
-interface AgentState {
-  agents: Map<string, AgentInfo>;
-  teamConfig: TeamConfig | null;
+type StreamEvent<T> = T & { timestamp: number };
+```
 
-  // Actions
-  setAgent: (id: string, info: AgentInfo) => void;
+**TypeScript :**
+
+| Règle | Convention |
+|-------|-----------|
+| `type` vs `interface` | `type` par défaut. `interface` pour les contrats de service (extension possible) |
+| Strict mode | `strict: true` dans tsconfig |
+| `any` | Interdit. Utiliser `unknown` + type guard |
+| Export | Named exports uniquement. Pas de `export default` |
+| Barrel files | Un `index.ts` par feature qui re-exporte les éléments publics |
+
+### Communication Patterns
+
+**Zustand Store — pattern standard :**
+
+```typescript
+import { create } from 'zustand';
+
+type AgentsState = {
+  agents: Map<string, Agent>;
+  addAgent: (agent: Agent) => void;
+  updateStatus: (id: string, status: AgentStatus) => void;
   removeAgent: (id: string) => void;
-  setTeamConfig: (config: TeamConfig) => void;
-}
+};
 
-// stores/taskStore.ts
-interface TaskState {
-  tasks: Map<string, TaskInfo>;
-
-  setTask: (id: string, task: TaskInfo) => void;
-  removeTask: (id: string) => void;
-}
-
-// stores/messageStore.ts
-interface MessageState {
-  inboxes: Map<string, InboxMessage[]>;
-
-  addMessage: (agent: string, message: InboxMessage) => void;
-  markRead: (agent: string, index: number) => void;
-}
-
-// stores/sessionStore.ts
-interface SessionState {
-  entries: Map<string, SessionEntry[]>;   // sessionId -> entries
-
-  appendEntry: (sessionId: string, entry: SessionEntry) => void;
-}
-
-// stores/fileStore.ts
-interface FileState {
-  projectFiles: Map<string, FileInfo>;    // path -> info
-  contextFiles: Map<string, ContextFile>; // path -> context info per agent
-
-  updateFile: (path: string, info: FileInfo) => void;
-  setContextFile: (path: string, ctx: ContextFile) => void;
-}
-
-// stores/driftStore.ts
-interface DriftState {
-  reports: DriftReport[];
-  threshold: number;
-
-  addReport: (report: DriftReport) => void;
-  setThreshold: (t: number) => void;
-  dismissDrift: (reportIndex: number, itemIndex: number) => void;
-}
-
-// stores/uiStore.ts
-interface UIState {
-  activePanel: 'context' | 'agents' | 'tests';
-  hierarchyLevel: 'project' | 'epic' | 'story' | 'task';
-  selectedAgentId: string | null;
-  selectedFileId: string | null;
-  panelSizes: { left: number; center: number; right: number };
-
-  // Actions
-  setActivePanel: (panel: string) => void;
-  setHierarchyLevel: (level: string) => void;
-  selectAgent: (id: string | null) => void;
-}
+export const useAgentsStore = create<AgentsState>((set) => ({
+  agents: new Map(),
+  addAgent: (agent) => set((state) => {
+    const next = new Map(state.agents);
+    next.set(agent.id, agent);
+    return { agents: next };
+  }),
+  updateStatus: (id, status) => set((state) => {
+    const next = new Map(state.agents);
+    const agent = next.get(id);
+    if (agent) next.set(id, { ...agent, status });
+    return { agents: next };
+  }),
+  removeAgent: (id) => set((state) => {
+    const next = new Map(state.agents);
+    next.delete(id);
+    return { agents: next };
+  }),
+}));
 ```
 
----
+**Règles Zustand :**
+- Un store par feature (pas de mega-store)
+- Actions dans le store (pas de fonctions externes qui modifient le state)
+- Immutable updates (jamais de mutation directe)
+- Sélecteurs typés pour l'accès depuis les composants
 
-## 6. Integration Claude Code -- SDK spawn + file watching
-
-C'est le coeur technique de MnM. Cette section detaille le pattern "SDK spawn + file watching".
-
-### 6.1 Spawn via SDK
+**Hook IPC standard :**
 
 ```typescript
-import { query } from "@anthropic-ai/claude-agent-sdk";
-
-class AgentManager {
-  private activeAgents: Map<string, AsyncIterable<any>> = new Map();
-
-  async spawnTeam(config: TeamSpawnConfig): Promise<void> {
-    const conversation = query({
-      prompt: config.prompt,
-      options: {
-        cwd: config.projectDir,
-        settingSources: ['project', 'user'],
-        systemPrompt: { type: 'preset', preset: 'claude_code' },
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        maxTurns: config.maxTurns ?? 250,
-        env: {
-          ...config.env,
-          CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
-        }
-      }
-    });
-
-    // Stream les messages du SDK (lifecycle events)
-    for await (const message of conversation) {
-      this.eventBus.emit({
-        type: 'sdk_message',
-        teamName: config.teamName,
-        message
-      });
-    }
-  }
+// shared/hooks/useIpcStream.ts
+function useIpcStream<T>(channel: string, handler: (data: T) => void) {
+  useEffect(() => {
+    const cleanup = window.electronAPI.on(channel, handler);
+    return cleanup;
+  }, [channel, handler]);
 }
 ```
 
-### 6.2 Observation via file watching
+### Process Patterns
 
-Le `ClaudeFileWatcher` surveille 4 categories de fichiers :
+**Error Handling par couche :**
 
-| Categorie | Pattern glob | Evenement emis | Frequence |
-|-----------|-------------|----------------|-----------|
-| **Team config** | `teams/{name}/config.json` | `team_config_changed` | Rare (setup) |
-| **Inboxes** | `teams/{name}/inboxes/*.json` | `inbox_message` | Haute (chaque message) |
-| **Tasks** | `tasks/{name}/*.json` | `task_created` / `task_updated` | Moyenne |
-| **Sessions** | `projects/*/sessions/*.jsonl` | `session_entry` | Tres haute (chaque turn) |
+| Couche | Pattern |
+|--------|---------|
+| Main process services | `try/catch` → normaliser en `AppError` → émettre via IPC |
+| IPC invoke handlers | `try/catch` → retourner `{ success: false, error: AppError }` |
+| Renderer (composants) | React Error Boundaries par feature |
+| Renderer (async) | `try/catch` dans les hooks, erreur dans le store de la feature |
+| LLM calls | Retry 2x avec backoff exponentiel, puis `AppError` code `LLM_TIMEOUT` |
 
-### 6.3 Validation des schemas (zod)
-
-Les fichiers `~/.claude/` ne sont pas documentes officiellement. On valide tout a l'entree :
-
-```typescript
-import { z } from 'zod';
-
-// Schema inbox message
-const InboxMessageSchema = z.object({
-  from: z.string(),
-  text: z.string(),
-  timestamp: z.string(),
-  read: z.boolean()
-});
-
-// Schema task
-const TaskSchema = z.object({
-  id: z.string(),
-  subject: z.string(),
-  description: z.string().optional(),
-  owner: z.string().optional(),
-  status: z.enum(['pending', 'in_progress', 'completed']),
-  blocks: z.array(z.string()).optional(),
-  blockedBy: z.array(z.string()).optional()
-});
-
-// Schema session entry (JSONL line)
-const SessionEntrySchema = z.object({
-  uuid: z.string(),
-  parentUuid: z.string().nullable(),
-  type: z.enum(['human', 'assistant', 'tool_use', 'tool_result']),
-  message: z.any(),
-  timestamp: z.string()
-});
-
-// Schema team config
-const TeamConfigSchema = z.object({
-  members: z.array(z.object({
-    name: z.string(),
-    agentId: z.string(),
-    agentType: z.enum(['leader', 'worker'])
-  }))
-});
-
-// Usage : validation avant traitement
-function parseInbox(raw: string): InboxMessage[] {
-  const parsed = JSON.parse(raw);
-  return z.array(InboxMessageSchema).parse(parsed);
-}
-```
-
-### 6.4 Hooks complementaires
-
-En plus du file watching, MnM peut installer des hooks Claude Code pour des evenements supplementaires :
+**Async State — pattern standard :**
 
 ```typescript
-// .claude/settings.local.json (genere par MnM)
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [{
-          "type": "command",
-          "command": "node /path/to/mnm/hooks/pre-tool-use.js $TOOL_NAME $FILE_PATH"
-        }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [{
-          "type": "command",
-          "command": "node /path/to/mnm/hooks/post-tool-use.js $TOOL_NAME $FILE_PATH"
-        }]
-      }
-    ]
-  }
-}
+type AsyncState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: AppError };
 ```
 
-**Note :** Certains hooks (SessionStart, SessionEnd, TeammateIdle, TaskCompleted) ne supportent que des handlers TypeScript (.ts), pas bash. MnM devra fournir des handlers .ts preconfigures pour ces evenements.
+Chaque store avec opérations async utilise ce pattern. Pas de booléens `isLoading` éparpillés.
 
----
-
-## 7. Data flow et event bus
-
-### 7.1 Flux d'evenements
+**Logging (main process uniquement) :**
 
 ```
-[Source]                    [Event Bus]              [Store]           [UI]
-                                │
-chokidar (inbox)  ──────>  inbox_message  ──────>  messageStore  ──>  MessageFeed
-chokidar (task)   ──────>  task_updated   ──────>  taskStore     ──>  TaskBoard
-chokidar (session)──────>  session_entry  ──────>  sessionStore  ──>  Timeline
-chokidar (project)──────>  file_changed   ──────>  fileStore     ──>  FileExplorer
-SDK stream        ──────>  agent_output   ──────>  agentStore    ──>  AgentPanel
-simple-git        ──────>  git_change     ──────>  gitStore      ──>  GitPanel
-DriftDetector     ──────>  drift_detected ──────>  driftStore    ──>  DriftAlert
+[timestamp] [level] [source] message
 ```
 
-### 7.2 Types d'evenements
+Niveaux : `debug`, `info`, `warn`, `error`.
 
 ```typescript
-type MnMEvent =
-  // Agent lifecycle
-  | { type: 'agent_started'; agentId: string; name: string }
-  | { type: 'agent_stopped'; agentId: string; exitCode: number }
-  | { type: 'agent_error'; agentId: string; error: string }
-  | { type: 'agent_output'; agentId: string; content: string }
-
-  // Team
-  | { type: 'team_config_changed'; config: TeamConfig }
-
-  // Messages inter-agents
-  | { type: 'inbox_message'; agent: string; messages: InboxMessage[] }
-
-  // Tasks
-  | { type: 'task_created'; task: TaskInfo }
-  | { type: 'task_updated'; task: TaskInfo }
-
-  // Sessions (transcriptions)
-  | { type: 'session_entry'; sessionId: string; entry: SessionEntry }
-
-  // Fichiers projet
-  | { type: 'file_changed'; path: string; changeType: 'create' | 'modify' | 'delete' }
-
-  // Git
-  | { type: 'git_status_changed'; status: GitStatus }
-
-  // Drift
-  | { type: 'drift_detected'; report: DriftReport }
-  | { type: 'drift_resolved'; reportId: string; itemIndex: number }
-
-  // UI
-  | { type: 'navigation'; target: NavigationTarget };
+logger.info('agent-harness', 'Agent launched', { agentId, task });
+logger.error('drift-engine', 'LLM call failed', { error, retryCount });
 ```
 
-### 7.3 IPC Transport
+### Enforcement Guidelines
 
-Les evenements sont transmis du main process au renderer via `ipcMain.send()` / `ipcRenderer.on()`. Le preload serialise les evenements et le renderer les dispatch dans les stores Zustand correspondants.
+**Tous les agents IA DOIVENT :**
 
-```typescript
-// main process : emission
-eventBus.on('*', (event: MnMEvent) => {
-  mainWindow.webContents.send('mnm:event', event);
-});
+1. Suivre les conventions de nommage exactes (fichiers, variables, IPC channels)
+2. Co-localiser les tests avec le code source
+3. Utiliser les imports absolus avec alias (`@main/`, `@renderer/`, `@shared/`)
+4. Normaliser toutes les erreurs en `AppError` avant de les exposer
+5. Utiliser `AsyncState<T>` pour les opérations async dans les stores
+6. Named exports uniquement (pas de `export default`)
+7. `type` par défaut, `interface` pour les contrats de service
+8. Actions Zustand dans le store, pas à l'extérieur
 
-// renderer : reception et dispatch
-window.mnm.on('mnm:event', (event: MnMEvent) => {
-  switch (event.type) {
-    case 'inbox_message':
-      useMessageStore.getState().addMessage(event.agent, event.messages);
-      break;
-    case 'task_created':
-    case 'task_updated':
-      useTaskStore.getState().setTask(event.task.id, event.task);
-      break;
-    case 'session_entry':
-      useSessionStore.getState().appendEntry(event.sessionId, event.entry);
-      break;
-    case 'drift_detected':
-      useDriftStore.getState().addReport(event.report);
-      break;
-    // ... etc
-  }
-});
+**Vérification :** ESLint + règles custom pour enforcer conventions de nommage et d'import.
+
+## Project Structure & Boundaries
+
+### Complete Project Directory Structure
+
+```
+mnm/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                    # Build + test macOS/Linux/Windows
+│       └── release.yml               # Build + release sur tag
+├── .mnm/                             # Données locales (gitignored)
+│   ├── settings.json
+│   ├── drift-cache/
+│   ├── agent-history/
+│   └── project-state.json
+├── .gitignore
+├── .eslintrc.cjs
+├── .prettierrc
+├── package.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── electron.vite.config.ts           # Config electron-vite
+├── electron-builder.yml              # Config packaging
+├── tailwind.config.ts
+├── vitest.config.ts
+├── README.md
+│
+├── src/
+│   ├── main/                         # ── Electron Main Process ──
+│   │   ├── index.ts                  # Entry point main process
+│   │   ├── ipc/
+│   │   │   ├── handlers.ts           # Tous les ipcMain.handle()
+│   │   │   └── streams.ts            # Tous les webContents.send() streams
+│   │   ├── services/
+│   │   │   ├── agent/
+│   │   │   │   ├── agent-harness.service.ts
+│   │   │   │   ├── agent-harness.service.test.ts
+│   │   │   │   ├── stdout-parser.ts
+│   │   │   │   ├── chat-segmenter.ts          # GAP-1: Segmente stdout en ChatEntry[]
+│   │   │   │   └── agent.types.ts
+│   │   │   ├── file-watcher/
+│   │   │   │   ├── file-watcher.service.ts
+│   │   │   │   ├── file-watcher.service.test.ts
+│   │   │   │   └── event-correlator.ts
+│   │   │   ├── git/
+│   │   │   │   ├── git.service.ts
+│   │   │   │   └── git.service.test.ts
+│   │   │   ├── llm/
+│   │   │   │   ├── llm.service.ts
+│   │   │   │   ├── claude-llm.service.ts
+│   │   │   │   ├── claude-llm.service.test.ts
+│   │   │   │   └── llm.types.ts
+│   │   │   ├── drift/
+│   │   │   │   ├── drift-engine.service.ts
+│   │   │   │   ├── drift-engine.service.test.ts
+│   │   │   │   └── drift.types.ts
+│   │   │   ├── project/
+│   │   │   │   ├── project-loader.service.ts
+│   │   │   │   ├── bmad-detector.ts
+│   │   │   │   ├── story-parser.ts            # GAP-2: Parse stories BMAD → StoryProgress[]
+│   │   │   │   └── project.types.ts
+│   │   │   ├── workflow-parser/
+│   │   │   │   ├── yaml-parser.ts
+│   │   │   │   ├── xml-parser.ts
+│   │   │   │   ├── workflow-graph-builder.ts
+│   │   │   │   ├── yaml-serializer.ts         # GAP-3: Graph → fichier YAML
+│   │   │   │   ├── xml-serializer.ts          # GAP-3: Graph → fichier XML
+│   │   │   │   └── workflow-parser.types.ts
+│   │   │   └── test-runner/
+│   │   │       ├── test-runner.service.ts      # GAP-5: Spawn vitest/npm test
+│   │   │       ├── test-runner.service.test.ts
+│   │   │       ├── spec-mapper.ts             # Mapping spec → tests (convention-based)
+│   │   │       └── test-runner.types.ts
+│   │   └── utils/
+│   │       ├── logger.ts
+│   │       └── event-bus.ts
+│   │
+│   ├── preload/                      # ── Preload Scripts ──
+│   │   ├── index.ts
+│   │   └── api.ts
+│   │
+│   ├── renderer/                     # ── React Application ──
+│   │   ├── index.html
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── app.css
+│   │   ├── features/
+│   │   │   ├── agents/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── AgentTimeline.tsx
+│   │   │   │   │   ├── AgentTimeline.test.tsx
+│   │   │   │   │   ├── AgentCard.tsx
+│   │   │   │   │   ├── AgentHealthBadge.tsx
+│   │   │   │   │   ├── AgentProgressBar.tsx
+│   │   │   │   │   ├── AgentChatViewer.tsx     # GAP-1: Historique chat d'un agent
+│   │   │   │   │   └── AgentChatViewer.test.tsx
+│   │   │   │   ├── hooks/
+│   │   │   │   │   ├── useAgentStatus.ts
+│   │   │   │   │   ├── useAgentStream.ts
+│   │   │   │   │   └── useAgentChat.ts        # GAP-1: Hook pour chat entries
+│   │   │   │   ├── agents.store.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── context/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── ContextFileCard.tsx
+│   │   │   │   │   ├── ContextPanel.tsx
+│   │   │   │   │   └── ContextDragDrop.tsx
+│   │   │   │   ├── hooks/
+│   │   │   │   │   └── useContextFiles.ts
+│   │   │   │   ├── context.store.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── drift/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── DriftAlert.tsx
+│   │   │   │   │   ├── DriftDiffView.tsx
+│   │   │   │   │   └── DriftResolutionPanel.tsx
+│   │   │   │   ├── hooks/
+│   │   │   │   │   └── useDriftAlerts.ts
+│   │   │   │   ├── drift.store.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── workflow/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── WorkflowEditor.tsx
+│   │   │   │   │   ├── WorkflowEditor.test.tsx
+│   │   │   │   │   ├── BmadStepNode.tsx
+│   │   │   │   │   ├── BmadDecisionNode.tsx
+│   │   │   │   │   └── WorkflowToolbar.tsx
+│   │   │   │   ├── hooks/
+│   │   │   │   │   └── useWorkflowGraph.ts
+│   │   │   │   ├── workflow.store.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── tests/
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── TestHierarchy.tsx
+│   │   │   │   │   └── TestStatusBadge.tsx
+│   │   │   │   ├── hooks/
+│   │   │   │   │   └── useTestResults.ts
+│   │   │   │   ├── tests.store.ts
+│   │   │   │   └── index.ts
+│   │   │   └── dashboard/
+│   │   │       ├── components/
+│   │   │       │   ├── CockpitDashboard.tsx
+│   │   │       │   ├── ProjectHealthSummary.tsx
+│   │   │       │   ├── AlertsSummary.tsx
+│   │   │       │   └── StoriesProgress.tsx     # GAP-2: Avancement stories BMAD
+│   │   │       ├── hooks/
+│   │   │       │   ├── useDashboardData.ts
+│   │   │       │   └── useStoriesProgress.ts  # GAP-2: Hook pour stories:list
+│   │   │       └── index.ts
+│   │   ├── shared/
+│   │   │   ├── components/
+│   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Badge.tsx
+│   │   │   │   ├── Panel.tsx
+│   │   │   │   └── Tooltip.tsx
+│   │   │   ├── layout/
+│   │   │   │   ├── AppShell.tsx
+│   │   │   │   ├── ThreePaneLayout.tsx
+│   │   │   │   ├── TimelineBar.tsx
+│   │   │   │   └── NavigationSidebar.tsx
+│   │   │   └── hooks/
+│   │   │       ├── useIpcInvoke.ts
+│   │   │       ├── useIpcStream.ts
+│   │   │       └── useEventBus.ts
+│   │   └── stores/
+│   │       └── navigation.store.ts
+│   │
+│   └── shared/                       # ── Shared Types (main + renderer) ──
+│       ├── ipc-channels.ts
+│       ├── events.ts
+│       └── types/
+│           ├── agent.types.ts
+│           ├── chat.types.ts              # GAP-1: ChatEntry, ChatSegment
+│           ├── drift.types.ts
+│           ├── workflow.types.ts
+│           ├── project.types.ts
+│           ├── story.types.ts             # GAP-2: StoryProgress, TaskStatus
+│           ├── test.types.ts              # GAP-5: TestInfo, TestRunResult
+│           ├── error.types.ts
+│           └── async-state.types.ts
+│
+├── resources/                        # Assets pour le packaging
+│   ├── icon.icns
+│   ├── icon.ico
+│   └── icon.png
+│
+└── e2e/
+    └── .gitkeep
 ```
 
----
+### Architectural Boundaries
 
-## 8. Modele de donnees
+**Process Boundaries (Electron) :**
 
-### 8.1 Entites principales
+```
+┌─────────────────────────────────────────────────────┐
+│  Main Process (Node.js)                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+│  │ Agent    │ │ File     │ │ Git      │            │
+│  │ Harness  │ │ Watcher  │ │ Service  │            │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘            │
+│       │             │            │                   │
+│  ┌────┴─────────────┴────────────┴─────┐            │
+│  │           Event Bus (main)           │            │
+│  └──────────────┬──────────────────────┘            │
+│                 │                                    │
+│  ┌──────────────┴──────────────────────┐            │
+│  │        IPC Handlers + Streams        │            │
+│  └──────────────┬──────────────────────┘            │
+│                 │                                    │
+│  ┌──────────┐  │  ┌──────────┐ ┌──────────┐        │
+│  │ Drift    │  │  │ Project  │ │ Workflow │        │
+│  │ Engine   │  │  │ Loader   │ │ Parser   │        │
+│  └──────────┘  │  └──────────┘ └──────────┘        │
+└────────────────┼────────────────────────────────────┘
+                 │ contextBridge (preload)
+┌────────────────┼────────────────────────────────────┐
+│  Renderer Process (Chromium)                         │
+│                │                                     │
+│  ┌─────────────┴───────────────────────┐            │
+│  │    IPC Hooks (useIpcInvoke/Stream)   │            │
+│  └─────────────┬───────────────────────┘            │
+│                │                                     │
+│  ┌─────────────┴───────────────────────┐            │
+│  │      Zustand Stores (per feature)    │            │
+│  └─────────────┬───────────────────────┘            │
+│                │                                     │
+│  ┌─────┐ ┌────┴──┐ ┌────────┐ ┌────────┐          │
+│  │Dash │ │Agents │ │ Drift  │ │Workflow│          │
+│  │board│ │Panel  │ │ Panel  │ │Editor  │          │
+│  └─────┘ └───────┘ └────────┘ └────────┘          │
+└─────────────────────────────────────────────────────┘
+```
+
+**Boundary Rules :**
+
+| Règle | Description |
+|-------|------------|
+| Renderer → Main | Uniquement via `window.electronAPI` (preload). Jamais d'import direct de Node.js |
+| Main → Renderer | Uniquement via `webContents.send()` pour les streams. Jamais de référence au DOM |
+| Feature → Feature | Communication via stores Zustand partagés (navigation.store.ts). Pas d'import croisé entre features |
+| Service → Service | Dépendance via constructeur (ex: drift-engine dépend de llm). Pas de singletons globaux |
+| Shared types | `src/shared/` est le seul dossier importable par main ET renderer |
+
+### Requirements to Structure Mapping
+
+| FR Category | Main Process | Renderer | Shared Types |
+|-------------|-------------|----------|-------------|
+| Agent Monitoring (FR1-FR8) | `services/agent/` (+ `chat-segmenter.ts`) | `features/agents/` (+ `AgentChatViewer`) | `types/agent.types.ts` + `types/chat.types.ts` |
+| Context Viz (FR9-FR13) | `services/file-watcher/` | `features/context/` | `types/agent.types.ts` |
+| Drift Detection (FR14-FR20) | `services/drift/` + `services/llm/` | `features/drift/` | `types/drift.types.ts` |
+| Dashboard (FR21-FR24) | `services/project/story-parser.ts` | `features/dashboard/` (+ `StoriesProgress`) | `types/story.types.ts` |
+| Workflow Editor (FR25-FR32) | `services/workflow-parser/` (+ sérialiseurs + execution tracking) | `features/workflow/` | `types/workflow.types.ts` |
+| Test Viz (FR33-FR36) | `services/test-runner/` | `features/tests/` | `types/test.types.ts` |
+| Navigation (FR37-FR40) | — | `shared/layout/` + `stores/` | — |
+| File & Git (FR41-FR44) | `services/file-watcher/` + `services/git/` | — (via IPC) | — |
+| Project (FR45-FR48) | `services/project/` + `services/workflow-parser/` | — (via IPC) | `types/project.types.ts` |
+
+### Data Flow
+
+```
+Filesystem ──→ File Watcher ──→ Event Bus ──→ IPC Stream ──→ Zustand Stores ──→ React UI
+                                    │
+Claude Code CLI ──→ Agent Harness ──┘
+                                    │
+Git Repo ──→ Git Service ───────────┘
+                                    │
+Documents ──→ Drift Engine ─────────┘
+                 │
+                 └──→ LLM Service (Claude API)
+```
+
+## Architecture Validation
+
+### Gap Resolution
+
+5 gaps critiques identifiés lors de la validation de couverture, tous résolus par amendement du document.
+
+#### GAP-1 : Agent Chat Viewer (FR4)
+
+**Problème :** Aucun composant ni canal IPC pour afficher l'historique de chat d'un agent et naviguer vers un checkpoint depuis la timeline.
+
+**Résolution :**
+
+- Service `chat-segmenter.ts` : segmente le stdout brut d'un agent en `ChatEntry[]` (rôle, contenu, checkpoint, timestamp) en parsant les marqueurs Claude Code
+- IPC `agent:get-chat` : retourne l'historique chat segmenté d'un agent (avec filtre par checkpoint)
+- Stream `stream:agent-chat` : push en temps réel des nouvelles entrées chat
+- Composant `AgentChatViewer.tsx` : affiche le chat, scroll-to-checkpoint quand l'utilisateur clique sur la timeline
+- Hook `useAgentChat.ts` : combine invoke initial + stream pour l'état chat live
 
 ```typescript
-// Agent
-interface AgentInfo {
+// src/shared/types/chat.types.ts
+type ChatEntry = {
+  id: string;
+  agentId: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  checkpoint?: string;  // Identifiant correspondant au checkpoint timeline
+  timestamp: number;
+};
+```
+
+#### GAP-2 : BMAD Story Parser (FR23)
+
+**Problème :** Aucun service pour parser les fichiers story BMAD et calculer l'avancement.
+
+**Résolution :**
+
+- Service `story-parser.ts` dans `services/project/` : lit les fichiers Markdown BMAD, extrait les listes de tâches (`- [ ]` / `- [x]`), calcule le ratio complétées/totales
+- IPC `stories:list` : retourne la liste des stories avec avancement
+- Composant `StoriesProgress.tsx` dans `features/dashboard/` : affiche les stories avec barres de progression
+- Hook `useStoriesProgress.ts` : appelle `stories:list` et écoute les `file:changed` pour rafraîchir
+
+```typescript
+// src/shared/types/story.types.ts
+type StoryProgress = {
+  id: string;
+  title: string;
+  filePath: string;
+  tasksTotal: number;
+  tasksCompleted: number;
+  ratio: number;  // 0.0 à 1.0
+};
+```
+
+#### GAP-3 : Workflow Serializer (FR31)
+
+**Problème :** Le parser workflow est unidirectionnel (fichier → graph). Pas de sérialiseur pour sauvegarder les modifications visuelles.
+
+**Résolution :**
+
+- `yaml-serializer.ts` : convertit un `WorkflowGraph` en YAML conforme au format BMAD
+- `xml-serializer.ts` : convertit un `WorkflowGraph` en XML (format BPMN-like)
+- IPC `workflow:save` : reçoit le graph modifié, appelle le sérialiseur approprié selon le format source, écrit le fichier
+- Le format cible est déterminé par le format source du fichier chargé (YAML in → YAML out)
+
+```typescript
+// Dans services/workflow-parser/yaml-serializer.ts
+function serializeToYaml(graph: WorkflowGraph): string;
+
+// Dans services/workflow-parser/xml-serializer.ts
+function serializeToXml(graph: WorkflowGraph): string;
+```
+
+#### GAP-4 : Workflow Execution Tracking (FR32)
+
+**Problème :** Aucun mécanisme pour suivre l'exécution en cours d'un workflow et mettre en évidence le noeud actif.
+
+**Résolution :**
+
+- Event `workflow:node-status` dans le bus principal : émis quand un noeud change d'état
+- Stream `stream:workflow-node` : push vers le renderer
+- Le `WorkflowEditor.tsx` consomme ce stream et applique un style visuel (classe CSS `node-active`, `node-done`, `node-error`) aux noeuds React Flow
+- La corrélation agent ↔ noeud est faite dans le `event-correlator.ts` (un agent qui exécute une tâche correspondant à un step workflow met à jour le noeud)
+
+```typescript
+// Corrélation dans event-correlator.ts
+// Quand un agent:status change → vérifier si l'agent est lié à un noeud workflow → émettre workflow:node-status
+```
+
+#### GAP-5 : Test Runner Service (FR36)
+
+**Problème :** Aucun service pour lancer l'exécution de tests ni mapper les specs aux tests.
+
+**Résolution :**
+
+- Service `test-runner.service.ts` : spawn `vitest` (ou commande configurable dans `.mnm/settings.json`) en subprocess, parse la sortie pour extraire les résultats
+- `spec-mapper.ts` : mapping convention-based entre specs BMAD et tests (convention : fichier test nommé d'après l'ID de la spec, ex: `FR12.test.ts`)
+- IPC `test:run` : lance un run de tests (scope configurable)
+- IPC `test:list` : liste les tests trouvés (optionnellement filtrés par spec)
+- Stream `stream:test-result` : push les résultats au fur et à mesure de l'exécution
+
+```typescript
+// src/shared/types/test.types.ts
+type TestInfo = {
   id: string;
   name: string;
-  role: 'leader' | 'worker';
-  status: 'active' | 'idle' | 'blocked' | 'stopped' | 'error';
-  healthColor: 'green' | 'orange' | 'red';
-  currentTask: string | null;
-  startedAt: number;
-  lastActivityAt: number;
-}
+  filePath: string;
+  specId?: string;     // ID de la spec BMAD associée (convention-based)
+  scope: 'unit' | 'integration' | 'e2e';
+};
 
-// Task (miroir du fichier JSON Claude)
-interface TaskInfo {
-  id: string;
-  subject: string;
-  description?: string;
-  owner?: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  blocks: string[];
-  blockedBy: string[];
-  createdAt: number;
-  updatedAt: number;
-}
-
-// Message inter-agent
-interface InboxMessage {
-  from: string;
-  text: string;           // JSON stringifie contenant le type
-  timestamp: string;
-  read: boolean;
-  // Parsed from text:
-  parsed?: {
-    type: 'task_assignment' | 'message' | 'broadcast' | 'shutdown_request'
-          | 'idle_notification' | 'plan_approval_request' | 'plan_approval_response';
-    [key: string]: any;
-  };
-}
-
-// Session entry (JSONL line)
-interface SessionEntry {
-  uuid: string;
-  parentUuid: string | null;
-  type: 'human' | 'assistant' | 'tool_use' | 'tool_result';
-  message: any;
-  timestamp: string;
-  // Enriched by MnM:
-  agentName?: string;
-  toolName?: string;       // Si type === 'tool_use'
-  filePath?: string;       // Si l'outil touche un fichier
-}
-
-// Drift item
-interface DriftItem {
-  concept: string;
-  parentValue: string;
-  childValue: string;
-  severity: 'critical' | 'warning' | 'info';
-  confidence: number;
-  parentLocation: string;
-  childLocation: string;
-  suggestion: string;
-  dismissed: boolean;
-}
-
-// Workflow node (pour React Flow)
-interface WorkflowNode {
-  id: string;
-  type: 'step' | 'decision' | 'action' | 'output' | 'halt';
-  label: string;
-  tag?: string;
-  data: {
-    actions: string[];
-    criticals: string[];
-    outputs: string[];
-    asks: string[];
-  };
-  position: { x: number; y: number };
-}
+type TestRunResult = {
+  testId: string;
+  status: 'pass' | 'fail' | 'pending';
+  duration: number;
+  output?: string;     // Sortie de test en cas d'échec
+};
 ```
 
-### 8.2 Hierarchie documentaire (drift detection)
+### Coherence Validation
 
-```
-DocumentHierarchy:
-  product-brief.md           (niveau 0 -- source de verite)
-    └── prd.md               (niveau 1)
-        └── architecture.md  (niveau 2)
-            └── epic-*.md    (niveau 3)
-                └── story-*.md (niveau 4)
-                    └── code  (niveau 5)
-```
+| Vérification | Résultat |
+|---|---|
+| Compatibilité technologique | Electron 40 + React 19 + Vite 5 + Zustand 5 + Tailwind 4 — tous compatibles |
+| Décisions non-contradictoires | Aucune contradiction entre les 6 décisions + 5 amendements |
+| Patterns ↔ Structure | Conventions de nommage respectées pour tous les nouveaux fichiers |
+| Flux de données | Tous les nouveaux IPC/events s'inscrivent dans le pattern existant |
+| Couverture FR | 28 couverts + 5 gaps résolus = 33 couverts (56%), 22 partiels (37%), 4 N/A (7%) |
 
-La drift detection compare chaque document avec son parent direct. Un drift a un niveau N se propage potentiellement aux niveaux N+1, N+2...
+### Coverage Summary Post-Amendment
 
----
+| Catégorie | Avant | Après |
+|---|---|---|
+| **Couverts** | 28 (47.5%) | 33 (56%) |
+| **Partiels** | 22 (37.3%) | 22 (37%) |
+| **Gaps critiques** | 5 (8.5%) | 0 (0%) |
+| **N/A** | 4 (6.8%) | 4 (7%) |
 
-## 9. Architecture UI et layout
-
-### 9.1 Layout principal (3 volets + timeline)
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  [MnM]  Projet: my-project  │  ▶ 3 agents actifs  │ ⚠ 1 drift │
-├──────────────┬───────────────────────────┬───────────────────┤
-│              │                           │                   │
-│   CONTEXT    │         AGENTS            │  TESTS &          │
-│   PANEL      │         PANEL             │  VALIDATION       │
-│              │                           │                   │
-│  - Hierarchy │  - Agent cards            │  - Test tree      │
-│  - Files     │  - Chat/transcript        │  - Status         │
-│  - Context   │  - Task board             │  - Run tests      │
-│    cards     │  - Message feed           │  - Coverage       │
-│              │                           │                   │
-│              │                           │                   │
-├──────────────┴───────────────────────────┴───────────────────┤
-│                       TIMELINE (bottom)                       │
-│  [──●───●────●──────●────●─────●───●────────>]               │
-│   10:30  10:35  10:40  10:45  10:50  10:55   now             │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### 9.2 Navigation hierarchique synchronisee
-
-Quand l'utilisateur navigue dans la hierarchie (Projet > Epic > Story > Tache), les 3 volets se synchronisent :
-
-| Niveau | Context Panel | Agents Panel | Tests Panel |
-|--------|--------------|--------------|-------------|
-| **Projet** | Product Brief, PRD, Architecture | Tous les agents, cockpit dashboard | Tests E2E, coverage globale |
-| **Epic** | Epic spec, stories liees | Agents travaillant sur cet epic | Tests integration de l'epic |
-| **Story** | Story spec, fichiers de contexte | Agent assigne a cette story | Tests unitaires groupes |
-| **Tache** | Fichier(s) concerne(s) | Agent executant la tache | Tests unitaires specifiques |
-
-### 9.3 Composants React principaux
-
-```
-App
-├── TopBar (projet, agents actifs, alertes)
-├── MainLayout
-│   ├── ContextPanel (redimensionnable)
-│   │   ├── HierarchyTree
-│   │   ├── ContextFileList
-│   │   └── ContextCards
-│   ├── AgentsPanel (centre)
-│   │   ├── AgentCardList
-│   │   ├── AgentTranscript
-│   │   ├── TaskBoard (kanban)
-│   │   └── MessageFeed
-│   └── TestsPanel (redimensionnable)
-│       ├── TestTree
-│       ├── TestStatus
-│       └── CoverageView
-├── TimelineBar (bas, persistant)
-│   └── TimelineChart
-├── DriftAlertOverlay
-└── WorkflowEditorModal
-    ├── ReactFlowCanvas
-    ├── NodeEditor
-    └── MiniMap
-```
-
----
-
-## 10. Securite et permissions
-
-### 10.1 Modele de securite Electron
-
-- **Context isolation** active (renderer n'a pas acces a Node.js)
-- **nodeIntegration** desactive dans le renderer
-- **contextBridge** pour l'API IPC typee
-- **Content Security Policy** stricte dans le renderer
-
-### 10.2 Permissions Claude Code
-
-MnM lance les agents avec `permissionMode: "bypassPermissions"` et `allowDangerouslySkipPermissions: true`. Cela signifie que les agents peuvent executer n'importe quelle operation fichier/bash sans demander permission.
-
-**Justification :** MnM est un outil local utilise par des developpeurs qui font deja confiance a Claude Code. Le but est de superviser, pas de restreindre.
-
-**Mitigation :** Les agents sont lances dans le repertoire projet (`cwd: projectDir`). File checkpointing est actif (rollback possible).
-
-### 10.3 Secrets et cles API
-
-- La cle API Anthropic est lue depuis les variables d'environnement (`ANTHROPIC_API_KEY`) ou la configuration Claude existante
-- MnM ne stocke aucune cle API en clair dans ses propres fichiers
-- Les fichiers `.env`, `credentials.json` sont exclus du file watching
-
----
-
-## 11. Performance et contraintes
-
-### 11.1 Mapping PRD NFR -> Architecture
-
-| NFR | Cible | Solution architecturale |
-|-----|-------|------------------------|
-| **NFR1** Timeline < 500ms | < 500ms | Event-driven (file watcher -> event bus -> IPC -> store -> React). Pas de polling. |
-| **NFR2** File watching < 5% CPU au repos | < 5% CPU | chokidar avec FSEvents natif, ignored patterns stricts |
-| **NFR3** React Flow > 30 FPS / 50 noeuds | > 30 FPS | Virtualisation native de React Flow, dagre pour layout |
-| **NFR4** Drift detection < 30s | < 30s | Claude API streaming, pipeline local < 2s |
-| **NFR5** Cold start < 5s | < 5s | Lazy loading des composants non-visibles, pas de scan initial complet |
-| **NFR6** Pas de block UI > 100ms / 3 agents | < 100ms | Tout le travail lourd dans le main process (workers), IPC async |
-| **NFR7** RAM < 500 MB / 3 agents | < 500 MB | Stores selectifs, pagination des sessions JSONL, pas de cache unbounded |
-| **NFR9** File watching < 1s | < 1s | chokidar + FSEvents : < 100ms typique |
-
-### 11.2 Optimisations specifiques
-
-- **Sessions JSONL** : Ne pas charger la totalite des fichiers JSONL en memoire. Lire uniquement les nouvelles lignes (tail -f pattern) et paginer le historique.
-- **Inboxes JSON** : Comparer avec le contenu precedent en cache pour ne traiter que les nouveaux messages.
-- **Debouncing** : awaitWriteFinish (100-200ms) sur tous les watchers pour eviter les faux evenements.
-- **IPC batching** : Grouper les evenements haute frequence (sessions) en batch avant envoi au renderer (toutes les 100ms).
-
----
-
-## 12. Risques techniques et mitigations
-
-| # | Risque | Probabilite | Impact | Mitigation |
-|---|--------|-------------|--------|------------|
-| 1 | **Agent Teams experimental** -- le flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` peut etre retire ou change | Haute | Haut | Abstraire derriere `AgentManager` interface. Fallback sur spawn simple si teams indisponible. Veille changelogs. |
-| 2 | **Format fichiers ~/.claude/ change** sans annonce | Moyenne | Haut | Validation zod a l'entree. Degradation gracieuse (ignorer les champs inconnus). Tests de regression sur les schemas. |
-| 3 | **SDK query() API change** | Moyenne | Moyen | Wrapper thin autour du SDK. Lock de version dans package.json. Tests d'integration. |
-| 4 | **Performance Electron avec 3+ agents** | Moyenne | Moyen | Worker threads pour le parsing lourd. Pagination des sessions. Monitoring memoire integre. |
-| 5 | **Drift detection faux positifs** | Haute | Haut | Seuil de confiance configurable (FR20). Bouton "ignorer" (FR18). Tuning iteratif des prompts. |
-| 6 | **Race conditions file watching** (lecture pendant ecriture) | Moyenne | Moyen | awaitWriteFinish + try/catch JSON.parse + retry 1x apres 50ms. |
-| 7 | **Cross-platform filesystem differences** (paths, events) | Moyenne | Moyen | path.join() partout, tests CI sur les 3 OS (NFR11). chokidar abstrait les differences OS. |
-| 8 | **settingSources non documente** (SDK option critique) | Moyenne | Moyen | Tests reguliers de verification. Fallback sur `spawn('claude', ...)` direct si SDK ne charge pas les settings. |
-
----
-
-## 13. Ordre de construction
-
-Aligne avec le PRD (MVP en 3 blocs) et adapte a l'architecture SDK + file watching.
-
-### Phase 0 : Fondation technique
-
-1. Setup Electron + electron-vite + React 19 + TypeScript + Tailwind
-2. Architecture IPC (main/preload/renderer) + contextBridge
-3. Layout 3 volets + TopBar + Timeline placeholder
-4. Zustand stores vides + types TypeScript
-5. **Validation :** App qui s'ouvre avec le layout vide
-
-### Phase 1 : Visibilite (Bloc 1 PRD)
-
-6. Integrer Claude Agent SDK -- spawn un agent simple, recevoir le flux
-7. ProjectFileWatcher (chokidar sur le projet) -> fileStore -> FileExplorer basique
-8. ClaudeFileWatcher -- observer les sessions JSONL -> sessionStore -> Timeline fonctionnelle
-9. AgentPanel basique -- statut agent, transcript, indicateur de sante
-10. ContextPanel basique -- fichiers du projet, fichiers consultes par l'agent
-11. **Validation :** Lancer un agent, voir son activite en temps reel dans MnM
-
-### Phase 2 : Multi-agents et Teams (extension Bloc 1)
-
-12. Activer Agent Teams (env flag) -> observer config.json, inboxes, tasks
-13. TaskBoard (kanban) -- afficher les taches, dependencies, statuts
-14. MessageFeed -- messages inter-agents en temps reel
-15. Multi-agent dans AgentPanel -- cards par agent, navigation
-16. **Validation :** Lancer une team de 3 agents, voir toute leur activite dans MnM
-
-### Phase 3 : Supervision (Bloc 2 PRD)
-
-17. DriftDetector -- LLM-as-judge via Anthropic SDK
-18. DocumentHierarchy -- detection auto de la hierarchie BMAD
-19. DriftAlertOverlay -- alertes actionnables, diff, resolve/dismiss
-20. Dashboard cockpit -- vue d'ensemble a l'ouverture
-21. GitService -- integration simple-git, historique, diffs
-22. **Validation :** Modifier un fichier d'architecture, voir l'alerte de drift
-
-### Phase 4 : Puissance (Bloc 3 PRD)
-
-23. Workflow parser (js-yaml + fast-xml-parser -> WorkflowGraph)
-24. WorkflowEditorModal (React Flow + dagre + nodes BMAD personnalises)
-25. Edition basique de workflows (ajout/suppression noeuds, connexions)
-26. Sync visuel -> fichier source (Pattern Source of Truth = Fichier)
-27. TestsPanel -- test tree, statuts, lancement
-28. Context management interactif -- drag & drop
-29. **Validation :** Ouvrir un workflow BMAD, voir le graphe, ajouter un noeud
-
----
-
-*Ce document d'architecture est la reference technique pour l'implementation de MnM. Il sera mis a jour au fur et a mesure des decisions prises pendant le developpement.*
+Les 22 partiels restants sont des détails d'implémentation (heuristiques de blocage, seuils configurables, abstraction OS) qui seront précisés dans les stories d'implémentation. Aucun n'est bloquant pour le démarrage du développement.
