@@ -7,6 +7,7 @@ import {
 import { PaneHeader } from './PaneHeader'
 import { PaneEmptyState } from './PaneEmptyState'
 import { useNavigationStore } from '@renderer/stores/navigation.store'
+import { useNavigationSync } from '@renderer/shared/hooks/useNavigationSync'
 
 type ThreePaneLayoutProps = {
   contextContent?: React.ReactNode
@@ -55,19 +56,31 @@ export function ThreePaneLayout({
   )
 
   const compact = breakpoint === 'compact'
+  const sync = useNavigationSync()
+
+  // Synchronized stub content — will be replaced by real content from Epics 2-7
+  const syncedContext = sync.storyId ? (
+    <SyncedPaneStub pane="Contexte" label={sync.label} />
+  ) : undefined
+  const syncedAgents = sync.storyId ? (
+    <SyncedPaneStub pane="Agents" label={sync.label} />
+  ) : undefined
+  const syncedTests = sync.storyId ? (
+    <SyncedPaneStub pane="Tests" label={sync.label} />
+  ) : undefined
 
   const paneContent: Record<PaneId, { content: React.ReactNode; empty: { title: string; description: string } }> = {
     context: {
-      content: contextContent,
-      empty: { title: 'Aucun fichier de contexte', description: 'Ouvrez un projet pour voir les fichiers' }
+      content: contextContent ?? syncedContext,
+      empty: { title: 'Aucun fichier de contexte', description: 'Selectionnez une story pour voir les fichiers' }
     },
     agents: {
-      content: agentsContent,
-      empty: { title: 'Aucun agent actif', description: 'Lancez un agent pour commencer' }
+      content: agentsContent ?? syncedAgents,
+      empty: { title: 'Aucun agent actif', description: 'Selectionnez une story pour voir les agents' }
     },
     tests: {
-      content: testsContent,
-      empty: { title: 'Aucun test disponible', description: 'Les tests apparaitront une fois le projet charge' }
+      content: testsContent ?? syncedTests,
+      empty: { title: 'Aucun test disponible', description: 'Selectionnez une story pour voir les tests' }
     }
   }
 
@@ -177,5 +190,14 @@ export function ThreePaneLayout({
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
+  )
+}
+
+function SyncedPaneStub({ pane, label }: { pane: string; label: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+      <p className="text-sm text-text-secondary">{pane}</p>
+      <p className="text-xs text-text-muted">{label}</p>
+    </div>
   )
 }
