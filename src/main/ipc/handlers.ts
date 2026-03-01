@@ -1,5 +1,8 @@
-import { ipcMain } from 'electron'
-import type { IpcInvokeChannels, ProjectInfo } from '@shared/ipc-channels'
+import { ipcMain, dialog, BrowserWindow } from 'electron'
+import type { IpcInvokeChannels } from '@shared/ipc-channels'
+import type { ProjectOpenResult } from '@shared/types/project.types'
+import type { AppError } from '@shared/types/error.types'
+import { loadProject } from '@main/services/project/project-loader.service'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -9,13 +12,45 @@ type HandlerMap = {
 }
 
 const handlers: HandlerMap = {
-  'project:open': async (args): Promise<ProjectInfo> => {
-    logger.info('ipc-handlers', `project:open called with path: ${args.path}`)
-    // Placeholder — real implementation in Story 1.3
-    return {
-      path: args.path,
-      name: args.path.split('/').pop() ?? 'unknown',
-      bmadDetected: false
+  'project:open': async (args): Promise<ProjectOpenResult> => {
+    try {
+      let projectPath = args.path
+
+      if (!projectPath) {
+        const mainWindow = BrowserWindow.getFocusedWindow()
+        const result = await dialog.showOpenDialog(mainWindow!, {
+          properties: ['openDirectory'],
+          title: 'Ouvrir un projet',
+          buttonLabel: 'Ouvrir'
+        })
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return {
+            success: false,
+            error: {
+              code: 'USER_CANCELLED',
+              message: 'Selection annulee',
+              source: 'project:open'
+            }
+          }
+        }
+
+        projectPath = result.filePaths[0]
+      }
+
+      const projectInfo = await loadProject(projectPath)
+      return { success: true, data: projectInfo }
+    } catch (error) {
+      const appError = error as AppError
+      return {
+        success: false,
+        error: {
+          code: appError.code ?? 'PROJECT_LOAD_FAILED',
+          message: appError.message ?? 'Erreur lors du chargement du projet',
+          source: appError.source ?? 'project:open',
+          details: appError.details
+        }
+      }
     }
   }
 }
