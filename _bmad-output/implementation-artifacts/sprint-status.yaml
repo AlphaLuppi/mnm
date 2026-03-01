@@ -47,54 +47,54 @@ development_status:
   1-4-hierarchical-navigation-pane-synchronization: ready-for-dev
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-agent-harness-lancer-arreter-des-agents: backlog
-  2-2-liste-des-agents-avec-indicateurs-de-sante: backlog
-  2-3-progression-agent-detection-de-blocage: backlog
-  2-4-timeline-activite-des-agents: backlog
-  2-5-chat-viewer-agent-avec-navigation-timeline: backlog
+  epic-2: in-progress
+  2-1-agent-harness-lancer-arreter-des-agents: ready-for-dev
+  2-2-liste-des-agents-avec-indicateurs-de-sante: ready-for-dev
+  2-3-progression-agent-detection-de-blocage: ready-for-dev
+  2-4-timeline-activite-des-agents: ready-for-dev
+  2-5-chat-viewer-agent-avec-navigation-timeline: ready-for-dev
   epic-2-retrospective: optional
 
-  epic-3: backlog
-  3-1-file-watcher-git-integration: backlog
-  3-2-liste-fichiers-de-contexte-par-agent: backlog
-  3-3-drag-drop-de-contexte-vers-un-agent: backlog
-  3-4-notifications-modification-fichiers-de-contexte: backlog
-  3-5-historique-git-versioning-de-contexte: backlog
+  epic-3: in-progress
+  3-1-file-watcher-git-integration: ready-for-dev
+  3-2-liste-fichiers-de-contexte-par-agent: ready-for-dev
+  3-3-drag-drop-de-contexte-vers-un-agent: ready-for-dev
+  3-4-notifications-modification-fichiers-de-contexte: ready-for-dev
+  3-5-historique-git-versioning-de-contexte: ready-for-dev
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-llm-service-drift-detection-engine: backlog
-  4-2-drift-detection-par-evenement: backlog
-  4-3-drift-check-manuel-configuration-du-seuil: backlog
-  4-4-alerte-drift-vue-diff: backlog
-  4-5-resolution-de-drift: backlog
+  epic-4: in-progress
+  4-1-llm-service-drift-detection-engine: ready-for-dev
+  4-2-drift-detection-par-evenement: ready-for-dev
+  4-3-drift-check-manuel-configuration-du-seuil: ready-for-dev
+  4-4-alerte-drift-vue-diff: ready-for-dev
+  4-5-resolution-de-drift: ready-for-dev
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-cockpit-dashboard-layout: backlog
-  5-2-agents-actifs-alertes-drift-dans-le-cockpit: backlog
-  5-3-stories-progress-widget: backlog
-  5-4-navigation-one-click-depuis-le-cockpit: backlog
+  epic-5: in-progress
+  5-1-cockpit-dashboard-layout: ready-for-dev
+  5-2-agents-actifs-alertes-drift-dans-le-cockpit: ready-for-dev
+  5-3-stories-progress-widget: ready-for-dev
+  5-4-navigation-one-click-depuis-le-cockpit: ready-for-dev
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-bmad-workflow-parser: backlog
-  6-2-workflow-diagram-viewer: backlog
-  6-3-edition-de-noeuds-workflow: backlog
-  6-4-synchronisation-workflow-fichier-source: backlog
-  6-5-suivi-execution-workflow-en-temps-reel: backlog
+  epic-6: in-progress
+  6-1-bmad-workflow-parser: ready-for-dev
+  6-2-workflow-diagram-viewer: ready-for-dev
+  6-3-edition-de-noeuds-workflow: ready-for-dev
+  6-4-synchronisation-workflow-fichier-source: ready-for-dev
+  6-5-suivi-execution-workflow-en-temps-reel: ready-for-dev
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-test-discovery-hierarchie-en-miroir-des-specs: backlog
-  7-2-statut-des-tests: backlog
-  7-3-navigation-bidirectionnelle-spec-tests: backlog
-  7-4-execution-des-tests-depuis-mnm: backlog
+  epic-7: in-progress
+  7-1-test-discovery-hierarchie-en-miroir-des-specs: ready-for-dev
+  7-2-statut-des-tests: ready-for-dev
+  7-3-navigation-bidirectionnelle-spec-tests: ready-for-dev
+  7-4-execution-des-tests-depuis-mnm: ready-for-dev
   epic-7-retrospective: optional
 
-  epic-8: backlog
-  8-1-configuration-electron-builder-build-macos: backlog
-  8-2-builds-linux-windows: backlog
-  8-3-github-actions-cicd-pipeline: backlog
+  epic-8: in-progress
+  8-1-configuration-electron-builder-build-macos: ready-for-dev
+  8-2-builds-linux-windows: ready-for-dev
+  8-3-github-actions-cicd-pipeline: ready-for-dev
   epic-8-retrospective: optional
