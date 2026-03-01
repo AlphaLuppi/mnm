@@ -1,16 +1,11 @@
-import type { AgentStatus } from './ipc-channels'
+import type { AgentStatus } from './types/agent.types'
+import type { ChatEntry } from './types/chat.types'
 
 // Main process events (EventEmitter)
 export type MainEvents = {
   'agent:output': { agentId: string; data: string; timestamp: number }
-  'agent:status': { agentId: string; status: AgentStatus }
-  'agent:chat-entry': {
-    agentId: string
-    role: 'user' | 'assistant' | 'system'
-    content: string
-    checkpoint?: string
-    timestamp: number
-  }
+  'agent:status': { agentId: string; status: AgentStatus; lastError?: string }
+  'agent:chat-entry': ChatEntry
   'file:changed': { path: string; type: 'create' | 'modify' | 'delete' }
   'drift:detected': {
     id: string

@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { ProjectInfo, ProjectOpenResult } from '@shared/types/project.types'
-import type { AppError } from '@shared/types/error.types'
 import type { AsyncState } from '@shared/types/async-state.types'
 
 type ProjectStoreState = {

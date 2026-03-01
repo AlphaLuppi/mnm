@@ -2,10 +2,13 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import type { IpcInvokeChannels } from '@shared/ipc-channels'
 import type { ProjectOpenResult } from '@shared/types/project.types'
 import type { ProjectHierarchy } from '@shared/types/story.types'
+import type { AgentInfo } from '@shared/types/agent.types'
+import type { ChatEntry } from '@shared/types/chat.types'
 import type { AppError } from '@shared/types/error.types'
 import { loadProject } from '@main/services/project/project-loader.service'
 import { parseProjectHierarchy } from '@main/services/project/story-parser'
 import { getActiveProjectPath, setActiveProjectPath } from '@main/services/project/active-project'
+import { getAgentHarness } from '@main/services/agent/agent-harness.instance'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -43,6 +46,13 @@ const handlers: HandlerMap = {
 
       const projectInfo = await loadProject(projectPath)
       setActiveProjectPath(projectPath)
+
+      // Update agent harness with new project path
+      const harness = getAgentHarness()
+      if (harness) {
+        harness.updateProjectPath(projectPath)
+      }
+
       return { success: true, data: projectInfo }
     } catch (error) {
       const appError = error as AppError
@@ -64,6 +74,35 @@ const handlers: HandlerMap = {
       return { projectName: '', epics: [] }
     }
     return parseProjectHierarchy(projectPath)
+  },
+
+  'agent:launch': async (args): Promise<{ agentId: string }> => {
+    const harness = getAgentHarness()
+    if (!harness) {
+      throw { code: 'NO_PROJECT', message: 'Aucun projet ouvert', source: 'agent:launch' }
+    }
+    const agentId = harness.launchAgent(args)
+    return { agentId }
+  },
+
+  'agent:stop': async (args): Promise<void> => {
+    const harness = getAgentHarness()
+    if (!harness) {
+      throw { code: 'NO_PROJECT', message: 'Aucun projet ouvert', source: 'agent:stop' }
+    }
+    await harness.stopAgent(args.agentId)
+  },
+
+  'agent:list': async (): Promise<AgentInfo[]> => {
+    const harness = getAgentHarness()
+    if (!harness) return []
+    return harness.listAgents()
+  },
+
+  'agent:get-chat': async (args): Promise<ChatEntry[]> => {
+    const harness = getAgentHarness()
+    if (!harness) return []
+    return harness.getAgentChat(args.agentId, args.fromCheckpoint)
   }
 }
 

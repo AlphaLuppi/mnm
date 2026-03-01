@@ -3,7 +3,8 @@ import type {
   IpcInvokeChannels,
   IpcStreamChannels,
   ProjectOpenResult,
-  AgentStatus
+  AgentStatus,
+  AgentLaunchParams
 } from './ipc-channels'
 
 describe('IPC Channel Types', () => {
@@ -19,7 +20,7 @@ describe('IPC Channel Types', () => {
     type Args = IpcInvokeChannels['agent:launch']['args']
     type Result = IpcInvokeChannels['agent:launch']['result']
 
-    expectTypeOf<Args>().toEqualTypeOf<{ task: string; context: string[] }>()
+    expectTypeOf<Args>().toEqualTypeOf<AgentLaunchParams>()
     expectTypeOf<Result>().toEqualTypeOf<{ agentId: string }>()
   })
 

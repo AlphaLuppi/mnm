@@ -6,6 +6,7 @@ import { registerInvokeHandlers } from '@main/ipc/handlers'
 import { setStreamTarget, sendStream } from '@main/ipc/streams'
 import { eventBus } from '@main/utils/event-bus'
 import { logger } from '@main/utils/logger'
+import { initAgentHarness } from '@main/services/agent/agent-harness.instance'
 import type { MainEvents } from '@shared/events'
 
 function wireEventBusToStreams(): void {
@@ -28,6 +29,28 @@ function wireEventBusToStreams(): void {
   }
 
   logger.info('event-bus', 'Event bus wired to IPC streams')
+}
+
+function initializeAgentHarness(): void {
+  const harness = initAgentHarness({
+    projectPath: '',
+    onStatusChange: (agentId, status, lastError) => {
+      eventBus.emit('agent:status', { agentId, status, lastError })
+      logger.info('agent-harness', `Agent ${agentId} status: ${status}`)
+    },
+    onOutput: (agentId, data) => {
+      eventBus.emit('agent:output', { agentId, data, timestamp: Date.now() })
+    },
+    onChatEntry: (entry) => {
+      eventBus.emit('agent:chat-entry', entry)
+    }
+  })
+
+  app.on('before-quit', async () => {
+    await harness.shutdown()
+  })
+
+  logger.info('agent-harness', 'Agent harness initialized')
 }
 
 function createWindow(): void {
@@ -72,6 +95,7 @@ app.whenReady().then(() => {
 
   registerInvokeHandlers()
   wireEventBusToStreams()
+  initializeAgentHarness()
 
   logger.info('app', 'MnM starting...')
 

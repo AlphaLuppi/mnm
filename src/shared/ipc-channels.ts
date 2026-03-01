@@ -4,8 +4,12 @@
 // Re-export project types used in IPC channels
 import type { ProjectOpenResult } from './types/project.types'
 import type { ProjectHierarchy } from './types/story.types'
+import type { AgentStatus, AgentInfo, AgentLaunchParams } from './types/agent.types'
+import type { ChatEntry } from './types/chat.types'
 export type { ProjectInfo, BmadStructure, ProjectOpenResult } from './types/project.types'
 export type { ProjectHierarchy } from './types/story.types'
+export type { AgentStatus, AgentInfo, AgentLaunchParams } from './types/agent.types'
+export type { ChatEntry, ChatRole } from './types/chat.types'
 
 export type GitStatus = {
   branch: string
@@ -13,20 +17,11 @@ export type GitStatus = {
   staged: string[]
 }
 
-export type AgentStatus = 'launching' | 'active' | 'blocked' | 'stopping' | 'stopped' | 'crashed'
-
 export type DriftReport = {
   id: string
   severity: 'critical' | 'warning' | 'info'
   summary: string
   confidence: number
-}
-
-export type ChatEntry = {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp: number
-  checkpoint?: string
 }
 
 export type StoryProgress = {
@@ -55,8 +50,9 @@ export type IpcInvokeChannels = {
   'git:status': { args: void; result: GitStatus }
   'git:log': { args: { count: number }; result: unknown }
   'git:show-file': { args: { path: string; commitHash: string }; result: string }
-  'agent:launch': { args: { task: string; context: string[] }; result: { agentId: string } }
+  'agent:launch': { args: AgentLaunchParams; result: { agentId: string } }
   'agent:stop': { args: { agentId: string }; result: void }
+  'agent:list': { args: void; result: AgentInfo[] }
   'agent:get-chat': {
     args: { agentId: string; fromCheckpoint?: string }
     result: ChatEntry[]
@@ -78,20 +74,14 @@ export type IpcInvokeChannels = {
 // Streaming (main → renderer, push)
 export type IpcStreamChannels = {
   'stream:agent-output': { agentId: string; data: string; timestamp: number }
-  'stream:agent-chat': {
-    agentId: string
-    role: 'user' | 'assistant' | 'system'
-    content: string
-    checkpoint?: string
-    timestamp: number
-  }
+  'stream:agent-status': { agentId: string; status: AgentStatus; lastError?: string }
+  'stream:agent-chat': ChatEntry
   'stream:file-change': {
     path: string
     type: 'create' | 'modify' | 'delete'
     agentId?: string
   }
   'stream:drift-alert': { id: string; severity: string; summary: string }
-  'stream:agent-status': { agentId: string; status: AgentStatus }
   'stream:workflow-node': {
     workflowId: string
     nodeId: string

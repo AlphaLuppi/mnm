@@ -35,7 +35,7 @@ describe('TypedEventBus', () => {
     eventBus.on('agent:status', handler)
     eventBus.off('agent:status', handler)
 
-    eventBus.emit('agent:status', { agentId: 'a1', status: 'active' })
+    eventBus.emit('agent:status', { agentId: 'a1', status: 'ACTIVE' })
 
     expect(handler).not.toHaveBeenCalled()
   })
