@@ -1,12 +1,9 @@
 // IPC Channel type maps — shared between main, preload, and renderer.
 // Only type declarations here. Handlers implemented by individual stories.
 
-// Placeholder types for channels not yet implemented
-export type ProjectInfo = {
-  path: string
-  name: string
-  bmadDetected: boolean
-}
+// Re-export project types used in IPC channels
+import type { ProjectOpenResult } from './types/project.types'
+export type { ProjectInfo, BmadStructure, ProjectOpenResult } from './types/project.types'
 
 export type GitStatus = {
   branch: string
@@ -52,7 +49,7 @@ export type TestInfo = {
 
 // Request-Response (renderer → main → response)
 export type IpcInvokeChannels = {
-  'project:open': { args: { path: string }; result: ProjectInfo }
+  'project:open': { args: { path: string }; result: ProjectOpenResult }
   'git:status': { args: void; result: GitStatus }
   'git:log': { args: { count: number }; result: unknown }
   'git:show-file': { args: { path: string; commitHash: string }; result: string }

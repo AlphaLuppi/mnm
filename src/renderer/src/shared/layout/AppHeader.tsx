@@ -1,4 +1,9 @@
-export function AppHeader() {
+type AppHeaderProps = {
+  projectName?: string
+  bmadDetected?: boolean
+}
+
+export function AppHeader({ projectName, bmadDetected }: AppHeaderProps) {
   return (
     <header
       role="banner"
@@ -6,7 +11,17 @@ export function AppHeader() {
     >
       <span className="text-sm font-bold text-text-primary">MnM</span>
       <span className="mx-3 text-text-muted">/</span>
-      <span className="text-sm text-text-secondary">Aucun projet</span>
+      <span className="text-sm text-text-secondary">
+        {projectName ?? 'Aucun projet'}
+      </span>
+      {projectName && (
+        <span
+          className={`ml-3 inline-block h-2 w-2 rounded-full ${
+            bmadDetected ? 'bg-status-green' : 'bg-status-gray'
+          }`}
+          title={bmadDetected ? 'BMAD detecte' : 'BMAD non detecte'}
+        />
+      )}
     </header>
   )
 }

@@ -2,7 +2,7 @@ import { describe, it, expectTypeOf } from 'vitest'
 import type {
   IpcInvokeChannels,
   IpcStreamChannels,
-  ProjectInfo,
+  ProjectOpenResult,
   AgentStatus
 } from './ipc-channels'
 
@@ -12,7 +12,7 @@ describe('IPC Channel Types', () => {
     type Result = IpcInvokeChannels['project:open']['result']
 
     expectTypeOf<Args>().toEqualTypeOf<{ path: string }>()
-    expectTypeOf<Result>().toEqualTypeOf<ProjectInfo>()
+    expectTypeOf<Result>().toEqualTypeOf<ProjectOpenResult>()
   })
 
   it('should have correct type for agent:launch', () => {

@@ -3,7 +3,10 @@ import { AppHeader } from './AppHeader'
 import { ThreePaneLayout } from './ThreePaneLayout'
 import { TimelineBar } from './TimelineBar'
 import { MinResolutionOverlay } from './MinResolutionOverlay'
+import { OpenProjectScreen } from './OpenProjectScreen'
+import { BmadWarningBanner } from '@renderer/shared/components/BmadWarningBanner'
 import { useNavigationStore } from '@renderer/stores/navigation.store'
+import { useProjectStore } from '@renderer/stores/project.store'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -16,6 +19,7 @@ function getBreakpoint(width: number): Breakpoint {
 export function AppShell() {
   const breakpoint = useNavigationStore((s) => s.breakpoint)
   const setBreakpoint = useNavigationStore((s) => s.setBreakpoint)
+  const project = useProjectStore((s) => s.project)
 
   // Window resize → breakpoint
   useEffect(() => {
@@ -58,6 +62,27 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // No project loaded — show OpenProjectScreen
+  if (project.status === 'idle' || project.status === 'error') {
+    return (
+      <OpenProjectScreen
+        error={project.status === 'error' ? project.error : undefined}
+      />
+    )
+  }
+
+  // Loading project
+  if (project.status === 'loading') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-bg-base text-text-primary">
+        <div className="animate-pulse text-text-muted">Chargement du projet...</div>
+      </div>
+    )
+  }
+
+  // Project loaded — render the full layout
+  const showBmadWarning = !project.data.bmadStructure.detected
+
   return (
     <div className="flex h-screen flex-col bg-bg-base text-text-primary">
       {/* Skip links */}
@@ -86,7 +111,12 @@ export function AppShell() {
         Aller a la timeline
       </a>
 
-      <AppHeader />
+      <AppHeader
+        projectName={project.data.name}
+        bmadDetected={project.data.bmadStructure.detected}
+      />
+
+      {showBmadWarning && <BmadWarningBanner />}
 
       <main className="flex-1 overflow-hidden">
         <ThreePaneLayout />
