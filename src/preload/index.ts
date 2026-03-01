@@ -5,8 +5,9 @@ const electronAPI: ElectronAPI = {
   invoke: (channel, args) => ipcRenderer.invoke(channel, args),
 
   on: (channel, callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: never): void => {
-      callback(data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (_event: Electron.IpcRendererEvent, ...args: any[]): void => {
+      callback(args[0])
     }
     ipcRenderer.on(channel, handler)
     return (): void => {
