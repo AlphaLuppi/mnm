@@ -3,7 +3,9 @@
 
 // Re-export project types used in IPC channels
 import type { ProjectOpenResult } from './types/project.types'
+import type { ProjectHierarchy } from './types/story.types'
 export type { ProjectInfo, BmadStructure, ProjectOpenResult } from './types/project.types'
+export type { ProjectHierarchy } from './types/story.types'
 
 export type GitStatus = {
   branch: string
@@ -64,7 +66,7 @@ export type IpcInvokeChannels = {
     args: { driftId: string; action: 'fix-source' | 'fix-derived' | 'ignore'; content?: string }
     result: void
   }
-  'stories:list': { args: void; result: StoryProgress[] }
+  'stories:list': { args: void; result: ProjectHierarchy }
   'workflow:save': { args: { workflowId: string; graph: WorkflowGraph }; result: void }
   'test:run': {
     args: { specId?: string; scope: 'unit' | 'integration' | 'e2e' }

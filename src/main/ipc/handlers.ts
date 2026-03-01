@@ -1,8 +1,11 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import type { IpcInvokeChannels } from '@shared/ipc-channels'
 import type { ProjectOpenResult } from '@shared/types/project.types'
+import type { ProjectHierarchy } from '@shared/types/story.types'
 import type { AppError } from '@shared/types/error.types'
 import { loadProject } from '@main/services/project/project-loader.service'
+import { parseProjectHierarchy } from '@main/services/project/story-parser'
+import { getActiveProjectPath, setActiveProjectPath } from '@main/services/project/active-project'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -39,6 +42,7 @@ const handlers: HandlerMap = {
       }
 
       const projectInfo = await loadProject(projectPath)
+      setActiveProjectPath(projectPath)
       return { success: true, data: projectInfo }
     } catch (error) {
       const appError = error as AppError
@@ -52,6 +56,14 @@ const handlers: HandlerMap = {
         }
       }
     }
+  },
+
+  'stories:list': async (): Promise<ProjectHierarchy> => {
+    const projectPath = getActiveProjectPath()
+    if (!projectPath) {
+      return { projectName: '', epics: [] }
+    }
+    return parseProjectHierarchy(projectPath)
   }
 }
 

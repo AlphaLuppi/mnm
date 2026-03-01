@@ -4,9 +4,12 @@ import { ThreePaneLayout } from './ThreePaneLayout'
 import { TimelineBar } from './TimelineBar'
 import { MinResolutionOverlay } from './MinResolutionOverlay'
 import { OpenProjectScreen } from './OpenProjectScreen'
+import { NavigationSidebar } from './NavigationSidebar'
 import { BmadWarningBanner } from '@renderer/shared/components/BmadWarningBanner'
+import { CommandPalette } from '@renderer/shared/components/CommandPalette'
 import { useNavigationStore } from '@renderer/stores/navigation.store'
 import { useProjectStore } from '@renderer/stores/project.store'
+import { useHierarchyStore } from '@renderer/stores/hierarchy.store'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -20,6 +23,8 @@ export function AppShell() {
   const breakpoint = useNavigationStore((s) => s.breakpoint)
   const setBreakpoint = useNavigationStore((s) => s.setBreakpoint)
   const project = useProjectStore((s) => s.project)
+  const loadHierarchy = useHierarchyStore((s) => s.loadHierarchy)
+  const navigateUp = useHierarchyStore((s) => s.navigateUp)
 
   // Window resize → breakpoint
   useEffect(() => {
@@ -31,6 +36,13 @@ export function AppShell() {
     return () => window.removeEventListener('resize', handleResize)
   }, [setBreakpoint])
 
+  // Load hierarchy when project loads
+  useEffect(() => {
+    if (project.status === 'success') {
+      loadHierarchy()
+    }
+  }, [project.status, loadHierarchy])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,6 +52,11 @@ export function AppShell() {
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable
       ) {
+        return
+      }
+
+      // Skip if a dialog is open (let Escape close the dialog instead)
+      if (document.querySelector('[role="dialog"]') && e.key !== 'Escape') {
         return
       }
 
@@ -54,13 +71,15 @@ export function AppShell() {
           document.getElementById('pane-tests')?.focus()
           break
         case 'Escape':
-          // Placeholder: navigate up one level (Story 1.4)
+          if (!document.querySelector('[role="dialog"]')) {
+            navigateUp()
+          }
           break
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [navigateUp])
 
   // No project loaded — show OpenProjectScreen
   if (project.status === 'idle' || project.status === 'error') {
@@ -118,11 +137,16 @@ export function AppShell() {
 
       {showBmadWarning && <BmadWarningBanner />}
 
-      <main className="flex-1 overflow-hidden">
-        <ThreePaneLayout />
-      </main>
+      <div className="flex flex-1 overflow-hidden">
+        <NavigationSidebar />
+        <main className="flex-1 overflow-hidden">
+          <ThreePaneLayout />
+        </main>
+      </div>
 
       <TimelineBar />
+
+      <CommandPalette />
 
       {breakpoint === 'minimum' && <MinResolutionOverlay />}
     </div>
