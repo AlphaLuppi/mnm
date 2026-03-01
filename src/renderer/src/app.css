@@ -47,4 +47,12 @@ html, body, #root {
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-base);
+  overflow: hidden;
+}
+
+/* Resize handle transitions — respect prefers-reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  [data-panel-group-direction="horizontal"] > [data-resize-handle] {
+    transition: background-color 150ms ease-out;
+  }
 }
