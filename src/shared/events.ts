@@ -12,7 +12,7 @@ export type MainEvents = {
     blockingContext?: BlockingContext
   }
   'agent:chat-entry': ChatEntry
-  'file:changed': { path: string; type: 'create' | 'modify' | 'delete' }
+  'file:changed': { path: string; type: 'create' | 'modify' | 'delete'; agentId?: string }
   'drift:detected': {
     id: string
     severity: 'critical' | 'warning' | 'info'

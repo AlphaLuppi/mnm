@@ -1,5 +1,5 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import type { IpcInvokeChannels } from '@shared/ipc-channels'
+import type { IpcInvokeChannels, GitStatus } from '@shared/ipc-channels'
 import type { ProjectOpenResult } from '@shared/types/project.types'
 import type { ProjectHierarchy } from '@shared/types/story.types'
 import type { AgentInfo } from '@shared/types/agent.types'
@@ -9,6 +9,8 @@ import { loadProject } from '@main/services/project/project-loader.service'
 import { parseProjectHierarchy } from '@main/services/project/story-parser'
 import { getActiveProjectPath, setActiveProjectPath } from '@main/services/project/active-project'
 import { getAgentHarness } from '@main/services/agent/agent-harness.instance'
+import { getGitService, initGitService } from '@main/services/git/git.instance'
+import { initFileWatcher } from '@main/services/file-watcher/file-watcher.instance'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -52,6 +54,11 @@ const handlers: HandlerMap = {
       if (harness) {
         harness.updateProjectPath(projectPath)
       }
+
+      // Init git service and file watcher for this project
+      initGitService(projectPath)
+      const watcher = initFileWatcher()
+      watcher.start(projectPath)
 
       return { success: true, data: projectInfo }
     } catch (error) {
@@ -103,6 +110,26 @@ const handlers: HandlerMap = {
     const harness = getAgentHarness()
     if (!harness) return []
     return harness.getAgentChat(args.agentId, args.fromCheckpoint)
+  },
+
+  'git:status': async (): Promise<GitStatus> => {
+    const git = getGitService()
+    if (!git) {
+      return { current: null, tracking: null, files: [], ahead: 0, behind: 0 }
+    }
+    return git.getStatus()
+  },
+
+  'git:log': async (args) => {
+    const git = getGitService()
+    if (!git) return []
+    return git.getLog(args.count)
+  },
+
+  'git:show-file': async (args) => {
+    const git = getGitService()
+    if (!git) return ''
+    return git.showFile(args.path, args.commitHash)
   }
 }
 

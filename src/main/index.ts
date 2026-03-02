@@ -7,6 +7,7 @@ import { setStreamTarget, sendStream } from '@main/ipc/streams'
 import { eventBus } from '@main/utils/event-bus'
 import { logger } from '@main/utils/logger'
 import { initAgentHarness } from '@main/services/agent/agent-harness.instance'
+import { getFileWatcher } from '@main/services/file-watcher/file-watcher.instance'
 import type { MainEvents } from '@shared/events'
 
 function wireEventBusToStreams(): void {
@@ -53,6 +54,10 @@ function initializeAgentHarness(): void {
   })
 
   app.on('before-quit', async () => {
+    const watcher = getFileWatcher()
+    if (watcher) {
+      await watcher.stop()
+    }
     await harness.shutdown()
   })
 

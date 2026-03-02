@@ -11,10 +11,17 @@ export type { ProjectHierarchy } from './types/story.types'
 export type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
 export type { ChatEntry, ChatRole } from './types/chat.types'
 
+export type GitFileStatus = {
+  path: string
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked'
+}
+
 export type GitStatus = {
-  branch: string
-  modified: string[]
-  staged: string[]
+  current: string | null
+  tracking: string | null
+  files: GitFileStatus[]
+  ahead: number
+  behind: number
 }
 
 export type DriftReport = {
