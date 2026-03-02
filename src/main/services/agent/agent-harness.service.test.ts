@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { AgentHarnessService } from './agent-harness.service'
 import { AgentStatus } from '@shared/types/agent.types'
+import type { BlockingContext } from '@shared/types/agent.types'
 import type { ChatEntry } from '@shared/types/chat.types'
 
 // Mock child_process.spawn
@@ -31,9 +32,17 @@ function createMockProcess() {
   return proc
 }
 
+type StatusChange = {
+  agentId: string
+  status: AgentStatus
+  lastError?: string
+  progress?: { completed: number; total: number }
+  blockingContext?: BlockingContext
+}
+
 describe('AgentHarnessService', () => {
   let harness: AgentHarnessService
-  let statusChanges: Array<{ agentId: string; status: AgentStatus; lastError?: string }>
+  let statusChanges: StatusChange[]
   let outputs: Array<{ agentId: string; data: string }>
   let chatEntries: ChatEntry[]
   let mockSpawn: ReturnType<typeof vi.fn>
@@ -48,8 +57,14 @@ describe('AgentHarnessService', () => {
 
     harness = new AgentHarnessService({
       projectPath: '/tmp/test-project',
-      onStatusChange: (agentId, status, lastError) => {
-        statusChanges.push({ agentId, status, lastError })
+      onStatusChange: (agentId, status, extra) => {
+        statusChanges.push({
+          agentId,
+          status,
+          lastError: extra?.lastError,
+          progress: extra?.progress,
+          blockingContext: extra?.blockingContext
+        })
       },
       onOutput: (agentId, data) => {
         outputs.push({ agentId, data })
@@ -314,5 +329,32 @@ describe('AgentHarnessService', () => {
 
     expect(agent1!.status).toBe(AgentStatus.CRASHED)
     expect(agent2!.status).toBe(AgentStatus.ACTIVE)
+  })
+
+  it('emits progress on todolist pattern in stdout', () => {
+    const mockProc = createMockProcess()
+    mockSpawn.mockReturnValue(mockProc)
+
+    harness.launchAgent({ task: 'Test', context: [] })
+    mockProc.emit('spawn')
+
+    mockProc.stdout!.emit(
+      'data',
+      Buffer.from('{"type":"assistant","content":"- [x] Done\\n- [ ] Pending"}\n')
+    )
+
+    const progressChange = statusChanges.find((s) => s.progress)
+    expect(progressChange).toBeTruthy()
+    expect(progressChange!.progress).toEqual({ completed: 1, total: 2 })
+  })
+
+  it('getBlockingContext returns undefined when not blocked', () => {
+    const mockProc = createMockProcess()
+    mockSpawn.mockReturnValue(mockProc)
+
+    const agentId = harness.launchAgent({ task: 'Test', context: [] })
+    mockProc.emit('spawn')
+
+    expect(harness.getBlockingContext(agentId)).toBeUndefined()
   })
 })

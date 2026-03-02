@@ -4,11 +4,11 @@
 // Re-export project types used in IPC channels
 import type { ProjectOpenResult } from './types/project.types'
 import type { ProjectHierarchy } from './types/story.types'
-import type { AgentStatus, AgentInfo, AgentLaunchParams } from './types/agent.types'
+import type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
 import type { ChatEntry } from './types/chat.types'
 export type { ProjectInfo, BmadStructure, ProjectOpenResult } from './types/project.types'
 export type { ProjectHierarchy } from './types/story.types'
-export type { AgentStatus, AgentInfo, AgentLaunchParams } from './types/agent.types'
+export type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
 export type { ChatEntry, ChatRole } from './types/chat.types'
 
 export type GitStatus = {
@@ -74,7 +74,13 @@ export type IpcInvokeChannels = {
 // Streaming (main → renderer, push)
 export type IpcStreamChannels = {
   'stream:agent-output': { agentId: string; data: string; timestamp: number }
-  'stream:agent-status': { agentId: string; status: AgentStatus; lastError?: string }
+  'stream:agent-status': {
+    agentId: string
+    status: AgentStatus
+    lastError?: string
+    progress?: { completed: number; total: number }
+    blockingContext?: BlockingContext
+  }
   'stream:agent-chat': ChatEntry
   'stream:file-change': {
     path: string

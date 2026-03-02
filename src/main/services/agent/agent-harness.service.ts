@@ -3,19 +3,26 @@ import { randomUUID } from 'node:crypto'
 import { writeFile, mkdir, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import { AgentStatus } from '@shared/types/agent.types'
-import type { AgentInfo, AgentLaunchParams } from '@shared/types/agent.types'
+import type { AgentInfo, AgentLaunchParams, BlockingContext } from '@shared/types/agent.types'
 import type { ChatEntry } from '@shared/types/chat.types'
 import { StdoutParser } from './stdout-parser'
 import { ChatSegmenter } from './chat-segmenter'
+import { BlockingDetector } from './blocking-detector'
 import type { AgentProcess } from './agent.types'
 
 const STOP_GRACE_PERIOD_MS = 5000
+const DEFAULT_BLOCKING_TIMEOUT_MS = 60_000
 
 export type AgentHarnessConfig = {
   projectPath: string
-  onStatusChange: (agentId: string, status: AgentStatus, lastError?: string) => void
+  onStatusChange: (
+    agentId: string,
+    status: AgentStatus,
+    extra?: { lastError?: string; progress?: { completed: number; total: number }; blockingContext?: BlockingContext }
+  ) => void
   onOutput: (agentId: string, data: string) => void
   onChatEntry: (entry: ChatEntry) => void
+  blockingTimeoutMs?: number
 }
 
 export class AgentHarnessService {
@@ -24,12 +31,14 @@ export class AgentHarnessService {
   private onStatusChange: AgentHarnessConfig['onStatusChange']
   private onOutput: AgentHarnessConfig['onOutput']
   private onChatEntry: AgentHarnessConfig['onChatEntry']
+  private blockingTimeoutMs: number
 
   constructor(config: AgentHarnessConfig) {
     this.projectPath = config.projectPath
     this.onStatusChange = config.onStatusChange
     this.onOutput = config.onOutput
     this.onChatEntry = config.onChatEntry
+    this.blockingTimeoutMs = config.blockingTimeoutMs ?? DEFAULT_BLOCKING_TIMEOUT_MS
   }
 
   launchAgent(params: AgentLaunchParams): string {
@@ -55,11 +64,24 @@ export class AgentHarnessService {
     const parser = new StdoutParser()
     const segmenter = new ChatSegmenter(agentId)
 
+    const blockingDetector = new BlockingDetector(
+      (context: BlockingContext) => {
+        info.status = AgentStatus.BLOCKED
+        agentProcess.blockingContext = context
+        this.onStatusChange(agentId, AgentStatus.BLOCKED, {
+          lastError: context.lastMessage,
+          blockingContext: context
+        })
+      },
+      { timeoutMs: this.blockingTimeoutMs }
+    )
+
     const agentProcess: AgentProcess = {
       info,
       process: child,
       parser,
       segmenter,
+      blockingDetector,
       stderrBuffer: ''
     }
 
@@ -68,18 +90,31 @@ export class AgentHarnessService {
     child.stdout?.on('data', (data: Buffer) => {
       const text = data.toString()
       info.lastOutputAt = Date.now()
+      blockingDetector.onOutput(text)
       this.onOutput(agentId, text)
       parser.feed(text)
     })
 
     child.stderr?.on('data', (data: Buffer) => {
-      agentProcess.stderrBuffer += data.toString()
+      const text = data.toString()
+      agentProcess.stderrBuffer += text
+      blockingDetector.onStderr(text)
     })
 
     parser.on('event', (event) => {
       const entry = segmenter.process(event)
       if (entry) {
+        if (entry.checkpoint) {
+          blockingDetector.setCheckpoint(entry.checkpoint)
+        }
         this.onChatEntry(entry)
+      }
+
+      if (event.type === 'progress') {
+        info.progress = { completed: event.completed, total: event.total }
+        this.onStatusChange(agentId, info.status, {
+          progress: info.progress
+        })
       }
     })
 
@@ -90,6 +125,7 @@ export class AgentHarnessService {
 
     child.on('close', (code) => {
       parser.flush()
+      blockingDetector.destroy()
       info.stoppedAt = Date.now()
 
       if (info.status === AgentStatus.STOPPING) {
@@ -101,7 +137,7 @@ export class AgentHarnessService {
       } else {
         info.status = AgentStatus.CRASHED
         info.lastError = agentProcess.stderrBuffer.slice(-2000)
-        this.onStatusChange(agentId, AgentStatus.CRASHED, info.lastError)
+        this.onStatusChange(agentId, AgentStatus.CRASHED, { lastError: info.lastError })
       }
 
       this.persistSession(agentProcess).catch(() => {
@@ -110,10 +146,11 @@ export class AgentHarnessService {
     })
 
     child.on('error', (err) => {
+      blockingDetector.destroy()
       info.status = AgentStatus.CRASHED
       info.stoppedAt = Date.now()
       info.lastError = err.message
-      this.onStatusChange(agentId, AgentStatus.CRASHED, err.message)
+      this.onStatusChange(agentId, AgentStatus.CRASHED, { lastError: err.message })
     })
 
     this.onStatusChange(agentId, AgentStatus.LAUNCHING)
@@ -131,6 +168,7 @@ export class AgentHarnessService {
       return
     }
 
+    agent.blockingDetector.destroy()
     agent.info.status = AgentStatus.STOPPING
     this.onStatusChange(agentId, AgentStatus.STOPPING)
 
@@ -166,6 +204,10 @@ export class AgentHarnessService {
   getAgent(agentId: string): AgentInfo | undefined {
     const agent = this.agents.get(agentId)
     return agent ? { ...agent.info } : undefined
+  }
+
+  getBlockingContext(agentId: string): BlockingContext | undefined {
+    return this.agents.get(agentId)?.blockingContext
   }
 
   updateProjectPath(projectPath: string): void {

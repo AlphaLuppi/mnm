@@ -18,6 +18,7 @@ describe('useAgentsStore', () => {
   beforeEach(() => {
     useAgentsStore.setState({
       agents: new Map(),
+      blockingContexts: new Map(),
       stallThresholdMs: 30_000,
       _tick: 0
     })
@@ -51,7 +52,7 @@ describe('useAgentsStore', () => {
 
   it('updateStatus sets lastError', () => {
     useAgentsStore.getState().addAgent(makeAgent({ id: 'a1' }))
-    useAgentsStore.getState().updateStatus('a1', AgentStatus.CRASHED, 'OOM killed')
+    useAgentsStore.getState().updateStatus('a1', AgentStatus.CRASHED, { lastError: 'OOM killed' })
 
     const agent = useAgentsStore.getState().agents.get('a1')
     expect(agent?.status).toBe(AgentStatus.CRASHED)
@@ -170,6 +171,72 @@ describe('useAgentsStore', () => {
       )
 
       expect(useAgentsStore.getState().getHealthColor('a1')).toBe('orange')
+    })
+  })
+
+  describe('progress and blocking', () => {
+    it('updateStatus stores progress info', () => {
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a1' }))
+      useAgentsStore.getState().updateStatus('a1', AgentStatus.ACTIVE, {
+        progress: { completed: 3, total: 10 }
+      })
+
+      const agent = useAgentsStore.getState().agents.get('a1')
+      expect(agent?.progress).toEqual({ completed: 3, total: 10 })
+    })
+
+    it('updateStatus stores blocking context', () => {
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a1' }))
+      useAgentsStore.getState().updateStatus('a1', AgentStatus.BLOCKED, {
+        blockingContext: {
+          lastMessage: 'rate limit',
+          timestamp: Date.now(),
+          reason: 'error-pattern'
+        }
+      })
+
+      const ctx = useAgentsStore.getState().blockingContexts.get('a1')
+      expect(ctx).toBeTruthy()
+      expect(ctx!.reason).toBe('error-pattern')
+    })
+
+    it('clears blocking context when status is not BLOCKED', () => {
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a1' }))
+      useAgentsStore.getState().updateStatus('a1', AgentStatus.BLOCKED, {
+        blockingContext: {
+          lastMessage: 'timeout',
+          timestamp: Date.now(),
+          reason: 'timeout'
+        }
+      })
+      expect(useAgentsStore.getState().blockingContexts.has('a1')).toBe(true)
+
+      useAgentsStore.getState().updateStatus('a1', AgentStatus.ACTIVE)
+      expect(useAgentsStore.getState().blockingContexts.has('a1')).toBe(false)
+    })
+
+    it('getBlockedAgents returns only blocked agents', () => {
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a1', status: AgentStatus.ACTIVE }))
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a2', status: AgentStatus.BLOCKED }))
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a3', status: AgentStatus.STOPPED }))
+
+      const blocked = useAgentsStore.getState().getBlockedAgents()
+      expect(blocked).toHaveLength(1)
+      expect(blocked[0].id).toBe('a2')
+    })
+
+    it('removeAgent also removes blocking context', () => {
+      useAgentsStore.getState().addAgent(makeAgent({ id: 'a1' }))
+      useAgentsStore.getState().updateStatus('a1', AgentStatus.BLOCKED, {
+        blockingContext: {
+          lastMessage: 'error',
+          timestamp: Date.now(),
+          reason: 'stderr-error'
+        }
+      })
+      useAgentsStore.getState().removeAgent('a1')
+
+      expect(useAgentsStore.getState().blockingContexts.has('a1')).toBe(false)
     })
   })
 })

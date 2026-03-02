@@ -1,27 +1,36 @@
 import { create } from 'zustand'
-import type { AgentInfo } from '@shared/types/agent.types'
+import type { AgentInfo, BlockingContext } from '@shared/types/agent.types'
 import { AgentStatus } from '@shared/types/agent.types'
 
 export type HealthColor = 'green' | 'orange' | 'red' | 'gray'
 
+type StatusExtra = {
+  lastError?: string
+  progress?: { completed: number; total: number }
+  blockingContext?: BlockingContext
+}
+
 type AgentsState = {
   agents: Map<string, AgentInfo>
+  blockingContexts: Map<string, BlockingContext>
   stallThresholdMs: number
   _tick: number
 
   setAgents: (agents: AgentInfo[]) => void
   addAgent: (agent: AgentInfo) => void
-  updateStatus: (agentId: string, status: AgentStatus, lastError?: string) => void
+  updateStatus: (agentId: string, status: AgentStatus, extra?: StatusExtra) => void
   updateLastOutput: (agentId: string, timestamp: number) => void
   removeAgent: (agentId: string) => void
   setStallThreshold: (ms: number) => void
   getHealthColor: (agentId: string) => HealthColor
+  getBlockedAgents: () => AgentInfo[]
 }
 
 const DEFAULT_STALL_THRESHOLD_MS = 30_000
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
   agents: new Map(),
+  blockingContexts: new Map(),
   stallThresholdMs: DEFAULT_STALL_THRESHOLD_MS,
   _tick: 0,
 
@@ -41,22 +50,31 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       return { agents: next }
     }),
 
-  updateStatus: (agentId, status, lastError) =>
+  updateStatus: (agentId, status, extra) =>
     set((state) => {
-      const next = new Map(state.agents)
-      const agent = next.get(agentId)
+      const nextAgents = new Map(state.agents)
+      const agent = nextAgents.get(agentId)
       if (agent) {
-        next.set(agentId, {
+        nextAgents.set(agentId, {
           ...agent,
           status,
-          lastError: lastError ?? agent.lastError,
+          lastError: extra?.lastError ?? agent.lastError,
+          progress: extra?.progress ?? agent.progress,
           stoppedAt:
             status === AgentStatus.STOPPED || status === AgentStatus.CRASHED
               ? Date.now()
               : agent.stoppedAt
         })
       }
-      return { agents: next }
+
+      const nextBlocking = new Map(state.blockingContexts)
+      if (extra?.blockingContext) {
+        nextBlocking.set(agentId, extra.blockingContext)
+      } else if (status !== AgentStatus.BLOCKED) {
+        nextBlocking.delete(agentId)
+      }
+
+      return { agents: nextAgents, blockingContexts: nextBlocking }
     }),
 
   updateLastOutput: (agentId, timestamp) =>
@@ -73,7 +91,9 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
     set((state) => {
       const next = new Map(state.agents)
       next.delete(agentId)
-      return { agents: next }
+      const nextBlocking = new Map(state.blockingContexts)
+      nextBlocking.delete(agentId)
+      return { agents: next, blockingContexts: nextBlocking }
     }),
 
   setStallThreshold: (ms) => set({ stallThresholdMs: ms }),
@@ -104,5 +124,10 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       default:
         return 'gray'
     }
+  },
+
+  getBlockedAgents: () => {
+    const state = get()
+    return Array.from(state.agents.values()).filter((a) => a.status === AgentStatus.BLOCKED)
   }
 }))

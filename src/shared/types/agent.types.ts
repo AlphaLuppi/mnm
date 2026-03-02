@@ -24,6 +24,14 @@ export type AgentInfo = {
   }
 }
 
+export type BlockingContext = {
+  lastMessage: string
+  timestamp: number
+  stderrSnippet?: string
+  checkpointId?: string
+  reason: 'timeout' | 'error-pattern' | 'stderr-error'
+}
+
 export type AgentLaunchParams = {
   task: string
   context: string[]

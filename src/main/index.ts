@@ -34,8 +34,14 @@ function wireEventBusToStreams(): void {
 function initializeAgentHarness(): void {
   const harness = initAgentHarness({
     projectPath: '',
-    onStatusChange: (agentId, status, lastError) => {
-      eventBus.emit('agent:status', { agentId, status, lastError })
+    onStatusChange: (agentId, status, extra) => {
+      eventBus.emit('agent:status', {
+        agentId,
+        status,
+        lastError: extra?.lastError,
+        progress: extra?.progress,
+        blockingContext: extra?.blockingContext
+      })
       logger.info('agent-harness', `Agent ${agentId} status: ${status}`)
     },
     onOutput: (agentId, data) => {
