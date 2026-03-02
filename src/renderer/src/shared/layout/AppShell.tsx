@@ -10,7 +10,8 @@ import { CommandPalette } from '@renderer/shared/components/CommandPalette'
 import { useNavigationStore } from '@renderer/stores/navigation.store'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useHierarchyStore } from '@renderer/stores/hierarchy.store'
-import { AgentList, useStallDetection, useTimelineStream } from '@renderer/features/agents'
+import { useStallDetection, useTimelineStream } from '@renderer/features/agents'
+import { AgentsPane } from '@renderer/features/agents/components/AgentsPane'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -147,7 +148,7 @@ export function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         <NavigationSidebar />
         <main className="flex-1 overflow-hidden">
-          <ThreePaneLayout agentsContent={<AgentList />} />
+          <ThreePaneLayout agentsContent={<AgentsPane />} />
         </main>
       </div>
 
