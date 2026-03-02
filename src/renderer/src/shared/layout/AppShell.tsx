@@ -10,7 +10,7 @@ import { CommandPalette } from '@renderer/shared/components/CommandPalette'
 import { useNavigationStore } from '@renderer/stores/navigation.store'
 import { useProjectStore } from '@renderer/stores/project.store'
 import { useHierarchyStore } from '@renderer/stores/hierarchy.store'
-import { AgentList, useStallDetection } from '@renderer/features/agents'
+import { AgentList, useStallDetection, useTimelineStream } from '@renderer/features/agents'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -102,6 +102,9 @@ export function AppShell() {
 
   // Stall detection for agent health indicators
   useStallDetection()
+
+  // Timeline event streaming
+  useTimelineStream()
 
   // Project loaded — render the full layout
   const showBmadWarning = !project.data.bmadStructure.detected
