@@ -6,6 +6,7 @@ export type StdoutEvent =
   | { type: 'tool-call'; tool: string; args: string }
   | { type: 'tool-result'; tool: string; result: string }
   | { type: 'checkpoint'; label: string }
+  | { type: 'progress'; completed: number; total: number }
   | { type: 'error'; message: string }
 
 export class StdoutParser extends EventEmitter {
@@ -40,6 +41,7 @@ export class StdoutParser extends EventEmitter {
       // Not JSON — treat as plain text
     }
 
+    this.detectProgress(line)
     this.emit('event', { type: 'text', role: 'assistant', content: line } satisfies StdoutEvent)
   }
 
@@ -47,13 +49,16 @@ export class StdoutParser extends EventEmitter {
     const msgType = msg['type'] as string | undefined
 
     switch (msgType) {
-      case 'assistant':
+      case 'assistant': {
+        const assistantContent = String(msg['content'] ?? '')
+        this.detectProgress(assistantContent)
         this.emit('event', {
           type: 'text',
           role: 'assistant',
-          content: String(msg['content'] ?? '')
+          content: assistantContent
         } satisfies StdoutEvent)
         break
+      }
       case 'user':
         this.emit('event', {
           type: 'text',
@@ -89,6 +94,31 @@ export class StdoutParser extends EventEmitter {
           role: 'system',
           content: JSON.stringify(msg)
         } satisfies StdoutEvent)
+    }
+  }
+
+  private detectProgress(content: string): void {
+    // Pattern 1: Markdown todolist
+    const completedMatches = content.match(/- \[x\]/gi)
+    const pendingMatches = content.match(/- \[ \]/gi)
+
+    if (completedMatches || pendingMatches) {
+      const completed = completedMatches?.length ?? 0
+      const total = completed + (pendingMatches?.length ?? 0)
+      if (total > 0) {
+        this.emit('event', { type: 'progress', completed, total } satisfies StdoutEvent)
+      }
+    }
+
+    // Pattern 2: "Step X/Y" or "Task X of Y" or "Etape X sur Y"
+    const stepPattern = /(?:step|task|etape)\s+(\d+)\s*(?:\/|of|sur)\s*(\d+)/i
+    const match = content.match(stepPattern)
+    if (match) {
+      this.emit('event', {
+        type: 'progress',
+        completed: parseInt(match[1], 10),
+        total: parseInt(match[2], 10)
+      } satisfies StdoutEvent)
     }
   }
 

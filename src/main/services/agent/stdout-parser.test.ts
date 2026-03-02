@@ -153,4 +153,62 @@ describe('StdoutParser', () => {
       expect(events[0].role).toBe('system')
     }
   })
+
+  describe('progress detection', () => {
+    it('detects markdown todolist pattern', () => {
+      const parser = new StdoutParser()
+      const events = collectEvents(parser)
+
+      parser.feed(
+        '{"type":"assistant","content":"- [x] Done task\\n- [x] Another done\\n- [ ] Pending task"}\n'
+      )
+
+      const progressEvents = events.filter((e) => e.type === 'progress')
+      expect(progressEvents).toHaveLength(1)
+      expect(progressEvents[0]).toEqual({ type: 'progress', completed: 2, total: 3 })
+    })
+
+    it('detects Step X/Y pattern', () => {
+      const parser = new StdoutParser()
+      const events = collectEvents(parser)
+
+      parser.feed('Step 3/5 - Processing files\n')
+
+      const progressEvents = events.filter((e) => e.type === 'progress')
+      expect(progressEvents).toHaveLength(1)
+      expect(progressEvents[0]).toEqual({ type: 'progress', completed: 3, total: 5 })
+    })
+
+    it('detects Task X of Y pattern', () => {
+      const parser = new StdoutParser()
+      const events = collectEvents(parser)
+
+      parser.feed('Task 2 of 10 completed\n')
+
+      const progressEvents = events.filter((e) => e.type === 'progress')
+      expect(progressEvents).toHaveLength(1)
+      expect(progressEvents[0]).toEqual({ type: 'progress', completed: 2, total: 10 })
+    })
+
+    it('detects progress in JSON assistant content', () => {
+      const parser = new StdoutParser()
+      const events = collectEvents(parser)
+
+      parser.feed('{"type":"assistant","content":"Step 1/3 done"}\n')
+
+      const progressEvents = events.filter((e) => e.type === 'progress')
+      expect(progressEvents).toHaveLength(1)
+      expect(progressEvents[0]).toEqual({ type: 'progress', completed: 1, total: 3 })
+    })
+
+    it('does not emit progress for lines without patterns', () => {
+      const parser = new StdoutParser()
+      const events = collectEvents(parser)
+
+      parser.feed('Just a normal message\n')
+
+      const progressEvents = events.filter((e) => e.type === 'progress')
+      expect(progressEvents).toHaveLength(0)
+    })
+  })
 })

@@ -1,10 +1,16 @@
-import type { AgentStatus } from './types/agent.types'
+import type { AgentStatus, BlockingContext } from './types/agent.types'
 import type { ChatEntry } from './types/chat.types'
 
 // Main process events (EventEmitter)
 export type MainEvents = {
   'agent:output': { agentId: string; data: string; timestamp: number }
-  'agent:status': { agentId: string; status: AgentStatus; lastError?: string }
+  'agent:status': {
+    agentId: string
+    status: AgentStatus
+    lastError?: string
+    progress?: { completed: number; total: number }
+    blockingContext?: BlockingContext
+  }
   'agent:chat-entry': ChatEntry
   'file:changed': { path: string; type: 'create' | 'modify' | 'delete' }
   'drift:detected': {

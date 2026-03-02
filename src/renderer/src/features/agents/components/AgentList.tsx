@@ -28,7 +28,11 @@ export function AgentList({ onSelectAgent, onOpenChatViewer }: AgentListProps) {
   // Subscribe to live status and output updates
   useEffect(() => {
     const cleanupStatus = window.electronAPI.on('stream:agent-status', (data) => {
-      updateStatus(data.agentId, data.status, data.lastError)
+      updateStatus(data.agentId, data.status, {
+        lastError: data.lastError,
+        progress: data.progress,
+        blockingContext: data.blockingContext
+      })
     })
 
     const cleanupOutput = window.electronAPI.on('stream:agent-output', (data) => {

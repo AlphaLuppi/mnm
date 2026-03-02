@@ -1,5 +1,7 @@
 import { useAgentsStore } from '../agents.store'
 import { HealthIndicator } from './HealthIndicator'
+import { AgentProgressBar } from './AgentProgressBar'
+import { BlockedBadge } from './BlockedBadge'
 
 type AgentCardProps = {
   agentId: string
@@ -11,6 +13,7 @@ type AgentCardProps = {
 export function AgentCard({ agentId, isSelected, onSelect, onDoubleClick }: AgentCardProps) {
   const agent = useAgentsStore((state) => state.agents.get(agentId))
   const healthColor = useAgentsStore((state) => state.getHealthColor(agentId))
+  const blockingContext = useAgentsStore((state) => state.blockingContexts.get(agentId))
 
   if (!agent) return null
 
@@ -48,7 +51,17 @@ export function AgentCard({ agentId, isSelected, onSelect, onDoubleClick }: Agen
 
         <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary">{agent.task}</p>
 
-        {agent.lastError && (
+        {agent.progress && (
+          <AgentProgressBar
+            completed={agent.progress.completed}
+            total={agent.progress.total}
+            className="mt-1.5"
+          />
+        )}
+
+        {blockingContext && <BlockedBadge context={blockingContext} className="mt-1.5" />}
+
+        {agent.lastError && !blockingContext && (
           <p className="mt-1 line-clamp-1 font-mono text-xs text-status-red">
             {agent.lastError}
           </p>

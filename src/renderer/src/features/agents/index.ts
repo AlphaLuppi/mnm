@@ -1,5 +1,7 @@
 export { AgentList } from './components/AgentList'
 export { AgentCard } from './components/AgentCard'
+export { AgentProgressBar } from './components/AgentProgressBar'
+export { BlockedBadge } from './components/BlockedBadge'
 export { HealthIndicator } from './components/HealthIndicator'
 export { useAgentsStore } from './agents.store'
 export { useAgentStatus } from './hooks/useAgentStatus'
