@@ -12,6 +12,7 @@ import { useProjectStore } from '@renderer/stores/project.store'
 import { useHierarchyStore } from '@renderer/stores/hierarchy.store'
 import { useStallDetection, useTimelineStream } from '@renderer/features/agents'
 import { AgentsPane } from '@renderer/features/agents/components/AgentsPane'
+import { ContextPanel } from '@renderer/features/context'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -148,7 +149,7 @@ export function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         <NavigationSidebar />
         <main className="flex-1 overflow-hidden">
-          <ThreePaneLayout agentsContent={<AgentsPane />} />
+          <ThreePaneLayout contextContent={<ContextPanel />} agentsContent={<AgentsPane />} />
         </main>
       </div>
 
