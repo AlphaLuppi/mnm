@@ -1,5 +1,5 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import type { IpcInvokeChannels, GitStatus } from '@shared/ipc-channels'
+import type { IpcInvokeChannels, GitStatus, ProjectFileInfo } from '@shared/ipc-channels'
 import type { ProjectOpenResult } from '@shared/types/project.types'
 import type { ProjectHierarchy } from '@shared/types/story.types'
 import type { AgentInfo } from '@shared/types/agent.types'
@@ -11,6 +11,7 @@ import { getActiveProjectPath, setActiveProjectPath } from '@main/services/proje
 import { getAgentHarness } from '@main/services/agent/agent-harness.instance'
 import { getGitService, initGitService } from '@main/services/git/git.instance'
 import { initFileWatcher } from '@main/services/file-watcher/file-watcher.instance'
+import { getContextService, initContextService } from '@main/services/context/context.instance'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -55,8 +56,9 @@ const handlers: HandlerMap = {
         harness.updateProjectPath(projectPath)
       }
 
-      // Init git service and file watcher for this project
+      // Init git service, context service, and file watcher for this project
       initGitService(projectPath)
+      initContextService(projectPath)
       const watcher = initFileWatcher()
       watcher.start(projectPath)
 
@@ -130,6 +132,28 @@ const handlers: HandlerMap = {
     const git = getGitService()
     if (!git) return ''
     return git.showFile(args.path, args.commitHash)
+  },
+
+  'context:add-to-agent': async (args): Promise<void> => {
+    const ctx = getContextService()
+    if (!ctx) {
+      throw { code: 'NO_PROJECT', message: 'Aucun projet ouvert', source: 'context:add-to-agent' }
+    }
+    ctx.addFileToAgent(args.agentId, args.filePath)
+  },
+
+  'context:remove-from-agent': async (args): Promise<void> => {
+    const ctx = getContextService()
+    if (!ctx) {
+      throw { code: 'NO_PROJECT', message: 'Aucun projet ouvert', source: 'context:remove-from-agent' }
+    }
+    ctx.removeFileFromAgent(args.agentId, args.filePath)
+  },
+
+  'context:list-project-files': async (): Promise<ProjectFileInfo[]> => {
+    const ctx = getContextService()
+    if (!ctx) return []
+    return ctx.listProjectFiles()
   }
 }
 

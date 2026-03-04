@@ -94,6 +94,19 @@ html, body, #root {
   }
 }
 
+@keyframes fade-out {
+  from {
+    opacity: 1;
+    max-height: 100px;
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+}
+
 @layer utilities {
   .animate-progress-indeterminate {
     animation: progress-indeterminate 1.5s ease-in-out infinite;
@@ -101,5 +114,16 @@ html, body, #root {
 
   .animate-slide-in {
     animation: slide-in 150ms ease-out;
+  }
+
+  .animate-fade-out {
+    animation: fade-out 200ms ease-out forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-out {
+    animation: none;
+    display: none;
   }
 }

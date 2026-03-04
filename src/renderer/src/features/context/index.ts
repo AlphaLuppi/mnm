@@ -1,4 +1,8 @@
 export { ContextPanel } from './components/ContextPanel'
 export { ContextFileCard } from './components/ContextFileCard'
+export { ContextFilePicker } from './components/ContextFilePicker'
+export { ContextDragWrapper } from './components/ContextDragWrapper'
 export { useContextFiles } from './hooks/useContextFiles'
 export { useContextStore } from './context.store'
+export type { ContextFile } from './context.types'
+export type { ContextFileDragData, DragItemType, DropResult } from './context-dnd.types'
