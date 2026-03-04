@@ -51,6 +51,13 @@ export type TestInfo = {
   status: 'pass' | 'fail' | 'pending'
 }
 
+export type ProjectFileInfo = {
+  path: string
+  name: string
+  relativePath: string
+  extension: string
+}
+
 // Request-Response (renderer → main → response)
 export type IpcInvokeChannels = {
   'project:open': { args: { path: string }; result: ProjectOpenResult }
@@ -76,6 +83,9 @@ export type IpcInvokeChannels = {
     result: { runId: string }
   }
   'test:list': { args: { specId?: string }; result: TestInfo[] }
+  'context:add-to-agent': { args: { agentId: string; filePath: string }; result: void }
+  'context:remove-from-agent': { args: { agentId: string; filePath: string }; result: void }
+  'context:list-project-files': { args: void; result: ProjectFileInfo[] }
 }
 
 // Streaming (main → renderer, push)
