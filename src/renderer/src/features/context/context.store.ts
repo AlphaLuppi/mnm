@@ -4,6 +4,7 @@ import type { ContextFile } from './context.types'
 type ContextState = {
   files: Map<string, ContextFile>
   selectedStoryFilter: string | null
+  pendingNotificationCount: number
 
   addFile: (file: ContextFile) => void
   removeFile: (path: string) => void
@@ -12,6 +13,8 @@ type ContextState = {
   removeAgentFromFiles: (agentId: string) => void
   setStoryFilter: (storyId: string | null) => void
   markFileModified: (path: string, agentId?: string) => void
+  incrementNotificationCount: () => void
+  resetNotificationCount: () => void
   getFilesForCurrentView: () => ContextFile[]
   getAgentsForFile: (filePath: string) => string[]
 }
@@ -19,6 +22,7 @@ type ContextState = {
 export const useContextStore = create<ContextState>((set, get) => ({
   files: new Map(),
   selectedStoryFilter: null,
+  pendingNotificationCount: 0,
 
   addFile: (file) =>
     set((state) => {
@@ -99,6 +103,11 @@ export const useContextStore = create<ContextState>((set, get) => ({
       }
       return { files: next }
     }),
+
+  incrementNotificationCount: () =>
+    set((state) => ({ pendingNotificationCount: state.pendingNotificationCount + 1 })),
+
+  resetNotificationCount: () => set({ pendingNotificationCount: 0 }),
 
   getFilesForCurrentView: () => {
     const { files, selectedStoryFilter } = get()

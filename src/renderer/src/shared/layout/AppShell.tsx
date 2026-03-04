@@ -13,6 +13,8 @@ import { useHierarchyStore } from '@renderer/stores/hierarchy.store'
 import { useStallDetection, useTimelineStream } from '@renderer/features/agents'
 import { AgentsPane } from '@renderer/features/agents/components/AgentsPane'
 import { ContextPanel } from '@renderer/features/context'
+import { useFileNotifications } from '@renderer/features/context/hooks/useFileNotifications'
+import { Toaster } from '@renderer/shared/components/Toaster'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -108,6 +110,9 @@ export function AppShell() {
   // Timeline event streaming
   useTimelineStream()
 
+  // File change notifications
+  useFileNotifications()
+
   // Project loaded — render the full layout
   const showBmadWarning = !project.data.bmadStructure.detected
 
@@ -156,6 +161,8 @@ export function AppShell() {
       <TimelineBar />
 
       <CommandPalette />
+
+      <Toaster />
 
       {breakpoint === 'minimum' && <MinResolutionOverlay />}
     </div>

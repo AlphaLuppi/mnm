@@ -1,4 +1,5 @@
 import { useHierarchyStore } from '@renderer/stores/hierarchy.store'
+import { FileChangeBadge } from '@renderer/features/context/components/FileChangeBadge'
 
 type AppHeaderProps = {
   projectName?: string
@@ -31,8 +32,11 @@ export function AppHeader({ projectName, bmadDetected }: AppHeaderProps) {
         </>
       )}
 
-      {/* Cmd+K hint */}
-      <div className="ml-auto">
+      {/* File change badge + Cmd+K hint */}
+      <div className="ml-auto flex items-center gap-3">
+        <FileChangeBadge />
+      </div>
+      <div>
         <kbd className="rounded border border-border-default px-1.5 py-0.5 text-[10px] text-text-muted">
           ⌘K
         </kbd>

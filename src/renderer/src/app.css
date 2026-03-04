@@ -94,6 +94,23 @@ html, body, #root {
   }
 }
 
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes number-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
 @keyframes fade-out {
   from {
     opacity: 1;
@@ -119,11 +136,23 @@ html, body, #root {
   .animate-fade-out {
     animation: fade-out 200ms ease-out forwards;
   }
+
+  .animate-toast-slide-in {
+    animation: toast-slide-in 200ms ease-out;
+  }
+
+  .animate-number-pop {
+    animation: number-pop 300ms ease-out;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-out {
+  .animate-fade-out,
+  .animate-toast-slide-in,
+  .animate-number-pop {
     animation: none;
+  }
+  .animate-fade-out {
     display: none;
   }
 }
