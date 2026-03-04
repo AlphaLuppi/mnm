@@ -134,6 +134,18 @@ const handlers: HandlerMap = {
     return git.showFile(args.path, args.commitHash)
   },
 
+  'git:file-history': async (args) => {
+    const git = getGitService()
+    if (!git) return []
+    return git.getFileHistory(args.filePath, args.count)
+  },
+
+  'git:file-diff': async (args) => {
+    const git = getGitService()
+    if (!git) return ''
+    return git.getDiff(args.commitA, args.commitB)
+  },
+
   'context:add-to-agent': async (args): Promise<void> => {
     const ctx = getContextService()
     if (!ctx) {

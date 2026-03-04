@@ -86,6 +86,8 @@ export type IpcInvokeChannels = {
   'context:add-to-agent': { args: { agentId: string; filePath: string }; result: void }
   'context:remove-from-agent': { args: { agentId: string; filePath: string }; result: void }
   'context:list-project-files': { args: void; result: ProjectFileInfo[] }
+  'git:file-history': { args: { filePath: string; count: number }; result: unknown }
+  'git:file-diff': { args: { commitA: string; commitB: string }; result: string }
 }
 
 // Streaming (main → renderer, push)
