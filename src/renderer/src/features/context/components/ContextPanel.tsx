@@ -1,25 +1,36 @@
-import { useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { ContextFileCard } from './ContextFileCard'
 import { ContextFilePicker } from './ContextFilePicker'
+import { FileHistoryPanel } from './FileHistoryPanel'
+import { FileVersionViewer } from './FileVersionViewer'
 import { useContextFiles } from '../hooks/useContextFiles'
 import { useContextStore } from '../context.store'
 import type { ProjectFileInfo } from '@shared/ipc-channels'
 import type { ContextFile } from '../context.types'
 
+type ContextPanelView =
+  | { mode: 'list' }
+  | { mode: 'history'; filePath: string }
+  | { mode: 'version'; filePath: string; commitHash: string; commitMessage: string; commitDate: string; commitAuthor: string }
+
 export function ContextPanel() {
-  // Subscribe to file change streams + sync story filter
   useContextFiles()
+
+  const [view, setView] = useState<ContextPanelView>({ mode: 'list' })
 
   const files = useContextStore((s) => s.getFilesForCurrentView())
   const addFile = useContextStore((s) => s.addFile)
   const removeFile = useContextStore((s) => s.removeFile)
   const updateFileStatus = useContextStore((s) => s.updateFileStatus)
+  const resetNotificationCount = useContextStore((s) => s.resetNotificationCount)
+
+  // Reset notification count when viewing the panel
+  resetNotificationCount()
 
   const handleRemove = useCallback(
     async (filePath: string, agentId: string) => {
       try {
         await window.electronAPI.invoke('context:remove-from-agent', { agentId, filePath })
-        // Update store: remove agent from file
         const file = useContextStore.getState().files.get(filePath)
         if (file) {
           const newAgentIds = file.agentIds.filter((id) => id !== agentId)
@@ -30,7 +41,7 @@ export function ContextPanel() {
           }
         }
       } catch {
-        // IPC error — store stays unchanged
+        // IPC error
       }
     },
     [removeFile, updateFileStatus]
@@ -38,7 +49,6 @@ export function ContextPanel() {
 
   const handleFilePickerSelect = useCallback(
     (fileInfo: ProjectFileInfo) => {
-      // Add file to context store (no specific agent yet — user drags to agent)
       const existing = useContextStore.getState().files.get(fileInfo.path)
       if (!existing) {
         const newFile: ContextFile = {
@@ -56,6 +66,63 @@ export function ContextPanel() {
     [addFile]
   )
 
+  const handleShowHistory = useCallback((filePath: string) => {
+    setView({ mode: 'history', filePath })
+  }, [])
+
+  // History view
+  if (view.mode === 'history') {
+    return (
+      <FileHistoryPanel
+        filePath={view.filePath}
+        selectedHash={null}
+        onSelectCommit={(hash) => {
+          setView({
+            mode: 'version',
+            filePath: view.filePath,
+            commitHash: hash,
+            commitMessage: '',
+            commitDate: '',
+            commitAuthor: ''
+          })
+        }}
+        onClose={() => setView({ mode: 'list' })}
+      />
+    )
+  }
+
+  // Version view
+  if (view.mode === 'version') {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-2 border-b border-border-default px-4 py-2">
+          <button
+            onClick={() => setView({ mode: 'history', filePath: view.filePath })}
+            className="rounded px-2 py-1 text-xs text-text-muted hover:bg-bg-elevated hover:text-text-secondary"
+          >
+            ← Historique
+          </button>
+          <button
+            onClick={() => setView({ mode: 'list' })}
+            className="rounded px-2 py-1 text-xs text-text-muted hover:bg-bg-elevated hover:text-text-secondary"
+          >
+            ← Liste
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <FileVersionViewer
+            filePath={view.filePath}
+            commitHash={view.commitHash}
+            commitMessage={view.commitMessage}
+            commitDate={view.commitDate}
+            commitAuthor={view.commitAuthor}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // File list view
   if (files.length === 0) {
     return (
       <div className="flex h-full flex-col">
@@ -99,6 +166,7 @@ export function ContextPanel() {
               key={file.path}
               file={file}
               onRemove={handleRemove}
+              onShowHistory={handleShowHistory}
             />
           ))}
         </div>

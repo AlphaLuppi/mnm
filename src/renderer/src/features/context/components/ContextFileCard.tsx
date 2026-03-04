@@ -6,9 +6,10 @@ import type { ContextFileDragData } from '../context-dnd.types'
 type ContextFileCardProps = {
   file: ContextFile
   onRemove?: (filePath: string, agentId: string) => void
+  onShowHistory?: (filePath: string) => void
 }
 
-export function ContextFileCard({ file, onRemove }: ContextFileCardProps) {
+export function ContextFileCard({ file, onRemove, onShowHistory }: ContextFileCardProps) {
   const icon = getFileIcon(file.extension)
   const [isDragging, setIsDragging] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
@@ -65,6 +66,20 @@ export function ContextFileCard({ file, onRemove }: ContextFileCardProps) {
           {file.relativePath}
         </p>
       </div>
+
+      {/* History button */}
+      {onShowHistory && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onShowHistory(file.path)
+          }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 rounded px-1.5 py-0.5 text-xs text-text-muted hover:text-accent hover:bg-bg-elevated"
+          aria-label={`Voir l'historique Git de ${file.name}`}
+        >
+          Historique
+        </button>
+      )}
 
       {/* Badges + remove buttons */}
       <div className="flex flex-wrap items-center gap-1">
