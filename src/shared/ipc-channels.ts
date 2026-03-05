@@ -6,6 +6,7 @@ import type { ProjectOpenResult } from './types/project.types'
 import type { ProjectHierarchy } from './types/story.types'
 import type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
 import type { ChatEntry } from './types/chat.types'
+import type { DriftReport as DriftReportFull } from './types/drift.types'
 export type { ProjectInfo, BmadStructure, ProjectOpenResult } from './types/project.types'
 export type { ProjectHierarchy } from './types/story.types'
 export type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
@@ -71,7 +72,7 @@ export type IpcInvokeChannels = {
     args: { agentId: string; fromCheckpoint?: string }
     result: ChatEntry[]
   }
-  'drift:check': { args: { docA: string; docB: string }; result: DriftReport }
+  'drift:check': { args: { docA: string; docB: string }; result: DriftReportFull }
   'drift:resolve': {
     args: { driftId: string; action: 'fix-source' | 'fix-derived' | 'ignore'; content?: string }
     result: void
