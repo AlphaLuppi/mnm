@@ -1,5 +1,7 @@
 import { useDashboardData } from '../hooks/useDashboardData'
 import { ProjectHealthSummary } from './ProjectHealthSummary'
+import { AgentsSummaryWidget } from './AgentsSummaryWidget'
+import { DriftSummaryWidget } from './DriftSummaryWidget'
 
 export function CockpitDashboard() {
   const data = useDashboardData()
@@ -19,13 +21,11 @@ export function CockpitDashboard() {
         />
       </div>
 
-      {/* Agent widget slot — Story 5.2 */}
-      <div id="widget-agents" />
+      <AgentsSummaryWidget />
 
-      {/* Drift widget slot — Story 5.2 */}
-      <div id="widget-drift" />
+      <DriftSummaryWidget />
 
-      {/* Stories progress — Story 5.3, full width */}
+      {/* Stories progress — Story 5.3 */}
       <div id="widget-stories" className="col-span-full" />
     </div>
   )
