@@ -17,6 +17,7 @@ import { useFileNotifications } from '@renderer/features/context/hooks/useFileNo
 import { Toaster } from '@renderer/shared/components/Toaster'
 import { useDriftStreams } from '@renderer/features/drift/hooks/useDriftStreams'
 import { useDriftResolution } from '@renderer/features/drift/hooks/useDriftResolution'
+import { CockpitDashboard } from '@renderer/features/dashboard'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -32,6 +33,7 @@ export function AppShell() {
   const project = useProjectStore((s) => s.project)
   const loadHierarchy = useHierarchyStore((s) => s.loadHierarchy)
   const navigateUp = useHierarchyStore((s) => s.navigateUp)
+  const currentLevel = useHierarchyStore((s) => s.currentLevel)
 
   // Window resize → breakpoint
   useEffect(() => {
@@ -162,7 +164,11 @@ export function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         <NavigationSidebar />
         <main className="flex-1 overflow-hidden">
-          <ThreePaneLayout contextContent={<ContextPanel />} agentsContent={<AgentsPane />} />
+          {currentLevel() === 'project' ? (
+            <CockpitDashboard />
+          ) : (
+            <ThreePaneLayout contextContent={<ContextPanel />} agentsContent={<AgentsPane />} />
+          )}
         </main>
       </div>
 
