@@ -1,10 +1,12 @@
 import { WidgetCard } from './WidgetCard'
 import { AnimatedCounter } from './AnimatedCounter'
 import { useAgentsSummary } from '../hooks/useAgentsSummary'
+import { useCockpitNavigation } from '../hooks/useCockpitNavigation'
 import { HealthIndicator } from '@renderer/features/agents/components/HealthIndicator'
 
 export function AgentsSummaryWidget() {
   const summary = useAgentsSummary()
+  const { goToAgent } = useCockpitNavigation()
 
   if (summary.total === 0) {
     return (
@@ -27,13 +29,14 @@ export function AgentsSummaryWidget() {
         <StatusCount label="Termines" count={summary.terminated} color="text-[var(--color-text-tertiary)]" />
       </div>
 
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+      <div className="space-y-1 max-h-48 overflow-y-auto" role="list">
         {summary.agents.map((agent) => (
-          <div
+          <button
             key={agent.id}
-            className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded transition-colors duration-200"
+            onClick={() => goToAgent(agent.id)}
+            className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded cursor-pointer hover:bg-[var(--color-bg-elevated)] transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:outline-none"
             role="listitem"
-            aria-label={`Agent ${agent.id}: ${agent.task}`}
+            aria-label={`Naviguer vers l'agent ${agent.id}: ${agent.task}`}
           >
             <HealthIndicator color={agent.healthColor} size={8} />
             <span className="text-sm text-[var(--color-text-primary)] truncate font-medium">
@@ -42,7 +45,7 @@ export function AgentsSummaryWidget() {
             <span className="text-xs text-[var(--color-text-tertiary)] truncate ml-auto">
               {agent.task}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </WidgetCard>

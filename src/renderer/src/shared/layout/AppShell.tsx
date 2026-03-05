@@ -34,6 +34,7 @@ export function AppShell() {
   const loadHierarchy = useHierarchyStore((s) => s.loadHierarchy)
   const navigateUp = useHierarchyStore((s) => s.navigateUp)
   const currentLevel = useHierarchyStore((s) => s.currentLevel)
+  const detailView = useHierarchyStore((s) => s.detailView)
 
   // Window resize → breakpoint
   useEffect(() => {
@@ -164,7 +165,7 @@ export function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         <NavigationSidebar />
         <main className="flex-1 overflow-hidden">
-          {currentLevel() === 'project' ? (
+          {currentLevel() === 'project' && !detailView ? (
             <CockpitDashboard />
           ) : (
             <ThreePaneLayout contextContent={<ContextPanel />} agentsContent={<AgentsPane />} />

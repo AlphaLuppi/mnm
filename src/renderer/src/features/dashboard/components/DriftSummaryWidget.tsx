@@ -1,6 +1,7 @@
 import { WidgetCard } from './WidgetCard'
 import { AnimatedCounter } from './AnimatedCounter'
 import { useDriftSummary } from '../hooks/useDriftSummary'
+import { useCockpitNavigation } from '../hooks/useCockpitNavigation'
 
 const SEVERITY_STYLES: Record<string, string> = {
   critical: 'bg-red-500/20 text-red-400',
@@ -10,6 +11,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 
 export function DriftSummaryWidget() {
   const summary = useDriftSummary()
+  const { goToDrift } = useCockpitNavigation()
 
   if (summary.total === 0) {
     return (
@@ -52,11 +54,12 @@ export function DriftSummaryWidget() {
 
       <div className="space-y-1 max-h-48 overflow-y-auto" role="list">
         {summary.alerts.map((alert) => (
-          <div
+          <button
             key={alert.id}
-            className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded transition-colors duration-200"
+            onClick={() => goToDrift(alert.id)}
+            className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded cursor-pointer hover:bg-[var(--color-bg-elevated)] transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:outline-none"
             role="listitem"
-            aria-label={`Drift: ${alert.documentA} vs ${alert.documentB}, confiance ${alert.confidence}%`}
+            aria-label={`Voir le drift: ${alert.documentA} vs ${alert.documentB}, confiance ${alert.confidence}%`}
           >
             <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${SEVERITY_STYLES[alert.severity] ?? ''}`}>
               {alert.severity}
@@ -67,7 +70,7 @@ export function DriftSummaryWidget() {
             <span className="text-xs text-[var(--color-text-tertiary)] ml-auto font-mono shrink-0">
               {alert.confidence}%
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </WidgetCard>

@@ -1,6 +1,7 @@
 import { WidgetCard } from './WidgetCard'
 import { StoryProgressBar } from './StoryProgressBar'
 import { useStoriesProgress } from '../hooks/useStoriesProgress'
+import { useCockpitNavigation } from '../hooks/useCockpitNavigation'
 import type { StoryProgressItem } from '../hooks/useStoriesProgress'
 
 export function StoriesProgress() {
@@ -91,11 +92,13 @@ type StoryRowProps = {
 
 function StoryRow({ story }: StoryRowProps) {
   const isDone = story.ratio >= 1.0
+  const { goToStory } = useCockpitNavigation()
 
   return (
-    <div
-      className="flex items-center gap-3 w-full text-left px-2 py-1 rounded transition-colors duration-200"
-      aria-label={`Story ${story.number} ${story.title}: ${story.tasksCompleted}/${story.tasksTotal} taches${isDone ? ' - termine' : ''}`}
+    <button
+      onClick={() => goToStory(story.id)}
+      className="flex items-center gap-3 w-full text-left px-2 py-1 rounded cursor-pointer hover:bg-[var(--color-bg-elevated)] transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:outline-none"
+      aria-label={`Naviguer vers Story ${story.number}: ${story.title} (${story.tasksCompleted}/${story.tasksTotal} taches${isDone ? ' - termine' : ''})`}
     >
       <span className="text-xs text-[var(--color-text-tertiary)] w-8 shrink-0 font-mono">
         {story.number}
@@ -110,7 +113,7 @@ function StoryRow({ story }: StoryRowProps) {
           Done
         </span>
       )}
-    </div>
+    </button>
   )
 }
 
