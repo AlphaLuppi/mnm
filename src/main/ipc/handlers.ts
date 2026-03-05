@@ -13,8 +13,12 @@ import { getGitService, initGitService } from '@main/services/git/git.instance'
 import { initFileWatcher } from '@main/services/file-watcher/file-watcher.instance'
 import { getContextService, initContextService } from '@main/services/context/context.instance'
 import { getDriftEngine, initDriftEngine } from '@main/services/drift/drift-engine.instance'
-import { initDriftWatcher } from '@main/services/drift/drift-watcher.instance'
+import { initDriftWatcher, getDriftWatcher, getPairRegistry } from '@main/services/drift/drift-watcher.instance'
+import { ManualDriftCheckService } from '@main/services/drift/manual-drift-check.service'
+import { sendStream } from '@main/ipc/streams'
 import type { DriftReport } from '@shared/types/drift.types'
+import { promises as fs } from 'node:fs'
+import { join } from 'node:path'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -186,6 +190,97 @@ const handlers: HandlerMap = {
     const ctx = getContextService()
     if (!ctx) return []
     return ctx.listProjectFiles()
+  },
+
+  'drift:check-multiple': async (args) => {
+    const engine = getDriftEngine()
+    if (!engine) {
+      throw {
+        code: 'DRIFT_ENGINE_UNAVAILABLE',
+        message: 'Drift engine non disponible',
+        source: 'drift:check-multiple'
+      }
+    }
+    const streamSender = { send: sendStream as (channel: string, data: unknown) => void }
+    const service = new ManualDriftCheckService(engine, streamSender)
+    const reports = await service.runManualCheck(args.pairs)
+    return { reports }
+  },
+
+  'drift:list-pairs': async () => {
+    const registry = getPairRegistry()
+    if (!registry) return []
+    return registry.getAllPairs()
+  },
+
+  'settings:update': async (args): Promise<void> => {
+    const projectPath = getActiveProjectPath()
+    if (!projectPath) {
+      throw { code: 'NO_PROJECT', message: 'Aucun projet ouvert', source: 'settings:update' }
+    }
+
+    const settingsPath = join(projectPath, '.mnm', 'settings.json')
+    let settings: Record<string, unknown> = {}
+
+    try {
+      const raw = await fs.readFile(settingsPath, 'utf-8')
+      settings = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      // File doesn't exist yet
+    }
+
+    // Support dot-notation keys like "drift.confidenceThreshold"
+    const keys = args.key.split('.')
+    let current: Record<string, unknown> = settings
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!current[keys[i]] || typeof current[keys[i]] !== 'object') {
+        current[keys[i]] = {}
+      }
+      current = current[keys[i]] as Record<string, unknown>
+    }
+    current[keys[keys.length - 1]] = args.value
+
+    await fs.mkdir(join(projectPath, '.mnm'), { recursive: true })
+    const tempPath = `${settingsPath}.tmp`
+    await fs.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf-8')
+    await fs.rename(tempPath, settingsPath)
+
+    // Hot-reload threshold if it changed
+    if (args.key === 'drift.confidenceThreshold') {
+      const watcher = getDriftWatcher()
+      if (watcher) {
+        watcher.stop()
+        // Re-init watcher with new config
+        await initDriftWatcher(projectPath)
+      }
+    }
+
+    sendStream('stream:settings-changed', { key: args.key, value: args.value })
+    logger.info('ipc-handlers', `Settings updated: ${args.key}`)
+  },
+
+  'settings:get': async (args) => {
+    const projectPath = getActiveProjectPath()
+    if (!projectPath) return null
+
+    const settingsPath = join(projectPath, '.mnm', 'settings.json')
+    try {
+      const raw = await fs.readFile(settingsPath, 'utf-8')
+      const settings = JSON.parse(raw) as Record<string, unknown>
+
+      const keys = args.key.split('.')
+      let current: unknown = settings
+      for (const key of keys) {
+        if (current && typeof current === 'object') {
+          current = (current as Record<string, unknown>)[key]
+        } else {
+          return null
+        }
+      }
+      return current ?? null
+    } catch {
+      return null
+    }
   }
 }
 

@@ -89,6 +89,13 @@ export type IpcInvokeChannels = {
   'context:list-project-files': { args: void; result: ProjectFileInfo[] }
   'git:file-history': { args: { filePath: string; count: number }; result: unknown }
   'git:file-diff': { args: { commitA: string; commitB: string }; result: string }
+  'drift:check-multiple': {
+    args: { pairs: Array<{ docA: string; docB: string }> }
+    result: { reports: DriftReportFull[] }
+  }
+  'drift:list-pairs': { args: void; result: Array<{ parent: string; child: string; relationship: string }> }
+  'settings:update': { args: { key: string; value: unknown }; result: void }
+  'settings:get': { args: { key: string }; result: unknown }
 }
 
 // Streaming (main → renderer, push)
@@ -115,6 +122,12 @@ export type IpcStreamChannels = {
     confidence: number
   }
   'stream:drift-status': { status: 'idle' | 'analyzing'; pairCount: number }
+  'stream:drift-progress': {
+    completed: number
+    total: number
+    currentPair: [string, string]
+  }
+  'stream:settings-changed': { key: string; value: unknown }
   'stream:workflow-node': {
     workflowId: string
     nodeId: string

@@ -15,6 +15,7 @@ import { AgentsPane } from '@renderer/features/agents/components/AgentsPane'
 import { ContextPanel } from '@renderer/features/context'
 import { useFileNotifications } from '@renderer/features/context/hooks/useFileNotifications'
 import { Toaster } from '@renderer/shared/components/Toaster'
+import { useDriftStreams } from '@renderer/features/drift/hooks/useDriftStreams'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -112,6 +113,9 @@ export function AppShell() {
 
   // File change notifications
   useFileNotifications()
+
+  // Drift detection streams
+  useDriftStreams()
 
   // Project loaded — render the full layout
   const showBmadWarning = !project.data.bmadStructure.detected
