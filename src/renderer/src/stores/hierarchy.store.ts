@@ -3,12 +3,15 @@ import type { ProjectHierarchy } from '@shared/types/story.types'
 import type { AsyncState } from '@shared/types/async-state.types'
 import type { NavigationLevel, BreadcrumbSegment } from '@shared/types/navigation.types'
 
+export type DetailView = { type: 'agent' | 'drift'; id: string } | null
+
 type HierarchyStoreState = {
   hierarchy: AsyncState<ProjectHierarchy>
   selectedEpicId: string | null
   selectedStoryId: string | null
   selectedTaskId: string | null
   expandedNodes: Set<string>
+  detailView: DetailView
 
   loadHierarchy: () => Promise<void>
   selectEpic: (id: string) => void
@@ -16,6 +19,9 @@ type HierarchyStoreState = {
   selectTask: (id: string) => void
   navigateUp: () => void
   navigateTo: (level: NavigationLevel, id: string) => void
+  navigateToAgent: (agentId: string) => void
+  navigateToDrift: (driftId: string) => void
+  clearDetailView: () => void
   toggleExpanded: (nodeId: string) => void
   currentLevel: () => NavigationLevel
   breadcrumb: () => BreadcrumbSegment[]
@@ -27,6 +33,7 @@ export const useHierarchyStore = create<HierarchyStoreState>((set, get) => ({
   selectedStoryId: null,
   selectedTaskId: null,
   expandedNodes: new Set<string>(),
+  detailView: null,
 
   loadHierarchy: async () => {
     set({ hierarchy: { status: 'loading' } })
@@ -67,7 +74,9 @@ export const useHierarchyStore = create<HierarchyStoreState>((set, get) => ({
 
   navigateUp: () => {
     const state = get()
-    if (state.selectedTaskId) {
+    if (state.detailView) {
+      set({ detailView: null })
+    } else if (state.selectedTaskId) {
       set({ selectedTaskId: null })
     } else if (state.selectedStoryId) {
       set({ selectedStoryId: null, selectedTaskId: null })
@@ -99,6 +108,14 @@ export const useHierarchyStore = create<HierarchyStoreState>((set, get) => ({
         break
     }
   },
+
+  navigateToAgent: (agentId) =>
+    set({ detailView: { type: 'agent', id: agentId } }),
+
+  navigateToDrift: (driftId) =>
+    set({ detailView: { type: 'drift', id: driftId } }),
+
+  clearDetailView: () => set({ detailView: null }),
 
   toggleExpanded: (nodeId) =>
     set((state) => {
