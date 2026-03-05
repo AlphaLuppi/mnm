@@ -15,6 +15,8 @@ import { getContextService, initContextService } from '@main/services/context/co
 import { getDriftEngine, initDriftEngine } from '@main/services/drift/drift-engine.instance'
 import { initDriftWatcher, getDriftWatcher, getPairRegistry } from '@main/services/drift/drift-watcher.instance'
 import { ManualDriftCheckService } from '@main/services/drift/manual-drift-check.service'
+import { DriftResolutionService } from '@main/services/drift/drift-resolution.service'
+import { DriftHistoryService } from '@main/services/drift/drift-history.service'
 import { sendStream } from '@main/ipc/streams'
 import type { DriftReport } from '@shared/types/drift.types'
 import { promises as fs } from 'node:fs'
@@ -211,6 +213,18 @@ const handlers: HandlerMap = {
     const registry = getPairRegistry()
     if (!registry) return []
     return registry.getAllPairs()
+  },
+
+  'drift:resolve': async (args): Promise<void> => {
+    const projectPath = getActiveProjectPath()
+    if (!projectPath) {
+      throw { code: 'NO_PROJECT', message: 'Aucun projet ouvert', source: 'drift:resolve' }
+    }
+    const cacheDir = join(projectPath, '.mnm', 'drift-cache')
+    const historyService = new DriftHistoryService(cacheDir)
+    const streamSender = { send: sendStream as (channel: string, data: unknown) => void }
+    const resolutionService = new DriftResolutionService(historyService, streamSender)
+    await resolutionService.resolveDrift(args.driftId, args.action)
   },
 
   'settings:update': async (args): Promise<void> => {

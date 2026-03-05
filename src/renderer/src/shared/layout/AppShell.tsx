@@ -16,6 +16,7 @@ import { ContextPanel } from '@renderer/features/context'
 import { useFileNotifications } from '@renderer/features/context/hooks/useFileNotifications'
 import { Toaster } from '@renderer/shared/components/Toaster'
 import { useDriftStreams } from '@renderer/features/drift/hooks/useDriftStreams'
+import { useDriftResolution } from '@renderer/features/drift/hooks/useDriftResolution'
 import type { Breakpoint } from '@renderer/stores/navigation.store'
 
 function getBreakpoint(width: number): Breakpoint {
@@ -116,6 +117,9 @@ export function AppShell() {
 
   // Drift detection streams
   useDriftStreams()
+
+  // Drift resolution stream
+  useDriftResolution()
 
   // Project loaded — render the full layout
   const showBmadWarning = !project.data.bmadStructure.detected

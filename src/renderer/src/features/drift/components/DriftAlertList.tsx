@@ -2,12 +2,15 @@ import { useCallback, useState } from 'react'
 import { useDriftStore } from '../drift.store'
 import { DriftAlertCard } from './DriftAlertCard'
 import { DriftDiffView } from './DriftDiffView'
+import { DriftResolutionPanel } from './DriftResolutionPanel'
+import { toast } from '@renderer/shared/components/Toaster'
 
 export function DriftAlertList() {
   const alerts = useDriftStore((s) => s.alerts)
   const markAlertSeen = useDriftStore((s) => s.markAlertSeen)
   const removeAlert = useDriftStore((s) => s.removeAlert)
   const [viewingAlert, setViewingAlert] = useState<string | null>(null)
+  const [resolvingAlert, setResolvingAlert] = useState<string | null>(null)
 
   const handleView = useCallback(
     (id: string) => {
@@ -20,22 +23,30 @@ export function DriftAlertList() {
   const handleFix = useCallback(
     (id: string) => {
       markAlertSeen(id)
-      setViewingAlert(id)
+      setResolvingAlert(id)
     },
     [markAlertSeen]
   )
 
   const handleIgnore = useCallback(
-    (id: string) => {
+    async (id: string) => {
       markAlertSeen(id)
-      removeAlert(id)
+      try {
+        await window.electronAPI.invoke('drift:resolve', { driftId: id, action: 'ignore' })
+        removeAlert(id)
+        toast({ title: 'Drift ignore', duration: 3000 })
+      } catch {
+        toast({ title: 'Erreur lors de la resolution', duration: 3000 })
+      }
     },
     [markAlertSeen, removeAlert]
   )
 
   const handleCloseView = useCallback(() => setViewingAlert(null), [])
+  const handleCloseResolve = useCallback(() => setResolvingAlert(null), [])
 
-  const activeAlert = alerts.find((a) => a.id === viewingAlert)
+  const activeViewAlert = alerts.find((a) => a.id === viewingAlert)
+  const activeResolveAlert = alerts.find((a) => a.id === resolvingAlert)
 
   return (
     <>
@@ -74,10 +85,19 @@ export function DriftAlertList() {
         )}
       </div>
 
-      {activeAlert && (
+      {activeViewAlert && (
         <DriftDiffView
-          documents={activeAlert.documents}
+          documents={activeViewAlert.documents}
           onClose={handleCloseView}
+        />
+      )}
+
+      {activeResolveAlert && (
+        <DriftResolutionPanel
+          documents={activeResolveAlert.documents}
+          alertId={activeResolveAlert.id}
+          summary={activeResolveAlert.summary}
+          onClose={handleCloseResolve}
         />
       )}
     </>

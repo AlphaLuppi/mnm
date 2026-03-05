@@ -128,6 +128,7 @@ export type IpcStreamChannels = {
     currentPair: [string, string]
   }
   'stream:settings-changed': { key: string; value: unknown }
+  'stream:drift-resolved': { driftId: string; action: 'fix-source' | 'fix-derived' | 'ignore' }
   'stream:workflow-node': {
     workflowId: string
     nodeId: string
