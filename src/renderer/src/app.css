@@ -146,10 +146,27 @@ html, body, #root {
   }
 }
 
+/* Drift alert animations */
+@keyframes drift-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drift-alert-enter {
+  animation: drift-alert-in 150ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-out,
   .animate-toast-slide-in,
-  .animate-number-pop {
+  .animate-number-pop,
+  .drift-alert-enter {
     animation: none;
   }
   .animate-fade-out {
