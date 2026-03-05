@@ -12,6 +12,8 @@ import { getAgentHarness } from '@main/services/agent/agent-harness.instance'
 import { getGitService, initGitService } from '@main/services/git/git.instance'
 import { initFileWatcher } from '@main/services/file-watcher/file-watcher.instance'
 import { getContextService, initContextService } from '@main/services/context/context.instance'
+import { getDriftEngine, initDriftEngine } from '@main/services/drift/drift-engine.instance'
+import type { DriftReport } from '@shared/types/drift.types'
 import { logger } from '@main/utils/logger'
 
 type HandlerMap = {
@@ -56,9 +58,12 @@ const handlers: HandlerMap = {
         harness.updateProjectPath(projectPath)
       }
 
-      // Init git service, context service, and file watcher for this project
+      // Init git service, context service, drift engine, and file watcher for this project
       initGitService(projectPath)
       initContextService(projectPath)
+      initDriftEngine(projectPath).catch(() => {
+        logger.warn('ipc-handlers', 'Drift engine initialization skipped')
+      })
       const watcher = initFileWatcher()
       watcher.start(projectPath)
 
@@ -144,6 +149,18 @@ const handlers: HandlerMap = {
     const git = getGitService()
     if (!git) return ''
     return git.getDiff(args.commitA, args.commitB)
+  },
+
+  'drift:check': async (args): Promise<DriftReport> => {
+    const engine = getDriftEngine()
+    if (!engine) {
+      throw {
+        code: 'DRIFT_ENGINE_UNAVAILABLE',
+        message: 'Drift engine non disponible. Verifiez la cle API dans .mnm/settings.json',
+        source: 'drift:check'
+      }
+    }
+    return engine.analyzePair(args.docA, args.docB)
   },
 
   'context:add-to-agent': async (args): Promise<void> => {
