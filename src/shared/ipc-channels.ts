@@ -107,7 +107,14 @@ export type IpcStreamChannels = {
     type: 'create' | 'modify' | 'delete'
     agentId?: string
   }
-  'stream:drift-alert': { id: string; severity: string; summary: string }
+  'stream:drift-alert': {
+    id: string
+    severity: string
+    summary: string
+    documents: [string, string]
+    confidence: number
+  }
+  'stream:drift-status': { status: 'idle' | 'analyzing'; pairCount: number }
   'stream:workflow-node': {
     workflowId: string
     nodeId: string
