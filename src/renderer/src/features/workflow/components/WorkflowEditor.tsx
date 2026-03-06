@@ -1,14 +1,32 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useWorkflowStore } from '../workflow.store'
 import { WorkflowCanvas } from './WorkflowCanvas'
+import { NodePropertiesPanel } from './NodePropertiesPanel'
+import { DeleteNodeDialog } from './DeleteNodeDialog'
+import { NodeTypeSelector } from './NodeTypeSelector'
 import { layoutWorkflowGraph } from '../hooks/useWorkflowLayout'
+import { useNodeInsertion } from '../hooks/useNodeInsertion'
+import { useNodeDeletion } from '../hooks/useNodeDeletion'
+import { useEdgeManagement } from '../hooks/useEdgeManagement'
+import { useState } from 'react'
+import type { WorkflowNodeType } from '@shared/types/workflow.types'
 
 export function WorkflowEditor() {
   const workflows = useWorkflowStore((s) => s.workflows)
   const selectedWorkflowId = useWorkflowStore((s) => s.selectedWorkflowId)
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
+  const isEditMode = useWorkflowStore((s) => s.isEditMode)
+  const unsavedChanges = useWorkflowStore((s) => s.unsavedChanges)
   const selectWorkflow = useWorkflowStore((s) => s.selectWorkflow)
   const selectNode = useWorkflowStore((s) => s.selectNode)
   const loadWorkflows = useWorkflowStore((s) => s.loadWorkflows)
+  const toggleEditMode = useWorkflowStore((s) => s.toggleEditMode)
+
+  const { insertNode } = useNodeInsertion()
+  const { pendingDeleteId, requestDelete, confirmDelete, cancelDelete } = useNodeDeletion()
+  const { handleConnect, handleEdgeUpdate } = useEdgeManagement()
+
+  const [insertingEdgeId, setInsertingEdgeId] = useState<string | null>(null)
 
   useEffect(() => {
     loadWorkflows()
@@ -23,6 +41,51 @@ export function WorkflowEditor() {
     if (!selectedGraph) return null
     return layoutWorkflowGraph(selectedGraph)
   }, [selectedGraph])
+
+  const selectedNode = useMemo(() => {
+    if (!selectedGraph || !selectedNodeId) return null
+    return selectedGraph.nodes.find((n) => n.id === selectedNodeId) ?? null
+  }, [selectedGraph, selectedNodeId])
+
+  const pendingDeleteNode = useMemo(() => {
+    if (!selectedGraph || !pendingDeleteId) return null
+    return selectedGraph.nodes.find((n) => n.id === pendingDeleteId) ?? null
+  }, [selectedGraph, pendingDeleteId])
+
+  const handleEdgeClick = useCallback(
+    (edgeId: string) => {
+      if (isEditMode) {
+        setInsertingEdgeId(edgeId)
+      }
+    },
+    [isEditMode]
+  )
+
+  const handleNodeTypeSelect = useCallback(
+    (type: WorkflowNodeType) => {
+      if (insertingEdgeId) {
+        const defaultLabels: Record<WorkflowNodeType, string> = {
+          step: 'Nouvelle etape',
+          check: 'Nouvelle verification',
+          action: 'Nouvelle action'
+        }
+        insertNode(insertingEdgeId, type, defaultLabels[type])
+        setInsertingEdgeId(null)
+      }
+    },
+    [insertingEdgeId, insertNode]
+  )
+
+  // Delete key handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' && isEditMode && selectedNodeId) {
+        requestDelete()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isEditMode, selectedNodeId, requestDelete])
 
   if (workflows.status === 'loading') {
     return (
@@ -57,9 +120,10 @@ export function WorkflowEditor() {
 
   return (
     <div className="flex flex-col h-full">
-      {workflows.data.length > 1 && (
-        <div className="flex gap-2 p-2 border-b border-[var(--color-border)]">
-          {workflows.data.map((w) => (
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 p-2 border-b border-[var(--color-border)]">
+        {workflows.data.length > 1 &&
+          workflows.data.map((w) => (
             <button
               key={w.id}
               onClick={() => selectWorkflow(w.id)}
@@ -72,17 +136,79 @@ export function WorkflowEditor() {
               {w.name}
             </button>
           ))}
+        <div className="flex-1" />
+
+        {isEditMode && unsavedChanges && (
+          <span className="text-xs text-amber-400">Modifications non sauvegardees</span>
+        )}
+
+        {isEditMode && selectedNodeId && (
+          <button
+            onClick={() => requestDelete()}
+            className="text-xs px-3 py-1.5 rounded bg-red-600/20 text-red-400 hover:bg-red-600/30 transition-colors"
+          >
+            Supprimer
+          </button>
+        )}
+
+        {isEditMode && (
+          <span className="text-xs px-2 py-1 rounded bg-[var(--color-accent)]/20 text-[var(--color-accent)]">
+            Edition
+          </span>
+        )}
+
+        <button
+          onClick={toggleEditMode}
+          aria-pressed={isEditMode}
+          className={`text-xs px-3 py-1.5 rounded transition-colors ${
+            isEditMode
+              ? 'bg-[var(--color-accent)] text-white'
+              : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]'
+          }`}
+        >
+          {isEditMode ? 'Mode Lecture' : 'Mode Edition'}
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 relative">
+          {layout && (
+            <WorkflowCanvas
+              nodes={layout.nodes}
+              edges={layout.edges}
+              isEditMode={isEditMode}
+              onNodeSelect={(id) => selectNode(id)}
+              onEdgeClick={handleEdgeClick}
+              onConnect={handleConnect}
+              onEdgeUpdate={handleEdgeUpdate}
+            />
+          )}
+
+          {/* Node type selector popover */}
+          {insertingEdgeId && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+              <NodeTypeSelector
+                onSelect={handleNodeTypeSelect}
+                onCancel={() => setInsertingEdgeId(null)}
+              />
+            </div>
+          )}
         </div>
-      )}
-      <div className="flex-1">
-        {layout && (
-          <WorkflowCanvas
-            nodes={layout.nodes}
-            edges={layout.edges}
-            onNodeSelect={(id) => selectNode(id)}
-          />
+
+        {/* Properties panel */}
+        {isEditMode && selectedNode && (
+          <NodePropertiesPanel node={selectedNode} onClose={() => selectNode(null)} />
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <DeleteNodeDialog
+        open={pendingDeleteId !== null}
+        nodeLabel={pendingDeleteNode?.label ?? ''}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   )
 }
