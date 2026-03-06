@@ -17,6 +17,7 @@ import { initDriftWatcher, getDriftWatcher, getPairRegistry } from '@main/servic
 import { ManualDriftCheckService } from '@main/services/drift/manual-drift-check.service'
 import { DriftResolutionService } from '@main/services/drift/drift-resolution.service'
 import { DriftHistoryService } from '@main/services/drift/drift-history.service'
+import { parseWorkflow, parseAllWorkflows } from '@main/services/workflow-parser'
 import { sendStream } from '@main/ipc/streams'
 import type { DriftReport } from '@shared/types/drift.types'
 import { promises as fs } from 'node:fs'
@@ -271,6 +272,16 @@ const handlers: HandlerMap = {
 
     sendStream('stream:settings-changed', { key: args.key, value: args.value })
     logger.info('ipc-handlers', `Settings updated: ${args.key}`)
+  },
+
+  'workflow:parse': async (args) => {
+    return parseWorkflow(args.filePath)
+  },
+
+  'workflow:list': async () => {
+    const projectPath = getActiveProjectPath()
+    if (!projectPath) return []
+    return parseAllWorkflows(projectPath)
   },
 
   'settings:get': async (args) => {

@@ -7,6 +7,7 @@ import type { ProjectHierarchy } from './types/story.types'
 import type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
 import type { ChatEntry } from './types/chat.types'
 import type { DriftReport as DriftReportFull } from './types/drift.types'
+import type { WorkflowGraph } from './types/workflow.types'
 export type { ProjectInfo, BmadStructure, ProjectOpenResult } from './types/project.types'
 export type { ProjectHierarchy } from './types/story.types'
 export type { AgentStatus, AgentInfo, AgentLaunchParams, BlockingContext } from './types/agent.types'
@@ -40,10 +41,7 @@ export type StoryProgress = {
   tasksDone: number
 }
 
-export type WorkflowGraph = {
-  nodes: unknown[]
-  edges: unknown[]
-}
+export type { WorkflowGraph } from './types/workflow.types'
 
 export type TestInfo = {
   id: string
@@ -78,6 +76,8 @@ export type IpcInvokeChannels = {
     result: void
   }
   'stories:list': { args: void; result: ProjectHierarchy }
+  'workflow:parse': { args: { filePath: string }; result: WorkflowGraph }
+  'workflow:list': { args: void; result: WorkflowGraph[] }
   'workflow:save': { args: { workflowId: string; graph: WorkflowGraph }; result: void }
   'test:run': {
     args: { specId?: string; scope: 'unit' | 'integration' | 'e2e' }
