@@ -9,6 +9,8 @@ import { useNodeInsertion } from '../hooks/useNodeInsertion'
 import { useNodeDeletion } from '../hooks/useNodeDeletion'
 import { useEdgeManagement } from '../hooks/useEdgeManagement'
 import { useWorkflowSave } from '../hooks/useWorkflowSave'
+import { useWorkflowExecution } from '../hooks/useWorkflowExecution'
+import { WorkflowExecutionProgress } from './WorkflowExecutionProgress'
 import { useState } from 'react'
 import type { WorkflowNodeType } from '@shared/types/workflow.types'
 
@@ -27,6 +29,7 @@ export function WorkflowEditor() {
   const { pendingDeleteId, requestDelete, confirmDelete, cancelDelete } = useNodeDeletion()
   const { handleConnect, handleEdgeUpdate } = useEdgeManagement()
   const { save, isSaving } = useWorkflowSave()
+  const { executionState, isExecuting, isCompleted, hasError } = useWorkflowExecution()
 
   const [insertingEdgeId, setInsertingEdgeId] = useState<string | null>(null)
 
@@ -41,8 +44,8 @@ export function WorkflowEditor() {
 
   const layout = useMemo(() => {
     if (!selectedGraph) return null
-    return layoutWorkflowGraph(selectedGraph)
-  }, [selectedGraph])
+    return layoutWorkflowGraph(selectedGraph, executionState?.nodeStatuses)
+  }, [selectedGraph, executionState])
 
   const selectedNode = useMemo(() => {
     if (!selectedGraph || !selectedNodeId) return null
@@ -165,10 +168,29 @@ export function WorkflowEditor() {
           </span>
         )}
 
+        {isExecuting && (
+          <span className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 animate-pulse motion-reduce:animate-none">
+            En cours...
+          </span>
+        )}
+
+        {isCompleted && (
+          <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
+            Termine
+          </span>
+        )}
+
+        {hasError && !isCompleted && (
+          <span className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400">
+            Erreur
+          </span>
+        )}
+
         <button
           onClick={toggleEditMode}
+          disabled={isExecuting}
           aria-pressed={isEditMode}
-          className={`text-xs px-3 py-1.5 rounded transition-colors ${
+          className={`text-xs px-3 py-1.5 rounded transition-colors disabled:opacity-50 ${
             isEditMode
               ? 'bg-[var(--color-accent)] text-white'
               : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)]'
@@ -177,6 +199,15 @@ export function WorkflowEditor() {
           {isEditMode ? 'Mode Lecture' : 'Mode Edition'}
         </button>
       </div>
+
+      {/* Execution progress */}
+      {executionState && (
+        <WorkflowExecutionProgress
+          executionState={executionState}
+          isCompleted={isCompleted}
+          hasError={hasError}
+        />
+      )}
 
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">

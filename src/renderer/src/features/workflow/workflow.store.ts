@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import type { WorkflowGraph, WorkflowNode, WorkflowEdge } from '@shared/types/workflow.types'
+import type {
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowNodeStatus,
+  WorkflowExecutionState
+} from '@shared/types/workflow.types'
 import type { AsyncState } from '@shared/types/async-state.types'
 
 type WorkflowState = {
@@ -9,12 +15,17 @@ type WorkflowState = {
   isEditMode: boolean
   unsavedChanges: boolean
   saveState: AsyncState<void>
+  executionState: WorkflowExecutionState | null
 
   loadWorkflows: () => Promise<void>
   selectWorkflow: (id: string) => void
   selectNode: (id: string | null) => void
   toggleEditMode: () => void
   saveWorkflow: () => Promise<void>
+
+  startExecution: (workflowId: string) => void
+  updateNodeStatus: (nodeId: string, status: WorkflowNodeStatus, error?: string) => void
+  clearExecution: () => void
 
   updateNode: (nodeId: string, updates: Partial<WorkflowNode>) => void
   addNode: (node: WorkflowNode, splitEdgeId: string) => void
@@ -51,6 +62,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isEditMode: false,
   unsavedChanges: false,
   saveState: { status: 'idle' },
+  executionState: null,
 
   loadWorkflows: async () => {
     set({ workflows: { status: 'loading' } })
@@ -105,6 +117,47 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
       })
     }
+  },
+
+  startExecution: (workflowId) => {
+    const state = get()
+    const graph = getSelectedGraph(state)
+    if (!graph || graph.id !== workflowId) return
+
+    const nodeStatuses: Record<string, WorkflowNodeStatus> = {}
+    for (const node of graph.nodes) {
+      nodeStatuses[node.id] = 'pending'
+    }
+
+    set({
+      executionState: {
+        workflowId,
+        nodeStatuses,
+        startedAt: Date.now()
+      },
+      isEditMode: false
+    })
+  },
+
+  updateNodeStatus: (nodeId, status, error) => {
+    const state = get()
+    if (!state.executionState) return
+
+    const nodeStatuses = { ...state.executionState.nodeStatuses, [nodeId]: status }
+    const allDone = Object.values(nodeStatuses).every((s) => s === 'done')
+
+    set({
+      executionState: {
+        ...state.executionState,
+        nodeStatuses,
+        ...(allDone ? { completedAt: Date.now() } : {}),
+        ...(error && status === 'error' ? { error } : {})
+      }
+    })
+  },
+
+  clearExecution: () => {
+    set({ executionState: null })
   },
 
   updateNode: (nodeId, updates) => {
