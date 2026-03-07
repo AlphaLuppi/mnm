@@ -37,3 +37,19 @@ export type WorkflowGraph = {
   exitNodeIds?: string[]
   metadata?: Record<string, unknown>
 }
+
+export type WorkflowExecutionState = {
+  workflowId: string
+  nodeStatuses: Record<string, WorkflowNodeStatus>
+  startedAt: number
+  completedAt?: number
+  error?: string
+}
+
+export type WorkflowNodeStatusEvent = {
+  workflowId: string
+  nodeId: string
+  status: WorkflowNodeStatus
+  error?: string
+  timestamp: number
+}

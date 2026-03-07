@@ -267,4 +267,51 @@ describe('useWorkflowStore', () => {
       expect(edge.source).toBe('n1') // unchanged
     })
   })
+
+  describe('execution state', () => {
+    it('startExecution initializes all nodes to pending', () => {
+      setupWithGraph()
+      useWorkflowStore.getState().startExecution('wf-1')
+
+      const state = useWorkflowStore.getState()
+      expect(state.executionState).not.toBeNull()
+      expect(state.executionState!.nodeStatuses.n1).toBe('pending')
+      expect(state.executionState!.nodeStatuses.n2).toBe('pending')
+      expect(state.executionState!.nodeStatuses.n3).toBe('pending')
+    })
+
+    it('startExecution disables edit mode', () => {
+      setupWithGraph()
+      useWorkflowStore.setState({ isEditMode: true })
+      useWorkflowStore.getState().startExecution('wf-1')
+      expect(useWorkflowStore.getState().isEditMode).toBe(false)
+    })
+
+    it('updateNodeStatus updates the correct node', () => {
+      setupWithGraph()
+      useWorkflowStore.getState().startExecution('wf-1')
+      useWorkflowStore.getState().updateNodeStatus('n1', 'active')
+
+      const state = useWorkflowStore.getState()
+      expect(state.executionState!.nodeStatuses.n1).toBe('active')
+    })
+
+    it('updateNodeStatus sets completedAt when all done', () => {
+      setupWithGraph()
+      useWorkflowStore.getState().startExecution('wf-1')
+      useWorkflowStore.getState().updateNodeStatus('n1', 'done')
+      useWorkflowStore.getState().updateNodeStatus('n2', 'done')
+      useWorkflowStore.getState().updateNodeStatus('n3', 'done')
+
+      const state = useWorkflowStore.getState()
+      expect(state.executionState!.completedAt).toBeDefined()
+    })
+
+    it('clearExecution resets execution state', () => {
+      setupWithGraph()
+      useWorkflowStore.getState().startExecution('wf-1')
+      useWorkflowStore.getState().clearExecution()
+      expect(useWorkflowStore.getState().executionState).toBeNull()
+    })
+  })
 })

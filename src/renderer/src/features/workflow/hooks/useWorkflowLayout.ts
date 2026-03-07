@@ -1,5 +1,5 @@
 import dagre from 'dagre'
-import type { WorkflowGraph } from '@shared/types/workflow.types'
+import type { WorkflowGraph, WorkflowNodeStatus } from '@shared/types/workflow.types'
 
 export type LayoutNode = {
   id: string
@@ -12,6 +12,8 @@ export type LayoutNode = {
     conditions?: string
     sourceFile: string
     sourceLine?: number
+    executionStatus?: WorkflowNodeStatus
+    executionError?: string
   }
 }
 
@@ -29,7 +31,8 @@ const NODE_HEIGHT = 80
 const CHECK_NODE_SIZE = 100
 
 export function layoutWorkflowGraph(
-  graph: WorkflowGraph
+  graph: WorkflowGraph,
+  nodeStatuses?: Record<string, WorkflowNodeStatus>
 ): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
@@ -70,7 +73,8 @@ export function layoutWorkflowGraph(
         instructions: wfNode.instructions,
         conditions: wfNode.conditions,
         sourceFile: wfNode.sourceFile,
-        sourceLine: wfNode.sourceLine
+        sourceLine: wfNode.sourceLine,
+        executionStatus: nodeStatuses?.[wfNode.id]
       }
     }
   })
@@ -81,7 +85,7 @@ export function layoutWorkflowGraph(
     target: wfEdge.target,
     type: wfEdge.type === 'conditional' ? 'conditional' : 'default',
     label: wfEdge.label,
-    animated: false
+    animated: (nodeStatuses?.[wfEdge.target] ?? null) === 'active'
   }))
 
   return { nodes, edges }
