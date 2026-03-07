@@ -18,6 +18,7 @@ import { ManualDriftCheckService } from '@main/services/drift/manual-drift-check
 import { DriftResolutionService } from '@main/services/drift/drift-resolution.service'
 import { DriftHistoryService } from '@main/services/drift/drift-history.service'
 import { parseWorkflow, parseAllWorkflows } from '@main/services/workflow-parser'
+import { saveWorkflow as saveWorkflowService } from '@main/services/workflow-parser/workflow-save.service'
 import { sendStream } from '@main/ipc/streams'
 import type { DriftReport } from '@shared/types/drift.types'
 import { promises as fs } from 'node:fs'
@@ -282,6 +283,14 @@ const handlers: HandlerMap = {
     const projectPath = getActiveProjectPath()
     if (!projectPath) return []
     return parseAllWorkflows(projectPath)
+  },
+
+  'workflow:save': async (args) => {
+    await saveWorkflowService(args.graph)
+    sendStream('stream:file-change', {
+      path: args.graph.sourceFile,
+      type: 'modify'
+    })
   },
 
   'settings:get': async (args) => {

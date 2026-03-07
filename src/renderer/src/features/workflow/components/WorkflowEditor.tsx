@@ -8,6 +8,7 @@ import { layoutWorkflowGraph } from '../hooks/useWorkflowLayout'
 import { useNodeInsertion } from '../hooks/useNodeInsertion'
 import { useNodeDeletion } from '../hooks/useNodeDeletion'
 import { useEdgeManagement } from '../hooks/useEdgeManagement'
+import { useWorkflowSave } from '../hooks/useWorkflowSave'
 import { useState } from 'react'
 import type { WorkflowNodeType } from '@shared/types/workflow.types'
 
@@ -25,6 +26,7 @@ export function WorkflowEditor() {
   const { insertNode } = useNodeInsertion()
   const { pendingDeleteId, requestDelete, confirmDelete, cancelDelete } = useNodeDeletion()
   const { handleConnect, handleEdgeUpdate } = useEdgeManagement()
+  const { save, isSaving } = useWorkflowSave()
 
   const [insertingEdgeId, setInsertingEdgeId] = useState<string | null>(null)
 
@@ -139,7 +141,13 @@ export function WorkflowEditor() {
         <div className="flex-1" />
 
         {isEditMode && unsavedChanges && (
-          <span className="text-xs text-amber-400">Modifications non sauvegardees</span>
+          <button
+            onClick={save}
+            disabled={isSaving}
+            className="text-xs px-3 py-1.5 rounded bg-[var(--color-accent)] text-white hover:opacity-80 disabled:opacity-50 transition-opacity"
+          >
+            {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+          </button>
         )}
 
         {isEditMode && selectedNodeId && (
