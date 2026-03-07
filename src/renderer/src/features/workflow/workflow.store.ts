@@ -8,11 +8,13 @@ type WorkflowState = {
   selectedNodeId: string | null
   isEditMode: boolean
   unsavedChanges: boolean
+  saveState: AsyncState<void>
 
   loadWorkflows: () => Promise<void>
   selectWorkflow: (id: string) => void
   selectNode: (id: string | null) => void
   toggleEditMode: () => void
+  saveWorkflow: () => Promise<void>
 
   updateNode: (nodeId: string, updates: Partial<WorkflowNode>) => void
   addNode: (node: WorkflowNode, splitEdgeId: string) => void
@@ -48,6 +50,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedNodeId: null,
   isEditMode: false,
   unsavedChanges: false,
+  saveState: { status: 'idle' },
 
   loadWorkflows: async () => {
     set({ workflows: { status: 'loading' } })
@@ -74,6 +77,35 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectWorkflow: (id) => set({ selectedWorkflowId: id, selectedNodeId: null }),
   selectNode: (id) => set({ selectedNodeId: id }),
   toggleEditMode: () => set((state) => ({ isEditMode: !state.isEditMode })),
+
+  saveWorkflow: async () => {
+    const state = get()
+    const graph = getSelectedGraph(state)
+    if (!graph) return
+
+    set({ saveState: { status: 'loading' } })
+    try {
+      await window.electronAPI.invoke('workflow:save', {
+        workflowId: graph.id,
+        graph
+      })
+      set({
+        saveState: { status: 'success', data: undefined },
+        unsavedChanges: false
+      })
+    } catch {
+      set({
+        saveState: {
+          status: 'error',
+          error: {
+            code: 'WORKFLOW_SAVE_FAILED',
+            message: 'Impossible de sauvegarder le workflow',
+            source: 'workflow-store'
+          }
+        }
+      })
+    }
+  },
 
   updateNode: (nodeId, updates) => {
     const state = get()
