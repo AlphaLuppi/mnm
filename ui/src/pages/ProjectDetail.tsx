@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SlidersHorizontal } from "lucide-react";
 import { ThreePaneLayout } from "../components/ThreePaneLayout";
 import { ContextPane } from "../components/ContextPane";
+import { WorkPane } from "../components/WorkPane";
 import { TestsPane } from "../components/TestsPane";
 import { TimelineBar } from "../components/TimelineBar";
 import { ProjectNavigationProvider } from "../context/ProjectNavigationContext";
@@ -389,8 +390,12 @@ export function ProjectDetail() {
       <ProjectNavigationProvider>
       <ThreePaneLayout
         left={<ContextPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
-        center={workContent}
-        right={<TestsPane />}
+        center={
+          <WorkPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined}>
+            {workContent}
+          </WorkPane>
+        }
+        right={<TestsPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
         bottom={<TimelineBar />}
       />
 
