@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FileText,
   Building2,
@@ -8,9 +8,12 @@ import {
   FolderOpen,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import type { BmadProject, BmadEpic, BmadStory, BmadPlanningArtifact } from "@mnm/shared";
 import { useBmadProject } from "../hooks/useBmadProject";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
+import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
+import { queryKeys } from "../lib/queryKeys";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -127,7 +130,7 @@ function TreeItem({
 
 /* ── Epic section (collapsible with stories) ── */
 
-function EpicSection({ epic }: { epic: BmadEpic }) {
+function EpicSection({ epic, runningStoryTitles }: { epic: BmadEpic; runningStoryTitles: Set<string> }) {
   const [open, setOpen] = useState(false);
   const { selectedItem, selectEpic, selectStory } = useProjectNavigation();
   const epicId = String(epic.number);
@@ -168,16 +171,35 @@ function EpicSection({ epic }: { epic: BmadEpic }) {
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="flex flex-col gap-0.5">
-          {epic.stories.map((story) => (
-            <StoryRow key={story.id} story={story} epicId={epicId} />
-          ))}
+          {epic.stories.map((story) => {
+            const storyTitle = `${story.epicNumber}.${story.storyNumber} ${story.title}`;
+            return (
+              <StoryRow
+                key={story.id}
+                story={story}
+                epicId={epicId}
+                isRunning={runningStoryTitles.has(storyTitle)}
+              />
+            );
+          })}
         </div>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-function StoryRow({ story, epicId }: { story: BmadStory; epicId: string }) {
+/* ── Running indicator dot ── */
+
+function RunningDot() {
+  return (
+    <span className="relative flex h-2 w-2 shrink-0">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+    </span>
+  );
+}
+
+function StoryRow({ story, epicId, isRunning }: { story: BmadStory; epicId: string; isRunning?: boolean }) {
   const { selectedItem, selectStory } = useProjectNavigation();
   const storyItemId = `${epicId}/${story.id}`;
   const isSelected = selectedItem?.type === "story" && selectedItem.id === storyItemId;
@@ -189,7 +211,12 @@ function StoryRow({ story, epicId }: { story: BmadStory; epicId: string }) {
       selected={isSelected}
       onClick={() => selectStory(epicId, story.id, story.filePath)}
       indent={2}
-      trailing={<StoryStatusBadge status={story.status} />}
+      trailing={
+        <span className="flex items-center gap-1.5">
+          {isRunning && <RunningDot />}
+          <StoryStatusBadge status={story.status} />
+        </span>
+      }
     />
   );
 }
@@ -221,11 +248,11 @@ function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
 
 /* ── Epics section ── */
 
-function EpicsSection({ epics }: { epics: BmadEpic[] }) {
+function EpicsSection({ epics, runningStoryTitles }: { epics: BmadEpic[]; runningStoryTitles: Set<string> }) {
   return (
     <SectionHeader label="Epics">
       {epics.map((epic) => (
-        <EpicSection key={epic.number} epic={epic} />
+        <EpicSection key={epic.number} epic={epic} runningStoryTitles={runningStoryTitles} />
       ))}
     </SectionHeader>
   );
@@ -261,6 +288,42 @@ interface ContextPaneProps {
 export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   const { data: bmad, isLoading, error } = useBmadProject(projectId, companyId);
 
+  // Fetch live runs to detect running stories (Story 2-2)
+  const { data: liveRuns = [] } = useQuery({
+    queryKey: queryKeys.liveRuns(companyId ?? ""),
+    queryFn: () => heartbeatsApi.liveRunsForCompany(companyId!),
+    enabled: !!companyId,
+    refetchInterval: 5000,
+  });
+
+  // Fetch in-progress issues to match running agents to story titles
+  const { data: activeIssues = [] } = useQuery({
+    queryKey: [...queryKeys.issues.list(companyId ?? ""), "in_progress"],
+    queryFn: () =>
+      import("../api/issues").then((mod) =>
+        mod.issuesApi.list(companyId!, { status: "in_progress" }),
+      ),
+    enabled: !!companyId && liveRuns.length > 0,
+    refetchInterval: 10000,
+  });
+
+  // Build a set of story titles that have running agents
+  const runningStoryTitles = useMemo(() => {
+    const titles = new Set<string>();
+    if (!bmad?.detected || liveRuns.length === 0) return titles;
+    const runningIssueIds = new Set(
+      liveRuns.filter((r) => r.status === "running" && r.issueId).map((r) => r.issueId),
+    );
+    for (const issue of activeIssues) {
+      if (!runningIssueIds.has(issue.id)) continue;
+      // Issue titles are formatted as "[workflow-type] X.Y Title"
+      // Extract story title by removing the workflow prefix
+      const match = issue.title?.match(/^\[[\w-]+\]\s*(.+)$/);
+      if (match) titles.add(match[1]);
+    }
+    return titles;
+  }, [bmad, liveRuns, activeIssues]);
+
   if (isLoading) return <ContextPaneSkeleton />;
 
   if (error) {
@@ -287,7 +350,7 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     <ScrollArea className="h-full">
       <div className="py-2 space-y-1">
         {hasPlanning && <PlanningSection artifacts={bmad.planningArtifacts} />}
-        {hasEpics && <EpicsSection epics={bmad.epics} />}
+        {hasEpics && <EpicsSection epics={bmad.epics} runningStoryTitles={runningStoryTitles} />}
       </div>
     </ScrollArea>
   );

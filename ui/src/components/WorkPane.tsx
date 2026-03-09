@@ -1,7 +1,13 @@
-import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { useBmadProject, useBmadFile } from "../hooks/useBmadProject";
+import { queryKeys } from "../lib/queryKeys";
 import { MarkdownBody } from "./MarkdownBody";
+import { LiveRunWidget } from "./LiveRunWidget";
+import { LaunchAgentDialog } from "./LaunchAgentDialog";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "../lib/utils";
@@ -121,8 +127,40 @@ function ACCard({ ac }: { ac: BmadAcceptanceCriterion }) {
 
 /* ── Story Viewer ── */
 
-function StoryViewer({ story, epicNumber }: { story: BmadStory; epicNumber: number }) {
+function StoryViewer({ story, epicNumber, companyId, projectId }: { story: BmadStory; epicNumber: number; companyId?: string; projectId?: string }) {
   const { selectEpic, clearSelection } = useProjectNavigation();
+  const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
+  const [justCreatedIssueId, setJustCreatedIssueId] = useState<string | null>(null);
+
+  // Build story content for issue body
+  const storyTitle = `${story.epicNumber}.${story.storyNumber} ${story.title}`;
+  const storyContent = [
+    `# ${storyTitle}`,
+    ...story.acceptanceCriteria.map((ac) =>
+      `## ${ac.id}: ${ac.title}\n**Given** ${ac.given ?? ""}\n**When** ${ac.when ?? ""}\n**Then** ${(ac.then ?? []).join(", ")}`,
+    ),
+    story.tasks.length > 0
+      ? `## Tasks\n${story.tasks.map((t) => `- [${t.done ? "x" : " "}] ${t.label}`).join("\n")}`
+      : "",
+  ].filter(Boolean).join("\n\n");
+
+  // Find issues that match this story to show LiveRunWidget
+  const { data: issues = [] } = useQuery({
+    queryKey: [...queryKeys.issues.list(companyId ?? ""), "story-match", storyTitle],
+    queryFn: () =>
+      import("../api/issues").then((mod) =>
+        mod.issuesApi.list(companyId!, { q: storyTitle }),
+      ),
+    enabled: !!companyId,
+    refetchInterval: 10000,
+  });
+
+  const matchedIssueId = useMemo(() => {
+    // Prefer just-created issue, then fall back to search results
+    if (justCreatedIssueId) return justCreatedIssueId;
+    const found = issues.find((issue) => issue.title?.includes(storyTitle));
+    return found?.id ?? null;
+  }, [issues, storyTitle, justCreatedIssueId]);
 
   return (
     <div>
@@ -137,7 +175,27 @@ function StoryViewer({ story, epicNumber }: { story: BmadStory; epicNumber: numb
           {story.epicNumber}.{story.storyNumber} {story.title}
         </h3>
         <StatusBadgeInline status={story.status} />
+        <div className="ml-auto">
+          {companyId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLaunchDialogOpen(true)}
+              className="gap-1.5"
+            >
+              <Rocket className="h-4 w-4" />
+              Lancer un agent
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Live Agent Output (Story 2-2) */}
+      {matchedIssueId && companyId && (
+        <div className="mb-6">
+          <LiveRunWidget issueId={matchedIssueId} companyId={companyId} />
+        </div>
+      )}
 
       {/* Acceptance Criteria */}
       {story.acceptanceCriteria.length > 0 && (
@@ -171,6 +229,19 @@ function StoryViewer({ story, epicNumber }: { story: BmadStory; epicNumber: numb
             {story.taskProgress.done}/{story.taskProgress.total} completed
           </p>
         </div>
+      )}
+
+      {/* Launch Agent Dialog (Story 2-1) */}
+      {companyId && (
+        <LaunchAgentDialog
+          open={launchDialogOpen}
+          onOpenChange={setLaunchDialogOpen}
+          companyId={companyId}
+          projectId={projectId}
+          storyTitle={storyTitle}
+          storyContent={storyContent}
+          onIssueCreated={setJustCreatedIssueId}
+        />
       )}
     </div>
   );
@@ -294,7 +365,7 @@ export function WorkPane({ projectId, companyId, children }: WorkPaneProps) {
       return (
         <ScrollArea className="h-full">
           <div className="p-1">
-            <StoryViewer story={story} epicNumber={epic.number} />
+            <StoryViewer story={story} epicNumber={epic.number} companyId={companyId} projectId={projectId} />
           </div>
         </ScrollArea>
       );
