@@ -21,3 +21,4 @@ export { createStorageServiceFromConfig, getStorageService } from "../storage/in
 export { workflowService } from "./workflows.js";
 export { stageService } from "./stages.js";
 export { analyzeBmadWorkspace } from "./bmad-analyzer.js";
+export { checkDrift, getDriftResults } from "./drift.js";

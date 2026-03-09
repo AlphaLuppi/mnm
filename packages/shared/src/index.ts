@@ -129,6 +129,10 @@ export type {
   BmadPlanningArtifact,
   BmadSprintStatus,
   BmadProject,
+  DriftSeverity,
+  DriftItem,
+  DriftReport,
+  DriftCheckRequest,
 } from "./types/index.js";
 
 export {

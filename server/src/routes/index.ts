@@ -15,3 +15,4 @@ export { accessRoutes } from "./access.js";
 export { workflowRoutes } from "./workflows.js";
 export { stageRoutes } from "./stages.js";
 export { bmadRoutes } from "./bmad.js";
+export { driftRoutes } from "./drift.js";
