@@ -54,6 +54,7 @@ export type TransitionStage = z.infer<typeof transitionStageSchema>;
 
 export const updateStageSchema = z.object({
   agentId: z.string().uuid().optional().nullable(),
+  activeRunId: z.string().uuid().optional().nullable(),
   inputArtifacts: z.array(z.string()).optional(),
   outputArtifacts: z.array(z.string()).optional(),
 });

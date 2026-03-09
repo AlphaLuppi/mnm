@@ -115,10 +115,11 @@ export function stageService(db: Db) {
 
   async function updateStage(
     id: string,
-    input: { agentId?: string | null; inputArtifacts?: string[]; outputArtifacts?: string[] },
+    input: { agentId?: string | null; activeRunId?: string | null; inputArtifacts?: string[]; outputArtifacts?: string[] },
   ): Promise<StageRow> {
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (input.agentId !== undefined) patch.agentId = input.agentId;
+    if (input.activeRunId !== undefined) patch.activeRunId = input.activeRunId;
     if (input.inputArtifacts) patch.inputArtifacts = input.inputArtifacts;
     if (input.outputArtifacts) patch.outputArtifacts = input.outputArtifacts;
 
