@@ -1,6 +1,7 @@
 export type DriftSeverity = "critical" | "moderate" | "minor";
 export type DriftType = "scope_expansion" | "approach_change" | "design_deviation";
 export type DriftRecommendation = "update_spec" | "recenter_code";
+export type DriftDecision = "accepted" | "rejected" | "pending";
 
 export interface DriftItem {
   id: string;
@@ -13,6 +14,9 @@ export interface DriftItem {
   targetExcerpt: string;
   sourceDoc: string;
   targetDoc: string;
+  decision: DriftDecision;
+  decidedAt?: string;
+  remediationNote?: string;
 }
 
 export interface DriftReport {
@@ -27,4 +31,9 @@ export interface DriftReport {
 export interface DriftCheckRequest {
   sourceDoc: string;
   targetDoc: string;
+}
+
+export interface DriftResolveRequest {
+  decision: "accepted" | "rejected";
+  remediationNote?: string;
 }

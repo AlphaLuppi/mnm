@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import type { Db } from "@mnm/db";
 import { projectService } from "../services/index.js";
-import { checkDrift, getDriftResults } from "../services/drift.js";
+import { checkDrift, getDriftResults, resolveDrift } from "../services/drift.js";
 import { assertCompanyAccess } from "./authz.js";
 import { badRequest, notFound } from "../errors.js";
 
@@ -47,6 +47,41 @@ export function driftRoutes(db: Db) {
 
     const results = getDriftResults(id);
     res.json(results);
+  });
+
+  // PATCH /projects/:id/drift/:driftId — resolve a drift (accept/reject)
+  const driftResolveBody = z.object({
+    decision: z.enum(["accepted", "rejected"]),
+    remediationNote: z.string().optional(),
+  });
+
+  router.patch("/projects/:id/drift/:driftId", async (req, res) => {
+    const { id, driftId } = req.params;
+    const project = await svc.getById(id as string);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    assertCompanyAccess(req, project.companyId);
+
+    const parsed = driftResolveBody.safeParse(req.body);
+    if (!parsed.success) {
+      throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
+    }
+
+    const updated = resolveDrift(
+      id as string,
+      driftId as string,
+      parsed.data.decision,
+      parsed.data.remediationNote,
+    );
+
+    if (!updated) {
+      res.status(404).json({ error: "Drift not found" });
+      return;
+    }
+
+    res.json(updated);
   });
 
   return router;
