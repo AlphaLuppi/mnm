@@ -398,6 +398,12 @@ function invalidateActivityQueries(
     return;
   }
 
+  if (entityType === "workflow") {
+    queryClient.invalidateQueries({ queryKey: queryKeys.workflows.list(companyId) });
+    if (entityId) queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(entityId) });
+    return;
+  }
+
   if (entityType === "approval") {
     queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(companyId) });
     return;
@@ -490,6 +496,19 @@ function handleLiveEvent(
     if (agentId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentId) });
     const toast = buildAgentStatusToast(payload, nameOf, queryClient, expectedCompanyId);
     if (toast) gatedPushToast(gate, pushToast, "agent-status", toast);
+    return;
+  }
+
+  if (
+    event.type === "workflow.created" ||
+    event.type === "workflow.updated" ||
+    event.type === "workflow.completed" ||
+    event.type === "workflow.deleted" ||
+    event.type === "stage.transitioned"
+  ) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.workflows.list(expectedCompanyId) });
+    const workflowId = readString(payload.workflowId);
+    if (workflowId) queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(workflowId) });
     return;
   }
 
