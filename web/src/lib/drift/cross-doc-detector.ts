@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
 import * as specRepo from "@/lib/db/repositories/specs";
 import { getAnthropicAuthHeaders } from "@/lib/core/config";
 import { getMnMRoot } from "@/lib/core/paths";
@@ -7,6 +7,7 @@ import { createChildLogger } from "@/lib/core/logger";
 import { DriftError } from "@/lib/core/errors";
 import { getComparablePairs } from "./hierarchy-model";
 import { buildCrossDocComparisonPrompt } from "./cross-doc-prompts";
+import type { ProgressCallback } from "@/lib/tasks/types";
 
 const log = createChildLogger({ module: "cross-doc-detector" });
 
@@ -27,21 +28,25 @@ const BASE_DELAY_MS = 1000;
 /**
  * Run cross-document drift detection on all comparable spec pairs.
  */
-export async function detectCrossDocDrift(): Promise<CrossDocDrift[]> {
+export async function detectCrossDocDrift(onProgress?: ProgressCallback): Promise<CrossDocDrift[]> {
   const repoRoot = getMnMRoot();
   const authHeaders = getAnthropicAuthHeaders();
 
   if (!authHeaders) {
     log.warn("No API key configured, skipping cross-doc drift detection");
+    onProgress?.("No API key configured, skipping cross-doc drift detection", "warn");
     return [];
   }
 
   const pairs = getComparablePairs();
   log.info({ pairCount: pairs.length }, "Starting cross-doc drift detection");
+  onProgress?.(`Found ${pairs.length} spec pairs to compare`);
 
   const allDrifts: CrossDocDrift[] = [];
 
-  for (const pair of pairs) {
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i];
+    onProgress?.(`[${i + 1}/${pairs.length}] Comparing ${basename(pair.upstream.filePath)} \u2194 ${basename(pair.downstream.filePath)}`);
     try {
       const drifts = await detectPairDrift(
         pair.upstream,
@@ -49,16 +54,21 @@ export async function detectCrossDocDrift(): Promise<CrossDocDrift[]> {
         repoRoot,
         authHeaders
       );
+      if (drifts.length > 0) {
+        onProgress?.(`  Found ${drifts.length} drift(s) in this pair`);
+      }
       allDrifts.push(...drifts);
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       log.error(
         {
           upstream: pair.upstream.filePath,
           downstream: pair.downstream.filePath,
-          error: err instanceof Error ? err.message : String(err),
+          error: errMsg,
         },
         "Failed to detect drift for spec pair"
       );
+      onProgress?.(`  Failed: ${errMsg}`, "error");
     }
   }
 

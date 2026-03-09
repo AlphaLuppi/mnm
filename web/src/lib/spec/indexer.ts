@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { specs } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/core/logger";
+import type { ProgressCallback } from "@/lib/tasks/types";
 
 function specId(filePath: string): string {
   return createHash("sha256").update(filePath).digest("hex").slice(0, 16);
@@ -19,7 +20,7 @@ export interface IndexResult {
   errors: string[];
 }
 
-export async function indexSpecs(repoRoot: string): Promise<IndexResult> {
+export async function indexSpecs(repoRoot: string, onProgress?: ProgressCallback): Promise<IndexResult> {
   const result: IndexResult = { total: 0, indexed: 0, skipped: 0, errors: [] };
 
   const files = await fg(["**/*.md", "**/*.json"], {
@@ -42,10 +43,13 @@ export async function indexSpecs(repoRoot: string): Promise<IndexResult> {
   });
 
   result.total = files.length;
+  onProgress?.(`Found ${files.length} files to scan`);
   const now = Date.now();
   const db = getDb();
 
-  for (const relPath of files) {
+  for (let i = 0; i < files.length; i++) {
+    const relPath = files[i];
+    onProgress?.(`[${i + 1}/${files.length}] Indexing ${relPath}`);
     try {
       const absPath = path.join(repoRoot, relPath);
       const raw = fs.readFileSync(absPath, "utf-8");

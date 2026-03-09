@@ -7,7 +7,7 @@ import { indexSpecs } from "@/lib/spec/indexer";
 import { detectCrossDocDrift } from "@/lib/drift/cross-doc-detector";
 import { scanCommits } from "@/lib/git/commit-scanner";
 import { eventBus } from "@/lib/events/event-bus";
-import type { TaskType, TaskEntry, TaskRunnerState, TaskLogEntry } from "./types";
+import type { TaskType, TaskEntry, TaskRunnerState, TaskLogEntry, ProgressCallback } from "./types";
 
 const log = createChildLogger({ module: "task-runner" });
 
@@ -30,14 +30,15 @@ const TASK_HANDLERS: Record<TaskType, { label: string; run: (task: TaskEntry) =>
   "rescan-workflows": {
     label: "Re-scanning workflows",
     run: async (task) => {
+      const onProgress: ProgressCallback = (msg, lvl) => addLog(task, msg, lvl);
       const root = getMnMRoot();
-      addLog(task, `Starting workflow rescan in ${root}`);
-      addLog(task, "Ensuring bootstrap is complete...");
+      onProgress(`Starting workflow rescan in ${root}`);
+      onProgress("Ensuring bootstrap is complete...");
       await ensureBootstrapped();
-      addLog(task, "Running full discovery...");
-      const result = await runFullDiscovery(root);
-      addLog(task, `Found ${result.workflows} workflows, ${result.specs} specs, ${result.agents} agents`);
-      addLog(task, `Total items discovered: ${result.total} in ${result.durationMs}ms`);
+      onProgress("Running full discovery...");
+      const result = await runFullDiscovery(root, onProgress);
+      onProgress(`Found ${result.workflows} workflows, ${result.specs} specs, ${result.agents} agents`);
+      onProgress(`Total items discovered: ${result.total} in ${result.durationMs}ms`);
       task.progress = `Found ${result.workflows} workflows, ${result.specs} specs`;
       task.result = result;
     },
@@ -45,10 +46,11 @@ const TASK_HANDLERS: Record<TaskType, { label: string; run: (task: TaskEntry) =>
   "rescan-specs": {
     label: "Re-indexing specs",
     run: async (task) => {
+      const onProgress: ProgressCallback = (msg, lvl) => addLog(task, msg, lvl);
       const root = getMnMRoot();
-      addLog(task, `Starting spec re-index in ${root}`);
-      const result = await indexSpecs(root);
-      addLog(task, `Indexed ${result.indexed} specs`);
+      onProgress(`Starting spec re-index in ${root}`);
+      const result = await indexSpecs(root, onProgress);
+      onProgress(`Indexed ${result.indexed} specs`);
       task.progress = `Indexed ${result.indexed} specs`;
       task.result = result;
     },
@@ -56,10 +58,11 @@ const TASK_HANDLERS: Record<TaskType, { label: string; run: (task: TaskEntry) =>
   "scan-drift": {
     label: "Scanning for drift",
     run: async (task) => {
-      addLog(task, "Starting drift scan...");
-      addLog(task, "Detecting cross-document drift between spec pairs...");
-      const results = await detectCrossDocDrift();
-      addLog(task, `Scan complete: found ${results.length} drift items`);
+      const onProgress: ProgressCallback = (msg, lvl) => addLog(task, msg, lvl);
+      onProgress("Starting drift scan...");
+      onProgress("Detecting cross-document drift between spec pairs...");
+      const results = await detectCrossDocDrift(onProgress);
+      onProgress(`Scan complete: found ${results.length} drift items`);
       task.progress = `Found ${results.length} drift items`;
       task.result = results;
     },
@@ -67,16 +70,16 @@ const TASK_HANDLERS: Record<TaskType, { label: string; run: (task: TaskEntry) =>
   "scan-cross-doc-drift": {
     label: "Scanning cross-document drift",
     run: async (task) => {
-      addLog(task, "Starting cross-document drift detection...");
-      addLog(task, "Loading spec pairs from database...");
-      const results = await detectCrossDocDrift();
-      addLog(task, `Detection complete: found ${results.length} cross-doc drift items`);
+      const onProgress: ProgressCallback = (msg, lvl) => addLog(task, msg, lvl);
+      onProgress("Starting cross-document drift detection...");
+      const results = await detectCrossDocDrift(onProgress);
+      onProgress(`Detection complete: found ${results.length} cross-doc drift items`);
       if (results.length > 0) {
         const bySeverity = { critical: 0, moderate: 0, minor: 0 };
         for (const r of results) {
           if (r.severity in bySeverity) bySeverity[r.severity as keyof typeof bySeverity]++;
         }
-        addLog(task, `Breakdown: ${bySeverity.critical} critical, ${bySeverity.moderate} moderate, ${bySeverity.minor} minor`);
+        onProgress(`Breakdown: ${bySeverity.critical} critical, ${bySeverity.moderate} moderate, ${bySeverity.minor} minor`);
       }
       task.progress = `Found ${results.length} cross-doc drift items`;
       task.result = results;
@@ -85,15 +88,15 @@ const TASK_HANDLERS: Record<TaskType, { label: string; run: (task: TaskEntry) =>
   "discover-project": {
     label: "Discovering project structure",
     run: async (task) => {
+      const onProgress: ProgressCallback = (msg, lvl) => addLog(task, msg, lvl);
       const root = getMnMRoot();
-      addLog(task, `Starting project discovery in ${root}`);
-      addLog(task, "Scanning repository structure...");
-      const result = await runFullDiscovery(root);
-      addLog(task, `Discovered ${result.workflows} workflows`);
-      addLog(task, `Discovered ${result.specs} specs`);
-      addLog(task, `Discovered ${result.agents} agents`);
-      addLog(task, `Discovered ${result.commands} commands`);
-      addLog(task, `Total: ${result.total} items in ${result.durationMs}ms`);
+      onProgress(`Starting project discovery in ${root}`);
+      const result = await runFullDiscovery(root, onProgress);
+      onProgress(`Discovered ${result.workflows} workflows`);
+      onProgress(`Discovered ${result.specs} specs`);
+      onProgress(`Discovered ${result.agents} agents`);
+      onProgress(`Discovered ${result.commands} commands`);
+      onProgress(`Total: ${result.total} items in ${result.durationMs}ms`);
       task.progress = `Discovered ${result.total} items`;
       task.result = result;
     },
@@ -101,9 +104,10 @@ const TASK_HANDLERS: Record<TaskType, { label: string; run: (task: TaskEntry) =>
   "git-scan-commits": {
     label: "Scanning git commits",
     run: async (task) => {
-      addLog(task, "Starting git commit scan...");
-      const result = await scanCommits();
-      addLog(task, `Scanned ${result.scanned} commits`);
+      const onProgress: ProgressCallback = (msg, lvl) => addLog(task, msg, lvl);
+      onProgress("Starting git commit scan...");
+      const result = await scanCommits(undefined, "HEAD", 100, onProgress);
+      onProgress(`Scanned ${result.scanned} commits`);
       task.progress = `Scanned ${result.scanned} commits`;
       task.result = result;
     },

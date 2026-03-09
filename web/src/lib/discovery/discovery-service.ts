@@ -4,6 +4,7 @@ import { classifyWithLLM } from "./llm-classifier";
 import { parseWorkflows, parseAgents } from "./bmad-parser";
 import * as workflowRepo from "@/lib/db/repositories/workflows";
 import * as discoveryRepo from "@/lib/db/repositories/discovery-results";
+import type { ProgressCallback } from "@/lib/tasks/types";
 
 const log = createChildLogger({ module: "discovery-service" });
 
@@ -18,7 +19,7 @@ export interface DiscoverySummary {
 }
 
 /** Run a full discovery scan: scan repo, classify files, parse BMAD, persist results. */
-export async function runFullDiscovery(repoRoot: string): Promise<DiscoverySummary> {
+export async function runFullDiscovery(repoRoot: string, onProgress?: ProgressCallback): Promise<DiscoverySummary> {
   const startTime = Date.now();
   log.info({ repoRoot }, "Starting full discovery scan");
 
@@ -27,16 +28,23 @@ export async function runFullDiscovery(repoRoot: string): Promise<DiscoverySumma
   workflowRepo.deleteAll();
 
   // Phase 1: Scan repo structure
+  onProgress?.("Phase 1/6: Scanning repository structure...");
   const overview = await scanRepo(repoRoot);
+  onProgress?.(`Found ${overview.totalFiles} files to classify`);
 
   // Phase 2: LLM classification (falls back to heuristics if no API key)
+  onProgress?.("Phase 2/6: Classifying files...");
   const classifications = await classifyWithLLM(overview);
+  onProgress?.(`Classified ${classifications.length} files`);
 
   // Phase 3: Parse BMAD-specific structures
+  onProgress?.("Phase 3/6: Parsing BMAD workflows and agents...");
   const parsedWorkflows = parseWorkflows(repoRoot);
   const parsedAgents = parseAgents(repoRoot);
+  onProgress?.(`Found ${parsedWorkflows.length} workflows, ${parsedAgents.length} agents`);
 
   // Phase 4: Persist classification results
+  onProgress?.("Phase 4/6: Persisting classification results...");
   for (const c of classifications) {
     discoveryRepo.upsert({
       type: c.type,
@@ -49,6 +57,7 @@ export async function runFullDiscovery(repoRoot: string): Promise<DiscoverySumma
   }
 
   // Phase 5: Persist parsed workflows
+  onProgress?.("Phase 5/6: Persisting workflows...");
   for (const wf of parsedWorkflows) {
     workflowRepo.upsertFromDiscovery({
       name: wf.name,
@@ -70,6 +79,7 @@ export async function runFullDiscovery(repoRoot: string): Promise<DiscoverySumma
   }
 
   // Phase 6: Persist parsed agents as discovery results
+  onProgress?.("Phase 6/6: Persisting agents...");
   for (const agent of parsedAgents) {
     discoveryRepo.upsert({
       type: "agent",
