@@ -1,102 +1,37 @@
-# MnM — Product-First Agentic Development Environment
+# MnM — Product-Aware Agent Orchestrator
 
-> "You don't write code anymore. You write intent.  
-> The agents write the code. You verify the intent was understood."
+> **Spec-driven development with intelligent agent orchestration and drift detection.**
 
-## Vision
+MnM is a fork of [Paperclip](https://github.com/paperclipai/paperclip), enhanced with a semantic layer for product-aware development workflows.
 
-MnM is an **Agentic Development Environment** (ADE) that puts product context first, not code.
+## What MnM adds over Paperclip
 
-While other ADEs (Cursor, Warp, Zed) are **code-first** — you code, AI helps — MnM is **product-first** — you define intent, agents implement.
-
-## Core Features
-
-### 🔄 Spec ↔ Code Sync (Spec Drift Detection)
-
-The killer feature. MnM constantly monitors:
-
-- **PRD → Code**: Are requirements implemented?
-- **Stories → Tests**: Are acceptance criteria covered?
-- **Architecture → Implementation**: Does code match design?
-
-When drift is detected:
-```
-⚠️ PRD says: "User can cancel within 24h"
-   Code says: if (hoursElapsed < 48)
-   
-   [Auto-fix] [Create Issue] [Ignore]
-```
-
-### 🌊 Workflow Stages
-
-Visual pipeline from idea to production:
-
-```
-📋 PRD → 📖 Stories → 🏛️ Architecture → 💻 Development → 🧪 Testing → 🚀 Deploy
-```
-
-Each stage shows:
-- Associated documents
-- Assigned agents
-- Sync status with other stages
-
-### 🤖 Agent Orchestra
-
-Built-in multi-agent management:
-
-- **Main** 🧠 — Orchestrator
-- **Atlas** 🔍 — Research & Analysis  
-- **Daedalus** 🏛️ — Architecture
-- **Héphaestos** 🔨 — Development
-- **Hygieia** 🧪 — Testing
-
-Watch agents work in real-time. See messages flow between them.
-
-### 📊 Context Panel
-
-Always know what the AI sees:
-
-- Active documents in context
-- Token usage
-- What changed since last run
-
-## Tech Stack
-
-- **Rust** — Performance & safety
-- **GPUI** — GPU-accelerated UI (from Zed)
-- **BMAD** — Methodology integration
-
-## Status
-
-🚧 **Early Development** — Not ready for use yet.
+- **Workflow Templates** — BMAD-style structured workflows (Brief → PRD → Architecture → Stories → Dev → Test), customizable via conversational onboarding
+- **Stage-Aware Pipeline** — Visual pipeline showing which stage each feature is at, with automatic agent transitions
+- **Drift Detection** — LLM-powered comparison between specs (PRD vs Architecture) and between code and specs
+- **Conversational Onboarding** — Define your development methodology at first launch, or use the built-in BMAD default
+- **Chat-Driven Workflows** — "Launch feature dark mode" → creates workflow, assigns agents, starts pipeline
 
 ## Architecture
 
 ```
-src/
-├── main.rs          # Application entry
-├── ui/              # GPUI components
-├── workflow/        # Workflow management
-├── agents/          # Agent orchestration
-├── context/         # Context tracking
-└── sync/            # Spec drift detection
+server/         ← Paperclip backend (adapters, heartbeat, services) + MnM extensions
+ui/             ← MnM frontend (pipeline view, spec viewer, drift alerts)
+packages/       ← Shared packages (adapters, db)
+cli/            ← MnM CLI
+_bmad/          ← BMAD framework templates
+_bmad-output/   ← Planning artifacts & vision docs
+_legacy/        ← Previous MnM implementations (Rust/GPUI, Next.js)
 ```
 
-## Building
+## Vision
 
-```bash
-# Requires Rust 1.70+
-cargo build --release
+See [`_bmad-output/planning-artifacts/vision-pivot-2026-03-09.md`](./_bmad-output/planning-artifacts/vision-pivot-2026-03-09.md) for the full vision document.
 
-# Run
-cargo run
-```
+## Credits
+
+Built on top of [Paperclip](https://github.com/paperclipai/paperclip) — orchestration for zero-human companies.
 
 ## License
 
-MIT
-
-## Authors
-
-- Tom Andrieu (@Seeyko)
-- Pantheon AI Team
+Apache-2.0 (inherited from Paperclip)
