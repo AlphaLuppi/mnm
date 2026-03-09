@@ -12,6 +12,7 @@ import {
   costEvents,
   issues,
   projectWorkspaces,
+  stageInstances,
 } from "@mnm/db";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
@@ -933,6 +934,7 @@ export function heartbeatService(db: Db) {
           message: "Process lost -- server may have restarted",
         });
         await releaseIssueExecutionAndPromote(updatedRun);
+        await maybeAdvanceLinkedStage(updatedRun, "failed");
       }
       await finalizeAgentStatus(run.agentId, "failed");
       await startNextQueuedRunForAgent(run.agentId);
@@ -1059,7 +1061,10 @@ export function heartbeatService(db: Db) {
         error: "Agent not found",
       });
       const failedRun = await getRun(runId);
-      if (failedRun) await releaseIssueExecutionAndPromote(failedRun);
+      if (failedRun) {
+        await releaseIssueExecutionAndPromote(failedRun);
+        await maybeAdvanceLinkedStage(failedRun, "failed");
+      }
       return;
     }
 
@@ -1371,6 +1376,7 @@ export function heartbeatService(db: Db) {
           },
         });
         await releaseIssueExecutionAndPromote(finalizedRun);
+        await maybeAdvanceLinkedStage(finalizedRun, outcome);
       }
 
       if (finalizedRun) {
@@ -1434,6 +1440,7 @@ export function heartbeatService(db: Db) {
           message,
         });
         await releaseIssueExecutionAndPromote(failedRun);
+        await maybeAdvanceLinkedStage(failedRun, "failed");
 
         await updateRuntimeState(agent, failedRun, {
           exitCode: null,
@@ -1614,6 +1621,31 @@ export function heartbeatService(db: Db) {
     });
 
     await startNextQueuedRunForAgent(promotedRun.agentId);
+  }
+
+  async function maybeAdvanceLinkedStage(
+    run: typeof heartbeatRuns.$inferSelect,
+    outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+  ) {
+    // Find any stage instance linked to this run via activeRunId
+    const linkedStage = await db
+      .select()
+      .from(stageInstances)
+      .where(eq(stageInstances.activeRunId, run.id))
+      .then((rows) => rows[0] ?? null);
+
+    if (!linkedStage || linkedStage.status !== "running") return;
+
+    const { stageService: stageSvc } = await import("./stages.js");
+    const svc = stageSvc(db);
+
+    if (outcome === "succeeded") {
+      await svc.transitionStage(linkedStage.id, "done");
+      logger.info({ runId: run.id, stageId: linkedStage.id }, "stage auto-advanced to done after run succeeded");
+    } else {
+      await svc.transitionStage(linkedStage.id, "failed");
+      logger.warn({ runId: run.id, stageId: linkedStage.id, outcome }, "stage marked failed after run finished");
+    }
   }
 
   async function enqueueWakeup(agentId: string, opts: WakeupOptions = {}) {
@@ -2275,6 +2307,7 @@ export function heartbeatService(db: Db) {
           message: "run cancelled",
         });
         await releaseIssueExecutionAndPromote(cancelled);
+        await maybeAdvanceLinkedStage(cancelled, "cancelled");
       }
 
       runningProcesses.delete(run.id);
@@ -2307,6 +2340,7 @@ export function heartbeatService(db: Db) {
           runningProcesses.delete(run.id);
         }
         await releaseIssueExecutionAndPromote(run);
+        await maybeAdvanceLinkedStage(run, "cancelled");
       }
 
       return runs.length;
