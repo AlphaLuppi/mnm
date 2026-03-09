@@ -25,6 +25,7 @@ import { ThreePaneLayout } from "../components/ThreePaneLayout";
 import { ContextPane } from "../components/ContextPane";
 import { TestsPane } from "../components/TestsPane";
 import { TimelineBar } from "../components/TimelineBar";
+import { ProjectNavigationProvider } from "../context/ProjectNavigationContext";
 
 /* ── Top-level tab types ── */
 
@@ -385,12 +386,15 @@ export function ProjectDetail() {
 
   return (
     <div className="h-full -m-6">
+      <ProjectNavigationProvider>
       <ThreePaneLayout
-        left={<ContextPane />}
+        left={<ContextPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
         center={workContent}
         right={<TestsPane />}
         bottom={<TimelineBar />}
       />
+
+      </ProjectNavigationProvider>
 
       {/* Mobile properties drawer */}
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
