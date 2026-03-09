@@ -74,7 +74,7 @@ export function ThreePaneLayout({
         for (const [key, ref] of Object.entries(refs)) {
           if (key === pane) {
             ref.current?.expand();
-            ref.current?.resize("100%");
+            ref.current?.resize(100);
           } else {
             ref.current?.collapse();
           }
@@ -94,10 +94,10 @@ export function ThreePaneLayout({
         {/* Left — Context */}
         <ResizablePanel
           panelRef={leftRef}
-          defaultSize="25%"
-          minSize="200px"
+          defaultSize={25}
+          minSize={15}
           collapsible
-          collapsedSize="0px"
+          collapsedSize={0}
           className="flex flex-col"
         >
           <PaneHeader
@@ -112,10 +112,10 @@ export function ThreePaneLayout({
         {/* Center — Work */}
         <ResizablePanel
           panelRef={centerRef}
-          defaultSize="50%"
-          minSize="400px"
+          defaultSize={50}
+          minSize={30}
           collapsible
-          collapsedSize="0px"
+          collapsedSize={0}
           className="flex flex-col"
         >
           <PaneHeader
@@ -130,10 +130,10 @@ export function ThreePaneLayout({
         {/* Right — Tests */}
         <ResizablePanel
           panelRef={rightRef}
-          defaultSize="25%"
-          minSize="200px"
+          defaultSize={25}
+          minSize={15}
           collapsible
-          collapsedSize="0px"
+          collapsedSize={0}
           className="flex flex-col"
         >
           <PaneHeader
