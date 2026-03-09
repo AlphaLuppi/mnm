@@ -17,9 +17,9 @@
     "@mnm/adapter-claude-local": "workspace:*",
     "@mnm/adapter-codex-local": "workspace:*",
     "@mnm/adapter-cursor-local": "workspace:*",
+    "@mnm/adapter-openclaw-gateway": "workspace:*",
     "@mnm/adapter-opencode-local": "workspace:*",
     "@mnm/adapter-pi-local": "workspace:*",
-    "@mnm/adapter-openclaw-gateway": "workspace:*",
     "@mnm/adapter-utils": "workspace:*",
     "@mnm/shared": "workspace:*",
     "@radix-ui/react-slot": "^1.2.4",
@@ -34,6 +34,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4",
     "react-router-dom": "^7.1.5",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.1"

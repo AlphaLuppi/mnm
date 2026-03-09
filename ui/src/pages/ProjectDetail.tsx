@@ -21,6 +21,10 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SlidersHorizontal } from "lucide-react";
+import { ThreePaneLayout } from "../components/ThreePaneLayout";
+import { ContextPane } from "../components/ContextPane";
+import { TestsPane } from "../components/TestsPane";
+import { TimelineBar } from "../components/TimelineBar";
 
 /* ── Top-level tab types ── */
 
@@ -299,8 +303,8 @@ export function ProjectDetail() {
     }
   };
 
-  return (
-    <div className="space-y-6">
+  const workContent = (
+    <>
       <div className="flex items-start gap-3">
         <div className="h-7 flex items-center">
           <ColorPicker
@@ -376,6 +380,17 @@ export function ProjectDetail() {
       {activeTab === "list" && project?.id && resolvedCompanyId && (
         <ProjectIssuesList projectId={project.id} companyId={resolvedCompanyId} />
       )}
+    </>
+  );
+
+  return (
+    <div className="h-full -m-6">
+      <ThreePaneLayout
+        left={<ContextPane />}
+        center={workContent}
+        right={<TestsPane />}
+        bottom={<TimelineBar />}
+      />
 
       {/* Mobile properties drawer */}
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
