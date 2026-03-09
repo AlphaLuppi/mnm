@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { FlaskConical, ChevronRight, Circle, CheckCircle2, XCircle } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { FlaskConical, ChevronRight, Circle, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { useBmadProject } from "../hooks/useBmadProject";
+import { useDriftResults } from "../hooks/useDriftResults";
+import { DriftAlertCard } from "./DriftAlertCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "../lib/utils";
-import type { BmadEpic, BmadStory, BmadAcceptanceCriterion } from "@mnm/shared";
+import type { BmadEpic, BmadStory, BmadAcceptanceCriterion, DriftItem } from "@mnm/shared";
 
 /* ── AC status type (all pending for now, extensible later) ── */
 
@@ -161,6 +163,83 @@ function TestsPaneEmpty({ message }: { message: string }) {
   );
 }
 
+/* ── Ignored drift IDs (localStorage) ── */
+
+const IGNORED_DRIFTS_KEY = "mnm:ignored-drifts";
+
+function getIgnoredDriftIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(IGNORED_DRIFTS_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function addIgnoredDriftId(id: string) {
+  const ids = getIgnoredDriftIds();
+  ids.add(id);
+  localStorage.setItem(IGNORED_DRIFTS_KEY, JSON.stringify([...ids]));
+}
+
+/* ── Drift Alerts Section ── */
+
+function DriftAlertsSection({ projectId, companyId }: { projectId?: string; companyId?: string }) {
+  const { data: reports = [] } = useDriftResults(projectId, companyId);
+  const [ignoredIds, setIgnoredIds] = useState(() => getIgnoredDriftIds());
+
+  const allDrifts = useMemo(() => {
+    const drifts: DriftItem[] = [];
+    for (const report of reports) {
+      for (const d of report.drifts) {
+        if (!ignoredIds.has(d.id)) drifts.push(d);
+      }
+    }
+    return drifts;
+  }, [reports, ignoredIds]);
+
+  const handleIgnore = useCallback((drift: DriftItem) => {
+    addIgnoredDriftId(drift.id);
+    setIgnoredIds((prev) => new Set([...prev, drift.id]));
+  }, []);
+
+  const handleFixSource = useCallback((_drift: DriftItem) => {
+    // Navigate to source doc — for now just log
+    // In a full implementation this would use selectArtifact + open LaunchAgentDialog
+  }, []);
+
+  const handleFixTarget = useCallback((_drift: DriftItem) => {
+    // Navigate to target doc — for now just log
+  }, []);
+
+  if (allDrifts.length === 0) return null;
+
+  return (
+    <div className="space-y-2 mb-3">
+      <div className="flex items-center gap-1.5 px-2">
+        <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Drift Alerts
+        </span>
+        <span className="ml-auto rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+          {allDrifts.length}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5 px-2">
+        {allDrifts.map((drift) => (
+          <DriftAlertCard
+            key={drift.id}
+            drift={drift}
+            onFixSource={handleFixSource}
+            onFixTarget={handleFixTarget}
+            onIgnore={handleIgnore}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main TestsPane ── */
 
 interface TestsPaneProps {
@@ -176,8 +255,17 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
     return <TestsPaneEmpty message="Loading..." />;
   }
 
+  const driftSection = <DriftAlertsSection projectId={projectId} companyId={companyId} />;
+
   if (!bmad?.detected || bmad.epics.length === 0) {
-    return <TestsPaneEmpty message="No BMAD acceptance criteria found." />;
+    return (
+      <ScrollArea className="h-full">
+        <div className="p-2">
+          {driftSection}
+          <TestsPaneEmpty message="No BMAD acceptance criteria found." />
+        </div>
+      </ScrollArea>
+    );
   }
 
   // Story selected → show only that story's ACs
@@ -191,12 +279,20 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
         return (
           <ScrollArea className="h-full">
             <div className="p-2 space-y-1">
+              {driftSection}
               <EpicACGroup epic={epic} filterStoryId={storyId} defaultOpen />
             </div>
           </ScrollArea>
         );
       }
-      return <TestsPaneEmpty message="This story has no acceptance criteria." />;
+      return (
+        <ScrollArea className="h-full">
+          <div className="p-2">
+            {driftSection}
+            <TestsPaneEmpty message="This story has no acceptance criteria." />
+          </div>
+        </ScrollArea>
+      );
     }
   }
 
@@ -209,24 +305,40 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
         return (
           <ScrollArea className="h-full">
             <div className="p-2 space-y-1">
+              {driftSection}
               <EpicACGroup epic={epic} defaultOpen />
             </div>
           </ScrollArea>
         );
       }
-      return <TestsPaneEmpty message="This epic has no acceptance criteria." />;
+      return (
+        <ScrollArea className="h-full">
+          <div className="p-2">
+            {driftSection}
+            <TestsPaneEmpty message="This epic has no acceptance criteria." />
+          </div>
+        </ScrollArea>
+      );
     }
   }
 
-  // Artifact selected → clear tests pane
+  // Artifact selected → show drift alerts only
   if (selectedItem?.type === "artifact") {
-    return <TestsPaneEmpty message="Select a story or epic to view acceptance criteria." />;
+    return (
+      <ScrollArea className="h-full">
+        <div className="p-2">
+          {driftSection}
+          <TestsPaneEmpty message="Select a story or epic to view acceptance criteria." />
+        </div>
+      </ScrollArea>
+    );
   }
 
   // No selection → show all ACs grouped by Epic → Story
   return (
     <ScrollArea className="h-full">
       <div className="p-2 space-y-1">
+        {driftSection}
         {bmad.epics.map((epic) => (
           <EpicACGroup key={epic.number} epic={epic} defaultOpen />
         ))}

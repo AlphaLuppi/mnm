@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { BmadProject, BmadEpic, BmadStory, BmadPlanningArtifact } from "@mnm/shared";
+import type { BmadProject, BmadEpic, BmadStory, BmadPlanningArtifact, DriftReport } from "@mnm/shared";
 import { useBmadProject } from "../hooks/useBmadProject";
+import { useDriftResults } from "../hooks/useDriftResults";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
@@ -221,9 +222,33 @@ function StoryRow({ story, epicId, isRunning }: { story: BmadStory; epicId: stri
   );
 }
 
+/* ── Drift count badge ── */
+
+function DriftCountBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span className="shrink-0 rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 px-1.5 py-0.5 text-[10px] leading-none font-medium tabular-nums">
+      {count}
+    </span>
+  );
+}
+
+function buildDriftCountByDoc(reports: DriftReport[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const report of reports) {
+    for (const drift of report.drifts) {
+      counts.set(drift.sourceDoc, (counts.get(drift.sourceDoc) ?? 0) + 1);
+      if (drift.targetDoc !== drift.sourceDoc) {
+        counts.set(drift.targetDoc, (counts.get(drift.targetDoc) ?? 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
 /* ── Planning artifacts section ── */
 
-function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
+function PlanningSection({ artifacts, driftCounts }: { artifacts: BmadPlanningArtifact[]; driftCounts: Map<string, number> }) {
   const { selectedItem, selectArtifact } = useProjectNavigation();
 
   return (
@@ -232,6 +257,7 @@ function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
         const Icon = getArtifactIcon(artifact.type);
         const isSelected =
           selectedItem?.type === "artifact" && selectedItem.id === artifact.filePath;
+        const driftCount = driftCounts.get(artifact.filePath) ?? 0;
         return (
           <TreeItem
             key={artifact.filePath}
@@ -239,6 +265,7 @@ function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
             label={artifact.title}
             selected={isSelected}
             onClick={() => selectArtifact(artifact.filePath)}
+            trailing={<DriftCountBadge count={driftCount} />}
           />
         );
       })}
@@ -287,6 +314,8 @@ interface ContextPaneProps {
 
 export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   const { data: bmad, isLoading, error } = useBmadProject(projectId, companyId);
+  const { data: driftReports = [] } = useDriftResults(projectId, companyId);
+  const driftCounts = useMemo(() => buildDriftCountByDoc(driftReports), [driftReports]);
 
   // Fetch live runs to detect running stories (Story 2-2)
   const { data: liveRuns = [] } = useQuery({
@@ -349,7 +378,7 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   return (
     <ScrollArea className="h-full">
       <div className="py-2 space-y-1">
-        {hasPlanning && <PlanningSection artifacts={bmad.planningArtifacts} />}
+        {hasPlanning && <PlanningSection artifacts={bmad.planningArtifacts} driftCounts={driftCounts} />}
         {hasEpics && <EpicsSection epics={bmad.epics} runningStoryTitles={runningStoryTitles} />}
       </div>
     </ScrollArea>

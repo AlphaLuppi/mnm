@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket } from "lucide-react";
+import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket, Search, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { useBmadProject, useBmadFile } from "../hooks/useBmadProject";
+import { useDriftCheck } from "../hooks/useDriftResults";
 import { queryKeys } from "../lib/queryKeys";
 import { MarkdownBody } from "./MarkdownBody";
 import { LiveRunWidget } from "./LiveRunWidget";
@@ -60,8 +61,14 @@ function Breadcrumb({ segments }: { segments: { label: string; onClick?: () => v
 function SpecViewer({ projectId, path, companyId }: { projectId: string; path: string; companyId?: string }) {
   const { data: content, isLoading, error } = useBmadFile(projectId, path, companyId);
   const { clearSelection } = useProjectNavigation();
+  const driftCheck = useDriftCheck(projectId, companyId);
 
   const fileName = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
+
+  const handleDriftCheck = () => {
+    // Compare this artifact against a related document (mock: use path itself)
+    driftCheck.mutate({ sourceDoc: path, targetDoc: path });
+  };
 
   if (isLoading) {
     return (
@@ -90,6 +97,22 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
           artifact
         </span>
+        <div className="ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDriftCheck}
+            disabled={driftCheck.isPending}
+            className="gap-1.5"
+          >
+            {driftCheck.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+            Vérifier le drift
+          </Button>
+        </div>
       </div>
       <MarkdownBody>{content ?? ""}</MarkdownBody>
     </div>
@@ -131,6 +154,12 @@ function StoryViewer({ story, epicNumber, companyId, projectId }: { story: BmadS
   const { selectEpic, clearSelection } = useProjectNavigation();
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [justCreatedIssueId, setJustCreatedIssueId] = useState<string | null>(null);
+  const driftCheck = useDriftCheck(projectId, companyId);
+
+  const handleDriftCheck = () => {
+    const storyPath = story.filePath ?? `story-${story.epicNumber}-${story.storyNumber}`;
+    driftCheck.mutate({ sourceDoc: storyPath, targetDoc: storyPath });
+  };
 
   // Build story content for issue body
   const storyTitle = `${story.epicNumber}.${story.storyNumber} ${story.title}`;
@@ -175,7 +204,23 @@ function StoryViewer({ story, epicNumber, companyId, projectId }: { story: BmadS
           {story.epicNumber}.{story.storyNumber} {story.title}
         </h3>
         <StatusBadgeInline status={story.status} />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {projectId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDriftCheck}
+              disabled={driftCheck.isPending}
+              className="gap-1.5"
+            >
+              {driftCheck.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Vérifier le drift
+            </Button>
+          )}
           {companyId && (
             <Button
               variant="outline"
