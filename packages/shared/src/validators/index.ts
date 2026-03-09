@@ -118,6 +118,22 @@ export {
 } from "./asset.js";
 
 export {
+  workflowStageTemplateDefSchema,
+  createWorkflowTemplateSchema,
+  updateWorkflowTemplateSchema,
+  createWorkflowInstanceSchema,
+  updateWorkflowInstanceSchema,
+  transitionStageSchema,
+  updateStageSchema,
+  type CreateWorkflowTemplate,
+  type UpdateWorkflowTemplate,
+  type CreateWorkflowInstance,
+  type UpdateWorkflowInstance,
+  type TransitionStage,
+  type UpdateStage,
+} from "./workflow.js";
+
+export {
   createCompanyInviteSchema,
   createOpenClawInvitePromptSchema,
   acceptInviteSchema,

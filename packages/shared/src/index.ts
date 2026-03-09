@@ -229,6 +229,19 @@ export {
   type CompanyPortabilityExport,
   type CompanyPortabilityPreview,
   type CompanyPortabilityImport,
+  workflowStageTemplateDefSchema,
+  createWorkflowTemplateSchema,
+  updateWorkflowTemplateSchema,
+  createWorkflowInstanceSchema,
+  updateWorkflowInstanceSchema,
+  transitionStageSchema,
+  updateStageSchema,
+  type CreateWorkflowTemplate,
+  type UpdateWorkflowTemplate,
+  type CreateWorkflowInstance,
+  type UpdateWorkflowInstance,
+  type TransitionStage,
+  type UpdateStage,
 } from "./validators/index.js";
 
 export { API_PREFIX, API } from "./api.js";

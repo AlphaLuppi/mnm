@@ -212,6 +212,11 @@ export const LIVE_EVENT_TYPES = [
   "heartbeat.run.log",
   "agent.status",
   "activity.logged",
+  "workflow.created",
+  "workflow.updated",
+  "workflow.completed",
+  "workflow.deleted",
+  "stage.transitioned",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
