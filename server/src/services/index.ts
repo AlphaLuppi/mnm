@@ -20,3 +20,4 @@ export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
 export { workflowService } from "./workflows.js";
 export { stageService } from "./stages.js";
+export { analyzeBmadWorkspace } from "./bmad-analyzer.js";

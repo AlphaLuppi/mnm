@@ -122,6 +122,13 @@ export type {
   AgentEnvConfig,
   CompanySecret,
   SecretProviderDescriptor,
+  BmadTask,
+  BmadAcceptanceCriterion,
+  BmadStory,
+  BmadEpic,
+  BmadPlanningArtifact,
+  BmadSprintStatus,
+  BmadProject,
 } from "./types/index.js";
 
 export {
