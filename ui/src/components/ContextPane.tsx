@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FileText,
   Building2,
@@ -132,6 +132,12 @@ function EpicSection({ epic }: { epic: BmadEpic }) {
   const { selectedItem, selectEpic, selectStory } = useProjectNavigation();
   const epicId = String(epic.number);
   const isEpicSelected = selectedItem?.type === "epic" && selectedItem.id === epicId;
+
+  // Auto-expand when a child story is selected (e.g. from TestsPane click)
+  const hasSelectedChild = selectedItem?.type === "story" && selectedItem.id.startsWith(`${epicId}/`);
+  useEffect(() => {
+    if (hasSelectedChild && !open) setOpen(true);
+  }, [hasSelectedChild]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
