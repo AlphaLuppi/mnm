@@ -4,6 +4,7 @@ import * as commitAssociationsRepo from "@/lib/db/repositories/commit-associatio
 import * as specsRepo from "@/lib/db/repositories/specs";
 import { createChildLogger } from "@/lib/core/logger";
 import crypto from "node:crypto";
+import type { ProgressCallback } from "@/lib/tasks/types";
 
 const logger = createChildLogger({ module: "commit-scanner" });
 
@@ -20,14 +21,18 @@ export function setLastScannedSha(sha: string): void {
 export async function scanCommits(
   fromSha?: string,
   toSha: string = "HEAD",
-  maxCount: number = 100
+  maxCount: number = 100,
+  onProgress?: ProgressCallback
 ): Promise<{ scanned: number; associations: number }> {
   try {
     const commits = await getCommitLog(fromSha ?? undefined, toSha, maxCount);
 
     if (commits.length === 0) {
+      onProgress?.("No commits to scan");
       return { scanned: 0, associations: 0 };
     }
+
+    onProgress?.(`Found ${commits.length} commits to scan`);
 
     // Get all known spec paths
     const allSpecs = specsRepo.findAll();
@@ -36,7 +41,12 @@ export async function scanCommits(
 
     let associationsCreated = 0;
 
-    for (const commit of commits) {
+    for (let i = 0; i < commits.length; i++) {
+      const commit = commits[i];
+      const shortHash = commit.hash.slice(0, 7);
+      const shortMsg = commit.message.length > 50 ? commit.message.slice(0, 47) + "..." : commit.message;
+      onProgress?.(`[${i + 1}/${commits.length}] Scanning commit ${shortHash}: "${shortMsg}"`);
+
       const refs = parseCommitReferences(commit.message);
 
       for (const ref of refs) {

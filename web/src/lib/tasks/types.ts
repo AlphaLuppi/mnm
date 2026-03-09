@@ -1,3 +1,5 @@
+export type ProgressCallback = (message: string, level?: "info" | "warn" | "error") => void;
+
 export type TaskType =
   | "rescan-workflows"
   | "rescan-specs"
