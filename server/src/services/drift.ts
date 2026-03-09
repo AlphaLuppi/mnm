@@ -2,7 +2,9 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import type { DriftReport, DriftItem, DriftSeverity, DriftType, DriftRecommendation, DriftDecision } from "@mnm/shared";
 import { logger } from "../middleware/logger.js";
+import path from "node:path";
 import { analyzeDrift, type DriftResultItem } from "./drift-analyzer.js";
+import { loadCustomInstructions } from "./drift-instructions.js";
 
 /**
  * In-memory cache of drift reports per project.
@@ -142,7 +144,13 @@ export async function checkDrift(
       throw new Error(`Could not read document: ${missing}`);
     }
 
-    logger.info({ sourceDoc, targetDoc, projectId }, "Starting drift analysis");
+    // Auto-load custom instructions from .mnm/drift-instructions.md if not provided
+    if (!customInstructions) {
+      const repoRoot = path.dirname(path.dirname(sourceDoc));
+      customInstructions = await loadCustomInstructions(repoRoot) ?? undefined;
+    }
+
+    logger.info({ sourceDoc, targetDoc, projectId, hasCustomInstructions: !!customInstructions }, "Starting drift analysis");
 
     const results = await analyzeDrift(
       sourceDoc,
