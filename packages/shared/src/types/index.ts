@@ -53,6 +53,15 @@ export type {
   InstanceUserRoleGrant,
 } from "./access.js";
 export type {
+  BmadTask,
+  BmadAcceptanceCriterion,
+  BmadStory,
+  BmadEpic,
+  BmadPlanningArtifact,
+  BmadSprintStatus,
+  BmadProject,
+} from "./bmad.js";
+export type {
   CompanyPortabilityInclude,
   CompanyPortabilitySecretRequirement,
   CompanyPortabilityCompanyManifestEntry,
