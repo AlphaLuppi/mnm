@@ -130,6 +130,8 @@ export type {
   BmadSprintStatus,
   BmadProject,
   DriftSeverity,
+  DriftType,
+  DriftRecommendation,
   DriftItem,
   DriftReport,
   DriftCheckRequest,

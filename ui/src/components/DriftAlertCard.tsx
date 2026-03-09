@@ -1,8 +1,19 @@
 import { useState } from "react";
-import { AlertTriangle, AlertCircle, Info, ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, ChevronDown, ChevronRight, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "../lib/utils";
-import type { DriftItem } from "@mnm/shared";
+import type { DriftItem, DriftType, DriftRecommendation } from "@mnm/shared";
+
+const driftTypeLabels: Record<DriftType, string> = {
+  scope_expansion: "Scope Expansion",
+  approach_change: "Approach Change",
+  design_deviation: "Design Deviation",
+};
+
+const recommendationLabels: Record<DriftRecommendation, string> = {
+  update_spec: "Update Spec",
+  recenter_code: "Recenter Code",
+};
 
 const severityConfig = {
   critical: {
@@ -49,8 +60,11 @@ export function DriftAlertCard({ drift, onFixSource, onFixTarget, onIgnore }: Dr
             <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", config.badge)}>
               {drift.severity}
             </span>
+            <span className="rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+              {driftTypeLabels[drift.driftType]}
+            </span>
             <span className="text-[10px] text-muted-foreground tabular-nums">
-              {Math.round(drift.confidence * 100)}% confiance
+              {Math.round(drift.confidence * 100)}%
             </span>
           </div>
           <p className="text-xs mt-1 leading-relaxed">{drift.description}</p>
@@ -86,8 +100,11 @@ export function DriftAlertCard({ drift, onFixSource, onFixTarget, onIgnore }: Dr
             </div>
           )}
 
-          {/* Resolution buttons (Story 3-3) */}
+          {/* Recommendation + Resolution buttons */}
           <div className="flex items-center gap-1.5 pt-1">
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground mr-auto">
+              {recommendationLabels[drift.recommendation]}
+            </span>
             {onFixSource && (
               <Button
                 variant="outline"

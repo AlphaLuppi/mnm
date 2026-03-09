@@ -81,6 +81,8 @@ export type {
 } from "./company-portability.js";
 export type {
   DriftSeverity,
+  DriftType,
+  DriftRecommendation,
   DriftItem,
   DriftReport,
   DriftCheckRequest,
