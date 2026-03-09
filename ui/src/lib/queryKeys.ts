@@ -75,5 +75,9 @@ export const queryKeys = {
     ["heartbeats", companyId, agentId] as const,
   liveRuns: (companyId: string) => ["live-runs", companyId] as const,
   runIssues: (runId: string) => ["run-issues", runId] as const,
+  bmad: {
+    project: (projectId: string) => ["bmad", "project", projectId] as const,
+    file: (projectId: string, filePath: string) => ["bmad", "file", projectId, filePath] as const,
+  },
   org: (companyId: string) => ["org", companyId] as const,
 };
