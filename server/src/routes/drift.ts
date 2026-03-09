@@ -9,6 +9,7 @@ import { badRequest, notFound } from "../errors.js";
 const driftCheckBody = z.object({
   sourceDoc: z.string().min(1),
   targetDoc: z.string().min(1),
+  customInstructions: z.string().optional(),
 });
 
 export function driftRoutes(db: Db) {
@@ -30,7 +31,7 @@ export function driftRoutes(db: Db) {
       throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
     }
 
-    const report = await checkDrift(id, parsed.data.sourceDoc, parsed.data.targetDoc);
+    const report = await checkDrift(id, parsed.data.sourceDoc, parsed.data.targetDoc, parsed.data.customInstructions);
     res.json(report);
   });
 
