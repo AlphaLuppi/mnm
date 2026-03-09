@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
-import type { DriftReport, DriftItem, DriftSeverity, DriftType, DriftRecommendation } from "@mnm/shared";
+import type { DriftReport, DriftItem, DriftSeverity, DriftType, DriftRecommendation, DriftDecision } from "@mnm/shared";
 import { logger } from "../middleware/logger.js";
 import { analyzeDrift, type DriftResultItem } from "./drift-analyzer.js";
 
@@ -44,6 +44,7 @@ function toDriftItem(
     targetExcerpt: item.target_excerpt,
     sourceDoc,
     targetDoc,
+    decision: "pending" as DriftDecision,
   };
 }
 
@@ -66,6 +67,7 @@ function generateMockDrifts(sourceDoc: string, targetDoc: string): DriftItem[] {
         "All endpoints are secured with API key authentication passed via X-Api-Key header.",
       sourceDoc,
       targetDoc,
+      decision: "pending" as DriftDecision,
     },
     {
       id: crypto.randomUUID(),
@@ -80,6 +82,7 @@ function generateMockDrifts(sourceDoc: string, targetDoc: string): DriftItem[] {
       targetExcerpt: "",
       sourceDoc,
       targetDoc,
+      decision: "pending" as DriftDecision,
     },
     {
       id: crypto.randomUUID(),
@@ -95,6 +98,7 @@ function generateMockDrifts(sourceDoc: string, targetDoc: string): DriftItem[] {
         "Use Redis for caching API responses with a 5-minute TTL.",
       sourceDoc,
       targetDoc,
+      decision: "pending" as DriftDecision,
     },
   ];
 }
@@ -181,4 +185,35 @@ export async function checkDrift(
  */
 export function getDriftResults(projectId: string): DriftReport[] {
   return reportCache.get(projectId) ?? [];
+}
+
+/**
+ * Resolve a drift item (accept or reject).
+ * Returns the updated DriftItem or null if not found.
+ */
+export function resolveDrift(
+  projectId: string,
+  driftId: string,
+  decision: "accepted" | "rejected",
+  remediationNote?: string,
+): DriftItem | null {
+  const reports = reportCache.get(projectId);
+  if (!reports) return null;
+
+  for (const report of reports) {
+    const drift = report.drifts.find((d) => d.id === driftId);
+    if (drift) {
+      drift.decision = decision;
+      drift.decidedAt = new Date().toISOString();
+      if (remediationNote) {
+        drift.remediationNote = remediationNote;
+      }
+      logger.info(
+        { driftId, decision, projectId },
+        "Drift resolved",
+      );
+      return drift;
+    }
+  }
+  return null;
 }

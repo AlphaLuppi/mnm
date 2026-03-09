@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, AlertCircle, Info, ChevronDown, ChevronRight, EyeOff } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, ChevronDown, ChevronRight, Check, X, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "../lib/utils";
 import type { DriftItem, DriftType, DriftRecommendation } from "@mnm/shared";
@@ -36,20 +36,29 @@ const severityConfig = {
   },
 };
 
+const decisionStyles = {
+  accepted: "opacity-60 border-green-300 dark:border-green-800",
+  rejected: "opacity-60 border-red-300 dark:border-red-800",
+};
+
 interface DriftAlertCardProps {
   drift: DriftItem;
-  onFixSource?: (drift: DriftItem) => void;
-  onFixTarget?: (drift: DriftItem) => void;
+  onAccept?: (drift: DriftItem) => void;
+  onReject?: (drift: DriftItem) => void;
   onIgnore?: (drift: DriftItem) => void;
 }
 
-export function DriftAlertCard({ drift, onFixSource, onFixTarget, onIgnore }: DriftAlertCardProps) {
+export function DriftAlertCard({ drift, onAccept, onReject, onIgnore }: DriftAlertCardProps) {
   const [expanded, setExpanded] = useState(false);
   const config = severityConfig[drift.severity];
   const Icon = config.icon;
+  const isResolved = drift.decision !== "pending";
 
   return (
-    <div className={cn("rounded-lg border p-3 space-y-2", config.bg)}>
+    <div className={cn(
+      "rounded-lg border p-3 space-y-2",
+      isResolved ? decisionStyles[drift.decision as "accepted" | "rejected"] : config.bg,
+    )}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-start gap-2 w-full text-left cursor-pointer"
@@ -66,6 +75,16 @@ export function DriftAlertCard({ drift, onFixSource, onFixTarget, onIgnore }: Dr
             <span className="text-[10px] text-muted-foreground tabular-nums">
               {Math.round(drift.confidence * 100)}%
             </span>
+            {isResolved && (
+              <span className={cn(
+                "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                drift.decision === "accepted"
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+              )}>
+                {drift.decision}
+              </span>
+            )}
           </div>
           <p className="text-xs mt-1 leading-relaxed">{drift.description}</p>
         </div>
@@ -92,7 +111,7 @@ export function DriftAlertCard({ drift, onFixSource, onFixTarget, onIgnore }: Dr
               {drift.targetExcerpt && (
                 <div className="rounded-md bg-background/60 p-2 text-[11px] space-y-1">
                   <p className="font-semibold text-muted-foreground truncate">
-                    Cible: {drift.targetDoc.split("/").pop()}
+                    Target: {drift.targetDoc.split("/").pop()}
                   </p>
                   <p className="italic leading-relaxed">{drift.targetExcerpt}</p>
                 </div>
@@ -105,36 +124,42 @@ export function DriftAlertCard({ drift, onFixSource, onFixTarget, onIgnore }: Dr
             <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground mr-auto">
               {recommendationLabels[drift.recommendation]}
             </span>
-            {onFixSource && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[11px] px-2"
-                onClick={(e) => { e.stopPropagation(); onFixSource(drift); }}
-              >
-                Corriger source
-              </Button>
-            )}
-            {onFixTarget && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[11px] px-2"
-                onClick={(e) => { e.stopPropagation(); onFixTarget(drift); }}
-              >
-                Corriger cible
-              </Button>
-            )}
-            {onIgnore && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[11px] px-2 text-muted-foreground"
-                onClick={(e) => { e.stopPropagation(); onIgnore(drift); }}
-              >
-                <EyeOff className="h-3 w-3 mr-1" />
-                Ignorer
-              </Button>
+            {!isResolved && (
+              <>
+                {onAccept && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[11px] px-2"
+                    onClick={(e) => { e.stopPropagation(); onAccept(drift); }}
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    Accept
+                  </Button>
+                )}
+                {onReject && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[11px] px-2"
+                    onClick={(e) => { e.stopPropagation(); onReject(drift); }}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Reject
+                  </Button>
+                )}
+                {onIgnore && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] px-2 text-muted-foreground"
+                    onClick={(e) => { e.stopPropagation(); onIgnore(drift); }}
+                  >
+                    <EyeOff className="h-3 w-3 mr-1" />
+                    Ignore
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

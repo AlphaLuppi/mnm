@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { FlaskConical, ChevronRight, Circle, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { useBmadProject } from "../hooks/useBmadProject";
-import { useDriftResults } from "../hooks/useDriftResults";
+import { useDriftResults, useDriftResolve } from "../hooks/useDriftResults";
 import { DriftAlertCard } from "./DriftAlertCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -186,6 +186,7 @@ function addIgnoredDriftId(id: string) {
 
 function DriftAlertsSection({ projectId, companyId }: { projectId?: string; companyId?: string }) {
   const { data: reports = [] } = useDriftResults(projectId, companyId);
+  const resolveMutation = useDriftResolve(projectId, companyId);
   const [ignoredIds, setIgnoredIds] = useState(() => getIgnoredDriftIds());
 
   const allDrifts = useMemo(() => {
@@ -203,14 +204,16 @@ function DriftAlertsSection({ projectId, companyId }: { projectId?: string; comp
     setIgnoredIds((prev) => new Set([...prev, drift.id]));
   }, []);
 
-  const handleFixSource = useCallback((_drift: DriftItem) => {
-    // Navigate to source doc — for now just log
-    // In a full implementation this would use selectArtifact + open LaunchAgentDialog
-  }, []);
+  const handleAccept = useCallback((drift: DriftItem) => {
+    resolveMutation.mutate({ driftId: drift.id, decision: "accepted" });
+  }, [resolveMutation]);
 
-  const handleFixTarget = useCallback((_drift: DriftItem) => {
-    // Navigate to target doc — for now just log
-  }, []);
+  const handleReject = useCallback((drift: DriftItem) => {
+    resolveMutation.mutate({ driftId: drift.id, decision: "rejected" });
+  }, [resolveMutation]);
+
+  // Count pending drifts for the badge
+  const pendingCount = allDrifts.filter((d) => d.decision === "pending").length;
 
   if (allDrifts.length === 0) return null;
 
@@ -221,17 +224,19 @@ function DriftAlertsSection({ projectId, companyId }: { projectId?: string; comp
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Drift Alerts
         </span>
-        <span className="ml-auto rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
-          {allDrifts.length}
-        </span>
+        {pendingCount > 0 && (
+          <span className="ml-auto rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+            {pendingCount}
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-1.5 px-2">
         {allDrifts.map((drift) => (
           <DriftAlertCard
             key={drift.id}
             drift={drift}
-            onFixSource={handleFixSource}
-            onFixTarget={handleFixTarget}
+            onAccept={handleAccept}
+            onReject={handleReject}
             onIgnore={handleIgnore}
           />
         ))}

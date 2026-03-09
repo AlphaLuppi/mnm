@@ -132,9 +132,11 @@ export type {
   DriftSeverity,
   DriftType,
   DriftRecommendation,
+  DriftDecision,
   DriftItem,
   DriftReport,
   DriftCheckRequest,
+  DriftResolveRequest,
 } from "./types/index.js";
 
 export {
