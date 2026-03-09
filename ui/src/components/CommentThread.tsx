@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from "re
 import { Link, useLocation } from "react-router-dom";
 import type { IssueComment, Agent } from "@mnm/shared";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, MnM } from "lucide-react";
+import { Check, Copy, Paperclip } from "lucide-react";
 import { Identity } from "./Identity";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
 import { MarkdownBody } from "./MarkdownBody";
@@ -383,7 +383,7 @@ export function CommentThread({
                 disabled={attaching}
                 title="Attach image"
               >
-                <MnM className="h-4 w-4" />
+                <Paperclip className="h-4 w-4" />
               </Button>
             </div>
           )}
