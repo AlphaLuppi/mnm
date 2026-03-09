@@ -33,7 +33,7 @@ import {
   AlertTriangle,
   Tag,
   Calendar,
-  MnM,
+  Paperclip,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { extractProviderIdWithFallback } from "../lib/model-utils";
@@ -919,7 +919,7 @@ export function NewIssueDialog() {
             onClick={() => attachInputRef.current?.click()}
             disabled={uploadDescriptionImage.isPending}
           >
-            <MnM className="h-3 w-3" />
+            <Paperclip className="h-3 w-3" />
             {uploadDescriptionImage.isPending ? "Uploading..." : "Image"}
           </button>
 

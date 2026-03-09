@@ -38,7 +38,7 @@ import {
   ListTree,
   MessageSquare,
   MoreHorizontal,
-  MnM,
+  Paperclip,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -688,7 +688,7 @@ export function IssueDetail() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadAttachment.isPending}
             >
-              <MnM className="h-3.5 w-3.5 mr-1.5" />
+              <Paperclip className="h-3.5 w-3.5 mr-1.5" />
               {uploadAttachment.isPending ? "Uploading..." : "Upload image"}
             </Button>
           </div>
