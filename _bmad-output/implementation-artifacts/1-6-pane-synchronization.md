@@ -1,6 +1,6 @@
 # Story 1.6: Pane Synchronization
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

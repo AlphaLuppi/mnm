@@ -1,6 +1,6 @@
 # Story 4.1: Cockpit Dashboard Widgets
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

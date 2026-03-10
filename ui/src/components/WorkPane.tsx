@@ -325,8 +325,11 @@ export function WorkPane({ projectId, companyId, children }: WorkPaneProps) {
   const { selectedItem } = useProjectNavigation();
   const { data: bmad } = useBmadProject(projectId, companyId);
 
-  // No selection → show default project content (children)
+  // No selection → show BMAD overview prompt, falling back to default children
   if (!selectedItem) {
+    if (bmad?.detected && bmad.epics.length > 0) {
+      return <WorkPaneEmpty />;
+    }
     return <div className="space-y-6">{children}</div>;
   }
 

@@ -156,51 +156,38 @@ export async function checkDrift(
   targetDoc: string,
   customInstructions?: string,
 ): Promise<DriftReport> {
-  const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
-  let drifts: DriftItem[];
+  // Real LLM-powered drift analysis (via API or Claude CLI fallback)
+  const [sourceContent, targetContent] = await Promise.all([
+    readDocContent(sourceDoc),
+    readDocContent(targetDoc),
+  ]);
 
-  if (hasApiKey) {
-    // Real LLM-powered drift analysis
-    const [sourceContent, targetContent] = await Promise.all([
-      readDocContent(sourceDoc),
-      readDocContent(targetDoc),
-    ]);
-
-    if (!sourceContent || !targetContent) {
-      const missing = !sourceContent ? sourceDoc : targetDoc;
-      throw new Error(`Could not read document: ${missing}`);
-    }
-
-    // Auto-load custom instructions from .mnm/drift-instructions.md if not provided
-    if (!customInstructions) {
-      const repoRoot = path.dirname(path.dirname(sourceDoc));
-      customInstructions = await loadCustomInstructions(repoRoot) ?? undefined;
-    }
-
-    logger.info({ sourceDoc, targetDoc, projectId, hasCustomInstructions: !!customInstructions }, "Starting drift analysis");
-
-    const results = await analyzeDrift(
-      sourceDoc,
-      sourceContent,
-      targetDoc,
-      targetContent,
-      customInstructions,
-    );
-
-    drifts = results.map((r) => toDriftItem(r, sourceDoc, targetDoc));
-    logger.info(
-      { driftCount: drifts.length, sourceDoc, targetDoc },
-      "Drift analysis complete",
-    );
-  } else {
-    // Mock mode for development
-    logger.info(
-      { sourceDoc, targetDoc },
-      "Using mock drift data (no ANTHROPIC_API_KEY set)",
-    );
-    await new Promise((r) => setTimeout(r, 200));
-    drifts = generateMockDrifts(sourceDoc, targetDoc);
+  if (!sourceContent || !targetContent) {
+    const missing = !sourceContent ? sourceDoc : targetDoc;
+    throw new Error(`Could not read document: ${missing}`);
   }
+
+  // Auto-load custom instructions from .mnm/drift-instructions.md if not provided
+  if (!customInstructions) {
+    const repoRoot = path.dirname(path.dirname(sourceDoc));
+    customInstructions = await loadCustomInstructions(repoRoot) ?? undefined;
+  }
+
+  logger.info({ sourceDoc, targetDoc, projectId, hasCustomInstructions: !!customInstructions }, "Starting drift analysis");
+
+  const results = await analyzeDrift(
+    sourceDoc,
+    sourceContent,
+    targetDoc,
+    targetContent,
+    customInstructions,
+  );
+
+  const drifts: DriftItem[] = results.map((r) => toDriftItem(r, sourceDoc, targetDoc));
+  logger.info(
+    { driftCount: drifts.length, sourceDoc, targetDoc },
+    "Drift analysis complete",
+  );
 
   const report: DriftReport = {
     id: crypto.randomUUID(),
@@ -288,42 +275,62 @@ async function buildScanPairs(
   scope: string,
 ): Promise<Array<{ source: string; target: string; label: string }>> {
   const bmadDir = path.join(workspacePath, "_bmad-output", "planning-artifacts");
+  const implDir = path.join(workspacePath, "_bmad-output", "implementation-artifacts");
   const pairs: Array<{ source: string; target: string; label: string }> = [];
 
   try {
-    const entries = await fs.readdir(bmadDir);
-    const mdFiles = entries
+    // 1. Planning artifacts cross-comparison
+    const planEntries = await fs.readdir(bmadDir).catch(() => [] as string[]);
+    const planFiles = planEntries
       .filter((e) => e.endsWith(".md"))
       .map((e) => path.join(bmadDir, e));
 
-    if (scope !== "all") {
-      // Scan specific artifact against all others
-      const targetPath = path.join(bmadDir, scope);
-      const targetExists = mdFiles.some((f) => f === targetPath);
-      if (!targetExists) return [];
-
-      for (const file of mdFiles) {
-        if (file === targetPath) continue;
-        pairs.push({
-          source: targetPath,
-          target: file,
-          label: `${path.basename(targetPath, ".md")} ↔ ${path.basename(file, ".md")}`,
-        });
-      }
-    } else {
-      // Full scan: compare each pair once
-      for (let i = 0; i < mdFiles.length; i++) {
-        for (let j = i + 1; j < mdFiles.length; j++) {
+    if (scope === "all" || scope === "planning") {
+      for (let i = 0; i < planFiles.length; i++) {
+        for (let j = i + 1; j < planFiles.length; j++) {
           pairs.push({
-            source: mdFiles[i],
-            target: mdFiles[j],
-            label: `${path.basename(mdFiles[i], ".md")} ↔ ${path.basename(mdFiles[j], ".md")}`,
+            source: planFiles[i],
+            target: planFiles[j],
+            label: `${path.basename(planFiles[i], ".md")} ↔ ${path.basename(planFiles[j], ".md")}`,
+          });
+        }
+      }
+    }
+
+    // 2. Implementation stories vs Epics/PRD
+    if (scope === "all" || scope === "implementation") {
+      const epicsFile = planFiles.find((f) => path.basename(f).includes("epic"));
+      const prdFile = planFiles.find((f) => path.basename(f).includes("prd"));
+
+      const implEntries = await fs.readdir(implDir).catch(() => [] as string[]);
+      const storyFiles = implEntries
+        .filter((e) => e.endsWith(".md"))
+        .map((e) => path.join(implDir, e));
+
+      // Compare each story against the epics doc
+      if (epicsFile && storyFiles.length > 0) {
+        for (const story of storyFiles) {
+          pairs.push({
+            source: epicsFile,
+            target: story,
+            label: `epics ↔ ${path.basename(story, ".md")}`,
+          });
+        }
+      }
+
+      // Compare each story against PRD for scope drift
+      if (prdFile && storyFiles.length > 0) {
+        for (const story of storyFiles) {
+          pairs.push({
+            source: prdFile,
+            target: story,
+            label: `prd ↔ ${path.basename(story, ".md")}`,
           });
         }
       }
     }
   } catch {
-    logger.warn({ workspacePath }, "Could not read planning artifacts for scan");
+    logger.warn({ workspacePath }, "Could not read artifacts for scan");
   }
 
   return pairs;

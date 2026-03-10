@@ -1,6 +1,6 @@
 # Story 1.3: Context Pane — Specs Tree
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

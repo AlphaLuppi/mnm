@@ -1,6 +1,6 @@
 # Story 3.3: Drift Resolution Actions
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
