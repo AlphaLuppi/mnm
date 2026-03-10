@@ -1,6 +1,6 @@
 # Story 3.2: Manual Drift Check UI
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

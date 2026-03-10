@@ -1,6 +1,6 @@
 # Story 1.1: BMAD Analyzer Service & API
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

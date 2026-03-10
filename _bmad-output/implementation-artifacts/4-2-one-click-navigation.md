@@ -1,6 +1,6 @@
 # Story 4.2: One-Click Navigation from Dashboard
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

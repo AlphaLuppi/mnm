@@ -1,6 +1,6 @@
 # Story 2.1: Launch Agent from Story
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
