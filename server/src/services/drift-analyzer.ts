@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import crypto from "node:crypto";
 import { logger } from "../middleware/logger.js";
 import { buildDriftPrompt } from "./drift-prompts.js";
 
@@ -51,10 +55,14 @@ async function analyzeDriftViaCLI(
   const prompt = `${system}\n\n${user}`;
   const startTime = Date.now();
 
+  // Write prompt to temp file to avoid E2BIG on large docs
+  const tmpFile = path.join(os.tmpdir(), `mnm-drift-${crypto.randomUUID()}.txt`);
+  await fs.writeFile(tmpFile, prompt, "utf-8");
+
   try {
     const { stdout } = await execFileAsync(
-      "claude",
-      ["--dangerously-skip-permissions", "-p", prompt, "--output-format", "text"],
+      "bash",
+      ["-c", `cat "${tmpFile}" | claude --dangerously-skip-permissions -p - --output-format text`],
       { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 },
     );
 
@@ -78,6 +86,8 @@ async function analyzeDriftViaCLI(
   } catch (err) {
     logger.error({ err, sourceDoc, targetDoc }, "CLI drift analysis failed");
     throw err;
+  } finally {
+    await fs.unlink(tmpFile).catch(() => {});
   }
 }
 
