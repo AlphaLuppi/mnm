@@ -56,7 +56,13 @@ function agentPath(id: string, companyId?: string, suffix = "") {
 }
 
 export const agentsApi = {
-  list: (companyId: string) => api.get<Agent[]>(`/companies/${companyId}/agents`),
+  list: (companyId: string, opts?: { workspaceId?: string; includeScoped?: boolean }) => {
+    const params = new URLSearchParams();
+    if (opts?.workspaceId) params.set("workspaceId", opts.workspaceId);
+    else if (opts?.includeScoped) params.set("includeScoped", "true");
+    const query = params.toString();
+    return api.get<Agent[]>(`/companies/${companyId}/agents${query ? `?${query}` : ""}`);
+  },
   org: (companyId: string) => api.get<OrgNode[]>(`/companies/${companyId}/org`),
   listConfigurations: (companyId: string) =>
     api.get<Record<string, unknown>[]>(`/companies/${companyId}/agent-configurations`),

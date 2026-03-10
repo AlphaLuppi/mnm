@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Sparkles, Users, Link2, ArrowLeft } from "lucide-react";
+import { Check, Loader2, Sparkles, Users, Link2, ArrowLeft, Clock } from "lucide-react";
 import { bmadApi, type DiscoveredBmadAgent } from "../api/bmad";
 import { agentsApi } from "../api/agents";
 import { queryKeys } from "../lib/queryKeys";
@@ -37,9 +37,7 @@ function findSuggestedAgent(bmadRole: string, agents: Agent[]): Agent | null {
   return null;
 }
 
-// "__new__" sentinel means "create a new MnM agent"
-// "__skip__" sentinel means "skip this BMAD agent"
-const SENTINEL_NEW = "__new__";
+// "__skip__" sentinel means "explicitly skip this BMAD agent (no auto-creation)"
 const SENTINEL_SKIP = "__skip__";
 
 // Suppress unused import warning — DiscoveredBmadAgent is used via bmadApi response type
@@ -73,14 +71,15 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
 
   const discovered = discoveredData?.agents ?? [];
   const savedAssignments = savedAssignmentsData?.assignments ?? {};
+  const workspaceId = savedAssignmentsData?.workspaceId ?? null;
 
-  // Agents that can be selected (not terminated)
+  // Agents that can be selected (not terminated, global only — no scoped)
   const selectableAgents = useMemo(
-    () => existingAgents.filter((a) => a.status !== "terminated"),
+    () => existingAgents.filter((a) => a.status !== "terminated" && !a.scopedToWorkspaceId),
     [existingAgents],
   );
 
-  // Check which BMAD slugs are already assigned (have an assignment OR were previously imported)
+  // Check which BMAD slugs are already assigned
   const assignedSlugs = useMemo(() => {
     const slugs = new Set<string>(Object.keys(savedAssignments));
     // Also check agents with bmad metadata (previously imported)
@@ -93,19 +92,25 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
     return slugs;
   }, [existingAgents, savedAssignments]);
 
+  // Workspace-scoped agents (created by lazy creation from this workspace)
+  const scopedAgents = useMemo(
+    () => existingAgents.filter((a) => workspaceId && a.scopedToWorkspaceId === workspaceId),
+    [existingAgents, workspaceId],
+  );
+
   const unassigned = discovered.filter((a) => !assignedSlugs.has(a.slug));
   const allAssigned = discovered.length > 0 && unassigned.length === 0;
 
-  // Initialize assignments with smart defaults when opening assignment step
+  // Initialize assignments when opening assignment step
   function openAssigning() {
     const initial: Record<string, string> = {};
     for (const agent of discovered) {
       if (assignedSlugs.has(agent.slug)) {
-        // Already assigned — find the agent
         initial[agent.slug] = savedAssignments[agent.slug] ?? SENTINEL_SKIP;
       } else {
+        // Default: suggest a global agent if one matches, otherwise skip (ghost = lazy creation)
         const suggested = findSuggestedAgent(agent.role, selectableAgents);
-        initial[agent.slug] = suggested?.id ?? SENTINEL_NEW;
+        initial[agent.slug] = suggested?.id ?? SENTINEL_SKIP;
       }
     }
     setAssignments(initial);
@@ -117,74 +122,37 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
       const finalAssignments: Record<string, string> = {};
 
       for (const [slug, value] of Object.entries(assignments)) {
-        if (value === SENTINEL_SKIP) continue;
+        if (value === SENTINEL_SKIP || !value) continue;
 
-        let targetAgentId: string;
+        finalAssignments[slug] = value;
+
+        // Merge BMAD role into the selected global agent's metadata
         const bmadAgent = discovered.find((a) => a.slug === slug)!;
-
-        if (value === SENTINEL_NEW) {
-          // Create new MnM agent
-          const { AGENT_ROLES } = await import("@mnm/shared");
-          const validRoles = new Set(AGENT_ROLES);
-          const role = validRoles.has(bmadAgent.role as typeof AGENT_ROLES[number])
-            ? (bmadAgent.role as typeof AGENT_ROLES[number])
-            : "general";
-          const newAgent = await agentsApi.create(companyId, {
-            name: `${bmadAgent.personaName} (BMAD)`,
-            title: bmadAgent.title,
-            role,
-            capabilities: bmadAgent.capabilities ?? null,
-            adapterType: "claude_local",
-            adapterConfig: {},
-            runtimeConfig: {},
-            status: "idle",
-            budgetMonthlyCents: 0,
-            spentMonthlyCents: 0,
-            lastHeartbeatAt: null,
-            metadata: {
-              bmad: {
-                slug,
-                roles: [{
-                  slug,
-                  personaName: bmadAgent.personaName,
-                  capabilities: bmadAgent.capabilities,
-                  icon: bmadAgent.icon,
-                }],
-              },
-            },
-          });
-          targetAgentId = newAgent.id;
-        } else {
-          targetAgentId = value;
-          // Merge BMAD role into existing agent metadata
-          const agent = selectableAgents.find((a) => a.id === targetAgentId);
-          if (agent) {
-            const existingMeta = (agent.metadata ?? {}) as Record<string, unknown>;
-            const existingBmad = (existingMeta.bmad ?? {}) as Record<string, unknown>;
-            const existingRoles = (existingBmad.roles ?? []) as Array<{ slug: string }>;
-            if (!existingRoles.some((r) => r.slug === slug)) {
-              await agentsApi.update(targetAgentId, {
-                metadata: {
-                  ...existingMeta,
-                  bmad: {
-                    ...existingBmad,
-                    roles: [
-                      ...existingRoles,
-                      {
-                        slug,
-                        personaName: bmadAgent.personaName,
-                        capabilities: bmadAgent.capabilities,
-                        icon: bmadAgent.icon,
-                      },
-                    ],
-                  },
+        const agent = selectableAgents.find((a) => a.id === value);
+        if (agent && bmadAgent) {
+          const existingMeta = (agent.metadata ?? {}) as Record<string, unknown>;
+          const existingBmad = (existingMeta.bmad ?? {}) as Record<string, unknown>;
+          const existingRoles = (existingBmad.roles ?? []) as Array<{ slug: string }>;
+          if (!existingRoles.some((r) => r.slug === slug)) {
+            await agentsApi.update(value, {
+              metadata: {
+                ...existingMeta,
+                bmad: {
+                  ...existingBmad,
+                  roles: [
+                    ...existingRoles,
+                    {
+                      slug,
+                      personaName: bmadAgent.personaName,
+                      capabilities: bmadAgent.capabilities,
+                      icon: bmadAgent.icon,
+                    },
+                  ],
                 },
-              }, companyId);
-            }
+              },
+            }, companyId);
           }
         }
-
-        finalAssignments[slug] = targetAgentId;
       }
 
       await bmadApi.saveAssignments(projectId, finalAssignments, companyId);
@@ -233,13 +201,14 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
           <h3 className="text-sm font-semibold flex-1">Assign BMAD agents to your MnM agents</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Choose which MnM agent handles each BMAD role. The chosen agent will receive the BMAD persona context when launched.
+          Assign each BMAD role to an existing global agent, or leave unassigned — a workspace-scoped agent will be
+          created automatically on first launch.
         </p>
 
         <div className="space-y-3">
           {discovered.map((bmadAgent) => {
-            const currentValue = assignments[bmadAgent.slug] ?? SENTINEL_NEW;
-            const isAlreadyAssigned = assignedSlugs.has(bmadAgent.slug) && currentValue !== SENTINEL_NEW && currentValue !== SENTINEL_SKIP;
+            const currentValue = assignments[bmadAgent.slug] ?? SENTINEL_SKIP;
+            const isAlreadyAssigned = assignedSlugs.has(bmadAgent.slug) && currentValue !== SENTINEL_SKIP;
 
             return (
               <div key={bmadAgent.slug} className="rounded-lg border border-border p-3 space-y-2">
@@ -252,10 +221,15 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
                       <Check className="h-3 w-3" /> Assigned
                     </span>
                   )}
+                  {!isAlreadyAssigned && currentValue === SENTINEL_SKIP && (
+                    <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium ml-auto">
+                      <Clock className="h-3 w-3" /> Auto on launch
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
-                  {/* Existing MnM agents */}
+                  {/* Existing global MnM agents */}
                   {selectableAgents.map((agent) => {
                     const suggested = findSuggestedAgent(bmadAgent.role, selectableAgents)?.id === agent.id;
                     return (
@@ -277,31 +251,19 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
                       </button>
                     );
                   })}
-                  {/* Create new */}
-                  <button
-                    type="button"
-                    onClick={() => setAssignments((prev) => ({ ...prev, [bmadAgent.slug]: SENTINEL_NEW }))}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
-                      currentValue === SENTINEL_NEW
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border border-dashed hover:border-foreground/40 hover:bg-accent/50 text-muted-foreground",
-                    )}
-                  >
-                    + Créer un agent
-                  </button>
-                  {/* Skip */}
+                  {/* Ghost / auto-create on launch */}
                   <button
                     type="button"
                     onClick={() => setAssignments((prev) => ({ ...prev, [bmadAgent.slug]: SENTINEL_SKIP }))}
                     className={cn(
-                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1",
                       currentValue === SENTINEL_SKIP
-                        ? "border-foreground bg-foreground text-background"
+                        ? "border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-400"
                         : "border-border border-dashed hover:border-foreground/40 hover:bg-accent/50 text-muted-foreground",
                     )}
                   >
-                    Ignorer
+                    <Clock className="h-3 w-3" />
+                    Auto (workspace agent)
                   </button>
                 </div>
               </div>
@@ -349,8 +311,8 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
           <p className="text-xs text-muted-foreground mt-0.5">
             {discovered.length} agent{discovered.length > 1 ? "s" : ""} found in your workspace.
             {allAssigned
-              ? " All assigned to MnM agents."
-              : ` ${unassigned.length} not yet assigned.`}
+              ? " All assigned."
+              : ` ${unassigned.length} will be auto-created on first launch.`}
           </p>
         </div>
         <Users className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -362,6 +324,11 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
           const assignedAgentId = savedAssignments[agent.slug];
           const assignedAgent = assignedAgentId ? existingAgents.find((a) => a.id === assignedAgentId) : null;
           const isAssigned = assignedSlugs.has(agent.slug);
+          // Check if there's a workspace-scoped agent for this slug (created on previous launch)
+          const scopedAgent = scopedAgents.find((a) => {
+            const bmadMeta = (a.metadata as Record<string, unknown> | null)?.bmad as Record<string, unknown> | undefined;
+            return bmadMeta?.slug === agent.slug;
+          });
 
           return (
             <div
@@ -377,12 +344,20 @@ export function BmadAgentSync({ projectId, companyId }: BmadAgentSyncProps) {
                   <Link2 className="h-3 w-3" />
                   {assignedAgent.name}
                 </span>
+              ) : scopedAgent ? (
+                <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                  <Check className="h-3 w-3" />
+                  {scopedAgent.name}
+                  <span className="text-[9px] opacity-60 ml-0.5">workspace</span>
+                </span>
               ) : isAssigned ? (
                 <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                   <Check className="h-3 w-3" /> Linked
                 </span>
               ) : (
-                <span className="text-muted-foreground/60 italic">non assigné</span>
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 italic">
+                  <Clock className="h-3 w-3" /> Auto on launch
+                </span>
               )}
             </div>
           );

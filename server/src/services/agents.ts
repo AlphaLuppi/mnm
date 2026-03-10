@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
   agents,
@@ -325,10 +325,24 @@ export function agentService(db: Db) {
   }
 
   return {
-    list: async (companyId: string, options?: { includeTerminated?: boolean }) => {
+    list: async (
+      companyId: string,
+      options?: { includeTerminated?: boolean; workspaceId?: string; includeScoped?: boolean },
+    ) => {
       const conditions = [eq(agents.companyId, companyId)];
       if (!options?.includeTerminated) {
         conditions.push(ne(agents.status, "terminated"));
+      }
+      // Scope filter:
+      // - workspaceId: global agents + scoped agents for that workspace
+      // - includeScoped=true: all agents regardless of scope (for reporting)
+      // - default: global agents only (scoped_to_workspace_id IS NULL)
+      if (options?.workspaceId) {
+        conditions.push(
+          or(isNull(agents.scopedToWorkspaceId), eq(agents.scopedToWorkspaceId, options.workspaceId))!,
+        );
+      } else if (!options?.includeScoped) {
+        conditions.push(isNull(agents.scopedToWorkspaceId));
       }
       const rows = await db.select().from(agents).where(and(...conditions));
       return rows.map(normalizeAgentRow);

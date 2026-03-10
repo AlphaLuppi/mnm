@@ -53,6 +53,7 @@ export interface Issue {
   id: string;
   companyId: string;
   projectId: string | null;
+  workspaceId: string | null;
   goalId: string | null;
   parentId: string | null;
   ancestors?: IssueAncestor[];
