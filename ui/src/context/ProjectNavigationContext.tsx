@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
 export interface SelectedItem {
@@ -9,6 +9,7 @@ export interface SelectedItem {
 
 interface ProjectNavigationContextValue {
   selectedItem: SelectedItem | null;
+  activeView: string | null;
   selectArtifact: (path: string) => void;
   selectEpic: (epicId: string) => void;
   selectStory: (epicId: string, storyId: string, path?: string) => void;
@@ -17,8 +18,49 @@ interface ProjectNavigationContextValue {
 
 const ProjectNavigationContext = createContext<ProjectNavigationContextValue | null>(null);
 
-export function ProjectNavigationProvider({ children }: { children: ReactNode }) {
+interface ProjectNavigationProviderProps {
+  children: ReactNode;
+  initialSelect?: string;
+  initialView?: string;
+}
+
+/**
+ * Parse a `select` query param like "epic:3" or "story:1-1" into a SelectedItem.
+ */
+function parseSelectParam(select: string): SelectedItem | null {
+  const [type, id] = select.split(":");
+  if (!type || !id) return null;
+  if (type === "epic") return { type: "epic", id };
+  if (type === "story") {
+    const parts = id.split("-");
+    if (parts.length >= 2) return { type: "story", id: `${parts[0]}/${id}` };
+    return { type: "story", id };
+  }
+  if (type === "artifact") return { type: "artifact", id, path: id };
+  return null;
+}
+
+export function ProjectNavigationProvider({
+  children,
+  initialSelect,
+  initialView,
+}: ProjectNavigationProviderProps) {
+  const appliedRef = useRef(false);
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
+  const [activeView, setActiveView] = useState<string | null>(initialView ?? null);
+
+  // Apply initial selection from URL params (once)
+  useEffect(() => {
+    if (appliedRef.current) return;
+    appliedRef.current = true;
+    if (initialSelect) {
+      const parsed = parseSelectParam(initialSelect);
+      if (parsed) setSelectedItem(parsed);
+    }
+    if (initialView) {
+      setActiveView(initialView);
+    }
+  }, [initialSelect, initialView]);
 
   const selectArtifact = useCallback((path: string) => {
     setSelectedItem({ type: "artifact", id: path, path });
@@ -38,7 +80,7 @@ export function ProjectNavigationProvider({ children }: { children: ReactNode })
 
   return (
     <ProjectNavigationContext.Provider
-      value={{ selectedItem, selectArtifact, selectEpic, selectStory, clearSelection }}
+      value={{ selectedItem, activeView, selectArtifact, selectEpic, selectStory, clearSelection }}
     >
       {children}
     </ProjectNavigationContext.Provider>
