@@ -1,5 +1,31 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+
+// Kill any stale embedded postgres process left over from a previous run
+const pgDataDir = join(homedir(), ".mnm", "instances", "default", "db");
+const pidFile = join(pgDataDir, "postmaster.pid");
+if (existsSync(pidFile)) {
+  try {
+    const pid = parseInt(readFileSync(pidFile, "utf8").split(/\r?\n/)[0] ?? "", 10);
+    if (Number.isInteger(pid) && pid > 0) {
+      try {
+        if (process.platform === "win32") {
+          execFileSync("taskkill", ["/F", "/PID", String(pid), "/T"], { stdio: "ignore" });
+        } else {
+          process.kill(pid, "SIGKILL");
+        }
+        console.log(`[mnm] Killed stale postgres process (pid=${pid})`);
+      } catch {
+        // Already dead — fine
+      }
+    }
+  } catch {
+    // Malformed or missing pid file — ignore
+  }
+}
 
 const mode = process.argv[2] === "watch" ? "watch" : "dev";
 const cliArgs = process.argv.slice(3);
