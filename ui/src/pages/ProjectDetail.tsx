@@ -27,10 +27,11 @@ import { WorkPane } from "../components/WorkPane";
 import { TestsPane } from "../components/TestsPane";
 import { TimelineBar } from "../components/TimelineBar";
 import { ProjectNavigationProvider } from "../context/ProjectNavigationContext";
+import { Drift } from "./Drift";
 
 /* ── Top-level tab types ── */
 
-type ProjectTab = "overview" | "list";
+type ProjectTab = "overview" | "list" | "drift";
 
 function resolveProjectTab(pathname: string, projectId: string): ProjectTab | null {
   const segments = pathname.split("/").filter(Boolean);
@@ -39,6 +40,7 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   const tab = segments[projectsIdx + 2];
   if (tab === "overview") return "overview";
   if (tab === "issues") return "list";
+  if (tab === "drift") return "drift";
   return null;
 }
 
@@ -302,6 +304,8 @@ export function ProjectDetail() {
   const handleTabChange = (tab: ProjectTab) => {
     if (tab === "overview") {
       navigate(`/projects/${canonicalProjectRef}/overview`);
+    } else if (tab === "drift") {
+      navigate(`/projects/${canonicalProjectRef}/drift`);
     } else {
       navigate(`/projects/${canonicalProjectRef}/issues`);
     }
@@ -367,6 +371,16 @@ export function ProjectDetail() {
         >
           List
         </button>
+        <button
+          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+            activeTab === "drift"
+              ? "border-foreground text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => handleTabChange("drift")}
+        >
+          Drift
+        </button>
       </div>
 
       {/* Tab content */}
@@ -388,20 +402,56 @@ export function ProjectDetail() {
   );
 
   return (
-    <div className="h-full -m-6">
-      <ProjectNavigationProvider>
-      <ThreePaneLayout
-        left={<ContextPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
-        center={
-          <WorkPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined}>
-            {workContent}
-          </WorkPane>
-        }
-        right={<TestsPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
-        bottom={<TimelineBar />}
-      />
+    <div className="h-full -m-6 flex flex-col">
+      {/* Project-level tab bar */}
+      <div className="shrink-0 flex items-center gap-1 border-b border-border px-6">
+        {(["overview", "list", "drift"] as ProjectTab[]).map((tab) => (
+          <button
+            key={tab}
+            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === tab
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => handleTabChange(tab)}
+          >
+            {tab === "list" ? "Cockpit" : tab === "drift" ? "Drift" : "Overview"}
+          </button>
+        ))}
+      </div>
 
-      </ProjectNavigationProvider>
+      {/* Tab content */}
+      <div className="flex-1 min-h-0">
+        {activeTab === "drift" ? (
+          <div className="p-6 h-full overflow-auto">
+            <Drift />
+          </div>
+        ) : activeTab === "overview" ? (
+          <div className="p-6 h-full overflow-auto">
+            <OverviewContent
+              project={project}
+              onUpdate={(data) => updateProject.mutate(data)}
+              imageUploadHandler={async (file) => {
+                const asset = await uploadImage.mutateAsync(file);
+                return asset.contentPath;
+              }}
+            />
+          </div>
+        ) : (
+          <ProjectNavigationProvider>
+            <ThreePaneLayout
+              left={<ContextPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
+              center={
+                <WorkPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined}>
+                  {workContent}
+                </WorkPane>
+              }
+              right={<TestsPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
+              bottom={<TimelineBar />}
+            />
+          </ProjectNavigationProvider>
+        )}
+      </div>
 
       {/* Mobile properties drawer */}
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
