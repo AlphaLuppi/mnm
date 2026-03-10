@@ -10,6 +10,7 @@ import {
   SquarePen,
   Network,
   Settings,
+  GitCompareArrows,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -91,6 +92,7 @@ export function Sidebar() {
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
           <SidebarNavItem to="/workflows" label="Workflows" icon={Workflow} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+          <SidebarNavItem to="/drift" label="Drift" icon={GitCompareArrows} />
         </SidebarSection>
 
         <SidebarProjects />
