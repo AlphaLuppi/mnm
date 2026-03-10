@@ -5,6 +5,7 @@ import { useNavigate } from "@/lib/router";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { useWorkspaceContext, useWorkspaceFile } from "../hooks/useWorkspaceContext";
 import { projectsApi } from "../api/projects";
+import { agentsApi } from "../api/agents";
 import { useToast } from "../context/ToastContext";
 import { heartbeatsApi } from "../api/heartbeats";
 import { workspaceContextApi } from "../api/workspaceContext";
@@ -511,6 +512,17 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
   const navigate = useNavigate();
   const { pushToast } = useToast();
 
+  // Fetch agents to auto-assign the discovery issue
+  const { data: agents = [] } = useQuery({
+    queryKey: queryKeys.agents.list(companyId ?? ""),
+    queryFn: () => agentsApi.list(companyId!),
+    enabled: !!companyId,
+  });
+  const defaultAgent = useMemo(() => {
+    const active = agents.filter((a) => a.status !== "terminated");
+    return active.find((a) => a.role === "ceo") ?? active[0] ?? null;
+  }, [agents]);
+
   // Check for an existing discovery issue
   const { data: discoveryIssues = [] } = useQuery({
     queryKey: [...queryKeys.issues.listByProject(companyId ?? "", projectId ?? ""), "discovery"],
@@ -523,7 +535,8 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
   const discoveryIssue = discoveryIssues.find((i) => i.title?.startsWith("Workspace discovery"));
 
   const onboardMutation = useMutation({
-    mutationFn: () => projectsApi.onboard(projectId!, {}, companyId),
+    mutationFn: (agentId: string | null) =>
+      projectsApi.onboard(projectId!, agentId ? { agentId } : {}, companyId),
     onSuccess: (data) => {
       navigate(`/issues/${data.identifier ?? data.issueId}`);
     },
@@ -567,7 +580,7 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
             variant="ghost"
             className="gap-1.5 text-muted-foreground"
             disabled={onboardMutation.isPending}
-            onClick={() => onboardMutation.mutate()}
+            onClick={() => onboardMutation.mutate(defaultAgent?.id ?? null)}
             title="Launch a new discovery"
           >
             <ScanSearch className="h-3.5 w-3.5" />
@@ -594,7 +607,7 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
         variant="outline"
         className="gap-1.5"
         disabled={onboardMutation.isPending || !projectId || !companyId}
-        onClick={() => onboardMutation.mutate()}
+        onClick={() => onboardMutation.mutate(defaultAgent?.id ?? null)}
       >
         {onboardMutation.isPending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -603,6 +616,9 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
         )}
         {onboardMutation.isPending ? "Creating task…" : "Discover workspace"}
       </Button>
+      {defaultAgent && (
+        <p className="text-xs text-muted-foreground">Assigned to {defaultAgent.name}</p>
+      )}
     </div>
   );
 }
