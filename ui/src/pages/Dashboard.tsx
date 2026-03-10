@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@/lib/router";
+import { Link, useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "../api/dashboard";
 import { activityApi } from "../api/activity";
@@ -19,11 +19,15 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, BookOpen, AlertTriangle, HeartPulse, Activity } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
+import { StoriesProgressWidget } from "../components/StoriesProgressWidget";
 import { PageSkeleton } from "../components/PageSkeleton";
-import type { Agent, Issue } from "@mnm/shared";
+import { useBmadProject } from "../hooks/useBmadProject";
+import { driftApi } from "../api/drift";
+import { cockpitUrl } from "../lib/cockpitNavigation";
+import type { Agent, Issue, DriftReport } from "@mnm/shared";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
   return [...issues]
@@ -78,6 +82,55 @@ export function Dashboard() {
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  // First project for MnM widgets
+  const firstProject = projects?.[0] ?? null;
+
+  const { data: bmadData } = useBmadProject(firstProject?.id, selectedCompanyId ?? undefined);
+
+  const { data: driftResults } = useQuery({
+    queryKey: queryKeys.drift.results(firstProject?.id ?? ""),
+    queryFn: () => driftApi.getResults(firstProject!.id, selectedCompanyId ?? undefined),
+    enabled: !!firstProject?.id,
+  });
+
+  const { data: liveRuns } = useQuery({
+    queryKey: queryKeys.liveRuns(selectedCompanyId!),
+    queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 10_000,
+  });
+
+  // MnM computed metrics
+  const storiesDone = bmadData?.epics?.reduce((sum, e) => sum + e.progress.done, 0) ?? 0;
+  const storiesTotal = bmadData?.epics?.reduce((sum, e) => sum + e.progress.total, 0) ?? 0;
+
+  const driftAlertCount = useMemo(() => {
+    if (!driftResults) return 0;
+    return driftResults.reduce(
+      (sum: number, report: DriftReport) => sum + (report.drifts?.length ?? 0),
+      0,
+    );
+  }, [driftResults]);
+
+  const activeAgentCount = liveRuns?.filter((r) => r.status === "running").length ?? 0;
+
+  const healthStatus = useMemo(() => {
+    const hasDrift = driftAlertCount > 0;
+    const hasFailedAgents = (data?.agents.error ?? 0) > 0;
+    if (hasDrift && hasFailedAgents) return "red" as const;
+    if (hasDrift || hasFailedAgents) return "orange" as const;
+    return "green" as const;
+  }, [driftAlertCount, data]);
+
+  const healthLabel = { green: "Healthy", orange: "Warning", red: "Critical" } as const;
+  const healthColor = {
+    green: "text-green-600 dark:text-green-400",
+    orange: "text-amber-600 dark:text-amber-400",
+    red: "text-red-600 dark:text-red-400",
+  } as const;
+
+  const navigate = useNavigate();
 
   const recentIssues = issues ? getRecentIssues(issues) : [];
   const recentActivity = useMemo(() => (activity ?? []).slice(0, 10), [activity]);
@@ -260,6 +313,67 @@ export function Dashboard() {
               }
             />
           </div>
+
+          {/* MnM Cockpit Widgets */}
+          {firstProject && (
+            <>
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+                <MetricCard
+                  icon={Activity}
+                  value={activeAgentCount}
+                  label="Active Agents"
+                  onClick={() => navigate(cockpitUrl(firstProject, { view: "agents" }))}
+                  description={
+                    <span>{liveRuns?.length ?? 0} total runs</span>
+                  }
+                />
+                <MetricCard
+                  icon={AlertTriangle}
+                  value={driftAlertCount}
+                  label="Drift Alerts"
+                  onClick={() => navigate(cockpitUrl(firstProject, { view: "drift" }))}
+                  description={
+                    <span>{driftResults?.length ?? 0} reports</span>
+                  }
+                />
+                <MetricCard
+                  icon={BookOpen}
+                  value={`${storiesDone}/${storiesTotal}`}
+                  label="Stories"
+                  onClick={() => navigate(cockpitUrl(firstProject, { view: "stories" }))}
+                  description={
+                    <span>
+                      {storiesTotal > 0
+                        ? `${Math.round((storiesDone / storiesTotal) * 100)}% complete`
+                        : "No stories"}
+                    </span>
+                  }
+                />
+                <MetricCard
+                  icon={HeartPulse}
+                  value={healthLabel[healthStatus]}
+                  label="Project Health"
+                  onClick={() => navigate(cockpitUrl(firstProject))}
+                  description={
+                    <span className={healthColor[healthStatus]}>
+                      {healthStatus === "green" && "All systems nominal"}
+                      {healthStatus === "orange" && "Needs attention"}
+                      {healthStatus === "red" && "Action required"}
+                    </span>
+                  }
+                />
+              </div>
+
+              {bmadData?.epics && bmadData.epics.length > 0 && (
+                <StoriesProgressWidget
+                  epics={bmadData.epics}
+                  onEpicClick={(epicNumber) =>
+                    navigate(cockpitUrl(firstProject, { select: `epic:${epicNumber}` }))
+                  }
+                />
+              )}
+            </>
+          )}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <ChartCard title="Run Activity" subtitle="Last 14 days">
