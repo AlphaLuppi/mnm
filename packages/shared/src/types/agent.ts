@@ -27,6 +27,7 @@ export interface Agent {
   permissions: AgentPermissions;
   lastHeartbeatAt: Date | null;
   metadata: Record<string, unknown> | null;
+  scopedToWorkspaceId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
