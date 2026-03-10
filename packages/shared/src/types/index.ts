@@ -88,4 +88,6 @@ export type {
   DriftReport,
   DriftCheckRequest,
   DriftResolveRequest,
+  DriftScanRequest,
+  DriftScanStatus,
 } from "./drift.js";

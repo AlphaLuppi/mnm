@@ -77,6 +77,7 @@ export const queryKeys = {
   runIssues: (runId: string) => ["run-issues", runId] as const,
   drift: {
     results: (projectId: string) => ["drift", "results", projectId] as const,
+    status: (projectId: string) => ["drift", "status", projectId] as const,
   },
   bmad: {
     project: (projectId: string) => ["bmad", "project", projectId] as const,

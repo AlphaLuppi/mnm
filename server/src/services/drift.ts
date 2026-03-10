@@ -1,8 +1,16 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
-import type { DriftReport, DriftItem, DriftSeverity, DriftType, DriftRecommendation, DriftDecision } from "@mnm/shared";
-import { logger } from "../middleware/logger.js";
 import path from "node:path";
+import type {
+  DriftReport,
+  DriftItem,
+  DriftSeverity,
+  DriftType,
+  DriftRecommendation,
+  DriftDecision,
+  DriftScanStatus,
+} from "@mnm/shared";
+import { logger } from "../middleware/logger.js";
 import { analyzeDrift, type DriftResultItem } from "./drift-analyzer.js";
 import { loadCustomInstructions } from "./drift-instructions.js";
 
@@ -13,6 +21,25 @@ import { loadCustomInstructions } from "./drift-instructions.js";
 const reportCache = new Map<string, DriftReport[]>();
 
 const MAX_REPORTS_PER_PROJECT = 50;
+
+/**
+ * Per-project scan status tracking.
+ */
+const scanStatusMap = new Map<string, DriftScanStatus>();
+
+/** Abort controllers for cancellable scans */
+const scanAbortMap = new Map<string, AbortController>();
+
+function getDefaultScanStatus(): DriftScanStatus {
+  return {
+    scanning: false,
+    progress: null,
+    completed: 0,
+    total: 0,
+    lastScanAt: null,
+    lastScanIssueCount: null,
+  };
+}
 
 /**
  * Read file content for drift analysis.
@@ -224,4 +251,148 @@ export function resolveDrift(
     }
   }
   return null;
+}
+
+/**
+ * Get scan status for a project.
+ */
+export function getDriftScanStatus(projectId: string): DriftScanStatus {
+  return scanStatusMap.get(projectId) ?? getDefaultScanStatus();
+}
+
+/**
+ * Cancel an ongoing scan for a project.
+ */
+export function cancelDriftScan(projectId: string): boolean {
+  const controller = scanAbortMap.get(projectId);
+  if (controller) {
+    controller.abort();
+    scanAbortMap.delete(projectId);
+    const status = scanStatusMap.get(projectId);
+    if (status) {
+      status.scanning = false;
+      status.progress = "Scan cancelled";
+    }
+    logger.info({ projectId }, "Drift scan cancelled");
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Build the list of artifact pairs to compare for drift scanning.
+ * Compares each planning artifact against every other one (e.g., PRD vs Architecture).
+ */
+async function buildScanPairs(
+  workspacePath: string,
+  scope: string,
+): Promise<Array<{ source: string; target: string; label: string }>> {
+  const bmadDir = path.join(workspacePath, "_bmad-output", "planning-artifacts");
+  const pairs: Array<{ source: string; target: string; label: string }> = [];
+
+  try {
+    const entries = await fs.readdir(bmadDir);
+    const mdFiles = entries
+      .filter((e) => e.endsWith(".md"))
+      .map((e) => path.join(bmadDir, e));
+
+    if (scope !== "all") {
+      // Scan specific artifact against all others
+      const targetPath = path.join(bmadDir, scope);
+      const targetExists = mdFiles.some((f) => f === targetPath);
+      if (!targetExists) return [];
+
+      for (const file of mdFiles) {
+        if (file === targetPath) continue;
+        pairs.push({
+          source: targetPath,
+          target: file,
+          label: `${path.basename(targetPath, ".md")} ↔ ${path.basename(file, ".md")}`,
+        });
+      }
+    } else {
+      // Full scan: compare each pair once
+      for (let i = 0; i < mdFiles.length; i++) {
+        for (let j = i + 1; j < mdFiles.length; j++) {
+          pairs.push({
+            source: mdFiles[i],
+            target: mdFiles[j],
+            label: `${path.basename(mdFiles[i], ".md")} ↔ ${path.basename(mdFiles[j], ".md")}`,
+          });
+        }
+      }
+    }
+  } catch {
+    logger.warn({ workspacePath }, "Could not read planning artifacts for scan");
+  }
+
+  return pairs;
+}
+
+/**
+ * Run a full drift scan for a project.
+ * Scans all planning artifact pairs (or a specific artifact vs all others).
+ * Runs in the background and updates status as it progresses.
+ */
+export async function runDriftScan(
+  projectId: string,
+  workspacePath: string,
+  scope: string,
+): Promise<void> {
+  const existingStatus = scanStatusMap.get(projectId);
+  if (existingStatus?.scanning) {
+    throw new Error("A scan is already in progress for this project");
+  }
+
+  const abortController = new AbortController();
+  scanAbortMap.set(projectId, abortController);
+
+  const pairs = await buildScanPairs(workspacePath, scope);
+
+  const status: DriftScanStatus = {
+    scanning: true,
+    progress: `Starting scan (${pairs.length} pairs)...`,
+    completed: 0,
+    total: pairs.length,
+    lastScanAt: null,
+    lastScanIssueCount: null,
+  };
+  scanStatusMap.set(projectId, status);
+
+  if (pairs.length === 0) {
+    status.scanning = false;
+    status.progress = "No planning artifacts found to scan";
+    status.lastScanAt = new Date().toISOString();
+    status.lastScanIssueCount = 0;
+    return;
+  }
+
+  let totalIssues = 0;
+
+  for (let i = 0; i < pairs.length; i++) {
+    if (abortController.signal.aborted) break;
+
+    const pair = pairs[i];
+    status.progress = `Analyzing ${pair.label} (${i + 1}/${pairs.length})`;
+    status.completed = i;
+
+    try {
+      const report = await checkDrift(projectId, pair.source, pair.target);
+      totalIssues += report.drifts.length;
+    } catch (err) {
+      logger.warn({ pair, err }, "Failed to check drift for pair");
+    }
+  }
+
+  status.scanning = false;
+  status.completed = pairs.length;
+  status.progress = null;
+  status.lastScanAt = new Date().toISOString();
+  status.lastScanIssueCount = totalIssues;
+  scanAbortMap.delete(projectId);
+
+  logger.info(
+    { projectId, pairs: pairs.length, totalIssues },
+    "Drift scan complete",
+  );
 }
