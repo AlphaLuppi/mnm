@@ -37,3 +37,25 @@ export interface DriftResolveRequest {
   decision: "accepted" | "rejected";
   remediationNote?: string;
 }
+
+/** Request to trigger a full drift scan across planning artifacts */
+export interface DriftScanRequest {
+  /** Specific artifact path to scan, or "all" for full scan */
+  scope: string;
+}
+
+/** Status of an ongoing or completed drift scan */
+export interface DriftScanStatus {
+  /** Whether a scan is currently running */
+  scanning: boolean;
+  /** Current progress message (e.g., "Analyzing spec 3/5") */
+  progress: string | null;
+  /** Number of artifact pairs completed */
+  completed: number;
+  /** Total number of artifact pairs to scan */
+  total: number;
+  /** ISO timestamp of last completed scan */
+  lastScanAt: string | null;
+  /** Number of drift issues found in last scan */
+  lastScanIssueCount: number | null;
+}
