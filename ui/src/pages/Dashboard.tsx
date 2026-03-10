@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@/lib/router";
+import { Link, useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "../api/dashboard";
 import { activityApi } from "../api/activity";
@@ -11,6 +11,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
+import { useDriftScanStatus } from "../hooks/useDriftResults";
 import { MetricCard } from "../components/MetricCard";
 import { EmptyState } from "../components/EmptyState";
 import { StatusIcon } from "../components/StatusIcon";
@@ -19,10 +20,11 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Radar } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { Button } from "@/components/ui/button";
 import type { Agent, Issue } from "@mnm/shared";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
@@ -34,10 +36,15 @@ export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const navigate = useNavigate();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
   const seenActivityIdsRef = useRef<Set<string>>(new Set());
   const hydratedActivityRef = useRef(false);
   const activityAnimationTimersRef = useRef<number[]>([]);
+  const [driftPromptDismissed, setDriftPromptDismissed] = useState(() =>
+    localStorage.getItem("mnm:drift-prompt-hidden") === "true",
+  );
+  const [driftSessionDismissed, setDriftSessionDismissed] = useState(false);
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -78,6 +85,16 @@ export function Dashboard() {
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  const firstProjectId = projects?.[0]?.id;
+  const { data: driftStatus } = useDriftScanStatus(firstProjectId, selectedCompanyId ?? undefined);
+  const showDriftPrompt =
+    !!firstProjectId &&
+    !driftPromptDismissed &&
+    !driftSessionDismissed &&
+    driftStatus !== undefined &&
+    !driftStatus.scanning &&
+    !driftStatus.lastScanAt;
 
   const recentIssues = issues ? getRecentIssues(issues) : [];
   const recentActivity = useMemo(() => (activity ?? []).slice(0, 10), [activity]);
@@ -202,6 +219,37 @@ export function Dashboard() {
           >
             Create one here
           </button>
+        </div>
+      )}
+
+      {showDriftPrompt && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-500/25 dark:bg-blue-950/60">
+          <div className="flex items-center gap-2.5">
+            <Radar className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <p className="text-sm text-blue-900 dark:text-blue-100">
+              Would you like to scan for spec drift?
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" onClick={() => navigate("/drift")}>
+              Scan Now
+            </Button>
+            <button
+              onClick={() => setDriftSessionDismissed(true)}
+              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+            >
+              Later
+            </button>
+            <button
+              onClick={() => {
+                setDriftPromptDismissed(true);
+                localStorage.setItem("mnm:drift-prompt-hidden", "true");
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Don't ask again
+            </button>
+          </div>
         </div>
       )}
 
