@@ -27,7 +27,6 @@ import { WorkPane } from "../components/WorkPane";
 import { TestsPane } from "../components/TestsPane";
 import { TimelineBar } from "../components/TimelineBar";
 import { ProjectNavigationProvider } from "../context/ProjectNavigationContext";
-import { parseCockpitParams } from "../lib/cockpitNavigation";
 
 /* ── Top-level tab types ── */
 
@@ -386,14 +385,9 @@ export function ProjectDetail() {
     </>
   );
 
-  const cockpitParams = useMemo(() => parseCockpitParams(location.search), [location.search]);
-
   return (
     <div className="h-full -m-6">
-      <ProjectNavigationProvider
-        initialSelect={cockpitParams.select}
-        initialView={cockpitParams.view}
-      >
+      <ProjectNavigationProvider>
       <ThreePaneLayout
         left={<ContextPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
         center={
