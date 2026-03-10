@@ -137,6 +137,39 @@ export function projectRoutes(db: Db) {
     res.json(project);
   });
 
+  router.post("/projects/:id/onboard", async (req, res) => {
+    const id = req.params.id as string;
+    const project = await svc.getById(id);
+    if (!project) { res.status(404).json({ error: "Project not found" }); return; }
+    assertCompanyAccess(req, project.companyId);
+
+    const workspacePath = project.primaryWorkspace?.cwd;
+    if (!workspacePath) {
+      res.status(400).json({ error: "No local workspace configured for this project" });
+      return;
+    }
+
+    const agentId = typeof req.body.agentId === "string" ? req.body.agentId : null;
+    const actor = getActorInfo(req);
+    const issueSvc = issueService(db);
+
+    const description = `# Workspace Discovery\n\nYour workspace is at: \`${workspacePath}\`\n\nRead this workspace and understand what's there. Start with the directory layout, then read whatever looks relevant — documentation, configuration files, any tools or frameworks. You are looking for how work is organized and executed in this project.\n\nShare what you find as you go. When you have a good picture, tell me:\n1. What you found (be specific — names, paths, tools)\n2. How it might map to MnM concepts: agents, workflows, tasks, projects\n3. What you'd suggest as next steps to set up MnM for this project\n\nIf there's nothing that relates to project management or automation, say so clearly. Then offer two paths: help configure MnM's native workflow system, or wait until I give you more context.\n\nGo.`;
+
+    const issue = await issueSvc.create(project.companyId, {
+      title: `Workspace discovery — ${project.name}`,
+      description,
+      status: "todo",
+      priority: "medium",
+      projectId: id,
+      assigneeAgentId: agentId,
+      createdByUserId: actor.actorType === "user" ? actor.actorId : null,
+      createdByAgentId: actor.agentId ?? null,
+      requestDepth: 0,
+    });
+
+    res.status(201).json({ issueId: issue.id, identifier: issue.identifier });
+  });
+
   router.get("/projects/:id/workspaces", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -256,39 +289,6 @@ export function projectRoutes(db: Db) {
     });
 
     res.json(workspace);
-  });
-
-  router.post("/projects/:id/onboard", async (req, res) => {
-    const id = req.params.id as string;
-    const project = await svc.getById(id);
-    if (!project) { res.status(404).json({ error: "Project not found" }); return; }
-    assertCompanyAccess(req, project.companyId);
-
-    const workspacePath = project.primaryWorkspace?.cwd;
-    if (!workspacePath) {
-      res.status(400).json({ error: "No local workspace configured for this project" });
-      return;
-    }
-
-    const agentId = typeof req.body.agentId === "string" ? req.body.agentId : null;
-    const actor = getActorInfo(req);
-    const issueSvc = issueService(db);
-
-    const description = `# Workspace Discovery\n\nYour workspace is at: \`${workspacePath}\`\n\nRead this workspace and understand what's there. Start with the directory layout, then read whatever looks relevant — documentation, configuration files, any tools or frameworks. You are looking for how work is organized and executed in this project.\n\nShare what you find as you go. When you have a good picture, tell me:\n1. What you found (be specific — names, paths, tools)\n2. How it might map to MnM concepts: agents, workflows, tasks, projects\n3. What you'd suggest as next steps to set up MnM for this project\n\nIf there's nothing that relates to project management or automation, say so clearly. Then offer two paths: help configure MnM's native workflow system, or wait until I give you more context.\n\nGo.`;
-
-    const issue = await issueSvc.create(project.companyId, {
-      title: `Workspace discovery — ${project.name}`,
-      description,
-      status: "todo",
-      priority: "medium",
-      projectId: id,
-      assigneeAgentId: agentId,
-      createdByUserId: actor.actorType === "user" ? actor.actorId : null,
-      createdByAgentId: actor.agentId ?? null,
-      requestDepth: 0,
-    });
-
-    res.status(201).json({ issueId: issue.id, identifier: issue.identifier });
   });
 
   router.delete("/projects/:id", async (req, res) => {
