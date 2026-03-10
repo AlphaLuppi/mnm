@@ -1,29 +1,46 @@
 #!/usr/bin/env node
 import { spawn, execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-// Kill any stale embedded postgres process left over from a previous run
+// Kill any stale embedded postgres process left over from a previous run.
+// On Windows we do this unconditionally because the process may survive without a pid file.
 const pgDataDir = join(homedir(), ".mnm", "instances", "default", "db");
 const pidFile = join(pgDataDir, "postmaster.pid");
-if (existsSync(pidFile)) {
+
+if (process.platform === "win32") {
+  try {
+    execFileSync("taskkill", ["/F", "/IM", "postgres.exe", "/T"], { stdio: "ignore" });
+    console.log("[mnm] Killed stale postgres.exe processes");
+    // Give Windows a moment to release the shared memory segment
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 800);
+  } catch {
+    // None running — fine
+  }
+} else if (existsSync(pidFile)) {
   try {
     const pid = parseInt(readFileSync(pidFile, "utf8").split(/\r?\n/)[0] ?? "", 10);
     if (Number.isInteger(pid) && pid > 0) {
       try {
-        if (process.platform === "win32") {
-          execFileSync("taskkill", ["/F", "/PID", String(pid), "/T"], { stdio: "ignore" });
-        } else {
-          process.kill(pid, "SIGKILL");
-        }
+        process.kill(pid, "SIGKILL");
         console.log(`[mnm] Killed stale postgres process (pid=${pid})`);
       } catch {
         // Already dead — fine
       }
     }
   } catch {
-    // Malformed or missing pid file — ignore
+    // Malformed pid file — ignore
+  }
+}
+
+// Remove stale pid file so postgres doesn't try to reclaim the shared memory segment
+if (existsSync(pidFile)) {
+  try {
+    unlinkSync(pidFile);
+    console.log("[mnm] Removed stale postmaster.pid");
+  } catch {
+    // Already gone — fine
   }
 }
 
