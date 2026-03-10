@@ -26,7 +26,7 @@ import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { workflowRoutes } from "./routes/workflows.js";
 import { stageRoutes } from "./routes/stages.js";
-import { bmadRoutes } from "./routes/bmad.js";
+import { workspaceContextRoutes } from "./routes/workspace-context.js";
 import { driftRoutes } from "./routes/drift.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
@@ -118,7 +118,7 @@ export async function createApp(
   api.use(sidebarBadgeRoutes(db));
   api.use(workflowRoutes(db));
   api.use(stageRoutes(db));
-  api.use(bmadRoutes(db));
+  api.use(workspaceContextRoutes(db));
   api.use(driftRoutes(db));
   api.use(
     accessRoutes(db, {

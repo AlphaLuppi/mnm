@@ -6,7 +6,7 @@ import type { Db } from "@mnm/db";
 import { AGENT_ROLES } from "@mnm/shared";
 import { projectService, agentService } from "../services/index.js";
 import { analyzeBmadWorkspace } from "../services/bmad-analyzer.js";
-import { startBmadWatcher } from "../services/bmad-watcher.js";
+import { startWorkspaceContextWatcher } from "../services/workspace-context-watcher.js";
 import { checkDrift } from "../services/drift.js";
 import { assertCompanyAccess } from "./authz.js";
 import { badRequest } from "../errors.js";
@@ -37,49 +37,20 @@ function ideDirs(workspacePath: string): string[] {
 
 /* ── Workflow discovery ───────────────────────────────────────── */
 
-export interface BmadWorkflow {
+export interface WorkspaceWorkflow {
   name: string;
   description: string;
   phase?: string;
   agentRole?: string;
 }
 
-const WORKFLOW_ROLE_FALLBACK: Record<string, string> = {
-  "dev-story": "dev",
-  "correct-course": "dev",
-  "quick-dev": "quick-flow-solo-dev",
-  "quick-spec": "pm",
-  "create-prd": "pm",
-  "create-ux": "ux-designer",
-  "create-architecture": "architect",
-  "create-epics-and-stories": "architect",
-  "brainstorm": "analyst",
-  "product-brief": "analyst",
-  "research": "analyst",
-  "sprint": "sm",
-  "create-story": "sm",
-  "readiness": "qa",
-  "code-review": "qa",
-  "retrospective": "sm",
-};
-
-/** Derive a human-readable phase label from the workflow name */
-function phaseFromName(name: string): string {
-  if (/brainstorm|product-brief|research/.test(name)) return "Analysis";
-  if (/create-prd|create-ux/.test(name)) return "Planning";
-  if (/create-architecture|create-epics|readiness/.test(name)) return "Solutioning";
-  if (/sprint|dev-story|code-review|correct-course|retrospective|create-story/.test(name)) return "Implementation";
-  if (/quick-spec|quick-dev/.test(name)) return "Quick Flow";
-  if (/create-agent|create-module|create-workflow|edit-|validate-|rework/.test(name)) return "Builder";
-  return "Utility";
-}
 
 /**
  * Scan IDE command directories for bmad-*.md workflow files (excluding agent commands).
  * Falls back to scanning workflow.yaml files inside _bmad/ if nothing found.
  */
-async function scanWorkflows(workspacePath: string): Promise<BmadWorkflow[]> {
-  const results: BmadWorkflow[] = [];
+async function scanWorkflows(workspacePath: string): Promise<WorkspaceWorkflow[]> {
+  const results: WorkspaceWorkflow[] = [];
   const seen = new Set<string>();
 
   for (const dir of ideDirs(workspacePath)) {
@@ -103,9 +74,10 @@ async function scanWorkflows(workspacePath: string): Promise<BmadWorkflow[]> {
       const description = typeof fm?.description === "string" ? fm.description : "";
       if (!name || seen.has(name)) continue;
 
-      const agentRole = typeof fm?.agentRole === "string" ? fm.agentRole : (WORKFLOW_ROLE_FALLBACK[name] ?? undefined);
+      const agentRole = typeof fm?.agentRole === "string" ? fm.agentRole : undefined;
+      const phase = typeof fm?.phase === "string" ? fm.phase : undefined;
       seen.add(name);
-      results.push({ name, description, phase: phaseFromName(name), agentRole });
+      results.push({ name, description, phase, agentRole });
     }
 
     if (results.length > 0) break; // found in first available IDE dir
@@ -129,7 +101,9 @@ async function scanWorkflows(workspacePath: string): Promise<BmadWorkflow[]> {
         const description = typeof parsed.description === "string" ? parsed.description : "";
         if (name && !seen.has(name)) {
           seen.add(name);
-          results.push({ name, description, phase: phaseFromName(name), agentRole: WORKFLOW_ROLE_FALLBACK[name] ?? undefined });
+          const agentRole = typeof parsed.agentRole === "string" ? parsed.agentRole : undefined;
+          const phase = typeof parsed.phase === "string" ? parsed.phase : undefined;
+          results.push({ name, description, phase, agentRole });
         }
       }
     }
@@ -141,7 +115,7 @@ async function scanWorkflows(workspacePath: string): Promise<BmadWorkflow[]> {
 
 /* ── Agent discovery ─────────────────────────────────────────── */
 
-export interface DiscoveredBmadAgent {
+export interface DiscoveredWorkspaceAgent {
   slug: string;        // e.g. "bmm-dev"
   commandName: string; // e.g. "dev"
   personaName: string; // e.g. "Amelia"
@@ -150,30 +124,12 @@ export interface DiscoveredBmadAgent {
   icon: string | null;
   capabilities: string | null;
   role: string;        // MnM role mapping
+  workflows: string[]; // workflow names declared in the agent's menu
 }
 
-const ROLE_MAP: Record<string, string> = {
-  analyst: "researcher",
-  pm: "pm",
-  architect: "cto",
-  dev: "engineer",
-  qa: "qa",
-  sm: "general",
-  "ux-designer": "designer",
-  "tech-writer": "general",
-  "quick-flow-solo-dev": "engineer",
-  "bmad-master": "ceo",
-};
 
-function inferRole(slug: string): string {
-  for (const [key, role] of Object.entries(ROLE_MAP)) {
-    if (slug.endsWith(key)) return role;
-  }
-  return "general";
-}
-
-async function discoverBmadAgents(workspacePath: string): Promise<DiscoveredBmadAgent[]> {
-  const results: DiscoveredBmadAgent[] = [];
+async function discoverWorkspaceAgents(workspacePath: string): Promise<DiscoveredWorkspaceAgent[]> {
+  const results: DiscoveredWorkspaceAgent[] = [];
   const seen = new Set<string>();
 
   for (const dir of ideDirs(workspacePath)) {
@@ -198,13 +154,32 @@ async function discoverBmadAgents(workspacePath: string): Promise<DiscoveredBmad
       const commandName = typeof fm?.name === "string" ? fm.name : slug;
       const description = typeof fm?.description === "string" ? fm.description : "";
 
-      // Extract <agent> XML tag attributes
-      const agentTag = content.match(/<agent([^>]*)>/)?.[1] ?? "";
+      // Resolve persona file: look for first {project-root}/path/to/file.md in the command body
+      const personaPathMatch = content.match(/\{project-root\}\/([^}\s\n"']+\.md)/);
+      const personaContent = personaPathMatch
+        ? await fs.readFile(path.join(workspacePath, personaPathMatch[1]), "utf-8").catch(() => null)
+        : null;
+
+      // <agent> tag may live in the persona file (typical) or fall back to the command file
+      const agentTag = (personaContent ?? content).match(/<agent([^>]*)>/)?.[1] ?? "";
       const personaName = agentTag.match(/name="([^"]+)"/)?.[1] ?? commandName;
       const title = agentTag.match(/title="([^"]+)"/)?.[1] ?? description;
       const icon = agentTag.match(/icon="([^"]+)"/)?.[1] ?? null;
       const capabilities = agentTag.match(/capabilities="([^"]+)"/)?.[1] ?? null;
 
+      // Extract workflow names declared in the agent's <menu> items
+      const workflows: string[] = [];
+      if (personaContent) {
+        const menuItemRe = /<item\b[^>]*\bworkflow="([^"]+)"/g;
+        let m;
+        while ((m = menuItemRe.exec(personaContent)) !== null) {
+          // Path format: {project-root}/_bmad/.../workflow-name/workflow.yaml
+          const nameMatch = m[1].match(/\/([^/{]+)\/workflow\.yaml/);
+          if (nameMatch) workflows.push(nameMatch[1]);
+        }
+      }
+
+      const role = typeof fm?.mnmRole === "string" ? fm.mnmRole : "general";
       seen.add(slug);
       results.push({
         slug,
@@ -214,7 +189,8 @@ async function discoverBmadAgents(workspacePath: string): Promise<DiscoveredBmad
         description,
         icon,
         capabilities,
-        role: inferRole(slug),
+        role,
+        workflows,
       });
     }
 
@@ -226,7 +202,7 @@ async function discoverBmadAgents(workspacePath: string): Promise<DiscoveredBmad
 
 /* ── Router ──────────────────────────────────────────────────── */
 
-export function bmadRoutes(db: Db) {
+export function workspaceContextRoutes(db: Db) {
   const router = Router();
   const svc = projectService(db);
   const agentSvc = agentService(db);
@@ -237,26 +213,32 @@ export function bmadRoutes(db: Db) {
     return project.primaryWorkspace?.cwd ?? null;
   }
 
-  // GET /projects/:id/bmad — full BMAD structure
-  router.get("/projects/:id/bmad", async (req, res) => {
+  // GET /projects/:id/workspace-context — full workspace context structure
+  router.get("/projects/:id/workspace-context", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
 
     const workspacePath = await resolveWorkspacePath(id);
-    if (!workspacePath) { res.status(404).json({ error: "No workspace path configured for this project" }); return; }
+    if (!workspacePath) {
+      res.json({ detected: false, planningArtifacts: [], epics: [], sprintStatus: null });
+      return;
+    }
 
     // Start file watcher lazily on first access
-    startBmadWatcher(id, project.companyId, workspacePath);
+    startWorkspaceContextWatcher(id, project.companyId, workspacePath);
 
     const result = await analyzeBmadWorkspace(workspacePath);
-    if (!result) { res.status(404).json({ error: "No BMAD structure found in workspace" }); return; }
+    if (!result) {
+      res.json({ detected: false, planningArtifacts: [], epics: [], sprintStatus: null });
+      return;
+    }
     res.json(result);
   });
 
-  // GET /projects/:id/bmad/workflows — list all BMAD workflows from IDE commands
-  router.get("/projects/:id/bmad/workflows", async (req, res) => {
+  // GET /projects/:id/workspace-context/workflows — list all workflows from IDE commands
+  router.get("/projects/:id/workspace-context/workflows", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -265,12 +247,30 @@ export function bmadRoutes(db: Db) {
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.json({ workflows: [] }); return; }
 
-    const workflows = await scanWorkflows(workspacePath);
-    res.json({ workflows });
+    const [workflows, agents] = await Promise.all([
+      scanWorkflows(workspacePath),
+      discoverWorkspaceAgents(workspacePath),
+    ]);
+
+    // Build inverted index from agent menus: workflowName → first agent slug that declares it
+    const menuAgentMap: Record<string, string> = {};
+    for (const agent of agents) {
+      for (const wf of agent.workflows) {
+        if (!menuAgentMap[wf]) menuAgentMap[wf] = agent.slug;
+      }
+    }
+
+    // Frontmatter agentRole takes priority; fall back to menu-derived mapping
+    const enriched = workflows.map((wf) => ({
+      ...wf,
+      agentRole: wf.agentRole ?? menuAgentMap[wf.name],
+    }));
+
+    res.json({ workflows: enriched });
   });
 
-  // GET /projects/:id/bmad/agents — discover BMAD agents in workspace
-  router.get("/projects/:id/bmad/agents", async (req, res) => {
+  // GET /projects/:id/workspace-context/agents — discover workspace agents
+  router.get("/projects/:id/workspace-context/agents", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -279,12 +279,12 @@ export function bmadRoutes(db: Db) {
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.json({ agents: [] }); return; }
 
-    const agents = await discoverBmadAgents(workspacePath);
+    const agents = await discoverWorkspaceAgents(workspacePath);
     res.json({ agents });
   });
 
-  // POST /projects/:id/bmad/import-agents — create MnM agents from discovered BMAD agents
-  router.post("/projects/:id/bmad/import-agents", async (req, res) => {
+  // POST /projects/:id/workspace-context/import-agents — create workspace-scoped MnM agents from discovered agents
+  router.post("/projects/:id/workspace-context/import-agents", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -293,20 +293,28 @@ export function bmadRoutes(db: Db) {
     const slugs: string[] = Array.isArray(req.body.slugs) ? req.body.slugs : [];
     if (slugs.length === 0) { res.status(400).json({ error: "No agent slugs provided" }); return; }
 
+    // workspaceId: explicit string → use it; explicit null → global agent (no scope); absent → primary workspace
+    const workspaceId: string | null =
+      req.body.workspaceId === null ? null
+      : typeof req.body.workspaceId === "string" ? req.body.workspaceId
+      : project.primaryWorkspace?.id ?? null;
+
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.status(404).json({ error: "No workspace path configured" }); return; }
 
-    const discovered = await discoverBmadAgents(workspacePath);
+    const discovered = await discoverWorkspaceAgents(workspacePath);
     const toImport = discovered.filter((a) => slugs.includes(a.slug));
 
     const validRoles = new Set(AGENT_ROLES);
     const created = [];
+    const newAssignments: Record<string, string> = {};
+
     for (const agent of toImport) {
       const role = validRoles.has(agent.role as typeof AGENT_ROLES[number])
         ? (agent.role as typeof AGENT_ROLES[number])
         : "general";
       const newAgent = await agentSvc.create(project.companyId, {
-        name: `${agent.personaName} (BMAD)`,
+        name: `${agent.personaName}`,
         title: agent.title,
         role,
         capabilities: agent.capabilities ?? null,
@@ -317,16 +325,34 @@ export function bmadRoutes(db: Db) {
         budgetMonthlyCents: 0,
         spentMonthlyCents: 0,
         lastHeartbeatAt: null,
-        metadata: { bmad: { slug: agent.slug, commandName: agent.commandName, icon: agent.icon } },
+        scopedToWorkspaceId: workspaceId,
+        metadata: {
+          bmad: {
+            slug: agent.slug,
+            commandName: agent.commandName,
+            icon: agent.icon,
+            roles: [{ slug: agent.slug, personaName: agent.personaName, capabilities: agent.capabilities, icon: agent.icon }],
+          },
+        },
       });
       created.push(newAgent);
+      newAssignments[agent.slug] = newAgent.id;
     }
 
-    res.status(201).json({ created });
+    // Persist assignments to workspace metadata so LaunchAgentDialog resolves them immediately
+    if (workspaceId && Object.keys(newAssignments).length > 0) {
+      const existingMeta = (project.primaryWorkspace?.metadata ?? {}) as Record<string, unknown>;
+      const existingAssignments = (existingMeta.bmadAssignments as Record<string, string> | undefined) ?? {};
+      await svc.updateWorkspace(id, workspaceId, {
+        metadata: { ...existingMeta, bmadAssignments: { ...existingAssignments, ...newAssignments } },
+      });
+    }
+
+    res.status(201).json({ created, assignments: newAssignments });
   });
 
-  // GET /projects/:id/bmad/assignments — reads from primary workspace metadata
-  router.get("/projects/:id/bmad/assignments", async (req, res) => {
+  // GET /projects/:id/workspace-context/assignments — reads from primary workspace metadata
+  router.get("/projects/:id/workspace-context/assignments", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -336,8 +362,8 @@ export function bmadRoutes(db: Db) {
     res.json({ assignments, workspaceId: project.primaryWorkspace?.id ?? null });
   });
 
-  // POST /projects/:id/bmad/assignments — saves to primary workspace metadata
-  router.post("/projects/:id/bmad/assignments", async (req, res) => {
+  // POST /projects/:id/workspace-context/assignments — saves to primary workspace metadata
+  router.post("/projects/:id/workspace-context/assignments", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -355,8 +381,8 @@ export function bmadRoutes(db: Db) {
     res.json({ ok: true });
   });
 
-  // GET /projects/:id/bmad/command?name=<commandname> — serves a file from IDE command directories
-  router.get("/projects/:id/bmad/command", async (req, res) => {
+  // GET /projects/:id/workspace-context/command?name=<commandname> — serves a file from IDE command directories
+  router.get("/projects/:id/workspace-context/command", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -375,8 +401,8 @@ export function bmadRoutes(db: Db) {
     res.status(404).json({ error: "Command not found" });
   });
 
-  // POST /projects/:id/bmad/drift-check — check drift between two BMAD artifacts
-  router.post("/projects/:id/bmad/drift-check", async (req, res) => {
+  // POST /projects/:id/workspace-context/drift-check — check drift between two workspace artifacts
+  router.post("/projects/:id/workspace-context/drift-check", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -401,8 +427,8 @@ export function bmadRoutes(db: Db) {
     res.json(report);
   });
 
-  // GET /projects/:id/bmad/file?path=<relative-path> — raw markdown content
-  router.get("/projects/:id/bmad/file", async (req, res) => {
+  // GET /projects/:id/workspace-context/file?path=<relative-path> — raw markdown content
+  router.get("/projects/:id/workspace-context/file", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }

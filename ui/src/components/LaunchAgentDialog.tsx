@@ -6,7 +6,7 @@ import { Rocket, Loader2, Check, Sparkles, Search, Clock } from "lucide-react";
 const SENTINEL_GHOST = "__ghost__";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";
-import { bmadApi } from "../api/bmad";
+import { workspaceContextApi } from "../api/workspaceContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../context/ToastContext";
 import {
@@ -30,12 +30,6 @@ import {
 import { cn } from "../lib/utils";
 // Note: Select is kept for the agent picker above
 
-const FALLBACK_WORKFLOWS = [
-  { value: "dev-story", label: "dev-story", description: "Execute story implementation following a context filled story spec file." },
-  { value: "correct-course", label: "correct-course", description: "Fix a deviation from the original spec or architecture." },
-  { value: "code-review", label: "code-review", description: "Review code quality, style, and adherence to specs." },
-  { value: "custom", label: "custom", description: "Free-form task — describe the instruction manually." },
-];
 
 interface LaunchAgentDialogProps {
   open: boolean;
@@ -62,15 +56,15 @@ export function LaunchAgentDialog({
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
-  const [workflowType, setWorkflowType] = useState<string>(defaultPrompt ? "custom" : "dev-story");
+  const [workflowType, setWorkflowType] = useState<string>("");
   const [prompt, setPrompt] = useState<string>(defaultPrompt ?? "");
   const [submitting, setSubmitting] = useState(false);
-  const [selectedBmadSlug, setSelectedBmadSlug] = useState<string>("");
+  const [selectedWsSlug, setSelectedWsSlug] = useState<string>("");
   const [workflowSearch, setWorkflowSearch] = useState<string>("");
 
   const { data: assignmentsData } = useQuery({
-    queryKey: ["bmad-assignments", projectId],
-    queryFn: () => bmadApi.getAssignments(projectId!, companyId),
+    queryKey: ["workspace-assignments", projectId],
+    queryFn: () => workspaceContextApi.getAssignments(projectId!, companyId),
     enabled: open && !!projectId,
   });
 
@@ -89,32 +83,35 @@ export function LaunchAgentDialog({
   });
 
   const { data: workflowsData } = useQuery({
-    queryKey: ["bmad-workflows", projectId ?? companyId],
-    queryFn: () => bmadApi.getWorkflows(projectId!, companyId),
+    queryKey: ["workspace-workflows", projectId ?? companyId],
+    queryFn: () => workspaceContextApi.getWorkflows(projectId!, companyId),
     enabled: open && !!projectId,
   });
 
-  // Fetch discovered BMAD agents for ghost agent creation details
+  // Fetch discovered workspace agents for ghost agent creation details
   const { data: discoveredData } = useQuery({
-    queryKey: ["bmad-agents-discovery", projectId],
-    queryFn: () => bmadApi.getAgents(projectId!, companyId),
+    queryKey: ["workspace-agents-discovery", projectId],
+    queryFn: () => workspaceContextApi.getAgents(projectId!, companyId),
     enabled: open && !!projectId,
   });
   const discoveredAgents = discoveredData?.agents ?? [];
 
-  const workflowTypes = workflowsData?.workflows.length
-    ? workflowsData.workflows.map((w) => ({ value: w.name, label: w.name, description: w.description, agentRole: w.agentRole }))
-    : FALLBACK_WORKFLOWS.map((w) => ({ ...w, agentRole: undefined }));
+  const workflowTypes = (workflowsData?.workflows ?? []).map((w) => ({
+    value: w.name,
+    label: w.name,
+    description: w.description,
+    agentRole: w.agentRole,
+  }));
 
   const activeAgents = agents.filter((a) => a.status !== "terminated");
 
-  // When workflow changes, auto-select the BMAD role and corresponding agent
+  // When workflow changes, auto-select the workspace role and corresponding agent
   useEffect(() => {
     if (!workflowType) return;
     const workflow = workflowTypes.find((w) => w.value === workflowType);
     const agentRole = workflow?.agentRole;
     if (agentRole) {
-      setSelectedBmadSlug(agentRole);
+      setSelectedWsSlug(agentRole);
       const assignedAgentId = bmadAssignments[agentRole];
       if (assignedAgentId && activeAgents.some((a) => a.id === assignedAgentId)) {
         setSelectedAgentId(assignedAgentId);
@@ -123,19 +120,19 @@ export function LaunchAgentDialog({
         setSelectedAgentId(SENTINEL_GHOST);
       }
     } else {
-      setSelectedBmadSlug("");
+      setSelectedWsSlug("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowType, workflowsData, assignmentsData]);
 
-  // Ghost agent info when no assignment exists for the selected BMAD role
-  const ghostBmadAgent = selectedAgentId === SENTINEL_GHOST && selectedBmadSlug
-    ? discoveredAgents.find((a) => a.slug === selectedBmadSlug)
+  // Ghost agent info when no assignment exists for the selected workspace role
+  const ghostWsAgent = selectedAgentId === SENTINEL_GHOST && selectedWsSlug
+    ? discoveredAgents.find((a) => a.slug === selectedWsSlug)
     : null;
 
-  // Get BMAD roles for the selected agent (for the role selector UI)
+  // Get workspace roles for the selected agent (for the role selector UI)
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
-  const selectedAgentBmadRoles = (() => {
+  const selectedAgentWsRoles = (() => {
     if (!selectedAgent) return [];
     const bmadMeta = (selectedAgent.metadata as Record<string, unknown> | null)?.bmad as Record<string, unknown> | undefined;
     const roles = bmadMeta?.roles as Array<{ slug: string; personaName?: string; icon?: string | null }> | undefined;
@@ -150,18 +147,37 @@ export function LaunchAgentDialog({
       let actualAgentId = selectedAgentId;
 
       // Lazy creation: ghost selected → create a workspace-scoped agent
-      if (selectedAgentId === SENTINEL_GHOST && ghostBmadAgent && workspaceId && projectId) {
+      if (selectedAgentId === SENTINEL_GHOST && !ghostWsAgent) {
+        pushToast({
+          title: "Aucun agent workspace trouvé",
+          body: "Aucun fichier bmad-agent-*.md trouvé pour ce rôle. Sélectionnez un agent manuellement.",
+          tone: "error",
+        });
+        setSubmitting(false);
+        return;
+      }
+      if (selectedAgentId === SENTINEL_GHOST && !workspaceId) {
+        pushToast({
+          title: "Workspace introuvable",
+          body: "Aucun workspace configuré pour ce projet.",
+          tone: "error",
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      if (selectedAgentId === SENTINEL_GHOST && ghostWsAgent && workspaceId && projectId) {
         const { AGENT_ROLES } = await import("@mnm/shared");
         const validRoles = new Set(AGENT_ROLES);
-        const role = validRoles.has(ghostBmadAgent.role as typeof AGENT_ROLES[number])
-          ? (ghostBmadAgent.role as typeof AGENT_ROLES[number])
+        const role = validRoles.has(ghostWsAgent.role as typeof AGENT_ROLES[number])
+          ? (ghostWsAgent.role as typeof AGENT_ROLES[number])
           : "general";
 
         const newAgent = await agentsApi.create(companyId, {
-          name: `${ghostBmadAgent.personaName} (BMAD)`,
-          title: ghostBmadAgent.title ?? null,
+          name: `${ghostWsAgent.personaName} (workspace)`,
+          title: ghostWsAgent.title ?? null,
           role,
-          capabilities: ghostBmadAgent.capabilities ?? null,
+          capabilities: ghostWsAgent.capabilities ?? null,
           adapterType: "claude_local",
           adapterConfig: {},
           runtimeConfig: {},
@@ -169,12 +185,12 @@ export function LaunchAgentDialog({
           scopedToWorkspaceId: workspaceId,
           metadata: {
             bmad: {
-              slug: selectedBmadSlug,
+              slug: selectedWsSlug,
               roles: [{
-                slug: selectedBmadSlug,
-                personaName: ghostBmadAgent.personaName,
-                capabilities: ghostBmadAgent.capabilities,
-                icon: ghostBmadAgent.icon,
+                slug: selectedWsSlug,
+                personaName: ghostWsAgent.personaName,
+                capabilities: ghostWsAgent.capabilities,
+                icon: ghostWsAgent.icon,
               }],
             },
           },
@@ -182,24 +198,24 @@ export function LaunchAgentDialog({
         actualAgentId = newAgent.id;
 
         // Persist assignment so next launch uses this scoped agent directly
-        await bmadApi.saveAssignments(projectId, { ...bmadAssignments, [selectedBmadSlug]: newAgent.id }, companyId);
+        await workspaceContextApi.saveAssignments(projectId, { ...bmadAssignments, [selectedWsSlug]: newAgent.id }, companyId);
         queryClient.invalidateQueries({ queryKey: agentQueryKey });
-        queryClient.invalidateQueries({ queryKey: ["bmad-assignments", projectId] });
+        queryClient.invalidateQueries({ queryKey: ["workspace-assignments", projectId] });
       }
 
-      let bmadPrefix = "";
-      if (selectedBmadSlug && projectId) {
+      let wsCtxPrefix = "";
+      if (selectedWsSlug && projectId) {
         const [personaResult, workflowResult] = await Promise.allSettled([
-          bmadApi.getCommand(projectId, `bmad-agent-${selectedBmadSlug}`, companyId),
-          bmadApi.getCommand(projectId, `bmad-${workflowType}`, companyId),
+          workspaceContextApi.getCommand(projectId, `bmad-agent-${selectedWsSlug}`, companyId),
+          workspaceContextApi.getCommand(projectId, `bmad-${workflowType}`, companyId),
         ]);
         const parts: string[] = [];
         if (personaResult.status === "fulfilled") parts.push(personaResult.value);
         if (workflowResult.status === "fulfilled") parts.push(workflowResult.value);
-        if (parts.length > 0) bmadPrefix = parts.join("\n\n---\n\n") + "\n\n---\n\n";
+        if (parts.length > 0) wsCtxPrefix = parts.join("\n\n---\n\n") + "\n\n---\n\n";
       }
 
-      const body = bmadPrefix + (prompt.trim() ? `# Instruction\n\n${prompt.trim()}\n\n---\n\n` : "") + storyContent;
+      const body = wsCtxPrefix + (prompt.trim() ? `# Instruction\n\n${prompt.trim()}\n\n---\n\n` : "") + storyContent;
 
       const issue = await issuesApi.create(companyId, {
         title: `[${workflowType}] ${storyTitle}`,
@@ -216,9 +232,9 @@ export function LaunchAgentDialog({
       });
       onOpenChange(false);
       setSelectedAgentId("");
-      setWorkflowType(defaultPrompt ? "custom" : "dev-story");
+      setWorkflowType("");
       setPrompt(defaultPrompt ?? "");
-      setSelectedBmadSlug("");
+      setSelectedWsSlug("");
     } catch (err) {
       pushToast({
         title: "Failed to launch agent",
@@ -269,12 +285,12 @@ export function LaunchAgentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {/* Ghost option — auto-create workspace agent on launch */}
-                  {ghostBmadAgent && (
+                  {ghostWsAgent && (
                     <SelectItem value={SENTINEL_GHOST}>
                       <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                         <Clock className="h-3.5 w-3.5" />
-                        {ghostBmadAgent.icon && <span>{ghostBmadAgent.icon}</span>}
-                        Create {ghostBmadAgent.personaName} (workspace)
+                        {ghostWsAgent.icon && <span>{ghostWsAgent.icon}</span>}
+                        Create {ghostWsAgent.personaName} (workspace)
                       </span>
                     </SelectItem>
                   )}
@@ -293,19 +309,19 @@ export function LaunchAgentDialog({
             )}
           </div>
 
-          {/* BMAD role selector — shown when the selected agent has multiple BMAD roles */}
-          {selectedAgentBmadRoles.length > 1 && (
+          {/* Workspace role selector — shown when the selected agent has multiple workspace roles */}
+          {selectedAgentWsRoles.length > 1 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">BMAD role</label>
+              <label className="text-sm font-medium">Workspace role</label>
               <div className="flex flex-wrap gap-1.5">
-                {selectedAgentBmadRoles.map((role) => (
+                {selectedAgentWsRoles.map((role) => (
                   <button
                     key={role.slug}
                     type="button"
-                    onClick={() => setSelectedBmadSlug(role.slug)}
+                    onClick={() => setSelectedWsSlug(role.slug)}
                     className={cn(
                       "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1",
-                      selectedBmadSlug === role.slug
+                      selectedWsSlug === role.slug
                         ? "border-foreground bg-foreground text-background"
                         : "border-border hover:border-foreground/40 hover:bg-accent/50",
                     )}
@@ -316,10 +332,10 @@ export function LaunchAgentDialog({
                 ))}
                 <button
                   type="button"
-                  onClick={() => setSelectedBmadSlug("")}
+                  onClick={() => setSelectedWsSlug("")}
                   className={cn(
                     "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
-                    selectedBmadSlug === ""
+                    selectedWsSlug === ""
                       ? "border-foreground bg-foreground text-background"
                       : "border-border border-dashed hover:border-foreground/40 hover:bg-accent/50 text-muted-foreground",
                   )}
@@ -385,16 +401,16 @@ export function LaunchAgentDialog({
           <div className="rounded-md border border-border bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground mb-1">Story</p>
             <p className="text-sm font-medium truncate">{storyTitle}</p>
-            {selectedBmadSlug && selectedAgentId !== SENTINEL_GHOST && (
+            {selectedWsSlug && selectedAgentId !== SENTINEL_GHOST && (
               <div className="flex items-center gap-1 mt-1.5 text-[11px] text-violet-600 dark:text-violet-400">
                 <Sparkles className="h-3 w-3" />
-                BMAD context will be injected ({selectedBmadSlug})
+                Workspace context will be injected ({selectedWsSlug})
               </div>
             )}
-            {selectedAgentId === SENTINEL_GHOST && ghostBmadAgent && (
+            {selectedAgentId === SENTINEL_GHOST && ghostWsAgent && (
               <div className="flex items-center gap-1 mt-1.5 text-[11px] text-amber-600 dark:text-amber-400">
                 <Clock className="h-3 w-3" />
-                Workspace agent will be created for {ghostBmadAgent.personaName}
+                Workspace agent will be created for {ghostWsAgent.personaName}
               </div>
             )}
           </div>
@@ -406,7 +422,7 @@ export function LaunchAgentDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!selectedAgentId || submitting}
+            disabled={!selectedAgentId || (selectedAgentId === SENTINEL_GHOST && !ghostWsAgent) || submitting}
           >
             {submitting ? (
               <>

@@ -30,4 +30,9 @@ export const projectsApi = {
   removeWorkspace: (projectId: string, workspaceId: string, companyId?: string) =>
     api.delete<ProjectWorkspace>(projectPath(projectId, companyId, `/workspaces/${encodeURIComponent(workspaceId)}`)),
   remove: (id: string, companyId?: string) => api.delete<Project>(projectPath(id, companyId)),
+  onboard: (projectId: string, data: { agentId?: string }, companyId?: string) =>
+    api.post<{ issueId: string; identifier: string | null }>(
+      projectPath(projectId, companyId, "/onboard"),
+      data,
+    ),
 };

@@ -15,7 +15,7 @@ interface WatcherEntry {
 
 const watchers = new Map<string, WatcherEntry>();
 
-export function startBmadWatcher(
+export function startWorkspaceContextWatcher(
   projectId: string,
   companyId: string,
   workspacePath: string,
@@ -35,7 +35,7 @@ export function startBmadWatcher(
         entry.timer = null;
         publishLiveEvent({
           companyId: entry.companyId,
-          type: "bmad.workspace.changed",
+          type: "workspace.context.changed",
           payload: { projectId: entry.projectId },
         });
       }, DEBOUNCE_MS);
@@ -52,14 +52,14 @@ export function startBmadWatcher(
   });
 
   watchers.set(projectId, { watcher, timer: null, companyId, projectId });
-  logger.info({ projectId, watchDir }, "Started BMAD file watcher");
+  logger.info({ projectId, watchDir }, "Started workspace context file watcher");
 }
 
-export function stopBmadWatcher(projectId: string): void {
+export function stopWorkspaceContextWatcher(projectId: string): void {
   const entry = watchers.get(projectId);
   if (!entry) return;
   if (entry.timer) clearTimeout(entry.timer);
   entry.watcher.close();
   watchers.delete(projectId);
-  logger.info({ projectId }, "Stopped BMAD file watcher");
+  logger.info({ projectId }, "Stopped workspace context file watcher");
 }

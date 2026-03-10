@@ -1,11 +1,14 @@
 import { useState, useMemo } from "react";
-import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket, Bot, GitCompare, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket, Bot, GitCompare, Loader2, ChevronDown, ChevronUp, ScanSearch } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@/lib/router";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
-import { useBmadProject, useBmadFile } from "../hooks/useBmadProject";
+import { useWorkspaceContext, useWorkspaceFile } from "../hooks/useWorkspaceContext";
+import { projectsApi } from "../api/projects";
+import { useToast } from "../context/ToastContext";
 import { heartbeatsApi } from "../api/heartbeats";
-import { bmadApi } from "../api/bmad";
-import { BmadAgentSync } from "./BmadAgentSync";
+import { workspaceContextApi } from "../api/workspaceContext";
+import { WorkspaceAgentSync } from "./WorkspaceAgentSync";
 import { DriftAlertCard } from "./DriftAlertCard";
 import { queryKeys } from "../lib/queryKeys";
 import { MarkdownBody } from "./MarkdownBody";
@@ -16,11 +19,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "../lib/utils";
 import type { ReactNode } from "react";
-import type { BmadEpic, BmadStory, BmadAcceptanceCriterion, DriftReport } from "@mnm/shared";
+import type { WorkspaceEpic, WorkspaceStory, AcceptanceCriterion, DriftReport } from "@mnm/shared";
 
 /* ── Status badge (reused from ContextPane conventions) ── */
 
-const bmadStatusBadge: Record<string, string> = {
+const wsCtxStatusBadge: Record<string, string> = {
   backlog: "bg-muted text-muted-foreground",
   "ready-for-dev": "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
   "in-progress": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300",
@@ -30,7 +33,7 @@ const bmadStatusBadge: Record<string, string> = {
 
 function StatusBadgeInline({ status }: { status: string | null }) {
   if (!status) return null;
-  const colors = bmadStatusBadge[status] ?? "bg-muted text-muted-foreground";
+  const colors = wsCtxStatusBadge[status] ?? "bg-muted text-muted-foreground";
   return (
     <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", colors)}>
       {status.replace(/-/g, " ")}
@@ -80,8 +83,8 @@ function artifactType(path: string): string {
 /* ── Spec Viewer (artifact markdown) ── */
 
 function SpecViewer({ projectId, path, companyId }: { projectId: string; path: string; companyId?: string }) {
-  const { data: content, isLoading, error } = useBmadFile(projectId, path, companyId);
-  const { data: bmad } = useBmadProject(projectId, companyId);
+  const { data: content, isLoading, error } = useWorkspaceFile(projectId, path, companyId);
+  const { data: wsCtx } = useWorkspaceContext(projectId, companyId);
   const { clearSelection } = useProjectNavigation();
   const [launchOpen, setLaunchOpen] = useState(false);
   const [driftOpen, setDriftOpen] = useState(false);
@@ -91,7 +94,7 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
 
   const driftMutation = useMutation({
     mutationFn: (targetDoc: string) =>
-      bmadApi.driftCheck(projectId, path, targetDoc, companyId),
+      workspaceContextApi.driftCheck(projectId, path, targetDoc, companyId),
     onSuccess: (report) => {
       setDriftReport(report);
       setDriftOpen(false);
@@ -106,7 +109,7 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
   const defaultPrompt = ARTIFACT_PROMPTS[type] ?? "";
 
   // Other planning artifacts to compare against
-  const otherArtifacts = (bmad?.planningArtifacts ?? []).filter((a) => a.filePath !== path);
+  const otherArtifacts = (wsCtx?.planningArtifacts ?? []).filter((a) => a.filePath !== path);
 
   if (isLoading) {
     return (
@@ -271,7 +274,7 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
 
 /* ── AC Card (for StoryViewer) ── */
 
-function ACCard({ ac }: { ac: BmadAcceptanceCriterion }) {
+function ACCard({ ac }: { ac: AcceptanceCriterion }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-2">
       <div className="flex items-center gap-2">
@@ -300,7 +303,7 @@ function ACCard({ ac }: { ac: BmadAcceptanceCriterion }) {
 
 /* ── Story Viewer ── */
 
-function StoryViewer({ story, epicNumber, companyId, projectId }: { story: BmadStory; epicNumber: number; companyId?: string; projectId?: string }) {
+function StoryViewer({ story, epicNumber, companyId, projectId }: { story: WorkspaceStory; epicNumber: number; companyId?: string; projectId?: string }) {
   const { selectEpic, clearSelection } = useProjectNavigation();
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [justCreatedIssueId, setJustCreatedIssueId] = useState<string | null>(null);
@@ -422,7 +425,7 @@ function StoryViewer({ story, epicNumber, companyId, projectId }: { story: BmadS
 
 /* ── Epic Overview ── */
 
-function EpicOverview({ epic, companyId, projectId }: { epic: BmadEpic; companyId?: string; projectId?: string }) {
+function EpicOverview({ epic, companyId, projectId }: { epic: WorkspaceEpic; companyId?: string; projectId?: string }) {
   const { selectStory, clearSelection } = useProjectNavigation();
   const [launchOpen, setLaunchOpen] = useState(false);
   const epicLabel = `Epic ${epic.number}${epic.title ? `: ${epic.title}` : ""}`;
@@ -502,6 +505,108 @@ function EpicOverview({ epic, companyId, projectId }: { epic: BmadEpic; companyI
   );
 }
 
+/* ── Onboard banner (shown when no workspace structure detected) ── */
+
+function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: string; companyId?: string; hasWorkspace?: boolean }) {
+  const navigate = useNavigate();
+  const { pushToast } = useToast();
+
+  // Check for an existing discovery issue
+  const { data: discoveryIssues = [] } = useQuery({
+    queryKey: [...queryKeys.issues.listByProject(companyId ?? "", projectId ?? ""), "discovery"],
+    queryFn: () =>
+      import("../api/issues").then((m) =>
+        m.issuesApi.list(companyId!, { projectId, q: "Workspace discovery" }),
+      ),
+    enabled: !!companyId && !!projectId && hasWorkspace,
+  });
+  const discoveryIssue = discoveryIssues.find((i) => i.title?.startsWith("Workspace discovery"));
+
+  const onboardMutation = useMutation({
+    mutationFn: () => projectsApi.onboard(projectId!, {}, companyId),
+    onSuccess: (data) => {
+      navigate(`/issues/${data.identifier ?? data.issueId}`);
+    },
+    onError: (err) => {
+      pushToast({ title: (err as Error).message, tone: "error" });
+    },
+  });
+
+  if (!hasWorkspace) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-4 text-center space-y-2">
+        <ScanSearch className="h-6 w-6 mx-auto text-muted-foreground" />
+        <p className="text-sm font-medium">No workspace configured</p>
+        <p className="text-xs text-muted-foreground">
+          Open the Properties panel to configure a workspace path, then discover its structure.
+        </p>
+      </div>
+    );
+  }
+
+  // Discovery already launched — show link to the report
+  if (discoveryIssue) {
+    const ref = discoveryIssue.identifier ?? discoveryIssue.id;
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+        <div className="flex items-start gap-2">
+          <ScanSearch className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium">Discovery in progress</p>
+            <p className="text-xs text-muted-foreground">
+              An agent is exploring your workspace. Check the report and reply via the issue inbox.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate(`/issues/${ref}`)}>
+            View report → {ref}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5 text-muted-foreground"
+            disabled={onboardMutation.isPending}
+            onClick={() => onboardMutation.mutate()}
+            title="Launch a new discovery"
+          >
+            <ScanSearch className="h-3.5 w-3.5" />
+            Re-run
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <ScanSearch className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium">Workspace ready</p>
+          <p className="text-xs text-muted-foreground">
+            No structure detected yet. Launch an agent to explore and onboard this workspace.
+          </p>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        disabled={onboardMutation.isPending || !projectId || !companyId}
+        onClick={() => onboardMutation.mutate()}
+      >
+        {onboardMutation.isPending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <ScanSearch className="h-3.5 w-3.5" />
+        )}
+        {onboardMutation.isPending ? "Creating task…" : "Discover workspace"}
+      </Button>
+    </div>
+  );
+}
+
 /* ── Empty state ── */
 
 function WorkPaneEmpty() {
@@ -559,7 +664,7 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
         )}
 
         {projectId && companyId && (
-          <BmadAgentSync projectId={projectId} companyId={companyId} />
+          <WorkspaceAgentSync projectId={projectId} companyId={companyId} />
         )}
       </div>
     </ScrollArea>
@@ -571,19 +676,29 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
 interface WorkPaneProps {
   projectId?: string;
   companyId?: string;
+  hasWorkspace?: boolean;
   children: ReactNode;
 }
 
-export function WorkPane({ projectId, companyId, children }: WorkPaneProps) {
+export function WorkPane({ projectId, companyId, hasWorkspace, children }: WorkPaneProps) {
   const { selectedItem } = useProjectNavigation();
-  const { data: bmad } = useBmadProject(projectId, companyId);
+  const { data: wsCtx, isLoading: wsCtxLoading } = useWorkspaceContext(projectId, companyId);
 
-  // No selection → agent dashboard if BMAD detected, otherwise fall back to children (no-BMAD projects)
+  // No selection → agent dashboard if workspace context detected, otherwise fall back to children
   if (!selectedItem) {
-    if (bmad?.detected) {
+    if (wsCtx?.detected) {
       return <ProjectAgentsDashboard projectId={projectId} companyId={companyId} />;
     }
-    return <div className="space-y-6">{children}</div>;
+    return (
+      <ScrollArea className="h-full">
+        <div className="p-4 space-y-4">
+          {!wsCtxLoading && (
+            <OnboardBanner projectId={projectId} companyId={companyId} hasWorkspace={hasWorkspace} />
+          )}
+          {children}
+        </div>
+      </ScrollArea>
+    );
   }
 
   // Artifact selected → SpecViewer
@@ -592,17 +707,17 @@ export function WorkPane({ projectId, companyId, children }: WorkPaneProps) {
   }
 
   // Epic selected → Epic overview
-  if (selectedItem.type === "epic" && bmad?.detected) {
-    const epic = bmad.epics.find((e) => String(e.number) === selectedItem.id);
+  if (selectedItem.type === "epic" && wsCtx?.detected) {
+    const epic = wsCtx.epics.find((e) => String(e.number) === selectedItem.id);
     if (epic) {
       return <EpicOverview epic={epic} companyId={companyId} projectId={projectId} />;
     }
   }
 
   // Story selected → Story detail
-  if (selectedItem.type === "story" && bmad?.detected) {
+  if (selectedItem.type === "story" && wsCtx?.detected) {
     const [epicId] = selectedItem.id.split("/");
-    const epic = bmad.epics.find((e) => String(e.number) === epicId);
+    const epic = wsCtx.epics.find((e) => String(e.number) === epicId);
     const storyId = selectedItem.id.split("/").slice(1).join("/");
     const story = epic?.stories.find((s) => s.id === storyId);
     if (story && epic) {
