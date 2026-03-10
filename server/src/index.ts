@@ -2,6 +2,7 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
+import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import type { Request as ExpressRequest, RequestHandler } from "express";
@@ -342,6 +343,25 @@ if (config.databaseUrl) {
       logger.warn("Removing stale embedded PostgreSQL lock file");
       rmSync(postmasterPidFile, { force: true });
     }
+
+    // On Windows, a crashed postgres may leave behind IPC shared memory objects
+    // that prevent a new instance from starting. Run `pg_ctl stop -m immediate`
+    // on the data directory to force-release them before trying to start.
+    if (process.platform === "win32") {
+      try {
+        const { pg_ctl } = await import("@embedded-postgres/windows-x64");
+        await new Promise<void>((done) => {
+          const proc = spawn(pg_ctl, ["stop", "-D", dataDir, "-m", "immediate", "-s"], {
+            stdio: "ignore",
+          });
+          proc.on("close", () => done());
+          proc.on("error", () => done());
+        });
+      } catch {
+        // pg_ctl unavailable or data dir not initialised — safe to ignore
+      }
+    }
+
     try {
       await embeddedPostgres.start();
     } catch (err) {

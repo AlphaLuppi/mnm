@@ -223,25 +223,77 @@ function StoryRow({ story, epicId, isRunning }: { story: BmadStory; epicId: stri
 
 /* ── Planning artifacts section ── */
 
-function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
+function ArtifactItem({ artifact, indent = 0 }: { artifact: BmadPlanningArtifact; indent?: number }) {
   const { selectedItem, selectArtifact } = useProjectNavigation();
+  const Icon = getArtifactIcon(artifact.type);
+  const isSelected = selectedItem?.type === "artifact" && selectedItem.id === artifact.filePath;
+  return (
+    <TreeItem
+      icon={Icon}
+      label={artifact.title}
+      selected={isSelected}
+      onClick={() => selectArtifact(artifact.filePath)}
+      indent={indent}
+    />
+  );
+}
+
+function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: BmadPlanningArtifact[] }) {
+  const [open, setOpen] = useState(false);
+  const { selectedItem } = useProjectNavigation();
+  const hasSelected = artifacts.some(
+    (a) => selectedItem?.type === "artifact" && selectedItem.id === a.filePath,
+  );
+
+  useEffect(() => {
+    if (hasSelected) setOpen(true);
+  }, [hasSelected]);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-1.5 text-[13px] font-medium transition-colors text-left cursor-pointer text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+        <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
+        <FolderOpen className="h-4 w-4 shrink-0" />
+        <span className="flex-1 truncate">{name}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="flex flex-col gap-0.5">
+          {artifacts.map((artifact) => (
+            <ArtifactItem key={artifact.filePath} artifact={artifact} indent={1} />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
+  // Group by subfolder: "planning-artifacts/etape-1/prd.md" → folder "etape-1"
+  const { rootArtifacts, folders } = useMemo(() => {
+    const map = new Map<string, BmadPlanningArtifact[]>();
+    const root: BmadPlanningArtifact[] = [];
+    for (const artifact of artifacts) {
+      const parts = artifact.filePath.split(/[/\\]/);
+      // parts[0] = "planning-artifacts", parts[1] = subfolder or filename
+      const folder = parts.length > 2 ? parts[1] : null;
+      if (!folder) {
+        root.push(artifact);
+      } else {
+        if (!map.has(folder)) map.set(folder, []);
+        map.get(folder)!.push(artifact);
+      }
+    }
+    return { rootArtifacts: root, folders: map };
+  }, [artifacts]);
 
   return (
     <SectionHeader label="Planning">
-      {artifacts.map((artifact) => {
-        const Icon = getArtifactIcon(artifact.type);
-        const isSelected =
-          selectedItem?.type === "artifact" && selectedItem.id === artifact.filePath;
-        return (
-          <TreeItem
-            key={artifact.filePath}
-            icon={Icon}
-            label={artifact.title}
-            selected={isSelected}
-            onClick={() => selectArtifact(artifact.filePath)}
-          />
-        );
-      })}
+      {rootArtifacts.map((artifact) => (
+        <ArtifactItem key={artifact.filePath} artifact={artifact} />
+      ))}
+      {[...folders.entries()].map(([name, items]) => (
+        <PlanningFolderSection key={name} name={name} artifacts={items} />
+      ))}
     </SectionHeader>
   );
 }

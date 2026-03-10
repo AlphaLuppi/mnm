@@ -26,7 +26,11 @@ function parseNumber(value: string | undefined, fallback: number) {
 }
 
 function jwtConfig() {
-  const secret = process.env.MNM_AGENT_JWT_SECRET;
+  const deploymentMode = process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted";
+  const rawSecret = process.env.MNM_AGENT_JWT_SECRET;
+  // In local_trusted dev mode, fall back to a well-known dev secret so agents always
+  // receive MNM_API_KEY without requiring `mnm onboard` to have been run.
+  const secret = rawSecret || (deploymentMode === "local_trusted" ? "mnm-dev-secret" : null);
   if (!secret) return null;
 
   return {

@@ -55,10 +55,11 @@ async function buildSkillsDir(): Promise<string> {
   const entries = await fs.readdir(skillsDir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      await fs.symlink(
-        path.join(skillsDir, entry.name),
-        path.join(target, entry.name),
-      );
+      const src = path.join(skillsDir, entry.name);
+      const dst = path.join(target, entry.name);
+      // On Windows, use 'junction' which doesn't require admin privileges or Developer Mode.
+      // On other platforms the type argument is ignored.
+      await fs.symlink(src, dst, process.platform === "win32" ? "junction" : "dir");
     }
   }
   return tmp;

@@ -519,6 +519,15 @@ function handleLiveEvent(
       buildActivityToast(queryClient, expectedCompanyId, payload, currentActor) ??
       buildJoinRequestToast(payload);
     if (toast) gatedPushToast(gate, pushToast, `activity:${action ?? "unknown"}`, toast);
+    return;
+  }
+
+  if (event.type === "bmad.workspace.changed") {
+    const projectId = readString(payload.projectId);
+    if (projectId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bmad.project(projectId) });
+    }
+    return;
   }
 }
 

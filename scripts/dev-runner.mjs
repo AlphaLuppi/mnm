@@ -30,6 +30,9 @@ if (process.env.npm_config_authenticated_private === "true") {
 const env = {
   ...process.env,
   MNM_UI_DEV_MIDDLEWARE: "true",
+  MNM_MIGRATION_PROMPT: "never",
+  // Provide a dev fallback so local agents get MNM_API_KEY injected without running `mnm onboard`.
+  MNM_AGENT_JWT_SECRET: process.env.MNM_AGENT_JWT_SECRET ?? "mnm-dev-secret",
 };
 
 if (tailscaleAuth) {
