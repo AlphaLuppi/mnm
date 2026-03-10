@@ -14,5 +14,5 @@ export { llmRoutes } from "./llms.js";
 export { accessRoutes } from "./access.js";
 export { workflowRoutes } from "./workflows.js";
 export { stageRoutes } from "./stages.js";
-export { bmadRoutes } from "./bmad.js";
+export { workspaceContextRoutes } from "./workspace-context.js";
 export { driftRoutes } from "./drift.js";

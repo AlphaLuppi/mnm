@@ -311,95 +311,9 @@ export function ProjectDetail() {
     }
   };
 
-  const workContent = (
-    <>
-      <div className="flex items-start gap-3">
-        <div className="h-7 flex items-center">
-          <ColorPicker
-            currentColor={project.color ?? "#6366f1"}
-            onSelect={(color) => updateProject.mutate({ color })}
-          />
-        </div>
-        <InlineEditor
-          value={project.name}
-          onSave={(name) => updateProject.mutate({ name })}
-          as="h2"
-          className="text-xl font-bold"
-        />
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="ml-auto md:hidden shrink-0"
-          onClick={() => setMobilePropsOpen(true)}
-          title="Properties"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className={cn(
-            "shrink-0 ml-auto transition-opacity duration-200 hidden md:flex",
-            panelVisible ? "opacity-0 pointer-events-none w-0 overflow-hidden" : "opacity-100",
-          )}
-          onClick={() => setPanelVisible(true)}
-          title="Show properties"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Top-level project tabs */}
-      <div className="flex items-center gap-1 border-b border-border">
-        <button
-          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "overview"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => handleTabChange("overview")}
-        >
-          Overview
-        </button>
-        <button
-          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "list"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => handleTabChange("list")}
-        >
-          List
-        </button>
-        <button
-          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "drift"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => handleTabChange("drift")}
-        >
-          Drift
-        </button>
-      </div>
-
-      {/* Tab content */}
-      {activeTab === "overview" && (
-        <OverviewContent
-          project={project}
-          onUpdate={(data) => updateProject.mutate(data)}
-          imageUploadHandler={async (file) => {
-            const asset = await uploadImage.mutateAsync(file);
-            return asset.contentPath;
-          }}
-        />
-      )}
-
-      {activeTab === "list" && project?.id && resolvedCompanyId && (
-        <ProjectIssuesList projectId={project.id} companyId={resolvedCompanyId} />
-      )}
-    </>
-  );
+  const workContent = project?.id && resolvedCompanyId ? (
+    <ProjectIssuesList projectId={project.id} companyId={resolvedCompanyId} />
+  ) : null;
 
   return (
     <div className="h-full -m-6 flex flex-col">
@@ -418,6 +332,15 @@ export function ProjectDetail() {
             {tab === "list" ? "Cockpit" : tab === "drift" ? "Drift" : "Overview"}
           </button>
         ))}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="ml-auto shrink-0"
+          onClick={() => setPanelVisible(!panelVisible)}
+          title="Properties"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Tab content */}
@@ -442,7 +365,7 @@ export function ProjectDetail() {
             <ThreePaneLayout
               left={<ContextPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} />}
               center={
-                <WorkPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined}>
+                <WorkPane projectId={projectLookupRef} companyId={resolvedCompanyId ?? undefined} hasWorkspace={Boolean(project?.primaryWorkspace)}>
                   {workContent}
                 </WorkPane>
               }

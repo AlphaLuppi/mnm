@@ -522,10 +522,10 @@ function handleLiveEvent(
     return;
   }
 
-  if (event.type === "bmad.workspace.changed") {
+  if (event.type === "workspace.context.changed") {
     const projectId = readString(payload.projectId);
     if (projectId) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bmad.project(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceContext.project(projectId) });
     }
     return;
   }

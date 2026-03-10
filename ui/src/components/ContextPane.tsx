@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { BmadProject, BmadEpic, BmadStory, BmadPlanningArtifact } from "@mnm/shared";
-import { useBmadProject } from "../hooks/useBmadProject";
+import type { WorkspaceEpic, WorkspaceStory, PlanningArtifact } from "@mnm/shared";
+import { useWorkspaceContext } from "../hooks/useWorkspaceContext";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
@@ -34,9 +34,9 @@ function getArtifactIcon(type: string): LucideIcon {
   return artifactIcon[type] ?? FileText;
 }
 
-/* ── Story status → badge mapping (BMAD uses kebab-case) ── */
+/* ── Story status → badge mapping (workspace context uses kebab-case) ── */
 
-const bmadStatusBadge: Record<string, string> = {
+const wsCtxStatusBadge: Record<string, string> = {
   backlog: "bg-muted text-muted-foreground",
   "ready-for-dev": "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
   "in-progress": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300",
@@ -46,7 +46,7 @@ const bmadStatusBadge: Record<string, string> = {
 
 function StoryStatusBadge({ status }: { status: string | null }) {
   if (!status) return null;
-  const colors = bmadStatusBadge[status] ?? statusBadge[status] ?? statusBadgeDefault;
+  const colors = wsCtxStatusBadge[status] ?? statusBadge[status] ?? statusBadgeDefault;
   return (
     <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium", colors)}>
       {status.replace(/-/g, " ")}
@@ -130,7 +130,7 @@ function TreeItem({
 
 /* ── Epic section (collapsible with stories) ── */
 
-function EpicSection({ epic, runningStoryTitles }: { epic: BmadEpic; runningStoryTitles: Set<string> }) {
+function EpicSection({ epic, runningStoryTitles }: { epic: WorkspaceEpic; runningStoryTitles: Set<string> }) {
   const [open, setOpen] = useState(false);
   const { selectedItem, selectEpic, selectStory } = useProjectNavigation();
   const epicId = String(epic.number);
@@ -199,7 +199,7 @@ function RunningDot() {
   );
 }
 
-function StoryRow({ story, epicId, isRunning }: { story: BmadStory; epicId: string; isRunning?: boolean }) {
+function StoryRow({ story, epicId, isRunning }: { story: WorkspaceStory; epicId: string; isRunning?: boolean }) {
   const { selectedItem, selectStory } = useProjectNavigation();
   const storyItemId = `${epicId}/${story.id}`;
   const isSelected = selectedItem?.type === "story" && selectedItem.id === storyItemId;
@@ -223,7 +223,7 @@ function StoryRow({ story, epicId, isRunning }: { story: BmadStory; epicId: stri
 
 /* ── Planning artifacts section ── */
 
-function ArtifactItem({ artifact, indent = 0 }: { artifact: BmadPlanningArtifact; indent?: number }) {
+function ArtifactItem({ artifact, indent = 0 }: { artifact: PlanningArtifact; indent?: number }) {
   const { selectedItem, selectArtifact } = useProjectNavigation();
   const Icon = getArtifactIcon(artifact.type);
   const isSelected = selectedItem?.type === "artifact" && selectedItem.id === artifact.filePath;
@@ -238,7 +238,7 @@ function ArtifactItem({ artifact, indent = 0 }: { artifact: BmadPlanningArtifact
   );
 }
 
-function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: BmadPlanningArtifact[] }) {
+function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: PlanningArtifact[] }) {
   const [open, setOpen] = useState(false);
   const { selectedItem } = useProjectNavigation();
   const hasSelected = artifacts.some(
@@ -267,11 +267,11 @@ function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: B
   );
 }
 
-function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
+function PlanningSection({ artifacts }: { artifacts: PlanningArtifact[] }) {
   // Group by subfolder: "planning-artifacts/etape-1/prd.md" → folder "etape-1"
   const { rootArtifacts, folders } = useMemo(() => {
-    const map = new Map<string, BmadPlanningArtifact[]>();
-    const root: BmadPlanningArtifact[] = [];
+    const map = new Map<string, PlanningArtifact[]>();
+    const root: PlanningArtifact[] = [];
     for (const artifact of artifacts) {
       const parts = artifact.filePath.split(/[/\\]/);
       // parts[0] = "planning-artifacts", parts[1] = subfolder or filename
@@ -300,7 +300,7 @@ function PlanningSection({ artifacts }: { artifacts: BmadPlanningArtifact[] }) {
 
 /* ── Epics section ── */
 
-function EpicsSection({ epics, runningStoryTitles }: { epics: BmadEpic[]; runningStoryTitles: Set<string> }) {
+function EpicsSection({ epics, runningStoryTitles }: { epics: WorkspaceEpic[]; runningStoryTitles: Set<string> }) {
   return (
     <SectionHeader label="Epics">
       {epics.map((epic) => (
@@ -338,7 +338,7 @@ interface ContextPaneProps {
 }
 
 export function ContextPane({ projectId, companyId }: ContextPaneProps) {
-  const { data: bmad, isLoading, error } = useBmadProject(projectId, companyId);
+  const { data: wsCtx, isLoading, error } = useWorkspaceContext(projectId, companyId);
 
   // Fetch live runs to detect running stories (Story 2-2)
   const { data: liveRuns = [] } = useQuery({
@@ -362,7 +362,7 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   // Build a set of story titles that have running agents
   const runningStoryTitles = useMemo(() => {
     const titles = new Set<string>();
-    if (!bmad?.detected || liveRuns.length === 0) return titles;
+    if (!wsCtx?.detected || liveRuns.length === 0) return titles;
     const runningIssueIds = new Set(
       liveRuns.filter((r) => r.status === "running" && r.issueId).map((r) => r.issueId),
     );
@@ -374,35 +374,26 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
       if (match) titles.add(match[1]);
     }
     return titles;
-  }, [bmad, liveRuns, activeIssues]);
+  }, [wsCtx, liveRuns, activeIssues]);
 
   if (isLoading) return <ContextPaneSkeleton />;
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 p-4">
-        <p className="text-sm text-destructive">Failed to load BMAD data</p>
-        <p className="text-xs text-center">{(error as Error).message}</p>
-      </div>
-    );
+  if (error || !wsCtx || !wsCtx.detected) {
+    return <EmptyState icon={FolderOpen} message="No context" />;
   }
 
-  if (!bmad || !bmad.detected) {
-    return <EmptyState icon={FolderOpen} message="No BMAD structure detected" />;
-  }
-
-  const hasPlanning = bmad.planningArtifacts.length > 0;
-  const hasEpics = bmad.epics.length > 0;
+  const hasPlanning = wsCtx.planningArtifacts.length > 0;
+  const hasEpics = wsCtx.epics.length > 0;
 
   if (!hasPlanning && !hasEpics) {
-    return <EmptyState icon={FolderOpen} message="No BMAD structure detected" />;
+    return <EmptyState icon={FolderOpen} message="No workspace structure detected" />;
   }
 
   return (
     <ScrollArea className="h-full">
       <div className="py-2 space-y-1">
-        {hasPlanning && <PlanningSection artifacts={bmad.planningArtifacts} />}
-        {hasEpics && <EpicsSection epics={bmad.epics} runningStoryTitles={runningStoryTitles} />}
+        {hasPlanning && <PlanningSection artifacts={wsCtx.planningArtifacts} />}
+        {hasEpics && <EpicsSection epics={wsCtx.epics} runningStoryTitles={runningStoryTitles} />}
       </div>
     </ScrollArea>
   );

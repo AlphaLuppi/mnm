@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { FlaskConical, ChevronRight, Circle, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
-import { useBmadProject } from "../hooks/useBmadProject";
+import { useWorkspaceContext } from "../hooks/useWorkspaceContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "../lib/utils";
-import type { BmadEpic, BmadStory, BmadAcceptanceCriterion } from "@mnm/shared";
+import type { WorkspaceEpic, WorkspaceStory, AcceptanceCriterion } from "@mnm/shared";
 
 /* ── AC status type (all pending for now, extensible later) ── */
 
@@ -31,7 +31,7 @@ function TestCard({
   storyId,
   status = "pending",
 }: {
-  ac: BmadAcceptanceCriterion;
+  ac: AcceptanceCriterion;
   epicNumber: number;
   storyId: string;
   status?: ACStatus;
@@ -84,7 +84,7 @@ function SummaryCounts({ total, pending, pass, fail }: { total: number; pending:
 
 /* ── Story AC group ── */
 
-function StoryACGroup({ story, epicNumber, defaultOpen = false }: { story: BmadStory; epicNumber: number; defaultOpen?: boolean }) {
+function StoryACGroup({ story, epicNumber, defaultOpen = false }: { story: WorkspaceStory; epicNumber: number; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const total = story.acceptanceCriteria.length;
   if (total === 0) return null;
@@ -116,7 +116,7 @@ function StoryACGroup({ story, epicNumber, defaultOpen = false }: { story: BmadS
 
 /* ── Epic AC group ── */
 
-function EpicACGroup({ epic, filterStoryId, defaultOpen = false }: { epic: BmadEpic; filterStoryId?: string; defaultOpen?: boolean }) {
+function EpicACGroup({ epic, filterStoryId, defaultOpen = false }: { epic: WorkspaceEpic; filterStoryId?: string; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const stories = filterStoryId
     ? epic.stories.filter((s) => s.id === filterStoryId)
@@ -170,21 +170,21 @@ interface TestsPaneProps {
 
 export function TestsPane({ projectId, companyId }: TestsPaneProps) {
   const { selectedItem } = useProjectNavigation();
-  const { data: bmad, isLoading } = useBmadProject(projectId, companyId);
+  const { data: wsCtx, isLoading } = useWorkspaceContext(projectId, companyId);
 
   if (isLoading) {
     return <TestsPaneEmpty message="Loading..." />;
   }
 
-  if (!bmad?.detected || bmad.epics.length === 0) {
-    return <TestsPaneEmpty message="No BMAD acceptance criteria found." />;
+  if (!wsCtx?.detected || wsCtx.epics.length === 0) {
+    return <TestsPaneEmpty message="No acceptance criteria found." />;
   }
 
   // Story selected → show only that story's ACs
   if (selectedItem?.type === "story") {
     const [epicId, ...rest] = selectedItem.id.split("/");
     const storyId = rest.join("/");
-    const epic = bmad.epics.find((e) => String(e.number) === epicId);
+    const epic = wsCtx.epics.find((e) => String(e.number) === epicId);
     if (epic) {
       const story = epic.stories.find((s) => s.id === storyId);
       if (story && story.acceptanceCriteria.length > 0) {
@@ -202,7 +202,7 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
 
   // Epic selected → show that epic's ACs
   if (selectedItem?.type === "epic") {
-    const epic = bmad.epics.find((e) => String(e.number) === selectedItem.id);
+    const epic = wsCtx.epics.find((e) => String(e.number) === selectedItem.id);
     if (epic) {
       const totalACs = epic.stories.reduce((sum, s) => sum + s.acceptanceCriteria.length, 0);
       if (totalACs > 0) {
@@ -227,7 +227,7 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
   return (
     <ScrollArea className="h-full">
       <div className="p-2 space-y-1">
-        {bmad.epics.map((epic) => (
+        {wsCtx.epics.map((epic) => (
           <EpicACGroup key={epic.number} epic={epic} defaultOpen />
         ))}
       </div>

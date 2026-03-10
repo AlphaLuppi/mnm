@@ -53,14 +53,25 @@ export type {
   InstanceUserRoleGrant,
 } from "./access.js";
 export type {
-  BmadTask,
-  BmadAcceptanceCriterion,
-  BmadStory,
-  BmadEpic,
-  BmadPlanningArtifact,
-  BmadSprintStatus,
-  BmadProject,
-} from "./bmad.js";
+  WorkspaceTask,
+  AcceptanceCriterion,
+  WorkspaceStory,
+  WorkspaceEpic,
+  PlanningArtifact,
+  SprintStatus,
+  WorkspaceContext,
+} from "./workspace-context.js";
+
+// Legacy aliases — kept for backward compatibility during migration
+export type {
+  WorkspaceTask as BmadTask,
+  AcceptanceCriterion as BmadAcceptanceCriterion,
+  WorkspaceStory as BmadStory,
+  WorkspaceEpic as BmadEpic,
+  PlanningArtifact as BmadPlanningArtifact,
+  SprintStatus as BmadSprintStatus,
+  WorkspaceContext as BmadProject,
+} from "./workspace-context.js";
 export type {
   CompanyPortabilityInclude,
   CompanyPortabilitySecretRequirement,

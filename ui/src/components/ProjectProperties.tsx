@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link } from "@/lib/router";
+import { Link, useNavigate } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project } from "@mnm/shared";
 import { StatusBadge } from "./StatusBadge";
 import { cn, formatDate } from "../lib/utils";
 import { goalsApi } from "../api/goals";
+import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -13,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ExternalLink, Github, Plus, Trash2, X } from "lucide-react";
+import { ExternalLink, Github, Loader2, Plus, ScanSearch, Trash2, X } from "lucide-react";
 import { ChoosePathButton } from "./PathInstructionsModal";
 
 const PROJECT_STATUSES = [
@@ -79,11 +80,15 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
 export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps) {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [goalOpen, setGoalOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<"local" | "repo" | null>(null);
   const [workspaceCwd, setWorkspaceCwd] = useState("");
   const [workspaceRepoUrl, setWorkspaceRepoUrl] = useState("");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [onboardAgentId, setOnboardAgentId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: allGoals } = useQuery({
     queryKey: queryKeys.goals.list(selectedCompanyId!),
@@ -133,6 +138,30 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
     mutationFn: ({ workspaceId, data }: { workspaceId: string; data: Record<string, unknown> }) =>
       projectsApi.updateWorkspace(project.id, workspaceId, data),
     onSuccess: invalidateProject,
+  });
+
+  const { data: agents = [] } = useQuery({
+    queryKey: queryKeys.agents.list(selectedCompanyId!),
+    queryFn: () => agentsApi.list(selectedCompanyId!),
+    enabled: onboardOpen && !!selectedCompanyId,
+  });
+  const activeAgents = agents.filter((a) => a.status !== "terminated");
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: () => projectsApi.remove(project.id, selectedCompanyId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(selectedCompanyId!) });
+      navigate("/projects");
+    },
+  });
+
+  const onboardMutation = useMutation({
+    mutationFn: () =>
+      projectsApi.onboard(project.id, onboardAgentId ? { agentId: onboardAgentId } : {}, selectedCompanyId!),
+    onSuccess: ({ issueId, identifier }) => {
+      setOnboardOpen(false);
+      navigate(`/issues/${identifier ?? issueId}`);
+    },
   });
 
   const removeGoal = (goalId: string) => {
@@ -516,6 +545,63 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
           {updateWorkspace.isError && (
             <p className="text-xs text-destructive">Failed to update workspace.</p>
           )}
+
+          {/* Workspace onboarding — only available when a local workspace is configured */}
+          {workspaces.some((w) => w.cwd && w.cwd !== REPO_ONLY_CWD_SENTINEL) && (
+            <div className="pt-1">
+              {!onboardOpen ? (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-7 px-2.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => { setOnboardOpen(true); setWorkspaceMode(null); }}
+                >
+                  <ScanSearch className="h-3.5 w-3.5 mr-1.5" />
+                  Discover workspace
+                </Button>
+              ) : (
+                <div className="space-y-2 rounded-md border border-border p-2">
+                  <p className="text-xs text-muted-foreground">
+                    An agent will explore the workspace, identify tools and frameworks, and propose how to map them to MnM.
+                  </p>
+                  <select
+                    className="w-full rounded border border-border bg-background px-2 py-1 text-xs outline-none"
+                    value={onboardAgentId}
+                    onChange={(e) => setOnboardAgentId(e.target.value)}
+                  >
+                    <option value="">No agent — create unassigned</option>
+                    {activeAgents.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="h-6 px-2"
+                      disabled={onboardMutation.isPending}
+                      onClick={() => onboardMutation.mutate()}
+                    >
+                      {onboardMutation.isPending
+                        ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Starting…</>
+                        : "Start discovery"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="h-6 px-2"
+                      onClick={() => { setOnboardOpen(false); setOnboardAgentId(""); onboardMutation.reset(); }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  {onboardMutation.isError && (
+                    <p className="text-xs text-destructive">Failed to start discovery.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <Separator />
@@ -526,6 +612,48 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
         <PropertyRow label="Updated">
           <span className="text-sm">{formatDate(project.updatedAt)}</span>
         </PropertyRow>
+
+        <Separator />
+
+        <div className="py-1.5">
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="text-xs text-destructive/70 hover:text-destructive transition-colors cursor-pointer"
+            >
+              Supprimer le projet
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-2.5">
+              <p className="text-xs text-destructive font-medium">
+                Supprimer « {project.name} » de MnM ? Cette action est irréversible.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  size="xs"
+                  className="h-6 px-2"
+                  disabled={deleteProjectMutation.isPending}
+                  onClick={() => deleteProjectMutation.mutate()}
+                >
+                  {deleteProjectMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmer la suppression"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-6 px-2"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Annuler
+                </Button>
+              </div>
+              {deleteProjectMutation.isError && (
+                <p className="text-xs text-destructive">Échec de la suppression.</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
