@@ -1,6 +1,6 @@
 # Story 1.4: Work Pane — Content Viewer
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

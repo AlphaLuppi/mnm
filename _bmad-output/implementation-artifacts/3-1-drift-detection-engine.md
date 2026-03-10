@@ -1,6 +1,6 @@
 # Story 3.1: Drift Detection Engine
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

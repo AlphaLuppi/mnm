@@ -1,6 +1,10 @@
 import { z } from "zod";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { logger } from "../middleware/logger.js";
 import { buildDriftPrompt } from "./drift-prompts.js";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Zod schema for a single drift item returned by the Claude API.
@@ -34,6 +38,49 @@ const BACKOFF_DELAYS = [1000, 2000, 4000];
  * Returns an array of drift items. Returns empty array if no drift found.
  * Throws on API failure after retries or on invalid API key.
  */
+/**
+ * Fallback: use `claude` CLI (Claude Code) for drift analysis.
+ * Works without ANTHROPIC_API_KEY — uses the CLI's own auth (Claude Max).
+ */
+async function analyzeDriftViaCLI(
+  system: string,
+  user: string,
+  sourceDoc: string,
+  targetDoc: string,
+): Promise<DriftResultItem[]> {
+  const prompt = `${system}\n\n${user}`;
+  const startTime = Date.now();
+
+  try {
+    const { stdout } = await execFileAsync(
+      "claude",
+      ["--dangerously-skip-permissions", "-p", prompt, "--output-format", "text"],
+      { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 },
+    );
+
+    const elapsed = Date.now() - startTime;
+    logger.info({ elapsed, sourceDoc, targetDoc }, "CLI drift analysis completed");
+
+    // Extract JSON from response
+    let jsonStr = stdout.trim();
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1]!.trim();
+    }
+    // Try to find a JSON array in the output
+    const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      jsonStr = arrayMatch[0];
+    }
+
+    const parsed = JSON.parse(jsonStr);
+    return DriftResultArraySchema.parse(parsed);
+  } catch (err) {
+    logger.error({ err, sourceDoc, targetDoc }, "CLI drift analysis failed");
+    throw err;
+  }
+}
+
 export async function analyzeDrift(
   sourceDoc: string,
   sourceContent: string,
@@ -42,9 +89,6 @@ export async function analyzeDrift(
   customInstructions?: string,
 ): Promise<DriftResultItem[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY environment variable is not set");
-  }
 
   const { system, user } = buildDriftPrompt(
     sourceDoc,
@@ -53,6 +97,12 @@ export async function analyzeDrift(
     targetContent,
     customInstructions,
   );
+
+  // Fallback to CLI if no API key
+  if (!apiKey) {
+    logger.info({ sourceDoc, targetDoc }, "Using Claude CLI for drift analysis (no ANTHROPIC_API_KEY)");
+    return analyzeDriftViaCLI(system, user, sourceDoc, targetDoc);
+  }
 
   const body = JSON.stringify({
     model: "claude-sonnet-4-20250514",

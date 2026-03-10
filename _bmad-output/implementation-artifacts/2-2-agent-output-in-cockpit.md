@@ -1,6 +1,6 @@
 # Story 2.2: Agent Output in Cockpit
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

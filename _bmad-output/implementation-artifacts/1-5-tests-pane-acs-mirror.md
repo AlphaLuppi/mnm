@@ -1,6 +1,6 @@
 # Story 1.5: Tests Pane — ACs Mirror
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

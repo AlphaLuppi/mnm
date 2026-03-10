@@ -1,6 +1,6 @@
 # Story 1.2: Three-Pane Resizable Layout
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

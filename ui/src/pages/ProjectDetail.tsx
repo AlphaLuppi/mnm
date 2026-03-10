@@ -283,7 +283,9 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (project) {
+      // Pre-load the panel content but keep it closed by default so it doesn't cover the Tests pane
       openPanel(<ProjectProperties project={project} onUpdate={(data) => updateProject.mutate(data)} />);
+      setPanelVisible(false);
     }
     return () => closePanel();
   }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
