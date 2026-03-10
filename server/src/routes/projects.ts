@@ -8,7 +8,7 @@ import {
   updateProjectWorkspaceSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { projectService, issueService, logActivity } from "../services/index.js";
+import { projectService, issueService, agentService, logActivity } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
@@ -439,6 +439,28 @@ export function projectRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+
+    // Cascade: delete scoped agents and issues before removing the project.
+    // The DB schema does not define onDelete cascade for agents (no FK) or issues
+    // (nullable FK with no action), so we handle it explicitly here.
+    const agentSvc = agentService(db);
+    const issueSvc = issueService(db);
+
+    // 1. Delete agents scoped to any of this project's workspaces
+    const workspaces = await svc.listWorkspaces(id);
+    for (const workspace of workspaces) {
+      const allAgents = await agentSvc.list(existing.companyId, { workspaceId: workspace.id, includeScoped: true });
+      for (const agent of allAgents.filter((a) => a.scopedToWorkspaceId === workspace.id)) {
+        await agentSvc.remove(agent.id);
+      }
+    }
+
+    // 2. Delete all issues belonging to this project
+    const projectIssues = await issueSvc.list(existing.companyId, { projectId: id });
+    for (const issue of projectIssues) {
+      await issueSvc.remove(issue.id);
+    }
+
     const project = await svc.remove(id);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
