@@ -34,6 +34,45 @@ if (process.platform === "win32") {
   }
 }
 
+// Kill any stale MnM server process still holding port 3100.
+// This happens when tsx watch restarts but the previous node process hasn't released the port yet,
+// causing the new server to silently bind on a different port (e.g. 3101) while the browser
+// keeps talking to 3100 and sees stale routes.
+const MNM_DEV_PORT = Number(process.env.PORT) || 3100;
+if (process.platform === "win32") {
+  try {
+    const netstatOut = execFileSync("netstat", ["-ano"], { encoding: "utf8" });
+    for (const line of netstatOut.split(/\r?\n/)) {
+      if (line.includes(`:${MNM_DEV_PORT}`) && line.includes("LISTENING")) {
+        const pid = line.trim().split(/\s+/).pop();
+        if (pid && /^\d+$/.test(pid) && pid !== "0") {
+          try {
+            execFileSync("taskkill", ["/F", "/PID", pid], { stdio: "ignore" });
+            console.log(`[mnm] Killed stale server on port ${MNM_DEV_PORT} (pid=${pid})`);
+          } catch {
+            // Already dead — fine
+          }
+        }
+      }
+    }
+  } catch {
+    // netstat unavailable or no match — fine
+  }
+} else {
+  try {
+    const out = execFileSync("lsof", ["-ti", `:${MNM_DEV_PORT}`], { encoding: "utf8" });
+    for (const pid of out.split("\n").filter(Boolean)) {
+      const n = parseInt(pid, 10);
+      if (Number.isInteger(n) && n > 0) {
+        try { process.kill(n, "SIGKILL"); } catch { /* Already dead */ }
+        console.log(`[mnm] Killed stale server on port ${MNM_DEV_PORT} (pid=${n})`);
+      }
+    }
+  } catch {
+    // lsof unavailable or no match — fine
+  }
+}
+
 // Remove stale pid file so postgres doesn't try to reclaim the shared memory segment
 if (existsSync(pidFile)) {
   try {
