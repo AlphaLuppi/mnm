@@ -137,6 +137,8 @@ export type {
   DriftReport,
   DriftCheckRequest,
   DriftResolveRequest,
+  DriftScanRequest,
+  DriftScanStatus,
 } from "./types/index.js";
 
 export {
