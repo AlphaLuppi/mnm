@@ -217,6 +217,7 @@ export const LIVE_EVENT_TYPES = [
   "workflow.completed",
   "workflow.deleted",
   "stage.transitioned",
+  "bmad.workspace.changed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

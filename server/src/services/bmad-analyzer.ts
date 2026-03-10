@@ -101,20 +101,38 @@ function parseStoryFilename(filename: string): { epicNumber: number; storyNumber
   };
 }
 
+async function collectMdFiles(dir: string, baseDir: string): Promise<string[]> {
+  const results: string[] = [];
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await collectMdFiles(fullPath, baseDir);
+      results.push(...nested);
+    } else if (entry.isFile() && entry.name.endsWith(".md")) {
+      results.push(path.relative(baseDir, fullPath));
+    }
+  }
+  return results;
+}
+
 async function scanPlanningArtifacts(bmadPath: string): Promise<BmadPlanningArtifact[]> {
   const planningDir = path.join(bmadPath, PLANNING_DIR);
   try {
-    const entries = await fs.readdir(planningDir);
+    const relativePaths = await collectMdFiles(planningDir, bmadPath);
     const artifacts: BmadPlanningArtifact[] = [];
 
-    for (const entry of entries) {
-      if (!entry.endsWith(".md")) continue;
-      const filePath = path.join(PLANNING_DIR, entry);
+    for (const filePath of relativePaths) {
       const fullPath = path.join(bmadPath, filePath);
       const content = await fs.readFile(fullPath, "utf-8");
       artifacts.push({
         title: extractTitle(content),
-        type: classifyPlanningArtifact(entry),
+        type: classifyPlanningArtifact(path.basename(filePath)),
         filePath,
       });
     }

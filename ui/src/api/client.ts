@@ -35,8 +35,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+async function requestText(path: string): Promise<string> {
+  const res = await fetch(`${BASE}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => null);
+    throw new ApiError(
+      (errorBody as { error?: string } | null)?.error ?? `Request failed: ${res.status}`,
+      res.status,
+      errorBody,
+    );
+  }
+  return res.text();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getText: (path: string) => requestText(path),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
   postForm: <T>(path: string, body: FormData) =>

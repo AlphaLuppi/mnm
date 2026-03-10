@@ -67,6 +67,7 @@ function redactConnectionString(raw: string): string {
 
 function resolveAgentJwtSecretStatus(
   envFilePath: string,
+  deploymentMode: DeploymentMode,
 ): {
   status: "pass" | "warn";
   message: string;
@@ -90,6 +91,14 @@ function resolveAgentJwtSecretStatus(
     }
   }
 
+  // In local_trusted mode a hardcoded dev fallback is used automatically — no need to warn.
+  if (deploymentMode === "local_trusted") {
+    return {
+      status: "pass",
+      message: "dev fallback (local_trusted)",
+    };
+  }
+
   return {
     status: "warn",
     message: "missing (run `pnpm mnm onboard`)",
@@ -103,7 +112,7 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
   const uiUrl = opts.uiMode === "none" ? "disabled" : baseUrl;
   const configPath = resolveMnMConfigPath();
   const envFilePath = resolveMnMEnvPath();
-  const agentJwtSecret = resolveAgentJwtSecretStatus(envFilePath);
+  const agentJwtSecret = resolveAgentJwtSecretStatus(envFilePath, opts.deploymentMode);
 
   const dbMode =
     opts.db.mode === "embedded-postgres"
