@@ -295,12 +295,12 @@ If you found NO workflow definitions: create one assignment \`"default": "<agent
 
 ### What the Context panel is
 
-The left pane of the MnM cockpit displays the project's planning documents and implementation structure. It reads directly from the **filesystem** at \`${workspacePath}/_bmad-output/\`. It is not a database field — you populate it by creating files on disk.
+The left pane of the MnM cockpit displays the project's planning documents and implementation structure. It reads directly from the **filesystem** at \`${workspacePath}/_mnm-context/\`. It is not a database field — you populate it by creating files on disk.
 
 Structure it expects:
 
 \`\`\`
-_bmad-output/
+_mnm-context/
   planning-artifacts/          ← PLANNING section of the panel
     <any-name>.md              ← Each .md = one card. Title = first # H1.
     <group-name>/              ← Subdirectory = visual group in the panel
@@ -318,11 +318,11 @@ File naming rules:
 
 Using what you found in Step 1 categories C and D:
 
-**For planning-artifacts**: for each document/spec/PRD/architecture file you found — copy its content into a new \`.md\` file inside \`_bmad-output/planning-artifacts/\`. If documents are grouped (e.g., by epic, by feature, by module), create subdirectories that reflect the grouping. Make sure each file starts with a \`# Title\` H1.
+**For planning-artifacts**: for each document/spec/PRD/architecture file you found — copy its content into a new \`.md\` file inside \`_mnm-context/planning-artifacts/\`. If documents are grouped (e.g., by epic, by feature, by module), create subdirectories that reflect the grouping. Make sure each file starts with a \`# Title\` H1.
 
 **For implementation-artifacts**: for each user story, epic, or feature definition you found — create a \`{e}-{s}-{slug}.md\` file. If the original has acceptance criteria, include them under a \`## Acceptance Criteria\` section. Add a \`## Status\` section with the current status. If you cannot determine epic/story numbers, start at 1-1, 1-2, etc.
 
-If the workspace already has a \`_bmad-output/\` directory (or any directory that looks like output artifacts — \`bmad_output/\`, \`output/\`, \`artifacts/\`, \`docs/\`), use its content as the source. Adapt the structure to match the format above if needed.
+If the workspace already has a \`_mnm-context/\` or \`_bmad-output/\` directory, use its content as the source. Adapt the structure to match the format above if needed. Always write new files to \`_mnm-context/\`.
 
 If you find nothing useful for context: create at minimum a \`planning-artifacts/project-overview.md\` with a \`# ${project.name}\` title and a one-paragraph description of the project based on what you read in the workspace.
 
@@ -334,7 +334,7 @@ After all four steps, reply with:
 
 **Agents** — table: name | MnM ID | role | scoped ✓/✗
 **Workflows** — table: slug | assigned agent name
-**Context panel** — list every file created in \`_bmad-output/\`, or confirm existing files were found
+**Context panel** — list every file created in \`_mnm-context/\`, or confirm existing files were found
 **What to do now** — one specific action (which agent, which workflow, what to ask)
 
 ---
