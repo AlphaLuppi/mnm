@@ -156,144 +156,174 @@ export function projectRoutes(db: Db) {
     const workspaceId = project.primaryWorkspace?.id ?? null;
     const mnmApiUrl = process.env.MNM_API_URL ?? "$MNM_API_URL";
 
-    // Pre-fill the exact API calls so the agent can't miss the scopedToWorkspaceId field
-    const scopeClause = workspaceId
-      ? `  "scopedToWorkspaceId": "${workspaceId}"   ← REQUIRED — this scopes the agent to THIS project only`
-      : `  "scopedToWorkspaceId": "<workspace-id>"   ← REQUIRED — fetch the workspace ID first`;
-    const wsClause = workspaceId
-      ? `  "workspaceId": "${workspaceId}",`
-      : `  "workspaceId": "<workspace-id>",`;
+    const wsId = workspaceId ?? "<workspace-id-not-found>";
 
-    const description = [
-      `# Workspace Onboarding — ${project.name}`,
-      ``,
-      `## Context`,
-      ``,
-      `| Field | Value |`,
-      `|-------|-------|`,
-      `| Workspace path | \`${workspacePath}\` |`,
-      `| Project ID | \`${id}\` |`,
-      `| Company ID | \`${project.companyId}\` |`,
-      workspaceId
-        ? `| Workspace ID | \`${workspaceId}\` |`
-        : `| Workspace ID | run \`GET ${mnmApiUrl}/api/projects/${id}/workspaces\` to get it |`,
-      `| MnM API base | \`${mnmApiUrl}\` |`,
-      `| Auth header | \`Authorization: Bearer $MNM_API_KEY\` |`,
-      ``,
-      `---`,
-      ``,
-      `## Goal`,
-      ``,
-      `**Leave the user with a fully operational AI-assisted development workflow for this project.**`,
-      ``,
-      `Concretely, by the end of this task:`,
-      `- Every agent that works on this project is **scoped** to workspace \`${workspaceId ?? "<workspace-id>"}\``,
-      `  (scoped = only visible inside this project, not polluting the global agent list)`,
-      `- Each workflow/role is **assigned** to the right agent in MnM so the user can launch them directly from the cockpit`,
-      `- The user knows exactly what to do next`,
-      ``,
-      `---`,
-      ``,
-      `## Phase 1 — Explore`,
-      ``,
-      `Read \`${workspacePath}\`. Start with a full directory listing, then inspect:`,
-      `- **Agentic frameworks**: BMAD (\`_bmad-output/\`, \`.claude/commands/\`, \`_bmad/\`), custom Claude Code setups, agent persona files`,
-      `- **Project structure**: README, package.json / pyproject.toml / Cargo.toml, config files, tech stack`,
-      `- **Existing automation**: scripts, CI/CD, Makefile, custom tooling`,
-      ``,
-      `Be specific — name every relevant file you find.`,
-      ``,
-      `---`,
-      ``,
-      `## Phase 2A — Framework found → Map it`,
-      ``,
-      `If you found an existing agentic framework, map it to MnM immediately.`,
-      ``,
-      `### Step 1 — Create scoped agents`,
-      ``,
-      `For each agent role/persona discovered, call:`,
-      ``,
-      `\`\`\`http`,
-      `POST ${mnmApiUrl}/api/companies/${project.companyId}/agents`,
-      `Authorization: Bearer $MNM_API_KEY`,
-      `Content-Type: application/json`,
-      ``,
-      `{`,
-      `  "name": "<persona name, e.g. Analyst Mary>",`,
-      `  "role": "<closest MnM role: ceo | cto | engineer | pm | qa | general>",`,
-      `  "adapterType": "claude_local",`,
-      scopeClause,
-      `}`,
-      `\`\`\``,
-      ``,
-      `> ⚠️ **CRITICAL**: \`scopedToWorkspaceId\` must be \`"${workspaceId ?? "<workspace-id>"}"\` on EVERY agent you create.`,
-      `> Without it the agent is global and leaks into every other project's agent list.`,
-      `> The create call will succeed silently without it — do not omit it.`,
-      ``,
-      `Save each returned agent \`id\` — you need them for the next step.`,
-      ``,
-      `### Step 2 — Save workflow assignments`,
-      ``,
-      `\`\`\`http`,
-      `POST ${mnmApiUrl}/api/projects/${id}/workspace-context/assignments`,
-      `Authorization: Bearer $MNM_API_KEY`,
-      `Content-Type: application/json`,
-      ``,
-      `{`,
-      wsClause,
-      `  "assignments": {`,
-      `    "<workflow-slug-1>": "<agent-id-1>",`,
-      `    "<workflow-slug-2>": "<agent-id-2>"`,
-      `  }`,
-      `}`,
-      `\`\`\``,
-      ``,
-      `### Step 3 — Confirm`,
-      ``,
-      `List every agent you created (name + MnM ID) and every assignment saved.`,
-      `Then tell the user their exact next step (which agent to run first and on what task).`,
-      ``,
-      `---`,
-      ``,
-      `## Phase 2B — No framework found → Propose`,
-      ``,
-      `If no agentic framework is detected, say so clearly and present this choice:`,
-      ``,
-      `---`,
-      `**Which workflow do you want for this project?**`,
-      ``,
-      `**[A] BMAD** — Battle-tested multi-agent dev framework.`,
-      `Roles: CEO (orchestrator), Dev, Scrum Master, QA, Architect.`,
-      `Best for structured product development with epics, stories, and planning artifacts.`,
-      ``,
-      `**[B] Custom** — Tell me what you need and we'll build it together step by step.`,
-      ``,
-      `Reply with **A** or **B** and I'll set it up immediately.`,
-      ``,
-      `---`,
-      ``,
-      `## Phase 3 — Install (only if Phase 2B, after user replies)`,
-      ``,
-      `### User chose [A] BMAD:`,
-      ``,
-      `1. Search online for the official BMAD GitHub repo and read its quickstart/installation guide`,
-      `2. Create the BMAD file structure inside \`${workspacePath}\`:`,
-      `   - \`_bmad-output/planning-artifacts/\``,
-      `   - \`_bmad-output/implementation-artifacts/\``,
-      `   - \`.claude/commands/\` — copy the BMAD workflow and persona \`.md\` files`,
-      `3. Create a scoped MnM agent for each BMAD role (CEO, Dev, SM, QA, Architect) — **with \`scopedToWorkspaceId: "${workspaceId ?? "<workspace-id>"}"\` on each one**`,
-      `4. Save their assignments`,
-      `5. Tell the user: which agent to talk to first, and what to ask it (e.g. "Ask the CEO agent to create your product brief")`,
-      ``,
-      `### User chose [B] Custom:`,
-      ``,
-      `Ask:`,
-      `- What roles/agents do you need?`,
-      `- What does a typical work session look like?`,
-      `- What tools and processes do you use?`,
-      ``,
-      `Then create the agents (**scoped**), save the assignments, and confirm.`,
-    ].join("\n");
+    const description = `# Workspace Onboarding — ${project.name}
+
+## Fixed context (do not modify these values)
+
+| | |
+|--|--|
+| Workspace path | \`${workspacePath}\` |
+| Project ID | \`${id}\` |
+| Company ID | \`${project.companyId}\` |
+| Workspace ID | \`${wsId}\` |
+| MnM API | \`${mnmApiUrl}\` |
+| Auth | \`Authorization: Bearer $MNM_API_KEY\` |
+
+---
+
+## What you must deliver — three things
+
+Do them in order. Do not stop after any one step.
+
+---
+
+## STEP 1 — Scoped Agents
+
+### What "scoped agent" means in MnM
+
+MnM agents are AI assistants that run tasks. An agent can be:
+- **Global**: visible across ALL projects in MnM (pollutes the global list)
+- **Scoped**: exclusive to ONE project's workspace (what you want here)
+
+Scoping is controlled by the \`scopedToWorkspaceId\` field. **Every agent you create MUST have \`"scopedToWorkspaceId": "${wsId}"\`.** The API accepts the request without it (no error), but the agent will silently become global. This has already caused problems in a previous run — don't repeat it.
+
+### What to discover
+
+Read \`${workspacePath}\` recursively. Look for:
+- Agent persona files: \`.claude/commands/bmad-agent-*.md\`, \`_bmad/agents/\`, or any \`*agent*.md\` / \`*persona*.md\`
+- Each persona = one MnM agent to create
+- Also note the agent's role (CEO, developer, PM, QA, etc.) to pick the right MnM role
+
+### How to create each agent
+
+\`\`\`bash
+curl -s -X POST "${mnmApiUrl}/api/companies/${project.companyId}/agents" \\
+  -H "Authorization: Bearer $MNM_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "<persona name, e.g. Analyst Mary>",
+    "role": "<ceo | cto | engineer | pm | qa | general>",
+    "adapterType": "claude_local",
+    "scopedToWorkspaceId": "${wsId}"
+  }'
+\`\`\`
+
+**Save the \`"id"\` field from each response** — you need it in Step 2.
+
+The \`role\` field maps as follows: orchestrator/manager → \`ceo\`, architect/tech lead → \`cto\`, developer → \`engineer\`, product manager/analyst → \`pm\`, QA/tester → \`qa\`, everything else → \`general\`.
+
+---
+
+## STEP 2 — Workflow Assignments
+
+### What workflow assignments are in MnM
+
+The MnM cockpit has a "Launch agent" button. When a user clicks it on a story or document, MnM needs to know **which agent to use for which workflow**. That mapping is the "workflow assignments" — a dictionary of \`{ workflowSlug: agentId }\`.
+
+### What to discover
+
+In the workspace, workflows are defined by files in \`.claude/commands/\`. Look for files that are NOT agent personas (i.e., not \`bmad-agent-*.md\`). Each of these is a workflow definition.
+
+For each workflow file:
+1. Read its YAML frontmatter (the \`---\` block at the top)
+2. The **slug** is the \`agentRole\` field in the frontmatter, or the filename without extension if \`agentRole\` is absent
+3. Determine which agent (from Step 1) handles this workflow based on content and role
+
+Example: \`bmad-dev-story.md\` with frontmatter \`agentRole: bmad-dev-story\` → slug is \`bmad-dev-story\` → assign to the Developer agent ID from Step 1.
+
+### How to save all assignments in one call
+
+\`\`\`bash
+curl -s -X POST "${mnmApiUrl}/api/projects/${id}/workspace-context/assignments" \\
+  -H "Authorization: Bearer $MNM_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "workspaceId": "${wsId}",
+    "assignments": {
+      "<slug-1>": "<agent-id-from-step-1>",
+      "<slug-2>": "<agent-id-from-step-1>",
+      "<slug-3>": "<agent-id-from-step-1>"
+    }
+  }'
+\`\`\`
+
+This replaces the full map — include ALL slugs you found in one call.
+
+---
+
+## STEP 3 — Context Panel (left pane of the MnM cockpit)
+
+### What the Context panel is
+
+The left panel of the MnM cockpit displays the project's documents and implementation structure. It is NOT a database field — it reads directly from the **filesystem** inside \`${workspacePath}/_bmad-output/\`.
+
+The panel shows two sections:
+
+**PLANNING section** — reads \`_bmad-output/planning-artifacts/\`:
+- Each \`.md\` file = one document card (title taken from the first \`# H1\` in the file)
+- Subdirectories = groups (e.g., \`etape-1/prd.md\` → group "etape-1", card "prd")
+- Files are typed by name: \`product-brief*\` → brief, \`prd*\` → PRD, \`architecture*\` → arch, others → doc
+
+**EPICS section** — reads \`_bmad-output/implementation-artifacts/\`:
+- Each \`.md\` file must follow the naming pattern: \`{epicNum}-{storyNum}-{slug}.md\`
+  Example: \`1-1-user-auth.md\`, \`1-2-login-form.md\`, \`2-1-dashboard.md\`
+- The first \`# H1\` in each file = story title
+- Status is read from a \`## Status\` section with values: \`backlog\`, \`ready-for-dev\`, \`in-progress\`, \`review\`, \`done\`
+- An optional \`_bmad-output/implementation-artifacts/sprint-status.yaml\` can override statuses
+
+### What to do
+
+**Case A — \`_bmad-output/\` or equivalent already exists in the workspace:**
+
+Check if the directory \`${workspacePath}/_bmad-output/\` exists. If it does, the Context panel should already work — do nothing, just confirm.
+
+If you find a similarly named directory (e.g., \`bmad_output/\`, \`_bmad-output/\`, \`bmad-output/\`) that contains planning or implementation artifacts:
+1. Create \`${workspacePath}/_bmad-output/\` (exact name, with leading underscore and hyphen)
+2. Create \`planning-artifacts/\` and \`implementation-artifacts/\` subdirectories inside it
+3. Copy or symlink the relevant files from the existing directory into the correct structure
+
+**Case B — No output directory found:**
+
+Create the structure from existing content:
+1. Create \`${workspacePath}/_bmad-output/planning-artifacts/\`
+2. For each major document found in the workspace (README, architecture doc, spec, brief), create a corresponding \`.md\` file in \`planning-artifacts/\` with a \`# Title\` H1 and the content
+3. If there are existing stories or task lists, create corresponding \`{e}-{s}-*.md\` files in \`_bmad-output/implementation-artifacts/\`
+4. If no content exists yet, create placeholder stubs so the panel shows something
+
+After creating the files, the panel will refresh automatically on the next page load.
+
+---
+
+## DELIVER
+
+After completing all three steps, reply with a structured summary:
+
+### Agents created
+List each: name | MnM ID | role | scoped to \`${wsId}\` ✓
+
+### Workflow assignments saved
+List each: slug → agent name
+
+### Context panel
+What is now visible in the left panel, or what files were created/missing.
+
+### Next step
+The single most important thing the user should do right now (be specific: which agent to open, what to ask it).
+
+---
+
+## If no framework found at all
+
+If you find NO agentic framework and NO content to populate the context panel, say so clearly and present:
+
+**[A] Install BMAD** — Fetch the official BMAD docs online, set it up in this workspace, create scoped agents for CEO/Dev/SM/QA/Architect, populate \`_bmad-output/\`, save assignments. Then tell the user their first step.
+
+**[B] Custom workflow** — Ask what roles they need, what a typical session looks like, what tools they use. Build it together, then create the agents (scoped), assignments, and context files.
+
+Reply with A or B.`;
+
 
     const issue = await issueSvc.create(project.companyId, {
       title: `Workspace discovery — ${project.name}`,
