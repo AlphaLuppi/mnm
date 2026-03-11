@@ -168,18 +168,19 @@ Chaque drift est signalé avec : sévérité, description, suggestion de résolu
 - ContextPane avec arbre navigable (planning artifacts + epics/stories)
 - WorkPane : SpecViewer (markdown + drift inline), EpicOverview, StoryViewer, ProjectAgentsDashboard
 - Drift detection (document vs document via LLM)
-- WorkspaceAgentSync : onboarding 3 modes (global/scoped/new-global)
-- Workspace discovery : bouton "Discover workspace" → crée une issue assignée à un agent
-- WorkspaceContextWatcher : file watcher + live events
-- Ghost agents : création lazy d'agents scoped au premier lancement
+- WorkspaceAgentSync : onboarding agents (détection → assignment UI)
+- **Workspace discovery / onboarding** : `POST /projects/:id/onboard` → issue assignée au CEO agent avec prompt 4 étapes (explorer → créer agents scoped → assignments → écrire config.yaml)
+- **Context panel config-driven** : `_mnm-context/config.yaml` mappe les vrais fichiers du projet. L'analyzer lit en live, zéro copie. Si le config n'existe pas → panel vide (pas de fallback).
+- **Agents scoped** : `scopedToWorkspaceId` sur chaque agent. Les agents de découverte sont obligatoirement scoped au workspace du projet.
+- **Agent assignments** : `workspace.metadata.bmadAssignments` — mapping slug workflow → agent MnM
+- WorkspaceContextWatcher : file watcher + live events sur `_mnm-context/`
 - LaunchAgentDialog avec injection de contexte workspace (persona + workflow)
-- Properties panel : gestion workspace, découverte, suppression projet
-- Onboard banner : CTA visible dans le cockpit quand pas de contexte configuré
-- Tab Drift sur le projet
+- **Properties panel** : scroll area + footer sticky — bouton "Supprimer le projet" toujours visible
+- **Cascade delete projet** : supprime agents scoped + toutes les issues (commentaires, read states inclus)
+- Renommage complet BMAD → framework-agnostic terminé (`bmad-analyzer` → `workspace-analyzer`, types `Bmad*` → `Workspace*`, routes `/bmad` → `/workspace-context`)
 
-### À finir / À venir
-- Renommage complet BMAD → framework-agnostic dans le codebase (en cours)
-- Finaliser le flow de discovery : agent explore → reporte → MnM popule automatiquement
+### À venir
+- Finaliser le flow de discovery : l'agent reporte → MnM popule `config.yaml` automatiquement sans intervention manuelle
 - TestsPane : mapping story↔tests, résultats de run
 - Bidirectionnalité : MnM crée des issues → workspace mis à jour (stories générées)
 - Timeline : vue temporelle des runs et progressions

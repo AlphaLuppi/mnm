@@ -1,7 +1,7 @@
 # MnM — Architecture Document
 
-**Version**: 3.0 — Fork Paperclip
-**Date**: 2026-03-09
+**Version**: 4.0 — Framework Agnostic
+**Date**: 2026-03-11
 
 ---
 
@@ -32,12 +32,13 @@ MnM est un fork de Paperclip AI. L'architecture est héritée : monorepo Node.js
 ┌─────────────────────────┴───────────────────────────┐
 │                  Server (Express)                    │
 │                                                     │
-│  Routes:     /api/projects, /api/agents, /api/bmad  │
-│  Services:   bmad-analyzer, drift, file-watcher,    │
-│              heartbeat, agents, projects, costs      │
-│  Realtime:   WebSocket (live-events-ws)              │
-│  Auth:       better-auth (sessions, roles)           │
-│  Adapters:   claude-local, codex-local, cursor, ...  │
+│  Routes: /api/projects, /api/agents,                │
+│          /api/projects/:id/workspace-context        │
+│  Services: workspace-analyzer, drift, watcher,      │
+│            heartbeat, agents, projects, costs        │
+│  Realtime: WebSocket (live-events-ws)               │
+│  Auth:     better-auth (sessions, roles)            │
+│  Adapters: claude-local, codex-local, cursor, ...   │
 │                                                     │
 │  Express + Drizzle ORM + embedded/external Postgres  │
 └─────────────────────────────────────────────────────┘
@@ -47,279 +48,191 @@ MnM est un fork de Paperclip AI. L'architecture est héritée : monorepo Node.js
 
 ```
 mnm/
-├── server/src/              # Express backend
-│   ├── routes/              # API endpoints
-│   ├── services/            # Business logic
-│   │   ├── bmad-analyzer.ts # [NEW] BMAD workspace parser
-│   │   ├── drift.ts         # [NEW] LLM drift detection
-│   │   ├── file-watcher.ts  # [NEW] Workspace file monitoring
-│   │   ├── git-info.ts      # [NEW] Git integration
-│   │   ├── test-discovery.ts# [NEW] Test file scanner
-│   │   ├── heartbeat.ts     # [INHERITED] Agent execution engine
-│   │   ├── agents.ts        # [INHERITED] Agent CRUD
-│   │   ├── projects.ts      # [INHERITED] Project management
+├── server/src/
+│   ├── routes/
+│   │   ├── workspace-context.ts  # [MnM] Context panel + workflows + agents
+│   │   ├── projects.ts           # [MnM+] Onboarding, cascade delete
+│   │   └── ...                   # [INHERITED]
+│   ├── services/
+│   │   ├── workspace-analyzer.ts # [MnM] config.yaml parser + story reader
+│   │   ├── workspace-context-watcher.ts  # [MnM] fs.watch sur _mnm-context/
+│   │   ├── drift.ts              # [MnM] LLM drift detection
+│   │   ├── heartbeat.ts          # [INHERITED] Agent execution engine
+│   │   ├── agents.ts             # [INHERITED+] scopedToWorkspaceId
+│   │   ├── projects.ts           # [INHERITED+] workspace management
 │   │   └── ...
-│   ├── realtime/            # WebSocket server
-│   ├── middleware/           # Auth, validation, logging
-│   └── adapters/            # Agent adapters (local process)
-├── ui/src/                  # React frontend
-│   ├── pages/               # Route pages
-│   ├── components/          # Shared components
-│   │   ├── ThreePaneLayout.tsx  # [NEW] 3-pane resizable layout
-│   │   ├── ContextPane.tsx      # [NEW] Left pane — specs tree
-│   │   ├── WorkPane.tsx         # [NEW] Center pane — content
-│   │   ├── TestsPane.tsx        # [NEW] Right pane — ACs/tests
-│   │   ├── TimelineBar.tsx      # [NEW] Bottom timeline
-│   │   ├── Layout.tsx           # [INHERITED] Main app layout
-│   │   ├── Sidebar.tsx          # [INHERITED] Navigation sidebar
+│   └── scripts/dev-runner.mjs    # [MnM] Kill stale postgres + port avant démarrage
+├── ui/src/
+│   ├── pages/
+│   │   ├── ProjectDetail.tsx     # [MnM] 3-pane cockpit + Properties panel
 │   │   └── ...
-│   ├── api/                 # API client functions
-│   ├── hooks/               # Custom hooks
-│   ├── context/             # React contexts
-│   │   ├── ProjectNavigationContext.tsx  # [NEW] Pane sync state
-│   │   ├── CompanyContext.tsx            # [INHERITED]
-│   │   ├── LiveUpdatesProvider.tsx       # [INHERITED] WebSocket
+│   ├── components/
+│   │   ├── ThreePaneLayout.tsx   # [MnM] Layout 3 volets redimensionnable
+│   │   ├── ContextPane.tsx       # [MnM] Volet gauche — arbre planning/stories
+│   │   ├── WorkPane.tsx          # [MnM] Volet central — viewer + agents
+│   │   ├── TestsPane.tsx         # [MnM] Volet droit — ACs/tests
+│   │   ├── PropertiesPanel.tsx   # [MnM] Panneau properties avec footer sticky
+│   │   ├── ProjectProperties.tsx # [MnM] Workspaces, goals, onboarding
+│   │   ├── DeleteProjectFooter   # [MnM] Exporté depuis ProjectProperties
+│   │   ├── WorkspaceAgentSync.tsx# [MnM] Onboarding agents 2 étapes
+│   │   ├── LaunchAgentDialog.tsx # [MnM+] Pré-sélection agent via assignments
 │   │   └── ...
-│   └── lib/                 # Utilities
-├── packages/
-│   ├── shared/src/          # Shared types & validators
-│   │   └── types/
-│   │       ├── bmad.ts      # [NEW] BMAD data types
-│   │       ├── drift.ts     # [NEW] Drift detection types
-│   │       └── ...          # [INHERITED] Existing types
-│   ├── db/src/              # Database schema (Drizzle)
-│   │   └── schema/          # All tables
-│   └── adapters/            # Agent adapters
-│       ├── claude-local/    # [INHERITED]
-│       ├── codex-local/     # [INHERITED]
+│   └── context/
+│       ├── PanelContext.tsx      # [MnM+] openPanel(content, footer?)
+│       ├── ProjectNavigationContext.tsx  # [MnM] Sync 3 volets
 │       └── ...
-├── _bmad/                   # BMAD framework config
-├── _bmad-output/            # BMAD outputs (specs, stories)
-├── docker-compose.yml       # Deployment
-├── Dockerfile               # Container build
-└── pnpm-workspace.yaml      # Monorepo config
+├── packages/
+│   ├── shared/src/types/
+│   │   ├── workspace-context.ts  # [MnM] WorkspaceContext, WorkspaceEpic, etc.
+│   │   ├── drift.ts              # [MnM] DriftReport, DriftItem
+│   │   └── ...                   # [INHERITED]
+│   └── db/src/schema/            # [INHERITED] Tables Paperclip
+├── _mnm-context/                 # Config du context panel (config.yaml)
+├── _bmad-output/                 # Docs de planning MnM (PRD, archi, stories)
+└── .claude/commands/             # Workflows BMAD pour le dev MnM lui-même
 ```
 
-## 3. Data Flow
-
-### 3.1 BMAD Data Flow (filesystem → UI)
+## 3. Context Panel — Data Flow
 
 ```
-Filesystem (_bmad-output/)
-    ↓ fs.readFile + parser
-server/src/services/bmad-analyzer.ts
+_mnm-context/config.yaml
+    ↓ yaml.load()
+workspace-analyzer.ts (analyzeWorkspace)
+    ↓ fs.readFile() sur les vrais fichiers du projet
     ↓ REST API
-GET /api/projects/:id/bmad
-    ↓ TanStack Query
-ui/src/hooks/useBmadProject.ts
-    ↓ React
+GET /api/projects/:id/workspace-context
+    ↓ TanStack Query (invalidé par live event bmad.workspace.changed)
 ContextPane + WorkPane + TestsPane
 ```
 
-### 3.2 Agent Execution Flow (unchanged from Paperclip)
-
-```
-User clicks "Launch agent on story"
-    ↓
-Create issue (issuesApi.create) with story content
-    ↓
-Heartbeat engine picks up issue → spawns agent process
-    ↓ adapter (claude-local, codex, etc.)
-Agent executes in workspace
-    ↓ WebSocket
-LiveUpdatesProvider → UI updates in real-time
-```
-
-### 3.3 Drift Detection Flow
-
-```
-User clicks "Check drift" (or file watcher triggers)
-    ↓
-POST /api/projects/:id/drift/check { docA, docB }
-    ↓
-server reads both files from workspace
-    ↓
-LLM compares documents → returns structured drift report
-    ↓ REST response
-UI shows DriftAlertCards in Tests pane
+### Format config.yaml
+```yaml
+planning:
+  - path: README.md           # relatif à workspace root
+    type: product-brief
+  - path: docs/prd.md
+    type: prd
+    group: specs              # groupement visuel optionnel
+stories:
+  - path: epics/1-1-auth.md   # fichier réel
+    epic: 1
+    story: 1
+    epicTitle: Authentication
+sprint_status:
+  path: .bmad/sprint-status.yaml
 ```
 
-## 4. New Services (MnM additions)
+**Règle** : pas de fallback. Si `config.yaml` absent → panel vide.
 
-### 4.1 BMAD Analyzer (`server/src/services/bmad-analyzer.ts`)
+## 4. Onboarding Flow
 
-Scans a workspace path for BMAD structure. Returns:
+```
+User clique "Découvrir le workspace"
+    ↓
+POST /api/projects/:id/onboard { agentId? }
+    ↓ crée une issue assignée au CEO (ou agent passé)
+    ↓ prompt 4 étapes :
+       1. Explorer workspace librement (tout format, tout dossier)
+       2. Créer agents scoped (scopedToWorkspaceId obligatoire)
+          POST /api/companies/:cid/agents
+       3. Sauvegarder workflow assignments
+          POST /api/projects/:id/workspace-context/assignments
+       4. Écrire _mnm-context/config.yaml (pointer vers vrais fichiers, ne PAS copier)
+    ↓ Agent travaille dans Claude Code
+    ↓ File watcher détecte config.yaml créé
+    ↓ Live event → Context Panel se peuple
+```
+
+## 5. Agents Architecture
+
+### Scoped agents
+- `agents.scopedToWorkspaceId = null` → agent global (visible partout)
+- `agents.scopedToWorkspaceId = workspaceId` → agent scoped (visible dans ce projet uniquement)
+- Créés par l'onboarding, configurés pour le framework du workspace
+
+### Workflow assignments
+Persistés dans `projectWorkspaces.metadata.bmadAssignments`:
+```json
+{ "dev": "agent-uuid-1", "sm": "agent-uuid-2", "default": "agent-uuid-3" }
+```
+`LaunchAgentDialog` lit ces assignments pour pré-sélectionner l'agent.
+
+### Cascade delete projet
+`DELETE /projects/:id` :
+1. Supprime les agents scoped à chaque workspace du projet
+2. Supprime toutes les issues (+ comments, read states, nullifie cost events)
+3. Supprime le projet
+
+## 6. Properties Panel
+
+### PanelContext (`ui/src/context/PanelContext.tsx`)
 ```typescript
-interface BmadProject {
-  planningArtifacts: BmadPlanningArtifact[];
-  epics: BmadEpic[];
-}
-
-interface BmadPlanningArtifact {
-  type: 'product-brief' | 'prd' | 'architecture' | 'ux-spec' | 'epics' | 'technical-research' | 'other';
-  title: string;
-  path: string;  // relative to _bmad-output/
-}
-
-interface BmadEpic {
-  id: string;
-  name: string;
-  status: string;
-  progress: { done: number; total: number };
-  stories: BmadStory[];
-}
-
-interface BmadStory {
-  id: string;
-  name: string;
-  status: string;
-  filePath: string;
-  acceptanceCriteria: BmadAcceptanceCriterion[];
-  tasks: BmadTask[];
-}
-
-interface BmadAcceptanceCriterion {
-  id: string;
-  title: string;
-  given: string;
-  when: string;
-  then: string;
-  status: 'pending' | 'pass' | 'fail';
-}
-
-interface BmadTask {
-  description: string;
-  done: boolean;
-  subtasks: { description: string; done: boolean }[];
-}
+openPanel(content: ReactNode, footer?: ReactNode)
+// content → ScrollArea (scrollable)
+// footer → div sticky en bas (toujours visible)
 ```
 
-### 4.2 Drift Detection (`server/src/services/drift.ts`)
-
-Compares two documents using an LLM. Returns:
-```typescript
-interface DriftReport {
-  docA: string;
-  docB: string;
-  checkedAt: string;
-  drifts: DriftItem[];
-}
-
-interface DriftItem {
-  id: string;
-  severity: 'critical' | 'warning' | 'info';
-  confidence: number;  // 0.0 - 1.0
-  description: string;
-  sourceExcerpt: string;
-  targetExcerpt: string;
-}
+### Usage dans ProjectDetail
+```tsx
+openPanel(
+  <ProjectProperties project={project} onUpdate={...} />,
+  <DeleteProjectFooter project={project} />,
+);
 ```
 
-### 4.3 File Watcher (`server/src/services/file-watcher.ts`) [Post-MVP]
+## 7. API Endpoints (MnM additions)
 
-Monitors workspace using `fs.watch({ recursive: true })`. Emits events via WebSocket.
-
-### 4.4 Git Info (`server/src/services/git-info.ts`) [Post-MVP]
-
-Queries git via `child_process.execFile`. Provides branch, commits, changed files.
-
-### 4.5 Test Discovery (`server/src/services/test-discovery.ts`) [Post-MVP]
-
-Scans workspace for test files, maps to specs by naming convention.
-
-## 5. New API Endpoints
-
-| Method | Endpoint | Description | MVP |
-|---|---|---|---|
-| GET | `/api/projects/:id/bmad` | BMAD structure for project | ✅ |
-| GET | `/api/projects/:id/bmad/file?path=` | Raw markdown file content | ✅ |
-| POST | `/api/projects/:id/drift/check` | Run drift check on 2 docs | ✅ |
-| GET | `/api/projects/:id/drift/results` | Get cached drift results | ✅ |
-| GET | `/api/projects/:id/git` | Git info (branch, commits) | ❌ |
-| GET | `/api/projects/:id/git/show` | File at commit | ❌ |
-| GET | `/api/projects/:id/tests` | Discovered tests | ❌ |
-| POST | `/api/projects/:id/tests/run` | Execute tests | ❌ |
-
-## 6. UI Architecture
-
-### 6.1 Layout Hierarchy
-
-```
-Layout.tsx (all pages)
-├── CompanyRail
-├── Sidebar
-├── <Outlet /> ← page-specific content
-│   ├── Dashboard.tsx (enhanced with cockpit widgets)
-│   ├── ProjectDetail.tsx ← uses ThreePaneLayout
-│   │   ├── ThreePaneLayout.tsx
-│   │   │   ├── ContextPane.tsx (left 25%)
-│   │   │   ├── WorkPane.tsx (center 50%)
-│   │   │   └── TestsPane.tsx (right 25%)
-│   │   └── TimelineBar.tsx (bottom)
-│   ├── Issues.tsx (unchanged)
-│   ├── Agents.tsx (unchanged)
-│   └── ... other pages (unchanged)
-└── PropertiesPanel
-```
-
-### 6.2 State Management
-
-| State | Pattern | Scope |
+| Method | Endpoint | Description |
 |---|---|---|
-| Server data (BMAD, agents, issues) | TanStack Query | Global cache |
-| Selected item in cockpit | ProjectNavigationContext | ProjectDetail page |
-| Panel sizes | Component local state | ThreePaneLayout |
-| Theme, sidebar | React Context | App-wide |
-| Live events | WebSocket → TanStack Query invalidation | Global |
+| GET | `/api/projects/:id/workspace-context` | Context panel data (lit config.yaml) |
+| GET | `/api/projects/:id/workspace-context/file?path=` | Fichier brut (relatif workspace root) |
+| GET | `/api/projects/:id/workspace-context/workflows` | Workflows depuis `.claude/commands/` |
+| GET | `/api/projects/:id/workspace-context/agents` | Agents découverts dans le workspace |
+| POST | `/api/projects/:id/workspace-context/import-agents` | Crée agents MnM scoped |
+| GET | `/api/projects/:id/workspace-context/assignments` | Lit bmadAssignments |
+| POST | `/api/projects/:id/workspace-context/assignments` | Sauvegarde assignments |
+| GET | `/api/projects/:id/workspace-context/command?name=` | Fichier depuis `.claude/commands/` |
+| POST | `/api/projects/:id/workspace-context/drift-check` | Drift entre 2 fichiers |
+| POST | `/api/projects/:id/onboard` | Lance l'agent de découverte |
+| DELETE | `/api/projects/:id` | Suppression en cascade |
 
-### 6.3 Key Principle: Modify ProjectDetail, NOT Layout
+## 8. Shared Types (`packages/shared`)
 
-The 3-pane cockpit replaces the content of `ProjectDetail.tsx` only. The `Layout.tsx` component is NOT modified. All other pages keep the standard single-content layout.
-
-## 7. Inherited Paperclip Components (DO NOT REBUILD)
-
-| Component | Purpose |
-|---|---|
-| `Layout.tsx` | App shell with rail + sidebar + content |
-| `Sidebar.tsx` | Navigation with sections and nav items |
-| `LiveRunWidget.tsx` | Real-time agent output viewer |
-| `ActiveAgentsPanel.tsx` | List of running agents |
-| `StatusBadge.tsx` / `StatusIcon.tsx` | Status indicators |
-| `MarkdownBody.tsx` | Markdown renderer |
-| `EmptyState.tsx` | Empty state placeholder |
-| `CommandPalette.tsx` | Cmd+K search |
-| `KanbanBoard.tsx` | Issue board |
-| `OnboardingWizard.tsx` | First-time setup |
-| `MetricCard.tsx` | Dashboard metrics |
-| `ActivityRow.tsx` | Activity feed items |
-| `FilterBar.tsx` | Filtering UI |
-
-## 8. Database (no new tables for MVP)
-
-BMAD data is read from the **filesystem** via the project's `workspacePath`. No new database tables are needed for MVP.
-
-Existing Paperclip tables used:
-- `projects` (with `workspacePath`)
-- `agents`, `heartbeat_runs`, `heartbeat_run_events`
-- `issues`, `issue_comments`
-- `cost_events`
-- `activity_log`
+```typescript
+// workspace-context.ts
+WorkspaceContext        // detected, planningArtifacts, epics, sprintStatus
+WorkspaceEpic           // number, title, status, stories[], progress
+WorkspaceStory          // id, epicNumber, storyNumber, title, status, filePath, ...
+PlanningArtifact        // title, type, filePath (relatif workspace root)
+SprintStatus            // project, statuses: Record<string, string>
+AcceptanceCriterion     // id, title, given, when, then[]
+WorkspaceTask           // label, done
+```
 
 ## 9. Security
 
-- File API (`/bmad/file`) validates paths against directory traversal (reject `..`, absolute paths)
-- All endpoints require authentication (inherited from Paperclip)
-- Drift detection uses company-configured LLM keys (no MnM keys)
-- Agent execution sandboxed via adapter (inherited from Paperclip)
+- File API : `path.resolve(workspacePath, filePath)` doit rester dans `workspacePath` (reject `..`, paths absolus)
+- Tous les endpoints requirent authentication (hérité Paperclip)
+- Drift detection utilise les clés LLM configurées par la company
 
-## 10. Dependencies
+## 10. Dev Runner (`scripts/dev-runner.mjs`)
 
-### New dependencies (to add)
-- `yaml` or `js-yaml` — parse sprint-status.yaml
-- `react-resizable-panels` — 3-pane layout (via shadcn/ui resizable)
+Au démarrage :
+1. Kill tous les `postgres.exe` (Windows) / process du PID file (Unix) → attend 800ms
+2. Kill le process tenant le port 3100 (`netstat -ano` Windows / `lsof` Unix)
+3. Supprime `postmaster.pid` si présent
+4. Lance `pnpm --filter @mnm/server dev` avec env vars dev
 
-### Inherited (already in Paperclip)
-- React 19, Vite, TanStack Query, Tailwind, shadcn/ui
-- Express, Drizzle, better-auth
-- ws (WebSocket)
-- All agent adapter dependencies
+## 11. Inherited Paperclip Components (DO NOT REBUILD)
+
+| Component | Purpose |
+|---|---|
+| `Layout.tsx` | App shell avec rail + sidebar + content |
+| `Sidebar.tsx` | Navigation |
+| `LiveRunWidget.tsx` | Real-time agent output |
+| `ActiveAgentsPanel.tsx` | Agents en cours |
+| `StatusBadge.tsx` | Status indicators |
+| `MarkdownBody.tsx` | Markdown renderer |
+| `KanbanBoard.tsx` | Issue board |
+| `OnboardingWizard.tsx` | First-time setup |
+| `CommandPalette.tsx` | Cmd+K search |
