@@ -1,7 +1,7 @@
 # MnM — Product Requirements Document (PRD)
 
-**Version**: 3.0 — Fork Paperclip
-**Date**: 2026-03-09
+**Version**: 4.0 — Framework Agnostic
+**Date**: 2026-03-11
 **Auteur**: Tom Andrieu (Seeyko)
 **Basé sur**: Product Brief v3.0, brainstorms Tom + Gab + Nikou
 
@@ -9,9 +9,9 @@
 
 ## 1. Executive Summary
 
-MnM est un cockpit de supervision pour le développement piloté par agents IA. C'est un fork de Paperclip AI (orchestration opérationnelle) enrichi d'une couche sémantique : parsing de specs BMAD, cockpit 3 volets synchronisé, drift detection, et suivi de tests.
+MnM est un cockpit universel de supervision pour le développement piloté par agents IA. C'est un fork de Paperclip AI enrichi d'une couche sémantique : context panel framework-agnostic, cockpit 3 volets synchronisé, drift detection, onboarding par agent de découverte, et suivi de tests.
 
-**Paradigme** : L'humain décrit (specs), supervise (cockpit), valide (tests). L'agent implémente.
+**Paradigme** : Discover → Describe → Review → Approve. L'humain supervise et valide. L'agent implémente.
 
 ## 2. Classification
 
@@ -32,17 +32,17 @@ MnM est un cockpit de supervision pour le développement piloté par agents IA. 
 
 ## 4. Functional Requirements
 
-### 4.1 BMAD Workspace Analysis (FR1-FR5)
+### 4.1 Workspace Context Analysis (FR1-FR5)
 
-**FR1** : Le système peut détecter automatiquement la structure BMAD dans un répertoire de projet (présence de `_bmad-output/`, `_bmad/`, fichiers de workflow)
+**FR1** : Le système lit `_mnm-context/config.yaml` dans un workspace projet pour déterminer quels fichiers afficher dans le Context Panel. Si le fichier n'existe pas, le panel est vide.
 
-**FR2** : Le système peut parser les planning artifacts (product-brief, PRD, architecture, UX spec, epics) et en extraire les titres, types, et chemins
+**FR2** : Le système peut lire les planning artifacts (product-brief, PRD, architecture, epics, etc.) depuis leurs **vrais chemins** dans le projet, tels que définis dans `config.yaml`. Les chemins sont relatifs à la racine du workspace.
 
-**FR3** : Le système peut parser les implementation artifacts (stories) et en extraire : titre, statut, acceptance criteria (Given/When/Then), tasks avec statut checkbox
+**FR3** : Le système peut lire les stories/epics depuis leurs vrais chemins et en extraire : titre, statut (`Status:` line), acceptance criteria (Given/When/Then), tasks avec checkbox
 
-**FR4** : Le système peut parser `sprint-status.yaml` pour obtenir les statuts des stories et epics
+**FR4** : Le système peut lire un fichier `sprint-status.yaml` depuis le chemin défini dans `config.yaml` pour obtenir les statuts des stories et epics
 
-**FR5** : Le système peut servir le contenu markdown d'un fichier BMAD via API REST, avec protection contre la traversée de répertoire
+**FR5** : Le système peut servir le contenu markdown de n'importe quel fichier du workspace via API REST (`path` relatif à la racine du workspace), avec protection contre la traversée de répertoire
 
 ### 4.2 Three-Pane Cockpit Layout (FR6-FR12)
 
@@ -98,7 +98,7 @@ MnM est un cockpit de supervision pour le développement piloté par agents IA. 
 
 **FR28** : L'utilisateur peut voir l'historique git du projet (branch courante, 20 derniers commits)
 
-**FR29** : Les modifications dans `_bmad-output/` déclenchent un refresh des données BMAD dans le cockpit
+**FR29** : Les modifications dans `_mnm-context/` déclenchent un refresh du Context Panel dans le cockpit
 
 ### 4.6 Tests & Validation (FR30-FR34)
 
@@ -122,7 +122,23 @@ MnM est un cockpit de supervision pour le développement piloté par agents IA. 
 
 **FR38** : Une timeline d'activité en bas du cockpit montre les événements chronologiquement (filtrable par agent)
 
-### 4.8 Deployment & Multi-user (FR39-FR42 — hérité Paperclip)
+### 4.8 Onboarding & Workspace Discovery (FR43-FR46)
+
+**FR43** : L'utilisateur peut déclencher un agent de découverte sur un workspace depuis le cockpit (`POST /projects/:id/onboard`). L'issue créée est automatiquement assignée à l'agent CEO du projet.
+
+**FR44** : L'agent de découverte suit un prompt en 4 étapes : (1) explorer le workspace librement, (2) créer des agents MnM scoped au workspace, (3) sauvegarder les workflow assignments, (4) écrire `_mnm-context/config.yaml` pointant vers les vrais fichiers. L'agent ne copie jamais de contenu.
+
+**FR45** : Les agents créés lors de l'onboarding sont obligatoirement **scoped** au workspace du projet (`scopedToWorkspaceId`). Un agent scoped n'est visible que dans le cockpit de son projet.
+
+**FR46** : Chaque workflow découvert dans le workspace est assigné à un agent MnM (mapping slug → agentId persisté dans `workspace.metadata`). Depuis `LaunchAgentDialog`, l'agent approprié est pré-sélectionné automatiquement.
+
+### 4.9 Project Lifecycle (FR47-FR48)
+
+**FR47** : La suppression d'un projet déclenche automatiquement la suppression en cascade : agents scoped au projet, toutes les issues du projet (et leurs commentaires, read states).
+
+**FR48** : Le Properties Panel (volet droit) dispose d'un footer sticky pour les actions destructives (suppression projet), toujours visible même quand le contenu scrolle.
+
+### 4.10 Deployment & Multi-user (FR39-FR42 — hérité Paperclip)
 
 **FR39** : L'application se déploie via Docker (docker-compose)
 
@@ -150,26 +166,28 @@ MnM est un cockpit de supervision pour le développement piloté par agents IA. 
 
 ## 6. MVP Scope
 
-### In Scope (MVP)
-- BMAD workspace parsing (FR1-FR5)
-- 3-pane cockpit layout (FR6-FR12)
-- Agent launch from specs (FR13-FR14, FR18)
-- Drift detection manual + display (FR19, FR21-FR23)
-- Tests pane with ACs (FR30, FR32)
-- Dashboard cockpit (FR35-FR37)
-- Deployment Docker (FR39)
+### In Scope (MVP) — ✅ implémenté
+- Workspace Context Analysis config-driven (FR1-FR5) ✅
+- 3-pane cockpit layout (FR6-FR12) ✅
+- Agent launch from specs (FR13-FR14, FR18) ✅
+- Drift detection manual + display (FR19, FR21-FR23) ✅
+- Tests pane with ACs (FR30, FR32) ✅
+- Dashboard cockpit (FR35-FR37) ✅
+- Deployment Docker (FR39) ✅
+- Workspace onboarding par agent de découverte (FR43-FR44) ✅
+- Scoped agents + workflow assignments (FR45-FR46) ✅
+- Cascade delete projet (FR47) ✅
+- Properties panel footer sticky (FR48) ✅
 
 ### Post-MVP
 - Event-driven drift detection (FR20)
-- File watcher (FR25-FR29)
+- File watcher attribut-agent (FR25-FR27)
 - Agent health indicators & blockage (FR15-FR17)
 - Test file discovery & execution (FR31, FR33, FR34)
 - Confidence threshold config (FR24)
 - Timeline bar (FR38)
-- Git history viewer
-- Workflow BMAD diagram viewer/editor
-- Multi-framework support (beyond BMAD)
-- Onboarding conversationnel
+- Git history viewer (FR28)
+- Bidirectionnalité : MnM génère des stories dans le workspace
 
 ## 7. Risks
 
