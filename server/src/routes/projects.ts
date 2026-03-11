@@ -10,7 +10,7 @@ import {
   updateProjectWorkspaceSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { projectService, issueService, agentService, logActivity } from "../services/index.js";
+import { projectService, issueService, agentService, heartbeatService, logActivity } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
@@ -200,7 +200,7 @@ Anything that describes an AI persona, role, or assistant. Could be:
 - Cursor rules, Windsurf rules, Claude memory files, or equivalent
 - Comments in code that describe what agent runs what
 
-For each one found: what is its name, what role does it play, what does it do?
+For each one found, record: **slug** (short id you will reuse), **name** (display name), **role** (what it does).
 
 ### B — Workflow/command definitions
 Anything that describes a repeatable task or process. Could be:
@@ -210,7 +210,7 @@ Anything that describes a repeatable task or process. Could be:
 - README sections like "How to run X" or "Workflow for Y"
 - Any structured process definition file
 
-For each one found: what is the workflow name/slug, what does it do, which role should run it?
+For each one found, record: **slug** (short id you will reuse), **what it does**, and crucially **which agent slug from category A should run it**. If the workflow file contains a frontmatter field like \`agentRole:\` or \`agent:\`, use that value to identify the responsible agent. If there is no explicit field, infer from context (a "run tests" workflow -> QA agent, a "write code" workflow -> dev agent, etc.).
 
 ### C — Project context and documentation
 Anything that describes what this project is, what it should do, or how it is built. Could be:
@@ -231,7 +231,19 @@ Anything that describes expected behavior or acceptance criteria. Could be:
 
 For each one found: what feature/story does it cover, what are the key criteria?
 
-List everything you found under each category before proceeding.
+Before proceeding, output two explicit tables:
+
+**Agent table (Step 1A)**
+| Slug | Name | Role description |
+|------|------|-----------------|
+| ... | ... | ... |
+
+**Workflow table (Step 1B)**
+| Slug | Description | Responsible agent slug |
+|------|------------|----------------------|
+| ... | ... | ... |
+
+These tables are your contract for Steps 2 and 3. Every row must be filled.
 
 ---
 
@@ -241,14 +253,20 @@ List everything you found under each category before proceeding.
 
 A scoped agent is visible ONLY inside this project's cockpit. Without \`scopedToWorkspaceId\`, the agent becomes global and pollutes every other project's agent list. **The API accepts the call silently without it — this has already caused a problem in a previous run. Do not omit it.**
 
-For every agent role / persona you found in Step 1 category A, create one MnM agent:
+### Rules — non-negotiable
+
+Take your **Agent table from Step 1A**. For EVERY row — no exceptions, no skips — call the API below and fill in the returned MnM ID:
+
+| Slug (from 1A) | Agent name | MnM ID (returned by API) |
+|----------------|-----------|--------------------------|
+| (copy rows from Step 1A table) | | |
 
 \`\`\`bash
 curl -s -X POST "${mnmApiUrl}/api/companies/${project.companyId}/agents" \\
   -H "Authorization: Bearer $MNM_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "<name from the persona/role definition>",
+    "name": "<name from the Agent table>",
     "role": "<pick the closest: ceo | cto | engineer | pm | qa | general>",
     "adapterType": "claude_local",
     "scopedToWorkspaceId": "${wsId}"
@@ -257,9 +275,9 @@ curl -s -X POST "${mnmApiUrl}/api/companies/${project.companyId}/agents" \\
 
 Role mapping: orchestrator/lead/manager -> \`ceo\`, tech lead/architect -> \`cto\`, developer -> \`engineer\`, product/analyst/UX -> \`pm\`, QA/tester -> \`qa\`, everything else -> \`general\`.
 
-**Save the returned \`id\` for each agent** — needed in Step 3.
+If you found NO agent definitions: create one \`general\` scoped agent named after the project (e.g. "\`${project.name} Agent\`") as a placeholder, with slug \`default\`.
 
-If you found NO agent definitions: create one \`general\` scoped agent named after the project (e.g. "\`${project.name} Agent\`") as a placeholder.
+**Do not continue to Step 3 until every slug in the Agent table has a MnM ID.**
 
 ---
 
@@ -269,8 +287,18 @@ If you found NO agent definitions: create one \`general\` scoped agent named aft
 
 A workflow assignment tells MnM: "when the user launches workflow X, use agent Y". This powers the "Launch agent" button in the cockpit.
 
-A **slug** is a short identifier for a workflow. Derive it from what you found:
-- If the workflow file has a frontmatter \`agentRole:\` or \`slug:\` field, use that value
+### How to build the assignments map
+
+Take your two tables from Step 1:
+
+1. **From the Agent table (1A):** for each row, add \`"<agent-slug>": "<MnM-ID-from-step-2>"\`. This registers the agent itself so the cockpit can launch it directly.
+
+2. **From the Workflow table (1B):** for each row, look up the "Responsible agent slug" column -> find that slug in your Step 2 table -> use its MnM ID. Add \`"<workflow-slug>": "<MnM-ID>"\`.
+
+3. **Verify before sending:** count your rows. You must have exactly (number of agents in 1A) + (number of workflows in 1B) entries. No row from either table may be missing. No value may be empty or null.
+
+A **slug** is the short identifier you recorded in Step 1. Rules:
+- If the file has a frontmatter \`agentRole:\`, \`slug:\`, or \`name:\` field, use that value exactly
 - Otherwise use the filename without extension, lowercased and hyphenated
 - For Makefile targets or npm scripts, use the target/script name
 
@@ -283,13 +311,13 @@ curl -s -X POST "${mnmApiUrl}/api/projects/${id}/workspace-context/assignments" 
   -d '{
     "workspaceId": "${wsId}",
     "assignments": {
-      "<workflow-slug>": "<agent-id-from-step-2>",
-      "<workflow-slug>": "<agent-id-from-step-2>"
+      "<slug>": "<MnM-agent-ID>",
+      "<slug>": "<MnM-agent-ID>"
     }
   }'
 \`\`\`
 
-If you found NO workflow definitions: create one assignment \`"default": "<agent-id>"\` pointing to the agent from Step 2.
+If you found NO workflow definitions: the assignments map only contains the agent slugs from Step 1A.
 
 ---
 
@@ -352,7 +380,8 @@ If there are no planning or story files yet: write a minimal config with at leas
 After all four steps, reply with:
 
 **Agents** — table: name | MnM ID | role | scoped (yes/no)
-**Workflows** — table: slug | assigned agent name
+**Assignments** — table: slug | assigned agent name | MnM agent ID (every slug listed — agents AND workflows)
+**Coverage check** — confirm: "X agent slugs found, X assigned. Y workflow slugs found, Y assigned. 0 gaps."
 **Context panel** — list every \`path:\` entry written in \`config.yaml\`
 **What to do now** — one specific action (which agent, which workflow, what to ask)
 
@@ -380,6 +409,19 @@ Reply A or B.`;
       createdByAgentId: actor.agentId ?? null,
       requestDepth: 0,
     });
+
+    if (agentId) {
+      const heartbeat = heartbeatService(db);
+      void heartbeat.wakeup(agentId, {
+        source: "assignment",
+        triggerDetail: "system",
+        reason: "issue_assigned",
+        payload: { issueId: issue.id, mutation: "create" },
+        requestedByActorType: actor.actorType,
+        requestedByActorId: actor.actorId,
+        contextSnapshot: { issueId: issue.id, source: "issue.create" },
+      }).catch((err) => console.error("Failed to wake agent on discovery:", err));
+    }
 
     res.status(201).json({ issueId: issue.id, identifier: issue.identifier });
   });

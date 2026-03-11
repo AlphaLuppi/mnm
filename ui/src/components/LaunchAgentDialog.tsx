@@ -40,6 +40,8 @@ interface LaunchAgentDialogProps {
   storyContent: string;
   /** Optional instruction pre-filled in the prompt field */
   defaultPrompt?: string;
+  /** Optional agent ID to pre-select when the dialog opens */
+  defaultAgentId?: string;
   onIssueCreated?: (issueId: string) => void;
 }
 
@@ -51,6 +53,7 @@ export function LaunchAgentDialog({
   storyTitle,
   storyContent,
   defaultPrompt,
+  defaultAgentId,
   onIssueCreated,
 }: LaunchAgentDialogProps) {
   const { pushToast } = useToast();
@@ -104,6 +107,13 @@ export function LaunchAgentDialog({
   }));
 
   const activeAgents = agents.filter((a) => a.status !== "terminated");
+
+  // Pre-select agent when dialog opens with a defaultAgentId
+  useEffect(() => {
+    if (open && defaultAgentId) {
+      setSelectedAgentId(defaultAgentId);
+    }
+  }, [open, defaultAgentId]);
 
   // When workflow changes, auto-select the workspace role and corresponding agent
   useEffect(() => {

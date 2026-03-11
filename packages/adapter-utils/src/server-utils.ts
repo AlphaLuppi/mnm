@@ -280,18 +280,29 @@ export async function runChildProcess(
       reject(new Error(msg));
     });
 
-    child.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
+    let exitInfo: { code: number | null; signal: NodeJS.Signals | null } | null = null;
+    let drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const finalize = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (drainTimer) { clearTimeout(drainTimer); drainTimer = null; }
       if (timeout) clearTimeout(timeout);
       runningProcesses.delete(runId);
       void logChain.finally(() => {
-        resolve({
-          exitCode: code,
-          signal,
-          timedOut,
-          stdout,
-          stderr,
-        });
+        resolve({ exitCode: code, signal, timedOut, stdout, stderr });
       });
+    };
+
+    // On Windows, grandchildren inherit pipe handles and can prevent "close" from ever firing
+    // even after the main process exits. Listen for "exit" and start a drain timer so we
+    // resolve after at most PIPE_DRAIN_TIMEOUT_MS regardless of inherited handles.
+    const PIPE_DRAIN_TIMEOUT_MS = 5_000;
+    child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+      exitInfo = { code, signal };
+      drainTimer = setTimeout(() => finalize(code, signal), PIPE_DRAIN_TIMEOUT_MS);
+    });
+
+    child.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
+      finalize(exitInfo?.code ?? code, exitInfo?.signal ?? signal);
     });
   });
 }

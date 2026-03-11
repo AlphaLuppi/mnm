@@ -6,20 +6,22 @@ import {
   BookOpen,
   ChevronRight,
   FolderOpen,
+  Folder,
+  Layers,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { WorkspaceEpic, WorkspaceStory, PlanningArtifact } from "@mnm/shared";
+import type { ContextNode, PlanningArtifact } from "@mnm/shared";
 import { useWorkspaceContext } from "../hooks/useWorkspaceContext";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
-import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
+import type { BreadcrumbEntry } from "../context/ProjectNavigationContext";
+import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "./EmptyState";
 import { cn } from "../lib/utils";
-import { statusBadge, statusBadgeDefault } from "../lib/status-colors";
 
 /* ── Artifact type → icon mapping ── */
 
@@ -34,38 +36,49 @@ function getArtifactIcon(type: string): LucideIcon {
   return artifactIcon[type] ?? FileText;
 }
 
-/* ── Story status → badge mapping (workspace context uses kebab-case) ── */
+/* ── Status dot ── */
 
-const wsCtxStatusBadge: Record<string, string> = {
-  backlog: "bg-muted text-muted-foreground",
-  "ready-for-dev": "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
-  "in-progress": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300",
-  review: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
-  done: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
+const statusDotColor: Record<string, string> = {
+  "ready-for-dev": "bg-blue-400",
+  "in-progress": "bg-amber-400",
+  review: "bg-violet-400",
+  done: "bg-green-500",
 };
 
-function StoryStatusBadge({ status }: { status: string | null }) {
+function StatusDot({ status }: { status: string | null | undefined }) {
   if (!status) return null;
-  const colors = wsCtxStatusBadge[status] ?? statusBadge[status] ?? statusBadgeDefault;
-  return (
-    <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium", colors)}>
-      {status.replace(/-/g, " ")}
-    </span>
-  );
+  const color = statusDotColor[status];
+  if (!color) return null;
+  return <span className={cn("shrink-0 h-1.5 w-1.5 rounded-full", color)} />;
 }
-
-/* ── Progress indicator ── */
 
 function ProgressText({ done, total }: { done: number; total: number }) {
   if (total === 0) return null;
   return (
-    <span className="text-[10px] text-muted-foreground tabular-nums">
+    <span className="shrink-0 text-[10px] tabular-nums font-mono text-muted-foreground/50">
       {done}/{total}
     </span>
   );
 }
 
-/* ── Section header (collapsible) ── */
+function RunningDot() {
+  return (
+    <span className="relative flex h-1.5 w-1.5 shrink-0">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
+    </span>
+  );
+}
+
+function GuideContent({ children, ml }: { children: React.ReactNode; ml: number }) {
+  return (
+    <div className="border-l border-border/20" style={{ marginLeft: ml }}>
+      {children}
+    </div>
+  );
+}
+
+/* ── Section header (top-level collapsible label, non-selectable) ── */
 
 function SectionHeader({
   label,
@@ -77,166 +90,46 @@ function SectionHeader({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1 w-full px-3 py-1.5 text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer">
-        <ChevronRight
-          className={cn("h-3 w-3 transition-transform", open && "rotate-90")}
-        />
+      <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors select-none cursor-pointer">
+        <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
         {label}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="flex flex-col gap-0.5 mt-0.5">{children}</div>
+        <GuideContent ml={12}>
+          <div className="flex flex-col py-0.5">{children}</div>
+        </GuideContent>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-/* ── Tree item (artifact or story row) ── */
+/* ── Artifact item ── */
 
-function TreeItem({
-  icon: Icon,
-  label,
-  selected,
-  onClick,
-  indent = 0,
-  trailing,
-}: {
-  icon: LucideIcon;
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-  indent?: number;
-  trailing?: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] font-medium transition-colors text-left cursor-pointer",
-        selected
-          ? "bg-accent text-foreground"
-          : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
-      )}
-      style={{ paddingLeft: `${0.75 + indent * 1}rem` }}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1 truncate">{label}</span>
-      {trailing}
-    </button>
-  );
-}
-
-/* ── Epic section (collapsible with stories) ── */
-
-function EpicSection({ epic, runningStoryTitles }: { epic: WorkspaceEpic; runningStoryTitles: Set<string> }) {
-  const [open, setOpen] = useState(false);
-  const { selectedItem, selectEpic, selectStory } = useProjectNavigation();
-  const epicId = String(epic.number);
-  const isEpicSelected = selectedItem?.type === "epic" && selectedItem.id === epicId;
-
-  // Auto-expand when a child story is selected (e.g. from TestsPane click)
-  const hasSelectedChild = selectedItem?.type === "story" && selectedItem.id.startsWith(`${epicId}/`);
-  useEffect(() => {
-    if (hasSelectedChild && !open) setOpen(true);
-  }, [hasSelectedChild]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            selectEpic(epicId);
-            setOpen((prev) => !prev);
-          }}
-          className={cn(
-            "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] font-medium transition-colors text-left cursor-pointer",
-            isEpicSelected
-              ? "bg-accent text-foreground"
-              : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
-          )}
-          style={{ paddingLeft: "0.75rem" }}
-        >
-          <ChevronRight
-            className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")}
-          />
-          <BookOpen className="h-4 w-4 shrink-0" />
-          <span className="flex-1 truncate">
-            Epic {epic.number}{epic.title ? `: ${epic.title}` : ""}
-          </span>
-          <ProgressText done={epic.progress.done} total={epic.progress.total} />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="flex flex-col gap-0.5">
-          {epic.stories.map((story) => {
-            const storyTitle = `${story.epicNumber}.${story.storyNumber} ${story.title}`;
-            return (
-              <StoryRow
-                key={story.id}
-                story={story}
-                epicId={epicId}
-                isRunning={runningStoryTitles.has(storyTitle)}
-              />
-            );
-          })}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-/* ── Running indicator dot ── */
-
-function RunningDot() {
-  return (
-    <span className="relative flex h-2 w-2 shrink-0">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-    </span>
-  );
-}
-
-function StoryRow({ story, epicId, isRunning }: { story: WorkspaceStory; epicId: string; isRunning?: boolean }) {
-  const { selectedItem, selectStory } = useProjectNavigation();
-  const storyItemId = `${epicId}/${story.id}`;
-  const isSelected = selectedItem?.type === "story" && selectedItem.id === storyItemId;
-
-  return (
-    <TreeItem
-      icon={FileText}
-      label={`${story.epicNumber}.${story.storyNumber} ${story.title}`}
-      selected={isSelected}
-      onClick={() => selectStory(epicId, story.id, story.filePath)}
-      indent={2}
-      trailing={
-        <span className="flex items-center gap-1.5">
-          {isRunning && <RunningDot />}
-          <StoryStatusBadge status={story.status} />
-        </span>
-      }
-    />
-  );
-}
-
-/* ── Planning artifacts section ── */
-
-function ArtifactItem({ artifact, indent = 0 }: { artifact: PlanningArtifact; indent?: number }) {
+function ArtifactItem({ artifact }: { artifact: PlanningArtifact }) {
   const { selectedItem, selectArtifact } = useProjectNavigation();
   const Icon = getArtifactIcon(artifact.type);
   const isSelected = selectedItem?.type === "artifact" && selectedItem.id === artifact.filePath;
   return (
-    <TreeItem
-      icon={Icon}
-      label={artifact.title}
-      selected={isSelected}
-      onClick={() => selectArtifact(artifact.filePath)}
-      indent={indent}
-    />
+    <button
+      onClick={() => selectArtifact(artifact.filePath, artifact.title)}
+      className={cn(
+        "group flex items-center gap-1.5 w-full h-6 text-xs transition-colors text-left",
+        isSelected
+          ? "bg-accent text-foreground font-medium"
+          : "text-foreground/65 hover:bg-accent/50 hover:text-foreground",
+      )}
+      style={{ paddingLeft: 10, paddingRight: 6 }}
+    >
+      <span className="w-3 shrink-0" />
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", isSelected ? "text-foreground/70" : "text-muted-foreground/55")} />
+      <span className="flex-1 truncate min-w-0">{artifact.title}</span>
+    </button>
   );
 }
+
+/* ── Planning folder ── */
 
 function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: PlanningArtifact[] }) {
   const [open, setOpen] = useState(false);
@@ -244,37 +137,53 @@ function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: P
   const hasSelected = artifacts.some(
     (a) => selectedItem?.type === "artifact" && selectedItem.id === a.filePath,
   );
-
   useEffect(() => {
     if (hasSelected) setOpen(true);
   }, [hasSelected]);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-1.5 text-[13px] font-medium transition-colors text-left cursor-pointer text-foreground/80 hover:bg-accent/50 hover:text-foreground">
-        <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
-        <FolderOpen className="h-4 w-4 shrink-0" />
+      <CollapsibleTrigger
+        className={cn(
+          "group flex items-center gap-1.5 w-full h-6 text-xs text-left transition-colors",
+          "text-foreground/65 hover:bg-accent/50 hover:text-foreground",
+        )}
+        style={{ paddingLeft: 10, paddingRight: 6 }}
+      >
+        <ChevronRight
+          className={cn(
+            "h-3 w-3 shrink-0 transition-transform text-muted-foreground/40 group-hover:text-muted-foreground/70",
+            open && "rotate-90",
+          )}
+        />
+        {open ? (
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55" />
+        ) : (
+          <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55" />
+        )}
         <span className="flex-1 truncate">{name}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="flex flex-col gap-0.5">
-          {artifacts.map((artifact) => (
-            <ArtifactItem key={artifact.filePath} artifact={artifact} indent={1} />
-          ))}
-        </div>
+        <GuideContent ml={22}>
+          <div className="flex flex-col py-0.5">
+            {artifacts.map((artifact) => (
+              <ArtifactItem key={artifact.filePath} artifact={artifact} />
+            ))}
+          </div>
+        </GuideContent>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
+/* ── Planning section ── */
+
 function PlanningSection({ artifacts }: { artifacts: PlanningArtifact[] }) {
-  // Group by subfolder: "planning-artifacts/etape-1/prd.md" → folder "etape-1"
   const { rootArtifacts, folders } = useMemo(() => {
     const map = new Map<string, PlanningArtifact[]>();
     const root: PlanningArtifact[] = [];
     for (const artifact of artifacts) {
       const parts = artifact.filePath.split(/[/\\]/);
-      // parts[0] = "planning-artifacts", parts[1] = subfolder or filename
       const folder = parts.length > 2 ? parts[1] : null;
       if (!folder) {
         root.push(artifact);
@@ -298,13 +207,140 @@ function PlanningSection({ artifacts }: { artifacts: PlanningArtifact[] }) {
   );
 }
 
-/* ── Epics section ── */
+/* ── Recursive tree node ── */
 
-function EpicsSection({ epics, runningStoryTitles }: { epics: WorkspaceEpic[]; runningStoryTitles: Set<string> }) {
+const BASE_PL = 10;
+const DEPTH_INDENT = 10;
+
+function ContextNodeItem({
+  node,
+  depth,
+  ancestors,
+  runningTitles,
+}: {
+  node: ContextNode;
+  depth: number;
+  ancestors: BreadcrumbEntry[];
+  runningTitles: Set<string>;
+}) {
+  const { selectedItem, selectNode } = useProjectNavigation();
+  const [open, setOpen] = useState(false);
+
+  const isSelected = selectedItem?.type === "node" && selectedItem.id === node.id;
+  const isInPath =
+    selectedItem?.type === "node" &&
+    !isSelected &&
+    selectedItem.breadcrumb.slice(0, -1).some((b) => b.id === node.id);
+
+  useEffect(() => {
+    if (isInPath && !open) setOpen(true);
+  }, [isInPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const entry: BreadcrumbEntry = { id: node.id, title: node.title, filePath: node.path };
+  const isLeaf = node.children.length === 0;
+  const isRunning = runningTitles.has(node.title);
+  const pl = BASE_PL + depth * DEPTH_INDENT;
+
+  if (isLeaf) {
+    const Icon = node.path ? FileText : Layers;
+    return (
+      <button
+        onClick={() => selectNode(node.id, node.title, node.path, ancestors)}
+        className={cn(
+          "group flex items-center gap-1.5 w-full h-6 text-xs transition-colors text-left",
+          isSelected
+            ? "bg-accent text-foreground font-medium"
+            : "text-foreground/65 hover:bg-accent/50 hover:text-foreground",
+        )}
+        style={{ paddingLeft: pl, paddingRight: 6 }}
+      >
+        <span className="w-3 shrink-0" />
+        <Icon
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            isSelected ? "text-foreground/70" : "text-muted-foreground/55",
+          )}
+        />
+        <span className="flex-1 truncate min-w-0">{node.title}</span>
+        <span className="flex items-center gap-1 ml-auto pl-1 shrink-0">
+          {isRunning && <RunningDot />}
+          <StatusDot status={node.status} />
+        </span>
+      </button>
+    );
+  }
+
   return (
-    <SectionHeader label="Epics">
-      {epics.map((epic) => (
-        <EpicSection key={epic.number} epic={epic} runningStoryTitles={runningStoryTitles} />
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            selectNode(node.id, node.title, undefined, ancestors);
+            setOpen((prev) => !prev);
+          }}
+          className={cn(
+            "group flex items-center gap-1.5 w-full h-6 text-xs text-left transition-colors",
+            isSelected
+              ? "bg-accent text-foreground font-medium"
+              : "text-foreground/65 hover:bg-accent/50 hover:text-foreground",
+          )}
+          style={{ paddingLeft: pl, paddingRight: 6 }}
+        >
+          <ChevronRight
+            className={cn(
+              "h-3 w-3 shrink-0 transition-transform text-muted-foreground/40 group-hover:text-muted-foreground/70",
+              open && "rotate-90",
+            )}
+          />
+          <BookOpen
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              isSelected ? "text-foreground/70" : "text-muted-foreground/55",
+            )}
+          />
+          <span className="flex-1 truncate">{node.title}</span>
+          <ProgressText done={node.progress.done} total={node.progress.total} />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <GuideContent ml={pl + 12}>
+          <div className="flex flex-col py-0.5">
+            {node.children.map((child) => (
+              <ContextNodeItem
+                key={child.id}
+                node={child}
+                depth={depth + 1}
+                ancestors={[...ancestors, entry]}
+                runningTitles={runningTitles}
+              />
+            ))}
+          </div>
+        </GuideContent>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/* ── Workspace tree section ── */
+
+function WorkspaceTreeSection({
+  nodes,
+  runningTitles,
+}: {
+  nodes: ContextNode[];
+  runningTitles: Set<string>;
+}) {
+  return (
+    <SectionHeader label="Workspace">
+      {nodes.map((node) => (
+        <ContextNodeItem
+          key={node.id}
+          node={node}
+          depth={0}
+          ancestors={[]}
+          runningTitles={runningTitles}
+        />
       ))}
     </SectionHeader>
   );
@@ -315,16 +351,16 @@ function EpicsSection({ epics, runningStoryTitles }: { epics: WorkspaceEpic[]; r
 function ContextPaneSkeleton() {
   return (
     <div className="p-3 space-y-4">
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-7 w-full" />
-        <Skeleton className="h-7 w-full" />
-        <Skeleton className="h-7 w-3/4" />
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-3/4" />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Skeleton className="h-3 w-12" />
-        <Skeleton className="h-7 w-full" />
-        <Skeleton className="h-7 w-full" />
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-full" />
       </div>
     </div>
   );
@@ -340,7 +376,6 @@ interface ContextPaneProps {
 export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   const { data: wsCtx, isLoading, error } = useWorkspaceContext(projectId, companyId);
 
-  // Fetch live runs to detect running stories (Story 2-2)
   const { data: liveRuns = [] } = useQuery({
     queryKey: queryKeys.liveRuns(companyId ?? ""),
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId!),
@@ -348,7 +383,6 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     refetchInterval: 5000,
   });
 
-  // Fetch in-progress issues to match running agents to story titles
   const { data: activeIssues = [] } = useQuery({
     queryKey: [...queryKeys.issues.list(companyId ?? ""), "in_progress"],
     queryFn: () =>
@@ -359,8 +393,7 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     refetchInterval: 10000,
   });
 
-  // Build a set of story titles that have running agents
-  const runningStoryTitles = useMemo(() => {
+  const runningTitles = useMemo(() => {
     const titles = new Set<string>();
     if (!wsCtx?.detected || liveRuns.length === 0) return titles;
     const runningIssueIds = new Set(
@@ -368,8 +401,6 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     );
     for (const issue of activeIssues) {
       if (!runningIssueIds.has(issue.id)) continue;
-      // Issue titles are formatted as "[workflow-type] X.Y Title"
-      // Extract story title by removing the workflow prefix
       const match = issue.title?.match(/^\[[\w-]+\]\s*(.+)$/);
       if (match) titles.add(match[1]);
     }
@@ -383,9 +414,9 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   }
 
   const hasPlanning = wsCtx.planningArtifacts.length > 0;
-  const hasEpics = wsCtx.epics.length > 0;
+  const hasTree = wsCtx.tree.length > 0;
 
-  if (!hasPlanning && !hasEpics) {
+  if (!hasPlanning && !hasTree) {
     return <EmptyState icon={FolderOpen} message="No workspace structure detected" />;
   }
 
@@ -393,7 +424,7 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     <ScrollArea className="h-full">
       <div className="py-2 space-y-1">
         {hasPlanning && <PlanningSection artifacts={wsCtx.planningArtifacts} />}
-        {hasEpics && <EpicsSection epics={wsCtx.epics} runningStoryTitles={runningStoryTitles} />}
+        {hasTree && <WorkspaceTreeSection nodes={wsCtx.tree} runningTitles={runningTitles} />}
       </div>
     </ScrollArea>
   );

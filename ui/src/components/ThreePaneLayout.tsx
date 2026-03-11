@@ -48,7 +48,7 @@ export function ThreePaneLayout({
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{leftTitle}</span>
             )}
           </div>
-          {!leftCollapsed && <div className="flex-1 overflow-auto p-3">{left}</div>}
+          {!leftCollapsed && <div className="flex-1 min-h-0 overflow-hidden">{left}</div>}
         </div>
 
         {/* Center — Work */}

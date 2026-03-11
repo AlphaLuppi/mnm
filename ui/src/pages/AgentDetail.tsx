@@ -58,6 +58,7 @@ import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@mnm/shared";
 import { agentRouteRef } from "../lib/utils";
+import { projectsApi } from "../api/projects";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -291,6 +292,18 @@ export function AgentDetail() {
     enabled: !!resolvedCompanyId,
   });
 
+  const { data: allProjects } = useQuery({
+    queryKey: queryKeys.projects.list(resolvedCompanyId!),
+    queryFn: () => projectsApi.list(resolvedCompanyId!),
+    enabled: !!resolvedCompanyId && !!agent?.scopedToWorkspaceId,
+  });
+
+  const scopedProject = agent?.scopedToWorkspaceId
+    ? (allProjects ?? []).find((p) =>
+        p.workspaces.some((w) => w.id === agent.scopedToWorkspaceId)
+      ) ?? null
+    : null;
+
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -450,6 +463,15 @@ export function AgentDetail() {
               {roleLabels[agent.role] ?? agent.role}
               {agent.title ? ` - ${agent.title}` : ""}
             </p>
+            {scopedProject && (
+              <Link
+                to={`/projects/${scopedProject.id}`}
+                className="inline-flex items-center gap-1 mt-0.5 text-xs text-violet-600 dark:text-violet-400 hover:underline no-underline"
+              >
+                <span className="opacity-60">Workspace</span>
+                <span className="font-medium">{scopedProject.name}</span>
+              </Link>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">

@@ -1409,5 +1409,21 @@ export function issueService(db: Db) {
 
       return Number(result?.count ?? 0);
     },
+
+    staleIds: async (companyId: string, minutes = 60): Promise<string[]> => {
+      const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+      return db
+        .select({ id: issues.id })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            eq(issues.status, "in_progress"),
+            isNull(issues.hiddenAt),
+            sql`${issues.startedAt} < ${cutoff.toISOString()}`,
+          ),
+        )
+        .then((rows) => rows.map((r) => r.id));
+    },
   };
 }

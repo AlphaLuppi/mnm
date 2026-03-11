@@ -8,6 +8,7 @@ import { dashboardApi } from "../api/dashboard";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { sidebarBadgesApi } from "../api/sidebarBadges";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -39,7 +40,7 @@ import {
 } from "lucide-react";
 import { Identity } from "../components/Identity";
 import { PageTabBar } from "../components/PageTabBar";
-import type { HeartbeatRun, Issue, JoinRequest } from "@mnm/shared";
+import type { HeartbeatRun, Issue, JoinRequest, SidebarBadges } from "@mnm/shared";
 
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RECENT_ISSUES_LIMIT = 100;
@@ -311,7 +312,32 @@ export function Inbox() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [allCategoryFilter, setAllCategoryFilter] = useState<InboxCategoryFilter>("everything");
   const [allApprovalFilter, setAllApprovalFilter] = useState<InboxApprovalFilter>("all");
-  const { dismissed, dismiss } = useDismissedItems();
+  const { dismissed, dismiss: dismissItem } = useDismissedItems();
+
+  const dismiss = useCallback((id: string) => {
+    // Mise à jour locale immédiate (UI réactive)
+    dismissItem(id);
+    if (selectedCompanyId) {
+      // Update optimiste du badge sidebar
+      queryClient.setQueryData<SidebarBadges>(
+        queryKeys.sidebarBadges(selectedCompanyId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            failedRuns: id.startsWith("run:") ? Math.max(0, old.failedRuns - 1) : old.failedRuns,
+            inbox: Math.max(0, old.inbox - 1),
+          };
+        },
+      );
+      // Persistance serveur (fire-and-forget) — badge sera correct au prochain fetch
+      sidebarBadgesApi.dismiss(selectedCompanyId, id).then(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
+      }).catch(() => {
+        // Silencieux — le localStorage reste comme fallback
+      });
+    }
+  }, [dismissItem, selectedCompanyId, queryClient]);
 
   const pathSegment = location.pathname.split("/").pop() ?? "new";
   const tab: InboxTab = pathSegment === "all" ? "all" : "new";
