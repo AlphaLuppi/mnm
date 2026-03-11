@@ -220,6 +220,7 @@ export function LaunchAgentDialog({
       const issue = await issuesApi.create(companyId, {
         title: `[${workflowType}] ${storyTitle}`,
         body,
+        status: "todo",
         assigneeAgentId: actualAgentId,
         ...(projectId ? { projectId } : {}),
         ...(workspaceId ? { workspaceId } : {}),

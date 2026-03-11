@@ -1,5 +1,7 @@
 import { Router, type Request } from "express";
 import type { Db } from "@mnm/db";
+import { issues as issuesTable } from "@mnm/db";
+import { eq } from "drizzle-orm";
 import {
   createProjectSchema,
   createProjectWorkspaceSchema,
@@ -253,7 +255,7 @@ curl -s -X POST "${mnmApiUrl}/api/companies/${project.companyId}/agents" \\
   }'
 \`\`\`
 
-Role mapping: orchestrator/lead/manager → \`ceo\`, tech lead/architect → \`cto\`, developer → \`engineer\`, product/analyst/UX → \`pm\`, QA/tester → \`qa\`, everything else → \`general\`.
+Role mapping: orchestrator/lead/manager -> \`ceo\`, tech lead/architect -> \`cto\`, developer -> \`engineer\`, product/analyst/UX -> \`pm\`, QA/tester -> \`qa\`, everything else -> \`general\`.
 
 **Save the returned \`id\` for each agent** — needed in Step 3.
 
@@ -301,17 +303,17 @@ Structure it expects:
 
 \`\`\`
 _mnm-context/
-  planning-artifacts/          ← PLANNING section of the panel
-    <any-name>.md              ← Each .md = one card. Title = first # H1.
-    <group-name>/              ← Subdirectory = visual group in the panel
+  planning-artifacts/          # PLANNING section of the panel
+    <any-name>.md              # Each .md = one card. Title = first # H1.
+    <group-name>/              # Subdirectory = visual group in the panel
       <any-name>.md
-  implementation-artifacts/    ← EPICS section of the panel
-    <epicN>-<storyN>-<slug>.md ← e.g. 1-1-user-login.md, 2-3-search.md
-    sprint-status.yaml         ← optional: { statuses: { "1-1-*": "in-progress" } }
+  implementation-artifacts/    # EPICS section of the panel
+    <epicN>-<storyN>-<slug>.md # e.g. 1-1-user-login.md, 2-3-search.md
+    sprint-status.yaml         # optional: { statuses: { "1-1-*": "in-progress" } }
 \`\`\`
 
 File naming rules:
-- Planning: any \`.md\` with a \`# Title\` H1. Name prefix hints the type: \`product-brief*\` → brief, \`prd*\` → PRD, \`architecture*\` → arch, others → doc.
+- Planning: any \`.md\` with a \`# Title\` H1. Name prefix hints the type: \`product-brief*\` -> brief, \`prd*\` -> PRD, \`architecture*\` -> arch, others -> doc.
 - Stories: **must** start with \`{epicNumber}-{storyNumber}-\`. The \`## Status\` section sets status: \`backlog | ready-for-dev | in-progress | review | done\`.
 
 ### What to create
@@ -332,7 +334,7 @@ If you find nothing useful for context: create at minimum a \`planning-artifacts
 
 After all four steps, reply with:
 
-**Agents** — table: name | MnM ID | role | scoped ✓/✗
+**Agents** — table: name | MnM ID | role | scoped (yes/no)
 **Workflows** — table: slug | assigned agent name
 **Context panel** — list every file created in \`_mnm-context/\`, or confirm existing files were found
 **What to do now** — one specific action (which agent, which workflow, what to ask)
@@ -510,10 +512,13 @@ Reply A or B.`;
       }
     }
 
-    // 2. Delete all issues belonging to this project
-    const projectIssues = await issueSvc.list(existing.companyId, { projectId: id });
-    for (const issue of projectIssues) {
-      await issueSvc.remove(issue.id);
+    // 2. Delete all issues belonging to this project (including hidden ones)
+    const projectIssueIds = await db
+      .select({ id: issuesTable.id })
+      .from(issuesTable)
+      .where(eq(issuesTable.projectId, id));
+    for (const { id: issueId } of projectIssueIds) {
+      await issueSvc.remove(issueId);
     }
 
     const project = await svc.remove(id);
