@@ -13,6 +13,7 @@ import type {
 
 const CONTEXT_ROOT = "_mnm-context";
 const LEGACY_ROOT = "_bmad-output"; // backward compat fallback
+const CONFIG_FILE = "config.yaml";
 const PLANNING_DIR = "planning-artifacts";
 const IMPLEMENTATION_DIR = "implementation-artifacts";
 const SPRINT_STATUS_FILE = "sprint-status.yaml";
@@ -39,7 +40,6 @@ function extractTitle(content: string): string {
 
 export function parseAcceptanceCriteria(content: string): AcceptanceCriterion[] {
   const criteria: AcceptanceCriterion[] = [];
-  // Split content into AC sections
   const acHeaderPattern = /^###\s+AC(\d+)\s*[—–-]\s*(.+)$/gm;
   const headers: { index: number; id: string; title: string }[] = [];
   let headerMatch: RegExpExecArray | null;
@@ -93,14 +93,109 @@ export function parseTasks(content: string): WorkspaceTask[] {
   return tasks;
 }
 
-function parseStoryFilename(filename: string): { epicNumber: number; storyNumber: number } | null {
-  const match = filename.match(/^(\d+)-(\d+)-/);
-  if (!match) return null;
-  return {
-    epicNumber: parseInt(match[1], 10),
-    storyNumber: parseInt(match[2], 10),
-  };
+/* ── Config-driven mode ───────────────────────────────────────── */
+
+interface ContextConfig {
+  planning?: Array<{
+    path: string;
+    type?: string;
+    title?: string;
+    group?: string;
+  }>;
+  stories?: Array<{
+    path: string;
+    epic: number;
+    story: number;
+    epicTitle?: string;
+  }>;
+  sprint_status?: { path: string };
 }
+
+async function readContextConfig(contextPath: string): Promise<ContextConfig | null> {
+  const configFile = path.join(contextPath, CONFIG_FILE);
+  try {
+    const content = await fs.readFile(configFile, "utf-8");
+    const parsed = yaml.load(content) as ContextConfig | null;
+    return parsed ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function analyzeFromConfig(
+  workspacePath: string,
+  config: ContextConfig,
+): Promise<WorkspaceContext | null> {
+  // Planning artifacts — read real files from workspace root
+  const planningArtifacts: PlanningArtifact[] = [];
+  for (const entry of config.planning ?? []) {
+    if (!entry.path) continue;
+    const absPath = path.resolve(workspacePath, entry.path);
+    // Security: must stay within workspace
+    if (!absPath.startsWith(workspacePath)) continue;
+    try {
+      const content = await fs.readFile(absPath, "utf-8");
+      planningArtifacts.push({
+        title: entry.title ?? extractTitle(content),
+        type: entry.type ?? classifyPlanningArtifact(path.basename(entry.path)),
+        filePath: entry.path, // relative to workspace root
+        group: entry.group,
+      } as PlanningArtifact & { group?: string });
+    } catch {
+      // File missing — skip silently
+    }
+  }
+
+  // Stories — read real files from workspace root
+  const stories: WorkspaceStory[] = [];
+  const epicTitles = new Map<number, string>();
+
+  for (const entry of config.stories ?? []) {
+    if (!entry.path || !Number.isInteger(entry.epic) || !Number.isInteger(entry.story)) continue;
+    const absPath = path.resolve(workspacePath, entry.path);
+    if (!absPath.startsWith(workspacePath)) continue;
+    if (entry.epicTitle) epicTitles.set(entry.epic, entry.epicTitle);
+    try {
+      const content = await fs.readFile(absPath, "utf-8");
+      const title = extractTitle(content);
+      const acceptanceCriteria = parseAcceptanceCriteria(content);
+      const tasks = parseTasks(content);
+      const statusMatch = content.match(/^Status:\s*(.+)$/m);
+      const status = statusMatch ? statusMatch[1].trim() : null;
+      const doneCount = tasks.filter((t) => t.done).length;
+
+      stories.push({
+        id: `${entry.epic}-${entry.story}`,
+        epicNumber: entry.epic,
+        storyNumber: entry.story,
+        title,
+        status,
+        filePath: entry.path, // relative to workspace root
+        acceptanceCriteria,
+        tasks,
+        taskProgress: { done: doneCount, total: tasks.length },
+      });
+    } catch {
+      // File missing — skip silently
+    }
+  }
+
+  // Sprint status
+  let sprintStatus: SprintStatus | null = null;
+  if (config.sprint_status?.path) {
+    const absPath = path.resolve(workspacePath, config.sprint_status.path);
+    if (absPath.startsWith(workspacePath)) {
+      sprintStatus = await parseSprintStatusFromFile(absPath);
+    }
+  }
+
+  if (planningArtifacts.length === 0 && stories.length === 0 && !sprintStatus) return null;
+
+  const epics = buildHierarchy(stories, sprintStatus, epicTitles);
+  return { detected: true, planningArtifacts, epics, sprintStatus };
+}
+
+/* ── Legacy scanning mode ─────────────────────────────────────── */
 
 async function collectMdFiles(dir: string, baseDir: string): Promise<string[]> {
   const results: string[] = [];
@@ -122,9 +217,10 @@ async function collectMdFiles(dir: string, baseDir: string): Promise<string[]> {
   return results;
 }
 
-async function scanPlanningArtifacts(contextPath: string): Promise<PlanningArtifact[]> {
+async function scanPlanningArtifacts(workspacePath: string, contextPath: string): Promise<PlanningArtifact[]> {
   const planningDir = path.join(contextPath, PLANNING_DIR);
   try {
+    // Paths relative to contextPath, then re-expressed relative to workspacePath
     const relativePaths = await collectMdFiles(planningDir, contextPath);
     const artifacts: PlanningArtifact[] = [];
 
@@ -134,7 +230,7 @@ async function scanPlanningArtifacts(contextPath: string): Promise<PlanningArtif
       artifacts.push({
         title: extractTitle(content),
         type: classifyPlanningArtifact(path.basename(filePath)),
-        filePath,
+        filePath: path.relative(workspacePath, fullPath), // relative to workspace root
       });
     }
 
@@ -144,26 +240,23 @@ async function scanPlanningArtifacts(contextPath: string): Promise<PlanningArtif
   }
 }
 
-async function parseStoryFile(contextPath: string, filePath: string): Promise<WorkspaceStory | null> {
-  const parsed = parseStoryFilename(path.basename(filePath));
-  if (!parsed) return null;
-
-  const fullPath = path.join(contextPath, filePath);
-  const content = await fs.readFile(fullPath, "utf-8");
+async function parseStoryFromContent(
+  content: string,
+  epicNumber: number,
+  storyNumber: number,
+  filePath: string,
+): Promise<WorkspaceStory> {
   const title = extractTitle(content);
   const acceptanceCriteria = parseAcceptanceCriteria(content);
   const tasks = parseTasks(content);
-
-  // Extract status from frontmatter-like "Status: xxx" line
   const statusMatch = content.match(/^Status:\s*(.+)$/m);
   const status = statusMatch ? statusMatch[1].trim() : null;
-
   const doneCount = tasks.filter((t) => t.done).length;
 
   return {
-    id: `${parsed.epicNumber}-${parsed.storyNumber}`,
-    epicNumber: parsed.epicNumber,
-    storyNumber: parsed.storyNumber,
+    id: `${epicNumber}-${storyNumber}`,
+    epicNumber,
+    storyNumber,
     title,
     status,
     filePath,
@@ -173,7 +266,7 @@ async function parseStoryFile(contextPath: string, filePath: string): Promise<Wo
   };
 }
 
-async function scanImplementationArtifacts(contextPath: string): Promise<WorkspaceStory[]> {
+async function scanImplementationArtifacts(workspacePath: string, contextPath: string): Promise<WorkspaceStory[]> {
   const implDir = path.join(contextPath, IMPLEMENTATION_DIR);
   try {
     const entries = await fs.readdir(implDir);
@@ -182,9 +275,15 @@ async function scanImplementationArtifacts(contextPath: string): Promise<Workspa
     for (const entry of entries) {
       if (!entry.endsWith(".md")) continue;
       if (!/^\d/.test(entry)) continue;
-      const filePath = path.join(IMPLEMENTATION_DIR, entry);
-      const story = await parseStoryFile(contextPath, filePath);
-      if (story) stories.push(story);
+      const match = entry.match(/^(\d+)-(\d+)-/);
+      if (!match) continue;
+      const epicNumber = parseInt(match[1], 10);
+      const storyNumber = parseInt(match[2], 10);
+      const fullPath = path.join(implDir, entry);
+      const content = await fs.readFile(fullPath, "utf-8").catch(() => null);
+      if (!content) continue;
+      const filePath = path.relative(workspacePath, fullPath); // relative to workspace root
+      stories.push(await parseStoryFromContent(content, epicNumber, storyNumber, filePath));
     }
 
     return stories;
@@ -193,40 +292,46 @@ async function scanImplementationArtifacts(contextPath: string): Promise<Workspa
   }
 }
 
-async function parseSprintStatus(contextPath: string): Promise<SprintStatus | null> {
-  // Check both root and implementation-artifacts
+async function parseSprintStatusFromFile(filePath: string): Promise<SprintStatus | null> {
+  try {
+    const content = await fs.readFile(filePath, "utf-8");
+    const parsed = yaml.load(content) as Record<string, unknown> | null;
+    if (!parsed) return null;
+
+    const devStatus = (parsed.development_status ?? {}) as Record<string, string>;
+    const statuses: Record<string, string> = {};
+    for (const [key, value] of Object.entries(devStatus)) {
+      if (typeof value === "string") statuses[key] = value;
+    }
+
+    return {
+      project: typeof parsed.project === "string" ? parsed.project : null,
+      statuses,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function scanSprintStatus(contextPath: string): Promise<SprintStatus | null> {
   const candidates = [
     path.join(contextPath, SPRINT_STATUS_FILE),
     path.join(contextPath, IMPLEMENTATION_DIR, SPRINT_STATUS_FILE),
   ];
-
   for (const filePath of candidates) {
-    try {
-      const content = await fs.readFile(filePath, "utf-8");
-      const parsed = yaml.load(content) as Record<string, unknown> | null;
-      if (!parsed) continue;
-
-      const devStatus = (parsed.development_status ?? {}) as Record<string, string>;
-      const statuses: Record<string, string> = {};
-      for (const [key, value] of Object.entries(devStatus)) {
-        if (typeof value === "string") {
-          statuses[key] = value;
-        }
-      }
-
-      return {
-        project: typeof parsed.project === "string" ? parsed.project : null,
-        statuses,
-      };
-    } catch {
-      continue;
-    }
+    const result = await parseSprintStatusFromFile(filePath);
+    if (result) return result;
   }
-
   return null;
 }
 
-function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | null): WorkspaceEpic[] {
+/* ── Hierarchy builder ────────────────────────────────────────── */
+
+function buildHierarchy(
+  stories: WorkspaceStory[],
+  sprintStatus: SprintStatus | null,
+  epicTitles?: Map<number, string>,
+): WorkspaceEpic[] {
   const epicMap = new Map<number, WorkspaceEpic>();
 
   for (const story of stories) {
@@ -235,7 +340,7 @@ function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | 
       const epicKey = `epic-${story.epicNumber}`;
       epic = {
         number: story.epicNumber,
-        title: null,
+        title: epicTitles?.get(story.epicNumber) ?? null,
         status: sprintStatus?.statuses[epicKey] ?? null,
         stories: [],
         progress: { done: 0, total: 0 },
@@ -243,7 +348,6 @@ function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | 
       epicMap.set(story.epicNumber, epic);
     }
 
-    // Merge sprint status into story if available
     if (sprintStatus) {
       const storyKey = Object.keys(sprintStatus.statuses).find(
         (k) => k.startsWith(`${story.epicNumber}-${story.storyNumber}-`),
@@ -256,7 +360,6 @@ function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | 
     epic.stories.push(story);
   }
 
-  // Compute progress and sort
   for (const epic of epicMap.values()) {
     epic.stories.sort((a, b) => a.storyNumber - b.storyNumber);
     epic.progress.total = epic.stories.length;
@@ -268,48 +371,48 @@ function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | 
   return Array.from(epicMap.values()).sort((a, b) => a.number - b.number);
 }
 
-/** Resolve the context root directory, preferring _mnm-context with fallback to _bmad-output. */
+/* ── Public API ───────────────────────────────────────────────── */
+
+/** Resolve the _mnm-context directory path (with _bmad-output fallback). */
 export async function resolveContextRoot(workspacePath: string): Promise<string | null> {
-  const primary = path.join(workspacePath, CONTEXT_ROOT);
-  try {
-    const stat = await fs.stat(primary);
-    if (stat.isDirectory()) return primary;
-  } catch {
-    // not found — try legacy
+  for (const root of [CONTEXT_ROOT, LEGACY_ROOT]) {
+    const dir = path.join(workspacePath, root);
+    try {
+      const stat = await fs.stat(dir);
+      if (stat.isDirectory()) return dir;
+    } catch {
+      // not found — try next
+    }
   }
-
-  const legacy = path.join(workspacePath, LEGACY_ROOT);
-  try {
-    const stat = await fs.stat(legacy);
-    if (stat.isDirectory()) return legacy;
-  } catch {
-    // not found
-  }
-
   return null;
 }
 
+/**
+ * Analyze the workspace context panel.
+ *
+ * Priority:
+ *   1. Config-driven: _mnm-context/config.yaml → reads real project files in-place
+ *   2. Legacy scanning: _mnm-context/ or _bmad-output/ subdirectories
+ */
 export async function analyzeWorkspace(workspacePath: string): Promise<WorkspaceContext | null> {
   const contextPath = await resolveContextRoot(workspacePath);
   if (!contextPath) return null;
 
-  const [planningArtifacts, stories, sprintStatus] = await Promise.all([
-    scanPlanningArtifacts(contextPath),
-    scanImplementationArtifacts(contextPath),
-    parseSprintStatus(contextPath),
-  ]);
-
-  // No content found at all
-  if (planningArtifacts.length === 0 && stories.length === 0 && !sprintStatus) {
-    return null;
+  // Config-driven mode: read config.yaml and resolve real files
+  const config = await readContextConfig(contextPath);
+  if (config) {
+    return analyzeFromConfig(workspacePath, config);
   }
 
-  const epics = buildHierarchy(stories, sprintStatus);
+  // Legacy scanning mode: scan planning-artifacts/ and implementation-artifacts/
+  const [planningArtifacts, stories, sprintStatus] = await Promise.all([
+    scanPlanningArtifacts(workspacePath, contextPath),
+    scanImplementationArtifacts(workspacePath, contextPath),
+    scanSprintStatus(contextPath),
+  ]);
 
-  return {
-    detected: true,
-    planningArtifacts,
-    epics,
-    sprintStatus,
-  };
+  if (planningArtifacts.length === 0 && stories.length === 0 && !sprintStatus) return null;
+
+  const epics = buildHierarchy(stories, sprintStatus);
+  return { detected: true, planningArtifacts, epics, sprintStatus };
 }

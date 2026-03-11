@@ -297,36 +297,53 @@ If you found NO workflow definitions: create one assignment \`"default": "<agent
 
 ### What the Context panel is
 
-The left pane of the MnM cockpit displays the project's planning documents and implementation structure. It reads directly from the **filesystem** at \`${workspacePath}/_mnm-context/\`. It is not a database field — you populate it by creating files on disk.
+The left pane of the MnM cockpit shows planning documents and stories/epics for the project. It reads the **real files of the project** — no copying, no duplication. You configure it by writing a single mapping file: \`_mnm-context/config.yaml\`.
 
-Structure it expects:
+MnM reads this config at request time and loads the actual files directly from their real paths. The panel stays in sync automatically as the project files evolve.
 
+### Format of \`_mnm-context/config.yaml\`
+
+\`\`\`yaml
+# _mnm-context/config.yaml
+# Paths are relative to the workspace root: ${workspacePath}
+
+planning:
+  - path: README.md               # any .md file anywhere in the project
+    type: product-brief           # product-brief | prd | architecture | epics | document
+  - path: docs/prd.md
+    type: prd
+    group: specs                  # optional: visual group label in the panel
+  - path: docs/architecture.md
+    type: architecture
+
+stories:
+  - path: epics/1-1-user-auth.md  # real file path — no renaming required
+    epic: 1
+    story: 1
+    epicTitle: Authentication     # optional: displayed as the epic heading
+  - path: epics/1-2-user-profile.md
+    epic: 1
+    story: 2
+
+sprint_status:                    # optional
+  path: .bmad/sprint-status.yaml  # or wherever your status file lives
 \`\`\`
-_mnm-context/
-  planning-artifacts/          # PLANNING section of the panel
-    <any-name>.md              # Each .md = one card. Title = first # H1.
-    <group-name>/              # Subdirectory = visual group in the panel
-      <any-name>.md
-  implementation-artifacts/    # EPICS section of the panel
-    <epicN>-<storyN>-<slug>.md # e.g. 1-1-user-login.md, 2-3-search.md
-    sprint-status.yaml         # optional: { statuses: { "1-1-*": "in-progress" } }
-\`\`\`
 
-File naming rules:
-- Planning: any \`.md\` with a \`# Title\` H1. Name prefix hints the type: \`product-brief*\` -> brief, \`prd*\` -> PRD, \`architecture*\` -> arch, others -> doc.
-- Stories: **must** start with \`{epicNumber}-{storyNumber}-\`. The \`## Status\` section sets status: \`backlog | ready-for-dev | in-progress | review | done\`.
+Type hint rules: \`product-brief*\` -> brief, \`prd*\` -> PRD, \`architecture*\` -> arch, others -> doc.
+Story status is read from a \`Status: <value>\` line in the story file itself (\`backlog | ready-for-dev | in-progress | review | done\`).
 
-### What to create
+### What to write
 
-Using what you found in Step 1 categories C and D:
+Using what you found in Step 1 (categories C and D):
 
-**For planning-artifacts**: for each document/spec/PRD/architecture file you found — copy its content into a new \`.md\` file inside \`_mnm-context/planning-artifacts/\`. If documents are grouped (e.g., by epic, by feature, by module), create subdirectories that reflect the grouping. Make sure each file starts with a \`# Title\` H1.
+1. For each planning document (PRD, spec, README, architecture…) — add an entry under \`planning:\` pointing to the real file.
+2. For each story/epic/feature definition — add an entry under \`stories:\` with the real path and assign an epic + story number (start at 1-1 if numbering is unclear).
+3. If you found a sprint/status file, add it under \`sprint_status:\`.
+4. Write the config to \`_mnm-context/config.yaml\`.
 
-**For implementation-artifacts**: for each user story, epic, or feature definition you found — create a \`{e}-{s}-{slug}.md\` file. If the original has acceptance criteria, include them under a \`## Acceptance Criteria\` section. Add a \`## Status\` section with the current status. If you cannot determine epic/story numbers, start at 1-1, 1-2, etc.
+**Do NOT copy or duplicate file contents.** Only write the mapping config.
 
-If the workspace already has a \`_mnm-context/\` or \`_bmad-output/\` directory, use its content as the source. Adapt the structure to match the format above if needed. Always write new files to \`_mnm-context/\`.
-
-If you find nothing useful for context: create at minimum a \`planning-artifacts/project-overview.md\` with a \`# ${project.name}\` title and a one-paragraph description of the project based on what you read in the workspace.
+If there are no planning or story files yet: write a minimal config with at least \`- path: README.md\` under planning (create README.md if it does not exist), so the panel shows something.
 
 ---
 
@@ -336,7 +353,7 @@ After all four steps, reply with:
 
 **Agents** — table: name | MnM ID | role | scoped (yes/no)
 **Workflows** — table: slug | assigned agent name
-**Context panel** — list every file created in \`_mnm-context/\`, or confirm existing files were found
+**Context panel** — list every \`path:\` entry written in \`config.yaml\`
 **What to do now** — one specific action (which agent, which workflow, what to ask)
 
 ---

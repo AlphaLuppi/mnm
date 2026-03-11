@@ -414,13 +414,12 @@ export function workspaceContextRoutes(db: Db) {
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.status(404).json({ error: "No workspace path configured" }); return; }
 
-    const contextBase = await resolveContextRoot(workspacePath);
-    if (!contextBase) { res.status(404).json({ error: "No context directory found" }); return; }
-    const absSource = path.resolve(contextBase, sourceDoc);
-    const absTarget = path.resolve(contextBase, targetDoc);
+    const wsBase = path.resolve(workspacePath);
+    const absSource = path.resolve(workspacePath, sourceDoc);
+    const absTarget = path.resolve(workspacePath, targetDoc);
 
-    if (!absSource.startsWith(contextBase) || !absTarget.startsWith(contextBase)) {
-      res.status(400).json({ error: "Paths must be within the context directory" }); return;
+    if (!absSource.startsWith(wsBase) || !absTarget.startsWith(wsBase)) {
+      res.status(400).json({ error: "Paths must be within the workspace" }); return;
     }
 
     const report = await checkDrift(project.id, absSource, absTarget);
@@ -441,10 +440,9 @@ export function workspaceContextRoutes(db: Db) {
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.status(404).json({ error: "No workspace path configured for this project" }); return; }
 
-    const contextBase = await resolveContextRoot(workspacePath);
-    if (!contextBase) { res.status(404).json({ error: "No context directory found" }); return; }
-    const fullPath = path.resolve(contextBase, filePath);
-    if (!fullPath.startsWith(contextBase + path.sep) && fullPath !== contextBase) throw badRequest("Path must be within the context directory");
+    // filePath is always relative to workspace root (config-driven or legacy)
+    const fullPath = path.resolve(workspacePath, filePath);
+    if (!fullPath.startsWith(path.resolve(workspacePath) + path.sep)) throw badRequest("Path must be within the workspace");
 
     try {
       const content = await fs.readFile(fullPath, "utf-8");
