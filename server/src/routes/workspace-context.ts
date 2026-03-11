@@ -5,13 +5,12 @@ import yaml from "js-yaml";
 import type { Db } from "@mnm/db";
 import { AGENT_ROLES } from "@mnm/shared";
 import { projectService, agentService } from "../services/index.js";
-import { analyzeBmadWorkspace } from "../services/bmad-analyzer.js";
+import { analyzeWorkspace, resolveContextRoot } from "../services/workspace-analyzer.js";
 import { startWorkspaceContextWatcher } from "../services/workspace-context-watcher.js";
 import { checkDrift } from "../services/drift.js";
 import { assertCompanyAccess } from "./authz.js";
 import { badRequest } from "../errors.js";
 
-const BMAD_ROOT = "_bmad-output";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
@@ -229,7 +228,7 @@ export function workspaceContextRoutes(db: Db) {
     // Start file watcher lazily on first access
     startWorkspaceContextWatcher(id, project.companyId, workspacePath);
 
-    const result = await analyzeBmadWorkspace(workspacePath);
+    const result = await analyzeWorkspace(workspacePath);
     if (!result) {
       res.json({ detected: false, planningArtifacts: [], epics: [], sprintStatus: null });
       return;
@@ -415,12 +414,13 @@ export function workspaceContextRoutes(db: Db) {
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.status(404).json({ error: "No workspace path configured" }); return; }
 
-    const bmadBase = path.resolve(workspacePath, BMAD_ROOT);
-    const absSource = path.resolve(bmadBase, sourceDoc);
-    const absTarget = path.resolve(bmadBase, targetDoc);
+    const contextBase = await resolveContextRoot(workspacePath);
+    if (!contextBase) { res.status(404).json({ error: "No context directory found" }); return; }
+    const absSource = path.resolve(contextBase, sourceDoc);
+    const absTarget = path.resolve(contextBase, targetDoc);
 
-    if (!absSource.startsWith(bmadBase) || !absTarget.startsWith(bmadBase)) {
-      res.status(400).json({ error: "Paths must be within _bmad-output/" }); return;
+    if (!absSource.startsWith(contextBase) || !absTarget.startsWith(contextBase)) {
+      res.status(400).json({ error: "Paths must be within the context directory" }); return;
     }
 
     const report = await checkDrift(project.id, absSource, absTarget);
@@ -441,9 +441,10 @@ export function workspaceContextRoutes(db: Db) {
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.status(404).json({ error: "No workspace path configured for this project" }); return; }
 
-    const fullPath = path.resolve(workspacePath, BMAD_ROOT, filePath);
-    const bmadBase = path.resolve(workspacePath, BMAD_ROOT);
-    if (!fullPath.startsWith(bmadBase + path.sep) && fullPath !== bmadBase) throw badRequest("Path must be within _bmad-output/");
+    const contextBase = await resolveContextRoot(workspacePath);
+    if (!contextBase) { res.status(404).json({ error: "No context directory found" }); return; }
+    const fullPath = path.resolve(contextBase, filePath);
+    if (!fullPath.startsWith(contextBase + path.sep) && fullPath !== contextBase) throw badRequest("Path must be within the context directory");
 
     try {
       const content = await fs.readFile(fullPath, "utf-8");

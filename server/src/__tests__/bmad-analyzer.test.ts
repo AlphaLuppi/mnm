@@ -3,10 +3,10 @@ import path from "node:path";
 import os from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  analyzeBmadWorkspace,
+  analyzeWorkspace,
   parseAcceptanceCriteria,
   parseTasks,
-} from "../services/bmad-analyzer.js";
+} from "../services/workspace-analyzer.js";
 
 let tmpDir: string;
 
@@ -18,15 +18,15 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
-describe("analyzeBmadWorkspace", () => {
+describe("analyzeWorkspace", () => {
   it("returns null for non-BMAD workspace", async () => {
-    const result = await analyzeBmadWorkspace(tmpDir);
+    const result = await analyzeWorkspace(tmpDir);
     expect(result).toBeNull();
   });
 
   it("returns null for empty _bmad-output directory", async () => {
     await fs.mkdir(path.join(tmpDir, "_bmad-output"), { recursive: true });
-    const result = await analyzeBmadWorkspace(tmpDir);
+    const result = await analyzeWorkspace(tmpDir);
     expect(result).toBeNull();
   });
 
@@ -46,7 +46,7 @@ describe("analyzeBmadWorkspace", () => {
       "# Architecture\n\nArch details",
     );
 
-    const result = await analyzeBmadWorkspace(tmpDir);
+    const result = await analyzeWorkspace(tmpDir);
     expect(result).not.toBeNull();
     expect(result!.detected).toBe(true);
     expect(result!.planningArtifacts).toHaveLength(3);
@@ -116,7 +116,7 @@ Status: backlog
 `,
     );
 
-    const result = await analyzeBmadWorkspace(tmpDir);
+    const result = await analyzeWorkspace(tmpDir);
     expect(result).not.toBeNull();
     expect(result!.epics).toHaveLength(2);
 
@@ -180,7 +180,7 @@ development_status:
       "# Second Story\n\nNo status line here\n",
     );
 
-    const result = await analyzeBmadWorkspace(tmpDir);
+    const result = await analyzeWorkspace(tmpDir);
     expect(result).not.toBeNull();
     expect(result!.sprintStatus).not.toBeNull();
     expect(result!.sprintStatus!.project).toBe("test");
@@ -203,7 +203,7 @@ development_status:
     await fs.writeFile(path.join(implDir, "readme.md"), "# Readme\n");
     await fs.writeFile(path.join(implDir, "1-1-real-story.md"), "# Real Story\n");
 
-    const result = await analyzeBmadWorkspace(tmpDir);
+    const result = await analyzeWorkspace(tmpDir);
     expect(result).not.toBeNull();
     expect(result!.epics).toHaveLength(1);
     expect(result!.epics[0].stories).toHaveLength(1);
