@@ -5,7 +5,7 @@ import yaml from "js-yaml";
 import type { Db } from "@mnm/db";
 import { AGENT_ROLES } from "@mnm/shared";
 import { projectService, agentService } from "../services/index.js";
-import { analyzeWorkspace, resolveContextRoot } from "../services/workspace-analyzer.js";
+import { analyzeWorkspace } from "../services/workspace-analyzer.js";
 import { startWorkspaceContextWatcher } from "../services/workspace-context-watcher.js";
 import { checkDrift } from "../services/drift.js";
 import { assertCompanyAccess } from "./authz.js";
