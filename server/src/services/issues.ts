@@ -5,6 +5,7 @@ import {
   assets,
   companies,
   companyMemberships,
+  costEvents,
   goals,
   heartbeatRuns,
   issueAttachments,
@@ -740,6 +741,10 @@ export function issueService(db: Db) {
           .select({ assetId: issueAttachments.assetId })
           .from(issueAttachments)
           .where(eq(issueAttachments.issueId, id));
+
+        await tx.delete(issueComments).where(eq(issueComments.issueId, id));
+        await tx.delete(issueReadStates).where(eq(issueReadStates.issueId, id));
+        await tx.update(costEvents).set({ issueId: null }).where(eq(costEvents.issueId, id));
 
         const removedIssue = await tx
           .delete(issues)

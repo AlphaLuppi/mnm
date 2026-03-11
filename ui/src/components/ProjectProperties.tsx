@@ -88,8 +88,6 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [onboardAgentId, setOnboardAgentId] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
   const { data: allGoals } = useQuery({
     queryKey: queryKeys.goals.list(selectedCompanyId!),
     queryFn: () => goalsApi.list(selectedCompanyId!),
@@ -146,14 +144,6 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
     enabled: onboardOpen && !!selectedCompanyId,
   });
   const activeAgents = agents.filter((a) => a.status !== "terminated");
-
-  const deleteProjectMutation = useMutation({
-    mutationFn: () => projectsApi.remove(project.id, selectedCompanyId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(selectedCompanyId!) });
-      navigate("/projects");
-    },
-  });
 
   const onboardMutation = useMutation({
     mutationFn: () =>
@@ -613,48 +603,64 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
           <span className="text-sm">{formatDate(project.updatedAt)}</span>
         </PropertyRow>
 
-        <Separator />
-
-        <div className="py-1.5">
-          {!confirmDelete ? (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="text-xs text-destructive/70 hover:text-destructive transition-colors cursor-pointer"
-            >
-              Supprimer le projet
-            </button>
-          ) : (
-            <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-2.5">
-              <p className="text-xs text-destructive font-medium">
-                Supprimer « {project.name} » de MnM ? Cette action est irréversible.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  size="xs"
-                  className="h-6 px-2"
-                  disabled={deleteProjectMutation.isPending}
-                  onClick={() => deleteProjectMutation.mutate()}
-                >
-                  {deleteProjectMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmer la suppression"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="h-6 px-2"
-                  onClick={() => setConfirmDelete(false)}
-                >
-                  Annuler
-                </Button>
-              </div>
-              {deleteProjectMutation.isError && (
-                <p className="text-xs text-destructive">Échec de la suppression.</p>
-              )}
-            </div>
-          )}
-        </div>
       </div>
+    </div>
+  );
+}
+
+export function DeleteProjectFooter({ project }: { project: Project }) {
+  const { selectedCompanyId } = useCompany();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: () => projectsApi.remove(project.id, selectedCompanyId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(selectedCompanyId!) });
+      navigate("/projects");
+    },
+  });
+
+  if (!confirmDelete) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmDelete(true)}
+        className="text-xs text-destructive/70 hover:text-destructive transition-colors cursor-pointer"
+      >
+        Supprimer le projet
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-2.5">
+      <p className="text-xs text-destructive font-medium">
+        Supprimer « {project.name} » de MnM ? Cette action est irréversible.
+      </p>
+      <div className="flex gap-2">
+        <Button
+          variant="destructive"
+          size="xs"
+          className="h-6 px-2"
+          disabled={deleteProjectMutation.isPending}
+          onClick={() => deleteProjectMutation.mutate()}
+        >
+          {deleteProjectMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmer la suppression"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          className="h-6 px-2"
+          onClick={() => setConfirmDelete(false)}
+        >
+          Annuler
+        </Button>
+      </div>
+      {deleteProjectMutation.isError && (
+        <p className="text-xs text-destructive">Échec de la suppression.</p>
+      )}
     </div>
   );
 }

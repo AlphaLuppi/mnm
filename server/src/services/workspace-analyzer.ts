@@ -2,16 +2,17 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import yaml from "js-yaml";
 import type {
-  BmadProject,
-  BmadPlanningArtifact,
-  BmadEpic,
-  BmadStory,
-  BmadAcceptanceCriterion,
-  BmadTask,
-  BmadSprintStatus,
+  WorkspaceContext,
+  PlanningArtifact,
+  WorkspaceEpic,
+  WorkspaceStory,
+  AcceptanceCriterion,
+  WorkspaceTask,
+  SprintStatus,
 } from "@mnm/shared";
 
-const BMAD_ROOT = "_bmad-output";
+const CONTEXT_ROOT = "_mnm-context";
+const LEGACY_ROOT = "_bmad-output"; // backward compat fallback
 const PLANNING_DIR = "planning-artifacts";
 const IMPLEMENTATION_DIR = "implementation-artifacts";
 const SPRINT_STATUS_FILE = "sprint-status.yaml";
@@ -36,8 +37,8 @@ function extractTitle(content: string): string {
   return match ? match[1].trim() : "Untitled";
 }
 
-export function parseAcceptanceCriteria(content: string): BmadAcceptanceCriterion[] {
-  const criteria: BmadAcceptanceCriterion[] = [];
+export function parseAcceptanceCriteria(content: string): AcceptanceCriterion[] {
+  const criteria: AcceptanceCriterion[] = [];
   // Split content into AC sections
   const acHeaderPattern = /^###\s+AC(\d+)\s*[—–-]\s*(.+)$/gm;
   const headers: { index: number; id: string; title: string }[] = [];
@@ -77,8 +78,8 @@ export function parseAcceptanceCriteria(content: string): BmadAcceptanceCriterio
   return criteria;
 }
 
-export function parseTasks(content: string): BmadTask[] {
-  const tasks: BmadTask[] = [];
+export function parseTasks(content: string): WorkspaceTask[] {
+  const tasks: WorkspaceTask[] = [];
   const taskPattern = /^[-*]\s+\[([ xX])\]\s+(.+)$/gm;
   let match: RegExpExecArray | null;
 
@@ -121,14 +122,14 @@ async function collectMdFiles(dir: string, baseDir: string): Promise<string[]> {
   return results;
 }
 
-async function scanPlanningArtifacts(bmadPath: string): Promise<BmadPlanningArtifact[]> {
-  const planningDir = path.join(bmadPath, PLANNING_DIR);
+async function scanPlanningArtifacts(contextPath: string): Promise<PlanningArtifact[]> {
+  const planningDir = path.join(contextPath, PLANNING_DIR);
   try {
-    const relativePaths = await collectMdFiles(planningDir, bmadPath);
-    const artifacts: BmadPlanningArtifact[] = [];
+    const relativePaths = await collectMdFiles(planningDir, contextPath);
+    const artifacts: PlanningArtifact[] = [];
 
     for (const filePath of relativePaths) {
-      const fullPath = path.join(bmadPath, filePath);
+      const fullPath = path.join(contextPath, filePath);
       const content = await fs.readFile(fullPath, "utf-8");
       artifacts.push({
         title: extractTitle(content),
@@ -143,11 +144,11 @@ async function scanPlanningArtifacts(bmadPath: string): Promise<BmadPlanningArti
   }
 }
 
-async function parseStoryFile(bmadPath: string, filePath: string): Promise<BmadStory | null> {
+async function parseStoryFile(contextPath: string, filePath: string): Promise<WorkspaceStory | null> {
   const parsed = parseStoryFilename(path.basename(filePath));
   if (!parsed) return null;
 
-  const fullPath = path.join(bmadPath, filePath);
+  const fullPath = path.join(contextPath, filePath);
   const content = await fs.readFile(fullPath, "utf-8");
   const title = extractTitle(content);
   const acceptanceCriteria = parseAcceptanceCriteria(content);
@@ -172,17 +173,17 @@ async function parseStoryFile(bmadPath: string, filePath: string): Promise<BmadS
   };
 }
 
-async function scanImplementationArtifacts(bmadPath: string): Promise<BmadStory[]> {
-  const implDir = path.join(bmadPath, IMPLEMENTATION_DIR);
+async function scanImplementationArtifacts(contextPath: string): Promise<WorkspaceStory[]> {
+  const implDir = path.join(contextPath, IMPLEMENTATION_DIR);
   try {
     const entries = await fs.readdir(implDir);
-    const stories: BmadStory[] = [];
+    const stories: WorkspaceStory[] = [];
 
     for (const entry of entries) {
       if (!entry.endsWith(".md")) continue;
       if (!/^\d/.test(entry)) continue;
       const filePath = path.join(IMPLEMENTATION_DIR, entry);
-      const story = await parseStoryFile(bmadPath, filePath);
+      const story = await parseStoryFile(contextPath, filePath);
       if (story) stories.push(story);
     }
 
@@ -192,11 +193,11 @@ async function scanImplementationArtifacts(bmadPath: string): Promise<BmadStory[
   }
 }
 
-async function parseSprintStatus(bmadPath: string): Promise<BmadSprintStatus | null> {
+async function parseSprintStatus(contextPath: string): Promise<SprintStatus | null> {
   // Check both root and implementation-artifacts
   const candidates = [
-    path.join(bmadPath, SPRINT_STATUS_FILE),
-    path.join(bmadPath, IMPLEMENTATION_DIR, SPRINT_STATUS_FILE),
+    path.join(contextPath, SPRINT_STATUS_FILE),
+    path.join(contextPath, IMPLEMENTATION_DIR, SPRINT_STATUS_FILE),
   ];
 
   for (const filePath of candidates) {
@@ -225,8 +226,8 @@ async function parseSprintStatus(bmadPath: string): Promise<BmadSprintStatus | n
   return null;
 }
 
-function buildHierarchy(stories: BmadStory[], sprintStatus: BmadSprintStatus | null): BmadEpic[] {
-  const epicMap = new Map<number, BmadEpic>();
+function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | null): WorkspaceEpic[] {
+  const epicMap = new Map<number, WorkspaceEpic>();
 
   for (const story of stories) {
     let epic = epicMap.get(story.epicNumber);
@@ -267,24 +268,38 @@ function buildHierarchy(stories: BmadStory[], sprintStatus: BmadSprintStatus | n
   return Array.from(epicMap.values()).sort((a, b) => a.number - b.number);
 }
 
-export async function analyzeBmadWorkspace(workspacePath: string): Promise<BmadProject | null> {
-  const bmadPath = path.join(workspacePath, BMAD_ROOT);
-
-  // Check if BMAD structure exists
+/** Resolve the context root directory, preferring _mnm-context with fallback to _bmad-output. */
+export async function resolveContextRoot(workspacePath: string): Promise<string | null> {
+  const primary = path.join(workspacePath, CONTEXT_ROOT);
   try {
-    const stat = await fs.stat(bmadPath);
-    if (!stat.isDirectory()) return null;
+    const stat = await fs.stat(primary);
+    if (stat.isDirectory()) return primary;
   } catch {
-    return null;
+    // not found — try legacy
   }
 
+  const legacy = path.join(workspacePath, LEGACY_ROOT);
+  try {
+    const stat = await fs.stat(legacy);
+    if (stat.isDirectory()) return legacy;
+  } catch {
+    // not found
+  }
+
+  return null;
+}
+
+export async function analyzeWorkspace(workspacePath: string): Promise<WorkspaceContext | null> {
+  const contextPath = await resolveContextRoot(workspacePath);
+  if (!contextPath) return null;
+
   const [planningArtifacts, stories, sprintStatus] = await Promise.all([
-    scanPlanningArtifacts(bmadPath),
-    scanImplementationArtifacts(bmadPath),
-    parseSprintStatus(bmadPath),
+    scanPlanningArtifacts(contextPath),
+    scanImplementationArtifacts(contextPath),
+    parseSprintStatus(contextPath),
   ]);
 
-  // No BMAD content found at all
+  // No content found at all
   if (planningArtifacts.length === 0 && stories.length === 0 && !sprintStatus) {
     return null;
   }

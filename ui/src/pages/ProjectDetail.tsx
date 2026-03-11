@@ -11,7 +11,7 @@ import { usePanel } from "../context/PanelContext";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
-import { ProjectProperties } from "../components/ProjectProperties";
+import { ProjectProperties, DeleteProjectFooter } from "../components/ProjectProperties";
 import { InlineEditor } from "../components/InlineEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { IssuesList } from "../components/IssuesList";
@@ -286,7 +286,10 @@ export function ProjectDetail() {
   useEffect(() => {
     if (project) {
       // Pre-load the panel content but keep it closed by default so it doesn't cover the Tests pane
-      openPanel(<ProjectProperties project={project} onUpdate={(data) => updateProject.mutate(data)} />);
+      openPanel(
+        <ProjectProperties project={project} onUpdate={(data) => updateProject.mutate(data)} />,
+        <DeleteProjectFooter project={project} />,
+      );
       setPanelVisible(false);
     }
     return () => closePanel();
