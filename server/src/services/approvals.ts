@@ -85,6 +85,8 @@ export function approvalService(db: Db) {
               typeof payload.metadata === "object" && payload.metadata !== null
                 ? (payload.metadata as Record<string, unknown>)
                 : null,
+            scopedToWorkspaceId:
+              typeof payload.scopedToWorkspaceId === "string" ? payload.scopedToWorkspaceId : null,
             status: "idle",
             spentMonthlyCents: 0,
             permissions: undefined,
