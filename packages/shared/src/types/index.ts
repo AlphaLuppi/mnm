@@ -55,8 +55,11 @@ export type {
 export type {
   WorkspaceTask,
   AcceptanceCriterion,
+  ContextNodeDetail,
+  ContextNode,
   WorkspaceStory,
   WorkspaceEpic,
+  WorkspaceStep,
   PlanningArtifact,
   SprintStatus,
   WorkspaceContext,

@@ -14,6 +14,12 @@ import { badRequest } from "../errors.js";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
+/** Strip characters outside Latin-1 (e.g. emojis) that WIN1252-encoded Postgres rejects */
+function stripNonLatin1(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  return s.replace(/[^\x00-\xFF]/g, "");
+}
+
 /** Parse YAML frontmatter from a markdown file (--- ... ---) */
 function parseFrontmatter(content: string): Record<string, unknown> | null {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -221,7 +227,7 @@ export function workspaceContextRoutes(db: Db) {
 
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) {
-      res.json({ detected: false, planningArtifacts: [], epics: [], sprintStatus: null });
+      res.json({ detected: false, planningArtifacts: [], epics: [], steps: [], sprintStatus: null });
       return;
     }
 
@@ -230,7 +236,7 @@ export function workspaceContextRoutes(db: Db) {
 
     const result = await analyzeWorkspace(workspacePath);
     if (!result) {
-      res.json({ detected: false, planningArtifacts: [], epics: [], sprintStatus: null });
+      res.json({ detected: false, planningArtifacts: [], epics: [], steps: [], sprintStatus: null });
       return;
     }
     res.json(result);
@@ -312,11 +318,13 @@ export function workspaceContextRoutes(db: Db) {
       const role = validRoles.has(agent.role as typeof AGENT_ROLES[number])
         ? (agent.role as typeof AGENT_ROLES[number])
         : "general";
+      const safeCapabilities = stripNonLatin1(agent.capabilities);
+      const safeIcon = stripNonLatin1(agent.icon);
       const newAgent = await agentSvc.create(project.companyId, {
-        name: `${agent.personaName}`,
-        title: agent.title,
+        name: stripNonLatin1(agent.personaName) ?? agent.slug,
+        title: stripNonLatin1(agent.title) ?? agent.slug,
         role,
-        capabilities: agent.capabilities ?? null,
+        capabilities: safeCapabilities,
         adapterType: "claude_local",
         adapterConfig: {},
         runtimeConfig: {},
@@ -329,8 +337,8 @@ export function workspaceContextRoutes(db: Db) {
           bmad: {
             slug: agent.slug,
             commandName: agent.commandName,
-            icon: agent.icon,
-            roles: [{ slug: agent.slug, personaName: agent.personaName, capabilities: agent.capabilities, icon: agent.icon }],
+            icon: safeIcon,
+            roles: [{ slug: agent.slug, personaName: stripNonLatin1(agent.personaName), capabilities: safeCapabilities, icon: safeIcon }],
           },
         },
       });

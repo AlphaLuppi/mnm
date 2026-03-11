@@ -3,8 +3,10 @@ import path from "node:path";
 import yaml from "js-yaml";
 import type {
   WorkspaceContext,
+  ContextNode,
   PlanningArtifact,
   WorkspaceEpic,
+  WorkspaceStep,
   WorkspaceStory,
   AcceptanceCriterion,
   WorkspaceTask,
@@ -59,17 +61,80 @@ function classifyType(filePath: string): string {
   return "document";
 }
 
-/* ── Config format ────────────────────────────────────────────── */
+function isDone(status: string | null): boolean {
+  return status === "done" || status === "completed";
+}
+
+/* ── Config format ─────────────────────────────────────────────── */
+
+/** Old flat format: each entry is a story with epic/story numbers */
+interface OldStoryEntry {
+  path: string;
+  epic: number;
+  story: number;
+  epicTitle?: string;
+}
+
+/** New nested format: each entry is a step with epics and stories inside */
+interface NewStepEntry {
+  step: number;
+  title?: string;
+  overview?: string;
+  epics?: Array<{
+    epic: number;
+    title?: string;
+    stories?: Array<{ story: number; path: string }>;
+  }>;
+}
 
 interface ContextConfig {
   planning?: Array<{ path: string; type?: string; title?: string; group?: string }>;
-  stories?: Array<{ path: string; epic: number; story: number; epicTitle?: string }>;
+  stories?: Array<OldStoryEntry | NewStepEntry>;
   sprint_status?: { path: string };
 }
 
-/* ── Hierarchy builder ────────────────────────────────────────── */
+function isNewStepFormat(entries: Array<OldStoryEntry | NewStepEntry>): entries is NewStepEntry[] {
+  if (entries.length === 0) return false;
+  const first = entries[0] as unknown as Record<string, unknown>;
+  return "step" in first && "epics" in first;
+}
 
-function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | null, epicTitles: Map<number, string>): WorkspaceEpic[] {
+/* ── Story file reader ─────────────────────────────────────────── */
+
+async function readStory(
+  storyPath: string,
+  epicNumber: number,
+  storyNumber: number,
+  wsBase: string,
+): Promise<WorkspaceStory | null> {
+  const abs = path.resolve(wsBase, storyPath);
+  if (!abs.startsWith(wsBase)) return null;
+  try {
+    const content = await fs.readFile(abs, "utf-8");
+    const tasks = parseTasks(content);
+    return {
+      id: storyPath,
+      epicNumber,
+      storyNumber,
+      title: extractTitle(content),
+      status: content.match(/^Status:\s*(.+)$/m)?.[1].trim() ?? null,
+      filePath: storyPath,
+      acceptanceCriteria: parseAcceptanceCriteria(content),
+      tasks,
+      taskProgress: { done: tasks.filter((t) => t.done).length, total: tasks.length },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ── Legacy hierarchy builder (old flat format) ───────────────── */
+
+function buildHierarchy(
+  stories: WorkspaceStory[],
+  sprintStatus: SprintStatus | null,
+  epicTitles: Map<number, string>,
+): WorkspaceEpic[] {
   const epicMap = new Map<number, WorkspaceEpic>();
   for (const story of stories) {
     let epic = epicMap.get(story.epicNumber);
@@ -92,9 +157,105 @@ function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | 
   for (const epic of epicMap.values()) {
     epic.stories.sort((a, b) => a.storyNumber - b.storyNumber);
     epic.progress.total = epic.stories.length;
-    epic.progress.done = epic.stories.filter((s) => s.status === "done" || s.status === "completed").length;
+    epic.progress.done = epic.stories.filter((s) => isDone(s.status)).length;
   }
   return Array.from(epicMap.values()).sort((a, b) => a.number - b.number);
+}
+
+/* ── Nested step builder (new format) ─────────────────────────── */
+
+async function buildSteps(
+  stepEntries: NewStepEntry[],
+  wsBase: string,
+  sprintStatus: SprintStatus | null,
+): Promise<WorkspaceStep[]> {
+  const steps: WorkspaceStep[] = [];
+  for (const stepEntry of stepEntries) {
+    const epics: WorkspaceEpic[] = [];
+    for (const epicEntry of stepEntry.epics ?? []) {
+      const stories: WorkspaceStory[] = [];
+      for (const storyEntry of epicEntry.stories ?? []) {
+        if (!storyEntry.path) continue;
+        const story = await readStory(storyEntry.path, epicEntry.epic, storyEntry.story, wsBase);
+        if (!story) continue;
+        // Apply sprint status if no status in file
+        if (sprintStatus && !story.status) {
+          const key = Object.keys(sprintStatus.statuses).find(
+            (k) => k.startsWith(`e${stepEntry.step}-${epicEntry.epic}-${storyEntry.story}`),
+          );
+          if (key) story.status = sprintStatus.statuses[key];
+        }
+        stories.push(story);
+      }
+      stories.sort((a, b) => a.storyNumber - b.storyNumber);
+      epics.push({
+        number: epicEntry.epic,
+        title: epicEntry.title ?? null,
+        status: sprintStatus?.statuses[`e${stepEntry.step}-epic-${epicEntry.epic}`] ?? null,
+        stories,
+        progress: {
+          done: stories.filter((s) => isDone(s.status)).length,
+          total: stories.length,
+        },
+      });
+    }
+    const allStories = epics.flatMap((e) => e.stories);
+    steps.push({
+      number: stepEntry.step,
+      title: stepEntry.title ?? null,
+      epics,
+      progress: {
+        done: allStories.filter((s) => isDone(s.status)).length,
+        total: allStories.length,
+      },
+    });
+  }
+  return steps;
+}
+
+/* ── Tree builder (converts legacy structures into ContextNode[]) ── */
+
+function storyToNode(story: WorkspaceStory, epicId: string): ContextNode {
+  return {
+    id: `${epicId}/${story.id}`,
+    title: `${story.epicNumber}.${story.storyNumber} ${story.title}`,
+    path: story.filePath,
+    status: story.status,
+    children: [],
+    progress: story.taskProgress,
+    detail: {
+      acceptanceCriteria: story.acceptanceCriteria,
+      tasks: story.tasks,
+      taskProgress: story.taskProgress,
+      epicNumber: story.epicNumber,
+      storyNumber: story.storyNumber,
+    },
+  };
+}
+
+function epicToNode(epic: WorkspaceEpic, epicId: string): ContextNode {
+  return {
+    id: epicId,
+    title: `E${epic.number}${epic.title ? `: ${epic.title}` : ""}`,
+    status: epic.status,
+    children: epic.stories.map((s) => storyToNode(s, epicId)),
+    progress: epic.progress,
+  };
+}
+
+function buildTree(epics: WorkspaceEpic[], steps: WorkspaceStep[]): ContextNode[] {
+  if (steps.length > 0) {
+    return steps.map((step) => {
+      const stepId = String(step.number);
+      return {
+        id: stepId,
+        title: step.title ? `Étape ${step.number} — ${step.title}` : `Étape ${step.number}`,
+        children: step.epics.map((epic) => epicToNode(epic, `${stepId}-${epic.number}`)),
+        progress: step.progress,
+      };
+    });
+  }
+  return epics.map((epic) => epicToNode(epic, String(epic.number)));
 }
 
 /* ── Public API ───────────────────────────────────────────────── */
@@ -102,6 +263,10 @@ function buildHierarchy(stories: WorkspaceStory[], sprintStatus: SprintStatus | 
 /**
  * Analyze the workspace context from _mnm-context/config.yaml.
  * Returns null if the config file does not exist or maps no content.
+ *
+ * Supports two story formats:
+ *   - Old flat format: `{ path, epic, story, epicTitle? }`
+ *   - New nested format: `{ step, title?, epics: [{ epic, title?, stories: [{ story, path }] }] }`
  */
 export async function analyzeWorkspace(workspacePath: string): Promise<WorkspaceContext | null> {
   const configPath = path.join(workspacePath, CONTEXT_DIR, CONFIG_FILE);
@@ -131,31 +296,6 @@ export async function analyzeWorkspace(workspacePath: string): Promise<Workspace
     } catch { /* file missing — skip */ }
   }
 
-  // Stories
-  const stories: WorkspaceStory[] = [];
-  const epicTitles = new Map<number, string>();
-  for (const entry of config.stories ?? []) {
-    if (!entry.path || !Number.isInteger(entry.epic) || !Number.isInteger(entry.story)) continue;
-    const abs = path.resolve(wsBase, entry.path);
-    if (!abs.startsWith(wsBase)) continue;
-    if (entry.epicTitle) epicTitles.set(entry.epic, entry.epicTitle);
-    try {
-      const content = await fs.readFile(abs, "utf-8");
-      const tasks = parseTasks(content);
-      stories.push({
-        id: `${entry.epic}-${entry.story}`,
-        epicNumber: entry.epic,
-        storyNumber: entry.story,
-        title: extractTitle(content),
-        status: content.match(/^Status:\s*(.+)$/m)?.[1].trim() ?? null,
-        filePath: entry.path,
-        acceptanceCriteria: parseAcceptanceCriteria(content),
-        tasks,
-        taskProgress: { done: tasks.filter((t) => t.done).length, total: tasks.length },
-      });
-    } catch { /* file missing — skip */ }
-  }
-
   // Sprint status
   let sprintStatus: SprintStatus | null = null;
   if (config.sprint_status?.path) {
@@ -174,12 +314,40 @@ export async function analyzeWorkspace(workspacePath: string): Promise<Workspace
     }
   }
 
-  if (planningArtifacts.length === 0 && stories.length === 0 && !sprintStatus) return null;
+  // Stories: detect format and parse accordingly
+  let epics: WorkspaceEpic[] = [];
+  let steps: WorkspaceStep[] = [];
+
+  const storiesEntries = config.stories ?? [];
+  if (storiesEntries.length > 0) {
+    if (isNewStepFormat(storiesEntries)) {
+      // New nested format: step > epic > story
+      steps = await buildSteps(storiesEntries, wsBase, sprintStatus);
+    } else {
+      // Old flat format: epic + story numbers
+      const flatEntries = storiesEntries as OldStoryEntry[];
+      const stories: WorkspaceStory[] = [];
+      const epicTitles = new Map<number, string>();
+      for (const entry of flatEntries) {
+        if (!entry.path || !Number.isInteger(entry.epic) || !Number.isInteger(entry.story)) continue;
+        if (entry.epicTitle) epicTitles.set(entry.epic, entry.epicTitle);
+        const story = await readStory(entry.path, entry.epic, entry.story, wsBase);
+        if (story) stories.push(story);
+      }
+      epics = buildHierarchy(stories, sprintStatus, epicTitles);
+    }
+  }
+
+  const tree = buildTree(epics, steps);
+
+  if (planningArtifacts.length === 0 && tree.length === 0 && !sprintStatus) return null;
 
   return {
     detected: true,
     planningArtifacts,
-    epics: buildHierarchy(stories, sprintStatus, epicTitles),
+    tree,
+    epics,
+    steps,
     sprintStatus,
   };
 }

@@ -1,15 +1,17 @@
 import { useState, useMemo } from "react";
-import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket, Bot, GitCompare, Loader2, ChevronDown, ChevronUp, ScanSearch } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { FileText, BookOpen, ChevronRight, CheckCircle2, Circle, Rocket, GitCompare, Loader2, ChevronDown, ChevronUp, ScanSearch } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
+import type { BreadcrumbEntry, SelectedItem } from "../context/ProjectNavigationContext";
 import { useWorkspaceContext, useWorkspaceFile } from "../hooks/useWorkspaceContext";
 import { projectsApi } from "../api/projects";
 import { agentsApi } from "../api/agents";
 import { useToast } from "../context/ToastContext";
 import { heartbeatsApi } from "../api/heartbeats";
 import { workspaceContextApi } from "../api/workspaceContext";
-import { WorkspaceAgentSync } from "./WorkspaceAgentSync";
+import { IssuesList } from "./IssuesList";
+import { Identity } from "./Identity";
 import { DriftAlertCard } from "./DriftAlertCard";
 import { queryKeys } from "../lib/queryKeys";
 import { MarkdownBody } from "./MarkdownBody";
@@ -20,9 +22,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "../lib/utils";
 import type { ReactNode } from "react";
-import type { WorkspaceEpic, WorkspaceStory, AcceptanceCriterion, DriftReport } from "@mnm/shared";
+import type { ContextNode, AcceptanceCriterion, DriftReport } from "@mnm/shared";
 
-/* ── Status badge (reused from ContextPane conventions) ── */
+/* ── Tree lookup ── */
+
+function findNode(nodes: ContextNode[], id: string): ContextNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const found = findNode(node.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+/* ── Breadcrumb builder for WorkPane ── */
+
+function useWorkPaneBreadcrumb(selectedItem: SelectedItem) {
+  const { selectNode, clearSelection } = useProjectNavigation();
+  return [
+    { label: "Project", onClick: clearSelection },
+    ...selectedItem.breadcrumb.slice(0, -1).map((entry: BreadcrumbEntry, i: number) => ({
+      label: entry.title,
+      onClick: () =>
+        selectNode(entry.id, entry.title, entry.filePath, selectedItem.breadcrumb.slice(0, i)),
+    })),
+    { label: selectedItem.breadcrumb.at(-1)!.title },
+  ];
+}
+
+/* ── Status badge ── */
 
 const wsCtxStatusBadge: Record<string, string> = {
   backlog: "bg-muted text-muted-foreground",
@@ -32,7 +60,7 @@ const wsCtxStatusBadge: Record<string, string> = {
   done: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
 };
 
-function StatusBadgeInline({ status }: { status: string | null }) {
+function StatusBadgeInline({ status }: { status: string | null | undefined }) {
   if (!status) return null;
   const colors = wsCtxStatusBadge[status] ?? "bg-muted text-muted-foreground";
   return (
@@ -83,7 +111,18 @@ function artifactType(path: string): string {
 
 /* ── Spec Viewer (artifact markdown) ── */
 
-function SpecViewer({ projectId, path, companyId }: { projectId: string; path: string; companyId?: string }) {
+function SpecViewer({
+  projectId,
+  path,
+  companyId,
+  breadcrumbSegments,
+}: {
+  projectId: string;
+  path: string;
+  companyId?: string;
+  /** If provided, overrides the default path-based breadcrumb */
+  breadcrumbSegments?: { label: string; onClick?: () => void }[];
+}) {
   const { data: content, isLoading, error } = useWorkspaceFile(projectId, path, companyId);
   const { data: wsCtx } = useWorkspaceContext(projectId, companyId);
   const { clearSelection } = useProjectNavigation();
@@ -109,8 +148,13 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
   const type = artifactType(path);
   const defaultPrompt = ARTIFACT_PROMPTS[type] ?? "";
 
-  // Other planning artifacts to compare against
   const otherArtifacts = (wsCtx?.planningArtifacts ?? []).filter((a) => a.filePath !== path);
+
+  const crumbs = breadcrumbSegments ?? [
+    { label: "Project", onClick: clearSelection },
+    ...(folder ? [{ label: folder }] : []),
+    { label: fileName },
+  ];
 
   if (isLoading) {
     return (
@@ -132,11 +176,7 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 border-b border-border px-5 py-3">
-        <Breadcrumb segments={[
-          { label: "Project", onClick: clearSelection },
-          ...(folder ? [{ label: folder }] : []),
-          { label: fileName },
-        ]} />
+        <Breadcrumb segments={crumbs} />
         <div className="flex items-center gap-3 mt-1">
           <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
           <h2 className="text-base font-semibold flex-1 truncate">{fileName}</h2>
@@ -232,9 +272,9 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
               <span className="font-mono">{driftReport.targetDoc.split(/[/\\]/).pop()}</span>
             </span>
             {driftResultsOpen ? (
-              <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
             )}
           </button>
           {driftResultsOpen && (
@@ -273,7 +313,7 @@ function SpecViewer({ projectId, path, companyId }: { projectId: string; path: s
   );
 }
 
-/* ── AC Card (for StoryViewer) ── */
+/* ── AC Card ── */
 
 function ACCard({ ac }: { ac: AcceptanceCriterion }) {
   return (
@@ -302,120 +342,116 @@ function ACCard({ ac }: { ac: AcceptanceCriterion }) {
   );
 }
 
-/* ── Story Viewer ── */
+/* ── Story Detail (leaf node with structured AC + tasks) ── */
 
-function StoryViewer({ story, epicNumber, companyId, projectId }: { story: WorkspaceStory; epicNumber: number; companyId?: string; projectId?: string }) {
-  const { selectEpic, clearSelection } = useProjectNavigation();
+function StoryDetail({
+  node,
+  selectedItem,
+  companyId,
+  projectId,
+}: {
+  node: ContextNode;
+  selectedItem: SelectedItem;
+  companyId?: string;
+  projectId?: string;
+}) {
+  const breadcrumbSegments = useWorkPaneBreadcrumb(selectedItem);
   const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [justCreatedIssueId, setJustCreatedIssueId] = useState<string | null>(null);
+  const detail = node.detail!;
 
-  // Build story content for issue body
-  const storyTitle = `${story.epicNumber}.${story.storyNumber} ${story.title}`;
   const storyContent = [
-    `# ${storyTitle}`,
-    ...story.acceptanceCriteria.map((ac) =>
+    `# ${node.title}`,
+    ...detail.acceptanceCriteria.map((ac) =>
       `## ${ac.id}: ${ac.title}\n**Given** ${ac.given ?? ""}\n**When** ${ac.when ?? ""}\n**Then** ${(ac.then ?? []).join(", ")}`,
     ),
-    story.tasks.length > 0
-      ? `## Tasks\n${story.tasks.map((t) => `- [${t.done ? "x" : " "}] ${t.label}`).join("\n")}`
+    detail.tasks.length > 0
+      ? `## Tasks\n${detail.tasks.map((t) => `- [${t.done ? "x" : " "}] ${t.label}`).join("\n")}`
       : "",
   ].filter(Boolean).join("\n\n");
 
-  // Find issues that match this story to show LiveRunWidget
   const { data: issues = [] } = useQuery({
-    queryKey: [...queryKeys.issues.list(companyId ?? ""), "story-match", storyTitle],
+    queryKey: [...queryKeys.issues.list(companyId ?? ""), "story-match", node.title],
     queryFn: () =>
       import("../api/issues").then((mod) =>
-        mod.issuesApi.list(companyId!, { q: storyTitle }),
+        mod.issuesApi.list(companyId!, { q: node.title }),
       ),
     enabled: !!companyId,
     refetchInterval: 10000,
   });
 
   const matchedIssueId = useMemo(() => {
-    // Prefer just-created issue, then fall back to search results
     if (justCreatedIssueId) return justCreatedIssueId;
-    const found = issues.find((issue) => issue.title?.includes(storyTitle));
+    const found = issues.find((issue) => issue.title?.includes(node.title));
     return found?.id ?? null;
-  }, [issues, storyTitle, justCreatedIssueId]);
+  }, [issues, node.title, justCreatedIssueId]);
 
   return (
-    <div>
-      <Breadcrumb segments={[
-        { label: "Project", onClick: clearSelection },
-        { label: `Epic ${epicNumber}`, onClick: () => selectEpic(String(epicNumber)) },
-        { label: `Story ${story.epicNumber}.${story.storyNumber}` },
-      ]} />
-
-      <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-lg font-semibold">
-          {story.epicNumber}.{story.storyNumber} {story.title}
-        </h3>
-        <StatusBadgeInline status={story.status} />
-        <div className="ml-auto">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="shrink-0 border-b border-border px-5 py-3">
+        <Breadcrumb segments={breadcrumbSegments} />
+        <div className="flex items-center gap-3 mt-1">
+          <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold flex-1 truncate">{node.title}</h2>
+          <StatusBadgeInline status={node.status} />
           {companyId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLaunchDialogOpen(true)}
-              className="gap-1.5"
-            >
-              <Rocket className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={() => setLaunchDialogOpen(true)} className="gap-1.5 shrink-0">
+              <Rocket className="h-3.5 w-3.5" />
               Lancer un agent
             </Button>
           )}
         </div>
       </div>
 
-      {/* Live Agent Output (Story 2-2) */}
-      {matchedIssueId && companyId && (
-        <div className="mb-6">
-          <LiveRunWidget issueId={matchedIssueId} companyId={companyId} />
-        </div>
-      )}
+      {/* Body */}
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="px-5 py-4 space-y-6">
+          {matchedIssueId && companyId && (
+            <LiveRunWidget issueId={matchedIssueId} companyId={companyId} />
+          )}
 
-      {/* Acceptance Criteria */}
-      {story.acceptanceCriteria.length > 0 && (
-        <div className="space-y-2 mb-6">
-          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Acceptance Criteria
-          </h4>
-          {story.acceptanceCriteria.map((ac) => (
-            <ACCard key={ac.id} ac={ac} />
-          ))}
-        </div>
-      )}
-
-      {/* Task Checklist */}
-      {story.tasks.length > 0 && (
-        <div className="space-y-1">
-          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Tasks
-          </h4>
-          {story.tasks.map((task, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm">
-              {task.done ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
-              )}
-              <span className={cn(task.done && "line-through text-muted-foreground")}>{task.label}</span>
+          {detail.acceptanceCriteria.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Acceptance Criteria
+              </h4>
+              {detail.acceptanceCriteria.map((ac) => (
+                <ACCard key={ac.id} ac={ac} />
+              ))}
             </div>
-          ))}
-          <p className="text-xs text-muted-foreground mt-2">
-            {story.taskProgress.done}/{story.taskProgress.total} completed
-          </p>
-        </div>
-      )}
+          )}
 
-      {/* Launch Agent Dialog (Story 2-1) */}
+          {detail.tasks.length > 0 && (
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Tasks
+              </h4>
+              {detail.tasks.map((task, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  {task.done ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                  <span className={cn(task.done && "line-through text-muted-foreground")}>{task.label}</span>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground mt-2">
+                {detail.taskProgress.done}/{detail.taskProgress.total} completed
+              </p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
       {companyId && (
         <LaunchAgentDialog
           open={launchDialogOpen}
           onOpenChange={setLaunchDialogOpen}
           companyId={companyId}
           projectId={projectId}
-          storyTitle={storyTitle}
+          storyTitle={node.title}
           storyContent={storyContent}
           onIssueCreated={setJustCreatedIssueId}
         />
@@ -424,27 +460,36 @@ function StoryViewer({ story, epicNumber, companyId, projectId }: { story: Works
   );
 }
 
-/* ── Epic Overview ── */
+/* ── Node Group Viewer (internal node → list its children) ── */
 
-function EpicOverview({ epic, companyId, projectId }: { epic: WorkspaceEpic; companyId?: string; projectId?: string }) {
-  const { selectStory, clearSelection } = useProjectNavigation();
+function NodeGroupViewer({
+  node,
+  selectedItem,
+  companyId,
+  projectId,
+}: {
+  node: ContextNode;
+  selectedItem: SelectedItem;
+  companyId?: string;
+  projectId?: string;
+}) {
+  const { selectNode } = useProjectNavigation();
+  const breadcrumbSegments = useWorkPaneBreadcrumb(selectedItem);
   const [launchOpen, setLaunchOpen] = useState(false);
-  const epicLabel = `Epic ${epic.number}${epic.title ? `: ${epic.title}` : ""}`;
-  const epicSummary = epic.stories.map((s) => `- Story ${s.epicNumber}.${s.storyNumber}: ${s.title}`).join("\n");
+  const childrenSummary = node.children
+    .map((c) => `- ${c.title} (${c.progress.done}/${c.progress.total})`)
+    .join("\n");
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 border-b border-border px-5 py-3">
-        <Breadcrumb segments={[
-          { label: "Project", onClick: clearSelection },
-          { label: epicLabel },
-        ]} />
+        <Breadcrumb segments={breadcrumbSegments} />
         <div className="flex items-center gap-3 mt-1">
           <BookOpen className="h-5 w-5 text-muted-foreground shrink-0" />
-          <h2 className="text-base font-semibold flex-1">{epicLabel}</h2>
+          <h2 className="text-base font-semibold flex-1">{node.title}</h2>
           <span className="text-xs text-muted-foreground shrink-0">
-            {epic.progress.done}/{epic.progress.total} stories
+            {node.progress.done}/{node.progress.total}
           </span>
           {companyId && (
             <Button variant="outline" size="sm" onClick={() => setLaunchOpen(true)} className="gap-1.5 shrink-0">
@@ -455,39 +500,49 @@ function EpicOverview({ epic, companyId, projectId }: { epic: WorkspaceEpic; com
         </div>
       </div>
 
-      {/* Stories list */}
+      {/* Children list */}
       <ScrollArea className="flex-1 min-h-0">
         <div className="px-5 py-4 space-y-3">
-          {epic.stories.map((story) => {
-            const pct = story.taskProgress.total > 0
-              ? Math.round((story.taskProgress.done / story.taskProgress.total) * 100)
-              : 0;
-            return (
-              <button
-                key={story.id}
-                onClick={() => selectStory(String(epic.number), story.id, story.filePath)}
-                className="w-full text-left rounded-lg border border-border bg-card p-3 hover:bg-accent/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">
-                    {story.epicNumber}.{story.storyNumber} {story.title}
-                  </span>
-                  <StatusBadgeInline status={story.status} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-500 rounded-full transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
+          {node.children.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun élément dans ce groupe.</p>
+          ) : (
+            node.children.map((child) => {
+              const pct = child.progress.total > 0
+                ? Math.round((child.progress.done / child.progress.total) * 100)
+                : 0;
+              const currentEntry = selectedItem.breadcrumb.at(-1)!;
+              return (
+                <button
+                  key={child.id}
+                  onClick={() =>
+                    selectNode(child.id, child.title, child.path, [
+                      ...selectedItem.breadcrumb.slice(0, -1),
+                      currentEntry,
+                    ])
+                  }
+                  className="w-full text-left rounded-lg border border-border bg-card p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{child.title}</span>
+                    <StatusBadgeInline status={child.status} />
                   </div>
-                  <span className="text-[10px] text-muted-foreground tabular-nums">
-                    {story.taskProgress.done}/{story.taskProgress.total}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+                  {child.progress.total > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {child.progress.done}/{child.progress.total}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })
+          )}
         </div>
       </ScrollArea>
 
@@ -497,22 +552,50 @@ function EpicOverview({ epic, companyId, projectId }: { epic: WorkspaceEpic; com
           onOpenChange={setLaunchOpen}
           companyId={companyId}
           projectId={projectId}
-          storyTitle={epicLabel}
-          storyContent={epicSummary}
-          defaultPrompt={`Lis cette epic et génère les stories détaillées (format BMAD) dans \`_bmad-output/implementation-artifacts/\`.\n\n${epicSummary}`}
+          storyTitle={node.title}
+          storyContent={childrenSummary}
+          defaultPrompt={`Lis ce groupe "${node.title}" et génère les stories détaillées pour chaque élément.\n\n${childrenSummary}`}
         />
       )}
     </div>
   );
 }
 
-/* ── Onboard banner (shown when no workspace structure detected) ── */
+/* ── Node Viewer (dispatch based on node type) ── */
+
+function NodeViewer({
+  node,
+  selectedItem,
+  companyId,
+  projectId,
+}: {
+  node: ContextNode;
+  selectedItem: SelectedItem;
+  companyId?: string;
+  projectId?: string;
+}) {
+  const breadcrumbSegments = useWorkPaneBreadcrumb(selectedItem);
+
+  // Leaf with structured story detail
+  if (node.detail) {
+    return <StoryDetail node={node} selectedItem={selectedItem} companyId={companyId} projectId={projectId} />;
+  }
+
+  // Leaf with a markdown path (generic document)
+  if (node.path && projectId) {
+    return <SpecViewer projectId={projectId} path={node.path} companyId={companyId} breadcrumbSegments={breadcrumbSegments} />;
+  }
+
+  // Internal node → show children
+  return <NodeGroupViewer node={node} selectedItem={selectedItem} companyId={companyId} projectId={projectId} />;
+}
+
+/* ── Onboard banner ── */
 
 function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: string; companyId?: string; hasWorkspace?: boolean }) {
   const navigate = useNavigate();
   const { pushToast } = useToast();
 
-  // Fetch agents to auto-assign the discovery issue
   const { data: agents = [] } = useQuery({
     queryKey: queryKeys.agents.list(companyId ?? ""),
     queryFn: () => agentsApi.list(companyId!),
@@ -523,7 +606,6 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
     return active.find((a) => a.role === "ceo") ?? active[0] ?? null;
   }, [agents]);
 
-  // Check for an existing discovery issue
   const { data: discoveryIssues = [] } = useQuery({
     queryKey: [...queryKeys.issues.listByProject(companyId ?? "", projectId ?? ""), "discovery"],
     queryFn: () =>
@@ -557,7 +639,6 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
     );
   }
 
-  // Discovery already launched — show link to the report
   if (discoveryIssue) {
     const ref = discoveryIssue.identifier ?? discoveryIssue.id;
     return (
@@ -637,6 +718,9 @@ function WorkPaneEmpty() {
 /* ── Default: active agents dashboard for this project ── */
 
 function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; companyId?: string }) {
+  const [launchAgentId, setLaunchAgentId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
   const { data: liveRuns = [] } = useQuery({
     queryKey: queryKeys.liveRuns(companyId ?? ""),
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId!),
@@ -644,7 +728,16 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
     refetchInterval: 5000,
   });
 
-  const { data: issues = [] } = useQuery({
+  const { data: assignmentsData } = useQuery({
+    queryKey: ["workspace-assignments", projectId ?? ""],
+    queryFn: () => workspaceContextApi.getAssignments(projectId!, companyId!),
+    enabled: !!projectId && !!companyId,
+  });
+  const workspaceId = assignmentsData?.workspaceId ?? null;
+  const savedAssignments = assignmentsData?.assignments ?? {};
+  const assignedAgentIds = useMemo(() => new Set(Object.values(savedAssignments)), [savedAssignments]);
+
+  const { data: issues = [], isLoading: issuesLoading, error: issuesError } = useQuery({
     queryKey: queryKeys.issues.listByProject(companyId ?? "", projectId ?? ""),
     queryFn: () =>
       import("../api/issues").then((m) => m.issuesApi.list(companyId!, { projectId })),
@@ -652,37 +745,147 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
     refetchInterval: 10000,
   });
 
+  const { data: workspaceAgents = [] } = useQuery({
+    queryKey: workspaceId
+      ? queryKeys.agents.listForWorkspace(companyId ?? "", workspaceId)
+      : queryKeys.agents.list(companyId ?? ""),
+    queryFn: () => agentsApi.list(companyId!, workspaceId ? { workspaceId } : undefined),
+    enabled: !!companyId,
+  });
+
+  const projectIssueIds = useMemo(() => new Set(issues.map((i) => i.id)), [issues]);
+
   const runningIssueIds = useMemo(() => {
     const liveIds = new Set(
-      liveRuns.filter((r) => r.issueId && r.status === "running").map((r) => r.issueId!),
+      liveRuns
+        .filter((r) => r.issueId && (r.status === "running" || r.status === "queued") && projectIssueIds.has(r.issueId))
+        .map((r) => r.issueId!),
     );
     return issues.filter((i) => liveIds.has(i.id)).map((i) => i.id);
-  }, [liveRuns, issues]);
+  }, [liveRuns, issues, projectIssueIds]);
+
+  const activeAgentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const run of liveRuns) {
+      if (run.issueId && projectIssueIds.has(run.issueId) && (run.status === "running" || run.status === "queued")) {
+        ids.add(run.agentId);
+      }
+    }
+    return ids;
+  }, [liveRuns, projectIssueIds]);
+
+  const relevantAgents = useMemo(
+    () => workspaceAgents.filter(
+      (a) => a.status !== "terminated" &&
+        (a.scopedToWorkspaceId === null || a.scopedToWorkspaceId === workspaceId || assignedAgentIds.has(a.id)),
+    ),
+    [workspaceAgents, workspaceId, assignedAgentIds],
+  );
+
+  const idleAgents = useMemo(
+    () => relevantAgents.filter((a) => !activeAgentIds.has(a.id)),
+    [relevantAgents, activeAgentIds],
+  );
+
+  const liveIssueIds = useMemo(() => new Set(runningIssueIds), [runningIssueIds]);
+
+  const updateIssue = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      import("../api/issues").then((m) => m.issuesApi.update(id, data)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId ?? "", projectId ?? "") });
+    },
+  });
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-4 space-y-4">
-        {runningIssueIds.length > 0 ? (
-          <>
-            <p className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
-              Active agents — {runningIssueIds.length} running
-            </p>
-            {runningIssueIds.map((issueId) => (
-              <LiveRunWidget key={issueId} issueId={issueId} companyId={companyId} />
-            ))}
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
-            <Bot className="h-8 w-8" />
-            <p className="text-sm font-medium">No active agents</p>
-            <p className="text-xs text-center max-w-48">Select a document or story from the Context pane to view it</p>
-          </div>
-        )}
+      <div className="p-4 space-y-6">
 
-        {projectId && companyId && (
-          <WorkspaceAgentSync projectId={projectId} companyId={companyId} />
+        {/* Active agents */}
+        <section className="space-y-3">
+          <p className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+            Active agents{runningIssueIds.length > 0 ? ` — ${runningIssueIds.length} running` : ""}
+          </p>
+          {runningIssueIds.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {runningIssueIds.map((issueId) => (
+                <LiveRunWidget key={issueId} issueId={issueId} companyId={companyId} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No active runs for this project.</p>
+          )}
+        </section>
+
+        {/* Issues list */}
+        <section className="space-y-3">
+          <p className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+            Issues
+          </p>
+          <IssuesList
+            issues={issues}
+            isLoading={issuesLoading}
+            error={issuesError as Error | null}
+            agents={workspaceAgents}
+            liveIssueIds={liveIssueIds}
+            projectId={projectId}
+            viewStateKey={`mnm:project-view:${projectId}`}
+            onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
+          />
+        </section>
+
+        {/* Available agents */}
+        {idleAgents.length > 0 && (
+          <section className="space-y-3">
+            <p className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+              Available agents
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {idleAgents.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/20"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="flex h-2 w-2 shrink-0">
+                      <span className="inline-flex rounded-full h-2 w-2 bg-muted-foreground/30" />
+                    </span>
+                    <Identity name={agent.name} size="sm" />
+                    {agent.role && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">{agent.role}</span>
+                    )}
+                    <span className={cn(
+                      "text-[9px] font-mono shrink-0",
+                      agent.scopedToWorkspaceId ? "text-violet-500/70" : "text-muted-foreground/40",
+                    )}>
+                      {agent.scopedToWorkspaceId ? "projet" : "global"}
+                    </span>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => setLaunchAgentId(agent.id)}>
+                    Launch
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
+
+      {companyId && (
+        <LaunchAgentDialog
+          open={launchAgentId !== null}
+          onOpenChange={(open) => { if (!open) setLaunchAgentId(null); }}
+          companyId={companyId}
+          projectId={projectId}
+          storyTitle=""
+          storyContent=""
+          defaultAgentId={launchAgentId ?? undefined}
+          onIssueCreated={() => {
+            setLaunchAgentId(null);
+            queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId, projectId ?? "") });
+          }}
+        />
+      )}
     </ScrollArea>
   );
 }
@@ -700,7 +903,7 @@ export function WorkPane({ projectId, companyId, hasWorkspace, children }: WorkP
   const { selectedItem } = useProjectNavigation();
   const { data: wsCtx, isLoading: wsCtxLoading } = useWorkspaceContext(projectId, companyId);
 
-  // No selection → agent dashboard if workspace context detected, otherwise fall back to children
+  // No selection → agent dashboard or onboarding
   if (!selectedItem) {
     if (wsCtx?.detected) {
       return <ProjectAgentsDashboard projectId={projectId} companyId={companyId} />;
@@ -717,33 +920,16 @@ export function WorkPane({ projectId, companyId, hasWorkspace, children }: WorkP
     );
   }
 
-  // Artifact selected → SpecViewer
-  if (selectedItem.type === "artifact" && projectId && selectedItem.path) {
-    return <SpecViewer projectId={projectId} path={selectedItem.path} companyId={companyId} />;
+  // Artifact selected (planning artifact) → SpecViewer with path-based breadcrumb
+  if (selectedItem.type === "artifact" && projectId && selectedItem.filePath) {
+    return <SpecViewer projectId={projectId} path={selectedItem.filePath} companyId={companyId} />;
   }
 
-  // Epic selected → Epic overview
-  if (selectedItem.type === "epic" && wsCtx?.detected) {
-    const epic = wsCtx.epics.find((e) => String(e.number) === selectedItem.id);
-    if (epic) {
-      return <EpicOverview epic={epic} companyId={companyId} projectId={projectId} />;
-    }
-  }
-
-  // Story selected → Story detail
-  if (selectedItem.type === "story" && wsCtx?.detected) {
-    const [epicId] = selectedItem.id.split("/");
-    const epic = wsCtx.epics.find((e) => String(e.number) === epicId);
-    const storyId = selectedItem.id.split("/").slice(1).join("/");
-    const story = epic?.stories.find((s) => s.id === storyId);
-    if (story && epic) {
-      return (
-        <ScrollArea className="h-full">
-          <div className="p-1">
-            <StoryViewer story={story} epicNumber={epic.number} companyId={companyId} projectId={projectId} />
-          </div>
-        </ScrollArea>
-      );
+  // Tree node selected → find node and dispatch
+  if (selectedItem.type === "node" && wsCtx?.detected) {
+    const node = findNode(wsCtx.tree, selectedItem.id);
+    if (node) {
+      return <NodeViewer node={node} selectedItem={selectedItem} companyId={companyId} projectId={projectId} />;
     }
   }
 

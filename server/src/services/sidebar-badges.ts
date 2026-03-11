@@ -10,8 +10,10 @@ export function sidebarBadgeService(db: Db) {
   return {
     get: async (
       companyId: string,
-      extra?: { joinRequests?: number; unreadTouchedIssues?: number },
+      extra?: { joinRequests?: number; unreadTouchedIssues?: number; dismissed?: Set<string> },
     ): Promise<SidebarBadges> => {
+      const dismissed = extra?.dismissed ?? new Set<string>();
+
       const actionableApprovals = await db
         .select({ count: sql<number>`count(*)` })
         .from(approvals)
@@ -25,6 +27,7 @@ export function sidebarBadgeService(db: Db) {
 
       const latestRunByAgent = await db
         .selectDistinctOn([heartbeatRuns.agentId], {
+          runId: heartbeatRuns.id,
           runStatus: heartbeatRuns.status,
         })
         .from(heartbeatRuns)
@@ -38,8 +41,10 @@ export function sidebarBadgeService(db: Db) {
         )
         .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
 
-      const failedRuns = latestRunByAgent.filter((row) =>
-        FAILED_HEARTBEAT_STATUSES.includes(row.runStatus),
+      const failedRuns = latestRunByAgent.filter(
+        (row) =>
+          FAILED_HEARTBEAT_STATUSES.includes(row.runStatus) &&
+          !dismissed.has(`run:${row.runId}`),
       ).length;
 
       const joinRequests = extra?.joinRequests ?? 0;

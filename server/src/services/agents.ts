@@ -570,7 +570,7 @@ export function agentService(db: Db) {
       const rows = await db
         .select()
         .from(agents)
-        .where(and(eq(agents.companyId, companyId), ne(agents.status, "terminated")));
+        .where(and(eq(agents.companyId, companyId), ne(agents.status, "terminated"), isNull(agents.scopedToWorkspaceId)));
       const normalizedRows = rows.map(normalizeAgentRow);
       const byManager = new Map<string | null, typeof normalizedRows>();
       for (const row of normalizedRows) {

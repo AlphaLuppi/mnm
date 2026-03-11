@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { FlaskConical, ChevronRight, Circle, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
+import type { BreadcrumbEntry } from "../context/ProjectNavigationContext";
 import { useWorkspaceContext } from "../hooks/useWorkspaceContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "../lib/utils";
-import type { WorkspaceEpic, WorkspaceStory, AcceptanceCriterion } from "@mnm/shared";
+import type { ContextNode, AcceptanceCriterion } from "@mnm/shared";
 
-/* ── AC status type (all pending for now, extensible later) ── */
+/* ── AC status type ── */
 
 type ACStatus = "pending" | "pass" | "fail";
 
@@ -23,25 +24,43 @@ const statusColor: Record<ACStatus, string> = {
   fail: "text-red-500",
 };
 
+/* ── Helpers ── */
+
+function findNode(nodes: ContextNode[], id: string): ContextNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const found = findNode(node.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function countAllACs(nodes: ContextNode[]): number {
+  return nodes.reduce((sum, node) => {
+    if (node.children.length === 0) return sum + (node.detail?.acceptanceCriteria.length ?? 0);
+    return sum + countAllACs(node.children);
+  }, 0);
+}
+
 /* ── Test Card ── */
 
 function TestCard({
   ac,
-  epicNumber,
-  storyId,
+  storyNode,
+  ancestors,
   status = "pending",
 }: {
   ac: AcceptanceCriterion;
-  epicNumber: number;
-  storyId: string;
+  storyNode: ContextNode;
+  ancestors: BreadcrumbEntry[];
   status?: ACStatus;
 }) {
-  const { selectStory } = useProjectNavigation();
+  const { selectNode } = useProjectNavigation();
   const Icon = statusIcon[status];
 
   return (
     <button
-      onClick={() => selectStory(String(epicNumber), storyId)}
+      onClick={() => selectNode(storyNode.id, storyNode.title, storyNode.path, ancestors)}
       className="w-full text-left rounded-md border border-border bg-card p-2.5 hover:bg-accent/50 transition-colors cursor-pointer space-y-1.5"
     >
       <div className="flex items-center gap-2">
@@ -82,31 +101,33 @@ function SummaryCounts({ total, pending, pass, fail }: { total: number; pending:
   );
 }
 
-/* ── Story AC group ── */
+/* ── Story AC group (leaf node with detail) ── */
 
-function StoryACGroup({ story, epicNumber, defaultOpen = false }: { story: WorkspaceStory; epicNumber: number; defaultOpen?: boolean }) {
+function StoryACGroup({
+  node,
+  ancestors,
+  defaultOpen = false,
+}: {
+  node: ContextNode;
+  ancestors: BreadcrumbEntry[];
+  defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
-  const total = story.acceptanceCriteria.length;
+  const acs = node.detail?.acceptanceCriteria ?? [];
+  const total = acs.length;
   if (total === 0) return null;
-
-  // All pending for now
-  const pending = total;
-  const pass = 0;
-  const fail = 0;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-medium hover:bg-accent/50 rounded transition-colors cursor-pointer">
         <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
-        <span className="flex-1 truncate text-left">
-          {story.epicNumber}.{story.storyNumber} {story.title}
-        </span>
-        <SummaryCounts total={total} pending={pending} pass={pass} fail={fail} />
+        <span className="flex-1 truncate text-left">{node.title}</span>
+        <SummaryCounts total={total} pending={total} pass={0} fail={0} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="flex flex-col gap-1.5 pl-4 pr-1 py-1">
-          {story.acceptanceCriteria.map((ac) => (
-            <TestCard key={ac.id} ac={ac} epicNumber={epicNumber} storyId={story.id} />
+          {acs.map((ac) => (
+            <TestCard key={ac.id} ac={ac} storyNode={node} ancestors={ancestors} />
           ))}
         </div>
       </CollapsibleContent>
@@ -114,35 +135,49 @@ function StoryACGroup({ story, epicNumber, defaultOpen = false }: { story: Works
   );
 }
 
-/* ── Epic AC group ── */
+/* ── Node AC group (internal node → recurse into children) ── */
 
-function EpicACGroup({ epic, filterStoryId, defaultOpen = false }: { epic: WorkspaceEpic; filterStoryId?: string; defaultOpen?: boolean }) {
+function NodeACGroup({
+  node,
+  ancestors,
+  defaultOpen = false,
+}: {
+  node: ContextNode;
+  ancestors: BreadcrumbEntry[];
+  defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
-  const stories = filterStoryId
-    ? epic.stories.filter((s) => s.id === filterStoryId)
-    : epic.stories;
-  const totalACs = stories.reduce((sum, s) => sum + s.acceptanceCriteria.length, 0);
+  const totalACs = countAllACs([node]);
   if (totalACs === 0) return null;
+
+  const entry: BreadcrumbEntry = { id: node.id, title: node.title };
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded transition-colors cursor-pointer">
         <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
-        <span className="flex-1 truncate text-left">
-          Epic {epic.number}{epic.title ? `: ${epic.title}` : ""}
-        </span>
+        <span className="flex-1 truncate text-left">{node.title}</span>
         <SummaryCounts total={totalACs} pending={totalACs} pass={0} fail={0} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="flex flex-col gap-0.5 pl-2">
-          {stories.map((story) => (
-            <StoryACGroup
-              key={story.id}
-              story={story}
-              epicNumber={epic.number}
-              defaultOpen={!!filterStoryId}
-            />
-          ))}
+          {node.children.map((child) =>
+            child.children.length === 0 ? (
+              <StoryACGroup
+                key={child.id}
+                node={child}
+                ancestors={[...ancestors, entry]}
+                defaultOpen={defaultOpen}
+              />
+            ) : (
+              <NodeACGroup
+                key={child.id}
+                node={child}
+                ancestors={[...ancestors, entry]}
+                defaultOpen={defaultOpen}
+              />
+            ),
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -176,60 +211,49 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
     return <TestsPaneEmpty message="Loading..." />;
   }
 
-  if (!wsCtx?.detected || wsCtx.epics.length === 0) {
+  if (!wsCtx?.detected || countAllACs(wsCtx.tree) === 0) {
     return <TestsPaneEmpty message="No acceptance criteria found." />;
   }
 
-  // Story selected → show only that story's ACs
-  if (selectedItem?.type === "story") {
-    const [epicId, ...rest] = selectedItem.id.split("/");
-    const storyId = rest.join("/");
-    const epic = wsCtx.epics.find((e) => String(e.number) === epicId);
-    if (epic) {
-      const story = epic.stories.find((s) => s.id === storyId);
-      if (story && story.acceptanceCriteria.length > 0) {
-        return (
-          <ScrollArea className="h-full">
-            <div className="p-2 space-y-1">
-              <EpicACGroup epic={epic} filterStoryId={storyId} defaultOpen />
-            </div>
-          </ScrollArea>
-        );
+  // Node selected → show ACs for that node (story or group)
+  if (selectedItem?.type === "node") {
+    const node = findNode(wsCtx.tree, selectedItem.id);
+    if (node) {
+      const ancestors = selectedItem.breadcrumb.slice(0, -1);
+      const totalACs = countAllACs([node]);
+      if (totalACs === 0) {
+        return <TestsPaneEmpty message="No acceptance criteria for this selection." />;
       }
-      return <TestsPaneEmpty message="This story has no acceptance criteria." />;
+      return (
+        <ScrollArea className="h-full">
+          <div className="p-2 space-y-1">
+            {node.children.length === 0 ? (
+              <StoryACGroup node={node} ancestors={ancestors} defaultOpen />
+            ) : (
+              <NodeACGroup node={node} ancestors={ancestors} defaultOpen />
+            )}
+          </div>
+        </ScrollArea>
+      );
     }
   }
 
-  // Epic selected → show that epic's ACs
-  if (selectedItem?.type === "epic") {
-    const epic = wsCtx.epics.find((e) => String(e.number) === selectedItem.id);
-    if (epic) {
-      const totalACs = epic.stories.reduce((sum, s) => sum + s.acceptanceCriteria.length, 0);
-      if (totalACs > 0) {
-        return (
-          <ScrollArea className="h-full">
-            <div className="p-2 space-y-1">
-              <EpicACGroup epic={epic} defaultOpen />
-            </div>
-          </ScrollArea>
-        );
-      }
-      return <TestsPaneEmpty message="This epic has no acceptance criteria." />;
-    }
-  }
-
-  // Artifact selected → clear tests pane
+  // Artifact selected → prompt to select a node
   if (selectedItem?.type === "artifact") {
-    return <TestsPaneEmpty message="Select a story or epic to view acceptance criteria." />;
+    return <TestsPaneEmpty message="Select a story or group to view acceptance criteria." />;
   }
 
-  // No selection → show all ACs grouped by Epic → Story
+  // No selection → show all ACs grouped by tree
   return (
     <ScrollArea className="h-full">
       <div className="p-2 space-y-1">
-        {wsCtx.epics.map((epic) => (
-          <EpicACGroup key={epic.number} epic={epic} defaultOpen />
-        ))}
+        {wsCtx.tree.map((node) =>
+          node.children.length === 0 ? (
+            <StoryACGroup key={node.id} node={node} ancestors={[]} />
+          ) : (
+            <NodeACGroup key={node.id} node={node} ancestors={[]} />
+          ),
+        )}
       </div>
     </ScrollArea>
   );

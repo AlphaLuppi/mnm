@@ -34,3 +34,4 @@ export { companySecretVersions } from "./company_secret_versions.js";
 export { workflowTemplates, type WorkflowStageTemplateDef } from "./workflow_templates.js";
 export { workflowInstances } from "./workflow_instances.js";
 export { stageInstances } from "./stage_instances.js";
+export { inboxDismissals } from "./inbox_dismissals.js";
