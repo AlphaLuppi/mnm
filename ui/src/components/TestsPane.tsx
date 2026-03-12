@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FlaskConical, ChevronRight, Circle, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import type { BreadcrumbEntry } from "../context/ProjectNavigationContext";
@@ -11,6 +11,7 @@ import type { ContextNode, AcceptanceCriterion } from "@mnm/shared";
 /* ── AC status type ── */
 
 type ACStatus = "pending" | "pass" | "fail";
+type ACStatusMap = Map<string, ACStatus>;
 
 const statusIcon: Record<ACStatus, typeof Circle> = {
   pending: Circle,
@@ -35,11 +36,29 @@ function findNode(nodes: ContextNode[], id: string): ContextNode | null {
   return null;
 }
 
-function countAllACs(nodes: ContextNode[]): number {
-  return nodes.reduce((sum, node) => {
-    if (node.children.length === 0) return sum + (node.detail?.acceptanceCriteria.length ?? 0);
-    return sum + countAllACs(node.children);
-  }, 0);
+function collectACs(nodes: ContextNode[]): AcceptanceCriterion[] {
+  const result: AcceptanceCriterion[] = [];
+  for (const node of nodes) {
+    if (node.children.length === 0) {
+      result.push(...(node.detail?.acceptanceCriteria ?? []));
+    } else {
+      result.push(...collectACs(node.children));
+    }
+  }
+  return result;
+}
+
+function computeCounts(acs: AcceptanceCriterion[], statusMap: ACStatusMap) {
+  let pass = 0;
+  let fail = 0;
+  let pending = 0;
+  for (const ac of acs) {
+    const status = statusMap.get(ac.id) ?? "pending";
+    if (status === "pass") pass++;
+    else if (status === "fail") fail++;
+    else pending++;
+  }
+  return { total: acs.length, pass, fail, pending };
 }
 
 /* ── Test Card ── */
@@ -107,27 +126,35 @@ function StoryACGroup({
   node,
   ancestors,
   defaultOpen = false,
+  statusMap,
 }: {
   node: ContextNode;
   ancestors: BreadcrumbEntry[];
   defaultOpen?: boolean;
+  statusMap: ACStatusMap;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const acs = node.detail?.acceptanceCriteria ?? [];
-  const total = acs.length;
-  if (total === 0) return null;
+  const counts = useMemo(() => computeCounts(acs, statusMap), [acs, statusMap]);
+  if (counts.total === 0) return null;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-medium hover:bg-accent/50 rounded transition-colors cursor-pointer">
         <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
         <span className="flex-1 truncate text-left">{node.title}</span>
-        <SummaryCounts total={total} pending={total} pass={0} fail={0} />
+        <SummaryCounts {...counts} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="flex flex-col gap-1.5 pl-4 pr-1 py-1">
           {acs.map((ac) => (
-            <TestCard key={ac.id} ac={ac} storyNode={node} ancestors={ancestors} />
+            <TestCard
+              key={ac.id}
+              ac={ac}
+              storyNode={node}
+              ancestors={ancestors}
+              status={statusMap.get(ac.id) ?? "pending"}
+            />
           ))}
         </div>
       </CollapsibleContent>
@@ -141,14 +168,17 @@ function NodeACGroup({
   node,
   ancestors,
   defaultOpen = false,
+  statusMap,
 }: {
   node: ContextNode;
   ancestors: BreadcrumbEntry[];
   defaultOpen?: boolean;
+  statusMap: ACStatusMap;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const totalACs = countAllACs([node]);
-  if (totalACs === 0) return null;
+  const allACs = useMemo(() => collectACs([node]), [node]);
+  const counts = useMemo(() => computeCounts(allACs, statusMap), [allACs, statusMap]);
+  if (counts.total === 0) return null;
 
   const entry: BreadcrumbEntry = { id: node.id, title: node.title };
 
@@ -157,7 +187,7 @@ function NodeACGroup({
       <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded transition-colors cursor-pointer">
         <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
         <span className="flex-1 truncate text-left">{node.title}</span>
-        <SummaryCounts total={totalACs} pending={totalACs} pass={0} fail={0} />
+        <SummaryCounts {...counts} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="flex flex-col gap-0.5 pl-2">
@@ -168,6 +198,7 @@ function NodeACGroup({
                 node={child}
                 ancestors={[...ancestors, entry]}
                 defaultOpen={defaultOpen}
+                statusMap={statusMap}
               />
             ) : (
               <NodeACGroup
@@ -175,6 +206,7 @@ function NodeACGroup({
                 node={child}
                 ancestors={[...ancestors, entry]}
                 defaultOpen={defaultOpen}
+                statusMap={statusMap}
               />
             ),
           )}
@@ -207,11 +239,20 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
   const { selectedItem } = useProjectNavigation();
   const { data: wsCtx, isLoading } = useWorkspaceContext(projectId, companyId);
 
+  // AC status map — will be populated when test execution (Epic 6) lands.
+  // For now, all ACs default to "pending" via the fallback in computeCounts.
+  const acStatusMap = useMemo<ACStatusMap>(() => new Map(), []);
+
+  const totalACs = useMemo(
+    () => (wsCtx?.detected ? collectACs(wsCtx.tree).length : 0),
+    [wsCtx],
+  );
+
   if (isLoading) {
     return <TestsPaneEmpty message="Loading..." />;
   }
 
-  if (!wsCtx?.detected || countAllACs(wsCtx.tree) === 0) {
+  if (!wsCtx?.detected || totalACs === 0) {
     return <TestsPaneEmpty message="No acceptance criteria found." />;
   }
 
@@ -220,17 +261,17 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
     const node = findNode(wsCtx.tree, selectedItem.id);
     if (node) {
       const ancestors = selectedItem.breadcrumb.slice(0, -1);
-      const totalACs = countAllACs([node]);
-      if (totalACs === 0) {
+      const nodeACs = collectACs([node]);
+      if (nodeACs.length === 0) {
         return <TestsPaneEmpty message="No acceptance criteria for this selection." />;
       }
       return (
         <ScrollArea className="h-full">
           <div className="p-2 space-y-1">
             {node.children.length === 0 ? (
-              <StoryACGroup node={node} ancestors={ancestors} defaultOpen />
+              <StoryACGroup node={node} ancestors={ancestors} defaultOpen statusMap={acStatusMap} />
             ) : (
-              <NodeACGroup node={node} ancestors={ancestors} defaultOpen />
+              <NodeACGroup node={node} ancestors={ancestors} defaultOpen statusMap={acStatusMap} />
             )}
           </div>
         </ScrollArea>
@@ -249,9 +290,9 @@ export function TestsPane({ projectId, companyId }: TestsPaneProps) {
       <div className="p-2 space-y-1">
         {wsCtx.tree.map((node) =>
           node.children.length === 0 ? (
-            <StoryACGroup key={node.id} node={node} ancestors={[]} />
+            <StoryACGroup key={node.id} node={node} ancestors={[]} statusMap={acStatusMap} />
           ) : (
-            <NodeACGroup key={node.id} node={node} ancestors={[]} />
+            <NodeACGroup key={node.id} node={node} ancestors={[]} statusMap={acStatusMap} />
           ),
         )}
       </div>

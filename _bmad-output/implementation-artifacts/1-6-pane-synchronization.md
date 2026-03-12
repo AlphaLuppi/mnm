@@ -1,6 +1,6 @@
 # Story 1.6: Pane Synchronization
 
-Status: done
+Status: review
 
 ## Story
 
@@ -31,17 +31,17 @@ Depends on: 1.3, 1.4, 1.5.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Context → Work + Tests sync (AC: #1, #2)
-  - [ ] 1.1 WorkPane reads `selectedItem` from context → renders appropriate view
-  - [ ] 1.2 TestsPane reads `selectedItem` → filters ACs to selected epic/story
+- [x] Task 1: Context → Work + Tests sync (AC: #1, #2)
+  - [x] 1.1 WorkPane reads `selectedItem` from context → renders appropriate view
+  - [x] 1.2 TestsPane reads `selectedItem` → filters ACs to selected epic/story
 
-- [ ] Task 2: Tests → Context + Work sync (AC: #3)
-  - [ ] 2.1 Click AC in TestsPane → calls `selectStory()` in navigation context
-  - [ ] 2.2 Context pane auto-expands and highlights the story
+- [x] Task 2: Tests → Context + Work sync (AC: #3)
+  - [x] 2.1 Click AC in TestsPane → calls `selectStory()` in navigation context
+  - [x] 2.2 Context pane auto-expands and highlights the story
 
-- [ ] Task 3: Visual selection state (AC: #2)
-  - [ ] 3.1 Selected item in Context pane gets `bg-accent/10` highlight
-  - [ ] 3.2 Auto-expand parent epic when child story selected
+- [x] Task 3: Visual selection state (AC: #2)
+  - [x] 3.1 Selected item in Context pane gets `bg-accent/10` highlight
+  - [x] 3.2 Auto-expand parent epic when child story selected
 
 - [ ] Task 4: Tests
   - [ ] 4.1 Verify sync works end-to-end
@@ -49,5 +49,25 @@ Depends on: 1.3, 1.4, 1.5.
 
 ## Dev Agent Record
 ### Agent Model Used
+Implemented by Tom (pre-workflow, manual development)
+
 ### Completion Notes List
+**Reconciliation — 2026-03-12**
+
+Tous les ACs couverts via `ProjectNavigationContext` :
+- AC1 : Click epic → WorkPane et TestsPane lisent `selectedItem` et s'adaptent
+- AC2 : Click story → selection propagee, highlight dans ContextPane
+- AC3 : Click AC dans TestsPane → `selectNode()` appele → navigation vers la story
+
+Implementation fidele aux specs. Deviation mineure : `selectNode()` au lieu de `selectStory()`.
+
+**Gap : Task 4 (tests) non implementee**
+
 ### File List
+- `ui/src/context/ProjectNavigationContext.tsx` (context partage)
+- `ui/src/components/ContextPane.tsx` (lit selectedItem, highlight)
+- `ui/src/components/WorkPane.tsx` (lit selectedItem, route vers vue)
+- `ui/src/components/TestsPane.tsx` (lit selectedItem, filtre ACs, onClick → selectNode)
+
+### Change Log
+- 2026-03-12: Reconciliation — tous ACs couverts. Tests manquants.
