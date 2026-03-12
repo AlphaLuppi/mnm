@@ -1,6 +1,6 @@
 # Story 1.3: Context Pane — Specs Tree
 
-Status: done
+Status: review
 
 ## Story
 
@@ -40,19 +40,19 @@ Depends on: 1.1 (BMAD API), 1.2 (three-pane layout). Fills the left pane with re
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: ProjectNavigationContext (AC: #3)
-  - [ ] 1.1 Create `ui/src/context/ProjectNavigationContext.tsx`
-  - [ ] 1.2 State: `selectedItem: { type: 'artifact'|'epic'|'story'; id: string; path?: string } | null`
-  - [ ] 1.3 Actions: `selectArtifact(path)`, `selectEpic(epicId)`, `selectStory(epicId, storyId)`
-  - [ ] 1.4 Wrap ThreePaneLayout in ProjectDetail with this provider
+- [x] Task 1: ProjectNavigationContext (AC: #3)
+  - [x] 1.1 Create `ui/src/context/ProjectNavigationContext.tsx`
+  - [x] 1.2 State: `selectedItem: { type: 'artifact'|'epic'|'story'; id: string; path?: string } | null`
+  - [x] 1.3 Actions: `selectArtifact(path)`, `selectEpic(epicId)`, `selectStory(epicId, storyId)`
+  - [x] 1.4 Wrap ThreePaneLayout in ProjectDetail with this provider
 
-- [ ] Task 2: ContextPane with BMAD data (AC: #1, #2, #3, #4)
-  - [ ] 2.1 Update ContextPane to use `useBmadProject(projectId)`
-  - [ ] 2.2 "Planning" collapsible section — artifact icons (FileText, Building, etc.) + titles
-  - [ ] 2.3 "Epics" collapsible tree — epic headers with progress, story rows with status
-  - [ ] 2.4 Click handlers call navigation context actions
-  - [ ] 2.5 Handle loading (skeleton), error, and empty states
-  - [ ] 2.6 Install shadcn collapsible if needed: `npx shadcn@latest add collapsible`
+- [x] Task 2: ContextPane with BMAD data (AC: #1, #2, #3, #4)
+  - [x] 2.1 Update ContextPane to use `useBmadProject(projectId)`
+  - [x] 2.2 "Planning" collapsible section — artifact icons (FileText, Building, etc.) + titles
+  - [x] 2.3 "Epics" collapsible tree — epic headers with progress, story rows with status
+  - [x] 2.4 Click handlers call navigation context actions
+  - [x] 2.5 Handle loading (skeleton), error, and empty states
+  - [x] 2.6 Install shadcn collapsible if needed: `npx shadcn@latest add collapsible`
 
 - [ ] Task 3: Tests
   - [ ] 3.1 Verify app compiles: `cd ui && pnpm build`
@@ -71,5 +71,23 @@ Depends on: 1.1 (BMAD API), 1.2 (three-pane layout). Fills the left pane with re
 
 ## Dev Agent Record
 ### Agent Model Used
+Implemented by Tom (pre-workflow, manual development)
+
 ### Completion Notes List
+**Reconciliation — 2026-03-12**
+
+Tous les ACs couverts. Deviations mineures de nommage :
+- Utilise `useWorkspaceContext` au lieu de `useBmadProject`
+- `selectNode()` au lieu de `selectEpic()`/`selectStory()` (API plus generique)
+- Hierarchie basee sur `ContextNode` (profondeur infinie) au lieu de Epic/Story fixe
+- Empty state confirme : affiche "No workspace structure detected" quand `wsCtx.detected=false`
+
+**Gap : Task 3 (tests) non implementee**
+
 ### File List
+- `ui/src/context/ProjectNavigationContext.tsx`
+- `ui/src/components/ContextPane.tsx`
+- `ui/src/pages/ProjectDetail.tsx` (modifie — provider wrapping)
+
+### Change Log
+- 2026-03-12: Reconciliation — tous ACs couverts, deviations de nommage documentees. Tests manquants.

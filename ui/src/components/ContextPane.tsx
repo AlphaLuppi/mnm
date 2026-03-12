@@ -13,6 +13,7 @@ import type { LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ContextNode, PlanningArtifact } from "@mnm/shared";
 import { useWorkspaceContext } from "../hooks/useWorkspaceContext";
+import { useDriftResults } from "../hooks/useDriftResults";
 import { useProjectNavigation } from "../context/ProjectNavigationContext";
 import type { BreadcrumbEntry } from "../context/ProjectNavigationContext";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -70,6 +71,17 @@ function RunningDot() {
   );
 }
 
+/* ── Drift badge ── */
+
+function DriftBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span className="shrink-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-[9px] font-bold text-white tabular-nums">
+      {count}
+    </span>
+  );
+}
+
 function GuideContent({ children, ml }: { children: React.ReactNode; ml: number }) {
   return (
     <div className="border-l border-border/20" style={{ marginLeft: ml }}>
@@ -107,7 +119,7 @@ function SectionHeader({
 
 /* ── Artifact item ── */
 
-function ArtifactItem({ artifact }: { artifact: PlanningArtifact }) {
+function ArtifactItem({ artifact, driftCount }: { artifact: PlanningArtifact; driftCount: number }) {
   const { selectedItem, selectArtifact } = useProjectNavigation();
   const Icon = getArtifactIcon(artifact.type);
   const isSelected = selectedItem?.type === "artifact" && selectedItem.id === artifact.filePath;
@@ -125,13 +137,14 @@ function ArtifactItem({ artifact }: { artifact: PlanningArtifact }) {
       <span className="w-3 shrink-0" />
       <Icon className={cn("h-3.5 w-3.5 shrink-0", isSelected ? "text-foreground/70" : "text-muted-foreground/55")} />
       <span className="flex-1 truncate min-w-0">{artifact.title}</span>
+      <DriftBadge count={driftCount} />
     </button>
   );
 }
 
 /* ── Planning folder ── */
 
-function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: PlanningArtifact[] }) {
+function PlanningFolderSection({ name, artifacts, driftCounts }: { name: string; artifacts: PlanningArtifact[]; driftCounts: Map<string, number> }) {
   const [open, setOpen] = useState(false);
   const { selectedItem } = useProjectNavigation();
   const hasSelected = artifacts.some(
@@ -167,7 +180,7 @@ function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: P
         <GuideContent ml={22}>
           <div className="flex flex-col py-0.5">
             {artifacts.map((artifact) => (
-              <ArtifactItem key={artifact.filePath} artifact={artifact} />
+              <ArtifactItem key={artifact.filePath} artifact={artifact} driftCount={driftCounts.get(artifact.filePath) ?? 0} />
             ))}
           </div>
         </GuideContent>
@@ -178,7 +191,7 @@ function PlanningFolderSection({ name, artifacts }: { name: string; artifacts: P
 
 /* ── Planning section ── */
 
-function PlanningSection({ artifacts }: { artifacts: PlanningArtifact[] }) {
+function PlanningSection({ artifacts, driftCounts }: { artifacts: PlanningArtifact[]; driftCounts: Map<string, number> }) {
   const { rootArtifacts, folders } = useMemo(() => {
     const map = new Map<string, PlanningArtifact[]>();
     const root: PlanningArtifact[] = [];
@@ -198,10 +211,10 @@ function PlanningSection({ artifacts }: { artifacts: PlanningArtifact[] }) {
   return (
     <SectionHeader label="Planning">
       {rootArtifacts.map((artifact) => (
-        <ArtifactItem key={artifact.filePath} artifact={artifact} />
+        <ArtifactItem key={artifact.filePath} artifact={artifact} driftCount={driftCounts.get(artifact.filePath) ?? 0} />
       ))}
       {[...folders.entries()].map(([name, items]) => (
-        <PlanningFolderSection key={name} name={name} artifacts={items} />
+        <PlanningFolderSection key={name} name={name} artifacts={items} driftCounts={driftCounts} />
       ))}
     </SectionHeader>
   );
@@ -217,11 +230,13 @@ function ContextNodeItem({
   depth,
   ancestors,
   runningTitles,
+  driftCounts,
 }: {
   node: ContextNode;
   depth: number;
   ancestors: BreadcrumbEntry[];
   runningTitles: Set<string>;
+  driftCounts: Map<string, number>;
 }) {
   const { selectedItem, selectNode } = useProjectNavigation();
   const [open, setOpen] = useState(false);
@@ -239,6 +254,7 @@ function ContextNodeItem({
   const entry: BreadcrumbEntry = { id: node.id, title: node.title, filePath: node.path };
   const isLeaf = node.children.length === 0;
   const isRunning = runningTitles.has(node.title);
+  const nodeDriftCount = node.path ? (driftCounts.get(node.path) ?? 0) : 0;
   const pl = BASE_PL + depth * DEPTH_INDENT;
 
   if (isLeaf) {
@@ -263,6 +279,7 @@ function ContextNodeItem({
         />
         <span className="flex-1 truncate min-w-0">{node.title}</span>
         <span className="flex items-center gap-1 ml-auto pl-1 shrink-0">
+          <DriftBadge count={nodeDriftCount} />
           {isRunning && <RunningDot />}
           <StatusDot status={node.status} />
         </span>
@@ -313,6 +330,7 @@ function ContextNodeItem({
                 depth={depth + 1}
                 ancestors={[...ancestors, entry]}
                 runningTitles={runningTitles}
+                driftCounts={driftCounts}
               />
             ))}
           </div>
@@ -327,9 +345,11 @@ function ContextNodeItem({
 function WorkspaceTreeSection({
   nodes,
   runningTitles,
+  driftCounts,
 }: {
   nodes: ContextNode[];
   runningTitles: Set<string>;
+  driftCounts: Map<string, number>;
 }) {
   return (
     <SectionHeader label="Workspace">
@@ -340,6 +360,7 @@ function WorkspaceTreeSection({
           depth={0}
           ancestors={[]}
           runningTitles={runningTitles}
+          driftCounts={driftCounts}
         />
       ))}
     </SectionHeader>
@@ -393,6 +414,8 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     refetchInterval: 10000,
   });
 
+  const { data: driftReports = [] } = useDriftResults(projectId, companyId);
+
   const runningTitles = useMemo(() => {
     const titles = new Set<string>();
     if (!wsCtx?.detected || liveRuns.length === 0) return titles;
@@ -406,6 +429,20 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     }
     return titles;
   }, [wsCtx, liveRuns, activeIssues]);
+
+  // Compute drift counts per document path (only count pending drifts)
+  const driftCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const report of driftReports) {
+      for (const drift of report.drifts) {
+        if (drift.decision !== "pending") continue;
+        const inc = (key: string) => counts.set(key, (counts.get(key) ?? 0) + 1);
+        inc(report.sourceDoc);
+        inc(report.targetDoc);
+      }
+    }
+    return counts;
+  }, [driftReports]);
 
   if (isLoading) return <ContextPaneSkeleton />;
 
@@ -423,8 +460,8 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
   return (
     <ScrollArea className="h-full">
       <div className="py-2 space-y-1">
-        {hasPlanning && <PlanningSection artifacts={wsCtx.planningArtifacts} />}
-        {hasTree && <WorkspaceTreeSection nodes={wsCtx.tree} runningTitles={runningTitles} />}
+        {hasPlanning && <PlanningSection artifacts={wsCtx.planningArtifacts} driftCounts={driftCounts} />}
+        {hasTree && <WorkspaceTreeSection nodes={wsCtx.tree} runningTitles={runningTitles} driftCounts={driftCounts} />}
       </div>
     </ScrollArea>
   );

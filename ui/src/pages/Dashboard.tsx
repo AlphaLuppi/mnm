@@ -11,7 +11,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
-import { useDriftScanStatus } from "../hooks/useDriftResults";
+import { useDriftScanStatus, useDriftResults } from "../hooks/useDriftResults";
 import { MetricCard } from "../components/MetricCard";
 import { EmptyState } from "../components/EmptyState";
 import { StatusIcon } from "../components/StatusIcon";
@@ -20,7 +20,7 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Radar } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Radar, HeartPulse } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -88,6 +88,7 @@ export function Dashboard() {
 
   const firstProjectId = projects?.[0]?.id;
   const { data: driftStatus } = useDriftScanStatus(firstProjectId, selectedCompanyId ?? undefined);
+  const { data: driftResults } = useDriftResults(firstProjectId, selectedCompanyId ?? undefined);
   const showDriftPrompt =
     !!firstProjectId &&
     !driftPromptDismissed &&
@@ -257,7 +258,7 @@ export function Dashboard() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+          <div className="grid grid-cols-2 xl:grid-cols-5 gap-1 sm:gap-2">
             <MetricCard
               icon={Bot}
               value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
@@ -307,6 +308,31 @@ export function Dashboard() {
                 </span>
               }
             />
+            {(() => {
+              const pendingDrifts = (driftResults ?? []).reduce(
+                (sum, r) => sum + r.drifts.filter((d) => d.decision === "pending").length,
+                0,
+              );
+              const hasFailedAgents = data.agents.error > 0;
+              const hasDrift = pendingDrifts > 0;
+              const healthLevel = hasDrift && hasFailedAgents ? "red" : hasDrift || hasFailedAgents ? "orange" : "green";
+              const healthLabel = { green: "Healthy", orange: "Warning", red: "Critical" }[healthLevel];
+              const healthColor = { green: "text-green-500", orange: "text-amber-500", red: "text-red-500" }[healthLevel];
+              return (
+                <MetricCard
+                  icon={HeartPulse}
+                  value={healthLabel}
+                  label="Project Health"
+                  to={firstProjectId ? `/projects/${firstProjectId}/drift` : undefined}
+                  description={
+                    <span className={healthColor}>
+                      {pendingDrifts} drift{pendingDrifts !== 1 ? "s" : ""}{", "}
+                      {data.agents.error} error{data.agents.error !== 1 ? "s" : ""}
+                    </span>
+                  }
+                />
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -1,6 +1,6 @@
 # Story 1.4: Work Pane — Content Viewer
 
-Status: done
+Status: review
 
 ## Story
 
@@ -40,25 +40,25 @@ Depends on: 1.3 (Context pane + navigation context).
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: SpecViewer component (AC: #1)
-  - [ ] 1.1 Create `ui/src/components/SpecViewer.tsx`
-  - [ ] 1.2 Fetch file content via `bmadApi.getFile(projectId, path)`
-  - [ ] 1.3 Render with existing `MarkdownBody` component
-  - [ ] 1.4 Loading skeleton while fetching
+- [x] Task 1: SpecViewer component (AC: #1)
+  - [x] 1.1 Create `ui/src/components/SpecViewer.tsx`
+  - [x] 1.2 Fetch file content via `bmadApi.getFile(projectId, path)`
+  - [x] 1.3 Render with existing `MarkdownBody` component
+  - [x] 1.4 Loading skeleton while fetching
 
-- [ ] Task 2: StoryViewer component (AC: #2)
-  - [ ] 2.1 Create `ui/src/components/StoryViewer.tsx`
-  - [ ] 2.2 Show title + status badge at top
-  - [ ] 2.3 Acceptance criteria as cards with Given/When/Then text
-  - [ ] 2.4 Task list with checkboxes (read-only, showing done/not-done)
+- [x] Task 2: StoryViewer component (AC: #2)
+  - [x] 2.1 Create `ui/src/components/StoryViewer.tsx`
+  - [x] 2.2 Show title + status badge at top
+  - [x] 2.3 Acceptance criteria as cards with Given/When/Then text
+  - [x] 2.4 Task list with checkboxes (read-only, showing done/not-done)
 
-- [ ] Task 3: Wire WorkPane to navigation context (AC: #1, #2, #3, #4)
-  - [ ] 3.1 Update WorkPane to read `selectedItem` from ProjectNavigationContext
-  - [ ] 3.2 artifact → SpecViewer, story → StoryViewer, epic → overview, null → default
+- [x] Task 3: Wire WorkPane to navigation context (AC: #1, #2, #3, #4)
+  - [x] 3.1 Update WorkPane to read `selectedItem` from ProjectNavigationContext
+  - [x] 3.2 artifact → SpecViewer, story → StoryViewer, epic → overview, null → default
 
-- [ ] Task 4: Breadcrumb (AC: #2, #3)
-  - [ ] 4.1 Show breadcrumb in WorkPane: "Project > Epic N > Story N.M"
-  - [ ] 4.2 Clickable segments navigate to that level
+- [x] Task 4: Breadcrumb (AC: #2, #3)
+  - [x] 4.1 Show breadcrumb in WorkPane: "Project > Epic N > Story N.M"
+  - [x] 4.2 Clickable segments navigate to that level
 
 - [ ] Task 5: Tests
   - [ ] 5.1 Verify app compiles: `cd ui && pnpm build`
@@ -69,5 +69,22 @@ Depends on: 1.3 (Context pane + navigation context).
 
 ## Dev Agent Record
 ### Agent Model Used
+Implemented by Tom (pre-workflow, manual development)
+
 ### Completion Notes List
+**Reconciliation — 2026-03-12**
+
+Tous les ACs couverts. Deviation structurelle :
+- Pas de composants separes `SpecViewer.tsx` et `StoryViewer.tsx` — toute la logique est inlinee dans `WorkPane.tsx` (937 lignes)
+- WorkPane inclut aussi des fonctionnalites de stories futures (drift UI, agent launch)
+- Vue par defaut : affiche `ProjectAgentsDashboard` si workspace detecte, sinon `OnboardBanner`
+- Breadcrumb avec navigation cliquable confirme
+
+**Gap : Task 5 (tests) non implementee**
+
 ### File List
+- `ui/src/components/WorkPane.tsx` (937 lignes — contient SpecViewer + StoryViewer + epic overview inline)
+- `ui/src/components/MarkdownBody.tsx` (reutilise)
+
+### Change Log
+- 2026-03-12: Reconciliation — ACs couverts via WorkPane monolithique (pas de composants separes). Tests manquants.
