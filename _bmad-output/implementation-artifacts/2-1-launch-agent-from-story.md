@@ -1,6 +1,6 @@
 # Story 2.1: Launch Agent from Story
 
-Status: done
+Status: review
 
 ## Story
 
@@ -34,15 +34,15 @@ Depends on: Epic 1. Paperclip already has: agent CRUD, heartbeat engine, adapter
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: LaunchAgentDialog (AC: #1, #2)
-  - [ ] 1.1 Create `ui/src/components/LaunchAgentDialog.tsx`
-  - [ ] 1.2 Agent selector dropdown (from `agentsApi.list()`)
-  - [ ] 1.3 Workflow type selector: "dev-story" (default), "correct-course", "code-review"
-  - [ ] 1.4 On confirm: call `issuesApi.create()` with story content
+- [x] Task 1: LaunchAgentDialog (AC: #1, #2)
+  - [x] 1.1 Create `ui/src/components/LaunchAgentDialog.tsx`
+  - [x] 1.2 Agent selector dropdown (from `agentsApi.list()`)
+  - [x] 1.3 Workflow type selector: "dev-story" (default), "correct-course", "code-review"
+  - [x] 1.4 On confirm: call `issuesApi.create()` with story content
 
-- [ ] Task 2: Launch button in StoryViewer (AC: #1)
-  - [ ] 2.1 Add "Lancer un agent" button (Rocket icon) in StoryViewer header
-  - [ ] 2.2 Also add small launch icon per story in epic overview
+- [x] Task 2: Launch button in StoryViewer (AC: #1)
+  - [x] 2.1 Add "Lancer un agent" button (Rocket icon) in StoryViewer header
+  - [x] 2.2 Also add small launch icon per story in epic overview
 
 - [ ] Task 3: Tests
   - [ ] 3.1 Test: dialog lists available agents
@@ -58,5 +58,23 @@ Depends on: Epic 1. Paperclip already has: agent CRUD, heartbeat engine, adapter
 
 ## Dev Agent Record
 ### Agent Model Used
+Implemented by Tom (pre-workflow, manual development)
+
 ### Completion Notes List
+**Reconciliation — 2026-03-12**
+
+Tous les ACs couverts. Implementation bien au-dela des specs :
+- `LaunchAgentDialog.tsx` fait 18k lignes (massif vs. le dialog simple prevu)
+- Inclut : selection d'agent, configuration d'adapter, context d'issue, integration workflow, BMAD agent trigger
+- Le bouton launch est integre dans WorkPane (pas dans un StoryViewer separe)
+- Le heartbeat engine (79k lignes) gere l'execution
+
+**Gap : Task 3 (tests) non implementee**
+
 ### File List
+- `ui/src/components/LaunchAgentDialog.tsx` (18k lignes)
+- `ui/src/components/WorkPane.tsx` (bouton launch integre)
+- `server/src/services/heartbeat.ts` (79k lignes — engine d'execution)
+
+### Change Log
+- 2026-03-12: Reconciliation — ACs couverts. LaunchAgentDialog sur-dimensionne par rapport aux specs. Tests manquants.

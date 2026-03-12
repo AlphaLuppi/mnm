@@ -1,6 +1,6 @@
 # Story 1.1: BMAD Analyzer Service & API
 
-Status: done
+Status: review
 
 ## Story
 
@@ -59,30 +59,30 @@ MnM is a Paperclip AI fork — a web app. The scaffold exists:
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create BMAD shared types (AC: #1, #2, #3, #4)
-  - [ ] 1.1 Create `packages/shared/src/types/bmad.ts` with: `BmadProject`, `BmadPlanningArtifact`, `BmadEpic`, `BmadStory`, `BmadAcceptanceCriterion`, `BmadTask`, `BmadSprintStatus`
-  - [ ] 1.2 Export from `packages/shared/src/index.ts`
-  - [ ] 1.3 Build: `cd packages/shared && pnpm build`
+- [x] Task 1: Create BMAD shared types (AC: #1, #2, #3, #4)
+  - [x] 1.1 Create `packages/shared/src/types/bmad.ts` with: `BmadProject`, `BmadPlanningArtifact`, `BmadEpic`, `BmadStory`, `BmadAcceptanceCriterion`, `BmadTask`, `BmadSprintStatus`
+  - [x] 1.2 Export from `packages/shared/src/index.ts`
+  - [x] 1.3 Build: `cd packages/shared && pnpm build`
 
-- [ ] Task 2: Create BMAD analyzer service (AC: #1, #2, #3, #4)
-  - [ ] 2.1 Create `server/src/services/bmad-analyzer.ts` with `analyzeBmadWorkspace(workspacePath: string): Promise<BmadProject | null>`
-  - [ ] 2.2 Implement `scanPlanningArtifacts()` — glob `planning-artifacts/*.md`, classify by filename
-  - [ ] 2.3 Implement `scanImplementationArtifacts()` — glob `implementation-artifacts/[0-9]*.md`, parse epic/story from filename
-  - [ ] 2.4 Implement `parseStoryFile()` — extract title, status, ACs (Given/When/Then), tasks (checkboxes)
-  - [ ] 2.5 Implement `parseSprintStatus()` — read YAML, extract status map
-  - [ ] 2.6 Implement `buildHierarchy()` — group stories by epic, merge status, compute progress
+- [x] Task 2: Create BMAD analyzer service (AC: #1, #2, #3, #4)
+  - [x] 2.1 Create `server/src/services/bmad-analyzer.ts` with `analyzeBmadWorkspace(workspacePath: string): Promise<BmadProject | null>`
+  - [x] 2.2 Implement `scanPlanningArtifacts()` — glob `planning-artifacts/*.md`, classify by filename
+  - [x] 2.3 Implement `scanImplementationArtifacts()` — glob `implementation-artifacts/[0-9]*.md`, parse epic/story from filename
+  - [x] 2.4 Implement `parseStoryFile()` — extract title, status, ACs (Given/When/Then), tasks (checkboxes)
+  - [x] 2.5 Implement `parseSprintStatus()` — read YAML, extract status map
+  - [x] 2.6 Implement `buildHierarchy()` — group stories by epic, merge status, compute progress
 
-- [ ] Task 3: Create API routes (AC: #5, #6)
-  - [ ] 3.1 Create `server/src/routes/bmad.ts` with Express router
-  - [ ] 3.2 `GET /projects/:id/bmad` — resolve workspacePath, run analyzer, return result
-  - [ ] 3.3 `GET /projects/:id/bmad/file` — validate path, return markdown content
-  - [ ] 3.4 Path traversal protection: reject `..` and absolute paths
-  - [ ] 3.5 Register in `server/src/routes/index.ts`
+- [x] Task 3: Create API routes (AC: #5, #6)
+  - [x] 3.1 Create `server/src/routes/bmad.ts` with Express router
+  - [x] 3.2 `GET /projects/:id/bmad` — resolve workspacePath, run analyzer, return result
+  - [x] 3.3 `GET /projects/:id/bmad/file` — validate path, return markdown content
+  - [x] 3.4 Path traversal protection: reject `..` and absolute paths
+  - [x] 3.5 Register in `server/src/routes/index.ts`
 
-- [ ] Task 4: Create API client + hook (AC: #5, #6)
-  - [ ] 4.1 Create `ui/src/api/bmad.ts`: `bmadApi.getProject()`, `bmadApi.getFile()`
-  - [ ] 4.2 Create `ui/src/hooks/useBmadProject.ts` — TanStack Query hook
-  - [ ] 4.3 Add query key to `ui/src/lib/queryKeys.ts`
+- [x] Task 4: Create API client + hook (AC: #5, #6)
+  - [x] 4.1 Create `ui/src/api/bmad.ts`: `bmadApi.getProject()`, `bmadApi.getFile()`
+  - [x] 4.2 Create `ui/src/hooks/useBmadProject.ts` — TanStack Query hook
+  - [x] 4.3 Add query key to `ui/src/lib/queryKeys.ts`
 
 - [ ] Task 5: Tests (AC: #1-#6)
   - [ ] 5.1 Create `server/src/__tests__/bmad-analyzer.test.ts`
@@ -152,5 +152,44 @@ _bmad-output/
 
 ## Dev Agent Record
 ### Agent Model Used
+Implemented by Tom (pre-workflow, manual development)
+
 ### Completion Notes List
+**Reconciliation — 2026-03-12**
+
+Tasks 1-4 are functionally complete with the following architectural deviations:
+
+**Deviation majeure : approche config-driven vs. scan direct**
+- L'implementation utilise `_mnm-context/config.yaml` comme source de donnees au lieu de scanner `_bmad-output/` directement
+- Choix architectural plus flexible (supporte des fichiers projet arbitraires, pas seulement BMAD)
+
+**Deviations de nommage :**
+| Story prevoit | Code reel |
+|---|---|
+| `packages/shared/src/types/bmad.ts` | `packages/shared/src/types/workspace-context.ts` + alias `Bmad*` dans index.ts |
+| `server/src/services/bmad-analyzer.ts` | `server/src/services/workspace-analyzer.ts` |
+| `server/src/routes/bmad.ts` | `server/src/routes/workspace-context.ts` |
+| `GET /projects/:id/bmad` | `POST /projects/:id/context/analyze` + `GET /projects/:id/context` |
+| `ui/src/api/bmad.ts` | `ui/src/api/workspaceContext.ts` |
+| `ui/src/hooks/useBmadProject.ts` | `ui/src/hooks/useWorkspaceContext.ts` |
+| `BmadProject`, `BmadStory`, etc. | `WorkspaceContext`, `ContextNode` (profondeur infinie) + alias legacy |
+
+**Fonctionnalites supplementaires non prevues :**
+- Workspace file watcher (`workspace-context-watcher.ts`)
+- Support hierarchie infinie via `ContextNode` (vs Epic/Story fixe)
+- Scan de commandes IDE (.claude/commands, .cursor/commands)
+
+**Gap : Task 5 (tests) non implementee — aucun test unitaire**
+
 ### File List
+- `packages/shared/src/types/workspace-context.ts` (types principaux : WorkspaceContext, ContextNode, AcceptanceCriterion, WorkspaceTask, PlanningArtifact, SprintStatus)
+- `packages/shared/src/index.ts` (exports + alias Bmad*)
+- `server/src/services/workspace-analyzer.ts` (service d'analyse workspace)
+- `server/src/services/workspace-context-watcher.ts` (file watcher)
+- `server/src/routes/workspace-context.ts` (routes API)
+- `ui/src/api/workspaceContext.ts` (client API)
+- `ui/src/hooks/useWorkspaceContext.ts` (hook TanStack Query)
+- `ui/src/lib/queryKeys.ts` (query keys)
+
+### Change Log
+- 2026-03-12: Reconciliation — alignement story file avec code existant (deviations documentees, taches cochees). Tests toujours manquants.
