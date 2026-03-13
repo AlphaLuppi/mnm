@@ -200,6 +200,7 @@ export const HEARTBEAT_RUN_STATUSES = [
   "running",
   "succeeded",
   "failed",
+  "interrupted",
   "cancelled",
   "timed_out",
 ] as const;

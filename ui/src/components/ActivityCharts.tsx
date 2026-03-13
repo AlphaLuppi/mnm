@@ -69,6 +69,7 @@ export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
     if (!entry) continue;
     if (run.status === "succeeded") entry.succeeded++;
     else if (run.status === "failed" || run.status === "timed_out") entry.failed++;
+    else if (run.status === "interrupted") entry.other++;
     else entry.other++;
   }
 
@@ -232,6 +233,7 @@ export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
     const day = new Date(run.createdAt).toISOString().slice(0, 10);
     const entry = grouped.get(day);
     if (!entry) continue;
+    if (run.status === "interrupted") continue; // Don't count interrupted runs in success rate
     entry.total++;
     if (run.status === "succeeded") entry.succeeded++;
   }

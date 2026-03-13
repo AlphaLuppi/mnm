@@ -335,7 +335,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
           if (seenKeysRef.current.has(dedupeKey)) return;
           seenKeysRef.current.add(dedupeKey);
           if (seenKeysRef.current.size > 6000) seenKeysRef.current.clear();
-          const tone = status === "failed" || status === "timed_out" ? "error" : "warn";
+          const tone = status === "failed" || status === "timed_out" ? "error" : status === "interrupted" ? "warn" : "warn";
           const item = createFeedItem(run, event.createdAt, `run ${status}`, tone, nextIdRef.current++);
           if (item) appendItems(run.id, [item]);
           return;
