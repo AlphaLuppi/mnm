@@ -1,6 +1,8 @@
 export const type = "claude_local";
 export const label = "Claude Code (local)";
 
+export const DEFAULT_CLAUDE_LOCAL_SKIP_PERMISSIONS = true;
+
 export const models = [
   { id: "claude-opus-4-6", label: "Claude Opus 4.6" },
   { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
