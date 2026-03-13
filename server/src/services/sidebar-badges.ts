@@ -1,0 +1,60 @@
+import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
+import type { Db } from "@mnm/db";
+import { agents, approvals, heartbeatRuns } from "@mnm/db";
+import type { SidebarBadges } from "@mnm/shared";
+
+const ACTIONABLE_APPROVAL_STATUSES = ["pending", "revision_requested"];
+const FAILED_HEARTBEAT_STATUSES = ["failed", "timed_out"];
+
+export function sidebarBadgeService(db: Db) {
+  return {
+    get: async (
+      companyId: string,
+      extra?: { joinRequests?: number; unreadTouchedIssues?: number; dismissed?: Set<string> },
+    ): Promise<SidebarBadges> => {
+      const dismissed = extra?.dismissed ?? new Set<string>();
+
+      const actionableApprovals = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(approvals)
+        .where(
+          and(
+            eq(approvals.companyId, companyId),
+            inArray(approvals.status, ACTIONABLE_APPROVAL_STATUSES),
+          ),
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0));
+
+      const latestRunByAgent = await db
+        .selectDistinctOn([heartbeatRuns.agentId], {
+          runId: heartbeatRuns.id,
+          runStatus: heartbeatRuns.status,
+        })
+        .from(heartbeatRuns)
+        .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
+        .where(
+          and(
+            eq(heartbeatRuns.companyId, companyId),
+            eq(agents.companyId, companyId),
+            not(eq(agents.status, "terminated")),
+          ),
+        )
+        .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
+
+      const failedRuns = latestRunByAgent.filter(
+        (row) =>
+          FAILED_HEARTBEAT_STATUSES.includes(row.runStatus) &&
+          !dismissed.has(`run:${row.runId}`),
+      ).length;
+
+      const joinRequests = extra?.joinRequests ?? 0;
+      const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;
+      return {
+        inbox: actionableApprovals + failedRuns + joinRequests + unreadTouchedIssues,
+        approvals: actionableApprovals,
+        failedRuns,
+        joinRequests,
+      };
+    },
+  };
+}

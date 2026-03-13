@@ -1,0 +1,57 @@
+{
+  "name": "mnm",
+  "version": "0.2.7",
+  "description": "MnM CLI — orchestrate AI agent teams to run a business",
+  "type": "module",
+  "bin": {
+    "mnm": "./dist/index.js"
+  },
+  "keywords": [
+    "mnm",
+    "ai",
+    "agents",
+    "orchestration",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mnm/mnm.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/mnm/mnm",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "node --input-type=module -e \"import esbuild from 'esbuild'; import config from './esbuild.config.mjs'; await esbuild.build(config);\" && chmod +x dist/index.js",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.0",
+    "@mnm/adapter-claude-local": "workspace:*",
+    "@mnm/adapter-codex-local": "workspace:*",
+    "@mnm/adapter-cursor-local": "workspace:*",
+    "@mnm/adapter-opencode-local": "workspace:*",
+    "@mnm/adapter-pi-local": "workspace:*",
+    "@mnm/adapter-openclaw-gateway": "workspace:*",
+    "@mnm/adapter-utils": "workspace:*",
+    "@mnm/db": "workspace:*",
+    "@mnm/server": "workspace:*",
+    "@mnm/shared": "workspace:*",
+    "drizzle-orm": "0.38.4",
+    "dotenv": "^17.0.1",
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

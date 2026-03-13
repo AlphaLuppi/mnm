@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust legacy
+_legacy/target/
+
+# MnM data
+.mnm/
+*.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+coverage/
