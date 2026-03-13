@@ -43,6 +43,7 @@ import {
   Loader2,
   Slash,
   RotateCcw,
+  Unplug,
   Trash2,
   Plus,
   Key,
@@ -63,6 +64,7 @@ import { projectsApi } from "../api/projects";
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
   failed: { icon: XCircle, color: "text-red-600 dark:text-red-400" },
+  interrupted: { icon: Unplug, color: "text-amber-600 dark:text-amber-400" },
   running: { icon: Loader2, color: "text-cyan-600 dark:text-cyan-400" },
   queued: { icon: Clock, color: "text-yellow-600 dark:text-yellow-400" },
   timed_out: { icon: Timer, color: "text-orange-600 dark:text-orange-400" },
@@ -1387,7 +1389,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
     },
   });
-  const canResumeLostRun = run.errorCode === "process_lost" && run.status === "failed";
+  const canResumeLostRun = run.errorCode === "process_lost" && (run.status === "failed" || run.status === "interrupted");
   const resumePayload = useMemo(() => {
     const payload: Record<string, unknown> = {
       resumeFromRunId: run.id,
@@ -1423,7 +1425,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
     },
   });
 
-  const canRetryRun = run.status === "failed" || run.status === "timed_out";
+  const canRetryRun = run.status === "failed" || run.status === "timed_out" || run.status === "interrupted";
   const retryPayload = useMemo(() => {
     const payload: Record<string, unknown> = {};
     const context = asRecord(run.contextSnapshot);
