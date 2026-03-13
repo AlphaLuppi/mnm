@@ -794,3 +794,110 @@ La philosophie produit. Vitesse humaine (brainstorm) + vitesse machine (exécuti
 - D en commun = les deux ont besoin de l'observabilité pour leurs parties respectives
 - Pas de dépendance bloquante entre A et B au démarrage — développement parallèle possible
 
+### Future Self Interview — MnM dans 2 ans (mars 2028)
+
+**Q1 : Qu'est-ce qui a fait la différence pour les 10 premiers clients ?**
+
+**R (Gabri) :** CBA est convaincu parce que :
+- Ils essaient de transformer leurs équipes vers l'agentique mais les outils actuels (Jira, ClickUp) sont trop lents et pas adaptés
+- Les équipes de dev ne sont pas formées à l'IA/agentique
+- MnM = solution clé en main qui résout les 2 : le bordel des process ET la formation/adoption de l'IA
+- **La clé :** déterminisme + workflows clairs à comprendre, utiliser et créer + adaptés à LEUR entreprise + pas un framework figé qu'ils ne peuvent pas driver et modifier
+
+**Q2 : Le truc que vous avez failli ne pas faire et qui a tout changé ?**
+
+**R (Gabri) :** La customisation et l'import depuis l'existant.
+- Tentation : "le futur c'est MnM, pas besoin de s'adapter à Jira"
+- Réalité : les entreprises existent et ont un mode de fonctionnement. Il faut s'adapter à chacune.
+- Beaucoup d'entreprises B2B déploient un produit par client (pas multi-tenant) et font du custom par client
+- **MnM est différent :** le core est customisable et adaptable à n'importe quelle entreprise. Il fournit les clés pour la sécurité, le déterminisme et la traçabilité que personne d'autre ne propose.
+- L'import n'est pas un nice-to-have — c'est le pont entre le monde actuel du client et MnM.
+
+**Q3 : Ce que Tom de mars 2026 devrait commencer CETTE SEMAINE ?**
+
+**R (Gabri) :** Pitcher le produit au CEO ou CTO de CBA et recueillir les vrais besoins plutôt qu'essayer de les inventer.
+- **Peur #1 :** "ils vont dire non, too much, irréalisable"
+- **Peur #2 :** "retourne à ton poste de Lead Dev frontend, c'est pas ton rôle"
+- **Peur #3 :** "ils vont donner le projet au responsable IA de CBA" (que Tom estime pas à la hauteur)
+- **Tension :** Tom sait que c'est la bonne chose à faire mais la peur du rejet / de la hiérarchie le bloque
+
+---
+
+#### Vérités finales de la Phase 4
+
+**Vérité #55 — Le pitch MnM pour un premier client = "solution clé en main pour la transformation agentique"**
+Pas "remplacez Jira". Pas "orchestrateur d'agents". C'est : "vous essayez de transformer vos équipes avec l'IA et c'est le bordel ? MnM vous donne des workflows clairs, du déterminisme, et c'est adapté à VOTRE entreprise."
+
+**Vérité #56 — L'import/customisation est le pont entre le monde actuel et MnM**
+Sans import, MnM demande aux entreprises de tout recommencer à zéro. Avec import, MnM dit "continuez là où vous en êtes, on vous fait monter en puissance progressivement." C'est la même logique que le curseur d'automatisation (vérité #30) mais appliquée à l'adoption produit.
+
+**Vérité #57 — Le plus gros risque de MnM n'est pas technique — c'est que Tom ne pitch pas**
+Le produit peut être parfait — si personne ne le confronte aux vrais décideurs et aux vrais besoins, il sera construit sur des hypothèses. Le feedback du CTO sceptique au hackathon est plus précieux que 3 mois de dev.
+
+**🔴 ACTION IMMÉDIATE IDENTIFIÉE :** Pitcher MnM au CEO ou CTO de CBA. La peur est réelle mais le coût de ne pas le faire est plus élevé que le risque de se prendre un "non".
+
+---
+
+### Audit produit — Ce qui existe vs. ce qui manque par noyau
+
+| Noyau | Existant | Manquant | % |
+|---|---|---|---|
+| **1. Orchestrateur Déterministique** | Workflow templates + instances, stages avec ordering, auto-transition flag (non-évalué) | State machine enforcement, blocking rules, auto-advance, execution engine, rollback | 40% |
+| **2. Observabilité & Audit** | Activity log, heartbeat run events, cost tracking, drift detection/scan, dashboard metrics | Distributed tracing, real-time streaming, alertes/seuils, blame attribution, drift auto-remediation | 60% |
+| **3. Onboarding + Import** | CLI onboarding dual-mode, CEO invite bootstrap, invite/join flow, agent adapter selection | Import Jira/Linear, invite UI, workspace initialization wizard, auto-detection config | 30% |
+| **4. Agent-to-Agent + Permissions** | Delegation via issues/subtasks, permission grants table, agent API keys, wakeup on mention, MnM Skill doc | Interfaces formelles, scope enforcement (stocké mais pas lu), service discovery, SDKs auto-générés | 50% |
+| **5. Dual-Speed + Automatisation** | Heartbeat system, wakeup queue, approval workflow, task lifecycle complet | Rules engine, scheduled triggers, auto-advance stages, modes d'exécution (auto/supervisé/sandbox) | 40% |
+
+### Pitch CTO CBA — Message prêt
+
+> Salut [CTO], suite au hackathon je voulais te montrer un truc.
+> Tu te rappelles quand tu disais que les agents chargeaient pas les bons fichiers et qu'on pouvait pas contrôler ce qu'ils faisaient ? Avec [cofondateur] on bosse sur un outil qui résout exactement ça.
+> En gros : tu définis un workflow (ex: brief → stories → dev → review → test), tu assignes des agents à chaque étape avec les fichiers/prompts obligatoires, et l'outil garantit que l'agent suit le workflow. Si il dévie, on le détecte. Tous les logs sont centralisés et lisibles.
+> C'est pas un truc théorique, on a un proto qui tourne. Je peux te faire une démo de 15 min si ça t'intéresse. L'idée c'est d'abord de voir si ça répond à un vrai besoin pour CBA avant d'aller plus loin.
+
+**Statut Phase 4 :** TERMINÉE
+
+---
+
+## Résumé de session
+
+**Date :** 12-13 mars 2026
+**Durée :** Session longue (hackathon CBA)
+**Participants :** Tom (Gabri) + cofondateur MnM (brainstorm annexe)
+**Approche :** AI-Recommended Progressive Flow (mix 2+4)
+
+### Métriques
+- **57 vérités fondamentales** extraites
+- **12 idées générées** (WhatIf + CrossPol)
+- **5 noyaux de valeur** identifiés
+- **9 contraintes mappées** (6 réelles, 3 imaginées)
+- **1 split stratégique cofondateurs** défini
+- **1 pitch CTO** prêt à envoyer
+- **1 audit produit** existant vs. manquant
+
+### Les 5 noyaux de valeur de MnM
+1. **Orchestrateur Déterministique** — workflows imposés, pas interprétés
+2. **Observabilité & Audit** — traçabilité, drift detection, confiance enterprise
+3. **Onboarding Cascade + Config Duale** — chaque niveau définit le suivant, oral + visuel
+4. **Communication Agent-to-Agent + Permissions** — query inter-agents, connecteurs auto-générés
+5. **Dual-Speed Workflow + Curseur d'Automatisation** — humain pense, machine exécute
+
+### Le pitch MnM en 3 lignes
+- **Aujourd'hui :** MnM centralise et automatise le mécanique
+- **Demain :** Brainstorm humain → agents exécutent → humain valide → prod
+- **Après-demain :** MnM détecte, propose, exécute → Humain = go/no-go
+
+### La phrase produit
+> MnM = orchestrateur d'agents déterministique avec audit, drift detection, et connecteurs auto-générés. Atomique, léger, extensible de l'intérieur.
+
+### Actions identifiées
+- 🔴 **IMMÉDIAT :** Pitcher le CTO de CBA avec le message préparé
+- 📋 **Tom :** Noyaux B (Onboarding) + D (Observabilité)
+- 📋 **Cofondateur :** Noyaux A (Orchestrateur) + D (Observabilité)
+- 📋 **En attente :** Réponses interviews terrain hackathon (DMs envoyés)
+
+### Fichiers de session
+- `_bmad-output/brainstorming/brainstorming-session-2026-03-12.md` (ce fichier)
+- `_bmad-output/brainstorming/interview-questions-hackathon.md` (questions complètes)
+- `_bmad-output/brainstorming/dm-hackathon.md` (messages DM prêts à envoyer)
+
