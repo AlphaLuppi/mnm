@@ -1,0 +1,4 @@
+agent_name,role,description
+analyst,Business Analyst,Analyzes requirements and creates specs
+developer,Developer,Implements features from stories
+reviewer,Code Reviewer,Reviews code for quality and standards
