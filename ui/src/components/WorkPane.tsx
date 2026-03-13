@@ -70,6 +70,93 @@ function StatusBadgeInline({ status }: { status: string | null | undefined }) {
   );
 }
 
+/* ── Segment colors for global progress bar ── */
+
+const SEGMENT_COLORS = [
+  "bg-blue-500",
+  "bg-violet-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-teal-500",
+  "bg-indigo-500",
+  "bg-orange-500",
+  "bg-emerald-500",
+  "bg-pink-500",
+  "bg-cyan-500",
+] as const;
+
+/* ── Global Progress Bar ── */
+
+function GlobalProgressBar({ tree }: { tree: ContextNode[] }) {
+  if (tree.length === 0) return null;
+
+  const grandTotal = tree.reduce((sum, n) => sum + n.progress.total, 0);
+  if (grandTotal === 0) return null;
+
+  const grandDone = tree.reduce((sum, n) => sum + n.progress.done, 0);
+  const globalPct = Math.round((grandDone / grandTotal) * 100);
+
+  const segments = tree.map((node, i) => ({
+    node,
+    weight: node.progress.total / grandTotal,
+    pct: node.progress.total > 0
+      ? Math.round((node.progress.done / node.progress.total) * 100)
+      : 0,
+    color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+  }));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+          Progress
+        </span>
+        <span className="text-xs font-medium tabular-nums text-muted-foreground">
+          {globalPct}%
+        </span>
+      </div>
+      <div
+        className="flex h-3 w-full rounded-full bg-muted overflow-hidden gap-[2px]"
+        role="progressbar"
+        aria-valuenow={globalPct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Project progress: ${globalPct}%`}
+      >
+        {segments.map(({ node, weight, pct, color }) => (
+          <div
+            key={node.id}
+            className="h-full overflow-hidden first:rounded-l-full last:rounded-r-full"
+            style={{ width: `${weight * 100}%` }}
+            title={`${node.title} — ${pct}%`}
+          >
+            <div
+              className={cn("h-full transition-all", color)}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {segments.map(({ node, pct, color }) => (
+          <div key={node.id} className="flex items-center gap-1.5 min-w-0">
+            <span className={cn("h-2 w-2 rounded-full shrink-0", color)} />
+            <span
+              className="text-[10px] text-muted-foreground truncate"
+              title={node.title}
+            >
+              {node.title}
+            </span>
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums shrink-0 ml-auto">
+              {pct}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Breadcrumb ── */
 
 function Breadcrumb({ segments }: { segments: { label: string; onClick?: () => void }[] }) {
@@ -720,6 +807,7 @@ function WorkPaneEmpty() {
 function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; companyId?: string }) {
   const [launchAgentId, setLaunchAgentId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { data: wsCtx } = useWorkspaceContext(projectId, companyId);
 
   const { data: liveRuns = [] } = useQuery({
     queryKey: queryKeys.liveRuns(companyId ?? ""),
@@ -800,6 +888,11 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-6">
+
+        {/* Global progress */}
+        {wsCtx?.detected && wsCtx.tree.length > 0 && (
+          <GlobalProgressBar tree={wsCtx.tree} />
+        )}
 
         {/* Active agents */}
         <section className="space-y-3">
