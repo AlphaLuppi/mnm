@@ -127,7 +127,7 @@ function resolveIssueToastContext(
 
 const ISSUE_TOAST_ACTIONS = new Set(["issue.created", "issue.updated", "issue.comment_added"]);
 const AGENT_TOAST_STATUSES = new Set(["running", "error"]);
-const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "timed_out", "cancelled"]);
+const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "timed_out", "cancelled", "interrupted"]);
 
 function describeIssueUpdate(details: Record<string, unknown> | null): string | null {
   if (!details) return null;

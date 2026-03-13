@@ -13,6 +13,7 @@ import {
   issues,
   projectWorkspaces,
   stageInstances,
+  activityLog,
 } from "@mnm/db";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
@@ -851,7 +852,7 @@ export function heartbeatService(db: Db) {
 
   async function finalizeAgentStatus(
     agentId: string,
-    outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+    outcome: "succeeded" | "failed" | "cancelled" | "timed_out" | "interrupted",
   ) {
     const existing = await getAgent(agentId);
     if (!existing) return;
@@ -864,7 +865,7 @@ export function heartbeatService(db: Db) {
     const nextStatus =
       runningCount > 0
         ? "running"
-        : outcome === "succeeded" || outcome === "cancelled"
+        : outcome === "succeeded" || outcome === "cancelled" || outcome === "interrupted"
           ? "idle"
           : "error";
 
@@ -895,6 +896,26 @@ export function heartbeatService(db: Db) {
     }
   }
 
+  /** Actions in the activity log that indicate the agent produced meaningful work. */
+  const MEANINGFUL_ACTIVITY_ACTIONS = new Set([
+    "issue.comment_added",
+    "issue.updated",
+    "issue.created",
+    "issue.checked_out",
+    "approval.created",
+    "agent.hire_created",
+    "agent.updated",
+    "agent.instructions_path_updated",
+  ]);
+
+  async function countMeaningfulActivity(runId: string): Promise<number> {
+    const rows = await db
+      .select({ action: activityLog.action })
+      .from(activityLog)
+      .where(eq(activityLog.runId, runId));
+    return rows.filter((r) => MEANINGFUL_ACTIVITY_ACTIONS.has(r.action)).length;
+  }
+
   async function reapOrphanedRuns(opts?: { staleThresholdMs?: number }) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
     const now = new Date();
@@ -916,27 +937,35 @@ export function heartbeatService(db: Db) {
         if (now.getTime() - refTime < staleThresholdMs) continue;
       }
 
-      await setRunStatus(run.id, "failed", {
-        error: "Process lost -- server may have restarted",
+      // Check whether the agent produced meaningful work before the server died.
+      const activityCount = await countMeaningfulActivity(run.id);
+      const hadOutput = activityCount > 0;
+      const status = hadOutput ? "interrupted" : "interrupted";
+      const errorMessage = hadOutput
+        ? `Process interrupted -- server restarted (agent had ${activityCount} action(s) before interruption)`
+        : "Process interrupted -- server restarted before agent produced output";
+
+      await setRunStatus(run.id, status, {
+        error: errorMessage,
         errorCode: "process_lost",
         finishedAt: now,
       });
-      await setWakeupStatus(run.wakeupRequestId, "failed", {
+      await setWakeupStatus(run.wakeupRequestId, status, {
         finishedAt: now,
-        error: "Process lost -- server may have restarted",
+        error: errorMessage,
       });
       const updatedRun = await getRun(run.id);
       if (updatedRun) {
         await appendRunEvent(updatedRun, 1, {
           eventType: "lifecycle",
           stream: "system",
-          level: "error",
-          message: "Process lost -- server may have restarted",
+          level: "warn",
+          message: errorMessage,
         });
         await releaseIssueExecutionAndPromote(updatedRun);
-        await maybeAdvanceLinkedStage(updatedRun, "failed");
+        await maybeAdvanceLinkedStage(updatedRun, "interrupted");
       }
-      await finalizeAgentStatus(run.agentId, "failed");
+      await finalizeAgentStatus(run.agentId, "interrupted");
       await startNextQueuedRunForAgent(run.agentId);
       runningProcesses.delete(run.id);
       reaped.push(run.id);
@@ -1625,8 +1654,11 @@ export function heartbeatService(db: Db) {
 
   async function maybeAdvanceLinkedStage(
     run: typeof heartbeatRuns.$inferSelect,
-    outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+    outcome: "succeeded" | "failed" | "cancelled" | "timed_out" | "interrupted",
   ) {
+    // Interrupted runs are not a real outcome — leave the stage as-is so it can be retried.
+    if (outcome === "interrupted") return;
+
     // Find any stage instance linked to this run via activeRunId
     const linkedStage = await db
       .select()
