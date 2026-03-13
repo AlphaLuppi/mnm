@@ -57,17 +57,17 @@ Tom travaille à CBA et connait les pain points de chaque rôle :
 ### Phase 1 : DECONSTRUCTION — "C'est quoi le vrai problème ?"
 - **Techniques :** First Principles Thinking + Role Playing
 - **Objectif :** 30+ pain points bruts, classés par rôle et interaction inter-rôle
-- **Statut :** EN COURS
+- **Statut :** TERMINÉE — 29 vérités
 
 ### Phase 2 : EXPLORATION CRÉATIVE — "Et si on cassait les règles ?"
-- **Techniques :** What If Scenarios + Cross-Pollination
+- **Techniques :** What If Scenarios + Cross-Pollination + Brainstorm cofondateur + Retours hackathon
 - **Objectif :** 40+ idées folles de workflows, fusions de rôles, interfaces unifiées
-- **Statut :** À venir
+- **Statut :** TERMINÉE — 25 vérités supplémentaires (total : 54)
 
 ### Phase 3 : PATTERN RECOGNITION — "Qu'est-ce qui émerge ?"
 - **Techniques :** Morphological Analysis + Constraint Mapping
 - **Objectif :** Identifier les 3-5 "noyaux de valeur" de MnM
-- **Statut :** À venir
+- **Statut :** EN COURS
 
 ### Phase 4 : VISION ACTIONNABLE — "Par où on commence ?"
 - **Techniques :** Decision Tree Mapping + Future Self Interview
@@ -443,4 +443,354 @@ _Novelty_: On supprime toute la cérémonie d'estimation (poker planning, DoR, s
 **[WhatIf #6]**: Le brainstorm comme seul "événement" humain
 _Concept_: Si toute l'exécution est automatisée, les seuls moments où les humains se réunissent c'est pour penser ensemble — brainstorm, décision stratégique, arbitrage. Plus de daily, plus de grooming, plus de rétro sur le process. Juste des sessions de réflexion collective quand il y a un vrai sujet.
 _Novelty_: Les réunions ne sont plus des cérémonies de coordination — elles deviennent des sessions de création pure. On ne se réunit plus par obligation mais par besoin de penser ensemble.
+
+---
+
+#### What If #3 / Cross-Pollination — MnM comme architecture event-driven pour humains
+
+**Scénario :** Chaque rôle = un microservice autonome. Communication via événements (pas de réunions synchrones). Agent d'orchestration = event bus.
+
+**Réponse Gabri — Vision réaliste en 3 phases d'adoption :**
+
+**Phase 1 (aujourd'hui) — Event-driven MANUEL :**
+- Le Designer se connecte, voit que le PO a publié une epic
+- Il lance manuellement un agent pour réfléchir à l'UX / faire les maquettes
+- Les gens ne sont pas prêts pour du full auto
+- **Raison clé : si c'est tout auto, personne ne valide/approuve** → l'humain doit rester dans la boucle de décision
+
+**Phase 2 (demain) — Event-driven ASSISTÉ :**
+- MnM notifie et propose des actions, l'humain approuve en 1 clic
+
+**Phase 3 (après-demain) — Event-driven AUTO :**
+- Full auto avec l'humain qui supervise les exceptions
+
+**Insight fondamental sur le workflow réel :**
+- Tout le monde se met dans une salle, brainstorme ensemble (avec un agent brainstorm)
+- L'output du brainstorm part directement aux agents dev
+- Les agents dev codent, testent, et ça part en prod
+- **Le workflow complet = brainstorm humain → output → agents → prod**
+
+**Idées générées :**
+
+**[CrossPol #1]**: L'adoption progressive event-driven (manuel → assisté → auto)
+_Concept_: MnM ne force pas l'automatisation. Phase 1 : l'utilisateur voit les événements et agit manuellement. Phase 2 : MnM propose des actions, l'humain approuve. Phase 3 : full auto avec supervision. Chaque utilisateur avance à son rythme sur ce spectre.
+_Novelty_: Résout la tension "propose vs. impose" (point ouvert #16). C'est ni l'un ni l'autre — c'est un curseur que chaque utilisateur déplace quand il est prêt.
+
+**[CrossPol #2]**: Le brainstorm comme point d'entrée de toute la chaîne
+_Concept_: Le workflow ne commence plus par "le PM écrit une epic" mais par "des gens se mettent dans une salle et brainstorment avec un agent". L'output structuré du brainstorm EST l'input de toute la chaîne d'exécution. Plus de traduction PPT → Epic → Story → Code. C'est : brainstorm → output structuré → agents → prod.
+_Novelty_: On compresse toute la chaîne PM → PO → Dev → QA → Deploy en : humains pensent → machines exécutent. Les étapes intermédiaires de traduction disparaissent.
+
+**[CrossPol #3]**: L'humain comme validateur, pas comme exécutant
+_Concept_: À chaque étape de la chaîne automatisée, l'humain n'exécute pas — il valide/approuve/redirige. Le Designer ne dessine pas la maquette — il valide celle que l'agent a générée. Le QA n'écrit pas les tests — il valide ceux que l'agent a produits. L'humain est le "gate" de qualité, pas la "machine" de production.
+_Novelty_: Ça redéfinit chaque rôle : de "producteur d'artefacts" à "gardien de qualité et de pertinence". La compétence clé n'est plus "savoir faire" mais "savoir juger".
+
+**Vérité #30 — L'adoption de l'automatisation est un curseur individuel, pas un switch global**
+Chaque user avance à son rythme : manuel → assisté → auto. MnM doit supporter les 3 modes simultanément dans la même entreprise.
+
+**Vérité #31 — Le brainstorm collectif est le vrai point d'entrée du workflow**
+Pas l'epic, pas la story, pas le ticket. Le brainstorm. Tout le reste est de l'exécution.
+
+**Vérité #32 — Le rôle humain se transforme de "producteur" à "juge"**
+Savoir faire → savoir juger. Savoir écrire une story → savoir évaluer si la story générée est bonne.
+
+---
+
+#### What If #4 — Et si MnM brainstormait seul ?
+
+**Scénario :** MnM a accumulé assez de savoir tribal, data d'usage, historique de décisions pour détecter les problèmes, brainstormer des solutions, simuler l'impact, et proposer au CEO un top 3 avec recommandation d'exécution. L'humain n'est plus que le "go / no-go".
+
+**Réponse Gabri :** "C'est exactement ça le futur."
+
+**Vérité #33 — La vision long terme de MnM = l'entreprise autonome avec l'humain en go/no-go**
+Le end-game n'est pas "aider les gens à mieux travailler" — c'est "l'IA fait tourner l'entreprise et l'humain décide de la direction". MnM accumule le savoir, détecte les opportunités, propose des plans, exécute après validation.
+
+**Vérité #34 — MnM est une machine à capturer et capitaliser le savoir organisationnel**
+Chaque brainstorm, chaque décision, chaque retour utilisateur, chaque edge case du QA = de la data qui rend MnM plus intelligent. Plus l'entreprise utilise MnM, plus MnM peut remplacer des étapes humaines. C'est un flywheel.
+
+---
+
+#### Récapitulatif Phase 2 — Chaîne d'évolution de MnM
+
+**Aujourd'hui (Phase 1 adoption) :**
+Humain fait + humain coordonne + outils passifs
+→ MnM centralise, chaque user configure son workflow/agents manuellement
+
+**Demain (Phase 2 adoption) :**
+Humain pense + machine exécute + agents se coordonnent
+→ Brainstorm humain → output → agents → humain valide → prod
+
+**Après-demain (Phase 3 adoption) :**
+Machine détecte + machine propose + machine exécute + humain go/no-go
+→ MnM brainstorme seul, propose au décideur, exécute si validé
+
+**C'est le pitch de MnM en 3 lignes.**
+
+---
+
+#### Brainstorm cofondateur — 6 insights fondamentaux
+
+**Source :** Discussion entre Gabri (Tom) et son cofondateur pendant le hackathon.
+
+**Insight #1 — Onboarding top-down en cascade hiérarchique**
+- Le directeur définit la chaîne de workflow et les rôles de son entreprise
+- Il invite chaque personne et les assigne à leurs agents/rôles
+- **Chaque niveau hiérarchique définit le niveau inférieur** :
+  - CEO → définit qu'il y a un CTO, des PO, 3 produits, 4 projets
+  - CTO → définit la stratégie de dev de ses équipes
+  - Directeur produit → définit PM, PO, Designers, marketing
+  - Directeur marketing → définit la stratégie de ses équipes
+- Chaque "étage" discute entre eux (intelligence collective entre directeurs) pour que les workflows soient cohérents dès la définition initiale
+- Possible session "tous ensemble" pour valider la cohérence globale
+
+**Insight #2 — Workflows déterministiques, pas confiés aux agents**
+- Contrairement à BMAD qui charge les workflows et laisse l'agent les gérer...
+- **MnM inscrit les workflows de manière déterministique et algorithmique**
+- L'agent n'a PAS la responsabilité de suivre le workflow — MnM l'impose
+- Exemple : "workflow de développement d'une story" = script/pattern défini en amont qui détermine quel agent, quel prompt, quel contexte charger selon le langage/framework
+- Peut être un LLM, un script, ou un tool qui détermine le bon agent et la bonne config
+
+**Insight #3 — Gestion de contexte = feature critique**
+- Problème identifié : quand un agent a trop de workflow en contexte et compacte, il perd la définition du workflow → skip des étapes, bypass des règles
+- **Solution MnM :** après chaque compaction, réinjecter en dur les pré-prompts et informations critiques du workflow
+- MnM surveille les agents et s'assure qu'ils adhèrent au workflow
+- Si un agent compacte et ne produit pas le résultat attendu → c'est documenté, le manager voit la tâche, peut en discuter avec le lead tech, et décider de découper (ex: 2 sous-agents au lieu d'1 — un pour le dev, un pour la code review)
+
+**Insight #4 — Dialogue humain-agent pendant l'exécution**
+- Aujourd'hui MnM est full auto : mission → exécution → résultat → report
+- **Manque identifié :** le dev veut pouvoir voir son agent en live, l'arrêter, le guider, lui dire "là tu te plantes, fais plutôt ça"
+- L'humain doit pouvoir dialoguer avec son agent pendant qu'il travaille
+- Pas juste "lancer et attendre" mais "conduire" l'agent
+
+**Insight #5 — Observabilité simplifiée (Langfuse/LangChain)**
+- Aujourd'hui : historique tools, thinking, logs bruts → illisible, il faut se taper tous les logs
+- **Vision :** couche d'observabilité type Langfuse qui trace et simplifie
+  - Au lieu de voir chaque appel fichier → "il a 5 fichiers en contexte"
+  - LLM qui analyse les traces en temps réel et résume simplement ce qui se passe
+- **Audit log centralisé :** si un dev fait une erreur, on peut remonter à quel moment l'agent s'est planté, sans aller lire les logs sur l'ordi de la personne
+- Traçabilité pour debug, accountability, amélioration continue
+
+**Insight #6 — La hiérarchie ne descend pas jusqu'aux opérationnels**
+- Le CEO ne définit pas le workflow du dev individuel
+- Il définit la structure (rôles, équipes, produits, projets)
+- Chaque manager définit son niveau
+- L'opérationnel (dev, designer, QA) configure son propre workflow/agents dans le cadre défini par son manager
+
+---
+
+#### Nouvelles vérités extraites du brainstorm cofondateur
+
+**Vérité #35 — L'onboarding est une cascade hiérarchique, pas un setup unique**
+Chaque niveau définit le suivant. Le CEO ne configure pas le workflow du dev — il définit la structure que le CTO raffine, que le Lead raffine, etc.
+
+**Vérité #36 — Les workflows sont déterministiques, PAS confiés à l'IA**
+C'est la différence fondamentale entre MnM et un "agent wrapper". L'agent n'interprète pas le workflow — MnM l'impose algorithmiquement. L'IA est contrainte par le système, pas l'inverse.
+
+**Vérité #37 — La gestion de contexte est l'avantage technique différenciateur**
+Le problème de compaction = le problème technique n°1 des agents IA longs. MnM qui réinjecte les pré-prompts critiques après compaction = avantage technique défendable.
+
+**Vérité #38 — L'agent doit être "conduisible", pas juste "lançable"**
+L'humain veut piloter son agent en temps réel : voir, arrêter, guider, corriger. Pas du fire-and-forget.
+
+**Vérité #39 — L'observabilité simplifiée est un prérequis de confiance**
+Personne ne fera confiance à un agent dont on ne peut pas comprendre les actions. Langfuse + résumé LLM = rendre l'agent transparent et debuggable.
+
+**Vérité #40 — L'audit centralisé des agents est un argument B2B enterprise**
+"Si quelque chose merde, on sait exactement où et quand l'agent s'est planté, sans aller sur l'ordi de la personne" = compliance, accountability, confiance managériale.
+
+---
+
+#### Retour hackathon — Feedback terrain + approfondissements cofondateur
+
+**Feedback CTO hackathon :**
+- Le CTO était très critique sur les résultats IA — il ne comprenait pas pourquoi les agents n'avaient pas chargé tel ou tel skill/fichier en contexte
+- **Validation directe de la vérité #36 :** avec MnM, le CTO pourrait dire "cet agent, obligatoirement, charge CE fichier en contexte" — injecté dans le prompt de base de l'agent et du workflow, pas laissé au choix de l'IA
+
+**Stratégies de gestion de compaction (approfondissement #37) :**
+- **Option A :** Au moment de la compaction → kill l'agent, lui demander de poster son résultat, lancer un nouvel agent avec le résultat du premier + re-prompt workflow complet
+- **Option B :** Après compaction → réinjecter le workflow MnM pour s'assurer que l'agent a toujours le workflow en tête
+- À investiguer techniquement quelle option est la plus fiable
+
+**Insight #7 — Dual-mode de configuration (oral vs. visuel)**
+- **Mode oral/chat (CEO-like) :** découverte conversationnelle, le CEO définit les rôles et la structure à l'oral, MnM structure derrière
+- **Mode visuel/manuel (CTO-like) :** édition précise des agents, fichiers en contexte, workflows, prompts — configuration critique et technique
+- Les 2 modes doivent coexister — chaque persona a sa façon naturelle de configurer
+- Le CEO ne veut pas éditer des prompts, le CTO ne veut pas "parler" à un chat pour configurer
+
+**Insight #8 — MnM comme source unique de vérité (Single Source of Truth)**
+- **Vision :** une fois MnM déployé, TOUTES les tâches et features sont développées VIA MnM
+- L'avancée d'un projet, d'une feature, d'une équipe, le travail restant → directement dans MnM via le système de tâches/issues
+- **Import initial :** mapping intelligent depuis Jira/Linear/ClickUp vers le modèle MnM
+- **Après l'import :** MnM fige les premières briques atomiques. Tout vit dans MnM.
+- **Plus de double tracking :** pas de dashboard MnM d'un côté + fichiers markdown/sprint board de l'autre
+- Pas besoin de "découverte générique de codebase" car tout le contexte est dans la DB MnM
+- L'import + le mapping = le moment où MnM "avale" l'existant et devient le système de référence
+
+---
+
+#### Nouvelles vérités extraites
+
+**Vérité #41 — MnM doit offrir 2 modes de configuration : oral (CEO) et visuel (CTO)**
+Pas un choix produit — c'est une nécessité d'adoption. Chaque persona a un mode naturel. Forcer un mode unique = perdre la moitié des utilisateurs.
+
+**Vérité #42 — MnM est la source unique de vérité, pas un dashboard au-dessus d'autres outils**
+MnM ne se branche pas "par-dessus" Jira — il le REMPLACE. Import initial intelligent, puis tout vit dans MnM. Pas de synchronisation, pas de double tracking.
+
+**Vérité #43 — L'import/mapping initial est le moment critique d'adoption B2B**
+C'est le "moment de vérité" : si l'import depuis Jira/Linear/ClickUp est fluide et fidèle, l'entreprise bascule. Si c'est douloureux, c'est mort. L'import intelligent = feature stratégique.
+
+**Vérité #44 — La compaction est un problème à résoudre au niveau plateforme, pas au niveau agent**
+L'agent ne doit pas gérer sa propre mémoire. MnM le fait : soit en killant/relançant avec contexte frais, soit en réinjectant post-compaction. C'est une responsabilité système.
+
+**Vérité #45 — Le feedback terrain (hackathon CTO) valide que le contrôle déterministique est un vrai besoin**
+Ce n'est pas théorique — le CTO a été frustré EN VRAI par des agents qui ne chargeaient pas les bons fichiers. Le workflow déterministique MnM résout un pain point observé cette semaine.
+
+---
+
+#### Retour hackathon — Interview Directeur Produit
+
+**Comment le Directeur Produit travaille aujourd'hui (sans MnM) :**
+- Un repo git sur VS Code = sa "base de connaissances perso"
+- Spawne des sessions Claude Code dans VS Code
+- Alimente Claude avec : fichiers audio, Excel, CSV, data Intercom (sondages utilisateurs)
+- Claude garde tout en mémoire dans le projet git
+- Au fil des années → énorme base locale sur son PC
+- Il pose des questions à Claude sur toute cette data accumulée → insights
+- Claude lui fait des dashboards, des présentations, des synthèses
+- **C'est un workflow bricolé mais puissant** : accumulation progressive de savoir + interrogation IA
+
+**Ce que MnM doit remplacer :**
+- Le bricolage git + VS Code + Claude Code = un workspace MnM structuré
+- Workflows définis : ex. "extraction audio → synthèse → résumé" = un workflow MnM avec un agent dédié
+- Upload fichier audio → agent exécute le workflow → fichier final créé
+- Stockage : push git OU data lake entreprise OU base de données MnM
+- Ensuite d'autres agents peuvent consommer cette data/ces fichiers
+
+**Insight #9 — Le partage inter-agents avec permission**
+- Scénario concret : quelqu'un demande "c'est quoi le résultat du compte-rendu de la réunion avec le directeur produit ?"
+- Son agent détecte que le directeur produit a fait un compte-rendu via un de ses agents
+- L'agent trouve le fichier et **envoie une demande de permission** au directeur produit : "est-ce qu'on peut partager ce fichier avec cette personne ?"
+- Si le directeur dit oui → le fichier est partagé dans le contexte des agents de l'autre personne
+- **C'est un système de permissions agent-to-agent avec validation humaine**
+
+---
+
+#### Nouvelles vérités extraites
+
+**Vérité #46 — MnM remplace les "bricolages IA individuels" par des workflows structurés**
+Aujourd'hui les power users bricolent (git + Claude Code + fichiers locaux). MnM formalise ces bricolages en workflows réutilisables, partageables, et auditables. Le directeur produit n'a plus besoin d'être tech pour avoir son pipeline de data.
+
+**Vérité #47 — MnM est aussi un data lake organisationnel alimenté par les agents**
+Les agents produisent des artefacts (résumés, comptes-rendus, analyses, dashboards) qui s'accumulent dans MnM. Cette data est queryable par d'autres agents. L'entreprise construit un capital de connaissances collectif sans effort manuel.
+
+**Vérité #48 — Le partage d'information inter-agents nécessite un système de permissions humain-in-the-loop**
+Les agents ne partagent pas tout automatiquement. Un agent peut demander l'accès à un artefact d'un autre agent, mais le propriétaire humain valide. Ça résout confidentialité + contrôle tout en gardant la fluidité agent-to-agent.
+
+**Vérité #49 — Chaque utilisateur de MnM accumule progressivement un "cerveau augmenté" personnel**
+Comme le directeur produit avec son git + Claude, mais structuré et connecté aux autres. Au fil du temps, chaque user a une base de connaissances riche que ses agents exploitent. Plus tu utilises MnM, plus tes agents sont pertinents.
+
+**Vérité #50 — Le use case du directeur produit montre que MnM n'est pas qu'un outil de dev — c'est un outil de travail universel**
+Audio, Excel, CSV, sondages, présentations, dashboards... Le directeur produit ne code pas. Il a besoin d'organiser de la data, d'en tirer des insights, de partager des synthèses. MnM doit servir des profils non-techniques aussi bien que des devs.
+
+---
+
+#### Correction de cap — MnM n'est PAS un data lake
+
+**Cadrage Gabri :**
+- MnM ne DEVIENT PAS un data lake
+- MnM est un **connecteur** vers les data lakes existants (si l'entreprise le décide)
+- Connecteurs possibles : data lake local, SharePoint, Slack, Teams, DMs via agents, etc.
+- **Les agents MnM créent LEURS PROPRES connecteurs** : le CEO donne le code source d'un outil interne → un agent MnM crée un connecteur pour s'interfacer avec
+
+**Philosophie core : MnM = OpenClaw, pas NanoClaw**
+- Atomique, léger, facilement customisable
+- La personne responsable de MnM dans l'entreprise peut itérer et modifier la structure même de MnM avec des agents
+- MnM ne fait pas tout — il orchestre tout
+
+**Le vrai produit MnM (définition affinée) :**
+1. **Orchestrateur d'agents** avec workflows déterministiques
+2. **Assurance/sécurité** que les workflows et agents opèrent de manière plus déterministique qu'aujourd'hui
+3. **Drift detection** (futur) — détecter quand un agent dévie de son workflow
+4. **Expertise d'audit** — aider les entreprises à setup leurs workflows et agents (observabilité, traçabilité)
+5. **Connecteurs extensibles** — les agents créent eux-mêmes leurs connecteurs vers les outils de l'entreprise
+
+---
+
+#### Vérités corrigées et nouvelles
+
+**Vérité #47 (CORRIGÉE) — MnM est un orchestrateur-connecteur, pas un data lake**
+MnM ne stocke pas toute la data — il se connecte aux systèmes existants (data lake, SharePoint, Slack, Teams). La valeur de MnM c'est l'orchestration et la connexion, pas le stockage.
+
+**Vérité #51 — Les agents MnM doivent pouvoir créer leurs propres connecteurs**
+Le CEO donne le code source d'un outil interne → un agent crée le connecteur → MnM s'interface. L'extensibilité n'est pas un catalogue de plugins — c'est une capacité native de création.
+
+**Vérité #52 — MnM doit être modifiable de l'intérieur par ses propres agents**
+La personne responsable de MnM dans l'entreprise peut utiliser des agents MnM pour modifier MnM lui-même. C'est un outil qui s'auto-améliore et s'adapte via ses propres capacités.
+
+**Vérité #53 — Le produit MnM se résume en 1 phrase : orchestrateur d'agents déterministique avec audit et connecteurs auto-générés**
+Pas un IDE, pas un data lake, pas un Jira killer. Un orchestrateur qui garantit que les agents respectent les workflows, avec la capacité de se connecter à tout et de se modifier lui-même.
+
+**Vérité #54 — La drift detection est le futur argument de vente enterprise**
+"Votre agent a dévié du workflow défini à l'étape 3" = le genre de monitoring que les CTO/DSI veulent pour faire confiance à l'IA en production. C'est comme le monitoring d'uptime mais pour les agents.
+
+---
+
+## Phase 3 : PATTERN RECOGNITION
+
+### Morphological Analysis — 5 Noyaux de Valeur de MnM
+
+**NOYAU 1 — L'Orchestrateur Déterministique** (vérités #36, #37, #44, #45, #54)
+Le moteur technique. MnM impose les workflows aux agents. Gestion de compaction, réinjection de contexte, drift detection. Différenciateur technique défendable.
+
+**NOYAU 2 — L'Observabilité & Audit** (vérités #39, #40, #45, #54)
+La couche de confiance. Traçabilité Langfuse, résumé LLM temps réel, audit centralisé. L'argument qui fait signer les décideurs enterprise.
+
+**NOYAU 3 — L'Onboarding en Cascade & Configuration Duale** (vérités #35, #41, #43, #7, #8, #16)
+L'expérience de mise en place. Onboarding hiérarchique, dual-mode (oral/visuel), import intelligent Jira/Linear/ClickUp. Le moment de vérité de l'adoption.
+
+**NOYAU 4 — La Communication Agent-to-Agent avec Permissions** (vérités #48, #51, #52, #47, WhatIf #1, #3, CrossPol #1)
+Le système nerveux. Query inter-agents, permissions humain-in-the-loop, connecteurs auto-générés, MnM modifiable de l'intérieur. Résout la perte d'info aux handoffs.
+
+**NOYAU 5 — Le Dual-Speed Workflow & Curseur d'Automatisation** (vérités #22, #25, #30, #31, #32, #33, #34, WhatIf #4-6, CrossPol #2-3)
+La philosophie produit. Vitesse humaine (brainstorm) + vitesse machine (exécution). Curseur manuel → assisté → auto. L'humain de producteur à juge. Le "pourquoi" de MnM.
+
+### Constraint Mapping — Validé par Gabri
+
+| Contrainte | Statut | Note |
+|---|---|---|
+| Gestion de compaction techniquement dure | RÉELLE | 2 options à investiguer |
+| Les gens pas prêts pour le full auto | RÉELLE temporaire | Le curseur d'automatisation résout |
+| Import Jira/Linear complexe | RÉELLE | Vrai travail d'ingénierie |
+| MnM doit tout stocker | IMAGINÉE | MnM = connecteur, pas data lake |
+| Agents ne peuvent pas créer leurs connecteurs | IMAGINÉE | Techniquement possible (MCP, codegen) |
+| CEO ne voudra pas configurer via chat | IMAGINÉE | Le directeur produit le fait déjà |
+| Drift detection trop complexe | RÉELLE non-bloquante | Futur, pas prérequis de lancement |
+| Entreprises ne quitteront jamais Jira | PARTIELLEMENT IMAGINÉE | Migration progressive via import intelligent |
+| Faire péter les rôles = éthiquement problématique | RÉELLE | Pitch = "élévation", pas "remplacement" |
+
+**Statut Phase 3 :** TERMINÉE
+
+---
+
+## Phase 4 : VISION ACTIONNABLE
+
+### Decision Tree Mapping — Chemins stratégiques
+
+**4 chemins identifiés par noyau de valeur :**
+- A = Orchestrateur Déterministique (moteur technique)
+- B = Onboarding + Import (expérience d'adoption)
+- C = Dual-Speed Workflow (philosophie produit / wow effect)
+- D = Observabilité & Audit (couche de confiance)
+
+**Décision Gabri — Split naturel cofondateurs :**
+- **Tom (Gabri) → Chemin B + D** : Onboarding en cascade, import intelligent, dual-mode config, observabilité Langfuse, audit centralisé
+- **Cofondateur → Chemin A + D** : Orchestrateur déterministique, gestion compaction, réinjection contexte, drift detection, + observabilité
+- **D est partagé** : les deux y contribuent, c'est la couche transverse
+- **C (Dual-Speed Workflow) = émerge naturellement** une fois A + B en place — pas un chantier séparé mais une conséquence des autres noyaux
+
+**Pourquoi ce split fonctionne :**
+- Aligne les intérêts naturels de chaque cofondateur (discussions hackathon = preuve)
+- Tom = focus produit/UX/adoption (cohérent avec son profil product engineer)
+- Cofondateur = focus technique/moteur/fiabilité
+- D en commun = les deux ont besoin de l'observabilité pour leurs parties respectives
+- Pas de dépendance bloquante entre A et B au démarrage — développement parallèle possible
 
