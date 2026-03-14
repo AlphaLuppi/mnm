@@ -134,7 +134,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| SSO-S01 | Table SSO | PENDING | | | | | |
+| SSO-S01 | Table SSO | DONE | fabcf71 | 0c29db9 | 9801762 | PASS (no fix) | 52/52 E2E pass, 90/90 TECH-06 + 29/29 TECH-07 regressions pass |
 | SSO-S02 | Better Auth SAML/OIDC | PENDING | | | | | |
 | SSO-S03 | UI config SSO | PENDING | | | | | |
 | DASH-S01 | API dashboards | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 52 |
+| Stories DONE | 53 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 17 |
-| Batch courant | 12 (complete) |
-| Dernière story complétée | DUAL-S03 |
+| Stories PENDING | 16 |
+| Batch courant | 13 (in progress) |
+| Dernière story complétée | SSO-S01 |
 | Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
@@ -363,3 +363,7 @@
 | 2026-03-15 | DUAL-S03 | Dev | Dev Agent | 925992e | cursor-enforcement.ts service + orchestrator.ts integration + CursorEnforcementResult type + barrel exports |
 | 2026-03-15 | DUAL-S03 | QA | QA Agent | 5fdabc3 | 45 Playwright E2E tests (file-content based) |
 | 2026-03-15 | DUAL-S03 | Review | Review Agent | — | PASS — 45/45 E2E pass, 527/528 regressions (DUAL-S01+S02+ORCH-S01+S02+S03+S04, 1 pre-existing ORCH-S04 T16), no fix needed |
+| 2026-03-15 | SSO-S01 | PM | PM Agent | fabcf71 | Story spec — SSO config table enrichment + 12 ACs + 52 data-testid + 52 test cases |
+| 2026-03-15 | SSO-S01 | Dev | Dev Agent | 0c29db9 | Schema enrichment (7 cols + 1 idx) + migration + types + validators + service 8 fns + 7 routes + barrel exports |
+| 2026-03-15 | SSO-S01 | QA | QA Agent | 9801762 | 52 Playwright E2E tests (file-content based) |
+| 2026-03-15 | SSO-S01 | Review | Review Agent | — | PASS — 52/52 E2E pass, 119/119 regressions (TECH-06+TECH-07), no fix needed |
