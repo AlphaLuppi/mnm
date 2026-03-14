@@ -59,7 +59,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| RBAC-S04 | Enforcement 22 routes | PENDING | | | | | |
+| RBAC-S04 | Enforcement 22 routes | DONE | 0d96835 | 8c0bd97 | 29edcdd | 4aa1f37 | 81/81 E2E pass, fix: enriched 403 details in access.ts + issues.ts |
 | RBAC-S05 | Navigation masquée | PENDING | | | | | |
 | RBAC-S06 | UI admin matrice permissions | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 17 |
+| Stories DONE | 18 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 52 |
-| Batch courant | 4 |
-| Dernière story complétée | RBAC-S07 |
-| Prochain batch débloqué | BATCH 5 (RBAC-S04, RBAC-S05, RBAC-S06) |
+| Stories PENDING | 51 |
+| Batch courant | 5 |
+| Dernière story complétée | RBAC-S04 |
+| Prochain batch débloqué | BATCH 5 (RBAC-S05, RBAC-S06) |
 
 ---
 
@@ -240,3 +240,7 @@
 | 2026-03-14 | RBAC-S07 | Dev | Dev Agent | b20540d | RoleBadge component + Members.tsx + BulkInviteTab integration |
 | 2026-03-14 | RBAC-S07 | QA | QA Agent | 133bc89 | 27 Playwright E2E tests (file-content based) |
 | 2026-03-14 | RBAC-S07 | Review | Review Agent | f6d237f | Fix: regex for as BusinessRole cast. 27/27 pass |
+| 2026-03-14 | RBAC-S04 | PM | PM Agent | 0d96835 | Story spec with data-test-id — enforcement 22 route files |
+| 2026-03-14 | RBAC-S04 | Dev | Dev Agent | 8c0bd97 | requirePermission middleware + assertCompanyPermission + 10 route files |
+| 2026-03-14 | RBAC-S04 | QA | QA Agent | 29edcdd | 81 Playwright E2E tests (file-content based) |
+| 2026-03-14 | RBAC-S04 | Review | Review Agent | 4aa1f37 | Fix: enriched 403 details in access.ts + issues.ts. 81/81 pass |
