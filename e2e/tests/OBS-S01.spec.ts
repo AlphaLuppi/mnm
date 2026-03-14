@@ -98,9 +98,12 @@ test.describe("Groupe 1: File existence and barrel exports", () => {
 
   test("T09 — Types barrel export: packages/shared/src/index.ts contains audit types", async () => {
     const content = await readFile(SHARED_INDEX, "utf-8");
-    // Should re-export audit types
+    // Should re-export audit types (via ./types/index.js barrel)
     expect(content).toMatch(/audit/i);
-    expect(content).toMatch(/from\s+["']\.\/types\/audit/);
+    expect(content).toMatch(/from\s+["']\.\/types\/index/);
+    // Should contain the audit type names
+    expect(content).toContain("AuditEventInput");
+    expect(content).toContain("AUDIT_ACTOR_TYPES");
   });
 });
 
@@ -465,10 +468,12 @@ test.describe("Groupe 6: Validators", () => {
     expect(schemaBlock).toContain("actorId");
     expect(schemaBlock).toContain("dateFrom");
     expect(schemaBlock).toContain("dateTo");
-    // Should NOT contain pagination fields
-    expect(schemaBlock).not.toMatch(/\blimit\b/);
-    expect(schemaBlock).not.toMatch(/\boffset\b/);
-    expect(schemaBlock).not.toMatch(/\bsortOrder\b/);
+    // Should NOT contain pagination fields as Zod schema property keys
+    // (Note: "offset" appears in datetime({ offset: true }) which is fine —
+    // so we match only lines starting with the field name followed by z.)
+    expect(schemaBlock).not.toMatch(/^\s*limit\s*:/m);
+    expect(schemaBlock).not.toMatch(/^\s*offset\s*:/m);
+    expect(schemaBlock).not.toMatch(/^\s*sortOrder\s*:/m);
   });
 
   test("T47 — auditVerifySchema has 2 fields: dateFrom, dateTo", () => {
