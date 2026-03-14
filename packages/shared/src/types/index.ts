@@ -154,6 +154,9 @@ export {
   CONTAINER_STATUSES,
   CONTAINER_PROFILE_PRESETS,
   CONTAINER_EVENT_TYPES,
+  // cont-s05-export-types
+  CONTAINER_NETWORK_MODES,
+  CONTAINER_HEALTH_CHECK_STATUSES,
 } from "./container.js";
 export type {
   ContainerStatus,
@@ -164,6 +167,12 @@ export type {
   ContainerInfo,
   ContainerStopOptions,
   ContainerEventType,
+  // cont-s05-export-types
+  ContainerNetworkMode,
+  ContainerHealthCheckStatus,
+  ContainerProfileInfo,
+  ContainerInfoFull,
+  ContainerProfileUpdate,
 } from "./container.js";
 export type {
   ChatChannelStatus,

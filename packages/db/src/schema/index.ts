@@ -41,6 +41,7 @@ export { chatChannels } from "./chat_channels.js";
 export { chatMessages } from "./chat_messages.js";
 export { containerProfiles } from "./container_profiles.js";
 export { containerInstances } from "./container_instances.js";
+export { containerProfilesRelations, containerInstancesRelations } from "./container_relations.js"; // cont-s05-export-profiles-relations, cont-s05-export-instances-relations
 export { credentialProxyRules } from "./credential_proxy_rules.js";
 export { auditEvents } from "./audit_events.js";
 export { ssoConfigurations } from "./sso_configurations.js";

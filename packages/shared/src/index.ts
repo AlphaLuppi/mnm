@@ -208,6 +208,12 @@ export type {
   ContainerInfo,
   ContainerStopOptions,
   ContainerEventType,
+  // CONT-S05: Enriched container types
+  ContainerNetworkMode,
+  ContainerHealthCheckStatus,
+  ContainerProfileInfo,
+  ContainerInfoFull,
+  ContainerProfileUpdate,
 } from "./types/index.js";
 
 export {
@@ -222,6 +228,9 @@ export {
   CONTAINER_STATUSES,
   CONTAINER_PROFILE_PRESETS,
   CONTAINER_EVENT_TYPES,
+  // CONT-S05: Enriched container constants
+  CONTAINER_NETWORK_MODES,
+  CONTAINER_HEALTH_CHECK_STATUSES,
 } from "./types/index.js";
 
 export {

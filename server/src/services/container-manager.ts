@@ -6,9 +6,10 @@ import type {
   ContainerStatus,
   ContainerLaunchOptions,
   ContainerLaunchResult,
-  ContainerInfo,
+  ContainerInfoFull,
   ContainerStopOptions,
   ContainerResourceUsage,
+  ContainerHealthCheckStatus,
 } from "@mnm/shared";
 import { notFound, conflict } from "../errors.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -66,9 +67,10 @@ export function containerManagerService(db: Db) {
     // 3. Resolve profile
     const profile = await resolveProfile(companyId, agent.containerProfileId ?? null, options?.profileId);
 
-    // 4. Resolve image
+    // 4. Resolve image — CONT-S05: use profile.dockerImage as fallback
     const dockerImage = options?.dockerImage
       ?? (agent.adapterConfig as Record<string, unknown>)?.dockerImage as string
+      ?? profile.dockerImage
       ?? DEFAULT_DOCKER_IMAGE;
 
     // 5. Create instance record
@@ -103,9 +105,22 @@ export function containerManagerService(db: Db) {
       const container = await docker.createContainer(containerOpts);
       const dockerContainerId = container.id;
 
-      // 10. Update instance with Docker container ID
+      // 10. Update instance with Docker container ID, logStreamUrl, and labels — CONT-S05 enrichment
+      const effectiveLabels: Record<string, string> = {
+        "mnm.agent_id": agentId,
+        "mnm.company_id": companyId,
+        "mnm.instance_id": instance!.id,
+        "mnm.profile": profile.name,
+        ...options?.labels,
+      };
+
       await db.update(containerInstances)
-        .set({ dockerContainerId, updatedAt: new Date() })
+        .set({
+          dockerContainerId,
+          logStreamUrl: `/ws/containers/${instance!.id}/logs`,
+          labels: effectiveLabels,
+          updatedAt: new Date(),
+        })
         .where(eq(containerInstances.id, instance!.id));
 
       // 11. Start container
@@ -243,7 +258,7 @@ export function containerManagerService(db: Db) {
   async function getContainerStatus(
     instanceId: string,
     companyId: string,
-  ): Promise<ContainerInfo> {
+  ): Promise<ContainerInfoFull> {
     const results = await db
       .select({
         instance: containerInstances,
@@ -268,7 +283,7 @@ export function containerManagerService(db: Db) {
   async function listContainers(
     companyId: string,
     filters?: { status?: ContainerStatus; agentId?: string },
-  ): Promise<ContainerInfo[]> {
+  ): Promise<ContainerInfoFull[]> {
     const conditions = [eq(containerInstances.companyId, companyId)];
     if (filters?.status) {
       conditions.push(eq(containerInstances.status, filters.status));
@@ -344,6 +359,14 @@ export function containerManagerService(db: Db) {
     gpuEnabled?: boolean;
     networkPolicy?: string;
     isDefault?: boolean;
+    // CONT-S05: new fields
+    dockerImage?: string;
+    maxContainers?: number;
+    credentialProxyEnabled?: boolean;
+    allowedMountPaths?: string[];
+    networkMode?: string;
+    maxDiskIops?: number | null;
+    labels?: Record<string, string>;
   }) {
     // If setting as default, unset other defaults
     if (data.isDefault) {
@@ -358,6 +381,101 @@ export function containerManagerService(db: Db) {
     }).returning();
 
     return profile!;
+  }
+
+  // ---- CONT-S05: New Profile CRUD functions ----
+
+  // cont-s05-svc-get-profile
+  async function getProfile(companyId: string, profileId: string) {
+    const [profile] = await db.select().from(containerProfiles).where(
+      and(eq(containerProfiles.id, profileId), eq(containerProfiles.companyId, companyId))
+    );
+    if (!profile) throw notFound("Container profile not found");
+    return profile;
+  }
+
+  // cont-s05-svc-update-profile
+  async function updateProfile(companyId: string, profileId: string, data: Partial<{
+    name: string;
+    description: string | null;
+    dockerImage: string | null;
+    cpuMillicores: number;
+    memoryMb: number;
+    diskMb: number;
+    timeoutSeconds: number;
+    gpuEnabled: boolean;
+    mountAllowlist: string[];
+    allowedMountPaths: string[];
+    networkPolicy: string;
+    networkMode: string;
+    credentialProxyEnabled: boolean;
+    maxContainers: number;
+    maxDiskIops: number | null;
+    labels: Record<string, string>;
+    isDefault: boolean;
+  }>) {
+    // Verify profile exists and belongs to company
+    await getProfile(companyId, profileId);
+
+    // If setting as default, unset other defaults
+    if (data.isDefault) {
+      await db.update(containerProfiles)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(and(eq(containerProfiles.companyId, companyId), eq(containerProfiles.isDefault, true)));
+    }
+
+    const [updated] = await db.update(containerProfiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(containerProfiles.id, profileId), eq(containerProfiles.companyId, companyId)))
+      .returning();
+
+    return updated!;
+  }
+
+  // cont-s05-svc-delete-profile
+  async function deleteProfile(companyId: string, profileId: string) {
+    // Verify profile exists
+    const profile = await getProfile(companyId, profileId);
+
+    // Check no active containers using this profile
+    const activeContainers = await db.select().from(containerInstances).where(
+      and(
+        eq(containerInstances.profileId, profileId),
+        inArray(containerInstances.status, ["pending", "creating", "running"])
+      )
+    );
+    if (activeContainers.length > 0) {
+      throw conflict(`Cannot delete profile: ${activeContainers.length} active container(s) using it`);
+    }
+
+    // Check no agents referencing this profile
+    const referencingAgents = await db.select().from(agents).where(
+      eq(agents.containerProfileId, profileId)
+    );
+    if (referencingAgents.length > 0) {
+      throw conflict(`Cannot delete profile: ${referencingAgents.length} agent(s) referencing it`);
+    }
+
+    await db.delete(containerProfiles).where(
+      and(eq(containerProfiles.id, profileId), eq(containerProfiles.companyId, companyId))
+    );
+
+    return profile;
+  }
+
+  // cont-s05-svc-duplicate-profile
+  async function duplicateProfile(companyId: string, profileId: string, newName: string) {
+    const source = await getProfile(companyId, profileId);
+
+    const { id, createdAt, updatedAt, ...data } = source;
+
+    const [duplicated] = await db.insert(containerProfiles).values({
+      ...data,
+      name: newName,
+      isDefault: false, // Never duplicate as default
+    }).returning();
+
+    return duplicated!;
   }
 
   // ---- Monitoring ----
@@ -579,11 +697,12 @@ export function containerManagerService(db: Db) {
       .where(eq(containerInstances.id, instanceId));
   }
 
+  // cont-s05-svc-format-enriched
   function formatContainerInfo(row: {
     instance: typeof containerInstances.$inferSelect;
     profile: typeof containerProfiles.$inferSelect;
     agent: typeof agents.$inferSelect;
-  }): ContainerInfo {
+  }): ContainerInfoFull {
     return {
       id: row.instance.id,
       agentId: row.instance.agentId,
@@ -598,6 +717,15 @@ export function containerManagerService(db: Db) {
       startedAt: row.instance.startedAt?.toISOString() ?? null,
       stoppedAt: row.instance.stoppedAt?.toISOString() ?? null,
       createdAt: row.instance.createdAt.toISOString(),
+      // CONT-S05: New fields
+      networkId: row.instance.networkId,
+      credentialProxyPort: row.instance.credentialProxyPort,
+      mountedPaths: row.instance.mountedPaths as string[] | null,
+      healthCheckStatus: (row.instance.healthCheckStatus ?? "unknown") as ContainerHealthCheckStatus,
+      restartCount: row.instance.restartCount ?? 0,
+      lastHealthCheckAt: row.instance.lastHealthCheckAt?.toISOString() ?? null,
+      labels: row.instance.labels as Record<string, string> | null,
+      logStreamUrl: row.instance.logStreamUrl,
     };
   }
 
@@ -612,6 +740,11 @@ export function containerManagerService(db: Db) {
     createProfile,
     cleanupStaleContainers,
     stopMonitoring,
+    // CONT-S05: New profile CRUD
+    getProfile,
+    updateProfile,
+    deleteProfile,
+    duplicateProfile,
   };
 }
 
