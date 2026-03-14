@@ -519,7 +519,8 @@ test.describe("Groupe 6: access.denied emission in require-permission.ts (AC3)",
 test.describe("Groupe 7: Severity conventions", () => {
   test("T55 — agent.deleted has severity warning (AC2)", async () => {
     const content = await readFile(ROUTE_FILES.agents, "utf-8");
-    const deletedIdx = content.indexOf('"agent.deleted"');
+    // Find the emitAudit block containing agent.deleted (last occurrence, after logActivity)
+    const deletedIdx = content.lastIndexOf('"agent.deleted"');
     expect(deletedIdx).toBeGreaterThan(-1);
     const block = content.slice(deletedIdx, deletedIdx + 300);
     expect(block).toContain('"warning"');
@@ -535,7 +536,8 @@ test.describe("Groupe 7: Severity conventions", () => {
 
   test("T57 — issue.deleted has severity warning", async () => {
     const content = await readFile(ROUTE_FILES.issues, "utf-8");
-    const deletedIdx = content.indexOf('"issue.deleted"');
+    // Find the emitAudit block containing issue.deleted (last occurrence, after logActivity)
+    const deletedIdx = content.lastIndexOf('"issue.deleted"');
     expect(deletedIdx).toBeGreaterThan(-1);
     const block = content.slice(deletedIdx, deletedIdx + 300);
     expect(block).toContain('"warning"');
@@ -543,7 +545,8 @@ test.describe("Groupe 7: Severity conventions", () => {
 
   test("T58 — project.deleted has severity warning", async () => {
     const content = await readFile(ROUTE_FILES.projects, "utf-8");
-    const deletedIdx = content.indexOf('"project.deleted"');
+    // Find the emitAudit block containing project.deleted (last occurrence, after logActivity)
+    const deletedIdx = content.lastIndexOf('"project.deleted"');
     expect(deletedIdx).toBeGreaterThan(-1);
     const block = content.slice(deletedIdx, deletedIdx + 300);
     expect(block).toContain('"warning"');
@@ -551,7 +554,8 @@ test.describe("Groupe 7: Severity conventions", () => {
 
   test("T59 — secret.deleted has severity warning", async () => {
     const content = await readFile(ROUTE_FILES.secrets, "utf-8");
-    const deletedIdx = content.indexOf('"secret.deleted"');
+    // Find the emitAudit block containing secret.deleted (last occurrence, after logActivity)
+    const deletedIdx = content.lastIndexOf('"secret.deleted"');
     expect(deletedIdx).toBeGreaterThan(-1);
     const block = content.slice(deletedIdx, deletedIdx + 300);
     expect(block).toContain('"warning"');

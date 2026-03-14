@@ -2310,6 +2310,16 @@ export function accessRoutes(
         }
       });
 
+      if (!inviteAlreadyAccepted) {
+        await emitAudit({
+          req, db, companyId,
+          action: "access.invite_accepted",
+          targetType: "invite",
+          targetId: invite.id,
+          metadata: { userId: req.actor.type === "board" ? req.actor.userId : null, email: invite.targetEmail ?? null },
+        });
+      }
+
       const response = toJoinRequestResponse(created);
       if (claimSecret) {
         const onboardingManifest = buildInviteOnboardingManifest(
