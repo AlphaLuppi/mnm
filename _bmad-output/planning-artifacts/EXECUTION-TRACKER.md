@@ -99,7 +99,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | CONT-S01 | ContainerManager Docker | DONE | a3f7e7a | 8f8a222 | bd16d64 | PASS (no fix) | 85/85 E2E pass, Docker adapter + service + 7 routes |
 | CONT-S05 | Tables container | DONE | 0b2aa9c | 041a656 | 87e2c4d | PASS (no fix) | 54/54 E2E pass, 7+8 cols + 3 idx + relations + migration + 4 svc fns + 3 routes |
-| DRIFT-S03 | UI diff drift | PENDING | | | | | |
+| DRIFT-S03 | UI diff drift | DONE | aeaf4f9 | 8ac0bd8 | 8684885 | d4d9fcc | 70/70 E2E pass, fix: React rules-of-hooks in DriftMonitorToggle (hooks before early return) |
 
 ### BATCH 10 — Container avancé + Chat (← CONT-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 37 |
+| Stories DONE | 38 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 32 |
-| Batch courant | 9 |
-| Dernière story complétée | CONT-S05 |
-| Prochain batch débloqué | BATCH 9 (DRIFT-S03), BATCH 10 (CONT-S02..S06, CHAT-S03..S04) |
+| Stories PENDING | 31 |
+| Batch courant | 9 (complete) |
+| Dernière story complétée | DRIFT-S03 |
+| Prochain batch débloqué | BATCH 10 (CONT-S02..S06, CHAT-S03..S04) |
 
 ---
 
@@ -305,3 +305,5 @@
 | 2026-03-14 | CONT-S05 | Dev | Dev Agent | 041a656 | 7+8 new cols + 3 indexes + relations + migration + 4 svc fns + 3 routes + types |
 | 2026-03-14 | CONT-S05 | QA | Review Agent | 87e2c4d | 54 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CONT-S05 | Review | Review Agent | — | PASS — 54/54 E2E pass, 85/85 CONT-S01 regressions pass, typecheck OK, no fix needed |
+| 2026-03-14 | DRIFT-S03 | QA | Review Agent | 8684885 | 70 Playwright E2E tests (file-content based) |
+| 2026-03-14 | DRIFT-S03 | Review | Review Agent | d4d9fcc | Fix: React rules-of-hooks in DriftMonitorToggle (hooks before early return). 70/70 pass, 98/98 regressions pass |
