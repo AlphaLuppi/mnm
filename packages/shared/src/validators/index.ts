@@ -137,9 +137,15 @@ export {
   PROJECT_MEMBERSHIP_ROLES,
   addProjectMemberSchema,
   updateProjectMemberRoleSchema,
+  bulkAddProjectMembersSchema,
+  bulkRemoveProjectMembersSchema,
+  memberCountsSchema,
   type ProjectMembershipRole,
   type AddProjectMember,
   type UpdateProjectMemberRole,
+  type BulkAddProjectMembers,
+  type BulkRemoveProjectMembers,
+  type MemberCounts,
 } from "./project-membership.js";
 
 export {
