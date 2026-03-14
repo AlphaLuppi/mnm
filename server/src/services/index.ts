@@ -51,3 +51,5 @@ export { compactionKillRelaunchService } from "./compaction-kill-relaunch.js";
 export { automationCursorService } from "./automation-cursors.js";
 // a2a-s01-barrel-svc
 export { a2aBusService } from "./a2a-bus.js";
+// a2a-s02-barrel-svc
+export { a2aPermissionsService } from "./a2a-permissions.js";
