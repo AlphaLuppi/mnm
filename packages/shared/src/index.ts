@@ -156,6 +156,11 @@ export type {
   DriftScanStatus,
   DriftReportFilters,
   DriftItemFilters,
+  // DRIFT-S02: Drift monitor types
+  DriftAlertType,
+  DriftAlert,
+  DriftMonitorConfig,
+  DriftMonitorStatus,
   StageState,
   WorkflowState,
   StageEvent,
