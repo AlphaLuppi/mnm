@@ -1314,6 +1314,14 @@ export function agentRoutes(db: Db) {
       details: { agentId: id },
     });
 
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.woken",
+      targetType: "agent",
+      targetId: id,
+      metadata: { issueId: req.body.payload?.issueId ?? null },
+    });
+
     res.status(202).json(run);
   });
 
