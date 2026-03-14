@@ -137,6 +137,7 @@ export type {
 export type {
   ChatChannelStatus,
   ChatSenderType,
+  ChatMessageType,
   ChatClientMessage,
   ChatClientTyping,
   ChatClientSync,

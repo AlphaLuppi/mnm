@@ -1,10 +1,10 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
-import { assertCompanyAccess } from "./authz.js";
+import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { chatService } from "../services/chat.js";
-import { createChannelSchema } from "../validators/chat-ws.js";
-import { badRequest, notFound } from "../errors.js";
+import { createChannelSchema, updateMessageSchema } from "../validators/chat-ws.js";
+import { badRequest, forbidden, notFound } from "../errors.js";
 
 export function chatRoutes(db: Db) {
   const router = Router();
@@ -23,9 +23,16 @@ export function chatRoutes(db: Db) {
         throw badRequest("Invalid request body", body.error.issues);
       }
 
+      // CHAT-S02: pass createdBy from actor info
+      const actor = getActorInfo(req);
+
       const channel = await svc.createChannel(companyId, body.data.agentId, {
         heartbeatRunId: body.data.heartbeatRunId,
         name: body.data.name,
+        // CHAT-S02: new fields
+        projectId: body.data.projectId,
+        createdBy: actor.actorId,
+        description: body.data.description,
       });
 
       res.status(201).json(channel);
@@ -42,14 +49,19 @@ export function chatRoutes(db: Db) {
 
       const status = (req.query.status as string) || undefined;
       const agentId = (req.query.agentId as string) || undefined;
+      // CHAT-S02: new query params
+      const projectId = (req.query.projectId as string) || undefined;
+      const sortBy = (req.query.sortBy as string) || undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
       const offset = req.query.offset ? Number(req.query.offset) : undefined;
 
       const result = await svc.listChannels(companyId, {
         status,
         agentId,
+        projectId,
         limit,
         offset,
+        sortBy: sortBy === "lastMessageAt" ? "lastMessageAt" : "createdAt",
       });
 
       res.json(result);
@@ -127,6 +139,93 @@ export function chatRoutes(db: Db) {
       }
 
       res.json(channel);
+    },
+  );
+
+  // CHAT-S02: PATCH /api/companies/:companyId/chat/channels/:channelId/messages/:messageId — edit/soft-delete message
+  router.patch(
+    "/companies/:companyId/chat/channels/:channelId/messages/:messageId",
+    requirePermission(db, "chat:agent"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const body = updateMessageSchema.safeParse(req.body);
+      if (!body.success) {
+        throw badRequest("Invalid request body", body.error.issues);
+      }
+
+      // Verify channel belongs to this company
+      const channel = await svc.getChannel(req.params.channelId as string);
+      if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      // Get the message
+      const message = await svc.getMessage(req.params.messageId as string);
+      if (!message || message.channelId !== channel.id) {
+        throw notFound("Message not found");
+      }
+
+      // System messages cannot be edited or deleted
+      if (message.messageType === "system") {
+        throw forbidden("System messages cannot be edited");
+      }
+
+      // Only the author can edit/delete
+      const actor = getActorInfo(req);
+      if (message.senderId !== actor.actorId) {
+        throw forbidden("Only the author can edit or delete this message");
+      }
+
+      // Cannot edit a deleted message
+      if (message.deletedAt && body.data.content) {
+        throw badRequest("Cannot edit a deleted message");
+      }
+
+      // Handle soft-delete
+      if (body.data.deleted) {
+        const deleted = await svc.softDeleteMessage(message.id, channel.id);
+        res.json(deleted);
+        return;
+      }
+
+      // Handle edit
+      if (body.data.content) {
+        const updated = await svc.updateMessage(message.id, channel.id, {
+          content: body.data.content,
+        });
+        res.json(updated);
+        return;
+      }
+
+      // Nothing to do
+      res.json(message);
+    },
+  );
+
+  // CHAT-S02: GET /api/companies/:companyId/chat/channels/:channelId/messages/:messageId/replies — thread replies
+  router.get(
+    "/companies/:companyId/chat/channels/:channelId/messages/:messageId/replies",
+    requirePermission(db, "chat:agent"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Verify channel belongs to this company
+      const channel = await svc.getChannel(req.params.channelId as string);
+      if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+
+      const replies = await svc.getThreadReplies(
+        req.params.messageId as string,
+        limit,
+      );
+
+      res.json({ replies, total: replies.length });
     },
   );
 

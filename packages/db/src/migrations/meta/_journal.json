@@ -239,6 +239,13 @@
       "when": 1773741600000,
       "tag": "0034_add_company_invitation_only",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1773499755161,
+      "tag": "0034_tan_sleepwalker",
+      "breakpoints": true
     }
   ]
 }
