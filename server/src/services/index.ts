@@ -41,3 +41,5 @@ export { credentialProxyRulesService } from "./credential-proxy-rules.js";
 export { mountAllowlistService } from "./mount-allowlist.js";
 // cont-s04-network-isolation-service
 export { networkIsolationService } from "./network-isolation.js";
+// chat-s03-barrel-svc
+export { createContainerPipeManager, type ContainerPipeManager } from "./container-pipe.js";
