@@ -10,7 +10,9 @@ import {
   runDriftScan,
   cancelDriftScan,
 } from "../services/drift.js";
-import { assertCompanyAccess } from "./authz.js";
+import { driftPersistenceService } from "../services/drift-persistence.js";
+import { emitAudit } from "../services/audit-emitter.js";
+import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { badRequest, notFound } from "../errors.js";
 
 const driftCheckBody = z.object({
@@ -48,18 +50,59 @@ export function driftRoutes(db: Db) {
       throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
     }
 
-    const report = await checkDrift(project.id, parsed.data.sourceDoc, parsed.data.targetDoc, parsed.data.customInstructions);
+    const report = await checkDrift(
+      db,
+      project.companyId,
+      project.id,
+      parsed.data.sourceDoc,
+      parsed.data.targetDoc,
+      parsed.data.customInstructions,
+    );
     res.json(report);
   });
 
-  // GET /projects/:id/drift/results
+  // GET /projects/:id/drift/results — with pagination support
   router.get("/projects/:id/drift/results", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
 
-    const results = getDriftResults(project.id);
-    res.json(results);
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const offset = req.query.offset ? Number(req.query.offset) : undefined;
+    const status = req.query.status as string | undefined;
+
+    const result = await getDriftResults(db, project.companyId, project.id, {
+      limit,
+      offset,
+      status,
+    });
+    res.json(result);
+  });
+
+  // GET /projects/:id/drift/items — list drift items with filters
+  router.get("/projects/:id/drift/items", async (req, res) => {
+    const project = await resolveProject(req, res);
+    if (!project) return;
+    assertCompanyAccess(req, project.companyId);
+
+    const persistence = driftPersistenceService(db);
+    const severity = req.query.severity as string | undefined;
+    const decision = req.query.decision as string | undefined;
+    const driftType = req.query.driftType as string | undefined;
+    const reportId = req.query.reportId as string | undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const offset = req.query.offset ? Number(req.query.offset) : undefined;
+
+    const result = await persistence.listItems({
+      companyId: project.companyId,
+      reportId,
+      severity: severity as any,
+      decision: decision as any,
+      driftType: driftType as any,
+      limit,
+      offset,
+    });
+    res.json(result);
   });
 
   // POST /projects/:id/drift/scan — trigger a full drift scan
@@ -80,11 +123,12 @@ export function driftRoutes(db: Db) {
     }
 
     // Start scan in background, respond immediately
-    runDriftScan(project.id, workspacePath, parsed.data.scope).catch((err) => {
+    runDriftScan(db, project.companyId, project.id, workspacePath, parsed.data.scope).catch((err) => {
       // Logged inside runDriftScan, but catch to prevent unhandled rejection
     });
 
-    res.json({ started: true, status: getDriftScanStatus(project.id) });
+    const scanStatus = await getDriftScanStatus(db, project.companyId, project.id);
+    res.json({ started: true, status: scanStatus });
   });
 
   // GET /projects/:id/drift/status — get scan status
@@ -93,7 +137,8 @@ export function driftRoutes(db: Db) {
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
 
-    res.json(getDriftScanStatus(project.id));
+    const scanStatus = await getDriftScanStatus(db, project.companyId, project.id);
+    res.json(scanStatus);
   });
 
   // DELETE /projects/:id/drift/scan — cancel ongoing scan
@@ -126,10 +171,14 @@ export function driftRoutes(db: Db) {
       throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
     }
 
-    const updated = resolveDrift(
-      id as string,
+    const actorInfo = getActorInfo(req);
+
+    const updated = await resolveDrift(
+      db,
+      project.companyId,
       driftId as string,
       parsed.data.decision,
+      actorInfo.actorId,
       parsed.data.remediationNote,
     );
 
@@ -137,6 +186,23 @@ export function driftRoutes(db: Db) {
       res.status(404).json({ error: "Drift not found" });
       return;
     }
+
+    // Emit audit event for drift resolution
+    emitAudit({
+      req,
+      db,
+      companyId: project.companyId,
+      action: "drift.item_resolved",
+      targetType: "drift_item",
+      targetId: driftId as string,
+      metadata: {
+        decision: parsed.data.decision,
+        severity: updated.severity,
+        driftType: updated.driftType,
+        projectId: project.id,
+      },
+      severity: "info",
+    });
 
     res.json(updated);
   });

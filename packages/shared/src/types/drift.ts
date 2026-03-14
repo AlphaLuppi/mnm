@@ -2,6 +2,7 @@ export type DriftSeverity = "critical" | "moderate" | "minor";
 export type DriftType = "scope_expansion" | "approach_change" | "design_deviation";
 export type DriftRecommendation = "update_spec" | "recenter_code";
 export type DriftDecision = "accepted" | "rejected" | "pending";
+export type DriftReportStatus = "in_progress" | "completed" | "failed" | "cancelled";
 
 export interface DriftItem {
   id: string;
@@ -17,6 +18,12 @@ export interface DriftItem {
   decision: DriftDecision;
   decidedAt?: string;
   remediationNote?: string;
+  // New fields (DRIFT-S01)
+  reportId?: string;
+  companyId?: string;
+  decidedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface DriftReport {
@@ -26,6 +33,15 @@ export interface DriftReport {
   targetDoc: string;
   drifts: DriftItem[];
   checkedAt: string;
+  // New fields (DRIFT-S01)
+  companyId?: string;
+  driftCount?: number;
+  status?: DriftReportStatus;
+  scanScope?: string;
+  errorMessage?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface DriftCheckRequest {
@@ -58,4 +74,25 @@ export interface DriftScanStatus {
   lastScanAt: string | null;
   /** Number of drift issues found in last scan */
   lastScanIssueCount: number | null;
+}
+
+/** Filters for listing drift reports with pagination */
+export interface DriftReportFilters {
+  companyId: string;
+  projectId?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+  includeDeleted?: boolean;
+}
+
+/** Filters for listing drift items with pagination */
+export interface DriftItemFilters {
+  companyId: string;
+  reportId?: string;
+  severity?: DriftSeverity;
+  decision?: DriftDecision;
+  driftType?: DriftType;
+  limit?: number;
+  offset?: number;
 }

@@ -430,7 +430,7 @@ export function workspaceContextRoutes(db: Db) {
       res.status(400).json({ error: "Paths must be within the workspace" }); return;
     }
 
-    const report = await checkDrift(project.id, absSource, absTarget);
+    const report = await checkDrift(db, project.companyId, project.id, absSource, absTarget);
     res.json(report);
   });
 
