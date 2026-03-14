@@ -112,6 +112,17 @@ export const queryKeys = {
     verify: (companyId: string) =>
       ["audit", companyId, "verify"] as const,
   },
+  // CHAT-S04: chat UI
+  chat: {
+    channels: (companyId: string, filters?: Record<string, unknown>) =>
+      ["chat", companyId, "channels", filters] as const,
+    detail: (companyId: string, channelId: string) =>
+      ["chat", companyId, "detail", channelId] as const,
+    messages: (companyId: string, channelId: string) =>
+      ["chat", companyId, "messages", channelId] as const,
+    pipeStatus: (companyId: string, channelId: string) =>
+      ["chat", companyId, "pipe-status", channelId] as const,
+  },
   // CONT-S06: container status UI
   containers: {
     list: (companyId: string, filters?: Record<string, unknown>) =>
