@@ -84,3 +84,72 @@ export interface OrchestratorEvent {
   metadata?: Record<string, unknown>;
   timestamp: string;
 }
+
+// ORCH-S02: WorkflowEnforcer types
+
+/** Definition of a required file that must exist before a stage transition */
+export interface RequiredFileDef {
+  /** Glob pattern or relative path of the required file */
+  path: string;
+  /** Human-readable description of the expected file */
+  description: string;
+  /** Verification mode */
+  checkMode: "artifact" | "filesystem" | "both";
+  /** If true, missing file blocks the transition. If false, warning only */
+  blocking: boolean;
+}
+
+/** Result of checking a single required file */
+export interface FileCheckResult {
+  path: string;
+  description: string;
+  found: boolean;
+  checkMode: "artifact" | "filesystem" | "both";
+  blocking: boolean;
+}
+
+/** Result of an enforcement check on a stage transition */
+export interface EnforcementResult {
+  /** Timestamp of the check */
+  checkedAt: string; // ISO 8601
+  /** Overall result */
+  passed: boolean;
+  /** Individual file check results */
+  fileChecks: FileCheckResult[];
+  /** Missing blocking files */
+  missingFiles: string[];
+  /** Warnings for non-blocking missing files */
+  warnings: string[];
+  /** Actor who triggered the check */
+  triggeredBy: {
+    actorId: string | null;
+    actorType: "user" | "agent" | "system";
+  };
+}
+
+/** Artifacts produced by a completed stage */
+export interface StageArtifact {
+  stageId: string;
+  stageName: string;
+  stageOrder: number;
+  outputArtifacts: string[];
+  completedAt: string | null; // ISO 8601
+}
+
+/** Pre-prompt payload injected when a stage starts */
+export interface PrePromptPayload {
+  /** Pre-prompts defined in the template for this stage */
+  stagePrePrompts: string[];
+  /** Artifacts from previous completed stages */
+  previousArtifacts: StageArtifact[];
+  /** Acceptance criteria for this stage */
+  acceptanceCriteria: string[];
+  /** Stage name for reference */
+  stageName: string;
+  /** Workflow name for reference */
+  workflowName: string;
+  /** Stage order (0-based) */
+  stageOrder: number;
+  /** Total number of stages in the workflow */
+  totalStages: number;
+}

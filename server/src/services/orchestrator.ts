@@ -9,6 +9,7 @@ import {
 } from "./workflow-state-machine.js";
 import { publishLiveEvent } from "./live-events.js";
 import { accessService } from "./access.js";
+import { workflowEnforcerService } from "./workflow-enforcer.js";
 import { conflict, forbidden, notFound } from "../errors.js";
 import type {
   StageState,
@@ -41,6 +42,7 @@ const PERM_AGENTS_LAUNCH: PermissionKey = "agents:launch";
 
 export function orchestratorService(db: Db) {
   const access = accessService(db);
+  const enforcer = workflowEnforcerService(db);
 
   // ---- Stage Transitions ----
 
@@ -125,6 +127,26 @@ export function orchestratorService(db: Db) {
           `Cannot retry: retry count (${retryCount}) has reached maximum (${maxRetries})`,
         );
       }
+    }
+
+    // ORCH-S02: Enforcement check (after RBAC, before XState)
+    const enforcementResult = await enforcer.enforceTransition(
+      stageId,
+      event,
+      actor,
+      payload,
+    );
+
+    if (!enforcementResult.allowed) {
+      throw conflict(
+        enforcementResult.message ?? "Enforcement check failed",
+        {
+          error: "ENFORCEMENT_FAILED",
+          missingFiles: enforcementResult.missingFiles ?? [],
+          warnings: enforcementResult.warnings ?? [],
+          message: enforcementResult.message,
+        },
+      );
     }
 
     // 3. Build context from DB state

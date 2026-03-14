@@ -117,6 +117,11 @@ export type {
   StageContext,
   TransitionRecord,
   OrchestratorEvent,
+  RequiredFileDef,
+  FileCheckResult,
+  EnforcementResult,
+  StageArtifact,
+  PrePromptPayload,
 } from "./orchestrator.js";
 export {
   AUDIT_ACTOR_TYPES,
