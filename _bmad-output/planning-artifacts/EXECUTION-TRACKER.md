@@ -98,7 +98,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | CONT-S01 | ContainerManager Docker | DONE | a3f7e7a | 8f8a222 | bd16d64 | PASS (no fix) | 85/85 E2E pass, Docker adapter + service + 7 routes |
-| CONT-S05 | Tables container | PENDING | | | | | |
+| CONT-S05 | Tables container | DONE | 0b2aa9c | 041a656 | 87e2c4d | PASS (no fix) | 54/54 E2E pass, 7+8 cols + 3 idx + relations + migration + 4 svc fns + 3 routes |
 | DRIFT-S03 | UI diff drift | PENDING | | | | | |
 
 ### BATCH 10 — Container avancé + Chat (← CONT-S01)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 36 |
+| Stories DONE | 37 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 33 |
+| Stories PENDING | 32 |
 | Batch courant | 9 |
-| Dernière story complétée | CONT-S01 |
-| Prochain batch débloqué | BATCH 9 (CONT-S05, DRIFT-S03) |
+| Dernière story complétée | CONT-S05 |
+| Prochain batch débloqué | BATCH 9 (DRIFT-S03), BATCH 10 (CONT-S02..S06, CHAT-S03..S04) |
 
 ---
 
@@ -301,3 +301,7 @@
 | 2026-03-14 | PROJ-S03 | Dev | Dev Agent | e5dc624 | scope-filter service + hasGlobalScope + 4 routes filtered + listByIds + useProjectScope hook |
 | 2026-03-14 | PROJ-S03 | QA | QA Agent | 68faa43 | 67 Playwright E2E tests (file-content based) |
 | 2026-03-14 | PROJ-S03 | Review | Review Agent | — | PASS — 67/67 E2E pass, 293/293 regressions pass (PROJ-S01+S02+DRIFT-S01+S02+RBAC-S04), no fix needed |
+| 2026-03-14 | CONT-S05 | PM | PM Agent | 0b2aa9c | Story spec — container tables enrichment + 17 ACs + 54 test cases |
+| 2026-03-14 | CONT-S05 | Dev | Dev Agent | 041a656 | 7+8 new cols + 3 indexes + relations + migration + 4 svc fns + 3 routes + types |
+| 2026-03-14 | CONT-S05 | QA | Review Agent | 87e2c4d | 54 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CONT-S05 | Review | Review Agent | — | PASS — 54/54 E2E pass, 85/85 CONT-S01 regressions pass, typecheck OK, no fix needed |
