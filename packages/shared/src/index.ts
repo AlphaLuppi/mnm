@@ -153,6 +153,18 @@ export type {
   DriftResolveRequest,
   DriftScanRequest,
   DriftScanStatus,
+  StageState,
+  WorkflowState,
+  StageEvent,
+  StageContext,
+  TransitionRecord,
+  OrchestratorEvent,
+} from "./types/index.js";
+
+export {
+  STAGE_STATES,
+  WORKFLOW_STATES,
+  STAGE_EVENTS,
 } from "./types/index.js";
 
 export {
