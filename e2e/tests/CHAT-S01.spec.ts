@@ -511,11 +511,11 @@ test.describe("Groupe 6: REST routes -- chat.ts", () => {
     expect(content).toContain("messageCount");
   });
 
-  test("Route has exactly 4 endpoint handlers (POST + 3 GET)", () => {
+  test("Route has at least 4 endpoint handlers (POST + 3 GET, CHAT-S02 adds more)", () => {
     const postCount = (content.match(/router\.post\(/g) || []).length;
     const getCount = (content.match(/router\.get\(/g) || []).length;
-    expect(postCount).toBe(1);
-    expect(getCount).toBe(3);
+    expect(postCount).toBeGreaterThanOrEqual(1);
+    expect(getCount).toBeGreaterThanOrEqual(3);
   });
 });
 
