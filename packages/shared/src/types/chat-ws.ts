@@ -96,3 +96,24 @@ export type ChatServerPayload =
   | ChatServerError
   | ChatServerPong
   | ChatServerChannelClosed;
+
+// ---- CHAT-S03: Container pipe types ----
+
+// chat-s03-shared-types
+export type ContainerPipeStatus = "attached" | "detached" | "error";
+
+export interface ChatPipeStatus {
+  channelId: string;
+  instanceId: string;
+  status: ContainerPipeStatus;
+  attachedAt: string | null;
+  detachedAt: string | null;
+  error: string | null;
+  messagesPiped: number;
+}
+
+export interface ChatPipeAttachRequest {
+  instanceId: string;
+  execCommand?: string[];
+  tty?: boolean;
+}

@@ -217,4 +217,8 @@ export type {
   ChatServerPong,
   ChatServerChannelClosed,
   ChatServerPayload,
+  // chat-s03-barrel-types
+  ContainerPipeStatus,
+  ChatPipeStatus,
+  ChatPipeAttachRequest,
 } from "./chat-ws.js";
