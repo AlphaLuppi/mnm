@@ -43,3 +43,5 @@ export { mountAllowlistService } from "./mount-allowlist.js";
 export { networkIsolationService } from "./network-isolation.js";
 // chat-s03-barrel-svc
 export { createContainerPipeManager, type ContainerPipeManager } from "./container-pipe.js";
+// comp-s01-barrel-svc
+export { compactionWatcherService } from "./compaction-watcher.js";
