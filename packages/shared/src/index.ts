@@ -167,6 +167,21 @@ export type {
   AuditEvent,
   AuditListResult,
   AuditVerifyResult,
+  ChatChannelStatus,
+  ChatSenderType,
+  ChatClientMessage,
+  ChatClientTyping,
+  ChatClientSync,
+  ChatClientPing,
+  ChatClientPayload,
+  ChatServerMessage,
+  ChatServerAck,
+  ChatServerTyping,
+  ChatServerSync,
+  ChatServerError,
+  ChatServerPong,
+  ChatServerChannelClosed,
+  ChatServerPayload,
 } from "./types/index.js";
 
 export {
