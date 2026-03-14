@@ -24,3 +24,4 @@ export { orchestratorService } from "./orchestrator.js";
 export { analyzeWorkspace } from "./workspace-analyzer.js";
 export { checkDrift, getDriftResults, resolveDrift } from "./drift.js";
 export { createEmailService, type EmailService } from "./email.js";
+export { projectMembershipService } from "./project-memberships.js";

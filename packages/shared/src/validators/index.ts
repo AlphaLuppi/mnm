@@ -134,6 +134,15 @@ export {
 } from "./workflow.js";
 
 export {
+  PROJECT_MEMBERSHIP_ROLES,
+  addProjectMemberSchema,
+  updateProjectMemberRoleSchema,
+  type ProjectMembershipRole,
+  type AddProjectMember,
+  type UpdateProjectMemberRole,
+} from "./project-membership.js";
+
+export {
   scopeSchema,
   resourceScopeSchema,
   type PermissionScope,

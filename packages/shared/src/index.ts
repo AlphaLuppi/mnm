@@ -292,6 +292,12 @@ export {
   type UpdateWorkflowInstance,
   type TransitionStage,
   type UpdateStage,
+  PROJECT_MEMBERSHIP_ROLES,
+  addProjectMemberSchema,
+  updateProjectMemberRoleSchema,
+  type ProjectMembershipRole,
+  type AddProjectMember,
+  type UpdateProjectMemberRole,
 } from "./validators/index.js";
 
 export {
