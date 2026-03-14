@@ -274,6 +274,13 @@ export type {
   // A2A-S03: Audit A2A type
   // a2a-s03-barrel-shared
   A2AAuditAction,
+  // SSO-S01: SSO configuration types
+  // sso-s01-barrel-shared
+  SsoProvider,
+  SsoConfigStatus,
+  SsoConfiguration,
+  CreateSsoConfigurationInput,
+  UpdateSsoConfigurationInput,
 } from "./types/index.js";
 
 export {
@@ -306,6 +313,9 @@ export {
   A2A_DEFAULT_POLICIES,
   // A2A-S03: Audit A2A constants
   A2A_AUDIT_ACTIONS,
+  // SSO-S01: SSO configuration constants
+  SSO_PROVIDERS,
+  SSO_CONFIG_STATUSES,
 } from "./types/index.js";
 
 export {
@@ -508,6 +518,12 @@ export {
   type CreateA2APermissionRule,
   type UpdateA2APermissionRule,
   type UpdateA2ADefaultPolicy,
+  // SSO-S01: SSO configuration validators
+  // sso-s01-barrel-validators-shared
+  createSsoConfigurationSchema,
+  updateSsoConfigurationSchema,
+  type CreateSsoConfiguration,
+  type UpdateSsoConfiguration,
 } from "./validators/index.js";
 
 export {

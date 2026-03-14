@@ -40,6 +40,8 @@ import { credentialProxyRulesRoutes } from "./routes/credential-proxy-rules.js";
 import { compactionRoutes } from "./routes/compaction.js";
 import { automationCursorRoutes } from "./routes/automation-cursors.js";
 import { a2aRoutes } from "./routes/a2a.js";
+// sso-s01-barrel-app
+import { ssoRoutes } from "./routes/sso.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -170,6 +172,8 @@ export async function createApp(
   api.use(compactionRoutes(db));
   api.use(automationCursorRoutes(db));
   api.use(a2aRoutes(db));
+  // sso-s01-barrel-app
+  api.use(ssoRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
