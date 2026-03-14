@@ -1,3 +1,18 @@
+# =============================================================================
+# MnM — Docker Compose (Production)
+# =============================================================================
+# Full production stack: PostgreSQL + Redis + MnM server.
+# Redis is internal-only (no exposed port) for security.
+#
+# Required env vars (set in .env or pass via -e):
+#   BETTER_AUTH_SECRET   — random secret for auth sessions
+#   MNM_PUBLIC_URL       — public URL of the MnM instance (optional)
+#
+# Usage:
+#   docker compose up -d
+#   docker compose down
+# =============================================================================
+
 services:
   db:
     image: postgres:17-alpine
@@ -15,12 +30,23 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - redisdata:/data
+
   server:
     build: .
     ports:
       - "3100:3100"
     environment:
       DATABASE_URL: postgres://mnm:mnm@db:5432/mnm
+      REDIS_URL: redis://redis:6379
       PORT: "3100"
       SERVE_UI: "true"
       MNM_DEPLOYMENT_MODE: "authenticated"
@@ -32,7 +58,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  redisdata:
   mnm-data:
