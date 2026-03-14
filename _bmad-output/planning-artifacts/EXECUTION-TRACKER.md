@@ -51,7 +51,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | RBAC-S02 | 20 permission keys + presets | DONE | 996876d | dev | 2aa5fc9 | 9d3921a | 36/36 E2E pass, 5 new keys (20 total) + presets matrix + hasPermission fallback + effective-permissions API |
 | MU-S02 | Page membres UI | DONE | b40a986 | dev | 104d901 | review | 85/85 E2E pass, Members page + table + filters + invite dialog + enriched API |
-| MU-S03 | Invitation bulk CSV | PENDING | | | | | |
+| MU-S03 | Invitation bulk CSV | DONE | 8138c08 | dev | d57c130 | b610ad0 | 54/54 E2E pass, BulkInviteTab 4-phase + CSV parsing + tabbed dialog |
 | MU-S04 | Sélecteur company | PENDING | | | | | |
 | RBAC-S07 | Badges rôle | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 14 |
+| Stories DONE | 15 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 55 |
+| Stories PENDING | 54 |
 | Batch courant | 4 |
-| Dernière story complétée | MU-S02 |
-| Prochain batch débloqué | BATCH 4 (MU-S03, MU-S04, RBAC-S07) |
+| Dernière story complétée | MU-S03 |
+| Prochain batch débloqué | BATCH 4 (MU-S04, RBAC-S07) |
 
 ---
 
@@ -231,3 +231,7 @@
 | 2026-03-14 | MU-S02 | Dev | Dev Agent | dev | Members page + enriched API + status endpoint + sidebar + route |
 | 2026-03-14 | MU-S02 | QA | QA Agent | 104d901 | 85 Playwright E2E tests (file-content based) |
 | 2026-03-14 | MU-S02 | Review | Review Agent | review | Fix: 35 data-testid alignment + BUSINESS_ROLE_LABELS + queryKey namespace. 85/85 pass |
+| 2026-03-14 | MU-S03 | PM | PM Agent | 8138c08 | Story spec — bulk CSV invite + 7 ACs + 34 data-testid |
+| 2026-03-14 | MU-S03 | Dev | Dev Agent | dev | BulkInviteTab 4-phase + tabbed dialog + CSV parsing |
+| 2026-03-14 | MU-S03 | QA | QA Agent | d57c130 | 54 Playwright E2E tests (file-content based) |
+| 2026-03-14 | MU-S03 | Review | Review Agent | b610ad0 | Fix: numeric literal separator in test. 54/54 pass |
