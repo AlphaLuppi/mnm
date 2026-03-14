@@ -107,6 +107,11 @@ export type {
   DriftScanStatus,
   DriftReportFilters,
   DriftItemFilters,
+  // DRIFT-S02: Drift monitor types
+  DriftAlertType,
+  DriftAlert,
+  DriftMonitorConfig,
+  DriftMonitorStatus,
 } from "./drift.js";
 export {
   STAGE_STATES,
