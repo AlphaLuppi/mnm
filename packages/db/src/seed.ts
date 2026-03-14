@@ -68,6 +68,7 @@ await db
     principalId: adminUserId,
     status: "active",
     membershipRole: "owner",
+    businessRole: "admin",
   })
   .onConflictDoNothing();
 

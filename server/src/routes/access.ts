@@ -24,6 +24,7 @@ import {
   createOpenClawInvitePromptSchema,
   listJoinRequestsQuerySchema,
   updateMemberPermissionsSchema,
+  updateMemberBusinessRoleSchema,
   updateUserCompanyAccessSchema,
   PERMISSION_KEYS
 } from "@mnm/shared";
@@ -2554,6 +2555,35 @@ export function accessRoutes(
         req.actor.userId ?? null
       );
       if (!updated) throw notFound("Member not found");
+      res.json(updated);
+    }
+  );
+
+  router.patch(
+    "/companies/:companyId/members/:memberId/business-role",
+    validate(updateMemberBusinessRoleSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const memberId = req.params.memberId as string;
+      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      const updated = await access.updateMemberBusinessRole(
+        companyId,
+        memberId,
+        req.body.businessRole
+      );
+      if (!updated) throw notFound("Member not found");
+      await logActivity(db, {
+        companyId,
+        actorType: req.actor.type === "agent" ? "agent" : "user",
+        actorId:
+          req.actor.type === "agent"
+            ? req.actor.agentId ?? "unknown"
+            : req.actor.userId ?? "unknown",
+        action: "member.business_role.updated",
+        entityType: "member",
+        entityId: memberId,
+        details: { businessRole: req.body.businessRole }
+      });
       res.json(updated);
     }
   );

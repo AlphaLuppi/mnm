@@ -228,6 +228,16 @@ export type PrincipalType = (typeof PRINCIPAL_TYPES)[number];
 export const MEMBERSHIP_STATUSES = ["pending", "active", "suspended"] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 
+export const BUSINESS_ROLES = ["admin", "manager", "contributor", "viewer"] as const;
+export type BusinessRole = (typeof BUSINESS_ROLES)[number];
+
+export const BUSINESS_ROLE_LABELS: Record<BusinessRole, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  contributor: "Contributor",
+  viewer: "Viewer",
+};
+
 export const INSTANCE_USER_ROLES = ["instance_admin"] as const;
 export type InstanceUserRole = (typeof INSTANCE_USER_ROLES)[number];
 
