@@ -48,6 +48,9 @@ export interface ContainerLaunchResult {
   profileName: string;
   agentId: string;
   startedAt: string;
+  // cont-s02-type-launch-result-ext
+  credentialProxyPort: number | null;   // Port of the proxy if active
+  credentialProxyUrl: string | null;    // Full URL of the proxy
 }
 
 // Container info (for API responses)

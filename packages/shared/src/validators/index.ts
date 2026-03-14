@@ -195,3 +195,12 @@ export {
   type OrchestratorWorkflowFilter,
   type OrchestratorStageFilter,
 } from "./orchestrator.js";
+
+export {
+  createCredentialProxyRuleSchema,
+  updateCredentialProxyRuleSchema,
+  testCredentialProxyRuleSchema,
+  type CreateCredentialProxyRule,
+  type UpdateCredentialProxyRule,
+  type TestCredentialProxyRule,
+} from "./credential-proxy.js";

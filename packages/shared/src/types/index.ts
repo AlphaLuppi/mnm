@@ -175,6 +175,16 @@ export type {
   ContainerProfileUpdate,
 } from "./container.js";
 export type {
+  CredentialProxyRule,
+  CredentialProxyConfig,
+  CredentialProxySecretMapping,
+  CredentialProxyStatus,
+  CredentialProxyAccessEvent,
+  CreateCredentialProxyRuleInput,
+  UpdateCredentialProxyRuleInput,
+  CredentialProxyTestResult,
+} from "./credential-proxy.js";
+export type {
   ChatChannelStatus,
   ChatSenderType,
   ChatMessageType,

@@ -10,12 +10,15 @@ import type {
   ContainerStopOptions,
   ContainerResourceUsage,
   ContainerHealthCheckStatus,
+  CredentialProxySecretMapping,
 } from "@mnm/shared";
 import { notFound, conflict } from "../errors.js";
 import { publishLiveEvent } from "./live-events.js";
 import { emitAudit } from "./audit-emitter.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { logger } from "../middleware/logger.js";
+import { credentialProxyService } from "./credential-proxy.js";
+import { credentialProxyRulesService } from "./credential-proxy-rules.js";
 
 const DEFAULT_DOCKER_IMAGE = "node:20-slim";
 const MONITOR_INTERVAL_MS = 5_000;       // 5 seconds
@@ -98,6 +101,34 @@ export function containerManagerService(db: Db) {
         timeout: options?.timeout,
       });
 
+      // cont-s02-cm-proxy-check
+      // 7b. Check if credential proxy is enabled for this profile
+      let proxyPort: number | null = null;
+      let proxySecretMappings: CredentialProxySecretMapping[] = [];
+
+      if (profile.credentialProxyEnabled) {
+        const proxyService = credentialProxyService(db);
+        const rulesService = credentialProxyRulesService(db);
+
+        // 7c. Allocate proxy port
+        proxyPort = await proxyService.allocateProxyPort();
+
+        // 7d. Resolve credential proxy rules for this agent
+        proxySecretMappings = await rulesService.resolveRulesForAgent(companyId, agentId);
+
+        // cont-s02-cm-proxy-env
+        // 7e. Add proxy env vars to container
+        if (proxySecretMappings.length > 0) {
+          const proxyEnv = containerOpts.Env ?? [];
+          for (const mapping of proxySecretMappings) {
+            proxyEnv.push(`${mapping.envKeyPlaceholder}=mnm-proxy-placeholder`);
+          }
+          proxyEnv.push(`MNM_CREDENTIAL_PROXY_URL=http://host.docker.internal:${proxyPort}`);
+          proxyEnv.push(`MNM_CREDENTIAL_PROXY_PORT=${proxyPort}`);
+          containerOpts.Env = proxyEnv;
+        }
+      }
+
       // 8. Update status to "creating"
       await updateInstanceStatus(instance!.id, "creating");
 
@@ -132,6 +163,30 @@ export function containerManagerService(db: Db) {
         .set({ status: "running", startedAt, updatedAt: new Date() })
         .where(eq(containerInstances.id, instance!.id));
 
+      // cont-s02-cm-proxy-start
+      // 12b. Start credential proxy if enabled
+      if (proxyPort !== null && proxySecretMappings.length > 0) {
+        try {
+          const proxyService = credentialProxyService(db);
+          await proxyService.startProxy({
+            port: proxyPort,
+            instanceId: instance!.id,
+            agentId,
+            companyId,
+            secretMappings: proxySecretMappings,
+            db,
+          });
+
+          // cont-s02-cm-proxy-port-save
+          await db.update(containerInstances)
+            .set({ credentialProxyPort: proxyPort, updatedAt: new Date() })
+            .where(eq(containerInstances.id, instance!.id));
+        } catch (proxyErr: any) {
+          logger.error({ err: proxyErr, instanceId: instance!.id }, "Failed to start credential proxy");
+          // Continue without proxy — container is already running
+        }
+      }
+
       // 13. Emit events
       publishLiveEvent({
         companyId,
@@ -165,6 +220,8 @@ export function containerManagerService(db: Db) {
         profileName: profile.name,
         agentId,
         startedAt: startedAt.toISOString(),
+        credentialProxyPort: proxyPort,
+        credentialProxyUrl: proxyPort ? `http://host.docker.internal:${proxyPort}` : null,
       };
 
     } catch (err: any) {
@@ -213,6 +270,15 @@ export function containerManagerService(db: Db) {
 
     // Stop monitoring
     stopMonitoring(instanceId);
+
+    // cont-s02-cm-proxy-stop
+    // Stop credential proxy if running
+    try {
+      const proxyService = credentialProxyService(db);
+      await proxyService.stopProxy(instanceId);
+    } catch (proxyErr: any) {
+      logger.warn({ err: proxyErr, instanceId }, "Error stopping credential proxy");
+    }
 
     if (instance.dockerContainerId) {
       try {
@@ -638,6 +704,15 @@ export function containerManagerService(db: Db) {
   // ---- Cleanup stale containers on startup ----
 
   async function cleanupStaleContainers(): Promise<number> {
+    // cont-s02-cm-cleanup-proxies
+    // Cleanup any orphan proxy servers
+    try {
+      const proxyService = credentialProxyService(db);
+      await proxyService.cleanupAllProxies();
+    } catch (proxyErr: any) {
+      logger.warn({ err: proxyErr }, "Error cleaning up credential proxies");
+    }
+
     // Find instances that are "running" or "creating" in DB but may not be running in Docker
     const staleInstances = await db.select().from(containerInstances).where(
       inArray(containerInstances.status, ["running", "creating", "pending"])

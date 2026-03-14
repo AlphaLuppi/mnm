@@ -35,3 +35,5 @@ export { hitlValidationService } from "./hitl-validation.js";
 export { driftMonitorService } from "./drift-monitor.js";
 export { getScopeProjectIds } from "./scope-filter.js";
 export { containerManagerService } from "./container-manager.js";
+export { credentialProxyService } from "./credential-proxy.js";
+export { credentialProxyRulesService } from "./credential-proxy-rules.js";

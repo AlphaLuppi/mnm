@@ -214,6 +214,15 @@ export type {
   ContainerProfileInfo,
   ContainerInfoFull,
   ContainerProfileUpdate,
+  // CONT-S02: Credential proxy types
+  CredentialProxyRule,
+  CredentialProxyConfig,
+  CredentialProxySecretMapping,
+  CredentialProxyStatus,
+  CredentialProxyAccessEvent,
+  CreateCredentialProxyRuleInput,
+  UpdateCredentialProxyRuleInput,
+  CredentialProxyTestResult,
 } from "./types/index.js";
 
 export {
@@ -388,6 +397,13 @@ export {
   type OrchestratorCheckEnforcement,
   type OrchestratorWorkflowFilter,
   type OrchestratorStageFilter,
+  // CONT-S02: Credential proxy validators
+  createCredentialProxyRuleSchema,
+  updateCredentialProxyRuleSchema,
+  testCredentialProxyRuleSchema,
+  type CreateCredentialProxyRule,
+  type UpdateCredentialProxyRule,
+  type TestCredentialProxyRule,
 } from "./validators/index.js";
 
 export {
