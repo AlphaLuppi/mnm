@@ -29,3 +29,4 @@ export { projectMembershipService } from "./project-memberships.js";
 export { auditService } from "./audit.js";
 export { chatService } from "./chat.js";
 export { createChatWsManager, type ChatWsManager } from "./chat-ws-manager.js";
+export { hitlValidationService } from "./hitl-validation.js";

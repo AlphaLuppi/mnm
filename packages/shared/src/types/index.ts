@@ -122,6 +122,9 @@ export type {
   EnforcementResult,
   StageArtifact,
   PrePromptPayload,
+  HitlDecision,
+  HitlValidationRequest,
+  PendingValidation,
 } from "./orchestrator.js";
 export {
   AUDIT_ACTOR_TYPES,

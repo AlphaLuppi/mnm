@@ -3,7 +3,7 @@ import { companies } from "./companies.js";
 import { agents } from "./agents.js";
 import { workflowInstances } from "./workflow_instances.js";
 import { heartbeatRuns } from "./heartbeat_runs.js";
-import type { TransitionRecord, EnforcementResult, PrePromptPayload } from "@mnm/shared";
+import type { TransitionRecord, EnforcementResult, PrePromptPayload, HitlDecision } from "@mnm/shared";
 
 export const stageInstances = pgTable(
   "stage_instances",
@@ -39,6 +39,9 @@ export const stageInstances = pgTable(
     // ORCH-S02: WorkflowEnforcer columns
     enforcementResults: jsonb("enforcement_results").$type<EnforcementResult>(),
     prePromptsInjected: jsonb("pre_prompts_injected").$type<PrePromptPayload>(),
+    // ORCH-S03: HITL columns
+    hitlDecision: jsonb("hitl_decision").$type<HitlDecision>(),
+    hitlHistory: jsonb("hitl_history").$type<HitlDecision[]>().default([]),
   },
   (table) => ({
     workflowOrderIdx: index("stage_instances_workflow_order_idx").on(table.workflowInstanceId, table.stageOrder),

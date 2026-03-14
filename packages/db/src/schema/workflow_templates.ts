@@ -24,4 +24,7 @@ export type WorkflowStageTemplateDef = {
   requiredFiles?: import("@mnm/shared").RequiredFileDef[];
   prePrompts?: string[];
   expectedOutputs?: string[];
+  // ORCH-S03: HITL fields
+  hitlRequired?: boolean;
+  hitlRoles?: string[];
 };
