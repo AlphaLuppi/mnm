@@ -169,4 +169,9 @@ export const accessApi = {
       explicitGrants: Array<{ permissionKey: PermissionKey; scope: unknown }>;
       effectivePermissions: PermissionKey[];
     }>(`/companies/${companyId}/my-permissions`),
+
+  getRbacPresets: (companyId: string) =>
+    api.get<Record<string, readonly string[]>>(
+      `/companies/${companyId}/rbac/presets`,
+    ),
 };
