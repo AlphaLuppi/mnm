@@ -43,7 +43,7 @@
 | RBAC-S01 | Fix hasPermission ⚠️ P0 | DONE | 8fe8b42 | 660c4d7 | dd9775b | PASS (no fix needed) | 26/26 E2E pass, scope logic secure, .strict() validated, all ACs verified |
 | RBAC-S03 | businessRole migration | DONE | 42e0df6 | 4f58b19 | 4f58b19 | PASS (no fix needed) | 33/33 E2E pass, constants + validators + migration + API endpoint + seed |
 | MU-S01 | API invitations email | DONE | 5e6f34c | dev | 84e073c | 1176efd | 31/31 E2E pass, email service + schema migration + 7-day TTL + dedup + GET list |
-| MU-S05 | Désactivation signup | PENDING | | | | | |
+| MU-S05 | Désactivation signup | DONE | caede63 | dev | fb0e255 | PASS (no fix needed) | 27/27 E2E pass, invitationOnly flag + join-request guard + settings PATCH + audit |
 
 ### BATCH 4 — RBAC + Multi-User (← RBAC-S01, MU-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 11 |
+| Stories DONE | 12 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 58 |
-| Batch courant | 3 |
-| Dernière story complétée | MU-S01 |
-| Prochain batch débloqué | BATCH 3 (MU-S05) then BATCH 4 |
+| Stories PENDING | 57 |
+| Batch courant | 4 |
+| Dernière story complétée | MU-S05 |
+| Prochain batch débloqué | BATCH 4 (RBAC-S02, MU-S02, MU-S03, MU-S04, RBAC-S07) |
 
 ---
 
@@ -219,3 +219,7 @@
 | 2026-03-14 | MU-S01 | Dev | Dev Agent | dev | Schema migration + email service + route mods + GET list + .env |
 | 2026-03-14 | MU-S01 | QA | QA Agent | 84e073c | 31 Playwright E2E tests (file-content based) |
 | 2026-03-14 | MU-S01 | Review | Review Agent | 1176efd | Fix: migration file ref 0032→0033 in tests. 31/31 pass |
+| 2026-03-14 | MU-S05 | PM | PM Agent | caede63 | Story spec with data-test-id — invitationOnly flag + 8 ACs |
+| 2026-03-14 | MU-S05 | Dev | Dev Agent | dev | Schema + migration 0034 + guard + PATCH settings + audit |
+| 2026-03-14 | MU-S05 | QA | QA Agent | fb0e255 | 27 Playwright E2E tests (file-content based) |
+| 2026-03-14 | MU-S05 | Review | Review Agent | — | PASS — all 7 deliverables verified, 27/27 E2E pass, no regressions |
