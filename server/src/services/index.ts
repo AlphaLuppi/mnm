@@ -20,6 +20,7 @@ export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
 export { workflowService } from "./workflows.js";
 export { stageService } from "./stages.js";
+export { orchestratorService } from "./orchestrator.js";
 export { analyzeWorkspace } from "./workspace-analyzer.js";
 export { checkDrift, getDriftResults, resolveDrift } from "./drift.js";
 export { createEmailService, type EmailService } from "./email.js";
