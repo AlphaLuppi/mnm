@@ -118,7 +118,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | COMP-S01 | CompactionWatcher | DONE | 65e34c5 | f6d9566 | 7e96bdf | PASS (no fix) | 50/50 E2E pass, 316/316 regressions pass (ORCH-S01+ORCH-S02) |
 | DUAL-S01 | Table automation_cursors | DONE | 6e5a867 | 9c8996f | 6a82843 | PASS (no fix) | 50/50 E2E pass, 92/93 RBAC-S01 + 67/67 PROJ-S01 + 50/50 COMP-S01 regressions (1 pre-existing RBAC-S01 T26 failure) |
-| A2A-S01 | A2A Bus | PENDING | | | | | |
+| A2A-S01 | A2A Bus | DONE | dd4adcb | bd8ba01 | a226482 | PASS (no fix) | 60/60 E2E pass, 301/301 regressions pass (CONT-S02+CHAT-S01+DUAL-S01+COMP-S01) |
 
 ### BATCH 12 — A2A avancé + Dual UI (← A2A-S01, DUAL-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 46 |
+| Stories DONE | 47 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 23 |
-| Batch courant | 11 (in progress) |
-| Dernière story complétée | DUAL-S01 |
-| Prochain batch débloqué | BATCH 11 (A2A-S01 remaining) |
+| Stories PENDING | 22 |
+| Batch courant | 11 (complete) |
+| Dernière story complétée | A2A-S01 |
+| Prochain batch débloqué | BATCH 12 (A2A-S02, A2A-S03, COMP-S02, DUAL-S02, DUAL-S03) |
 
 ---
 
@@ -339,3 +339,7 @@
 | 2026-03-14 | DUAL-S01 | Dev | Dev Agent | 9c8996f | automationCursorService + 5 routes + types + validators + barrel exports |
 | 2026-03-14 | DUAL-S01 | QA | QA Agent | 6a82843 | 50 Playwright E2E tests (file-content based) |
 | 2026-03-14 | DUAL-S01 | Review | Review Agent | — | PASS — 50/50 E2E pass, 209/210 regressions (RBAC-S01+PROJ-S01+COMP-S01, 1 pre-existing), no fix needed |
+| 2026-03-14 | A2A-S01 | PM | PM Agent | dd4adcb | Story spec — A2A Bus + 12 ACs + 28 data-testid + 60 test cases |
+| 2026-03-14 | A2A-S01 | Dev | Dev Agent | bd8ba01 | a2aBusService + 7 routes + types + validators + schema + migration + barrel exports |
+| 2026-03-14 | A2A-S01 | QA | QA Agent | a226482 | 60 Playwright E2E tests (file-content based) |
+| 2026-03-14 | A2A-S01 | Review | Review Agent | — | PASS — 60/60 E2E pass, 301/301 regressions (CONT-S02+CHAT-S01+DUAL-S01+COMP-S01), no fix needed |
