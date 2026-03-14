@@ -149,6 +149,26 @@ export interface ContainerInfoFull extends ContainerInfo {
   logStreamUrl: string | null;
 }
 
+// ---- CONT-S04: Network isolation types ----
+
+// cont-s04-type-network-info
+// Information about a Docker network managed by MnM
+export interface NetworkInfo {
+  id: string;               // Docker network ID
+  name: string;             // Network name (e.g., mnm-company-{companyId})
+  companyId: string;        // Company that owns this network
+  driver: string;           // Network driver (bridge, host, none)
+  containerCount: number;   // Number of containers attached
+  createdAt: string;        // ISO 8601
+}
+
+// cont-s04-type-network-cleanup-result
+// Result of cleaning up orphan networks
+export interface NetworkCleanupResult {
+  removed: string[];        // Network IDs that were removed
+  errors: string[];         // Network IDs that failed to remove
+}
+
 // cont-s05-type-profile-update
 // Profile update payload
 export interface ContainerProfileUpdate {

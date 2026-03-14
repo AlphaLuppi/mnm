@@ -39,3 +39,5 @@ export { credentialProxyService } from "./credential-proxy.js";
 export { credentialProxyRulesService } from "./credential-proxy-rules.js";
 // cont-s03-barrel-svc
 export { mountAllowlistService } from "./mount-allowlist.js";
+// cont-s04-network-isolation-service
+export { networkIsolationService } from "./network-isolation.js";
