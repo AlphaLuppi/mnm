@@ -10,6 +10,7 @@ import {
   SquarePen,
   Network,
   Settings,
+  Shield,
   Users,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -53,6 +54,7 @@ export function Sidebar() {
   const canViewMembers = hasPermission("users:invite");
   const canViewCosts = hasPermission("dashboard:view");
   const canViewActivity = hasPermission("audit:read");
+  const canViewRoles = hasPermission("users:manage_permissions");
   const canViewSettings = hasPermission("company:manage_settings");
 
   // Section visibility: "Work" visible if at least one child is visible
@@ -150,6 +152,9 @@ export function Sidebar() {
           <SidebarSection label="Company" data-testid="rbac-s05-section-company">
             {canViewMembers && (
               <SidebarNavItem data-testid="rbac-s05-nav-members" to="/members" label="Members" icon={Users} />
+            )}
+            {canViewRoles && (
+              <SidebarNavItem data-testid="rbac-s06-nav-roles" to="/admin/roles" label="Roles" icon={Shield} />
             )}
             <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
             {canViewCosts && (

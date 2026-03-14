@@ -30,6 +30,7 @@ import { Workflows } from "./pages/Workflows";
 import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { NewWorkflow } from "./pages/NewWorkflow";
 import { Members } from "./pages/Members";
+import { AdminRoles } from "./pages/AdminRoles";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -102,6 +103,7 @@ function boardRoutes() {
       <Route path="dashboard" element={<Dashboard />} />
       <Route path="companies" element={<Companies />} />
       <Route path="members" element={<RequirePermission permission="users:invite" showForbidden><Members /></RequirePermission>} />
+      <Route path="admin/roles" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminRoles /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
