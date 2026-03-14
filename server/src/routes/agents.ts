@@ -28,6 +28,7 @@ import {
   secretService,
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
+import { assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
@@ -69,7 +70,11 @@ export function agentRoutes(db: Db) {
       if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return null;
       const allowed = await access.canUser(companyId, req.actor.userId, "agents:create");
       if (!allowed) {
-        throw forbidden("Missing permission: agents:create");
+        throw forbidden("Missing permission: agents:create", {
+          requiredPermission: "agents:create",
+          companyId,
+          resourceScope: null,
+        });
       }
       return null;
     }
@@ -80,7 +85,11 @@ export function agentRoutes(db: Db) {
     }
     const allowedByGrant = await access.hasPermission(companyId, "agent", actorAgent.id, "agents:create");
     if (!allowedByGrant && !canCreateAgents(actorAgent)) {
-      throw forbidden("Missing permission: can create agents");
+      throw forbidden("Missing permission: agents:create", {
+        requiredPermission: "agents:create",
+        companyId,
+        resourceScope: null,
+      });
     }
     return actorAgent;
   }
@@ -589,6 +598,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const state = await heartbeat.getRuntimeState(id);
     res.json(state);
@@ -603,6 +613,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const sessions = await heartbeat.listTaskSessions(id);
     res.json(
@@ -622,6 +633,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const taskKey =
       typeof req.body.taskKey === "string" && req.body.taskKey.trim().length > 0
@@ -782,6 +794,7 @@ export function agentRoutes(db: Db) {
   router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    await assertCompanyPermission(db, req, companyId, "agents:create");
 
     if (req.actor.type === "agent") {
       assertBoard(req);
@@ -834,6 +847,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "users:manage_permissions");
 
     if (req.actor.type === "agent") {
       const actorAgent = req.actor.agentId ? await svc.getById(req.actor.agentId) : null;
@@ -1036,6 +1050,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/pause", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.pause(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1059,6 +1077,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/resume", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.resume(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1080,6 +1102,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/terminate", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.terminate(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1103,6 +1129,10 @@ export function agentRoutes(db: Db) {
   router.delete("/agents/:id", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:create");
     const agent = await svc.remove(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1131,6 +1161,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/keys", validate(createAgentKeySchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const agentForPermCheck = await svc.getById(id);
+    if (!agentForPermCheck) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, agentForPermCheck.companyId);
+    await assertCompanyPermission(db, req, agentForPermCheck.companyId, "agents:create");
     const key = await svc.createApiKey(id, req.body.name);
 
     const agent = await svc.getById(id);
@@ -1267,6 +1301,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:create");
     if (agent.adapterType !== "claude_local") {
       res.status(400).json({ error: "Login is only supported for claude_local agents" });
       return;

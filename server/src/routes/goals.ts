@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { createGoalSchema, updateGoalSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { goalService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
@@ -27,7 +28,7 @@ export function goalRoutes(db: Db) {
     res.json(goal);
   });
 
-  router.post("/companies/:companyId/goals", validate(createGoalSchema), async (req, res) => {
+  router.post("/companies/:companyId/goals", requirePermission(db, "projects:create"), validate(createGoalSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const goal = await svc.create(companyId, req.body);
@@ -53,6 +54,7 @@ export function goalRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
     const goal = await svc.update(id, req.body);
     if (!goal) {
       res.status(404).json({ error: "Goal not found" });
@@ -82,6 +84,7 @@ export function goalRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
     const goal = await svc.remove(id);
     if (!goal) {
       res.status(404).json({ error: "Goal not found" });
