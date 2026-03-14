@@ -14,6 +14,7 @@ import {
   Shield,
   Users,
   Box,
+  MessageSquare,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -59,6 +60,7 @@ export function Sidebar() {
   const canViewRoles = hasPermission("users:manage_permissions");
   const canViewSettings = hasPermission("company:manage_settings");
   const canViewContainers = hasPermission("agents:manage_containers");
+  const canViewChat = hasPermission("chat:agent");
 
   // Section visibility: "Work" visible if at least one child is visible
   // Issues is always visible, so Work section is always visible
@@ -143,6 +145,9 @@ export function Sidebar() {
             )}
             {canViewGoals && (
               <SidebarNavItem data-testid="rbac-s05-nav-goals" to="/goals" label="Goals" icon={Target} />
+            )}
+            {canViewChat && (
+              <SidebarNavItem data-testid="chat-s04-nav-chat" to="/chat" label="Chat" icon={MessageSquare} />
             )}
           </SidebarSection>
         )}
