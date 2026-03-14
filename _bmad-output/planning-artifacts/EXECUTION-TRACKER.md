@@ -23,7 +23,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | TECH-01 | PostgreSQL externe | DONE | 234d0c1 | 79f5c15 | 5feea0b | PASS (no fix needed) | All 9 ACs verified, 14 unit + 17 E2E tests pass |
-| TECH-02 | Docker Compose | PENDING | | | | | |
+| TECH-02 | Docker Compose | DONE | b9e6850 | 95bcbbf | 9f64928 | 4ae9999 | 42 E2E pass, fix: @paperclipai→@mnm in Dockerfile --filter |
 | MU-S06 | Sign-out invalidation | PENDING | | | | | |
 
 ### BATCH 2 — Schema + Redis (← TECH-01/02)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 1 |
+| Stories DONE | 2 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 68 |
+| Stories PENDING | 67 |
 | Batch courant | 1 |
-| Dernière story complétée | TECH-01 |
-| Prochain batch débloqué | BATCH 1 (TECH-02, MU-S06 remaining) |
+| Dernière story complétée | TECH-02 |
+| Prochain batch débloqué | BATCH 1 (MU-S06 remaining) |
 
 ---
 
@@ -179,3 +179,7 @@
 | 2026-03-14 | TECH-01 | Dev | Dev Agent | 79f5c15 | PostgreSQL external setup |
 | 2026-03-14 | TECH-01 | QA | QA Agent | 5feea0b | 17 Playwright E2E tests |
 | 2026-03-14 | TECH-01 | Review | Review Agent | — | PASS — no fix commit needed |
+| 2026-03-14 | TECH-02 | PM | PM Agent | b9e6850 | Story spec with data-test-id |
+| 2026-03-14 | TECH-02 | Dev | Dev Agent | 95bcbbf | Docker Compose dev/test/prod + Redis + Dockerfile MNM vars |
+| 2026-03-14 | TECH-02 | QA | QA Agent | 9f64928 | 42 Playwright E2E tests |
+| 2026-03-14 | TECH-02 | Review | Review Agent | 4ae9999 | Fix: @paperclipai→@mnm in Dockerfile build filters |
