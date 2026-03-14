@@ -85,6 +85,46 @@ export interface OrchestratorEvent {
   timestamp: string;
 }
 
+// ORCH-S03: HITL (Human-In-The-Loop) types
+
+/** Decision record for a HITL approval or rejection */
+export interface HitlDecision {
+  decision: "approved" | "rejected";
+  actorId: string;
+  actorType: "user" | "agent" | "system";
+  comment?: string;    // optional comment (approve)
+  feedback?: string;   // mandatory feedback (reject)
+  decidedAt: string;   // ISO 8601
+}
+
+/** Request emitted when a stage enters the validating state */
+export interface HitlValidationRequest {
+  stageId: string;
+  workflowInstanceId: string;
+  stageName: string;
+  workflowName: string;
+  hitlRoles: string[];
+  requestedAt: string;     // ISO 8601
+  requestedBy: {
+    actorId: string | null;
+    actorType: "user" | "agent" | "system";
+  };
+  outputArtifacts: string[];
+}
+
+/** Pending validation returned by listPendingValidations() */
+export interface PendingValidation {
+  stageId: string;
+  stageName: string;
+  workflowInstanceId: string;
+  workflowName: string;
+  requestedAt: string;     // ISO 8601
+  hitlRoles: string[];
+  outputArtifacts: string[];
+  hitlHistory: HitlDecision[];
+  rejectCount: number;
+}
+
 // ORCH-S02: WorkflowEnforcer types
 
 /** Definition of a required file that must exist before a stage transition */
