@@ -48,3 +48,5 @@ export { ssoConfigurations } from "./sso_configurations.js";
 export { importJobs } from "./import_jobs.js";
 export { driftReports } from "./drift_reports.js";
 export { driftItems } from "./drift_items.js";
+// a2a-s01-schema-export
+export { a2aMessages } from "./a2a_messages.js";

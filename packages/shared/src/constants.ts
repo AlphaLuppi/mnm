@@ -276,6 +276,13 @@ export const LIVE_EVENT_TYPES = [
   "compaction.watching_started",
   // comp-s01-live-event-stopped
   "compaction.watching_stopped",
+  // A2A-S01: A2A Bus live events
+  // a2a-s01-live-event-sent
+  "a2a.message_sent",
+  // a2a-s01-live-event-responded
+  "a2a.message_responded",
+  // a2a-s01-live-event-expired
+  "a2a.message_expired",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
