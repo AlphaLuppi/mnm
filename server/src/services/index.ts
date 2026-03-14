@@ -47,3 +47,5 @@ export { createContainerPipeManager, type ContainerPipeManager } from "./contain
 export { compactionWatcherService } from "./compaction-watcher.js";
 // dual-s01-barrel-svc
 export { automationCursorService } from "./automation-cursors.js";
+// a2a-s01-barrel-svc
+export { a2aBusService } from "./a2a-bus.js";

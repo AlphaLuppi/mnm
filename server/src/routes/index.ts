@@ -24,3 +24,5 @@ export { containerRoutes } from "./containers.js";
 export { compactionRoutes } from "./compaction.js";
 // dual-s01-barrel-route
 export { automationCursorRoutes } from "./automation-cursors.js";
+// a2a-s01-barrel-route
+export { a2aRoutes } from "./a2a.js";
