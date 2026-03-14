@@ -128,7 +128,7 @@
 | A2A-S02 | Permissions A2A | DONE | 5cb4e6f | 13542d8 | a5f54c6 | PASS (no fix) | 55/55 E2E pass, 242/242 regressions pass (A2A-S01+COMP-S02+RBAC-S04) |
 | A2A-S03 | Audit A2A | DONE | 6b77c94 | ad164b7 | 737a60f | PASS (no fix) | 45/45 E2E pass, 214/214 regressions pass (A2A-S01+A2A-S02+OBS-S01) |
 | DUAL-S02 | UI curseur | DONE | d5d0670 | bd868c2 | 5c18c33 | PASS (no fix) | 64/64 E2E pass, 259/259 regressions pass (DUAL-S01+RBAC-S05+CONT-S06) |
-| DUAL-S03 | Enforcement curseur | PENDING | | | | | |
+| DUAL-S03 | Enforcement curseur | DONE | 990476b | 925992e | 5fdabc3 | PASS (no fix) | 45/45 E2E pass, 527/528 regressions pass (DUAL-S01+S02+ORCH-S01+S02+S03+S04, 1 pre-existing ORCH-S04 T16) |
 
 ### BATCH 13 — Enterprise (← divers)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 51 |
+| Stories DONE | 52 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 18 |
-| Batch courant | 12 (in progress) |
-| Dernière story complétée | DUAL-S02 |
-| Prochain batch débloqué | BATCH 12 (DUAL-S03) |
+| Stories PENDING | 17 |
+| Batch courant | 12 (complete) |
+| Dernière story complétée | DUAL-S03 |
+| Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
 
@@ -359,3 +359,7 @@
 | 2026-03-15 | DUAL-S02 | Dev | Dev Agent | bd868c2 | API client + api.put + query keys + CursorPositionBadge + CursorHierarchyChain + AutomationCursors page + route + sidebar |
 | 2026-03-15 | DUAL-S02 | QA | QA Agent | 5c18c33 | 64 Playwright E2E tests (file-content based) |
 | 2026-03-15 | DUAL-S02 | Review | Review Agent | — | PASS — 64/64 E2E pass, 259/259 regressions (DUAL-S01+RBAC-S05+CONT-S06), no fix needed |
+| 2026-03-15 | DUAL-S03 | PM | PM Agent | 990476b | Story spec — enforcement curseur + 10 ACs + 12 data-testid + 45 test cases |
+| 2026-03-15 | DUAL-S03 | Dev | Dev Agent | 925992e | cursor-enforcement.ts service + orchestrator.ts integration + CursorEnforcementResult type + barrel exports |
+| 2026-03-15 | DUAL-S03 | QA | QA Agent | 5fdabc3 | 45 Playwright E2E tests (file-content based) |
+| 2026-03-15 | DUAL-S03 | Review | Review Agent | — | PASS — 45/45 E2E pass, 527/528 regressions (DUAL-S01+S02+ORCH-S01+S02+S03+S04, 1 pre-existing ORCH-S04 T16), no fix needed |
