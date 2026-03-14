@@ -1,5 +1,6 @@
 import type {
   AgentAdapterType,
+  BusinessRole,
   InstanceUserRole,
   InviteJoinType,
   InviteType,
@@ -17,6 +18,7 @@ export interface CompanyMembership {
   principalId: string;
   status: MembershipStatus;
   membershipRole: string | null;
+  businessRole: BusinessRole;
   createdAt: Date;
   updatedAt: Date;
 }

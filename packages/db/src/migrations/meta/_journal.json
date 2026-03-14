@@ -218,6 +218,13 @@
       "when": 1773568800000,
       "tag": "0030_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773655200000,
+      "tag": "0031_business_role_admin_migration",
+      "breakpoints": true
     }
   ]
 }
