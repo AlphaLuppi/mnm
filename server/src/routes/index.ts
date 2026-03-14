@@ -26,3 +26,5 @@ export { compactionRoutes } from "./compaction.js";
 export { automationCursorRoutes } from "./automation-cursors.js";
 // a2a-s01-barrel-route
 export { a2aRoutes } from "./a2a.js";
+// sso-s01-barrel-route
+export { ssoRoutes } from "./sso.js";
