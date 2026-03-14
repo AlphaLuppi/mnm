@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "@mnm/db";
 import { containerManagerService } from "../services/container-manager.js";
 import { mountAllowlistService } from "../services/mount-allowlist.js";
+import { networkIsolationService } from "../services/network-isolation.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
@@ -344,6 +345,96 @@ export function containerRoutes(db: Db) {
         results: batchResult.results,
         allValid: batchResult.valid,
       });
+    },
+  );
+
+  // ---- CONT-S04: Network isolation routes ----
+
+  // cont-s04-route-list-networks
+  // GET /companies/:companyId/containers/networks — list company networks
+  router.get(
+    "/companies/:companyId/containers/networks",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const networkSvc = networkIsolationService();
+      const networks = await networkSvc.listCompanyNetworks(companyId as string);
+      res.json({ networks });
+    },
+  );
+
+  // cont-s04-route-get-network
+  // GET /companies/:companyId/containers/networks/:networkId — get network info
+  router.get(
+    "/companies/:companyId/containers/networks/:networkId",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, networkId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const networkSvc = networkIsolationService();
+      const info = await networkSvc.getNetworkInfo(networkId as string);
+      res.json(info);
+    },
+  );
+
+  // cont-s04-route-delete-network
+  // DELETE /companies/:companyId/containers/networks/:networkId — remove orphan network
+  router.delete(
+    "/companies/:companyId/containers/networks/:networkId",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, networkId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+      const actor = getActorInfo(req);
+
+      const networkSvc = networkIsolationService();
+      await networkSvc.removeNetwork(networkId as string);
+
+      // cont-s04-audit-network-deleted
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "container.network_deleted",
+        targetType: "docker_network",
+        targetId: networkId as string,
+        metadata: { deletedBy: actor.actorId },
+      });
+
+      res.json({ status: "deleted", networkId });
+    },
+  );
+
+  // cont-s04-route-cleanup-networks
+  // POST /companies/:companyId/containers/networks/cleanup — cleanup orphan networks
+  router.post(
+    "/companies/:companyId/containers/networks/cleanup",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+      const actor = getActorInfo(req);
+
+      const networkSvc = networkIsolationService();
+      const result = await networkSvc.cleanupOrphanNetworks();
+
+      // cont-s04-audit-network-cleaned
+      if (result.removed.length > 0) {
+        await emitAudit({
+          req,
+          db,
+          companyId: companyId as string,
+          action: "container.network_cleaned",
+          targetType: "docker_network",
+          targetId: companyId as string,
+          metadata: { removedCount: result.removed.length, removed: result.removed, cleanedBy: actor.actorId },
+        });
+      }
+
+      res.json(result);
     },
   );
 

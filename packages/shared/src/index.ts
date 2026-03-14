@@ -214,6 +214,9 @@ export type {
   ContainerProfileInfo,
   ContainerInfoFull,
   ContainerProfileUpdate,
+  // CONT-S04: Network isolation types
+  NetworkInfo,
+  NetworkCleanupResult,
   // CONT-S02: Credential proxy types
   CredentialProxyRule,
   CredentialProxyConfig,
