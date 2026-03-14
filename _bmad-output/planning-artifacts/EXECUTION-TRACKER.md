@@ -49,7 +49,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| RBAC-S02 | 9 permission keys | PENDING | | | | | |
+| RBAC-S02 | 20 permission keys + presets | DONE | 996876d | dev | 2aa5fc9 | 9d3921a | 36/36 E2E pass, 5 new keys (20 total) + presets matrix + hasPermission fallback + effective-permissions API |
 | MU-S02 | Page membres UI | PENDING | | | | | |
 | MU-S03 | Invitation bulk CSV | PENDING | | | | | |
 | MU-S04 | Sélecteur company | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 12 |
+| Stories DONE | 13 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 57 |
+| Stories PENDING | 56 |
 | Batch courant | 4 |
-| Dernière story complétée | MU-S05 |
-| Prochain batch débloqué | BATCH 4 (RBAC-S02, MU-S02, MU-S03, MU-S04, RBAC-S07) |
+| Dernière story complétée | RBAC-S02 |
+| Prochain batch débloqué | BATCH 4 (MU-S02, MU-S03, MU-S04, RBAC-S07) |
 
 ---
 
@@ -223,3 +223,7 @@
 | 2026-03-14 | MU-S05 | Dev | Dev Agent | dev | Schema + migration 0034 + guard + PATCH settings + audit |
 | 2026-03-14 | MU-S05 | QA | QA Agent | fb0e255 | 27 Playwright E2E tests (file-content based) |
 | 2026-03-14 | MU-S05 | Review | Review Agent | — | PASS — all 7 deliverables verified, 27/27 E2E pass, no regressions |
+| 2026-03-14 | RBAC-S02 | PM | PM Agent | 996876d | Story spec with data-test-id — 20 permission keys + presets + 13 ACs |
+| 2026-03-14 | RBAC-S02 | Dev | Dev Agent | dev | 5 new keys + rbac-presets.ts + hasPermission fallback + effective-permissions |
+| 2026-03-14 | RBAC-S02 | QA | QA Agent | 2aa5fc9 | 36 Playwright E2E tests (file-content based) |
+| 2026-03-14 | RBAC-S02 | Review | Review Agent | 9d3921a | Fix: test fn names + TECH-07 key count. 36/36 pass |
