@@ -2713,6 +2713,34 @@ export function accessRoutes(
     }
   );
 
+  router.patch(
+    "/companies/:companyId/members/:memberId/status",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const memberId = req.params.memberId as string;
+      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      const status = req.body.status;
+      if (status !== "active" && status !== "suspended") {
+        throw badRequest("status must be 'active' or 'suspended'");
+      }
+      const updated = await access.updateMemberStatus(companyId, memberId, status);
+      if (!updated) throw notFound("Member not found");
+      await logActivity(db, {
+        companyId,
+        actorType: req.actor.type === "agent" ? "agent" : "user",
+        actorId:
+          req.actor.type === "agent"
+            ? req.actor.agentId ?? "unknown"
+            : req.actor.userId ?? "unknown",
+        action: `member.status.${status}`,
+        entityType: "member",
+        entityId: memberId,
+        details: { status }
+      });
+      res.json(updated);
+    }
+  );
+
   // --- RBAC Presets endpoints (RBAC-S02) ---
 
   // GET /companies/:companyId/rbac/presets — return the preset matrix

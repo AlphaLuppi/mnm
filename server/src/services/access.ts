@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
+  authUsers,
   companyMemberships,
   instanceUserRoles,
   principalPermissionGrants,
@@ -126,11 +127,53 @@ export function accessService(db: Db) {
   }
 
   async function listMembers(companyId: string) {
-    return db
-      .select()
+    const rows = await db
+      .select({
+        id: companyMemberships.id,
+        companyId: companyMemberships.companyId,
+        principalType: companyMemberships.principalType,
+        principalId: companyMemberships.principalId,
+        status: companyMemberships.status,
+        membershipRole: companyMemberships.membershipRole,
+        businessRole: companyMemberships.businessRole,
+        createdAt: companyMemberships.createdAt,
+        updatedAt: companyMemberships.updatedAt,
+        userName: authUsers.name,
+        userEmail: authUsers.email,
+        userImage: authUsers.image,
+      })
       .from(companyMemberships)
+      .leftJoin(
+        authUsers,
+        and(
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.principalId, authUsers.id),
+        ),
+      )
       .where(eq(companyMemberships.companyId, companyId))
       .orderBy(sql`${companyMemberships.createdAt} desc`);
+    return rows;
+  }
+
+  async function updateMemberStatus(
+    companyId: string,
+    memberId: string,
+    status: "active" | "suspended",
+  ) {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.id, memberId)))
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    const updated = await db
+      .update(companyMemberships)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(companyMemberships.id, member.id))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+    return updated ?? member;
   }
 
   async function setMemberPermissions(
@@ -402,6 +445,7 @@ export function accessService(db: Db) {
     listMembers,
     setMemberPermissions,
     updateMemberBusinessRole,
+    updateMemberStatus,
     getEffectivePermissions,
     promoteInstanceAdmin,
     demoteInstanceAdmin,

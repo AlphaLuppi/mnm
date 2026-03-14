@@ -29,6 +29,7 @@ import { NewAgent } from "./pages/NewAgent";
 import { Workflows } from "./pages/Workflows";
 import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { NewWorkflow } from "./pages/NewWorkflow";
+import { Members } from "./pages/Members";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -99,6 +100,7 @@ function boardRoutes() {
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard" element={<Dashboard />} />
       <Route path="companies" element={<Companies />} />
+      <Route path="members" element={<Members />} />
       <Route path="company/settings" element={<CompanySettings />} />
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
