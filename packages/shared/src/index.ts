@@ -246,6 +246,10 @@ export type {
   CompactionWatcherConfig,
   CompactionWatcherStatus,
   CompactionSnapshotFilters,
+  // comp-s02-barrel-shared
+  KillRelaunchResult,
+  RelaunchHistoryEntry,
+  RelaunchHistoryFilters,
   // DUAL-S01: Automation cursor types
   // dual-s01-barrel-shared
   AutomationCursorPosition,
@@ -462,6 +466,12 @@ export {
   compactionSnapshotFiltersSchema,
   type StartCompactionWatcher,
   type CompactionSnapshotFiltersInput,
+  // COMP-S02: Kill+Relaunch validators
+  // comp-s02-barrel-validators-shared
+  killRelaunchSchema,
+  relaunchHistoryFiltersSchema,
+  type KillRelaunchInput,
+  type RelaunchHistoryFiltersInput,
   // DUAL-S01: Automation cursor validators
   setCursorSchema,
   cursorFiltersSchema,

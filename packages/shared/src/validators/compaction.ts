@@ -18,3 +18,19 @@ export const compactionSnapshotFiltersSchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 export type CompactionSnapshotFilters = z.infer<typeof compactionSnapshotFiltersSchema>;
+
+// comp-s02-validator-kill-relaunch
+export const killRelaunchSchema = z.object({
+  maxRelaunchCount: z.number().int().positive().max(10).optional(),
+});
+export type KillRelaunchInput = z.infer<typeof killRelaunchSchema>;
+
+// comp-s02-validator-history-filters
+export const relaunchHistoryFiltersSchema = z.object({
+  agentId: z.string().uuid().optional(),
+  workflowInstanceId: z.string().uuid().optional(),
+  status: z.enum(COMPACTION_SNAPSHOT_STATUSES).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+export type RelaunchHistoryFiltersInput = z.infer<typeof relaunchHistoryFiltersSchema>;

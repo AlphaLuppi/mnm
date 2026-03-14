@@ -45,6 +45,8 @@ export { networkIsolationService } from "./network-isolation.js";
 export { createContainerPipeManager, type ContainerPipeManager } from "./container-pipe.js";
 // comp-s01-barrel-svc
 export { compactionWatcherService } from "./compaction-watcher.js";
+// comp-s02-barrel-service
+export { compactionKillRelaunchService } from "./compaction-kill-relaunch.js";
 // dual-s01-barrel-svc
 export { automationCursorService } from "./automation-cursors.js";
 // a2a-s01-barrel-svc
