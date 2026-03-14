@@ -9,11 +9,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import type { Request } from "express";
-import { and, eq, isNull, desc } from "drizzle-orm";
+import { and, eq, gt, isNull, desc } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
   agentApiKeys,
   authUsers,
+  companies,
   invites,
   joinRequests
 } from "@mnm/db";
@@ -41,6 +42,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  createEmailService,
   deduplicateAgentName,
   logActivity,
   notifyHireApproved
@@ -60,6 +62,7 @@ const INVITE_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const INVITE_TOKEN_SUFFIX_LENGTH = 8;
 const INVITE_TOKEN_MAX_RETRIES = 5;
 const COMPANY_INVITE_TTL_MS = 10 * 60 * 1000;
+const EMAIL_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function createInviteToken() {
   const bytes = randomBytes(INVITE_TOKEN_SUFFIX_LENGTH);
@@ -74,8 +77,8 @@ function createClaimSecret() {
   return `pcp_claim_${randomBytes(24).toString("hex")}`;
 }
 
-export function companyInviteExpiresAt(nowMs: number = Date.now()) {
-  return new Date(nowMs + COMPANY_INVITE_TTL_MS);
+export function companyInviteExpiresAt(nowMs: number = Date.now(), ttlMs: number = COMPANY_INVITE_TTL_MS) {
+  return new Date(nowMs + ttlMs);
 }
 
 function tokenHashesMatch(left: string, right: string) {
@@ -1561,11 +1564,13 @@ export function accessRoutes(
     allowedJoinTypes: "human" | "agent" | "both";
     defaultsPayload?: Record<string, unknown> | null;
     agentMessage?: string | null;
+    targetEmail?: string | null;
   }) {
     const normalizedAgentMessage =
       typeof input.agentMessage === "string"
         ? input.agentMessage.trim() || null
         : null;
+    const ttl = input.targetEmail ? EMAIL_INVITE_TTL_MS : COMPANY_INVITE_TTL_MS;
     const insertValues = {
       companyId: input.companyId,
       inviteType: "company_join" as const,
@@ -1574,7 +1579,8 @@ export function accessRoutes(
         input.defaultsPayload ?? null,
         normalizedAgentMessage
       ),
-      expiresAt: companyInviteExpiresAt(),
+      targetEmail: input.targetEmail ?? null,
+      expiresAt: companyInviteExpiresAt(Date.now(), ttl),
       invitedByUserId: input.req.actor.userId ?? null
     };
 
@@ -1632,13 +1638,38 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       await assertCompanyPermission(req, companyId, "users:invite");
+
+      const email: string | undefined = req.body.email;
+
+      // Duplicate check: if email provided, reject if a pending invite exists
+      if (email) {
+        const now = new Date();
+        const existing = await db
+          .select({ id: invites.id })
+          .from(invites)
+          .where(
+            and(
+              eq(invites.companyId, companyId),
+              eq(invites.targetEmail, email),
+              isNull(invites.revokedAt),
+              isNull(invites.acceptedAt),
+              gt(invites.expiresAt, now),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+        if (existing) {
+          throw conflict("A pending invitation already exists for this email address");
+        }
+      }
+
       const { token, created, normalizedAgentMessage } =
         await createCompanyInviteForCompany({
           req,
           companyId,
           allowedJoinTypes: req.body.allowedJoinTypes,
           defaultsPayload: req.body.defaultsPayload ?? null,
-          agentMessage: req.body.agentMessage ?? null
+          agentMessage: req.body.agentMessage ?? null,
+          targetEmail: email ?? null,
         });
 
       await logActivity(db, {
@@ -1655,9 +1686,48 @@ export function accessRoutes(
           inviteType: created.inviteType,
           allowedJoinTypes: created.allowedJoinTypes,
           expiresAt: created.expiresAt.toISOString(),
-          hasAgentMessage: Boolean(normalizedAgentMessage)
+          hasAgentMessage: Boolean(normalizedAgentMessage),
+          targetEmail: email ?? null,
         }
       });
+
+      // Send email invitation if email was provided
+      if (email) {
+        const publicUrl = process.env.MNM_PUBLIC_URL ?? requestBaseUrl(req);
+        const inviteUrl = `${publicUrl}/invite/${token}`;
+
+        // Fetch company name
+        const company = await db
+          .select({ name: companies.name })
+          .from(companies)
+          .where(eq(companies.id, companyId))
+          .then((rows) => rows[0] ?? null);
+        const companyName = company?.name ?? "your organization";
+
+        // Fetch inviter name
+        let inviterName: string | null = null;
+        if (req.actor.userId) {
+          const inviter = await db
+            .select({ name: authUsers.name })
+            .from(authUsers)
+            .where(eq(authUsers.id, req.actor.userId))
+            .then((rows) => rows[0] ?? null);
+          inviterName = inviter?.name ?? null;
+        }
+
+        const emailService = createEmailService();
+        try {
+          await emailService.sendInviteEmail({
+            to: email,
+            inviteUrl,
+            companyName,
+            inviterName,
+            expiresAt: created.expiresAt,
+          });
+        } catch (err) {
+          logger.error({ err, to: email, inviteId: created.id }, "Failed to send invite email");
+        }
+      }
 
       const inviteSummary = toInviteSummaryResponse(req, token, created);
       res.status(201).json({
@@ -1670,6 +1740,32 @@ export function accessRoutes(
       });
     }
   );
+
+  router.get("/companies/:companyId/invites", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCompanyPermission(req, companyId, "users:invite");
+
+    const inviteList = await db
+      .select()
+      .from(invites)
+      .where(eq(invites.companyId, companyId))
+      .orderBy(desc(invites.createdAt));
+
+    // Add computed status
+    const now = new Date();
+    const result = inviteList.map((inv) => ({
+      ...inv,
+      status: inv.revokedAt
+        ? "revoked"
+        : inv.acceptedAt
+          ? "accepted"
+          : inv.expiresAt && inv.expiresAt < now
+            ? "expired"
+            : "pending",
+    }));
+
+    res.json(result);
+  });
 
   router.post(
     "/companies/:companyId/openclaw/invite-prompt",

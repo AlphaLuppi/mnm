@@ -24,6 +24,7 @@ export const createCompanyInviteSchema = z.object({
   allowedJoinTypes: z.enum(INVITE_JOIN_TYPES).default("both"),
   defaultsPayload: z.record(z.string(), z.unknown()).optional().nullable(),
   agentMessage: z.string().max(4000).optional().nullable(),
+  email: z.string().email().max(320).transform(v => v.toLowerCase().trim()).optional(),
 });
 
 export type CreateCompanyInvite = z.infer<typeof createCompanyInviteSchema>;
