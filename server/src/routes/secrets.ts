@@ -8,6 +8,7 @@ import {
   updateSecretSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { logActivity, secretService } from "../services/index.js";
 
@@ -21,23 +22,20 @@ export function secretRoutes(db: Db) {
       : "local_encrypted"
   ) as SecretProvider;
 
-  router.get("/companies/:companyId/secret-providers", (req, res) => {
-    assertBoard(req);
+  router.get("/companies/:companyId/secret-providers", requirePermission(db, "company:manage_settings"), (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     res.json(svc.listProviders());
   });
 
-  router.get("/companies/:companyId/secrets", async (req, res) => {
-    assertBoard(req);
+  router.get("/companies/:companyId/secrets", requirePermission(db, "company:manage_settings"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const secrets = await svc.list(companyId);
     res.json(secrets);
   });
 
-  router.post("/companies/:companyId/secrets", validate(createSecretSchema), async (req, res) => {
-    assertBoard(req);
+  router.post("/companies/:companyId/secrets", requirePermission(db, "company:manage_settings"), validate(createSecretSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -75,6 +73,7 @@ export function secretRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "company:manage_settings");
 
     const rotated = await svc.rotate(
       id,
@@ -107,6 +106,7 @@ export function secretRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "company:manage_settings");
 
     const updated = await svc.update(id, {
       name: req.body.name,
@@ -141,6 +141,7 @@ export function secretRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "company:manage_settings");
 
     const removed = await svc.remove(id);
     if (!removed) {

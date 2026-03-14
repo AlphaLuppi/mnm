@@ -8,6 +8,7 @@ import {
   resubmitApprovalSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { logger } from "../middleware/logger.js";
 import {
   approvalService,
@@ -121,6 +122,10 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
     const approval = await svc.approve(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
     const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
     const linkedIssueIds = linkedIssues.map((issue) => issue.id);
@@ -209,6 +214,10 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
     const approval = await svc.reject(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
 
     await logActivity(db, {
@@ -230,6 +239,10 @@ export function approvalRoutes(db: Db) {
     async (req, res) => {
       assertBoard(req);
       const id = req.params.id as string;
+      const existing = await svc.getById(id);
+      if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
+      assertCompanyAccess(req, existing.companyId);
+      await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
       const approval = await svc.requestRevision(
         id,
         req.body.decidedByUserId ?? "board",
