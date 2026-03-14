@@ -69,7 +69,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | ORCH-S01 | State machine XState | DONE | spec | dev | qa | 4afa90d | 215/215 E2E pass, fix: StageContext import + permission strings in guards + eventToEmitType inline + test publishLiveEvent selector |
 | PROJ-S01 | Table project_memberships | DONE | 93b1dd5 | cfa62fc | a551d44 | da092d1 | 67/67 E2E pass, fix: 4 test regex patterns for multiline Drizzle chaining |
-| OBS-S01 | Table audit_events | PENDING | | | | | |
+| OBS-S01 | Table audit_events | DONE | a0a3463 | 69c0773 | 0c5b4c7 | c796c47 | 99/99 E2E pass, fix: T09 barrel re-export path + T46 offset regex false positive |
 | CHAT-S01 | WebSocket bidirectionnel | PENDING | | | | | |
 | CHAT-S02 | Tables chat | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 22 |
+| Stories DONE | 23 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 47 |
+| Stories PENDING | 46 |
 | Batch courant | 6 |
-| Dernière story complétée | PROJ-S01 |
-| Prochain batch débloqué | BATCH 6 (PROJ-S01, OBS-S01, CHAT-S01, CHAT-S02) + BATCH 7 partially unblocked |
+| Dernière story complétée | OBS-S01 |
+| Prochain batch débloqué | BATCH 6 (CHAT-S01, CHAT-S02) + BATCH 7 partially unblocked + BATCH 8 (OBS-S04, DRIFT-S01) |
 
 ---
 
@@ -257,3 +257,7 @@
 | 2026-03-14 | PROJ-S01 | Dev | Dev Agent | cfa62fc | Service 6 functions + 5 routes + validators + barrel exports |
 | 2026-03-14 | PROJ-S01 | QA | QA Agent | a551d44 | 67 Playwright E2E tests (file-content based) |
 | 2026-03-14 | PROJ-S01 | Review | Review Agent | da092d1 | Fix: 4 test regex for multiline Drizzle chaining. 67/67 pass |
+| 2026-03-14 | OBS-S01 | PM | PM Agent | a0a3463 | Story spec with data-test-id — audit events service + API + immutability |
+| 2026-03-14 | OBS-S01 | Dev | Dev Agent | 69c0773 | Service 7 functions + 6 routes + validators + types + migration SQL |
+| 2026-03-14 | OBS-S01 | QA | QA Agent | 0c5b4c7 | 99 Playwright E2E tests (file-content based) |
+| 2026-03-14 | OBS-S01 | Review | Review Agent | c796c47 | Fix: T09 barrel re-export path + T46 offset regex false positive. 99/99 pass |
