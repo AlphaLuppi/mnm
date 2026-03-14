@@ -124,7 +124,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| COMP-S02 | Kill+relance | PENDING | | | | | |
+| COMP-S02 | Kill+relance | DONE | 08a5424 | f35a77f | edc95c0 | PASS (no fix) | 38/38 E2E pass, 135/135 regressions pass (COMP-S01 + CONT-S01) |
 | A2A-S02 | Permissions A2A | PENDING | | | | | |
 | A2A-S03 | Audit A2A | PENDING | | | | | |
 | DUAL-S02 | UI curseur | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 47 |
+| Stories DONE | 48 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 22 |
-| Batch courant | 11 (complete) |
-| Dernière story complétée | A2A-S01 |
-| Prochain batch débloqué | BATCH 12 (A2A-S02, A2A-S03, COMP-S02, DUAL-S02, DUAL-S03) |
+| Stories PENDING | 21 |
+| Batch courant | 12 (in progress) |
+| Dernière story complétée | COMP-S02 |
+| Prochain batch débloqué | BATCH 12 (A2A-S02, A2A-S03, DUAL-S02, DUAL-S03) |
 
 ---
 
@@ -343,3 +343,7 @@
 | 2026-03-14 | A2A-S01 | Dev | Dev Agent | bd8ba01 | a2aBusService + 7 routes + types + validators + schema + migration + barrel exports |
 | 2026-03-14 | A2A-S01 | QA | QA Agent | a226482 | 60 Playwright E2E tests (file-content based) |
 | 2026-03-14 | A2A-S01 | Review | Review Agent | — | PASS — 60/60 E2E pass, 301/301 regressions (CONT-S02+CHAT-S01+DUAL-S01+COMP-S01), no fix needed |
+| 2026-03-15 | COMP-S02 | PM | PM Agent | 08a5424 | Story spec — kill+relance + 12 ACs + 37 data-testid + 38 test cases |
+| 2026-03-15 | COMP-S02 | Dev | Dev Agent | f35a77f | compactionKillRelaunchService + schema + migration + 2 routes + types + validators + watcher DB integration |
+| 2026-03-15 | COMP-S02 | QA | QA Agent | edc95c0 | 38 Playwright E2E tests (file-content based) |
+| 2026-03-15 | COMP-S02 | Review | Review Agent | — | PASS — 38/38 E2E pass, 135/135 regressions (COMP-S01+CONT-S01), no fix needed |
