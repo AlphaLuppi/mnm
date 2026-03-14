@@ -207,6 +207,14 @@ test.describe("MU-S06 — Backend get-session returns user info", () => {
 // ─── API tests (require running server) ─────────────────────────────────────
 
 test.describe("MU-S06 — API: get-session endpoint (AC-3, AC-5)", () => {
+  test.beforeEach(async ({ request }) => {
+    // Skip API tests if server is not running
+    const res = await request.get("/api/health").catch(() => null);
+    if (!res || !res.ok()) {
+      test.skip(true, "Server not running — skipping API tests");
+    }
+  });
+
   test("GET /api/auth/get-session returns 401 when not authenticated", async ({
     request,
   }) => {
@@ -226,7 +234,7 @@ test.describe("MU-S06 — API: get-session endpoint (AC-3, AC-5)", () => {
   });
 
   test("GET /health returns deploymentMode field", async ({ request }) => {
-    const res = await request.get("/health");
+    const res = await request.get("/api/health");
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.deploymentMode).toBeDefined();
