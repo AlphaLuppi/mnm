@@ -33,7 +33,7 @@
 | TECH-06 | 10 nouvelles tables | DONE | b03c048 | 1323023 | 1bbdbc7 | PASS (no fix needed) | 90 E2E pass, all 10 schemas + migration verified |
 | TECH-07 | Modifications 5 tables | DONE | 144a4e4 | d22964d | 87e99c8 | PASS (no fix needed) | 29 E2E pass, all 5 schemas + migration + 15 permission keys verified |
 | TECH-04 | Redis setup | DONE | 3f95006 | d090134 | 9abca69 | PASS (no fix needed) | 19/22 E2E pass (3 skipped: server not running), all ACs verified |
-| TECH-03 | Infrastructure test | PENDING | | | | | |
+| TECH-03 | Infrastructure test | DONE | 2dbba17 | 9358ca0 | 3a66689 | PASS (no fix needed) | 30/30 E2E pass, typecheck OK, all 7 factories + 3 helpers verified |
 
 ### BATCH 3 — RLS + Auth (← TECH-06/07)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 6 |
+| Stories DONE | 7 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 63 |
-| Batch courant | 2 |
-| Dernière story complétée | TECH-04 |
-| Prochain batch débloqué | BATCH 2 (TECH-03) |
+| Stories PENDING | 62 |
+| Batch courant | 3 |
+| Dernière story complétée | TECH-03 |
+| Prochain batch débloqué | BATCH 3 (TECH-05, RBAC-S01, RBAC-S03, MU-S01, MU-S05) |
 
 ---
 
@@ -199,3 +199,7 @@
 | 2026-03-14 | TECH-04 | Dev | Dev Agent | d090134 | Redis client + rate limiting middleware + health enrichment |
 | 2026-03-14 | TECH-04 | QA | QA Agent | 9abca69 | 22 Playwright E2E tests (19 pass, 3 skipped: server not running) |
 | 2026-03-14 | TECH-04 | Review | Review Agent | — | PASS — all ACs verified, 19/22 E2E pass, no regressions, typecheck OK |
+| 2026-03-14 | TECH-03 | PM | PM Agent | 2dbba17 | Story spec with data-test-id |
+| 2026-03-14 | TECH-03 | Dev | Dev Agent | 9358ca0 | 7 factories + 3 helpers in packages/test-utils |
+| 2026-03-14 | TECH-03 | QA | QA Agent | 3a66689 | 30 Playwright E2E tests (file-content based) |
+| 2026-03-14 | TECH-03 | Review | Review Agent | — | PASS — all 7 factories + 3 helpers verified, 30/30 E2E pass, typecheck OK |
