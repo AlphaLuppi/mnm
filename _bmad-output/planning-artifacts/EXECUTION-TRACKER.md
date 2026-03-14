@@ -53,7 +53,7 @@
 | MU-S02 | Page membres UI | DONE | b40a986 | dev | 104d901 | review | 85/85 E2E pass, Members page + table + filters + invite dialog + enriched API |
 | MU-S03 | Invitation bulk CSV | DONE | 8138c08 | dev | d57c130 | b610ad0 | 54/54 E2E pass, BulkInviteTab 4-phase + CSV parsing + tabbed dialog |
 | MU-S04 | Sélecteur company | DONE | spec | dev | qa | 00ec212 | 16/16 E2E pass, fix: align test data-testid with switcher- prefix per story spec mapping table |
-| RBAC-S07 | Badges rôle | DONE | 5d1fff8 | b20540d | 133bc89 | review | 27/27 E2E pass, RoleBadge component + Members.tsx + BulkInviteTab integration |
+| RBAC-S07 | Badges rôle | DONE | 5d1fff8 | b20540d | 133bc89 | f6d237f | 27/27 E2E pass, RoleBadge component + Members.tsx + BulkInviteTab integration |
 
 ### BATCH 5 — Enforcement + Navigation (← RBAC-S02)
 
@@ -236,4 +236,7 @@
 | 2026-03-14 | MU-S03 | QA | QA Agent | d57c130 | 54 Playwright E2E tests (file-content based) |
 | 2026-03-14 | MU-S03 | Review | Review Agent | b610ad0 | Fix: numeric literal separator in test. 54/54 pass |
 | 2026-03-14 | MU-S04 | Review | Review Agent | 00ec212 | Fix: align 6 test data-testid with switcher- prefix per story spec mapping. 16/16 pass |
-| 2026-03-14 | RBAC-S07 | Review | Review Agent | review | Fix: E2E test regex to accept `as BusinessRole` type cast. 27/27 pass |
+| 2026-03-14 | RBAC-S07 | PM | PM Agent | 5d1fff8 | Story spec — RoleBadge + 11 ACs + color scheme |
+| 2026-03-14 | RBAC-S07 | Dev | Dev Agent | b20540d | RoleBadge component + Members.tsx + BulkInviteTab integration |
+| 2026-03-14 | RBAC-S07 | QA | QA Agent | 133bc89 | 27 Playwright E2E tests (file-content based) |
+| 2026-03-14 | RBAC-S07 | Review | Review Agent | f6d237f | Fix: regex for as BusinessRole cast. 27/27 pass |
