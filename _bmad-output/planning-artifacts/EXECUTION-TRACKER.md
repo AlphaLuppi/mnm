@@ -31,7 +31,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | TECH-06 | 10 nouvelles tables | DONE | b03c048 | 1323023 | 1bbdbc7 | PASS (no fix needed) | 90 E2E pass, all 10 schemas + migration verified |
-| TECH-07 | Modifications 5 tables | PENDING | | | | | |
+| TECH-07 | Modifications 5 tables | DONE | 144a4e4 | d22964d | 87e99c8 | PASS (no fix needed) | 29 E2E pass, all 5 schemas + migration + 15 permission keys verified |
 | TECH-04 | Redis setup | PENDING | | | | | |
 | TECH-03 | Infrastructure test | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 4 |
+| Stories DONE | 5 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 65 |
+| Stories PENDING | 64 |
 | Batch courant | 2 |
-| Dernière story complétée | TECH-06 |
-| Prochain batch débloqué | BATCH 2 (TECH-07, TECH-04, TECH-03) |
+| Dernière story complétée | TECH-07 |
+| Prochain batch débloqué | BATCH 2 (TECH-04, TECH-03) |
 
 ---
 
@@ -191,3 +191,7 @@
 | 2026-03-14 | TECH-06 | Dev | Dev Agent | 1323023 | 10 new schema files + index.ts exports + migration 0028 |
 | 2026-03-14 | TECH-06 | QA | QA Agent | 1bbdbc7 | 90 Playwright E2E tests (file-content based) |
 | 2026-03-14 | TECH-06 | Review | Review Agent | — | PASS — all 10 schemas verified, 90/90 E2E pass, typecheck OK |
+| 2026-03-14 | TECH-07 | PM | PM Agent | 144a4e4 | Story spec with data-test-id — 5 tables + 9 permission keys |
+| 2026-03-14 | TECH-07 | Dev | Dev Agent | d22964d | Modify 5 tables (4+1+2+3 columns) + 9 permission keys + migration 0029 |
+| 2026-03-14 | TECH-07 | QA | QA Agent | 87e99c8 | 29 Playwright E2E tests (file-content based) |
+| 2026-03-14 | TECH-07 | Review | Review Agent | — | PASS — all 5 schemas verified, 29/29 E2E pass, 0 regressions, typecheck OK |
