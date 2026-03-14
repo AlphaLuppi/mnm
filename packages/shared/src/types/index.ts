@@ -134,3 +134,20 @@ export type {
   AuditListResult,
   AuditVerifyResult,
 } from "./audit.js";
+export type {
+  ChatChannelStatus,
+  ChatSenderType,
+  ChatClientMessage,
+  ChatClientTyping,
+  ChatClientSync,
+  ChatClientPing,
+  ChatClientPayload,
+  ChatServerMessage,
+  ChatServerAck,
+  ChatServerTyping,
+  ChatServerSync,
+  ChatServerError,
+  ChatServerPong,
+  ChatServerChannelClosed,
+  ChatServerPayload,
+} from "./chat-ws.js";
