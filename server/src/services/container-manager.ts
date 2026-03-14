@@ -20,6 +20,7 @@ import { logger } from "../middleware/logger.js";
 import { credentialProxyService } from "./credential-proxy.js";
 import { credentialProxyRulesService } from "./credential-proxy-rules.js";
 import { mountAllowlistService } from "./mount-allowlist.js";
+import { networkIsolationService } from "./network-isolation.js";
 
 const DEFAULT_DOCKER_IMAGE = "node:20-slim";
 const MONITOR_INTERVAL_MS = 5_000;       // 5 seconds
@@ -127,6 +128,13 @@ export function containerManagerService(db: Db) {
       // 6. Generate agent JWT for container
       const agentJwt = createLocalAgentJwt(agentId, companyId, "docker", instance!.id);
 
+      // cont-s04-cm-network-resolve
+      // 6b. Resolve network mode from profile
+      const networkSvc = networkIsolationService();
+      const profileNetworkMode = (profile.networkMode ?? "isolated") as import("@mnm/shared").ContainerNetworkMode;
+      const networkConfig = await networkSvc.resolveNetworkConfig(profileNetworkMode, companyId);
+      let resolvedNetworkId: string | null = networkConfig.networkId;
+
       // 7. Build container options
       // cont-s03-cm-binds
       const containerOpts = buildDockerCreateOptions({
@@ -140,6 +148,7 @@ export function containerManagerService(db: Db) {
         labels: options?.labels,
         timeout: options?.timeout,
         mountPaths: validatedMountPaths,
+        networkMode: networkConfig.dockerNetworkMode,
       });
 
       // cont-s02-cm-proxy-check
@@ -199,13 +208,41 @@ export function containerManagerService(db: Db) {
       await container.start();
       const startedAt = new Date();
 
+      // cont-s04-cm-network-attach
+      // 12a. Attach container to company-bridge network if applicable
+      if (profileNetworkMode === "company-bridge" && resolvedNetworkId && dockerContainerId) {
+        try {
+          await networkSvc.attachContainerToNetwork(dockerContainerId, resolvedNetworkId);
+        } catch (netErr: any) {
+          logger.warn({ err: netErr, instanceId: instance!.id, networkId: resolvedNetworkId }, "Error attaching container to network");
+          resolvedNetworkId = null; // Reset if attach failed
+        }
+      }
+
+      // Emit audit for new network creation
+      if (profileNetworkMode === "company-bridge" && resolvedNetworkId) {
+        const networkName = `mnm-company-${companyId}`;
+        await emitAudit({
+          req: { actor: { type: "board", userId: actorId, source: "session" }, ip: null, get: () => null } as any,
+          db,
+          companyId,
+          // cont-s04-audit-network-created
+          action: "container.network_created",
+          targetType: "docker_network",
+          targetId: resolvedNetworkId,
+          metadata: { networkName, companyId, driver: "bridge" },
+        });
+      }
+
       // cont-s03-cm-mounted-paths
-      // 12. Update status to "running" and record mounted paths
+      // 12. Update status to "running" and record mounted paths + networkId
       await db.update(containerInstances)
         .set({
           status: "running",
           startedAt,
           mountedPaths: validatedMountPaths.length > 0 ? validatedMountPaths : null,
+          // cont-s04-instance-network-id
+          networkId: resolvedNetworkId,
           updatedAt: new Date(),
         })
         .where(eq(containerInstances.id, instance!.id));
@@ -317,6 +354,17 @@ export function containerManagerService(db: Db) {
 
     // Stop monitoring
     stopMonitoring(instanceId);
+
+    // cont-s04-cm-network-detach
+    // Detach container from network if attached
+    if (instance.networkId && instance.dockerContainerId) {
+      try {
+        const networkSvc = networkIsolationService();
+        await networkSvc.detachContainerFromNetwork(instance.dockerContainerId, instance.networkId);
+      } catch (netErr: any) {
+        logger.warn({ err: netErr, instanceId, networkId: instance.networkId }, "Error detaching container from network");
+      }
+    }
 
     // cont-s02-cm-proxy-stop
     // Stop credential proxy if running
@@ -808,6 +856,18 @@ export function containerManagerService(db: Db) {
       }
     }
 
+    // cont-s04-cm-network-cleanup
+    // Cleanup orphan networks after stale container cleanup
+    try {
+      const networkSvc = networkIsolationService();
+      const networkCleanup = await networkSvc.cleanupOrphanNetworks();
+      if (networkCleanup.removed.length > 0) {
+        logger.info({ removedCount: networkCleanup.removed.length }, "Cleaned up orphan Docker networks");
+      }
+    } catch (netErr: any) {
+      logger.warn({ err: netErr }, "Error cleaning up orphan networks");
+    }
+
     return cleaned;
   }
 
@@ -883,8 +943,9 @@ export function buildDockerCreateOptions(input: {
   labels?: Record<string, string>;
   timeout?: number;
   mountPaths?: string[]; // cont-s03-cm-binds — validated mount paths
+  networkMode?: string; // cont-s04-cm-build-network-mode — Docker NetworkMode
 }): Docker.ContainerCreateOptions {
-  const { instanceId, agentId, companyId, profile, dockerImage, agentJwt, additionalEnv, labels, mountPaths } = input;
+  const { instanceId, agentId, companyId, profile, dockerImage, agentJwt, additionalEnv, labels, mountPaths, networkMode } = input;
 
   const env: string[] = [
     `MNM_AGENT_ID=${agentId}`,
@@ -918,6 +979,8 @@ export function buildDockerCreateOptions(input: {
       NanoCpus: profile.cpuMillicores * 1_000_000,
       CpuPeriod: 100000,
       PidsLimit: 256,
+      // cont-s04-cm-build-network-mode — set NetworkMode from profile config
+      NetworkMode: networkMode ?? "none",
       Binds: [
         "/dev/null:/workspace/.env:ro", // Shadow .env
         // cont-s03-cm-binds — add validated mount paths as read-only binds

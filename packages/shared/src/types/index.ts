@@ -173,6 +173,9 @@ export type {
   ContainerProfileInfo,
   ContainerInfoFull,
   ContainerProfileUpdate,
+  // cont-s04-export-types
+  NetworkInfo,
+  NetworkCleanupResult,
 } from "./container.js";
 export type {
   CredentialProxyRule,
