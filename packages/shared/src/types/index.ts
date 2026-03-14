@@ -98,12 +98,15 @@ export type {
   DriftType,
   DriftRecommendation,
   DriftDecision,
+  DriftReportStatus,
   DriftItem,
   DriftReport,
   DriftCheckRequest,
   DriftResolveRequest,
   DriftScanRequest,
   DriftScanStatus,
+  DriftReportFilters,
+  DriftItemFilters,
 } from "./drift.js";
 export {
   STAGE_STATES,

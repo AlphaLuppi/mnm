@@ -45,3 +45,5 @@ export { credentialProxyRules } from "./credential_proxy_rules.js";
 export { auditEvents } from "./audit_events.js";
 export { ssoConfigurations } from "./sso_configurations.js";
 export { importJobs } from "./import_jobs.js";
+export { driftReports } from "./drift_reports.js";
+export { driftItems } from "./drift_items.js";
