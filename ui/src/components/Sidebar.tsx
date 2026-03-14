@@ -19,6 +19,7 @@ import { SidebarProjects } from "./SidebarProjects";
 import { SidebarAgents } from "./SidebarAgents";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { usePermissions } from "../hooks/usePermissions";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const { data: sidebarBadges } = useQuery({
     queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
     queryFn: () => sidebarBadgesApi.get(selectedCompanyId!),
@@ -44,9 +46,44 @@ export function Sidebar() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
   }
 
+  // Permission checks for sidebar items
+  const canCreateIssue = hasPermission("stories:create");
+  const canViewWorkflows = hasPermission("workflows:create");
+  const canViewGoals = hasPermission("projects:create");
+  const canViewMembers = hasPermission("users:invite");
+  const canViewCosts = hasPermission("dashboard:view");
+  const canViewActivity = hasPermission("audit:read");
+  const canViewSettings = hasPermission("company:manage_settings");
+
+  // Section visibility: "Work" visible if at least one child is visible
+  // Issues is always visible, so Work section is always visible
+  const showWorkSection = true;
+
+  // "Company" section visible if at least one child is visible
+  // Org is always visible, so Company section is always visible
+  const showCompanySection = true;
+
+  if (permissionsLoading) {
+    return (
+      <aside
+        data-testid="mu-s04-sidebar"
+        className="w-60 h-full min-h-0 border-r border-border bg-background flex flex-col"
+      >
+        <div className="flex items-center gap-1 px-3 h-12 shrink-0">
+          <span
+            data-testid="rbac-s05-permissions-loading"
+            className="flex-1 text-sm text-muted-foreground pl-1"
+          >
+            Loading...
+          </span>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside data-testid="mu-s04-sidebar" className="w-60 h-full min-h-0 border-r border-border bg-background flex flex-col">
-      {/* Top bar: Company name (bold) + Search — aligned with top sections (no visible border) */}
+      {/* Top bar: Company name (bold) + Search */}
       <div className="flex items-center gap-1 px-3 h-12 shrink-0">
         {selectedCompany?.brandColor && (
           <div
@@ -70,16 +107,20 @@ export function Sidebar() {
 
       <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-auto-hide flex flex-col gap-4 px-3 py-2">
         <div className="flex flex-col gap-0.5">
-          {/* New Issue button aligned with nav items */}
-          <button
-            onClick={() => openNewIssue()}
-            className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-          >
-            <SquarePen className="h-4 w-4 shrink-0" />
-            <span className="truncate">New Issue</span>
-          </button>
-          <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
+          {/* New Issue button — hidden if no stories:create permission */}
+          {canCreateIssue && (
+            <button
+              data-testid="rbac-s05-nav-new-issue"
+              onClick={() => openNewIssue()}
+              className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+            >
+              <SquarePen className="h-4 w-4 shrink-0" />
+              <span className="truncate">New Issue</span>
+            </button>
+          )}
+          <SidebarNavItem data-testid="rbac-s05-nav-dashboard" to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
           <SidebarNavItem
+            data-testid="rbac-s05-nav-inbox"
             to="/inbox"
             label="Inbox"
             icon={Inbox}
@@ -89,23 +130,39 @@ export function Sidebar() {
           />
         </div>
 
-        <SidebarSection label="Work">
-          <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
-          <SidebarNavItem to="/workflows" label="Workflows" icon={Workflow} />
-          <SidebarNavItem to="/goals" label="Goals" icon={Target} />
-        </SidebarSection>
+        {showWorkSection && (
+          <SidebarSection label="Work" data-testid="rbac-s05-section-work">
+            <SidebarNavItem data-testid="rbac-s05-nav-issues" to="/issues" label="Issues" icon={CircleDot} />
+            {canViewWorkflows && (
+              <SidebarNavItem data-testid="rbac-s05-nav-workflows" to="/workflows" label="Workflows" icon={Workflow} />
+            )}
+            {canViewGoals && (
+              <SidebarNavItem data-testid="rbac-s05-nav-goals" to="/goals" label="Goals" icon={Target} />
+            )}
+          </SidebarSection>
+        )}
 
         <SidebarProjects />
 
         <SidebarAgents />
 
-        <SidebarSection label="Company">
-          <SidebarNavItem to="/members" label="Members" icon={Users} />
-          <SidebarNavItem to="/org" label="Org" icon={Network} />
-          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
-          <SidebarNavItem to="/activity" label="Activity" icon={History} />
-          <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
-        </SidebarSection>
+        {showCompanySection && (
+          <SidebarSection label="Company" data-testid="rbac-s05-section-company">
+            {canViewMembers && (
+              <SidebarNavItem data-testid="rbac-s05-nav-members" to="/members" label="Members" icon={Users} />
+            )}
+            <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
+            {canViewCosts && (
+              <SidebarNavItem data-testid="rbac-s05-nav-costs" to="/costs" label="Costs" icon={DollarSign} />
+            )}
+            {canViewActivity && (
+              <SidebarNavItem data-testid="rbac-s05-nav-activity" to="/activity" label="Activity" icon={History} />
+            )}
+            {canViewSettings && (
+              <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />
+            )}
+          </SidebarSection>
+        )}
       </nav>
     </aside>
   );
