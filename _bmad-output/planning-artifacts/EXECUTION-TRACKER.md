@@ -108,7 +108,7 @@
 | CONT-S02 | Credential proxy | DONE | 12b74df | 14c1937 | 621181d | PASS (no fix) | 63/63 E2E pass, 139/139 regressions pass (CONT-S01 + CONT-S05) |
 | CONT-S03 | Mount allowlist | DONE | 1fbd459 | 41264d8 | a4563bf | PASS (no fix) | 50/50 E2E pass, 202/202 regressions pass (CONT-S01 + CONT-S02 + CONT-S05) |
 | CONT-S04 | Isolation réseau | DONE | 5f8eddb | 2320e54 | 6adb7d9 | PASS (no fix) | 58/58 E2E pass, 252/252 regressions pass (CONT-S01+S02+S03+S05) |
-| CONT-S06 | UI container status | PENDING | | | | | |
+| CONT-S06 | UI container status | DONE | 2d1d047 | 49078f8 | 14d4ae4 | PASS (no fix) | 75/75 E2E pass, 348/348 regressions pass (CONT-S01+S05+RBAC-S05) |
 | CHAT-S03 | ChatService pipe stdin | PENDING | | | | | |
 | CHAT-S04 | AgentChatPanel UI | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 41 |
+| Stories DONE | 42 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 28 |
+| Stories PENDING | 27 |
 | Batch courant | 10 (in progress) |
-| Dernière story complétée | CONT-S04 |
-| Prochain batch débloqué | BATCH 10 (CONT-S06, CHAT-S03..S04) |
+| Dernière story complétée | CONT-S06 |
+| Prochain batch débloqué | BATCH 10 (CHAT-S03..S04) |
 
 ---
 
@@ -319,3 +319,7 @@
 | 2026-03-14 | CONT-S04 | Dev | Dev Agent | 2320e54 | NetworkIsolationService + CM integration + 4 routes + types + barrel exports |
 | 2026-03-14 | CONT-S04 | QA | QA Agent | 6adb7d9 | 58 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CONT-S04 | Review | Review Agent | — | PASS — 58/58 E2E pass, 252/252 regressions pass (CONT-S01+S02+S03+S05), no fix needed |
+| 2026-03-14 | CONT-S06 | PM | PM Agent | 2d1d047 | Story spec — UI container status + 12 ACs + 33 data-testid + 75 test cases |
+| 2026-03-14 | CONT-S06 | Dev | Dev Agent | 49078f8 | API client + ContainerStatusBadge + Stop/Destroy dialogs + Containers page + route + sidebar |
+| 2026-03-14 | CONT-S06 | QA | QA Agent | 14d4ae4 | 75 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CONT-S06 | Review | Review Agent | — | PASS — 75/75 E2E pass, 348/348 regressions pass (CONT-S01+S05+RBAC-S05), no fix needed |
