@@ -14,6 +14,7 @@ import { requirePermission, assertCompanyPermission } from "../middleware/requir
 import { emitAudit, projectService, issueService, agentService, heartbeatService, logActivity } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
 
 export function projectRoutes(db: Db) {
   const router = Router();
@@ -58,6 +59,20 @@ export function projectRoutes(db: Db) {
   router.get("/companies/:companyId/projects", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+
+    // PROJ-S03: Scope filtering -- only show projects the user is a member of
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
+    if (scopeProjectIds !== null) {
+      if (scopeProjectIds.length === 0) {
+        res.json([]);
+        return;
+      }
+      const result = await svc.listByIds(companyId, scopeProjectIds);
+      res.json(result);
+      return;
+    }
+
     const result = await svc.list(companyId);
     res.json(result);
   });

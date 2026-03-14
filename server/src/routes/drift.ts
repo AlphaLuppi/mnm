@@ -16,6 +16,7 @@ import { emitAudit } from "../services/audit-emitter.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
 
 const driftCheckBody = z.object({
   sourceDoc: z.string().min(1),
@@ -225,6 +226,9 @@ export function driftRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
+    // PROJ-S03: Scope filtering for drift alerts
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
     const severity = req.query.severity as string | undefined;
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
     const offset = req.query.offset ? Number(req.query.offset) : undefined;
@@ -234,6 +238,15 @@ export function driftRoutes(db: Db) {
       limit,
       offset,
     });
+
+    // PROJ-S03: Post-filter alerts by scope
+    if (scopeProjectIds !== null) {
+      const scopeSet = new Set(scopeProjectIds);
+      const filtered = result.data.filter((alert) => scopeSet.has(alert.projectId));
+      res.json({ data: filtered, total: filtered.length });
+      return;
+    }
+
     res.json(result);
   });
 

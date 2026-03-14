@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { workflowTemplates, workflowInstances, stageInstances, type WorkflowStageTemplateDef } from "@mnm/db";
 import { notFound } from "../errors.js";
@@ -132,9 +132,25 @@ export function workflowService(db: Db) {
 
   // ─── Instances ────────────────────────────────────────────────
 
-  async function listInstances(companyId: string, filters?: { status?: string; projectId?: string }): Promise<WorkflowInstanceWithStages[]> {
+  async function listInstances(companyId: string, filters?: { status?: string; projectId?: string; allowedProjectIds?: string[] | null }): Promise<WorkflowInstanceWithStages[]> {
     const conditions = [eq(workflowInstances.companyId, companyId)];
     if (filters?.status) conditions.push(eq(workflowInstances.status, filters.status));
+
+    // PROJ-S03: Scope-based project filtering
+    if (filters?.allowedProjectIds !== undefined && filters.allowedProjectIds !== null) {
+      if (filters.allowedProjectIds.length === 0) {
+        conditions.push(sql`${workflowInstances.projectId} IS NULL`);
+      } else {
+        conditions.push(
+          sql`(${workflowInstances.projectId} IS NULL OR ${workflowInstances.projectId} IN (${sql.join(
+            filters.allowedProjectIds.map((id) => sql`${id}`),
+            sql`, `,
+          )}))`,
+        );
+      }
+    }
+
+    // Existing explicit filter
     if (filters?.projectId) conditions.push(eq(workflowInstances.projectId, filters.projectId));
 
     const instances = await db

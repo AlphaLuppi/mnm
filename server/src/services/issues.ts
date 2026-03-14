@@ -54,6 +54,7 @@ export interface IssueFilters {
   touchedByUserId?: string;
   unreadForUserId?: string;
   projectId?: string;
+  allowedProjectIds?: string[] | null; // PROJ-S03: scope-based filtering
   labelId?: string;
   q?: string;
 }
@@ -458,6 +459,23 @@ export function issueService(db: Db) {
       if (unreadForUserId) {
         conditions.push(unreadForUserCondition(companyId, unreadForUserId));
       }
+      // PROJ-S03: Scope-based project filtering
+      if (filters?.allowedProjectIds !== undefined && filters.allowedProjectIds !== null) {
+        if (filters.allowedProjectIds.length === 0) {
+          // User has no projects -- only show unscoped issues
+          conditions.push(sql`${issues.projectId} IS NULL`);
+        } else {
+          // Show issues from allowed projects + unscoped issues
+          conditions.push(
+            sql`(${issues.projectId} IS NULL OR ${issues.projectId} IN (${sql.join(
+              filters.allowedProjectIds.map((id) => sql`${id}`),
+              sql`, `,
+            )}))`,
+          );
+        }
+      }
+
+      // Existing explicit projectId filter still applies (intersection)
       if (filters?.projectId) conditions.push(eq(issues.projectId, filters.projectId));
       if (filters?.labelId) {
         const labeledIssueIds = await db

@@ -436,6 +436,31 @@ export function accessService(db: Db) {
     };
   }
 
+  // PROJ-S03: Check if user has global scope (no project restriction)
+  async function hasGlobalScope(companyId: string, userId: string): Promise<boolean> {
+    const membership = await getMembership(companyId, "user", userId);
+    if (!membership || membership.status !== "active") return false;
+
+    // Admin and Manager businessRoles have global scope (company-wide preset permissions)
+    const businessRole = membership.businessRole as BusinessRole | null;
+    if (businessRole === "admin" || businessRole === "manager") {
+      return true;
+    }
+
+    // For other roles, check if any explicit grant has scope: null (global access)
+    const grants = await db
+      .select({ id: principalPermissionGrants.id, scope: principalPermissionGrants.scope })
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, companyId),
+          eq(principalPermissionGrants.principalType, "user"),
+          eq(principalPermissionGrants.principalId, userId),
+        ),
+      );
+    return grants.some((g) => g.scope === null);
+  }
+
   return {
     isInstanceAdmin,
     canUser,
@@ -452,5 +477,6 @@ export function accessService(db: Db) {
     listUserCompanyAccess,
     setUserCompanyAccess,
     setPrincipalGrants,
+    hasGlobalScope,
   };
 }
