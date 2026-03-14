@@ -225,6 +225,13 @@
       "when": 1773655200000,
       "tag": "0031_business_role_admin_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1773487652247,
+      "tag": "0033_minor_mephisto",
+      "breakpoints": true
     }
   ]
 }
