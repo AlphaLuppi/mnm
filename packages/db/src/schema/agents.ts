@@ -9,6 +9,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
+import { containerProfiles } from "./container_profiles.js";
 
 export const agents = pgTable(
   "agents",
@@ -31,6 +32,8 @@ export const agents = pgTable(
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     scopedToWorkspaceId: uuid("scoped_to_workspace_id"),
+    containerProfileId: uuid("container_profile_id").references(() => containerProfiles.id, { onDelete: "set null" }),
+    isolationMode: text("isolation_mode").notNull().default("process"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

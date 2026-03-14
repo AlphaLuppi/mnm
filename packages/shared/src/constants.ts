@@ -250,5 +250,14 @@ export const PERMISSION_KEYS = [
   "tasks:assign",
   "tasks:assign_scope",
   "joins:approve",
+  "projects:create",
+  "projects:manage_members",
+  "workflows:create",
+  "workflows:enforce",
+  "agents:manage_containers",
+  "company:manage_settings",
+  "company:manage_sso",
+  "audit:read",
+  "audit:export",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
