@@ -259,4 +259,11 @@ export {
   updateSsoConfigurationSchema,
   type CreateSsoConfiguration,
   type UpdateSsoConfiguration,
+  // sso-s02-barrel-validators
+  ssoDiscoverSchema,
+  ssoSamlConfigSchema,
+  ssoOidcConfigSchema,
+  type SsoDiscover,
+  type SsoSamlConfigInput,
+  type SsoOidcConfigInput,
 } from "./sso.js";
