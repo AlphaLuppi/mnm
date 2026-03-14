@@ -24,6 +24,7 @@ import detectPort from "detect-port";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
+import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { heartbeatService } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
@@ -475,6 +476,8 @@ if (config.deploymentMode === "authenticated") {
   authReady = true;
 }
 
+const redisState = createRedisClient(config.redisUrl);
+
 const uiMode = config.uiDevMiddleware ? "vite-dev" : config.serveUi ? "static" : "none";
 const storageService = createStorageServiceFromConfig(config);
 const app = await createApp(db as any, {
@@ -486,6 +489,7 @@ const app = await createApp(db as any, {
   bindHost: config.host,
   authReady,
   companyDeletionEnabled: config.companyDeletionEnabled,
+  redisState,
   betterAuthHandler,
   resolveSession,
 });
@@ -636,22 +640,22 @@ server.listen(listenPort, config.host, () => {
   }
 });
 
-if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
-  const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
-    logger.info({ signal }, "Stopping embedded PostgreSQL");
+const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
+  logger.info({ signal }, "Shutting down");
+  await disconnectRedis(redisState);
+  if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
     try {
-      await embeddedPostgres?.stop();
+      await embeddedPostgres.stop();
     } catch (err) {
       logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
-    } finally {
-      process.exit(0);
     }
-  };
+  }
+  process.exit(0);
+};
 
-  process.once("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  process.once("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
-}
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
