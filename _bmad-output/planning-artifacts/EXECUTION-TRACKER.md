@@ -41,7 +41,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | TECH-05 | RLS PostgreSQL 41 tables | DONE | e78bb21 | 39c6ecb | 39c6ecb | 7a0492b | 169/169 E2E pass, 41 tables RLS + tenant-context middleware, review fix: comment wording + test assertion |
 | RBAC-S01 | Fix hasPermission ⚠️ P0 | DONE | 8fe8b42 | 660c4d7 | dd9775b | PASS (no fix needed) | 26/26 E2E pass, scope logic secure, .strict() validated, all ACs verified |
-| RBAC-S03 | businessRole migration | PENDING | | | | | |
+| RBAC-S03 | businessRole migration | DONE | 42e0df6 | 4f58b19 | 4f58b19 | PASS (no fix needed) | 33/33 E2E pass, constants + validators + migration + API endpoint + seed |
 | MU-S01 | API invitations email | PENDING | | | | | |
 | MU-S05 | Désactivation signup | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 9 |
+| Stories DONE | 10 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 60 |
+| Stories PENDING | 59 |
 | Batch courant | 3 |
-| Dernière story complétée | TECH-05 |
-| Prochain batch débloqué | BATCH 3 (RBAC-S03, MU-S01, MU-S05) |
+| Dernière story complétée | RBAC-S03 |
+| Prochain batch débloqué | BATCH 3 (MU-S01, MU-S05) |
 
 ---
 
@@ -211,3 +211,7 @@
 | 2026-03-14 | TECH-05 | Dev | Dev Agent | 39c6ecb | Migration 0030 + tenant-context middleware + app.ts + health RLS status |
 | 2026-03-14 | TECH-05 | QA | QA Agent | 39c6ecb | 169 Playwright E2E tests (file-content based, included in Dev commit) |
 | 2026-03-14 | TECH-05 | Review | Review Agent | 7a0492b | Fix: comment wording inflated regex counts + test assertion. 169/169 pass |
+| 2026-03-14 | RBAC-S03 | PM | PM Agent | 42e0df6 | Story spec with data-test-id — businessRole migration + validation + API |
+| 2026-03-14 | RBAC-S03 | Dev | Dev Agent | 4f58b19 | Constants + validators + migration 0031 + service + API endpoint + seed |
+| 2026-03-14 | RBAC-S03 | QA | QA Agent | 4f58b19 | 33 Playwright E2E tests (file-content based, included in Dev commit) |
+| 2026-03-14 | RBAC-S03 | Review | Review Agent | — | PASS — all 10 files verified, 33/33 E2E pass, no regressions |
