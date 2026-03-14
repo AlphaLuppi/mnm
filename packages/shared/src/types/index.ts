@@ -118,3 +118,19 @@ export type {
   TransitionRecord,
   OrchestratorEvent,
 } from "./orchestrator.js";
+export {
+  AUDIT_ACTOR_TYPES,
+  AUDIT_SEVERITY_LEVELS,
+  AUDIT_TARGET_TYPES,
+  AUDIT_ACTIONS,
+} from "./audit.js";
+export type {
+  AuditActorType,
+  AuditSeverity,
+  AuditTargetType,
+  AuditAction,
+  AuditEventInput,
+  AuditEvent,
+  AuditListResult,
+  AuditVerifyResult,
+} from "./audit.js";
