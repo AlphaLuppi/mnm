@@ -88,7 +88,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | DRIFT-S01 | Drift persistance DB | DONE | fa02ea0 | f856e36 | 2d52708 | PASS (no fix needed) | 48/48 E2E pass, 2 schemas + migration + service + refactor + routes + types |
-| DRIFT-S02 | Drift monitor service | PENDING | | | | | |
+| DRIFT-S02 | Drift monitor service | DONE | 43cd8e2 | e1172dd | 0bb74cb | PASS (no fix needed) | 50/50 E2E pass, drift-monitor service + 5 routes + 4 LiveEventTypes + types + audit |
 | OBS-S04 | UI AuditLog | PENDING | | | | | |
 | PROJ-S03 | Filtrage par scope | PENDING | | | | | |
 | PROJ-S04 | Page ProjectAccess | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 31 |
+| Stories DONE | 32 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 38 |
+| Stories PENDING | 37 |
 | Batch courant | 8 |
-| Dernière story complétée | DRIFT-S01 |
-| Prochain batch débloqué | DRIFT-S02 (← DRIFT-S01 complete) |
+| Dernière story complétée | DRIFT-S02 |
+| Prochain batch débloqué | DRIFT-S03 (← DRIFT-S02 complete) |
 
 ---
 
