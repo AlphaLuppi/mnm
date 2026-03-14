@@ -205,6 +205,14 @@ export {
   type TestCredentialProxyRule,
 } from "./credential-proxy.js";
 
+// comp-s01-barrel-validators
+export {
+  startCompactionWatcherSchema,
+  compactionSnapshotFiltersSchema,
+  type StartCompactionWatcher,
+  type CompactionSnapshotFilters as CompactionSnapshotFiltersInput,
+} from "./compaction.js";
+
 // cont-s03-barrel-validators
 export {
   mountPathsSchema,

@@ -267,6 +267,15 @@ export const LIVE_EVENT_TYPES = [
   "chat.pipe_attached",
   "chat.pipe_detached",
   "chat.pipe_error",
+  // COMP-S01: Compaction watcher events
+  // comp-s01-live-event-detected
+  "compaction.detected",
+  // comp-s01-live-event-snapshot
+  "compaction.snapshot_created",
+  // comp-s01-live-event-started
+  "compaction.watching_started",
+  // comp-s01-live-event-stopped
+  "compaction.watching_stopped",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
