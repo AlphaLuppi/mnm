@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, UserPlus, Search, MoreHorizontal } from "lucide-react";
-import { BUSINESS_ROLES, type BusinessRole } from "@mnm/shared";
+import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS, type BusinessRole } from "@mnm/shared";
 import { accessApi, type EnrichedMember } from "../api/access";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -35,13 +35,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  manager: "Manager",
-  contributor: "Contributor",
-  viewer: "Viewer",
-};
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Active",
@@ -81,7 +74,7 @@ export function Members() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: queryKeys.members(selectedCompanyId!),
+    queryKey: queryKeys.access.members(selectedCompanyId!),
     queryFn: () => accessApi.listMembers(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
@@ -101,7 +94,7 @@ export function Members() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.members(selectedCompanyId!),
+        queryKey: queryKeys.access.members(selectedCompanyId!),
       });
     },
   });
@@ -116,7 +109,7 @@ export function Members() {
     }) => accessApi.updateMemberStatus(selectedCompanyId!, memberId, status),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.members(selectedCompanyId!),
+        queryKey: queryKeys.access.members(selectedCompanyId!),
       });
     },
   });
@@ -128,7 +121,7 @@ export function Members() {
       setInviteOpen(false);
       setInviteEmail("");
       queryClient.invalidateQueries({
-        queryKey: queryKeys.members(selectedCompanyId!),
+        queryKey: queryKeys.access.members(selectedCompanyId!),
       });
     },
   });
@@ -160,9 +153,9 @@ export function Members() {
   }
 
   return (
-    <div data-testid="mu-s02-members-page" className="space-y-4">
+    <div data-testid="mu-s02-page" className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-testid="mu-s02-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-lg font-semibold">Members</h1>
         <Button
           data-testid="mu-s02-invite-button"
@@ -174,23 +167,23 @@ export function Members() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-testid="mu-s02-filters" className="flex flex-wrap items-center gap-2">
         <Select
           value={roleFilter}
           onValueChange={setRoleFilter}
         >
           <SelectTrigger
-            data-testid="mu-s02-role-filter"
+            data-testid="mu-s02-filter-role"
             size="sm"
             className="w-[140px]"
           >
             <SelectValue placeholder="All roles" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All roles</SelectItem>
+            <SelectItem data-testid="mu-s02-filter-role-all" value="all">All roles</SelectItem>
             {BUSINESS_ROLES.map((role) => (
-              <SelectItem key={role} value={role}>
-                {ROLE_LABELS[role] ?? role}
+              <SelectItem key={role} data-testid={`mu-s02-filter-role-${role}`} value={role}>
+                {BUSINESS_ROLE_LABELS[role] ?? role}
               </SelectItem>
             ))}
           </SelectContent>
@@ -201,24 +194,24 @@ export function Members() {
           onValueChange={setStatusFilter}
         >
           <SelectTrigger
-            data-testid="mu-s02-status-filter"
+            data-testid="mu-s02-filter-status"
             size="sm"
             className="w-[140px]"
           >
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem data-testid="mu-s02-filter-status-all" value="all">All statuses</SelectItem>
+            <SelectItem data-testid="mu-s02-filter-status-active" value="active">Active</SelectItem>
+            <SelectItem data-testid="mu-s02-filter-status-suspended" value="suspended">Suspended</SelectItem>
+            <SelectItem data-testid="mu-s02-filter-status-pending" value="pending">Pending</SelectItem>
           </SelectContent>
         </Select>
 
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            data-testid="mu-s02-search-input"
+            data-testid="mu-s02-search"
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -229,12 +222,14 @@ export function Members() {
 
       {/* Table */}
       {!members || members.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          message="No members yet. Invite someone to get started."
-          action="Invite Member"
-          onAction={() => setInviteOpen(true)}
-        />
+        <div data-testid="mu-s02-empty-state">
+          <EmptyState
+            icon={Users}
+            message="No members yet. Invite someone to get started."
+            action="Invite Member"
+            onAction={() => setInviteOpen(true)}
+          />
+        </div>
       ) : filteredMembers.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
           No members match your filters.
@@ -290,11 +285,12 @@ export function Members() {
 
       {/* Footer with member count */}
       <div
-        data-testid="mu-s02-member-count"
+        data-testid="mu-s02-footer"
         className="text-xs text-muted-foreground"
       >
-        {filteredMembers.length} of {members?.length ?? 0} member
-        {(members?.length ?? 0) !== 1 ? "s" : ""}
+        <span data-testid="mu-s02-member-count">
+          Showing {filteredMembers.length} of {members?.length ?? 0} members
+        </span>
       </div>
 
       {/* Invite Dialog */}
@@ -310,7 +306,7 @@ export function Members() {
             <Label htmlFor="invite-email">Email address</Label>
             <Input
               id="invite-email"
-              data-testid="mu-s02-invite-email-input"
+              data-testid="mu-s02-invite-email"
               type="email"
               placeholder="colleague@company.com"
               value={inviteEmail}
@@ -331,6 +327,7 @@ export function Members() {
           </div>
           <DialogFooter>
             <Button
+              data-testid="mu-s02-invite-cancel"
               variant="outline"
               onClick={() => {
                 setInviteOpen(false);
@@ -409,7 +406,7 @@ function MemberRow({
           onValueChange={(val) => onRoleChange(val as BusinessRole)}
         >
           <SelectTrigger
-            data-testid={`mu-s02-role-select-${member.id}`}
+            data-testid={`mu-s02-member-role-${member.id}`}
             size="sm"
             className="w-[120px] h-7 text-xs"
           >
@@ -418,7 +415,7 @@ function MemberRow({
           <SelectContent>
             {BUSINESS_ROLES.map((role) => (
               <SelectItem key={role} value={role}>
-                {ROLE_LABELS[role] ?? role}
+                {BUSINESS_ROLE_LABELS[role] ?? role}
               </SelectItem>
             ))}
           </SelectContent>
@@ -428,6 +425,7 @@ function MemberRow({
       {/* Status */}
       <td className="px-4 py-2.5 hidden md:table-cell">
         <Badge
+          data-testid={`mu-s02-member-status-${member.id}`}
           variant={
             member.status === "active"
               ? "secondary"
@@ -449,20 +447,24 @@ function MemberRow({
       <td className="px-4 py-2.5 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm">
+            <Button data-testid={`mu-s02-member-actions-${member.id}`} variant="ghost" size="icon-sm">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {member.status === "active" ? (
               <DropdownMenuItem
+                data-testid={`mu-s02-action-suspend-${member.id}`}
                 onClick={() => onStatusChange("suspended")}
                 className="text-destructive"
               >
                 Suspend
               </DropdownMenuItem>
             ) : member.status === "suspended" ? (
-              <DropdownMenuItem onClick={() => onStatusChange("active")}>
+              <DropdownMenuItem
+                data-testid={`mu-s02-action-reactivate-${member.id}`}
+                onClick={() => onStatusChange("active")}
+              >
                 Reactivate
               </DropdownMenuItem>
             ) : null}
