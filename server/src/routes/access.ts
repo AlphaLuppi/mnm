@@ -2354,6 +2354,33 @@ export function accessRoutes(
     res.json(filtered.map(toJoinRequestResponse));
   });
 
+  // Spontaneous join-request endpoint (without an invite link).
+  // Currently the join_requests table requires inviteId (NOT NULL), so this
+  // endpoint guards against spontaneous joins when invitationOnly is enabled
+  // and returns 400 otherwise (no spontaneous join flow implemented yet).
+  router.post("/companies/:companyId/join-requests", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    // Check invitationOnly flag on the target company
+    const company = await db
+      .select({ invitationOnly: companies.invitationOnly })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+
+    if (!company) throw notFound("Company not found");
+
+    if (company.invitationOnly) {
+      throw forbidden("This company accepts members by invitation only");
+    }
+
+    // Spontaneous join requests are not yet supported — use an invite link.
+    throw badRequest(
+      "Spontaneous join requests are not supported. Use an invitation link to join this company."
+    );
+  });
+
   router.post(
     "/companies/:companyId/join-requests/:requestId/approve",
     async (req, res) => {
