@@ -47,3 +47,20 @@ export interface EffectiveCursor {
     ceiling: AutomationCursorPosition;
   }>;
 }
+
+/**
+ * DUAL-S03: Result of cursor enforcement evaluation.
+ * Determines whether an agent transition is allowed, blocked, or redirected to HITL.
+ *
+ * - allowed=true, redirectToHitl=false → auto mode, proceed normally
+ * - allowed=true, redirectToHitl=true → assisted mode, redirect to HITL validation
+ * - allowed=false → manual mode, agent cannot advance (only human can)
+ */
+// dual-s03-cursor-enforcement-result-type
+export interface CursorEnforcementResult {
+  allowed: boolean;
+  position: AutomationCursorPosition;
+  reason?: string;
+  redirectToHitl?: boolean;
+  effectiveCursor: EffectiveCursor;
+}
