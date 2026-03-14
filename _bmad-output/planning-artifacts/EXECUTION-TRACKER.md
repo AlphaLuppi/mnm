@@ -105,7 +105,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| CONT-S02 | Credential proxy | PENDING | | | | | |
+| CONT-S02 | Credential proxy | DONE | 12b74df | 14c1937 | 621181d | PASS (no fix) | 63/63 E2E pass, 139/139 regressions pass (CONT-S01 + CONT-S05) |
 | CONT-S03 | Mount allowlist | PENDING | | | | | |
 | CONT-S04 | Isolation réseau | PENDING | | | | | |
 | CONT-S06 | UI container status | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 38 |
+| Stories DONE | 39 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 31 |
-| Batch courant | 9 (complete) |
-| Dernière story complétée | DRIFT-S03 |
-| Prochain batch débloqué | BATCH 10 (CONT-S02..S06, CHAT-S03..S04) |
+| Stories PENDING | 30 |
+| Batch courant | 10 (in progress) |
+| Dernière story complétée | CONT-S02 |
+| Prochain batch débloqué | BATCH 10 (CONT-S03..S06, CHAT-S03..S04) |
 
 ---
 
@@ -307,3 +307,7 @@
 | 2026-03-14 | CONT-S05 | Review | Review Agent | — | PASS — 54/54 E2E pass, 85/85 CONT-S01 regressions pass, typecheck OK, no fix needed |
 | 2026-03-14 | DRIFT-S03 | QA | Review Agent | 8684885 | 70 Playwright E2E tests (file-content based) |
 | 2026-03-14 | DRIFT-S03 | Review | Review Agent | d4d9fcc | Fix: React rules-of-hooks in DriftMonitorToggle (hooks before early return). 70/70 pass, 98/98 regressions pass |
+| 2026-03-14 | CONT-S02 | PM | PM Agent | 12b74df | Story spec — credential proxy + 15 ACs + 53 data-testid + 63 test cases |
+| 2026-03-14 | CONT-S02 | Dev | Dev Agent | 14c1937 | CredentialProxy service + rules CRUD + routes + types + validators + CM integration |
+| 2026-03-14 | CONT-S02 | QA | Review Agent | 621181d | 63 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CONT-S02 | Review | Review Agent | — | PASS — 63/63 E2E pass, 139/139 regressions pass (CONT-S01 + CONT-S05), no fix needed |
