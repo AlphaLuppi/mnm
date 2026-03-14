@@ -13,6 +13,7 @@ import {
   Settings,
   Shield,
   Users,
+  Box,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -57,6 +58,7 @@ export function Sidebar() {
   const canViewActivity = hasPermission("audit:read");
   const canViewRoles = hasPermission("users:manage_permissions");
   const canViewSettings = hasPermission("company:manage_settings");
+  const canViewContainers = hasPermission("agents:manage_containers");
 
   // Section visibility: "Work" visible if at least one child is visible
   // Issues is always visible, so Work section is always visible
@@ -166,6 +168,9 @@ export function Sidebar() {
             )}
             {canViewActivity && (
               <SidebarNavItem data-testid="obs-s04-nav-audit" to="/audit" label="Audit Log" icon={ScrollText} />
+            )}
+            {canViewContainers && (
+              <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Containers" icon={Box} />
             )}
             {canViewSettings && (
               <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />

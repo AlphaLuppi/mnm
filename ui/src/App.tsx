@@ -32,6 +32,7 @@ import { NewWorkflow } from "./pages/NewWorkflow";
 import { Members } from "./pages/Members";
 import { AdminRoles } from "./pages/AdminRoles";
 import { AuditLog } from "./pages/AuditLog";
+import { Containers } from "./pages/Containers";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -146,6 +147,7 @@ function boardRoutes() {
       <Route path="costs" element={<RequirePermission permission="dashboard:view" showForbidden><Costs /></RequirePermission>} />
       <Route path="activity" element={<RequirePermission permission="audit:read" showForbidden><Activity /></RequirePermission>} />
       <Route path="audit" element={<RequirePermission permission="audit:read" showForbidden><AuditLog /></RequirePermission>} />
+      <Route path="containers" element={<RequirePermission permission="agents:manage_containers" showForbidden><Containers /></RequirePermission>} />
       <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
