@@ -24,14 +24,13 @@ interface DriftMonitorToggleProps {
 
 export function DriftMonitorToggle({ companyId }: DriftMonitorToggleProps) {
   const { hasPermission } = usePermissions();
+  const { data: status } = useDriftMonitoringStatus(companyId);
+  const toggleMutation = useDriftMonitoringToggle(companyId);
 
   // Permission gate: workflows:enforce required
   if (!hasPermission("workflows:enforce")) {
     return null;
   }
-
-  const { data: status } = useDriftMonitoringStatus(companyId);
-  const toggleMutation = useDriftMonitoringToggle(companyId);
 
   const isActive = status?.active ?? false;
 
