@@ -25,10 +25,15 @@
     "docs:dev": "cd docs && npx mintlify dev",
     "smoke:openclaw-join": "./scripts/smoke/openclaw-join.sh",
     "smoke:openclaw-docker-ui": "./scripts/smoke/openclaw-docker-ui.sh",
-    "smoke:openclaw-sse-standalone": "./scripts/smoke/openclaw-sse-standalone.sh"
+    "smoke:openclaw-sse-standalone": "./scripts/smoke/openclaw-sse-standalone.sh",
+    "db:dev": "docker compose -f docker-compose.dev.yml up -d",
+    "db:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "test:e2e": "npx playwright test",
+    "test:e2e:report": "npx playwright show-report"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
+    "@playwright/test": "^1.58.2",
     "esbuild": "^0.27.3",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"

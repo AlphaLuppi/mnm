@@ -26,6 +26,34 @@ export function healthRoutes(
       return;
     }
 
+    let dbConnected = true;
+    let dbLatencyMs: number | undefined;
+    let pgVersion: string | undefined;
+    let dbError: string | undefined;
+
+    try {
+      const start = performance.now();
+      await db.execute(sql`SELECT 1`);
+      dbLatencyMs = Math.round((performance.now() - start) * 100) / 100;
+
+      const versionResult = await db.execute(sql`SHOW server_version`);
+      const row = versionResult[0] as Record<string, unknown> | undefined;
+      pgVersion = (row?.server_version as string) ?? undefined;
+    } catch (err) {
+      dbConnected = false;
+      dbError = err instanceof Error ? err.message : String(err);
+    }
+
+    if (!dbConnected) {
+      res.status(503).json({
+        status: "degraded",
+        db: { connected: false, error: dbError },
+        deploymentMode: opts.deploymentMode,
+        deploymentExposure: opts.deploymentExposure,
+      });
+      return;
+    }
+
     let bootstrapStatus: "ready" | "bootstrap_pending" = "ready";
     if (opts.deploymentMode === "authenticated") {
       const roleCount = await db
@@ -38,6 +66,11 @@ export function healthRoutes(
 
     res.json({
       status: "ok",
+      db: {
+        connected: true,
+        latencyMs: dbLatencyMs,
+        version: pgVersion,
+      },
       deploymentMode: opts.deploymentMode,
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
