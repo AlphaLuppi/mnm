@@ -204,6 +204,13 @@
       "when": 1773481662583,
       "tag": "0028_faulty_lorna_dane",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1773482242600,
+      "tag": "0029_fearless_chronomancer",
+      "breakpoints": true
     }
   ]
 }
