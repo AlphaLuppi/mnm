@@ -91,6 +91,11 @@ export const queryKeys = {
     results: (projectId: string) => ["drift", "results", projectId] as const,
     check: (projectId: string) => ["drift", "check", projectId] as const,
     status: (projectId: string) => ["drift", "status", projectId] as const,
+    // DRIFT-S03: execution alerts
+    alerts: (companyId: string, filters?: Record<string, unknown>) =>
+      ["drift", "alerts", companyId, filters] as const,
+    monitoringStatus: (companyId: string) =>
+      ["drift", "monitoring-status", companyId] as const,
   },
   org: (companyId: string) => ["org", companyId] as const,
   projectMemberships: {
