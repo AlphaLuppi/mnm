@@ -46,6 +46,7 @@
     "drizzle-orm": "^0.38.4",
     "embedded-postgres": "^18.1.0-beta.16",
     "express": "^5.1.0",
+    "ioredis": "^5.10.0",
     "js-yaml": "^4.1.1",
     "multer": "^2.0.2",
     "open": "^11.0.0",

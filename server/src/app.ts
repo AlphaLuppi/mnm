@@ -7,7 +7,8 @@ import { authUsers } from "@mnm/db";
 import { eq } from "drizzle-orm";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import type { StorageService } from "./storage/types.js";
-import { httpLogger, errorHandler } from "./middleware/index.js";
+import type { RedisState } from "./redis.js";
+import { httpLogger, errorHandler, createRateLimiter } from "./middleware/index.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
@@ -45,6 +46,7 @@ export async function createApp(
     bindHost: string;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    redisState?: RedisState | null;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
   },
@@ -112,8 +114,16 @@ export async function createApp(
   }
   app.use(llmRoutes(db));
 
+  // Rate limiting
+  const apiRateLimiter = createRateLimiter({
+    redisState: opts.redisState ?? null,
+    windowMs: 60_000,
+    max: 100,
+  });
+
   // Mount API routes
   const api = Router();
+  api.use(apiRateLimiter);
   api.use(boardMutationGuard());
   api.use(
     "/health",
@@ -122,6 +132,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
+      redisState: opts.redisState ?? null,
     }),
   );
   api.use("/companies", companyRoutes(db));
