@@ -8,6 +8,7 @@ import type {
 import type { RedisState } from "../redis.js";
 import { logger as parentLogger } from "../middleware/logger.js";
 import { chatService } from "./chat.js";
+import type { ContainerPipeManager } from "./container-pipe.js";
 
 const logger = parentLogger.child({ module: "chat-ws-manager" });
 
@@ -49,6 +50,9 @@ export interface ChatWsManagerOptions {
 export function createChatWsManager(opts: ChatWsManagerOptions) {
   const { db, redisState } = opts;
   const svc = chatService(db);
+
+  // chat-s03-pipe-manager-setter — reference to container pipe manager (set externally)
+  let containerPipeManager: ContainerPipeManager | null = null;
 
   // channelId -> Set of connections
   const channelConnections = new Map<string, Set<ConnectionInfo>>();
@@ -401,6 +405,19 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
 
           // Publish to Redis for cross-instance distribution
           await publishToRedis(channelId, serverMessage);
+
+          // chat-s03-ws-pipe-forward — forward user messages to container pipe if attached
+          if (actorType === "user" && containerPipeManager) {
+            const pipeStatus = containerPipeManager.getPipeStatus(channelId);
+            if (pipeStatus?.status === "attached") {
+              void containerPipeManager
+                .pipeMessageToContainer(channelId, payload.content)
+                .catch((err) => {
+                  logger.warn({ err, channelId }, "Failed to pipe message to container");
+                });
+            }
+          }
+
           return;
         }
       }
@@ -492,6 +509,11 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
 
     getConnectionCount(channelId: string): number {
       return channelConnections.get(channelId)?.size ?? 0;
+    },
+
+    // chat-s03-pipe-manager-setter
+    setContainerPipeManager(manager: ContainerPipeManager) {
+      containerPipeManager = manager;
     },
   };
 }

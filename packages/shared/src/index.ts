@@ -234,6 +234,10 @@ export type {
   MountAllowlistUpdatePayload,
   MountValidateRequest,
   MountValidateResponse,
+  // CHAT-S03: Container pipe types
+  ContainerPipeStatus,
+  ChatPipeStatus,
+  ChatPipeAttachRequest,
 } from "./types/index.js";
 
 export {

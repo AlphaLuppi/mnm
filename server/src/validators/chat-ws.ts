@@ -43,3 +43,10 @@ export const updateMessageSchema = z.object({
   content: z.string().min(1).max(4096).optional(),
   deleted: z.boolean().optional(),
 });
+
+// chat-s03-validator — pipe attach validator
+export const pipeAttachSchema = z.object({
+  instanceId: z.string().uuid(),
+  execCommand: z.array(z.string()).min(1).max(10).optional(),
+  tty: z.boolean().optional(),
+});

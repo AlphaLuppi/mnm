@@ -263,6 +263,10 @@ export const LIVE_EVENT_TYPES = [
   "container.oom",
   "container.stopped",
   "container.resource_update",
+  // chat-s03-live-event-attached, chat-s03-live-event-detached, chat-s03-live-event-error
+  "chat.pipe_attached",
+  "chat.pipe_detached",
+  "chat.pipe_error",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

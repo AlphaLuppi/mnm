@@ -3,8 +3,10 @@ import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { chatService } from "../services/chat.js";
-import { createChannelSchema, updateMessageSchema } from "../validators/chat-ws.js";
-import { badRequest, forbidden, notFound } from "../errors.js";
+import { createChannelSchema, updateMessageSchema, pipeAttachSchema } from "../validators/chat-ws.js";
+import { badRequest, forbidden, notFound, conflict } from "../errors.js";
+import { createContainerPipeManager } from "../services/container-pipe.js";
+import { emitAudit } from "../services/audit-emitter.js";
 
 export function chatRoutes(db: Db) {
   const router = Router();
@@ -226,6 +228,138 @@ export function chatRoutes(db: Db) {
       );
 
       res.json({ replies, total: replies.length });
+    },
+  );
+
+  // ---- CHAT-S03: Pipe routes ----
+
+  const pipeMgr = createContainerPipeManager(db);
+
+  // chat-s03-pipe-attach — POST /api/companies/:companyId/chat/channels/:channelId/pipe
+  router.post(
+    "/companies/:companyId/chat/channels/:channelId/pipe",
+    requirePermission(db, "chat:agent"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const body = pipeAttachSchema.safeParse(req.body);
+      if (!body.success) {
+        throw badRequest("Invalid request body", body.error.issues);
+      }
+
+      // Verify channel belongs to this company
+      const channel = await svc.getChannel(req.params.channelId as string);
+      if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      if (channel.status === "closed") {
+        throw conflict("Channel is closed");
+      }
+
+      const actor = getActorInfo(req);
+
+      try {
+        const pipeStatus = await pipeMgr.attachPipe({
+          channelId: channel.id,
+          instanceId: body.data.instanceId,
+          companyId,
+          actorId: actor.actorId,
+          agentId: channel.agentId,
+          execCommand: body.data.execCommand,
+          tty: body.data.tty,
+        });
+
+        // chat-s03-audit-attached
+        await emitAudit({
+          req,
+          db,
+          companyId,
+          action: "chat.pipe_attached",
+          targetType: "chat_channel",
+          targetId: channel.id,
+          metadata: { instanceId: body.data.instanceId, agentId: channel.agentId },
+        });
+
+        res.status(201).json(pipeStatus);
+      } catch (err: any) {
+        if (err.message === "PIPE_ALREADY_ATTACHED") {
+          throw conflict("A pipe is already attached to this channel");
+        }
+        if (err.message === "CONTAINER_NOT_FOUND") {
+          throw notFound("Container instance not found");
+        }
+        if (err.message === "CONTAINER_NOT_RUNNING") {
+          throw conflict("Container is not running");
+        }
+        if (err.message === "CONTAINER_NO_DOCKER_ID") {
+          throw conflict("Container has no Docker ID");
+        }
+        throw err;
+      }
+    },
+  );
+
+  // chat-s03-pipe-detach — DELETE /api/companies/:companyId/chat/channels/:channelId/pipe
+  router.delete(
+    "/companies/:companyId/chat/channels/:channelId/pipe",
+    requirePermission(db, "chat:agent"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Verify channel belongs to this company
+      const channel = await svc.getChannel(req.params.channelId as string);
+      if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      try {
+        const pipeStatus = await pipeMgr.detachPipe(channel.id);
+
+        // chat-s03-audit-detached
+        await emitAudit({
+          req,
+          db,
+          companyId,
+          action: "chat.pipe_detached",
+          targetType: "chat_channel",
+          targetId: channel.id,
+          metadata: { instanceId: pipeStatus.instanceId },
+        });
+
+        res.json(pipeStatus);
+      } catch (err: any) {
+        if (err.message === "PIPE_NOT_FOUND") {
+          throw notFound("No pipe attached to this channel");
+        }
+        throw err;
+      }
+    },
+  );
+
+  // chat-s03-pipe-status — GET /api/companies/:companyId/chat/channels/:channelId/pipe
+  router.get(
+    "/companies/:companyId/chat/channels/:channelId/pipe",
+    requirePermission(db, "chat:agent"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Verify channel belongs to this company
+      const channel = await svc.getChannel(req.params.channelId as string);
+      if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      const pipeStatus = pipeMgr.getPipeStatus(channel.id);
+      if (!pipeStatus) {
+        res.json({ channelId: channel.id, status: "detached", instanceId: null, attachedAt: null, detachedAt: null, error: null, messagesPiped: 0 });
+        return;
+      }
+
+      res.json(pipeStatus);
     },
   );
 
