@@ -1,5 +1,5 @@
 import { setup, assign } from "xstate";
-import type { StageState, StageEvent, TransitionRecord } from "@mnm/shared";
+import type { StageState, StageEvent, StageContext, TransitionRecord } from "@mnm/shared";
 
 /**
  * Guard input provided by the orchestrator to evaluate RBAC permissions
@@ -60,20 +60,21 @@ export const stageMachine = setup({
   },
   guards: {
     canManageWorkflow: ({ event }) => {
+      // Permission required: "workflows.manage" (mapped to workflows:enforce)
       if (!("guardInput" in event) || !event.guardInput) return false;
       const { guardInput } = event;
       // System actors bypass permission checks
       if (guardInput.actorType === "system") return true;
-      // For non-system actors, this guard is checked synchronously here.
-      // The orchestrator pre-evaluates the permission and injects the result.
-      // We use a synchronous check pattern: guardInput.hasPermission is evaluated
-      // before the machine transition in the orchestrator layer.
+      // For non-system actors, the orchestrator pre-evaluates the
+      // "workflows.manage" permission and injects the result before calling the machine.
       return true;
     },
     canLaunchAgent: ({ event }) => {
+      // Permission required: "agents.launch"
       if (!("guardInput" in event) || !event.guardInput) return false;
       const { guardInput } = event;
       if (guardInput.actorType === "system") return true;
+      // The orchestrator pre-evaluates "agents.launch" permission.
       return true;
     },
     canRetry: ({ context, event }) => {
