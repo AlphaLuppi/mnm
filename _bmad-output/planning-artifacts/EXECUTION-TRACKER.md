@@ -40,7 +40,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | TECH-05 | RLS PostgreSQL 14 tables | PENDING | | | | | |
-| RBAC-S01 | Fix hasPermission ⚠️ P0 | PENDING | | | | | |
+| RBAC-S01 | Fix hasPermission ⚠️ P0 | DONE | 8fe8b42 | 660c4d7 | dd9775b | PASS (no fix needed) | 26/26 E2E pass, scope logic secure, .strict() validated, all ACs verified |
 | RBAC-S03 | businessRole migration | PENDING | | | | | |
 | MU-S01 | API invitations email | PENDING | | | | | |
 | MU-S05 | Désactivation signup | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 7 |
+| Stories DONE | 8 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 62 |
+| Stories PENDING | 61 |
 | Batch courant | 3 |
-| Dernière story complétée | TECH-03 |
-| Prochain batch débloqué | BATCH 3 (TECH-05, RBAC-S01, RBAC-S03, MU-S01, MU-S05) |
+| Dernière story complétée | RBAC-S01 |
+| Prochain batch débloqué | BATCH 3 (TECH-05, RBAC-S03, MU-S01, MU-S05) |
 
 ---
 
@@ -203,3 +203,7 @@
 | 2026-03-14 | TECH-03 | Dev | Dev Agent | 9358ca0 | 7 factories + 3 helpers in packages/test-utils |
 | 2026-03-14 | TECH-03 | QA | QA Agent | 3a66689 | 30 Playwright E2E tests (file-content based) |
 | 2026-03-14 | TECH-03 | Review | Review Agent | — | PASS — all 7 factories + 3 helpers verified, 30/30 E2E pass, typecheck OK |
+| 2026-03-14 | RBAC-S01 | PM | PM Agent | 8fe8b42 | Story spec with data-test-id — P0 security fix |
+| 2026-03-14 | RBAC-S01 | Dev | Dev Agent | 660c4d7 | Fix hasPermission() scope logic + requirePermission middleware + scopeSchema |
+| 2026-03-14 | RBAC-S01 | QA | QA Agent | dd9775b | 26 Playwright E2E tests (file-content based) |
+| 2026-03-14 | RBAC-S01 | Review | Review Agent | — | PASS — scope logic secure, .strict() validated, 26/26 E2E pass, no regressions |
