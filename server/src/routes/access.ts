@@ -46,6 +46,7 @@ import {
   agentService,
   createEmailService,
   deduplicateAgentName,
+  emitAudit,
   logActivity,
   notifyHireApproved
 } from "../services/index.js";
@@ -1723,6 +1724,14 @@ export function accessRoutes(
         }
       });
 
+      await emitAudit({
+        req, db, companyId,
+        action: "access.invite_created",
+        targetType: "invite",
+        targetId: created.id,
+        metadata: { email: email ?? null, businessRole: req.body.businessRole ?? null, method: created.inviteType },
+      });
+
       // Send email invitation if email was provided
       if (email) {
         const publicUrl = process.env.MNM_PUBLIC_URL ?? requestBaseUrl(req);
@@ -2546,6 +2555,14 @@ export function accessRoutes(
         details: { requestType: existing.requestType, createdAgentId }
       });
 
+      await emitAudit({
+        req, db, companyId,
+        action: "access.join_request_approved",
+        targetType: "member",
+        targetId: requestId,
+        metadata: { requestType: existing.requestType, approvedBy: req.actor.userId ?? "board" },
+      });
+
       if (createdAgentId) {
         void notifyHireApproved(db, {
           companyId,
@@ -2602,6 +2619,14 @@ export function accessRoutes(
         entityType: "join_request",
         entityId: requestId,
         details: { requestType: existing.requestType }
+      });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.join_request_rejected",
+        targetType: "member",
+        targetId: requestId,
+        metadata: { requestType: existing.requestType, rejectedBy: req.actor.userId ?? "board" },
       });
 
       res.json(toJoinRequestResponse(rejected));
@@ -2710,6 +2735,15 @@ export function accessRoutes(
         req.actor.userId ?? null
       );
       if (!updated) throw notFound("Member not found");
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.member_permissions_updated",
+        targetType: "permission",
+        targetId: memberId,
+        metadata: { permissionKey: "grants", granted: req.body.grants ?? [] },
+      });
+
       res.json(updated);
     }
   );
@@ -2739,6 +2773,14 @@ export function accessRoutes(
         entityId: memberId,
         details: { businessRole: req.body.businessRole }
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.member_role_changed",
+        targetType: "member",
+        targetId: memberId,
+        metadata: { newRole: req.body.businessRole }
+      });
       res.json(updated);
     }
   );
@@ -2767,6 +2809,18 @@ export function accessRoutes(
         entityId: memberId,
         details: { status }
       });
+
+      if (status === "suspended") {
+        await emitAudit({
+          req, db, companyId,
+          action: "access.member_removed",
+          targetType: "member",
+          targetId: memberId,
+          metadata: { principalId: updated.principalId },
+          severity: "warning",
+        });
+      }
+
       res.json(updated);
     }
   );

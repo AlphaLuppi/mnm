@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { transitionStageSchema, updateStageSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { stageService, logActivity } from "../services/index.js";
+import { emitAudit, stageService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function stageRoutes(db: Db) {
@@ -33,6 +33,15 @@ export function stageRoutes(db: Db) {
       entityId: stage.id,
       details: { from: stage.status, to: req.body.status },
     });
+
+    await emitAudit({
+      req, db, companyId: stage.companyId,
+      action: "stage.transitioned",
+      targetType: "stage",
+      targetId: stage.id,
+      metadata: { fromStatus: stage.status, toStatus: req.body.status },
+    });
+
     res.json(updated);
   });
 

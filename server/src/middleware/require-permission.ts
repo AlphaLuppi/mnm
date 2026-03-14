@@ -2,8 +2,39 @@ import type { Request, Response, NextFunction } from "express";
 import type { Db } from "@mnm/db";
 import type { PermissionKey, ResourceScope } from "@mnm/shared";
 import { accessService } from "../services/access.js";
+import { auditService } from "../services/audit.js";
 import { forbidden, unauthorized } from "../errors.js";
 import { logger } from "./logger.js";
+
+/**
+ * Fire-and-forget audit emission for access.denied events.
+ * Errors are silently caught — audit must never block the 403 flow.
+ */
+function emitAccessDenied(
+  db: Db,
+  req: Request,
+  companyId: string,
+  permissionKey: PermissionKey,
+  actorId: string,
+  actorType: "user" | "agent",
+  resourceScope?: ResourceScope | null,
+) {
+  auditService(db).emit({
+    companyId,
+    actorId,
+    actorType,
+    action: "access.denied",
+    targetType: "permission",
+    targetId: permissionKey,
+    metadata: {
+      route: `${req.method} ${req.originalUrl}`,
+      resourceScope: resourceScope ?? null,
+    },
+    ipAddress: req.ip ?? req.socket?.remoteAddress ?? null,
+    userAgent: req.get("user-agent") ?? null,
+    severity: "warning",
+  }).catch(() => { /* audit must never block */ });
+}
 
 export type ScopeExtractor = (req: Request) => ResourceScope | undefined;
 
@@ -53,6 +84,7 @@ export function requirePermission(
             resourceScope: resourceScope ?? null,
             route: `${req.method} ${req.originalUrl}`,
           }, `Permission denied: ${permissionKey} for user ${userId ?? "unknown"}`);
+          emitAccessDenied(db, req, companyId, permissionKey, userId ?? "unknown-user", "user", resourceScope);
           throw forbidden(`Missing permission: ${permissionKey}`, {
             requiredPermission: permissionKey,
             companyId,
@@ -85,6 +117,7 @@ export function requirePermission(
             resourceScope: resourceScope ?? null,
             route: `${req.method} ${req.originalUrl}`,
           }, `Permission denied: ${permissionKey} for agent ${agentId}`);
+          emitAccessDenied(db, req, companyId, permissionKey, agentId, "agent", resourceScope);
           throw forbidden(`Missing permission: ${permissionKey}`, {
             requiredPermission: permissionKey,
             companyId,
@@ -143,6 +176,7 @@ export async function assertCompanyPermission(
         resourceScope: resourceScope ?? null,
         route: `${req.method} ${req.originalUrl}`,
       }, `Permission denied: ${permissionKey} for user ${userId ?? "unknown"}`);
+      emitAccessDenied(db, req, companyId, permissionKey, userId ?? "unknown-user", "user", resourceScope);
       throw forbidden(`Missing permission: ${permissionKey}`, {
         requiredPermission: permissionKey,
         companyId,
@@ -174,6 +208,7 @@ export async function assertCompanyPermission(
         resourceScope: resourceScope ?? null,
         route: `${req.method} ${req.originalUrl}`,
       }, `Permission denied: ${permissionKey} for agent ${agentId}`);
+      emitAccessDenied(db, req, companyId, permissionKey, agentId, "agent", resourceScope);
       throw forbidden(`Missing permission: ${permissionKey}`, {
         requiredPermission: permissionKey,
         companyId,

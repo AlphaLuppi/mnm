@@ -3,7 +3,7 @@ import type { Db } from "@mnm/db";
 import { createGoalSchema, updateGoalSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
 import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
-import { goalService, logActivity } from "../services/index.js";
+import { emitAudit, goalService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function goalRoutes(db: Db) {
@@ -43,6 +43,15 @@ export function goalRoutes(db: Db) {
       entityId: goal.id,
       details: { title: goal.title },
     });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "goal.created",
+      targetType: "project",
+      targetId: goal.id,
+      metadata: { title: goal.title },
+    });
+
     res.status(201).json(goal);
   });
 
@@ -73,6 +82,14 @@ export function goalRoutes(db: Db) {
       details: req.body,
     });
 
+    await emitAudit({
+      req, db, companyId: goal.companyId,
+      action: "goal.updated",
+      targetType: "project",
+      targetId: goal.id,
+      metadata: { changedFields: Object.keys(req.body) },
+    });
+
     res.json(goal);
   });
 
@@ -100,6 +117,14 @@ export function goalRoutes(db: Db) {
       action: "goal.deleted",
       entityType: "goal",
       entityId: goal.id,
+    });
+
+    await emitAudit({
+      req, db, companyId: goal.companyId,
+      action: "goal.deleted",
+      targetType: "project",
+      targetId: goal.id,
+      metadata: { title: goal.title },
     });
 
     res.json(goal);

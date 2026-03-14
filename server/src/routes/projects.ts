@@ -11,7 +11,7 @@ import {
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
 import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
-import { projectService, issueService, agentService, heartbeatService, logActivity } from "../services/index.js";
+import { emitAudit, projectService, issueService, agentService, heartbeatService, logActivity } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
@@ -108,6 +108,15 @@ export function projectRoutes(db: Db) {
         workspaceId: createdWorkspaceId,
       },
     });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "project.created",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { name: project.name },
+    });
+
     res.status(201).json(hydratedProject ?? project);
   });
 
@@ -136,6 +145,14 @@ export function projectRoutes(db: Db) {
       entityType: "project",
       entityId: project.id,
       details: req.body,
+    });
+
+    await emitAudit({
+      req, db, companyId: project.companyId,
+      action: "project.updated",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { changedFields: Object.keys(req.body) },
     });
 
     res.json(project);
@@ -426,6 +443,14 @@ Reply A or B.`;
       }).catch((err) => console.error("Failed to wake agent on discovery:", err));
     }
 
+    await emitAudit({
+      req, db, companyId: project.companyId,
+      action: "project.onboarded",
+      targetType: "project",
+      targetId: id,
+      metadata: {},
+    });
+
     res.status(201).json({ issueId: issue.id, identifier: issue.identifier });
   });
 
@@ -473,6 +498,14 @@ Reply A or B.`;
       },
     });
 
+    await emitAudit({
+      req, db, companyId: existing.companyId,
+      action: "project.workspace_created",
+      targetType: "project",
+      targetId: id,
+      metadata: { workspacePath: workspace.cwd },
+    });
+
     res.status(201).json(workspace);
   });
 
@@ -515,6 +548,14 @@ Reply A or B.`;
         },
       });
 
+      await emitAudit({
+        req, db, companyId: existing.companyId,
+        action: "project.workspace_updated",
+        targetType: "project",
+        targetId: id,
+        metadata: { workspaceId: workspace.id },
+      });
+
       res.json(workspace);
     },
   );
@@ -548,6 +589,14 @@ Reply A or B.`;
         workspaceId: workspace.id,
         name: workspace.name,
       },
+    });
+
+    await emitAudit({
+      req, db, companyId: existing.companyId,
+      action: "project.workspace_deleted",
+      targetType: "project",
+      targetId: id,
+      metadata: { workspaceId: workspace.id },
     });
 
     res.json(workspace);
@@ -602,6 +651,15 @@ Reply A or B.`;
       action: "project.deleted",
       entityType: "project",
       entityId: project.id,
+    });
+
+    await emitAudit({
+      req, db, companyId: project.companyId,
+      action: "project.deleted",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { name: project.name },
+      severity: "warning",
     });
 
     res.json(project);
