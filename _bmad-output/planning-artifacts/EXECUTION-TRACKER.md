@@ -87,7 +87,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| DRIFT-S01 | Drift persistance DB | PENDING | | | | | |
+| DRIFT-S01 | Drift persistance DB | DONE | fa02ea0 | f856e36 | 2d52708 | PASS (no fix needed) | 48/48 E2E pass, 2 schemas + migration + service + refactor + routes + types |
 | DRIFT-S02 | Drift monitor service | PENDING | | | | | |
 | OBS-S04 | UI AuditLog | PENDING | | | | | |
 | PROJ-S03 | Filtrage par scope | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 30 |
+| Stories DONE | 31 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 39 |
-| Batch courant | 7 |
-| Dernière story complétée | PROJ-S02 |
-| Prochain batch débloqué | BATCH 8 (all BATCH 7 deps complete) |
+| Stories PENDING | 38 |
+| Batch courant | 8 |
+| Dernière story complétée | DRIFT-S01 |
+| Prochain batch débloqué | DRIFT-S02 (← DRIFT-S01 complete) |
 
 ---
 
@@ -289,3 +289,7 @@
 | 2026-03-14 | PROJ-S02 | Dev | Dev Agent | 48d86e0 | syncUserProjectScope + 5 new svc fns + 4 new routes + 3 validators |
 | 2026-03-14 | PROJ-S02 | QA | QA Agent | 02cada1 | 47 Playwright E2E tests (file-content based) |
 | 2026-03-14 | PROJ-S02 | Review | Review Agent | cb392f5 | Fix: PROJ-S01 T42 regression (bulk route ordering). 47/47 + 67/67 pass |
+| 2026-03-14 | DRIFT-S01 | PM | PM Agent | fa02ea0 | Story spec — drift persistence DB + 11 ACs + 48 test cases |
+| 2026-03-14 | DRIFT-S01 | Dev | Dev Agent | f856e36 | 2 schemas + migration + drift-persistence service + drift.ts refactor + routes |
+| 2026-03-14 | DRIFT-S01 | QA | QA Agent | 2d52708 | 48 Playwright E2E tests (file-content based) |
+| 2026-03-14 | DRIFT-S01 | Review | Review Agent | — | PASS — 48/48 E2E pass, 166/166 regressions pass, no fix needed |
