@@ -31,6 +31,15 @@ export const createChannelSchema = z.object({
   agentId: z.string().uuid(),
   heartbeatRunId: z.string().uuid().optional(),
   name: z.string().max(255).optional(),
+  // CHAT-S02: new fields
+  projectId: z.string().uuid().optional(),
+  description: z.string().max(2000).optional(),
 });
 
 export type CreateChannel = z.infer<typeof createChannelSchema>;
+
+// CHAT-S02: update message validator
+export const updateMessageSchema = z.object({
+  content: z.string().min(1).max(4096).optional(),
+  deleted: z.boolean().optional(),
+});

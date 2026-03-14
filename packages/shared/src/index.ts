@@ -169,6 +169,7 @@ export type {
   AuditVerifyResult,
   ChatChannelStatus,
   ChatSenderType,
+  ChatMessageType,
   ChatClientMessage,
   ChatClientTyping,
   ChatClientSync,
