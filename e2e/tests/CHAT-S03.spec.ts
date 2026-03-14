@@ -243,14 +243,14 @@ test.describe("Groupe 5: Routes REST", () => {
     expect(content).toMatch(/emitAudit[\s\S]*?action:\s*["']chat\.pipe_detached["']/);
   });
 
-  test("T26 -- POST /pipe emits LiveEvent chat.pipe_attached @chat-s03-live-event-attached", () => {
+  test("T26 -- POST /pipe emits LiveEvent chat.pipe_attached @chat-s03-live-event-attached", async () => {
     // Verified in the service (container-pipe.ts publishes the event)
-    const pipeContent = require("node:fs").readFileSync(PIPE_SERVICE_FILE, "utf-8");
+    const pipeContent = await readFile(PIPE_SERVICE_FILE, "utf-8");
     expect(pipeContent).toMatch(/publishLiveEvent[\s\S]*?type:\s*["']chat\.pipe_attached["']/);
   });
 
-  test("T27 -- DELETE /pipe emits LiveEvent chat.pipe_detached @chat-s03-live-event-detached", () => {
-    const pipeContent = require("node:fs").readFileSync(PIPE_SERVICE_FILE, "utf-8");
+  test("T27 -- DELETE /pipe emits LiveEvent chat.pipe_detached @chat-s03-live-event-detached", async () => {
+    const pipeContent = await readFile(PIPE_SERVICE_FILE, "utf-8");
     expect(pipeContent).toMatch(/publishLiveEvent[\s\S]*?type:\s*["']chat\.pipe_detached["']/);
   });
 });
