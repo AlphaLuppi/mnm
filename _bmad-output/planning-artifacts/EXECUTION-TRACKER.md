@@ -91,7 +91,7 @@
 | DRIFT-S02 | Drift monitor service | DONE | 43cd8e2 | e1172dd | 0bb74cb | PASS (no fix needed) | 50/50 E2E pass, drift-monitor service + 5 routes + 4 LiveEventTypes + types + audit |
 | OBS-S04 | UI AuditLog | DONE | d3922c7 | 4a859ea | 281868e | PASS (no fix needed) | 88/88 E2E pass, API client + AuditLog page + AuditEventDetail modal + route + sidebar + query keys |
 | PROJ-S03 | Filtrage par scope | DONE | e0f5b8a | e5dc624 | 68faa43 | PASS (no fix needed) | 67/67 E2E pass, scope-filter service + hasGlobalScope + 4 routes + listByIds + useProjectScope hook |
-| PROJ-S04 | Page ProjectAccess | PENDING | | | | | |
+| PROJ-S04 | Page ProjectAccess | DONE | 0a7146c | 9e0fa22 | 1b0f0fd | PASS (no fix needed) | 75/75 E2E pass, API client + ProjectAccessTab + AddProjectMemberDialog + ProjectDetail integration |
 
 ### BATCH 9 — Containerisation (← TECH-02, TECH-05)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 34 |
+| Stories DONE | 35 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 35 |
-| Batch courant | 8 |
-| Dernière story complétée | PROJ-S03 |
-| Prochain batch débloqué | PROJ-S04 (Batch 8 remaining) |
+| Stories PENDING | 34 |
+| Batch courant | 8 (complete) |
+| Dernière story complétée | PROJ-S04 |
+| Prochain batch débloqué | Batch 9 (CONT-S01, CONT-S05, DRIFT-S03) |
 
 ---
 
