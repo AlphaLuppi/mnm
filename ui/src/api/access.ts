@@ -1,4 +1,4 @@
-import type { AgentAdapterType, BusinessRole, JoinRequest } from "@mnm/shared";
+import type { AgentAdapterType, BusinessRole, JoinRequest, PermissionKey } from "@mnm/shared";
 import { api } from "./client";
 
 type InviteSummary = {
@@ -161,4 +161,12 @@ export const accessApi = {
       email,
       allowedJoinTypes: "human" as const,
     }),
+
+  getMyPermissions: (companyId: string) =>
+    api.get<{
+      businessRole: string | null;
+      presetPermissions: PermissionKey[];
+      explicitGrants: Array<{ permissionKey: PermissionKey; scope: unknown }>;
+      effectivePermissions: PermissionKey[];
+    }>(`/companies/${companyId}/my-permissions`),
 };
