@@ -6,7 +6,7 @@ import {
   principalPermissionGrants,
 } from "@mnm/db";
 import type { BusinessRole, PermissionKey, PrincipalType, ResourceScope } from "@mnm/shared";
-import { BUSINESS_ROLES } from "@mnm/shared";
+import { BUSINESS_ROLES, isPermissionInPreset, getPresetPermissions } from "@mnm/shared";
 import { scopeSchema } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 
@@ -79,29 +79,38 @@ export function accessService(db: Db) {
         ),
       )
       .then((rows) => rows[0] ?? null);
-    if (!grant) return false;
+    // If an explicit grant exists, evaluate it (with scope)
+    if (grant) {
+      // No resource scope requested — grant alone is sufficient
+      if (!resourceScope) return true;
 
-    // No resource scope requested — grant alone is sufficient
-    if (!resourceScope) return true;
+      // Grant has no scope (null or empty) — wildcard access
+      const grantScope = grant.scope as Record<string, unknown> | null | undefined;
+      if (!grantScope || Object.keys(grantScope).length === 0) return true;
 
-    // Grant has no scope (null or empty) — wildcard access
-    const grantScope = grant.scope as Record<string, unknown> | null | undefined;
-    if (!grantScope || Object.keys(grantScope).length === 0) return true;
+      // Check projectIds coverage
+      const requestedProjectIds = resourceScope.projectIds;
+      if (requestedProjectIds && requestedProjectIds.length > 0) {
+        const grantedProjectIds = Array.isArray(grantScope.projectIds)
+          ? new Set(grantScope.projectIds as string[])
+          : null;
+        // Grant has no projectIds restriction — wildcard for projects
+        if (!grantedProjectIds) return true;
+        // All requested projectIds must be covered by the grant
+        const allCovered = requestedProjectIds.every((id) => grantedProjectIds.has(id));
+        if (!allCovered) return false;
+      }
 
-    // Check projectIds coverage
-    const requestedProjectIds = resourceScope.projectIds;
-    if (requestedProjectIds && requestedProjectIds.length > 0) {
-      const grantedProjectIds = Array.isArray(grantScope.projectIds)
-        ? new Set(grantScope.projectIds as string[])
-        : null;
-      // Grant has no projectIds restriction — wildcard for projects
-      if (!grantedProjectIds) return true;
-      // All requested projectIds must be covered by the grant
-      const allCovered = requestedProjectIds.every((id) => grantedProjectIds.has(id));
-      if (!allCovered) return false;
+      return true;
     }
 
-    return true;
+    // No explicit grant — fallback to businessRole preset
+    const businessRole = membership.businessRole as BusinessRole | null;
+    if (!businessRole) return false;
+
+    // Preset grants company-wide access (no scope restriction).
+    // If the permission is in the preset, it covers any resourceScope.
+    return isPermissionInPreset(businessRole, permissionKey);
   }
 
   async function canUser(
@@ -325,6 +334,65 @@ export function accessService(db: Db) {
     });
   }
 
+  async function getEffectivePermissions(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+  ): Promise<{
+    businessRole: BusinessRole | null;
+    presetPermissions: PermissionKey[];
+    explicitGrants: Array<{
+      permissionKey: PermissionKey;
+      scope: Record<string, unknown> | null;
+    }>;
+    effectivePermissions: PermissionKey[];
+  }> {
+    const membership = await getMembership(companyId, principalType, principalId);
+    if (!membership || membership.status !== "active") {
+      return {
+        businessRole: null,
+        presetPermissions: [],
+        explicitGrants: [],
+        effectivePermissions: [],
+      };
+    }
+
+    const businessRole = membership.businessRole as BusinessRole | null;
+    const presetPerms = businessRole ? [...getPresetPermissions(businessRole)] : [];
+
+    const grants = await db
+      .select({
+        permissionKey: principalPermissionGrants.permissionKey,
+        scope: principalPermissionGrants.scope,
+      })
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, companyId),
+          eq(principalPermissionGrants.principalType, principalType),
+          eq(principalPermissionGrants.principalId, principalId),
+        ),
+      );
+
+    const explicitGrants = grants.map((g) => ({
+      permissionKey: g.permissionKey as PermissionKey,
+      scope: g.scope as Record<string, unknown> | null,
+    }));
+
+    // Effective permissions = union of preset + explicit grants
+    const effectiveSet = new Set<PermissionKey>(presetPerms);
+    for (const grant of explicitGrants) {
+      effectiveSet.add(grant.permissionKey);
+    }
+
+    return {
+      businessRole,
+      presetPermissions: presetPerms,
+      explicitGrants,
+      effectivePermissions: [...effectiveSet].sort(),
+    };
+  }
+
   return {
     isInstanceAdmin,
     canUser,
@@ -334,6 +402,7 @@ export function accessService(db: Db) {
     listMembers,
     setMemberPermissions,
     updateMemberBusinessRole,
+    getEffectivePermissions,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,
