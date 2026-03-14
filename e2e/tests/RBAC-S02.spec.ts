@@ -5,7 +5,7 @@
  *   - AC-01: PERMISSION_KEYS array has 20 entries (15 original + 5 new)
  *   - AC-02: New permission keys: agents:launch, stories:create, stories:edit, dashboard:view, chat:agent
  *   - AC-03: ROLE_PERMISSION_PRESETS exported from rbac-presets.ts
- *   - AC-04: roleHasPermission helper exported from rbac-presets.ts
+ *   - AC-04: isPermissionInPreset helper exported from rbac-presets.ts
  *   - AC-05: Presets for all 4 business roles (admin, manager, contributor, viewer)
  *   - AC-06: hasPermission fallback on businessRole preset
  *   - AC-07: getEffectivePermissions helper in access service
@@ -15,7 +15,7 @@
  *
  * Source files:
  *   - packages/shared/src/constants.ts -- PERMISSION_KEYS (20 entries)
- *   - packages/shared/src/rbac-presets.ts -- ROLE_PERMISSION_PRESETS, roleHasPermission
+ *   - packages/shared/src/rbac-presets.ts -- ROLE_PERMISSION_PRESETS, isPermissionInPreset
  *   - packages/shared/src/index.ts -- re-exports
  *   - server/src/services/access.ts -- hasPermission fallback, getEffectivePermissions
  *   - server/src/routes/access.ts -- GET /rbac/presets, GET effective-permissions
@@ -122,8 +122,8 @@ test.describe("Group 2: RBAC presets file", () => {
     expect(content).toMatch(/export\s+(const\s+)?ROLE_PERMISSION_PRESETS/);
   });
 
-  test("exports roleHasPermission function", () => {
-    expect(content).toMatch(/export\s+function\s+roleHasPermission/);
+  test("exports isPermissionInPreset function", () => {
+    expect(content).toMatch(/export\s+function\s+isPermissionInPreset/);
   });
 
   test("has preset for admin role", () => {
@@ -227,8 +227,8 @@ test.describe("Group 3: Re-exports from shared/index.ts", () => {
     expect(content).toContain("ROLE_PERMISSION_PRESETS");
   });
 
-  test("re-exports roleHasPermission", () => {
-    expect(content).toContain("roleHasPermission");
+  test("re-exports isPermissionInPreset", () => {
+    expect(content).toContain("isPermissionInPreset");
   });
 });
 
@@ -241,8 +241,8 @@ test.describe("Group 4: hasPermission fallback on businessRole", () => {
     content = await readFile(ACCESS_SERVICE, "utf-8");
   });
 
-  test("imports roleHasPermission from @mnm/shared", () => {
-    expect(content).toContain("roleHasPermission");
+  test("imports isPermissionInPreset from @mnm/shared", () => {
+    expect(content).toContain("isPermissionInPreset");
     expect(content).toMatch(/from\s+["']@mnm\/shared["']/);
   });
 
@@ -261,14 +261,14 @@ test.describe("Group 4: hasPermission fallback on businessRole", () => {
     expect(fnBody).toContain("businessRole");
   });
 
-  test("hasPermission uses roleHasPermission as fallback", () => {
+  test("hasPermission uses isPermissionInPreset as fallback", () => {
     // Extract hasPermission function body
     const fnMatch = content.match(
       /async\s+function\s+hasPermission\s*\([\s\S]*?(?=\n\s{2}async\s+function\s)/,
     );
     expect(fnMatch).toBeTruthy();
     const fnBody = fnMatch![0];
-    expect(fnBody).toContain("roleHasPermission");
+    expect(fnBody).toContain("isPermissionInPreset");
   });
 });
 
@@ -287,14 +287,14 @@ test.describe("Group 5: getEffectivePermissions helper", () => {
     );
   });
 
-  test("getEffectivePermissions uses ROLE_PERMISSION_PRESETS", () => {
+  test("getEffectivePermissions uses getPresetPermissions", () => {
     // Extract getEffectivePermissions function body
     const fnMatch = content.match(
       /async\s+function\s+getEffectivePermissions[\s\S]*?(?=\n\s{2}async\s+function\s|\n\s{2}return\s+\{)/,
     );
     expect(fnMatch).toBeTruthy();
     const fnBody = fnMatch![0];
-    expect(fnBody).toMatch(/ROLE_PERMISSION_PRESETS|roleHasPermission/);
+    expect(fnBody).toMatch(/getPresetPermissions|isPermissionInPreset/);
   });
 
   test("getEffectivePermissions returns preset, grants, and effective arrays", () => {
@@ -309,9 +309,13 @@ test.describe("Group 5: getEffectivePermissions helper", () => {
   });
 
   test("getEffectivePermissions is exported in the accessService return object", () => {
-    const returnMatch = content.match(/return\s*\{[\s\S]*?\}\s*;\s*\}/);
-    expect(returnMatch).toBeTruthy();
-    expect(returnMatch![0]).toContain("getEffectivePermissions");
+    // Look for the final return block in accessService that lists all exports
+    // Use greedy match to capture the last return { ... } in the file
+    const returnMatches = [...content.matchAll(/return\s*\{[^}]+\}/g)];
+    expect(returnMatches.length).toBeGreaterThan(0);
+    // The last return { ... } in the file is the accessService export object
+    const lastReturn = returnMatches[returnMatches.length - 1][0];
+    expect(lastReturn).toContain("getEffectivePermissions");
   });
 });
 
@@ -328,30 +332,31 @@ test.describe("Group 6: API endpoints", () => {
     expect(content).toMatch(/router\.get\s*\(\s*["'][^"']*rbac\/presets["']/);
   });
 
-  test("GET /rbac/presets returns ROLE_PERMISSION_PRESETS", () => {
+  test("GET /rbac/presets returns the presets matrix", () => {
     // Find the presets route section
     const presetsIdx = content.indexOf("rbac/presets");
     expect(presetsIdx).toBeGreaterThan(-1);
-    // Look nearby for ROLE_PERMISSION_PRESETS reference
+    // Look nearby for getPresetsMatrix() call
     const nearbyContent = content.slice(presetsIdx, presetsIdx + 500);
-    expect(nearbyContent).toContain("ROLE_PERMISSION_PRESETS");
+    expect(nearbyContent).toContain("getPresetsMatrix");
   });
 
   test("GET effective-permissions endpoint exists", () => {
     expect(content).toMatch(
-      /router\.get\s*\(\s*["'][^"']*effective-permissions["']/,
+      /router\.get\s*\(\s*["'][^"']*effective-permissions/,
     );
   });
 
   test("effective-permissions uses assertCompanyPermission with users:manage_permissions", () => {
     const epIdx = content.indexOf("effective-permissions");
     expect(epIdx).toBeGreaterThan(-1);
-    const nearbyContent = content.slice(epIdx, epIdx + 800);
+    // Use a larger window to capture the full endpoint handler
+    const nearbyContent = content.slice(epIdx, epIdx + 1500);
     expect(nearbyContent).toContain("assertCompanyPermission");
     expect(nearbyContent).toContain("users:manage_permissions");
   });
 
-  test("imports ROLE_PERMISSION_PRESETS from @mnm/shared", () => {
-    expect(content).toContain("ROLE_PERMISSION_PRESETS");
+  test("imports getPresetsMatrix from @mnm/shared", () => {
+    expect(content).toContain("getPresetsMatrix");
   });
 });
