@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AGENT_ADAPTER_TYPES,
+  BUSINESS_ROLES,
   INVITE_JOIN_TYPES,
   JOIN_REQUEST_STATUSES,
   JOIN_REQUEST_TYPES,
@@ -80,3 +81,11 @@ export const updateUserCompanyAccessSchema = z.object({
 });
 
 export type UpdateUserCompanyAccess = z.infer<typeof updateUserCompanyAccessSchema>;
+
+export const businessRoleSchema = z.enum(BUSINESS_ROLES);
+
+export const updateMemberBusinessRoleSchema = z.object({
+  businessRole: z.enum(BUSINESS_ROLES),
+});
+
+export type UpdateMemberBusinessRole = z.infer<typeof updateMemberBusinessRoleSchema>;

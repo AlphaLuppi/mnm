@@ -5,7 +5,8 @@ import {
   instanceUserRoles,
   principalPermissionGrants,
 } from "@mnm/db";
-import type { PermissionKey, PrincipalType, ResourceScope } from "@mnm/shared";
+import type { BusinessRole, PermissionKey, PrincipalType, ResourceScope } from "@mnm/shared";
+import { BUSINESS_ROLES } from "@mnm/shared";
 import { scopeSchema } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 
@@ -235,6 +236,7 @@ export function accessService(db: Db) {
     principalId: string,
     membershipRole: string | null = "member",
     status: "pending" | "active" | "suspended" = "active",
+    businessRole: BusinessRole = "contributor",
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
     if (existing) {
@@ -258,9 +260,31 @@ export function accessService(db: Db) {
         principalId,
         status,
         membershipRole,
+        businessRole,
       })
       .returning()
       .then((rows) => rows[0]);
+  }
+
+  async function updateMemberBusinessRole(
+    companyId: string,
+    memberId: string,
+    businessRole: BusinessRole,
+  ) {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.id, memberId)))
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    const updated = await db
+      .update(companyMemberships)
+      .set({ businessRole, updatedAt: new Date() })
+      .where(eq(companyMemberships.id, member.id))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+    return updated ?? member;
   }
 
   async function setPrincipalGrants(
@@ -309,6 +333,7 @@ export function accessService(db: Db) {
     ensureMembership,
     listMembers,
     setMemberPermissions,
+    updateMemberBusinessRole,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,
