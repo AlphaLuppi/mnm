@@ -4,7 +4,7 @@ import type { Db } from "@mnm/db";
 import { createAssetImageMetadataSchema } from "@mnm/shared";
 import type { StorageService } from "../storage/types.js";
 import { requirePermission } from "../middleware/require-permission.js";
-import { assetService, logActivity } from "../services/index.js";
+import { assetService, emitAudit, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
 const MAX_ASSET_IMAGE_BYTES = Number(process.env.MNM_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;
@@ -108,6 +108,14 @@ export function assetRoutes(db: Db, storage: StorageService) {
         contentType: asset.contentType,
         byteSize: asset.byteSize,
       },
+    });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "asset.uploaded",
+      targetType: "asset",
+      targetId: asset.id,
+      metadata: { filename: asset.originalFilename, mimeType: asset.contentType, size: asset.byteSize },
     });
 
     res.status(201).json({

@@ -11,21 +11,55 @@ export const AUDIT_TARGET_TYPES = [
 ] as const;
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
 
-// Non-exhaustive list — actions are extensible strings.
-// OBS-S02 will define the full catalog when integrating into 22 route files.
+// Full catalog of audit actions (OBS-S02).
+// Actions follow the pattern {domain}.{action}.
 export const AUDIT_ACTIONS = [
-  // Member management
-  "members.invite", "members.remove", "members.role_changed", "members.status_changed",
-  // Access
+  // Access & auth
   "access.denied", "access.scope_denied", "access.login", "access.logout",
-  // Company config
-  "company.config_change", "company.created",
+  "access.invite_created", "access.invite_accepted",
+  "access.join_request_approved", "access.join_request_rejected",
+  "access.member_permissions_updated", "access.member_role_changed", "access.member_removed",
   // Agent lifecycle
-  "agent.created", "agent.launched", "agent.stopped", "agent.deleted",
-  // Workflow
-  "workflow.created", "workflow.transition", "workflow.transition_denied",
+  "agent.created", "agent.hired", "agent.updated", "agent.deleted",
+  "agent.launched", "agent.stopped",
+  "agent.woken", "agent.permissions_changed", "agent.instructions_changed",
+  "agent.config_rollback", "agent.session_reset", "agent.key_created", "agent.claude_login",
+  // Approval
+  "approval.created", "approval.approved", "approval.rejected",
+  "approval.revision_requested", "approval.resubmitted",
+  // Asset
+  "asset.uploaded",
+  // Company
+  "company.created", "company.updated", "company.archived", "company.deleted",
+  "company.exported", "company.imported", "company.config_change",
+  // Cost
+  "cost.budget_updated", "cost.agent_budget_updated",
+  // Goal
+  "goal.created", "goal.updated", "goal.deleted",
+  // Issue
+  "issue.created", "issue.updated", "issue.deleted",
+  "issue.checked_out", "issue.released",
+  "issue.label_created", "issue.label_deleted",
+  "issue.attachment_added", "issue.attachment_deleted",
+  // Member management (legacy)
+  "members.invite", "members.remove", "members.role_changed", "members.status_changed",
+  // Orchestrator
+  "orchestrator.stage_transitioned", "orchestrator.stage_approved", "orchestrator.stage_rejected",
   // Project
+  "project.created", "project.updated", "project.deleted",
+  "project.workspace_created", "project.workspace_updated", "project.workspace_deleted",
+  "project.onboarded",
   "project.member_added", "project.member_removed", "project.member_role_changed",
+  // Project membership
+  "project_membership.added", "project_membership.updated", "project_membership.removed",
+  // Secret
+  "secret.created", "secret.rotated", "secret.updated", "secret.deleted",
+  // Stage
+  "stage.transitioned",
+  // Workflow
+  "workflow.template_created", "workflow.template_updated", "workflow.template_deleted",
+  "workflow.instance_created", "workflow.instance_updated", "workflow.instance_deleted",
+  "workflow.created", "workflow.transition", "workflow.transition_denied",
   // Container
   "container.created", "container.stopped", "container.killed",
   // Security

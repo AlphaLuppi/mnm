@@ -9,7 +9,7 @@ import {
 } from "@mnm/shared";
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
-import { accessService, companyPortabilityService, companyService, logActivity } from "../services/index.js";
+import { accessService, companyPortabilityService, companyService, emitAudit, logActivity } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function companyRoutes(db: Db) {
@@ -66,6 +66,15 @@ export function companyRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const result = await portability.exportBundle(companyId, req.body);
+
+    await emitAudit({
+      req, db, companyId,
+      action: "company.exported",
+      targetType: "company",
+      targetId: companyId,
+      metadata: { format: req.body.format ?? "json" },
+    });
+
     res.json(result);
   });
 
@@ -103,6 +112,15 @@ export function companyRoutes(db: Db) {
         companyAction: result.company.action,
       },
     });
+
+    await emitAudit({
+      req, db, companyId: result.company.id,
+      action: "company.imported",
+      targetType: "company",
+      targetId: result.company.id,
+      metadata: { source: "import", agentCount: result.agents.length },
+    });
+
     res.json(result);
   });
 
@@ -122,6 +140,15 @@ export function companyRoutes(db: Db) {
       entityId: company.id,
       details: { name: company.name },
     });
+
+    await emitAudit({
+      req, db, companyId: company.id,
+      action: "company.created",
+      targetType: "company",
+      targetId: company.id,
+      metadata: { name: company.name },
+    });
+
     res.status(201).json(company);
   });
 
@@ -177,6 +204,14 @@ export function companyRoutes(db: Db) {
       });
     }
 
+    await emitAudit({
+      req, db, companyId,
+      action: "company.updated",
+      targetType: "company",
+      targetId: companyId,
+      metadata: { changedFields: Object.keys(req.body) },
+    });
+
     res.json(company);
   });
 
@@ -197,6 +232,16 @@ export function companyRoutes(db: Db) {
       entityType: "company",
       entityId: companyId,
     });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "company.archived",
+      targetType: "company",
+      targetId: companyId,
+      metadata: { name: company.name },
+      severity: "warning",
+    });
+
     res.json(company);
   });
 
@@ -209,6 +254,16 @@ export function companyRoutes(db: Db) {
       res.status(404).json({ error: "Company not found" });
       return;
     }
+
+    await emitAudit({
+      req, db, companyId,
+      action: "company.deleted",
+      targetType: "company",
+      targetId: companyId,
+      metadata: { name: company.name },
+      severity: "critical",
+    });
+
     res.json({ ok: true });
   });
 

@@ -10,7 +10,7 @@ import {
 import { validate } from "../middleware/validate.js";
 import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
-import { logActivity, secretService } from "../services/index.js";
+import { emitAudit, logActivity, secretService } from "../services/index.js";
 
 export function secretRoutes(db: Db) {
   const router = Router();
@@ -61,6 +61,14 @@ export function secretRoutes(db: Db) {
       details: { name: created.name, provider: created.provider },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "secret.created",
+      targetType: "secret",
+      targetId: created.id,
+      metadata: { name: created.name, provider: created.provider },
+    });
+
     res.status(201).json(created);
   });
 
@@ -92,6 +100,14 @@ export function secretRoutes(db: Db) {
       entityType: "secret",
       entityId: rotated.id,
       details: { version: rotated.latestVersion },
+    });
+
+    await emitAudit({
+      req, db, companyId: rotated.companyId,
+      action: "secret.rotated",
+      targetType: "secret",
+      targetId: rotated.id,
+      metadata: { name: existing.name },
     });
 
     res.json(rotated);
@@ -129,6 +145,14 @@ export function secretRoutes(db: Db) {
       details: { name: updated.name },
     });
 
+    await emitAudit({
+      req, db, companyId: updated.companyId,
+      action: "secret.updated",
+      targetType: "secret",
+      targetId: updated.id,
+      metadata: { name: updated.name },
+    });
+
     res.json(updated);
   });
 
@@ -157,6 +181,15 @@ export function secretRoutes(db: Db) {
       entityType: "secret",
       entityId: removed.id,
       details: { name: removed.name },
+    });
+
+    await emitAudit({
+      req, db, companyId: removed.companyId,
+      action: "secret.deleted",
+      targetType: "secret",
+      targetId: removed.id,
+      metadata: { name: removed.name },
+      severity: "warning",
     });
 
     res.json({ ok: true });
