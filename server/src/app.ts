@@ -38,6 +38,7 @@ import { chatRoutes } from "./routes/chat.js";
 import { containerRoutes } from "./routes/containers.js";
 import { credentialProxyRulesRoutes } from "./routes/credential-proxy-rules.js";
 import { compactionRoutes } from "./routes/compaction.js";
+import { automationCursorRoutes } from "./routes/automation-cursors.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -166,6 +167,7 @@ export async function createApp(
   api.use(containerRoutes(db));
   api.use(credentialProxyRulesRoutes(db));
   api.use(compactionRoutes(db));
+  api.use(automationCursorRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

@@ -246,6 +246,12 @@ export type {
   CompactionWatcherConfig,
   CompactionWatcherStatus,
   CompactionSnapshotFilters,
+  // DUAL-S01: Automation cursor types
+  // dual-s01-barrel-shared
+  AutomationCursorPosition,
+  AutomationCursorLevel,
+  AutomationCursor,
+  EffectiveCursor,
 } from "./types/index.js";
 
 export {
@@ -268,6 +274,9 @@ export {
   // COMP-S01: Compaction constants
   COMPACTION_STRATEGIES,
   COMPACTION_SNAPSHOT_STATUSES,
+  // DUAL-S01: Automation cursor constants
+  AUTOMATION_CURSOR_POSITIONS,
+  AUTOMATION_CURSOR_LEVELS,
 } from "./types/index.js";
 
 export {
@@ -442,6 +451,13 @@ export {
   compactionSnapshotFiltersSchema,
   type StartCompactionWatcher,
   type CompactionSnapshotFiltersInput,
+  // DUAL-S01: Automation cursor validators
+  setCursorSchema,
+  cursorFiltersSchema,
+  resolveCursorSchema,
+  type SetCursor,
+  type CursorFilters,
+  type ResolveCursor,
 } from "./validators/index.js";
 
 export {
