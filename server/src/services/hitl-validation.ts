@@ -97,8 +97,10 @@ export function hitlValidationService(db: Db) {
   }
 
   /**
-   * Approve a stage that is currently in the "validating" state.
-   * Persists the HitlDecision and appends to hitlHistory.
+   * Approve a stage — persists the HitlDecision and appends to hitlHistory.
+   * Note: The state machine transition (validating -> in_progress) is handled
+   * by the orchestrator BEFORE this method is called, so the stage may already
+   * be in "in_progress" when we persist the HITL metadata.
    */
   async function approveStage(
     stageId: string,
@@ -111,10 +113,6 @@ export function hitlValidationService(db: Db) {
       .from(stageInstances)
       .where(eq(stageInstances.id, stageId));
     if (!stage) throw notFound("Stage not found");
-
-    if ((stage.machineState ?? "created") !== "validating") {
-      throw conflict("Stage is not in validating state");
-    }
 
     const decision: HitlDecision = {
       decision: "approved",
@@ -155,9 +153,11 @@ export function hitlValidationService(db: Db) {
   }
 
   /**
-   * Reject a stage that is currently in the "validating" state.
+   * Reject a stage — persists the HitlDecision and appends to hitlHistory.
    * Feedback is mandatory — throws if empty.
-   * Persists the HitlDecision and appends to hitlHistory.
+   * Note: The state machine transition (validating -> in_progress) is handled
+   * by the orchestrator BEFORE this method is called, so the stage may already
+   * be in "in_progress" when we persist the HITL metadata.
    */
   async function rejectStage(
     stageId: string,
@@ -174,10 +174,6 @@ export function hitlValidationService(db: Db) {
       .from(stageInstances)
       .where(eq(stageInstances.id, stageId));
     if (!stage) throw notFound("Stage not found");
-
-    if ((stage.machineState ?? "created") !== "validating") {
-      throw conflict("Stage is not in validating state");
-    }
 
     const decision: HitlDecision = {
       decision: "rejected",
