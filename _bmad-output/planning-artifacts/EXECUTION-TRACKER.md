@@ -50,7 +50,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | RBAC-S02 | 20 permission keys + presets | DONE | 996876d | dev | 2aa5fc9 | 9d3921a | 36/36 E2E pass, 5 new keys (20 total) + presets matrix + hasPermission fallback + effective-permissions API |
-| MU-S02 | Page membres UI | PENDING | | | | | |
+| MU-S02 | Page membres UI | DONE | b40a986 | dev | 104d901 | review | 85/85 E2E pass, Members page + table + filters + invite dialog + enriched API |
 | MU-S03 | Invitation bulk CSV | PENDING | | | | | |
 | MU-S04 | Sélecteur company | PENDING | | | | | |
 | RBAC-S07 | Badges rôle | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 13 |
+| Stories DONE | 14 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 56 |
+| Stories PENDING | 55 |
 | Batch courant | 4 |
-| Dernière story complétée | RBAC-S02 |
-| Prochain batch débloqué | BATCH 4 (MU-S02, MU-S03, MU-S04, RBAC-S07) |
+| Dernière story complétée | MU-S02 |
+| Prochain batch débloqué | BATCH 4 (MU-S03, MU-S04, RBAC-S07) |
 
 ---
 
@@ -227,3 +227,7 @@
 | 2026-03-14 | RBAC-S02 | Dev | Dev Agent | dev | 5 new keys + rbac-presets.ts + hasPermission fallback + effective-permissions |
 | 2026-03-14 | RBAC-S02 | QA | QA Agent | 2aa5fc9 | 36 Playwright E2E tests (file-content based) |
 | 2026-03-14 | RBAC-S02 | Review | Review Agent | 9d3921a | Fix: test fn names + TECH-07 key count. 36/36 pass |
+| 2026-03-14 | MU-S02 | PM | PM Agent | b40a986 | Story spec — Members page + 15 ACs + 47 data-testid + 32 test cases |
+| 2026-03-14 | MU-S02 | Dev | Dev Agent | dev | Members page + enriched API + status endpoint + sidebar + route |
+| 2026-03-14 | MU-S02 | QA | QA Agent | 104d901 | 85 Playwright E2E tests (file-content based) |
+| 2026-03-14 | MU-S02 | Review | Review Agent | review | Fix: 35 data-testid alignment + BUSINESS_ROLE_LABELS + queryKey namespace. 85/85 pass |
