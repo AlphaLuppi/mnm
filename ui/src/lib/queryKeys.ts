@@ -63,6 +63,8 @@ export const queryKeys = {
     members: (companyId: string) => ["access", "members", companyId] as const,
     myPermissions: (companyId: string) =>
       ["access", "my-permissions", companyId] as const,
+    rbacPresets: (companyId: string) =>
+      ["access", "rbac-presets", companyId] as const,
   },
   auth: {
     session: ["auth", "session"] as const,
