@@ -106,7 +106,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | CONT-S02 | Credential proxy | DONE | 12b74df | 14c1937 | 621181d | PASS (no fix) | 63/63 E2E pass, 139/139 regressions pass (CONT-S01 + CONT-S05) |
-| CONT-S03 | Mount allowlist | PENDING | | | | | |
+| CONT-S03 | Mount allowlist | DONE | 1fbd459 | 41264d8 | a4563bf | PASS (no fix) | 50/50 E2E pass, 202/202 regressions pass (CONT-S01 + CONT-S02 + CONT-S05) |
 | CONT-S04 | Isolation réseau | PENDING | | | | | |
 | CONT-S06 | UI container status | PENDING | | | | | |
 | CHAT-S03 | ChatService pipe stdin | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 39 |
+| Stories DONE | 40 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 30 |
+| Stories PENDING | 29 |
 | Batch courant | 10 (in progress) |
-| Dernière story complétée | CONT-S02 |
-| Prochain batch débloqué | BATCH 10 (CONT-S03..S06, CHAT-S03..S04) |
+| Dernière story complétée | CONT-S03 |
+| Prochain batch débloqué | BATCH 10 (CONT-S04, CONT-S06, CHAT-S03..S04) |
 
 ---
 
@@ -311,3 +311,7 @@
 | 2026-03-14 | CONT-S02 | Dev | Dev Agent | 14c1937 | CredentialProxy service + rules CRUD + routes + types + validators + CM integration |
 | 2026-03-14 | CONT-S02 | QA | Review Agent | 621181d | 63 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CONT-S02 | Review | Review Agent | — | PASS — 63/63 E2E pass, 139/139 regressions pass (CONT-S01 + CONT-S05), no fix needed |
+| 2026-03-14 | CONT-S03 | PM | PM Agent | 1fbd459 | Story spec — mount allowlist + 14 ACs + 24 data-testid + 50 test cases |
+| 2026-03-14 | CONT-S03 | Dev | Dev Agent | 41264d8 | MountAllowlistService + CM integration + 3 routes + types + validators + barrel exports |
+| 2026-03-14 | CONT-S03 | QA | QA Agent | a4563bf | 50 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CONT-S03 | Review | Review Agent | — | PASS — 50/50 E2E pass, 202/202 regressions pass (CONT-S01+S02+S05), no fix needed |
