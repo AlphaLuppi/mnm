@@ -269,6 +269,9 @@ export type {
   A2ADefaultPolicy,
   A2APermissionRule,
   A2APermissionCheckResult,
+  // A2A-S03: Audit A2A type
+  // a2a-s03-barrel-shared
+  A2AAuditAction,
 } from "./types/index.js";
 
 export {
@@ -299,6 +302,8 @@ export {
   A2A_MESSAGE_STATUSES,
   // A2A-S02: A2A Permission constants
   A2A_DEFAULT_POLICIES,
+  // A2A-S03: Audit A2A constants
+  A2A_AUDIT_ACTIONS,
 } from "./types/index.js";
 
 export {
