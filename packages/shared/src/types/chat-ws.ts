@@ -2,6 +2,9 @@
 export type ChatChannelStatus = "open" | "closed";
 export type ChatSenderType = "user" | "agent";
 
+// CHAT-S02: message type discriminator
+export type ChatMessageType = "text" | "system" | "command" | "file_reference";
+
 // ---- Client -> Server payloads ----
 export interface ChatClientMessage {
   type: "chat_message";
