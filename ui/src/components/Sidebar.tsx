@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   DollarSign,
   History,
+  ScrollText,
   Search,
   SquarePen,
   Network,
@@ -162,6 +163,9 @@ export function Sidebar() {
             )}
             {canViewActivity && (
               <SidebarNavItem data-testid="rbac-s05-nav-activity" to="/activity" label="Activity" icon={History} />
+            )}
+            {canViewActivity && (
+              <SidebarNavItem data-testid="obs-s04-nav-audit" to="/audit" label="Audit Log" icon={ScrollText} />
             )}
             {canViewSettings && (
               <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />
