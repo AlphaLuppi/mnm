@@ -238,6 +238,9 @@ export const LIVE_EVENT_TYPES = [
   "stage.skipped",
   "workspace.context.changed",
   "audit.event_created",
+  "chat.message_sent",
+  "chat.channel_created",
+  "chat.channel_closed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

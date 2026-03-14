@@ -242,7 +242,7 @@ export function setupLiveEventsWebSocketServer(
     const url = new URL(req.url, "http://localhost");
     const companyId = parseCompanyId(url.pathname);
     if (!companyId) {
-      socket.destroy();
+      // Don't destroy — other WebSocket servers (e.g. chat-ws) may handle this path
       return;
     }
 

@@ -26,6 +26,7 @@ import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
+import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
 import { heartbeatService } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
@@ -512,6 +513,12 @@ process.env.MNM_API_URL = `http://${runtimeApiHost}:${listenPort}`;
 setupLiveEventsWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
   resolveSessionFromHeaders,
+});
+
+setupChatWebSocketServer(server, db as any, {
+  deploymentMode: config.deploymentMode,
+  resolveSessionFromHeaders,
+  redisState,
 });
 
 if (config.heartbeatSchedulerEnabled) {
