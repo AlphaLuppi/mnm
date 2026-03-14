@@ -22,3 +22,22 @@ This repo uses the BMAD method for structured AI-assisted planning. Key concepts
 - **Output directory** (`_bmad-output/`) — Where all generated artifacts land, organized by phase (brainstorming, planning-artifacts).
 
 Use `/bmad-help` to see available workflow steps and get guidance on what to do next.
+
+## Compact Instructions
+
+When compacting or resuming after compaction, preserve focus on the active task:
+
+**If working on B2B transformation planning:**
+Read `_bmad-output/planning-artifacts/ORCHESTRATION-PLAN.md` FIRST. It contains:
+- The full 5-step pipeline (Product Brief → PRD → UX Design → Architecture → Sprint Planning)
+- Progress tracker showing which steps are DONE vs PENDING
+- Complete agent prompts for each step
+- Instructions for how to resume
+
+Use: `/compact focus on B2B orchestration plan at _bmad-output/planning-artifacts/ORCHESTRATION-PLAN.md`
+
+## Active Work — B2B Enterprise Transformation
+
+MnM is being transformed from a mono-user AI supervision cockpit into a B2B enterprise platform.
+The orchestration plan is at: `_bmad-output/planning-artifacts/ORCHESTRATION-PLAN.md`
+All planning artifacts go to: `_bmad-output/planning-artifacts/`
