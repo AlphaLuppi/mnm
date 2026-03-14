@@ -16,3 +16,4 @@ export { workflowRoutes } from "./workflows.js";
 export { stageRoutes } from "./stages.js";
 export { workspaceContextRoutes } from "./workspace-context.js";
 export { driftRoutes } from "./drift.js";
+export { projectMembershipRoutes } from "./project-memberships.js";
