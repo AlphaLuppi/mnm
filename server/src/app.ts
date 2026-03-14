@@ -3,6 +3,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Db } from "@mnm/db";
+import { authUsers } from "@mnm/db";
+import { eq } from "drizzle-orm";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import type { StorageService } from "./storage/types.js";
 import { httpLogger, errorHandler } from "./middleware/index.js";
@@ -70,11 +72,29 @@ export async function createApp(
       resolveSession: opts.resolveSession,
     }),
   );
-  app.get("/api/auth/get-session", (req, res) => {
+  app.get("/api/auth/get-session", async (req, res) => {
     if (req.actor.type !== "board" || !req.actor.userId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
+
+    let email: string | null = null;
+    let name: string | null = null;
+
+    if (req.actor.source === "session") {
+      const row = await db
+        .select({ email: authUsers.email, name: authUsers.name })
+        .from(authUsers)
+        .where(eq(authUsers.id, req.actor.userId))
+        .then((rows) => rows[0] ?? null);
+      if (row) {
+        email = row.email;
+        name = row.name;
+      }
+    } else if (req.actor.source === "local_implicit") {
+      name = "Local Board";
+    }
+
     res.json({
       session: {
         id: `mnm:${req.actor.source}:${req.actor.userId}`,
@@ -82,8 +102,8 @@ export async function createApp(
       },
       user: {
         id: req.actor.userId,
-        email: null,
-        name: req.actor.source === "local_implicit" ? "Local Board" : null,
+        email,
+        name,
       },
     });
   });
