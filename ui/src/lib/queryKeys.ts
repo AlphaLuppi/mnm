@@ -123,6 +123,15 @@ export const queryKeys = {
     pipeStatus: (companyId: string, channelId: string) =>
       ["chat", companyId, "pipe-status", channelId] as const,
   },
+  // DUAL-S02: automation cursors UI
+  automationCursors: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["automation-cursors", companyId, "list", filters] as const,
+    detail: (companyId: string, cursorId: string) =>
+      ["automation-cursors", companyId, "detail", cursorId] as const,
+    resolve: (companyId: string, body?: Record<string, unknown>) =>
+      ["automation-cursors", companyId, "resolve", body] as const,
+  },
   // CONT-S06: container status UI
   containers: {
     list: (companyId: string, filters?: Record<string, unknown>) =>
