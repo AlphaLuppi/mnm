@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { validate } from "../middleware/validate.js";
-import { projectMembershipService, logActivity } from "../services/index.js";
+import { emitAudit, projectMembershipService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { addProjectMemberSchema, updateProjectMemberRoleSchema } from "@mnm/shared";
 
@@ -47,6 +47,15 @@ export function projectMembershipRoutes(db: Db) {
         entityId: projectId,
         details: { userId, role, grantedBy: actor.actorId },
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "project_membership.added",
+        targetType: "project",
+        targetId: projectId,
+        metadata: { userId, role },
+      });
+
       res.status(201).json(member);
     },
   );
@@ -72,6 +81,15 @@ export function projectMembershipRoutes(db: Db) {
         entityId: projectId,
         details: { userId },
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "project_membership.removed",
+        targetType: "project",
+        targetId: projectId,
+        metadata: { userId },
+      });
+
       res.json(removed);
     },
   );
@@ -103,6 +121,15 @@ export function projectMembershipRoutes(db: Db) {
         entityId: projectId,
         details: { userId, newRole: req.body.role },
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "project_membership.updated",
+        targetType: "project",
+        targetId: projectId,
+        metadata: { userId, newRole: req.body.role },
+      });
+
       res.json(updated);
     },
   );

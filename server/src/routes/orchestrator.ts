@@ -12,7 +12,7 @@ import { validate } from "../middleware/validate.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { orchestratorService } from "../services/orchestrator.js";
 import { workflowEnforcerService } from "../services/workflow-enforcer.js";
-import { logActivity } from "../services/index.js";
+import { emitAudit, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { notFound } from "../errors.js";
 
@@ -65,6 +65,14 @@ export function orchestratorRoutes(db: Db) {
           fromState: result.fromState,
           toState: result.toState,
         },
+      });
+
+      await emitAudit({
+        req, db, companyId: companyId as string,
+        action: "orchestrator.stage_transitioned",
+        targetType: "stage",
+        targetId: stageId as string,
+        metadata: { event: req.body.event, fromState: result.fromState, toState: result.toState },
       });
 
       res.json(result);
@@ -256,6 +264,14 @@ export function orchestratorRoutes(db: Db) {
         },
       });
 
+      await emitAudit({
+        req, db, companyId: companyId as string,
+        action: "orchestrator.stage_approved",
+        targetType: "stage",
+        targetId: stageId as string,
+        metadata: { approvedBy: actor.actorId },
+      });
+
       res.json(result);
     },
   );
@@ -297,6 +313,14 @@ export function orchestratorRoutes(db: Db) {
           toState: result.toState,
           feedback: req.body.feedback,
         },
+      });
+
+      await emitAudit({
+        req, db, companyId: companyId as string,
+        action: "orchestrator.stage_rejected",
+        targetType: "stage",
+        targetId: stageId as string,
+        metadata: { rejectedBy: actor.actorId, feedback: req.body.feedback },
       });
 
       res.json(result);

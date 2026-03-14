@@ -15,6 +15,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  emitAudit,
   goalService,
   heartbeatService,
   issueApprovalService,
@@ -270,6 +271,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityId: label.id,
       details: { name: label.name, color: label.color },
     });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "issue.label_created",
+      targetType: "issue",
+      targetId: label.id,
+      metadata: { name: label.name },
+    });
+
     res.status(201).json(label);
   });
 
@@ -298,6 +308,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityType: "label",
       entityId: removed.id,
       details: { name: removed.name, color: removed.color },
+    });
+
+    await emitAudit({
+      req, db, companyId: removed.companyId,
+      action: "issue.label_deleted",
+      targetType: "issue",
+      targetId: removed.id,
+      metadata: { name: removed.name },
     });
     res.json(removed);
   });
@@ -451,6 +469,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       details: { title: issue.title, identifier: issue.identifier },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "issue.created",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { title: issue.title, projectId: issue.projectId },
+    });
+
     if (issue.assigneeAgentId && issue.status !== "backlog") {
       void heartbeat
         .wakeup(issue.assigneeAgentId, {
@@ -558,6 +584,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
         ...(commentBody ? { source: "comment" } : {}),
         _previous: hasFieldChanges ? previous : undefined,
       },
+    });
+
+    await emitAudit({
+      req, db, companyId: issue.companyId,
+      action: "issue.updated",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { changedFields: Object.keys(updateFields) },
     });
 
     let comment = null;
@@ -698,6 +732,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityId: issue.id,
     });
 
+    await emitAudit({
+      req, db, companyId: issue.companyId,
+      action: "issue.deleted",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { title: issue.title },
+      severity: "warning",
+    });
+
     res.json(issue);
   });
 
@@ -731,6 +774,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityType: "issue",
       entityId: issue.id,
       details: { agentId: req.body.agentId },
+    });
+
+    await emitAudit({
+      req, db, companyId: issue.companyId,
+      action: "issue.checked_out",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { agentId: req.body.agentId },
     });
 
     if (
@@ -789,6 +840,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       action: "issue.released",
       entityType: "issue",
       entityId: released.id,
+    });
+
+    await emitAudit({
+      req, db, companyId: released.companyId,
+      action: "issue.released",
+      targetType: "issue",
+      targetId: released.id,
+      metadata: { agentId: actor.agentId },
     });
 
     res.json(released);
@@ -1119,6 +1178,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "issue.attachment_added",
+      targetType: "issue",
+      targetId: issueId,
+      metadata: { filename: attachment.originalFilename },
+    });
+
     await logActivity(db, {
       companyId,
       actorType: actor.actorType,
@@ -1184,6 +1251,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
 
     const actor = getActorInfo(req);
+    await emitAudit({
+      req, db, companyId: removed.companyId,
+      action: "issue.attachment_deleted",
+      targetType: "issue",
+      targetId: removed.id,
+      metadata: { filename: removed.originalFilename },
+    });
+
     await logActivity(db, {
       companyId: removed.companyId,
       actorType: actor.actorType,

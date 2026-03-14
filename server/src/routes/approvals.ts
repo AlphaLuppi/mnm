@@ -12,6 +12,7 @@ import { requirePermission, assertCompanyPermission } from "../middleware/requir
 import { logger } from "../middleware/logger.js";
 import {
   approvalService,
+  emitAudit,
   heartbeatService,
   issueApprovalService,
   logActivity,
@@ -104,6 +105,14 @@ export function approvalRoutes(db: Db) {
       details: { type: approval.type, issueIds: uniqueIssueIds },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "approval.created",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type },
+    });
+
     res.status(201).json(redactApprovalPayload(approval));
   });
 
@@ -143,6 +152,14 @@ export function approvalRoutes(db: Db) {
         requestedByAgentId: approval.requestedByAgentId,
         linkedIssueIds,
       },
+    });
+
+    await emitAudit({
+      req, db, companyId: approval.companyId,
+      action: "approval.approved",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type, approvedBy: req.actor.userId ?? "board" },
     });
 
     if (approval.requestedByAgentId) {
@@ -230,6 +247,14 @@ export function approvalRoutes(db: Db) {
       details: { type: approval.type },
     });
 
+    await emitAudit({
+      req, db, companyId: approval.companyId,
+      action: "approval.rejected",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type, rejectedBy: req.actor.userId ?? "board" },
+    });
+
     res.json(redactApprovalPayload(approval));
   });
 
@@ -257,6 +282,14 @@ export function approvalRoutes(db: Db) {
         entityType: "approval",
         entityId: approval.id,
         details: { type: approval.type },
+      });
+
+      await emitAudit({
+        req, db, companyId: approval.companyId,
+        action: "approval.revision_requested",
+        targetType: "approval",
+        targetId: approval.id,
+        metadata: { agentName: approval.type },
       });
 
       res.json(redactApprovalPayload(approval));
@@ -298,6 +331,15 @@ export function approvalRoutes(db: Db) {
       entityId: approval.id,
       details: { type: approval.type },
     });
+
+    await emitAudit({
+      req, db, companyId: approval.companyId,
+      action: "approval.resubmitted",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type },
+    });
+
     res.json(redactApprovalPayload(approval));
   });
 

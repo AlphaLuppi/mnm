@@ -21,6 +21,7 @@ import {
   agentService,
   accessService,
   approvalService,
+  emitAudit,
   heartbeatService,
   issueApprovalService,
   issueService,
@@ -586,6 +587,14 @@ export function agentRoutes(db: Db) {
       details: { revisionId },
     });
 
+    await emitAudit({
+      req, db, companyId: updated.companyId,
+      action: "agent.config_rollback",
+      targetType: "agent",
+      targetId: updated.id,
+      metadata: { revisionId },
+    });
+
     res.json(updated);
   });
 
@@ -649,6 +658,14 @@ export function agentRoutes(db: Db) {
       entityType: "agent",
       entityId: id,
       details: { taskKey: taskKey ?? null },
+    });
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.session_reset",
+      targetType: "agent",
+      targetId: id,
+      metadata: {},
     });
 
     res.json(state);
@@ -756,6 +773,14 @@ export function agentRoutes(db: Db) {
       }
     }
 
+    await emitAudit({
+      req, db, companyId,
+      action: "agent.hired",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { name: agent.name, adapterType: agent.adapterType },
+    });
+
     await logActivity(db, {
       companyId,
       actorType: actor.actorType,
@@ -836,6 +861,14 @@ export function agentRoutes(db: Db) {
       details: { name: agent.name, role: agent.role },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "agent.created",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { name: agent.name, adapterType: agent.adapterType },
+    });
+
     res.status(201).json(agent);
   });
 
@@ -878,6 +911,14 @@ export function agentRoutes(db: Db) {
       entityType: "agent",
       entityId: agent.id,
       details: req.body,
+    });
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.permissions_changed",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { permissions: req.body },
     });
 
     res.json(agent);
@@ -935,6 +976,14 @@ export function agentRoutes(db: Db) {
 
     const updatedAdapterConfig = asRecord(agent.adapterConfig) ?? {};
     const pathValue = asNonEmptyString(updatedAdapterConfig[adapterConfigKey]);
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.instructions_changed",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { path: pathValue ?? null },
+    });
 
     await logActivity(db, {
       companyId: agent.companyId,
@@ -1044,6 +1093,14 @@ export function agentRoutes(db: Db) {
       details: summarizeAgentUpdateDetails(patchData),
     });
 
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.updated",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { changedFields: Object.keys(patchData) },
+    });
+
     res.json(agent);
   });
 
@@ -1148,6 +1205,15 @@ export function agentRoutes(db: Db) {
       entityId: agent.id,
     });
 
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.deleted",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { name: agent.name },
+      severity: "warning",
+    });
+
     res.json({ ok: true });
   });
 
@@ -1177,6 +1243,14 @@ export function agentRoutes(db: Db) {
         entityType: "agent",
         entityId: agent.id,
         details: { keyId: key.id, name: key.name },
+      });
+
+      await emitAudit({
+        req, db, companyId: agent.companyId,
+        action: "agent.key_created",
+        targetType: "agent",
+        targetId: agent.id,
+        metadata: { keyType: key.name },
       });
     }
 
@@ -1319,6 +1393,14 @@ export function agentRoutes(db: Db) {
         adapterConfig: agent.adapterConfig,
       },
       config: runtimeConfig,
+    });
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.claude_login",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: {},
     });
 
     res.json(result);
