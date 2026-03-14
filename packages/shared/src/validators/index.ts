@@ -204,3 +204,11 @@ export {
   type UpdateCredentialProxyRule,
   type TestCredentialProxyRule,
 } from "./credential-proxy.js";
+
+// cont-s03-barrel-validators
+export {
+  mountPathsSchema,
+  mountValidateSchema,
+  type MountPathsInput,
+  type MountValidateInput,
+} from "./mount-allowlist.js";

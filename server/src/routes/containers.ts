@@ -2,11 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 import type { Db } from "@mnm/db";
 import { containerManagerService } from "../services/container-manager.js";
+import { mountAllowlistService } from "../services/mount-allowlist.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { badRequest } from "../errors.js";
 import type { ContainerStatus } from "@mnm/shared";
+import { mountPathsSchema, mountValidateSchema } from "@mnm/shared";
 
 // ---- Zod Schemas ----
 
@@ -16,6 +18,7 @@ const launchSchema = z.object({
   dockerImage: z.string().optional(),
   environmentVars: z.record(z.string()).optional(),
   timeout: z.number().int().positive().optional(),
+  mountPaths: z.array(z.string().min(1).max(4096)).optional(), // cont-s03-cm-validate
 });
 
 const stopSchema = z.object({
@@ -96,6 +99,7 @@ export function containerRoutes(db: Db) {
           dockerImage: parsed.data.dockerImage,
           environmentVars: parsed.data.environmentVars,
           timeout: parsed.data.timeout,
+          mountPaths: parsed.data.mountPaths,
         },
       );
 
@@ -268,6 +272,78 @@ export function containerRoutes(db: Db) {
       });
 
       res.status(201).json(profile);
+    },
+  );
+
+  // cont-s03-route-get-allowlist
+  // GET /companies/:companyId/containers/profiles/:profileId/mount-allowlist — get mount allowlist
+  router.get(
+    "/companies/:companyId/containers/profiles/:profileId/mount-allowlist",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, profileId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const allowlistSvc = mountAllowlistService(db);
+      const paths = await allowlistSvc.getEffectiveAllowlist(companyId as string, profileId as string);
+      res.json({ profileId, paths });
+    },
+  );
+
+  // cont-s03-route-put-allowlist
+  // PUT /companies/:companyId/containers/profiles/:profileId/mount-allowlist — update mount allowlist
+  router.put(
+    "/companies/:companyId/containers/profiles/:profileId/mount-allowlist",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, profileId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const parsed = mountPathsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
+      }
+
+      const allowlistSvc = mountAllowlistService(db);
+      const paths = await allowlistSvc.setAllowlist(companyId as string, profileId as string, parsed.data.paths);
+
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "container.mount_allowlist_updated",
+        targetType: "container_profile",
+        targetId: profileId as string,
+        metadata: { paths, count: paths.length },
+      });
+
+      res.json({ profileId, paths });
+    },
+  );
+
+  // cont-s03-route-validate
+  // POST /companies/:companyId/containers/mount-validate — validate mount paths against a profile
+  router.post(
+    "/companies/:companyId/containers/mount-validate",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const parsed = mountValidateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
+      }
+
+      const allowlistSvc = mountAllowlistService(db);
+      const allowedPaths = await allowlistSvc.getEffectiveAllowlist(companyId as string, parsed.data.profileId);
+      const batchResult = await allowlistSvc.validateAllMounts(parsed.data.paths, allowedPaths);
+
+      res.json({
+        profileId: parsed.data.profileId,
+        results: batchResult.results,
+        allValid: batchResult.valid,
+      });
     },
   );
 

@@ -37,3 +37,5 @@ export { getScopeProjectIds } from "./scope-filter.js";
 export { containerManagerService } from "./container-manager.js";
 export { credentialProxyService } from "./credential-proxy.js";
 export { credentialProxyRulesService } from "./credential-proxy-rules.js";
+// cont-s03-barrel-svc
+export { mountAllowlistService } from "./mount-allowlist.js";
