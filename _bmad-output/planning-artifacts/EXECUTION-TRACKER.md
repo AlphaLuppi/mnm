@@ -135,7 +135,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | SSO-S01 | Table SSO | DONE | fabcf71 | 0c29db9 | 9801762 | PASS (no fix) | 52/52 E2E pass, 90/90 TECH-06 + 29/29 TECH-07 regressions pass |
-| SSO-S02 | Better Auth SAML/OIDC | PENDING | | | | | |
+| SSO-S02 | Better Auth SAML/OIDC | DONE | a94815e | f27ca4e | b2998cd | PASS (no fix) | 65/65 E2E pass, 52/52 SSO-S01 + 13/13 MU-S06 + 119/119 TECH-06+07 regressions pass |
 | SSO-S03 | UI config SSO | PENDING | | | | | |
 | DASH-S01 | API dashboards | PENDING | | | | | |
 | DASH-S02 | DashboardCards UI | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 53 |
+| Stories DONE | 54 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 16 |
+| Stories PENDING | 15 |
 | Batch courant | 13 (in progress) |
-| Dernière story complétée | SSO-S01 |
+| Dernière story complétée | SSO-S02 |
 | Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
@@ -367,3 +367,7 @@
 | 2026-03-15 | SSO-S01 | Dev | Dev Agent | 0c29db9 | Schema enrichment (7 cols + 1 idx) + migration + types + validators + service 8 fns + 7 routes + barrel exports |
 | 2026-03-15 | SSO-S01 | QA | QA Agent | 9801762 | 52 Playwright E2E tests (file-content based) |
 | 2026-03-15 | SSO-S01 | Review | Review Agent | — | PASS — 52/52 E2E pass, 119/119 regressions (TECH-06+TECH-07), no fix needed |
+| 2026-03-15 | SSO-S02 | PM | PM Agent | a94815e | Story spec — Better Auth SAML/OIDC + 15 ACs + 34 data-testid + 65 test cases |
+| 2026-03-15 | SSO-S02 | Dev | Dev Agent | f27ca4e | SSO auth service (8 fns) + 6 public routes + 1 admin route + types (6) + validators (3) + barrel exports |
+| 2026-03-15 | SSO-S02 | QA | QA Agent | b2998cd | 65 Playwright E2E tests (file-content based) |
+| 2026-03-15 | SSO-S02 | Review | Review Agent | — | PASS — 65/65 E2E pass, 184/184 regressions (SSO-S01+MU-S06+TECH-06+TECH-07), no fix needed |
