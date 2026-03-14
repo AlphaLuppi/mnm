@@ -232,6 +232,13 @@
       "when": 1773487652247,
       "tag": "0033_minor_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1773741600000,
+      "tag": "0034_add_company_invitation_only",
+      "breakpoints": true
     }
   ]
 }

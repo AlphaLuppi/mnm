@@ -129,6 +129,18 @@ export function companyRoutes(db: Db) {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+
+    // If invitationOnly is being changed, fetch current value for audit
+    let oldInvitationOnly: boolean | undefined;
+    if (req.body.invitationOnly !== undefined) {
+      const current = await svc.getById(companyId);
+      if (!current) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      oldInvitationOnly = current.invitationOnly;
+    }
+
     const company = await svc.update(companyId, req.body);
     if (!company) {
       res.status(404).json({ error: "Company not found" });
@@ -143,6 +155,28 @@ export function companyRoutes(db: Db) {
       entityId: companyId,
       details: req.body,
     });
+
+    // Specific config_change audit when invitationOnly changes
+    if (
+      req.body.invitationOnly !== undefined &&
+      oldInvitationOnly !== undefined &&
+      req.body.invitationOnly !== oldInvitationOnly
+    ) {
+      await logActivity(db, {
+        companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "company.config_change",
+        entityType: "company",
+        entityId: companyId,
+        details: {
+          field: "invitationOnly",
+          oldValue: oldInvitationOnly,
+          newValue: req.body.invitationOnly,
+        },
+      });
+    }
+
     res.json(company);
   });
 

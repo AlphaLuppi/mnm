@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "invitation_only" boolean DEFAULT false NOT NULL;
