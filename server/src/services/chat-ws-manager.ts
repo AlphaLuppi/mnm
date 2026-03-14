@@ -338,6 +338,17 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
         }
 
         case "chat_message": {
+          // Check channel is still open (race condition: channel may close after WS connected)
+          const channel = await svc.getChannel(channelId);
+          if (!channel || channel.status === "closed") {
+            sendTo(socket, {
+              type: "error",
+              code: "CHANNEL_CLOSED",
+              message: "Channel is closed",
+            });
+            return;
+          }
+
           // Rate limit check
           const rl = checkRateLimit(actorId, channelId);
           if (!rl.allowed) {
