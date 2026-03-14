@@ -236,3 +236,15 @@ export type {
   ChatPipeStatus,
   ChatPipeAttachRequest,
 } from "./chat-ws.js";
+// DUAL-S01: Automation cursor types
+// dual-s01-barrel-types
+export {
+  AUTOMATION_CURSOR_POSITIONS,
+  AUTOMATION_CURSOR_LEVELS,
+} from "./automation-cursor.js";
+export type {
+  AutomationCursorPosition,
+  AutomationCursorLevel,
+  AutomationCursor,
+  EffectiveCursor,
+} from "./automation-cursor.js";

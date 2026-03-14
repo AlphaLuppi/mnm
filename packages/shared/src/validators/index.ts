@@ -220,3 +220,13 @@ export {
   type MountPathsInput,
   type MountValidateInput,
 } from "./mount-allowlist.js";
+
+// dual-s01-barrel-validators
+export {
+  setCursorSchema,
+  cursorFiltersSchema,
+  resolveCursorSchema,
+  type SetCursor,
+  type CursorFilters,
+  type ResolveCursor,
+} from "./automation-cursor.js";
