@@ -77,7 +77,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| ORCH-S02 | WorkflowEnforcer | PENDING | | | | | |
+| ORCH-S02 | WorkflowEnforcer | DONE | 3f02ffd | de158fd | f18b731 | de36ff5 | 51/51 E2E pass, fix: T38 import() regex + T44c enforce call idx |
 | ORCH-S03 | Validation HITL | PENDING | | | | | |
 | ORCH-S04 | API routes orchestrateur | PENDING | | | | | |
 | OBS-S02 | Service audit émission | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 25 |
+| Stories DONE | 26 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 44 |
-| Batch courant | 6 (complete) |
-| Dernière story complétée | CHAT-S02 |
+| Stories PENDING | 43 |
+| Batch courant | 7 (in progress) |
+| Dernière story complétée | ORCH-S02 |
 | Prochain batch débloqué | BATCH 7 |
 
 ---
