@@ -245,6 +245,10 @@ export const LIVE_EVENT_TYPES = [
   "enforcement.check_passed",
   "enforcement.check_failed",
   "enforcement.preprompts_injected",
+  // ORCH-S03: HITL events
+  "hitl.validation_requested",
+  "hitl.approved",
+  "hitl.rejected",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
