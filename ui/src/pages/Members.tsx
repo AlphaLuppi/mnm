@@ -10,6 +10,7 @@ import { relativeTime, cn } from "../lib/utils";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { EmptyState } from "../components/EmptyState";
 import { BulkInviteTab } from "../components/BulkInviteTab";
+import { RoleBadge } from "../components/RoleBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -431,25 +432,28 @@ function MemberRow({
 
       {/* Role */}
       <td className="px-4 py-2.5 hidden sm:table-cell">
-        <Select
-          value={member.businessRole}
-          onValueChange={(val) => onRoleChange(val as BusinessRole)}
-        >
-          <SelectTrigger
-            data-testid={`mu-s02-member-role-${member.id}`}
-            size="sm"
-            className="w-[120px] h-7 text-xs"
+        <div className="flex items-center gap-2">
+          <RoleBadge role={member.businessRole as BusinessRole} />
+          <Select
+            value={member.businessRole}
+            onValueChange={(val) => onRoleChange(val as BusinessRole)}
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {BUSINESS_ROLES.map((role) => (
-              <SelectItem key={role} value={role}>
-                {BUSINESS_ROLE_LABELS[role] ?? role}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              data-testid={`mu-s02-member-role-${member.id}`}
+              size="sm"
+              className="w-[120px] h-7 text-xs"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BUSINESS_ROLES.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {BUSINESS_ROLE_LABELS[role] ?? role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </td>
 
       {/* Status */}
