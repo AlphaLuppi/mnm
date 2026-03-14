@@ -165,3 +165,12 @@ export {
   type UpdateUserCompanyAccess,
   type UpdateMemberBusinessRole,
 } from "./access.js";
+
+export {
+  auditEventFiltersSchema,
+  auditExportFiltersSchema,
+  auditVerifySchema,
+  type AuditEventFilters,
+  type AuditExportFilters,
+  type AuditVerifyParams,
+} from "./audit.js";

@@ -159,12 +159,24 @@ export type {
   StageContext,
   TransitionRecord,
   OrchestratorEvent,
+  AuditActorType,
+  AuditSeverity,
+  AuditTargetType,
+  AuditAction,
+  AuditEventInput,
+  AuditEvent,
+  AuditListResult,
+  AuditVerifyResult,
 } from "./types/index.js";
 
 export {
   STAGE_STATES,
   WORKFLOW_STATES,
   STAGE_EVENTS,
+  AUDIT_ACTOR_TYPES,
+  AUDIT_SEVERITY_LEVELS,
+  AUDIT_TARGET_TYPES,
+  AUDIT_ACTIONS,
 } from "./types/index.js";
 
 export {
@@ -298,6 +310,12 @@ export {
   type ProjectMembershipRole,
   type AddProjectMember,
   type UpdateProjectMemberRole,
+  auditEventFiltersSchema,
+  auditExportFiltersSchema,
+  auditVerifySchema,
+  type AuditEventFilters,
+  type AuditExportFilters,
+  type AuditVerifyParams,
 } from "./validators/index.js";
 
 export {
