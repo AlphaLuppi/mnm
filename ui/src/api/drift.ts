@@ -1,4 +1,4 @@
-import type { DriftReport, DriftCheckRequest, DriftResolveRequest, DriftItem, DriftScanRequest, DriftScanStatus, DriftItemFilters } from "@mnm/shared";
+import type { DriftReport, DriftCheckRequest, DriftResolveRequest, DriftItem, DriftScanRequest, DriftScanStatus, DriftItemFilters, DriftAlert, DriftMonitorStatus, DriftMonitorConfig } from "@mnm/shared";
 import { api } from "./client";
 
 function withCompanyScope(path: string, companyId?: string) {
@@ -48,5 +48,54 @@ export const driftApi = {
   cancelScan: (projectId: string, companyId?: string) =>
     api.delete<{ cancelled: boolean }>(
       withCompanyScope(`${projectDriftPath(projectId)}/scan`, companyId),
+    ),
+};
+
+// DRIFT-S03: Execution drift alerts API
+
+function companyDriftPath(companyId: string) {
+  return `/companies/${encodeURIComponent(companyId)}/drift`;
+}
+
+export const driftAlertsApi = {
+  listAlerts: (companyId: string, filters?: {
+    severity?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    let url = `${companyDriftPath(companyId)}/alerts`;
+    const params = new URLSearchParams();
+    if (filters?.severity) params.set("severity", filters.severity);
+    if (filters?.limit != null) params.set("limit", String(filters.limit));
+    if (filters?.offset != null) params.set("offset", String(filters.offset));
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+    return api.get<{ data: DriftAlert[]; total: number }>(url);
+  },
+
+  resolveAlert: (companyId: string, alertId: string, body: {
+    resolution: "acknowledged" | "ignored" | "remediated";
+    note?: string;
+  }) =>
+    api.post<DriftAlert>(
+      `${companyDriftPath(companyId)}/alerts/${encodeURIComponent(alertId)}/resolve`,
+      body,
+    ),
+
+  getMonitoringStatus: (companyId: string) =>
+    api.get<DriftMonitorStatus>(
+      `${companyDriftPath(companyId)}/monitoring/status`,
+    ),
+
+  startMonitoring: (companyId: string, config?: Partial<DriftMonitorConfig>) =>
+    api.post<DriftMonitorStatus>(
+      `${companyDriftPath(companyId)}/monitoring/start`,
+      config ? { config } : {},
+    ),
+
+  stopMonitoring: (companyId: string) =>
+    api.post<DriftMonitorStatus>(
+      `${companyDriftPath(companyId)}/monitoring/stop`,
+      {},
     ),
 };
