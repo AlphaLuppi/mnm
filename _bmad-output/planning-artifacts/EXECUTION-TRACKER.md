@@ -39,7 +39,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| TECH-05 | RLS PostgreSQL 14 tables | PENDING | | | | | |
+| TECH-05 | RLS PostgreSQL 41 tables | DONE | e78bb21 | 39c6ecb | 39c6ecb | 7a0492b | 169/169 E2E pass, 41 tables RLS + tenant-context middleware, review fix: comment wording + test assertion |
 | RBAC-S01 | Fix hasPermission ⚠️ P0 | DONE | 8fe8b42 | 660c4d7 | dd9775b | PASS (no fix needed) | 26/26 E2E pass, scope logic secure, .strict() validated, all ACs verified |
 | RBAC-S03 | businessRole migration | PENDING | | | | | |
 | MU-S01 | API invitations email | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 8 |
+| Stories DONE | 9 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 61 |
+| Stories PENDING | 60 |
 | Batch courant | 3 |
-| Dernière story complétée | RBAC-S01 |
-| Prochain batch débloqué | BATCH 3 (TECH-05, RBAC-S03, MU-S01, MU-S05) |
+| Dernière story complétée | TECH-05 |
+| Prochain batch débloqué | BATCH 3 (RBAC-S03, MU-S01, MU-S05) |
 
 ---
 
@@ -207,3 +207,7 @@
 | 2026-03-14 | RBAC-S01 | Dev | Dev Agent | 660c4d7 | Fix hasPermission() scope logic + requirePermission middleware + scopeSchema |
 | 2026-03-14 | RBAC-S01 | QA | QA Agent | dd9775b | 26 Playwright E2E tests (file-content based) |
 | 2026-03-14 | RBAC-S01 | Review | Review Agent | — | PASS — scope logic secure, .strict() validated, 26/26 E2E pass, no regressions |
+| 2026-03-14 | TECH-05 | PM | PM Agent | e78bb21 | Story spec with data-test-id — 41 tables RLS (up from 14) |
+| 2026-03-14 | TECH-05 | Dev | Dev Agent | 39c6ecb | Migration 0030 + tenant-context middleware + app.ts + health RLS status |
+| 2026-03-14 | TECH-05 | QA | QA Agent | 39c6ecb | 169 Playwright E2E tests (file-content based, included in Dev commit) |
+| 2026-03-14 | TECH-05 | Review | Review Agent | 7a0492b | Fix: comment wording inflated regex counts + test assertion. 169/169 pass |
