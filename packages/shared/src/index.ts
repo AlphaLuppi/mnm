@@ -223,6 +223,14 @@ export type {
   CreateCredentialProxyRuleInput,
   UpdateCredentialProxyRuleInput,
   CredentialProxyTestResult,
+  // CONT-S03: Mount allowlist types
+  MountViolationCode,
+  MountViolation,
+  MountValidationResult,
+  MountValidationBatchResult,
+  MountAllowlistUpdatePayload,
+  MountValidateRequest,
+  MountValidateResponse,
 } from "./types/index.js";
 
 export {
@@ -240,6 +248,8 @@ export {
   // CONT-S05: Enriched container constants
   CONTAINER_NETWORK_MODES,
   CONTAINER_HEALTH_CHECK_STATUSES,
+  // CONT-S03: Mount allowlist constants
+  MOUNT_VIOLATION_CODES,
 } from "./types/index.js";
 
 export {
@@ -404,6 +414,11 @@ export {
   type CreateCredentialProxyRule,
   type UpdateCredentialProxyRule,
   type TestCredentialProxyRule,
+  // CONT-S03: Mount allowlist validators
+  mountPathsSchema,
+  mountValidateSchema,
+  type MountPathsInput,
+  type MountValidateInput,
 } from "./validators/index.js";
 
 export {

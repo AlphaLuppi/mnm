@@ -184,6 +184,19 @@ export type {
   UpdateCredentialProxyRuleInput,
   CredentialProxyTestResult,
 } from "./credential-proxy.js";
+// cont-s03-barrel-types
+export {
+  MOUNT_VIOLATION_CODES,
+} from "./mount-allowlist.js";
+export type {
+  MountViolationCode,
+  MountViolation,
+  MountValidationResult,
+  MountValidationBatchResult,
+  MountAllowlistUpdatePayload,
+  MountValidateRequest,
+  MountValidateResponse,
+} from "./mount-allowlist.js";
 export type {
   ChatChannelStatus,
   ChatSenderType,
