@@ -28,3 +28,5 @@ export { automationCursorRoutes } from "./automation-cursors.js";
 export { a2aRoutes } from "./a2a.js";
 // sso-s01-barrel-route
 export { ssoRoutes } from "./sso.js";
+// sso-s02-barrel-route
+export { ssoAuthRoutes } from "./sso-auth.js";

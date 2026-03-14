@@ -281,6 +281,14 @@ export type {
   SsoConfiguration,
   CreateSsoConfigurationInput,
   UpdateSsoConfigurationInput,
+  // SSO-S02: SSO auth flow types
+  // sso-s02-barrel-shared
+  SsoLoginInitiation,
+  SsoDiscoverResult,
+  SsoAuthResult,
+  SsoSamlConfig,
+  SsoOidcConfig,
+  SsoMetadataSyncResult,
 } from "./types/index.js";
 
 export {
@@ -524,6 +532,14 @@ export {
   updateSsoConfigurationSchema,
   type CreateSsoConfiguration,
   type UpdateSsoConfiguration,
+  // SSO-S02: SSO auth validators
+  // sso-s02-barrel-validators-shared
+  ssoDiscoverSchema,
+  ssoSamlConfigSchema,
+  ssoOidcConfigSchema,
+  type SsoDiscover,
+  type SsoSamlConfigInput,
+  type SsoOidcConfigInput,
 } from "./validators/index.js";
 
 export {

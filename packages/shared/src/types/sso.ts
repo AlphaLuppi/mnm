@@ -48,3 +48,53 @@ export interface UpdateSsoConfigurationInput {
   entityId?: string;
   certificate?: string;
 }
+
+// sso-s02-type-login-initiation
+export interface SsoLoginInitiation {
+  provider: SsoProvider;
+  companyId: string;
+  loginUrl: string;
+  state?: string;
+}
+
+// sso-s02-type-discover-result
+export interface SsoDiscoverResult {
+  provider: SsoProvider | null;
+  companyId?: string;
+  loginUrl?: string;
+}
+
+// sso-s02-type-auth-result
+export interface SsoAuthResult {
+  userId: string;
+  email: string;
+  name: string | null;
+  isNewUser: boolean;
+  companyId: string;
+  provider: SsoProvider;
+}
+
+// sso-s02-type-saml-config
+export interface SsoSamlConfig {
+  entityId: string;
+  acsUrl: string;
+  metadataUrl?: string;
+  certificate?: string;
+  signatureAlgorithm?: string;
+}
+
+// sso-s02-type-oidc-config
+export interface SsoOidcConfig {
+  clientId: string;
+  clientSecret: string;
+  discoveryUrl: string;
+  redirectUri: string;
+  scopes?: string[];
+}
+
+// sso-s02-type-metadata-sync
+export interface SsoMetadataSyncResult {
+  entityId: string | null;
+  certificate: string | null;
+  endpoints: Record<string, string>;
+}

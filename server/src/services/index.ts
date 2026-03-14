@@ -57,3 +57,5 @@ export { a2aBusService } from "./a2a-bus.js";
 export { a2aPermissionsService } from "./a2a-permissions.js";
 // sso-s01-barrel-svc
 export { ssoConfigurationService } from "./sso-configurations.js";
+// sso-s02-barrel-svc
+export { ssoAuthService } from "./sso-auth.js";
