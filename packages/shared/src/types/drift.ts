@@ -4,6 +4,65 @@ export type DriftRecommendation = "update_spec" | "recenter_code";
 export type DriftDecision = "accepted" | "rejected" | "pending";
 export type DriftReportStatus = "in_progress" | "completed" | "failed" | "cancelled";
 
+// DRIFT-S02: Drift monitor types
+
+/** Types of deviations detected by the drift monitor */
+export type DriftAlertType =
+  | "time_exceeded"       // stage exceeds max duration
+  | "stagnation"          // no activity for too long
+  | "retry_excessive"     // too many retries
+  | "stage_skipped"       // stage skipped without execution
+  | "sequence_violation"; // stage started out of sequence
+
+/** Enriched drift alert (API view) */
+export interface DriftAlert {
+  id: string;
+  companyId: string;
+  projectId: string;
+  workflowInstanceId: string;
+  stageId: string;
+  alertType: DriftAlertType;
+  severity: DriftSeverity;
+  message: string;
+  /** Additional metadata (duration, retryCount, etc.) */
+  metadata: Record<string, unknown>;
+  /** Resolution status */
+  resolved: boolean;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolution?: "acknowledged" | "ignored" | "remediated";
+  resolutionNote?: string;
+  createdAt: string;
+}
+
+/** Drift monitor configuration */
+export interface DriftMonitorConfig {
+  /** Max duration per stage before alert (ms). Default: 900_000 (15 min) */
+  defaultStageTimeoutMs: number;
+  /** Duration without activity before stagnation (ms). Default: 1_800_000 (30 min) */
+  stagnationTimeoutMs: number;
+  /** Retry threshold before alert. Default: 2 */
+  retryAlertThreshold: number;
+  /** Periodic check interval (ms). Default: 60_000 (1 min) */
+  checkIntervalMs: number;
+  /** Monitoring active. Default: true */
+  enabled: boolean;
+}
+
+/** Monitoring status for a company */
+export interface DriftMonitorStatus {
+  /** Monitoring active for this company */
+  active: boolean;
+  /** Number of active unresolved alerts */
+  activeAlertCount: number;
+  /** Monitoring start time */
+  startedAt: string | null;
+  /** Last check time */
+  lastCheckAt: string | null;
+  /** Current configuration */
+  config: DriftMonitorConfig;
+}
+
 export interface DriftItem {
   id: string;
   severity: DriftSeverity;

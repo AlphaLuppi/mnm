@@ -11,8 +11,10 @@ import {
   cancelDriftScan,
 } from "../services/drift.js";
 import { driftPersistenceService } from "../services/drift-persistence.js";
+import { driftMonitorService } from "../services/drift-monitor.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
 
 const driftCheckBody = z.object({
@@ -206,6 +208,115 @@ export function driftRoutes(db: Db) {
 
     res.json(updated);
   });
+
+  // ========================================================
+  // DRIFT-S02: Drift monitor routes
+  // ========================================================
+
+  const monitor = driftMonitorService(db);
+
+  const alertResolveBody = z.object({
+    resolution: z.enum(["acknowledged", "ignored", "remediated"]),
+    note: z.string().optional(),
+  });
+
+  // GET /companies/:companyId/drift/alerts — list active drift alerts
+  router.get("/companies/:companyId/drift/alerts", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const severity = req.query.severity as string | undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const offset = req.query.offset ? Number(req.query.offset) : undefined;
+
+    const result = await monitor.getDriftAlerts(companyId, {
+      severity: severity as any,
+      limit,
+      offset,
+    });
+    res.json(result);
+  });
+
+  // POST /companies/:companyId/drift/alerts/:alertId/resolve — resolve a drift alert
+  router.post("/companies/:companyId/drift/alerts/:alertId/resolve", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const alertId = req.params.alertId as string;
+    assertCompanyAccess(req, companyId);
+
+    const parsed = alertResolveBody.safeParse(req.body);
+    if (!parsed.success) {
+      throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
+    }
+
+    const actorInfo = getActorInfo(req);
+    const resolved = await monitor.resolveAlert(
+      companyId,
+      alertId,
+      actorInfo.actorId,
+      parsed.data.resolution,
+      parsed.data.note,
+    );
+
+    if (!resolved) {
+      throw notFound("Drift alert not found");
+    }
+
+    // Emit audit via the route-level emitAudit (with req context)
+    emitAudit({
+      req,
+      db,
+      companyId,
+      action: "drift.alert_resolved",
+      targetType: "drift_alert",
+      targetId: alertId,
+      metadata: {
+        resolution: parsed.data.resolution,
+        note: parsed.data.note,
+        severity: resolved.severity,
+        alertType: resolved.alertType,
+      },
+      severity: "info",
+    });
+
+    res.json(resolved);
+  });
+
+  // GET /companies/:companyId/drift/monitoring/status — get monitoring status
+  router.get("/companies/:companyId/drift/monitoring/status", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const status = monitor.getMonitoringStatus(companyId);
+    res.json(status);
+  });
+
+  // POST /companies/:companyId/drift/monitoring/start — start monitoring
+  router.post(
+    "/companies/:companyId/drift/monitoring/start",
+    requirePermission(db, "workflows:enforce"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const config = req.body?.config as Record<string, unknown> | undefined;
+      const status = await monitor.startMonitoring(companyId, config as any);
+      res.json(status);
+    },
+  );
+
+  // POST /companies/:companyId/drift/monitoring/stop — stop monitoring
+  router.post(
+    "/companies/:companyId/drift/monitoring/stop",
+    requirePermission(db, "workflows:enforce"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      await monitor.stopMonitoring(companyId);
+      const status = monitor.getMonitoringStatus(companyId);
+      res.json(status);
+    },
+  );
 
   return router;
 }

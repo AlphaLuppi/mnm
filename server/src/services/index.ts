@@ -32,3 +32,4 @@ export { emitAudit } from "./audit-emitter.js";
 export { chatService } from "./chat.js";
 export { createChatWsManager, type ChatWsManager } from "./chat-ws-manager.js";
 export { hitlValidationService } from "./hitl-validation.js";
+export { driftMonitorService } from "./drift-monitor.js";

@@ -249,6 +249,11 @@ export const LIVE_EVENT_TYPES = [
   "hitl.validation_requested",
   "hitl.approved",
   "hitl.rejected",
+  // DRIFT-S02: Drift monitor events
+  "drift.alert_created",
+  "drift.alert_resolved",
+  "drift.monitoring_started",
+  "drift.monitoring_stopped",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
