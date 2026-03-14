@@ -121,3 +121,26 @@ export interface A2APermissionCheckResult {
   reason: "explicit_rule" | "default_policy";
   defaultPolicy: A2ADefaultPolicy;
 }
+
+// =============================================
+// A2A-S03: Audit A2A — All audited A2A actions
+// =============================================
+
+// a2a-s03-audit-actions
+export const A2A_AUDIT_ACTIONS = [
+  "a2a.message_sent",
+  "a2a.message_responded",
+  "a2a.message_expired",
+  "a2a.message_cancelled",
+  "a2a.permission_allowed",
+  "a2a.permission_denied",
+  "a2a.cycle_detected",
+  "a2a.chain_depth_exceeded",
+  "a2a.permission_rule_created",
+  "a2a.permission_rule_updated",
+  "a2a.permission_rule_deleted",
+  "a2a.default_policy_updated",
+  "a2a.stats_queried",
+] as const;
+
+export type A2AAuditAction = (typeof A2A_AUDIT_ACTIONS)[number];

@@ -206,6 +206,26 @@ export function a2aBusService(db: Db) {
       });
     }
 
+    // a2a-s03-audit-permission-allowed
+    await audit.emit({
+      companyId,
+      actorId: senderId,
+      actorType: "agent",
+      action: "a2a.permission_allowed",
+      targetType: "a2a_message",
+      targetId: input.receiverId,
+      metadata: {
+        senderId,
+        senderRole,
+        receiverId: input.receiverId,
+        receiverRole,
+        matchedRuleId: permResult.matchedRuleId,
+        reason: permResult.reason,
+        defaultPolicy: permResult.defaultPolicy,
+      },
+      severity: "info",
+    });
+
     const messageType = input.messageType ?? "request";
     const ttlSeconds = input.ttlSeconds ?? DEFAULT_TTL_SECONDS;
     const chainId = input.chainId ?? randomUUID();
@@ -304,7 +324,7 @@ export function a2aBusService(db: Db) {
       },
     });
 
-    // Audit
+    // a2a-s03-audit-enriched-sent
     await audit.emit({
       companyId,
       actorId: senderId,
@@ -318,6 +338,8 @@ export function a2aBusService(db: Db) {
         messageType: message.messageType,
         chainDepth: message.chainDepth,
         ttlSeconds: message.ttlSeconds,
+        contentSize: Object.keys(input.content).length,
+        expiresAt: message.expiresAt,
       },
       severity: "info",
     });
@@ -408,7 +430,8 @@ export function a2aBusService(db: Db) {
       },
     });
 
-    // Audit
+    // a2a-s03-audit-enriched-responded
+    const responseTimeMs = now.getTime() - original.createdAt.getTime();
     await audit.emit({
       companyId,
       actorId: senderId,
@@ -420,6 +443,7 @@ export function a2aBusService(db: Db) {
         originalMessageId: messageId,
         chainId: response.chainId,
         chainDepth: response.chainDepth,
+        responseTimeMs,
       },
       severity: "info",
     });
@@ -607,6 +631,25 @@ export function a2aBusService(db: Db) {
           type: "a2a.message_expired",
           payload: { expiredCount: messages.length, messageIds: messages.map((m) => m.id) },
         });
+
+        // a2a-s03-audit-expired
+        for (const msg of messages) {
+          await audit.emit({
+            companyId: cid,
+            actorId: "system",
+            actorType: "system",
+            action: "a2a.message_expired",
+            targetType: "a2a_message",
+            targetId: msg.id,
+            metadata: {
+              chainId: msg.chainId,
+              senderId: msg.senderId,
+              receiverId: msg.receiverId,
+              ttlSeconds: msg.ttlSeconds,
+            },
+            severity: "warning",
+          });
+        }
       }
 
       logger.info({ expiredCount: expired.length }, "A2A messages expired by TTL cleanup");

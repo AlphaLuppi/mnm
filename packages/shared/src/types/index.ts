@@ -260,6 +260,9 @@ export {
   // A2A-S02: Permission types
   // a2a-s02-barrel-types
   A2A_DEFAULT_POLICIES,
+  // A2A-S03: Audit A2A
+  // a2a-s03-barrel-types
+  A2A_AUDIT_ACTIONS,
 } from "./a2a.js";
 export type {
   A2AMessageType,
@@ -272,4 +275,6 @@ export type {
   A2ADefaultPolicy,
   A2APermissionRule,
   A2APermissionCheckResult,
+  // A2A-S03: Audit A2A type
+  A2AAuditAction,
 } from "./a2a.js";
