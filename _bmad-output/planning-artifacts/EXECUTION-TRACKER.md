@@ -127,7 +127,7 @@
 | COMP-S02 | Kill+relance | DONE | 08a5424 | f35a77f | edc95c0 | PASS (no fix) | 38/38 E2E pass, 135/135 regressions pass (COMP-S01 + CONT-S01) |
 | A2A-S02 | Permissions A2A | DONE | 5cb4e6f | 13542d8 | a5f54c6 | PASS (no fix) | 55/55 E2E pass, 242/242 regressions pass (A2A-S01+COMP-S02+RBAC-S04) |
 | A2A-S03 | Audit A2A | DONE | 6b77c94 | ad164b7 | 737a60f | PASS (no fix) | 45/45 E2E pass, 214/214 regressions pass (A2A-S01+A2A-S02+OBS-S01) |
-| DUAL-S02 | UI curseur | PENDING | | | | | |
+| DUAL-S02 | UI curseur | DONE | d5d0670 | bd868c2 | 5c18c33 | PASS (no fix) | 64/64 E2E pass, 259/259 regressions pass (DUAL-S01+RBAC-S05+CONT-S06) |
 | DUAL-S03 | Enforcement curseur | PENDING | | | | | |
 
 ### BATCH 13 — Enterprise (← divers)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 50 |
+| Stories DONE | 51 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 19 |
+| Stories PENDING | 18 |
 | Batch courant | 12 (in progress) |
-| Dernière story complétée | A2A-S03 |
-| Prochain batch débloqué | BATCH 12 (DUAL-S02, DUAL-S03) |
+| Dernière story complétée | DUAL-S02 |
+| Prochain batch débloqué | BATCH 12 (DUAL-S03) |
 
 ---
 
@@ -355,3 +355,7 @@
 | 2026-03-15 | A2A-S03 | Dev | Dev Agent | ad164b7 | audit.emit in cleanupExpired + permission_allowed + enriched sent/responded metadata + stats audit route + A2A_AUDIT_ACTIONS constant |
 | 2026-03-15 | A2A-S03 | QA | QA Agent | 737a60f | 45 Playwright E2E tests (file-content based) |
 | 2026-03-15 | A2A-S03 | Review | Review Agent | — | PASS — 45/45 E2E pass, 214/214 regressions (A2A-S01+A2A-S02+OBS-S01), no fix needed |
+| 2026-03-15 | DUAL-S02 | PM | PM Agent | d5d0670 | Story spec — UI curseur + 12 ACs + 38 data-testid + 64 test cases |
+| 2026-03-15 | DUAL-S02 | Dev | Dev Agent | bd868c2 | API client + api.put + query keys + CursorPositionBadge + CursorHierarchyChain + AutomationCursors page + route + sidebar |
+| 2026-03-15 | DUAL-S02 | QA | QA Agent | 5c18c33 | 64 Playwright E2E tests (file-content based) |
+| 2026-03-15 | DUAL-S02 | Review | Review Agent | — | PASS — 64/64 E2E pass, 259/259 regressions (DUAL-S01+RBAC-S05+CONT-S06), no fix needed |
