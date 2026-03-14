@@ -128,7 +128,7 @@ test.describe("Group 2: PATCH member status endpoint", () => {
     const routeIdx = content.indexOf("members/:memberId/status");
     expect(routeIdx).toBeGreaterThan(-1);
     const nearbyContent = content.slice(routeIdx, routeIdx + 800);
-    expect(nearbyContent).toMatch(/\.update\s*\(\s*companyMemberships\s*\)/);
+    expect(nearbyContent).toMatch(/updateMemberStatus/);
     expect(nearbyContent).toContain("status");
   });
 
