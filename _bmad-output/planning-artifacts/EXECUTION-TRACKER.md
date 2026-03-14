@@ -61,7 +61,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | RBAC-S04 | Enforcement 22 routes | DONE | 0d96835 | 8c0bd97 | 29edcdd | 4aa1f37 | 81/81 E2E pass, fix: enriched 403 details in access.ts + issues.ts |
 | RBAC-S05 | Navigation masquée | DONE | db62198 | 20fca35 | cdbd940 | 3f7d649 | 134/134 E2E pass, fix: test regex + MU-S02 route wrapper compat |
-| RBAC-S06 | UI admin matrice permissions | PENDING | | | | | |
+| RBAC-S06 | UI admin matrice permissions | DONE | 76013b2 | e15d7c1 | 97d2346 | ce670c4 | 144/144 E2E pass, fix: dynamic data-testid pattern in tests |
 
 ### BATCH 6 — Orchestrateur + Scoping (← RBAC-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 19 |
+| Stories DONE | 20 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 50 |
-| Batch courant | 5 |
-| Dernière story complétée | RBAC-S05 |
-| Prochain batch débloqué | BATCH 5 (RBAC-S06) |
+| Stories PENDING | 49 |
+| Batch courant | 6 |
+| Dernière story complétée | RBAC-S06 |
+| Prochain batch débloqué | BATCH 6 (ORCH-S01, PROJ-S01, OBS-S01, CHAT-S01, CHAT-S02) |
 
 ---
 
@@ -248,3 +248,7 @@
 | 2026-03-14 | RBAC-S05 | Dev | Dev Agent | 20fca35 | usePermissions hook + RequirePermission + Sidebar/CommandPalette masking + route protection |
 | 2026-03-14 | RBAC-S05 | QA | QA Agent | cdbd940 | 134 Playwright E2E tests (file-content based) |
 | 2026-03-14 | RBAC-S05 | Review | Review Agent | 3f7d649 | Fix: 4 test regex + MU-S02 route wrapper compat. 134/134 pass |
+| 2026-03-14 | RBAC-S06 | PM | PM Agent | 76013b2 | Story spec — admin matrice permissions + 73 data-testid + 15 ACs |
+| 2026-03-14 | RBAC-S06 | Dev | Dev Agent | e15d7c1 | AdminRoles page + PermissionMatrix + RoleOverviewCard + route + sidebar |
+| 2026-03-14 | RBAC-S06 | QA | QA Agent | 97d2346 | 144 Playwright E2E tests (file-content based) |
+| 2026-03-14 | RBAC-S06 | Review | Review Agent | ce670c4 | Fix: dynamic data-testid patterns in tests. 144/144 pass |
