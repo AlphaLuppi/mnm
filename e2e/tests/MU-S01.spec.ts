@@ -73,23 +73,24 @@ test.describe("Group 1: Schema — invites table has targetEmail", () => {
 // ─── Group 2: Migration ─────────────────────────────────────────────────────
 
 test.describe("Group 2: Migration for target_email", () => {
-  test("a migration file 0032_* exists in packages/db/src/migrations/", async () => {
+  test("a migration file for target_email exists in packages/db/src/migrations/", async () => {
     const files = await readdir(MIGRATIONS_DIR);
-    const migration0032 = files.filter(
-      (f) => f.startsWith("0032") && f.endsWith(".sql"),
+    // The target_email migration is 0033_minor_mephisto.sql (drizzle generated)
+    const targetEmailMigration = files.filter(
+      (f) => f.startsWith("0033") && f.endsWith(".sql"),
     );
-    expect(migration0032.length).toBeGreaterThanOrEqual(1);
+    expect(targetEmailMigration.length).toBeGreaterThanOrEqual(1);
   });
 
   test("migration SQL contains ALTER TABLE or CREATE for target_email", async () => {
     const files = await readdir(MIGRATIONS_DIR);
-    const migration0032 = files.find(
-      (f) => f.startsWith("0032") && f.endsWith(".sql"),
+    const targetEmailMigration = files.find(
+      (f) => f.startsWith("0033") && f.endsWith(".sql"),
     );
-    expect(migration0032).toBeTruthy();
+    expect(targetEmailMigration).toBeTruthy();
 
     const content = await readFile(
-      resolve(MIGRATIONS_DIR, migration0032!),
+      resolve(MIGRATIONS_DIR, targetEmailMigration!),
       "utf-8",
     );
     // Should reference target_email column
@@ -98,15 +99,16 @@ test.describe("Group 2: Migration for target_email", () => {
     expect(content).toMatch(/ALTER\s+TABLE|CREATE/i);
   });
 
-  test("migration journal has entry for 0032", async () => {
+  test("migration journal has entry for target_email migration", async () => {
     const journalContent = await readFile(JOURNAL, "utf-8");
     const journal = JSON.parse(journalContent);
-    const entry0032 = journal.entries.find(
+    // The migration has idx=32 but tag=0033_minor_mephisto (drizzle naming)
+    const targetEntry = journal.entries.find(
       (e: { idx: number; tag: string }) =>
-        e.idx === 32 || e.tag.startsWith("0032"),
+        e.tag.startsWith("0033"),
     );
-    expect(entry0032).toBeTruthy();
-    expect(entry0032.tag).toMatch(/^0032/);
+    expect(targetEntry).toBeTruthy();
+    expect(targetEntry.tag).toMatch(/^0033/);
   });
 });
 
