@@ -244,4 +244,11 @@ export {
   type SendA2AMessage,
   type RespondA2AMessage,
   type A2AMessageFiltersInput,
+  // a2a-s02-barrel-validators
+  createA2APermissionRuleSchema,
+  updateA2APermissionRuleSchema,
+  updateA2ADefaultPolicySchema,
+  type CreateA2APermissionRule,
+  type UpdateA2APermissionRule,
+  type UpdateA2ADefaultPolicy,
 } from "./a2a.js";

@@ -37,3 +37,42 @@ export const a2aMessageFiltersSchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type A2AMessageFiltersInput = z.infer<typeof a2aMessageFiltersSchema>;
+
+// =============================================
+// A2A-S02: Permission rule validators
+// =============================================
+
+import { A2A_DEFAULT_POLICIES } from "../types/a2a.js";
+import { AGENT_ROLES } from "../constants.js";
+
+// a2a-s02-validator-create-rule
+export const createA2APermissionRuleSchema = z.object({
+  sourceAgentId: z.string().uuid().nullable().optional(),
+  sourceAgentRole: z.string().nullable().optional(),
+  targetAgentId: z.string().uuid().nullable().optional(),
+  targetAgentRole: z.string().nullable().optional(),
+  allowed: z.boolean().default(true),
+  bidirectional: z.boolean().default(false),
+  priority: z.number().int().min(0).max(1000).default(0),
+  description: z.string().max(500).nullable().optional(),
+});
+export type CreateA2APermissionRule = z.infer<typeof createA2APermissionRuleSchema>;
+
+// a2a-s02-validator-update-rule
+export const updateA2APermissionRuleSchema = z.object({
+  sourceAgentId: z.string().uuid().nullable().optional(),
+  sourceAgentRole: z.string().nullable().optional(),
+  targetAgentId: z.string().uuid().nullable().optional(),
+  targetAgentRole: z.string().nullable().optional(),
+  allowed: z.boolean().optional(),
+  bidirectional: z.boolean().optional(),
+  priority: z.number().int().min(0).max(1000).optional(),
+  description: z.string().max(500).nullable().optional(),
+});
+export type UpdateA2APermissionRule = z.infer<typeof updateA2APermissionRuleSchema>;
+
+// a2a-s02-validator-default-policy
+export const updateA2ADefaultPolicySchema = z.object({
+  policy: z.enum(A2A_DEFAULT_POLICIES),
+});
+export type UpdateA2ADefaultPolicy = z.infer<typeof updateA2ADefaultPolicySchema>;

@@ -264,6 +264,11 @@ export type {
   A2AChainInfo,
   A2AStats,
   A2AMessageFilters,
+  // A2A-S02: A2A Permission types
+  // a2a-s02-barrel-shared
+  A2ADefaultPolicy,
+  A2APermissionRule,
+  A2APermissionCheckResult,
 } from "./types/index.js";
 
 export {
@@ -292,6 +297,8 @@ export {
   // A2A-S01: A2A Bus constants
   A2A_MESSAGE_TYPES,
   A2A_MESSAGE_STATUSES,
+  // A2A-S02: A2A Permission constants
+  A2A_DEFAULT_POLICIES,
 } from "./types/index.js";
 
 export {
@@ -486,6 +493,14 @@ export {
   type SendA2AMessage,
   type RespondA2AMessage,
   type A2AMessageFiltersInput,
+  // A2A-S02: A2A Permission validators
+  // a2a-s02-barrel-validators-shared
+  createA2APermissionRuleSchema,
+  updateA2APermissionRuleSchema,
+  updateA2ADefaultPolicySchema,
+  type CreateA2APermissionRule,
+  type UpdateA2APermissionRule,
+  type UpdateA2ADefaultPolicy,
 } from "./validators/index.js";
 
 export {
