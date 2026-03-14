@@ -258,6 +258,17 @@ export function a2aRoutes(db: Db) {
 
       const stats = await svc.getStats(companyId as string);
 
+      // a2a-s03-route-audit-stats
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "a2a.stats_queried",
+        targetType: "a2a_stats",
+        targetId: companyId as string,
+        metadata: { totalMessages: stats.totalMessages, pendingCount: stats.pendingCount },
+      });
+
       res.json(stats);
     },
   );
