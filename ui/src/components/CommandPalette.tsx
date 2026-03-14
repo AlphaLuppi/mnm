@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
+import { usePermissions } from "../hooks/usePermissions";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
@@ -28,6 +29,9 @@ import {
   History,
   SquarePen,
   Plus,
+  Settings,
+  Users,
+  Workflow,
 } from "lucide-react";
 import { Identity } from "./Identity";
 import { agentUrl, projectUrl } from "../lib/utils";
@@ -39,6 +43,7 @@ export function CommandPalette() {
   const { selectedCompanyId } = useCompany();
   const { openNewIssue, openNewAgent } = useDialog();
   const { isMobile, setSidebarOpen } = useSidebar();
+  const { hasPermission } = usePermissions();
   const searchQuery = query.trim();
 
   useEffect(() => {
@@ -96,6 +101,18 @@ export function CommandPalette() {
     [issues, searchedIssues, searchQuery],
   );
 
+  // Permission checks for command palette actions
+  const canCreateIssue = hasPermission("stories:create");
+  const canCreateAgent = hasPermission("agents:create");
+  const canCreateProject = hasPermission("projects:create");
+  const canCreateWorkflow = hasPermission("workflows:create");
+  const canInviteMember = hasPermission("users:invite");
+  const canViewSettings = hasPermission("company:manage_settings");
+  const canViewActivity = hasPermission("audit:read");
+  const canViewCosts = hasPermission("dashboard:view");
+
+  const hasAnyAction = canCreateIssue || canCreateAgent || canCreateProject;
+
   return (
     <CommandDialog open={open} onOpenChange={(v) => {
         setOpen(v);
@@ -109,31 +126,62 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        <CommandGroup heading="Actions">
-          <CommandItem
-            onSelect={() => {
-              setOpen(false);
-              openNewIssue();
-            }}
-          >
-            <SquarePen className="mr-2 h-4 w-4" />
-            Create new issue
-            <span className="ml-auto text-xs text-muted-foreground">C</span>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => {
-              setOpen(false);
-              openNewAgent();
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create new agent
-          </CommandItem>
-          <CommandItem onSelect={() => go("/projects")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create new project
-          </CommandItem>
-        </CommandGroup>
+        {hasAnyAction && (
+          <CommandGroup heading="Actions">
+            {canCreateIssue && (
+              <CommandItem
+                data-testid="rbac-s05-cmd-new-issue"
+                onSelect={() => {
+                  setOpen(false);
+                  openNewIssue();
+                }}
+              >
+                <SquarePen className="mr-2 h-4 w-4" />
+                Create new issue
+                <span className="ml-auto text-xs text-muted-foreground">C</span>
+              </CommandItem>
+            )}
+            {canCreateAgent && (
+              <CommandItem
+                data-testid="rbac-s05-cmd-new-agent"
+                onSelect={() => {
+                  setOpen(false);
+                  openNewAgent();
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create new agent
+              </CommandItem>
+            )}
+            {canCreateProject && (
+              <CommandItem
+                data-testid="rbac-s05-cmd-new-project"
+                onSelect={() => go("/projects")}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create new project
+              </CommandItem>
+            )}
+            {canCreateWorkflow && (
+              <CommandItem
+                data-testid="rbac-s05-cmd-new-workflow"
+                onSelect={() => go("/workflows/new")}
+              >
+                <Workflow className="mr-2 h-4 w-4" />
+                Create new workflow
+              </CommandItem>
+            )}
+            {canInviteMember && (
+              <CommandItem
+                data-testid="rbac-s05-cmd-invite-member"
+                onSelect={() => go("/members")}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Invite member
+              </CommandItem>
+            )}
+          </CommandGroup>
+        )}
 
         <CommandSeparator />
 
@@ -154,6 +202,12 @@ export function CommandPalette() {
             <Hexagon className="mr-2 h-4 w-4" />
             Projects
           </CommandItem>
+          {canCreateWorkflow && (
+            <CommandItem onSelect={() => go("/workflows")}>
+              <Workflow className="mr-2 h-4 w-4" />
+              Workflows
+            </CommandItem>
+          )}
           <CommandItem onSelect={() => go("/goals")}>
             <Target className="mr-2 h-4 w-4" />
             Goals
@@ -162,14 +216,24 @@ export function CommandPalette() {
             <Bot className="mr-2 h-4 w-4" />
             Agents
           </CommandItem>
-          <CommandItem onSelect={() => go("/costs")}>
-            <DollarSign className="mr-2 h-4 w-4" />
-            Costs
-          </CommandItem>
-          <CommandItem onSelect={() => go("/activity")}>
-            <History className="mr-2 h-4 w-4" />
-            Activity
-          </CommandItem>
+          {canViewCosts && (
+            <CommandItem data-testid="rbac-s05-cmd-costs" onSelect={() => go("/costs")}>
+              <DollarSign className="mr-2 h-4 w-4" />
+              Costs
+            </CommandItem>
+          )}
+          {canViewActivity && (
+            <CommandItem data-testid="rbac-s05-cmd-activity" onSelect={() => go("/activity")}>
+              <History className="mr-2 h-4 w-4" />
+              Activity
+            </CommandItem>
+          )}
+          {canViewSettings && (
+            <CommandItem data-testid="rbac-s05-cmd-settings" onSelect={() => go("/company/settings")}>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </CommandItem>
+          )}
         </CommandGroup>
 
         {visibleIssues.length > 0 && (

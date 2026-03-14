@@ -2781,6 +2781,36 @@ export function accessRoutes(
     res.json(matrix);
   });
 
+  // GET /companies/:companyId/my-permissions — current user's effective permissions
+  router.get(
+    "/companies/:companyId/my-permissions",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      // In local_trusted mode, return all permissions
+      if (isLocalImplicit(req)) {
+        res.json({
+          businessRole: "admin" as const,
+          presetPermissions: [...PERMISSION_KEYS],
+          explicitGrants: [],
+          effectivePermissions: [...PERMISSION_KEYS],
+        });
+        return;
+      }
+
+      const userId = req.actor.userId;
+      if (!userId) throw unauthorized();
+
+      const effective = await access.getEffectivePermissions(
+        companyId,
+        "user",
+        userId,
+      );
+      res.json(effective);
+    },
+  );
+
   // GET /companies/:companyId/rbac/effective-permissions/:memberId
   router.get(
     "/companies/:companyId/rbac/effective-permissions/:memberId",
