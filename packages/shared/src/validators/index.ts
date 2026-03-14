@@ -174,3 +174,18 @@ export {
   type AuditExportFilters,
   type AuditVerifyParams,
 } from "./audit.js";
+
+export {
+  orchestratorTransitionSchema,
+  orchestratorApproveSchema,
+  orchestratorRejectSchema,
+  orchestratorCheckEnforcementSchema,
+  orchestratorWorkflowFilterSchema,
+  orchestratorStageFilterSchema,
+  type OrchestratorTransition,
+  type OrchestratorApprove,
+  type OrchestratorReject,
+  type OrchestratorCheckEnforcement,
+  type OrchestratorWorkflowFilter,
+  type OrchestratorStageFilter,
+} from "./orchestrator.js";
