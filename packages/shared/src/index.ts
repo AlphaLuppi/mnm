@@ -340,6 +340,18 @@ export {
   type AuditEventFilters,
   type AuditExportFilters,
   type AuditVerifyParams,
+  orchestratorTransitionSchema,
+  orchestratorApproveSchema,
+  orchestratorRejectSchema,
+  orchestratorCheckEnforcementSchema,
+  orchestratorWorkflowFilterSchema,
+  orchestratorStageFilterSchema,
+  type OrchestratorTransition,
+  type OrchestratorApprove,
+  type OrchestratorReject,
+  type OrchestratorCheckEnforcement,
+  type OrchestratorWorkflowFilter,
+  type OrchestratorStageFilter,
 } from "./validators/index.js";
 
 export {

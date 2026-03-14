@@ -33,6 +33,7 @@ import { workspaceContextRoutes } from "./routes/workspace-context.js";
 import { driftRoutes } from "./routes/drift.js";
 import { projectMembershipRoutes } from "./routes/project-memberships.js";
 import { auditRoutes } from "./routes/audit.js";
+import { orchestratorRoutes } from "./routes/orchestrator.js";
 import { chatRoutes } from "./routes/chat.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
@@ -157,6 +158,7 @@ export async function createApp(
   api.use(driftRoutes(db));
   api.use(projectMembershipRoutes(db));
   api.use(auditRoutes(db));
+  api.use(orchestratorRoutes(db));
   api.use(chatRoutes(db));
   api.use(
     accessRoutes(db, {
