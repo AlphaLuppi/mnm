@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, type DragEvent, type ChangeEvent } from 
 import { Upload, AlertCircle, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS, type BusinessRole } from "@mnm/shared";
 import { accessApi } from "../api/access";
+import { RoleBadge } from "./RoleBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -417,7 +418,7 @@ export function BulkInviteTab({ companyId, onComplete }: BulkInviteTabProps) {
                     className="px-3 py-1.5"
                   >
                     {VALID_ROLES.includes(row.role)
-                      ? BUSINESS_ROLE_LABELS[row.role as BusinessRole]
+                      ? <RoleBadge role={row.role as BusinessRole} />
                       : row.role || "contributor"}
                   </td>
                   <td className="px-3 py-1.5 text-center">
@@ -595,7 +596,7 @@ export function BulkInviteTab({ companyId, onComplete }: BulkInviteTabProps) {
                   className="px-3 py-1.5"
                 >
                   {VALID_ROLES.includes(row.role)
-                    ? BUSINESS_ROLE_LABELS[row.role as BusinessRole]
+                    ? <RoleBadge role={row.role as BusinessRole} />
                     : row.role || "contributor"}
                 </td>
                 <td className="px-3 py-1.5">
