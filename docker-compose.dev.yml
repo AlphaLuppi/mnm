@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mnm
+      POSTGRES_PASSWORD: mnm_dev
+      POSTGRES_DB: mnm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnm -d mnm"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata-dev:
