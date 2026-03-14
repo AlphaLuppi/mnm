@@ -55,3 +55,5 @@ export { cursorEnforcementService } from "./cursor-enforcement.js";
 export { a2aBusService } from "./a2a-bus.js";
 // a2a-s02-barrel-svc
 export { a2aPermissionsService } from "./a2a-permissions.js";
+// sso-s01-barrel-svc
+export { ssoConfigurationService } from "./sso-configurations.js";

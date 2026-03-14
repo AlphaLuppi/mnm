@@ -252,3 +252,11 @@ export {
   type UpdateA2APermissionRule,
   type UpdateA2ADefaultPolicy,
 } from "./a2a.js";
+
+// sso-s01-barrel-validators
+export {
+  createSsoConfigurationSchema,
+  updateSsoConfigurationSchema,
+  type CreateSsoConfiguration,
+  type UpdateSsoConfiguration,
+} from "./sso.js";

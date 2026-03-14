@@ -280,3 +280,16 @@ export type {
   // A2A-S03: Audit A2A type
   A2AAuditAction,
 } from "./a2a.js";
+// SSO-S01: SSO configuration types
+// sso-s01-barrel-types
+export {
+  SSO_PROVIDERS,
+  SSO_CONFIG_STATUSES,
+} from "./sso.js";
+export type {
+  SsoProvider,
+  SsoConfigStatus,
+  SsoConfiguration,
+  CreateSsoConfigurationInput,
+  UpdateSsoConfigurationInput,
+} from "./sso.js";
