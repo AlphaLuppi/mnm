@@ -85,12 +85,28 @@ export function healthRoutes(
       bootstrapStatus = roleCount > 0 ? "ready" : "bootstrap_pending";
     }
 
+    // RLS status: count tables with row-level security enabled
+    let rlsTablesProtected = 0;
+    try {
+      const rlsResult = await db.execute(sql`
+        SELECT count(*) as count FROM pg_tables
+        WHERE schemaname = 'public' AND rowsecurity = true
+      `);
+      const rlsRow = rlsResult[0] as Record<string, unknown> | undefined;
+      rlsTablesProtected = Number(rlsRow?.count ?? 0);
+    } catch {
+      // pg_tables query may fail on non-PG backends; ignore
+    }
+
     res.json({
       status: "ok",
       db: {
         connected: true,
         latencyMs: dbLatencyMs,
         version: pgVersion,
+      },
+      rls: {
+        tablesProtected: rlsTablesProtected,
       },
       redis: redisInfo,
       deploymentMode: opts.deploymentMode,
