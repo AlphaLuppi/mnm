@@ -93,4 +93,14 @@ export const queryKeys = {
     status: (projectId: string) => ["drift", "status", projectId] as const,
   },
   org: (companyId: string) => ["org", companyId] as const,
+  audit: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["audit", companyId, "list", filters] as const,
+    detail: (companyId: string, eventId: string) =>
+      ["audit", companyId, "detail", eventId] as const,
+    count: (companyId: string, filters?: Record<string, unknown>) =>
+      ["audit", companyId, "count", filters] as const,
+    verify: (companyId: string) =>
+      ["audit", companyId, "verify"] as const,
+  },
 };
