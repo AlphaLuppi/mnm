@@ -70,7 +70,7 @@
 | ORCH-S01 | State machine XState | DONE | spec | dev | qa | 4afa90d | 215/215 E2E pass, fix: StageContext import + permission strings in guards + eventToEmitType inline + test publishLiveEvent selector |
 | PROJ-S01 | Table project_memberships | DONE | 93b1dd5 | cfa62fc | a551d44 | da092d1 | 67/67 E2E pass, fix: 4 test regex patterns for multiline Drizzle chaining |
 | OBS-S01 | Table audit_events | DONE | a0a3463 | 69c0773 | 0c5b4c7 | c796c47 | 99/99 E2E pass, fix: T09 barrel re-export path + T46 offset regex false positive |
-| CHAT-S01 | WebSocket bidirectionnel | PENDING | | | | | |
+| CHAT-S01 | WebSocket bidirectionnel | DONE | 0787eed | 1aab461 | 22bde6e | f9d3a36 | 138/138 E2E pass, fix: function names + CHANNEL_CLOSED error + test regex |
 | CHAT-S02 | Tables chat | PENDING | | | | | |
 
 ### BATCH 7 — Orchestrateur avancé (← ORCH-S01)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 23 |
+| Stories DONE | 24 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 46 |
+| Stories PENDING | 45 |
 | Batch courant | 6 |
-| Dernière story complétée | OBS-S01 |
-| Prochain batch débloqué | BATCH 6 (CHAT-S01, CHAT-S02) + BATCH 7 partially unblocked + BATCH 8 (OBS-S04, DRIFT-S01) |
+| Dernière story complétée | CHAT-S01 |
+| Prochain batch débloqué | BATCH 6 (CHAT-S02) then BATCH 7+ |
 
 ---
 
@@ -261,3 +261,7 @@
 | 2026-03-14 | OBS-S01 | Dev | Dev Agent | 69c0773 | Service 7 functions + 6 routes + validators + types + migration SQL |
 | 2026-03-14 | OBS-S01 | QA | QA Agent | 0c5b4c7 | 99 Playwright E2E tests (file-content based) |
 | 2026-03-14 | OBS-S01 | Review | Review Agent | c796c47 | Fix: T09 barrel re-export path + T46 offset regex false positive. 99/99 pass |
+| 2026-03-14 | CHAT-S01 | PM | PM Agent | 0787eed | Story spec — WebSocket bidirectionnel + protocol + 40 data-testid + 17 ACs |
+| 2026-03-14 | CHAT-S01 | Dev | Dev Agent | 1aab461 | ChatWsManager + chat service + REST routes + WS server + types/validators |
+| 2026-03-14 | CHAT-S01 | QA | QA Agent | 22bde6e | 138 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CHAT-S01 | Review | Review Agent | f9d3a36 | Fix: function names + CHANNEL_CLOSED error + 8 test regex. 138/138 pass |
