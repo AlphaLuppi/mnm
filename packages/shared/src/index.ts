@@ -256,6 +256,8 @@ export type {
   AutomationCursorLevel,
   AutomationCursor,
   EffectiveCursor,
+  // dual-s03-barrel-shared
+  CursorEnforcementResult,
   // A2A-S01: A2A Bus types
   // a2a-s01-barrel-shared
   A2AMessageType,

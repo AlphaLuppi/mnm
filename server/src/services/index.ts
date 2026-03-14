@@ -49,6 +49,8 @@ export { compactionWatcherService } from "./compaction-watcher.js";
 export { compactionKillRelaunchService } from "./compaction-kill-relaunch.js";
 // dual-s01-barrel-svc
 export { automationCursorService } from "./automation-cursors.js";
+// dual-s03-barrel-svc
+export { cursorEnforcementService } from "./cursor-enforcement.js";
 // a2a-s01-barrel-svc
 export { a2aBusService } from "./a2a-bus.js";
 // a2a-s02-barrel-svc
