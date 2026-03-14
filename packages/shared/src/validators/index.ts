@@ -134,6 +134,10 @@ export {
 } from "./workflow.js";
 
 export {
+  scopeSchema,
+  resourceScopeSchema,
+  type PermissionScope,
+  type ResourceScope,
   createCompanyInviteSchema,
   createOpenClawInvitePromptSchema,
   acceptInviteSchema,

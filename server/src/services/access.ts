@@ -5,13 +5,25 @@ import {
   instanceUserRoles,
   principalPermissionGrants,
 } from "@mnm/db";
-import type { PermissionKey, PrincipalType } from "@mnm/shared";
+import type { PermissionKey, PrincipalType, ResourceScope } from "@mnm/shared";
+import { scopeSchema } from "@mnm/shared";
+import { badRequest } from "../errors.js";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
 type GrantInput = {
   permissionKey: PermissionKey;
   scope?: Record<string, unknown> | null;
 };
+
+function validateScope(scope: unknown): void {
+  if (scope === undefined || scope === null) return;
+  const result = scopeSchema.safeParse(scope);
+  if (!result.success) {
+    throw badRequest("Invalid permission scope", {
+      issues: result.error.issues,
+    });
+  }
+}
 
 export function accessService(db: Db) {
   async function isInstanceAdmin(userId: string | null | undefined): Promise<boolean> {
@@ -47,11 +59,15 @@ export function accessService(db: Db) {
     principalType: PrincipalType,
     principalId: string,
     permissionKey: PermissionKey,
+    resourceScope?: ResourceScope,
   ): Promise<boolean> {
     const membership = await getMembership(companyId, principalType, principalId);
     if (!membership || membership.status !== "active") return false;
     const grant = await db
-      .select({ id: principalPermissionGrants.id })
+      .select({
+        id: principalPermissionGrants.id,
+        scope: principalPermissionGrants.scope,
+      })
       .from(principalPermissionGrants)
       .where(
         and(
@@ -62,17 +78,41 @@ export function accessService(db: Db) {
         ),
       )
       .then((rows) => rows[0] ?? null);
-    return Boolean(grant);
+    if (!grant) return false;
+
+    // No resource scope requested — grant alone is sufficient
+    if (!resourceScope) return true;
+
+    // Grant has no scope (null or empty) — wildcard access
+    const grantScope = grant.scope as Record<string, unknown> | null | undefined;
+    if (!grantScope || Object.keys(grantScope).length === 0) return true;
+
+    // Check projectIds coverage
+    const requestedProjectIds = resourceScope.projectIds;
+    if (requestedProjectIds && requestedProjectIds.length > 0) {
+      const grantedProjectIds = Array.isArray(grantScope.projectIds)
+        ? new Set(grantScope.projectIds as string[])
+        : null;
+      // Grant has no projectIds restriction — wildcard for projects
+      if (!grantedProjectIds) return true;
+      // All requested projectIds must be covered by the grant
+      const allCovered = requestedProjectIds.every((id) => grantedProjectIds.has(id));
+      if (!allCovered) return false;
+    }
+
+    return true;
   }
 
   async function canUser(
     companyId: string,
     userId: string | null | undefined,
     permissionKey: PermissionKey,
+    resourceScope?: ResourceScope,
   ): Promise<boolean> {
     if (!userId) return false;
+    // Instance admins bypass ALL permission and scope checks
     if (await isInstanceAdmin(userId)) return true;
-    return hasPermission(companyId, "user", userId, permissionKey);
+    return hasPermission(companyId, "user", userId, permissionKey, resourceScope);
   }
 
   async function listMembers(companyId: string) {
@@ -89,6 +129,11 @@ export function accessService(db: Db) {
     grants: GrantInput[],
     grantedByUserId: string | null,
   ) {
+    // Validate all scopes before touching the DB
+    for (const grant of grants) {
+      validateScope(grant.scope);
+    }
+
     const member = await db
       .select()
       .from(companyMemberships)
@@ -225,6 +270,11 @@ export function accessService(db: Db) {
     grants: GrantInput[],
     grantedByUserId: string | null,
   ) {
+    // Validate all scopes before touching the DB
+    for (const grant of grants) {
+      validateScope(grant.scope);
+    }
+
     await db.transaction(async (tx) => {
       await tx
         .delete(principalPermissionGrants)

@@ -7,6 +7,18 @@ import {
   PERMISSION_KEYS,
 } from "../constants.js";
 
+export const scopeSchema = z.object({
+  projectIds: z.array(z.string().uuid()).optional(),
+}).strict().nullable();
+
+export type PermissionScope = z.infer<typeof scopeSchema>;
+
+export const resourceScopeSchema = z.object({
+  projectIds: z.array(z.string().uuid()).optional(),
+}).strict();
+
+export type ResourceScope = z.infer<typeof resourceScopeSchema>;
+
 export const createCompanyInviteSchema = z.object({
   allowedJoinTypes: z.enum(INVITE_JOIN_TYPES).default("both"),
   defaultsPayload: z.record(z.string(), z.unknown()).optional().nullable(),
@@ -56,7 +68,7 @@ export const updateMemberPermissionsSchema = z.object({
   grants: z.array(
     z.object({
       permissionKey: z.enum(PERMISSION_KEYS),
-      scope: z.record(z.string(), z.unknown()).optional().nullable(),
+      scope: scopeSchema.optional(),
     }),
   ),
 });
