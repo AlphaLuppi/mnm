@@ -10,6 +10,7 @@ import {
 import { publishLiveEvent } from "./live-events.js";
 import { accessService } from "./access.js";
 import { workflowEnforcerService } from "./workflow-enforcer.js";
+import { hitlValidationService } from "./hitl-validation.js";
 import { conflict, forbidden, notFound } from "../errors.js";
 import type {
   StageState,
@@ -43,6 +44,7 @@ const PERM_AGENTS_LAUNCH: PermissionKey = "agents:launch";
 export function orchestratorService(db: Db) {
   const access = accessService(db);
   const enforcer = workflowEnforcerService(db);
+  const hitl = hitlValidationService(db);
 
   // ---- Stage Transitions ----
 
@@ -149,6 +151,19 @@ export function orchestratorService(db: Db) {
       );
     }
 
+    // ORCH-S03: HITL interception — after enforcement, before XState evaluation
+    // If the event is "complete" and the stage requires HITL validation,
+    // intercept and replace with "request_validation" to route to "validating" state.
+    let effectiveEvent: StageEvent = event;
+    if (event === "complete") {
+      const needsHitl = await hitl.shouldRequestValidation(stageId);
+      if (needsHitl) {
+        effectiveEvent = "request_validation";
+        // Emit hitl.validation_requested and persist metadata
+        await hitl.requestValidation(stageId, actor);
+      }
+    }
+
     // 3. Build context from DB state
     const context: StageContext = {
       stageId: stage.id,
@@ -174,8 +189,8 @@ export function orchestratorService(db: Db) {
       metadata: payload?.metadata,
     };
 
-    // 5. Build the event object
-    const machineEvent = buildMachineEvent(event, guardInput, payload);
+    // 5. Build the event object (using effectiveEvent for HITL interception)
+    const machineEvent = buildMachineEvent(effectiveEvent, guardInput, payload);
 
     // 6. Use XState to evaluate the transition (stateless, pure function)
     // Resolve the current state from DB values
@@ -194,15 +209,15 @@ export function orchestratorService(db: Db) {
     // If state didn't change, the transition was refused by the machine
     if (toState === fromState) {
       throw conflict(
-        `Cannot transition stage from '${fromState}' via '${event}': transition not allowed`,
+        `Cannot transition stage from '${fromState}' via '${effectiveEvent}': transition not allowed`,
       );
     }
 
-    // 7. Build transition record
+    // 7. Build transition record (record the effectiveEvent for accurate audit trail)
     const transitionRecord: TransitionRecord = {
       from: fromState,
       to: toState,
-      event,
+      event: effectiveEvent,
       actorId: actor.actorId,
       actorType: actor.actorType,
       timestamp: new Date().toISOString(),
@@ -229,14 +244,14 @@ export function orchestratorService(db: Db) {
     if (toState === "failed" && payload?.error) {
       patch.lastError = payload.error;
     }
-    if (event === "retry") {
+    if (effectiveEvent === "retry") {
       patch.retryCount = (stage.retryCount ?? 0) + 1;
       patch.lastError = null;
     }
-    if (event === "approve") {
+    if (effectiveEvent === "approve") {
       patch.feedback = null;
     }
-    if (event === "reject_with_feedback" && payload?.feedback !== undefined) {
+    if (effectiveEvent === "reject_with_feedback" && payload?.feedback !== undefined) {
       patch.feedback = payload.feedback;
     }
     if (payload?.outputArtifacts) {
@@ -250,7 +265,7 @@ export function orchestratorService(db: Db) {
       .returning();
 
     // 9. Emit orchestrator event
-    const emitType = eventToEmitType(event, toState);
+    const emitType = eventToEmitType(effectiveEvent, toState);
     const orchestratorEvent: OrchestratorEvent = {
       type: `stage.${emitType}`,
       companyId: stage.companyId,
@@ -258,7 +273,7 @@ export function orchestratorService(db: Db) {
       stageId: stage.id,
       fromState,
       toState,
-      event,
+      event: effectiveEvent,
       actorId: actor.actorId,
       actorType: actor.actorType,
       metadata: payload?.metadata,
@@ -277,6 +292,37 @@ export function orchestratorService(db: Db) {
     // 11. Auto-advance next stage if completed
     if (toState === "completed") {
       await maybeAdvanceNextStage(stage.workflowInstanceId, stage.stageOrder, stage.companyId);
+    }
+
+    // ORCH-S03: After approve, auto-complete the stage.
+    // The approve transition goes validating -> in_progress. We then trigger
+    // "complete" which will go in_progress -> completed. shouldRequestValidation()
+    // won't re-intercept because hitlDecision.decision === "approved".
+    if (effectiveEvent === "approve" && toState === "in_progress") {
+      // Persist the approval decision BEFORE auto-completing
+      await hitl.approveStage(
+        stageId,
+        actor.actorId ?? "system",
+        actor.actorType,
+        payload?.metadata?.comment as string | undefined,
+      );
+
+      // Auto-complete — system actor, no re-trigger of HITL
+      await transitionStage(stageId, "complete", {
+        actorId: null,
+        actorType: "system",
+        companyId: actor.companyId,
+      });
+    }
+
+    // ORCH-S03: After reject_with_feedback, persist the rejection decision
+    if (effectiveEvent === "reject_with_feedback" && toState === "in_progress") {
+      await hitl.rejectStage(
+        stageId,
+        actor.actorId ?? "system",
+        actor.actorType,
+        payload?.feedback ?? "",
+      );
     }
 
     return { stage: updated!, fromState, toState };
@@ -458,6 +504,10 @@ export function orchestratorService(db: Db) {
     listWorkflowsByState,
     listStagesByState,
     updateWorkflowStateAfterTransition,
+    // ORCH-S03: HITL methods exposed for routes
+    listPendingValidations: hitl.listPendingValidations,
+    getValidationHistory: hitl.getValidationHistory,
+    getHitlRoles: hitl.getHitlRoles,
   };
 }
 
