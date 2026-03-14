@@ -90,7 +90,7 @@
 | DRIFT-S01 | Drift persistance DB | DONE | fa02ea0 | f856e36 | 2d52708 | PASS (no fix needed) | 48/48 E2E pass, 2 schemas + migration + service + refactor + routes + types |
 | DRIFT-S02 | Drift monitor service | DONE | 43cd8e2 | e1172dd | 0bb74cb | PASS (no fix needed) | 50/50 E2E pass, drift-monitor service + 5 routes + 4 LiveEventTypes + types + audit |
 | OBS-S04 | UI AuditLog | DONE | d3922c7 | 4a859ea | 281868e | PASS (no fix needed) | 88/88 E2E pass, API client + AuditLog page + AuditEventDetail modal + route + sidebar + query keys |
-| PROJ-S03 | Filtrage par scope | PENDING | | | | | |
+| PROJ-S03 | Filtrage par scope | DONE | e0f5b8a | e5dc624 | 68faa43 | PASS (no fix needed) | 67/67 E2E pass, scope-filter service + hasGlobalScope + 4 routes + listByIds + useProjectScope hook |
 | PROJ-S04 | Page ProjectAccess | PENDING | | | | | |
 
 ### BATCH 9 — Containerisation (← TECH-02, TECH-05)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 33 |
+| Stories DONE | 34 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 36 |
+| Stories PENDING | 35 |
 | Batch courant | 8 |
-| Dernière story complétée | OBS-S04 |
-| Prochain batch débloqué | PROJ-S03, PROJ-S04 (Batch 8 remaining) |
+| Dernière story complétée | PROJ-S03 |
+| Prochain batch débloqué | PROJ-S04 (Batch 8 remaining) |
 
 ---
 
@@ -297,3 +297,7 @@
 | 2026-03-14 | OBS-S04 | Dev | Dev Agent | 4a859ea | API client + AuditLog page + AuditEventDetail modal + route + sidebar + query keys |
 | 2026-03-14 | OBS-S04 | QA | QA Agent | 281868e | 88 Playwright E2E tests (file-content based) |
 | 2026-03-14 | OBS-S04 | Review | Review Agent | — | PASS — 88/88 E2E pass, 233/233 regressions pass (OBS-S01 + RBAC-S05), no fix needed |
+| 2026-03-14 | PROJ-S03 | PM | PM Agent | e0f5b8a | Story spec — filtrage par scope + 18 ACs + 67 test cases + 52 data-testid |
+| 2026-03-14 | PROJ-S03 | Dev | Dev Agent | e5dc624 | scope-filter service + hasGlobalScope + 4 routes filtered + listByIds + useProjectScope hook |
+| 2026-03-14 | PROJ-S03 | QA | QA Agent | 68faa43 | 67 Playwright E2E tests (file-content based) |
+| 2026-03-14 | PROJ-S03 | Review | Review Agent | — | PASS — 67/67 E2E pass, 293/293 regressions pass (PROJ-S01+S02+DRIFT-S01+S02+RBAC-S04), no fix needed |
