@@ -35,6 +35,7 @@ import { projectMembershipRoutes } from "./routes/project-memberships.js";
 import { auditRoutes } from "./routes/audit.js";
 import { orchestratorRoutes } from "./routes/orchestrator.js";
 import { chatRoutes } from "./routes/chat.js";
+import { containerRoutes } from "./routes/containers.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -160,6 +161,7 @@ export async function createApp(
   api.use(auditRoutes(db));
   api.use(orchestratorRoutes(db));
   api.use(chatRoutes(db));
+  api.use(containerRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

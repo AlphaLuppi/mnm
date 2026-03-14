@@ -199,6 +199,15 @@ export type {
   ChatServerPong,
   ChatServerChannelClosed,
   ChatServerPayload,
+  // CONT-S01: Container types
+  ContainerStatus,
+  ContainerProfilePreset,
+  ContainerResourceUsage,
+  ContainerLaunchOptions,
+  ContainerLaunchResult,
+  ContainerInfo,
+  ContainerStopOptions,
+  ContainerEventType,
 } from "./types/index.js";
 
 export {
@@ -209,6 +218,10 @@ export {
   AUDIT_SEVERITY_LEVELS,
   AUDIT_TARGET_TYPES,
   AUDIT_ACTIONS,
+  // CONT-S01: Container constants
+  CONTAINER_STATUSES,
+  CONTAINER_PROFILE_PRESETS,
+  CONTAINER_EVENT_TYPES,
 } from "./types/index.js";
 
 export {
