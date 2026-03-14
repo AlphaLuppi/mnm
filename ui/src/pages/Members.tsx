@@ -9,6 +9,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { relativeTime, cn } from "../lib/utils";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { EmptyState } from "../components/EmptyState";
+import { BulkInviteTab } from "../components/BulkInviteTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -294,56 +296,84 @@ export function Members() {
       </div>
 
       {/* Invite Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent data-testid="mu-s02-invite-dialog">
+      <Dialog open={inviteOpen} onOpenChange={(open) => {
+        setInviteOpen(open);
+        if (!open) setInviteEmail("");
+      }}>
+        <DialogContent data-testid="mu-s02-invite-dialog" className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Invite Member</DialogTitle>
+            <DialogTitle>Invite Members</DialogTitle>
             <DialogDescription>
-              Send an invitation email to add a new member to this company.
+              Invite new members by email or upload a CSV file for bulk import.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="invite-email">Email address</Label>
-            <Input
-              id="invite-email"
-              data-testid="mu-s02-invite-email"
-              type="email"
-              placeholder="colleague@company.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && inviteEmail.trim()) {
-                  inviteMutation.mutate(inviteEmail.trim());
-                }
-              }}
-            />
-            {inviteMutation.error && (
-              <p className="text-xs text-destructive">
-                {inviteMutation.error instanceof Error
-                  ? inviteMutation.error.message
-                  : "Failed to send invitation"}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              data-testid="mu-s02-invite-cancel"
-              variant="outline"
-              onClick={() => {
-                setInviteOpen(false);
-                setInviteEmail("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              data-testid="mu-s02-invite-submit"
-              onClick={() => inviteMutation.mutate(inviteEmail.trim())}
-              disabled={!inviteEmail.trim() || inviteMutation.isPending}
-            >
-              {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
-            </Button>
-          </DialogFooter>
+          <Tabs defaultValue="single" data-testid="mu-s03-invite-tabs">
+            <TabsList className="w-full" data-testid="mu-s03-tabs-list">
+              <TabsTrigger value="single" data-testid="mu-s03-tab-single" className="flex-1">
+                Single Invite
+              </TabsTrigger>
+              <TabsTrigger value="bulk" data-testid="mu-s03-tab-bulk" className="flex-1">
+                Bulk Import
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="single" data-testid="mu-s03-tab-single-content">
+              <div className="space-y-2 pt-2">
+                <Label htmlFor="invite-email">Email address</Label>
+                <Input
+                  id="invite-email"
+                  data-testid="mu-s02-invite-email"
+                  type="email"
+                  placeholder="colleague@company.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && inviteEmail.trim()) {
+                      inviteMutation.mutate(inviteEmail.trim());
+                    }
+                  }}
+                />
+                {inviteMutation.error && (
+                  <p className="text-xs text-destructive">
+                    {inviteMutation.error instanceof Error
+                      ? inviteMutation.error.message
+                      : "Failed to send invitation"}
+                  </p>
+                )}
+              </div>
+              <DialogFooter className="mt-4">
+                <Button
+                  data-testid="mu-s02-invite-cancel"
+                  variant="outline"
+                  onClick={() => {
+                    setInviteOpen(false);
+                    setInviteEmail("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  data-testid="mu-s02-invite-submit"
+                  onClick={() => inviteMutation.mutate(inviteEmail.trim())}
+                  disabled={!inviteEmail.trim() || inviteMutation.isPending}
+                >
+                  {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+            <TabsContent value="bulk" data-testid="mu-s03-tab-bulk-content">
+              <div className="pt-2">
+                <BulkInviteTab
+                  companyId={selectedCompanyId!}
+                  onComplete={() => {
+                    setInviteOpen(false);
+                    queryClient.invalidateQueries({
+                      queryKey: queryKeys.access.members(selectedCompanyId!),
+                    });
+                  }}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
