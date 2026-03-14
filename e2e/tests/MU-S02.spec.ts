@@ -248,13 +248,17 @@ test.describe("Group 5: Route configuration", () => {
 
   test("Members route uses Members component as element", () => {
     // Find the members route and verify it uses <Members /> element
+    // May be wrapped in RequirePermission (RBAC-S05)
     const membersRouteMatch = content.match(
       /path\s*=\s*["']members["'][^>]*element\s*=\s*\{<\s*Members\s*\/>\}/,
     );
-    if (!membersRouteMatch) {
+    const membersRouteWrapped = content.match(
+      /path\s*=\s*["']members["'][^>]*element\s*=\s*\{<\s*RequirePermission[^>]*>\s*<\s*Members\s*\/>/,
+    );
+    if (!membersRouteMatch && !membersRouteWrapped) {
       // Also check the alternative pattern with Route on same line
       expect(content).toMatch(
-        /<Route\s+path\s*=\s*["']members["']\s+element\s*=\s*\{<\s*Members\s*\/>\}/,
+        /<Route\s+path\s*=\s*["']members["']\s+element\s*=\s*\{<\s*(RequirePermission[^>]*>\s*<\s*)?Members\s*\/>\}/,
       );
     }
   });
