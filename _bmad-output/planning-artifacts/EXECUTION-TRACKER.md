@@ -67,7 +67,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| ORCH-S01 | State machine XState | PENDING | | | | | |
+| ORCH-S01 | State machine XState | DONE | spec | dev | qa | 4afa90d | 215/215 E2E pass, fix: StageContext import + permission strings in guards + eventToEmitType inline + test publishLiveEvent selector |
 | PROJ-S01 | Table project_memberships | PENDING | | | | | |
 | OBS-S01 | Table audit_events | PENDING | | | | | |
 | CHAT-S01 | WebSocket bidirectionnel | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 20 |
+| Stories DONE | 21 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 49 |
+| Stories PENDING | 48 |
 | Batch courant | 6 |
-| Dernière story complétée | RBAC-S06 |
-| Prochain batch débloqué | BATCH 6 (ORCH-S01, PROJ-S01, OBS-S01, CHAT-S01, CHAT-S02) |
+| Dernière story complétée | ORCH-S01 |
+| Prochain batch débloqué | BATCH 6 (PROJ-S01, OBS-S01, CHAT-S01, CHAT-S02) + BATCH 7 partially unblocked |
 
 ---
 
@@ -252,3 +252,4 @@
 | 2026-03-14 | RBAC-S06 | Dev | Dev Agent | e15d7c1 | AdminRoles page + PermissionMatrix + RoleOverviewCard + route + sidebar |
 | 2026-03-14 | RBAC-S06 | QA | QA Agent | 97d2346 | 144 Playwright E2E tests (file-content based) |
 | 2026-03-14 | RBAC-S06 | Review | Review Agent | ce670c4 | Fix: dynamic data-testid patterns in tests. 144/144 pass |
+| 2026-03-14 | ORCH-S01 | Review | Review Agent | 4afa90d | Fix: StageContext import + permission strings + eventToEmitType inline + test selector. 215/215 pass |

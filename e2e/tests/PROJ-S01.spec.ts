@@ -123,13 +123,13 @@ test.describe("Groupe 2: Service functions", () => {
   test("T07 — addMember function: inserts into project_memberships", () => {
     expect(content).toContain("addMember");
     // Should use db.insert for project_memberships
-    expect(content).toMatch(/db\.insert\(\s*projectMemberships\s*\)/);
+    expect(content).toMatch(/db\s*\n?\s*\.insert\(\s*projectMemberships\s*\)/);
   });
 
   test("T08 — removeMember function: deletes from project_memberships", () => {
     expect(content).toContain("removeMember");
     // Should use db.delete for project_memberships
-    expect(content).toMatch(/db\.delete\(\s*projectMemberships\s*\)/);
+    expect(content).toMatch(/db\s*\n?\s*\.delete\(\s*projectMemberships\s*\)/);
   });
 
   test("T09 — listMembers function: JOIN with authUsers", () => {
@@ -154,7 +154,7 @@ test.describe("Groupe 2: Service functions", () => {
   test("T12 — updateMemberRole function: updates the role", () => {
     expect(content).toContain("updateMemberRole");
     // Should use db.update for project_memberships
-    expect(content).toMatch(/db\.update\(\s*projectMemberships\s*\)/);
+    expect(content).toMatch(/db\s*\n?\s*\.update\(\s*projectMemberships\s*\)/);
   });
 
   test("T13 — Conflict handling: uses conflict() for duplicate key", () => {
@@ -430,10 +430,10 @@ test.describe("Groupe 8: Integration patterns", () => {
   });
 
   test("T39 — Service uses Drizzle: db.select(), db.insert(), db.delete(), db.update()", () => {
-    expect(serviceContent).toMatch(/db\.select\(/);
-    expect(serviceContent).toMatch(/db\.insert\(/);
-    expect(serviceContent).toMatch(/db\.delete\(/);
-    expect(serviceContent).toMatch(/db\.update\(/);
+    expect(serviceContent).toMatch(/db\s*\n?\s*\.select\(/);
+    expect(serviceContent).toMatch(/db\s*\n?\s*\.insert\(/);
+    expect(serviceContent).toMatch(/db\s*\n?\s*\.delete\(/);
+    expect(serviceContent).toMatch(/db\s*\n?\s*\.update\(/);
   });
 
   test("T40 — listMembers does a LEFT JOIN with authUsers for user info enrichment", () => {
