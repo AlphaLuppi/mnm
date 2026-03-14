@@ -81,7 +81,7 @@
 | ORCH-S03 | Validation HITL | DONE | 162507e | 48f270e | 128ea3c | 4e021ce | 69/69 E2E pass, fix: stale machineState check in approve/reject |
 | ORCH-S04 | API routes orchestrateur | DONE | 8cb386a | 0a79f74 | a3e6225 | PASS (no fix) | 79/79 E2E pass, 14 routes + 6 validators, no fix needed |
 | OBS-S02 | Service audit émission | DONE | a0b1c56 | 4adeb22 | 04ffb31 | 433844b | 89/89 E2E pass, fix: missing emitAudit calls + severity test indexOf |
-| PROJ-S02 | Service project-memberships | PENDING | | | | | |
+| PROJ-S02 | Service project-memberships | DONE | 0803a54 | 48d86e0 | 02cada1 | cb392f5 | 47/47 E2E pass, fix: PROJ-S01 T42 regression (bulk route ordering) |
 
 ### BATCH 8 — Drift + Audit UI (← ORCH-S01, OBS-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 29 |
+| Stories DONE | 30 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 40 |
+| Stories PENDING | 39 |
 | Batch courant | 7 |
-| Dernière story complétée | OBS-S02 |
-| Prochain batch débloqué | BATCH 7 (PROJ-S02) |
+| Dernière story complétée | PROJ-S02 |
+| Prochain batch débloqué | BATCH 8 (all BATCH 7 deps complete) |
 
 ---
 
@@ -285,3 +285,7 @@
 | 2026-03-14 | OBS-S02 | Dev | Dev Agent | 4adeb22 | emitAudit helper + 14 route files + 68 emission points + middleware |
 | 2026-03-14 | OBS-S02 | QA | QA Agent | 04ffb31 | 89 Playwright E2E tests (file-content based) |
 | 2026-03-14 | OBS-S02 | Review | Review Agent | 433844b | Fix: 2 missing emitAudit calls + severity test indexOf. 89/89 pass |
+| 2026-03-14 | PROJ-S02 | PM | PM Agent | 0803a54 | Story spec — scope sync + bulk ops + pagination + 16 ACs + 47 test cases |
+| 2026-03-14 | PROJ-S02 | Dev | Dev Agent | 48d86e0 | syncUserProjectScope + 5 new svc fns + 4 new routes + 3 validators |
+| 2026-03-14 | PROJ-S02 | QA | QA Agent | 02cada1 | 47 Playwright E2E tests (file-content based) |
+| 2026-03-14 | PROJ-S02 | Review | Review Agent | cb392f5 | Fix: PROJ-S01 T42 regression (bulk route ordering). 47/47 + 67/67 pass |
