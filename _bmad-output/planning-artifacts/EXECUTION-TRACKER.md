@@ -22,7 +22,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| TECH-01 | PostgreSQL externe | PENDING | | | | | |
+| TECH-01 | PostgreSQL externe | DONE | 234d0c1 | 79f5c15 | 5feea0b | PASS (no fix needed) | All 9 ACs verified, 14 unit + 17 E2E tests pass |
 | TECH-02 | Docker Compose | PENDING | | | | | |
 | MU-S06 | Sign-out invalidation | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 0 |
+| Stories DONE | 1 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 69 |
+| Stories PENDING | 68 |
 | Batch courant | 1 |
-| Dernière story complétée | — |
-| Prochain batch débloqué | BATCH 1 (pas de dépendances) |
+| Dernière story complétée | TECH-01 |
+| Prochain batch débloqué | BATCH 1 (TECH-02, MU-S06 remaining) |
 
 ---
 
@@ -175,4 +175,7 @@
 
 | Date | Story | Étape | Agent | Commit | Notes |
 |------|-------|-------|-------|--------|-------|
-| — | — | — | — | — | Pipeline pas encore démarré |
+| 2026-03-14 | TECH-01 | PM | PM Agent | 234d0c1 | Story spec with data-test-id |
+| 2026-03-14 | TECH-01 | Dev | Dev Agent | 79f5c15 | PostgreSQL external setup |
+| 2026-03-14 | TECH-01 | QA | QA Agent | 5feea0b | 17 Playwright E2E tests |
+| 2026-03-14 | TECH-01 | Review | Review Agent | — | PASS — no fix commit needed |
