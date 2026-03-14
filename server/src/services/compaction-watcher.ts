@@ -1,5 +1,6 @@
 /**
  * COMP-S01: CompactionWatcher — Compaction Detection Service
+ * COMP-S02: Updated to use DB persistence via compactionKillRelaunchService
  *
  * Monitors heartbeat run events in real-time via LiveEvents, detects patterns
  * indicating an AI agent is compacting/summarizing its context, creates
@@ -10,7 +11,7 @@
  * - Subscribes to company LiveEvents (heartbeat.run.event, heartbeat.run.log)
  * - Analyzes messages for compaction patterns (regex-based)
  * - Deduplicates detections via cooldown per agent
- * - Creates CompactionSnapshot with recovery artifacts
+ * - Creates CompactionSnapshot with recovery artifacts (persisted to DB via COMP-S02)
  * - Triggers orchestrator transition compact_detected
  * - Emits audit events and WebSocket notifications
  */
@@ -31,6 +32,8 @@ import { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 import { orchestratorService } from "./orchestrator.js";
 import { workflowEnforcerService } from "./workflow-enforcer.js";
 import { auditService } from "./audit.js";
+// comp-s02-watcher-db-integration
+import { compactionKillRelaunchService } from "./compaction-kill-relaunch.js";
 import { logger } from "../middleware/logger.js";
 
 // --- comp-s01-default-patterns ---
@@ -63,9 +66,6 @@ const DEFAULT_CONFIG: CompactionWatcherConfig = {
 /** Cooldown deduplication: agentId -> last detection timestamp */
 const cooldownTracker = new Map<string, number>();
 
-// --- In-memory snapshot storage (DB persistence in COMP-S02) ---
-const snapshotStore = new Map<string, CompactionSnapshot[]>(); // companyId -> snapshots
-
 // --- Active monitoring subscriptions by companyId ---
 // comp-s01-monitors-map
 const monitors = new Map<string, {
@@ -81,6 +81,8 @@ export function compactionWatcherService(db: Db) {
   const orchestrator = orchestratorService(db);
   const enforcer = workflowEnforcerService(db);
   const audit = auditService(db);
+  // comp-s02-snapshot-db-persist
+  const killRelaunch = compactionKillRelaunchService(db);
 
   // ========================================================
   // comp-s01-start-watching
@@ -148,10 +150,12 @@ export function compactionWatcherService(db: Db) {
   // ========================================================
   // comp-s01-get-status
   // ========================================================
-  function getWatcherStatus(companyId: string): CompactionWatcherStatus {
+  async function getWatcherStatus(companyId: string): Promise<CompactionWatcherStatus> {
     const monitor = monitors.get(companyId);
-    const snapshots = snapshotStore.get(companyId) ?? [];
-    const activeSnapshotCount = snapshots.filter((s) => s.status === "pending" || s.status === "processing").length;
+    // comp-s02-watcher-db-active-count: count active snapshots from DB
+    const snapshots = await killRelaunch.listSnapshotsFromDb(companyId, { status: "pending" });
+    const processingSnapshots = await killRelaunch.listSnapshotsFromDb(companyId, { status: "processing" });
+    const activeSnapshotCount = snapshots.length + processingSnapshots.length;
 
     if (!monitor) {
       return {
@@ -173,38 +177,25 @@ export function compactionWatcherService(db: Db) {
   }
 
   // ========================================================
-  // comp-s01-get-snapshots
+  // comp-s01-get-snapshots (now uses DB via COMP-S02)
   // ========================================================
   async function getSnapshots(
     companyId: string,
     filters?: CompactionSnapshotFilters,
   ): Promise<CompactionSnapshot[]> {
-    let snapshots = snapshotStore.get(companyId) ?? [];
-
-    if (filters?.stageId) {
-      snapshots = snapshots.filter((s) => s.stageId === filters.stageId);
-    }
-    if (filters?.agentId) {
-      snapshots = snapshots.filter((s) => s.agentId === filters.agentId);
-    }
-    if (filters?.status) {
-      snapshots = snapshots.filter((s) => s.status === filters.status);
-    }
-
-    const offset = filters?.offset ?? 0;
-    const limit = filters?.limit ?? 50;
-    return snapshots.slice(offset, offset + limit);
+    // comp-s02-list-snapshots-from-db delegation
+    return killRelaunch.listSnapshotsFromDb(companyId, filters);
   }
 
   // ========================================================
-  // comp-s01-get-snapshot-by-id
+  // comp-s01-get-snapshot-by-id (now uses DB via COMP-S02)
   // ========================================================
   async function getSnapshotById(
     companyId: string,
     snapshotId: string,
   ): Promise<CompactionSnapshot | null> {
-    const snapshots = snapshotStore.get(companyId) ?? [];
-    return snapshots.find((s) => s.id === snapshotId) ?? null;
+    // comp-s02-get-snapshot-from-db delegation
+    return killRelaunch.getSnapshotFromDb(companyId, snapshotId);
   }
 
   // ========================================================
@@ -291,9 +282,10 @@ export function compactionWatcherService(db: Db) {
         { err, companyId, stageId: targetStage.id },
         "CompactionWatcher: failed to transition stage to compacting",
       );
-      // Update snapshot status to failed
-      snapshot.status = "failed";
-      snapshot.metadata.transitionError = String(err);
+      // Update snapshot status to failed via DB
+      await killRelaunch.updateSnapshotStatus(snapshot.id, "failed", {
+        transitionError: String(err),
+      });
     }
 
     // Emit audit event
@@ -360,7 +352,7 @@ export function compactionWatcherService(db: Db) {
   }
 
   // ========================================================
-  // createSnapshot — build and store a compaction snapshot
+  // createSnapshot — build and persist a compaction snapshot to DB
   // ========================================================
   async function createSnapshot(
     companyId: string,
@@ -391,19 +383,16 @@ export function compactionWatcherService(db: Db) {
       previousArtifacts: completedArtifacts,
       prePromptsInjected: prePromptsInjected ?? null,
       outputArtifactsSoFar: (stage.outputArtifacts as string[]) ?? [],
-      strategy: "kill_relaunch", // default strategy (configurable in COMP-S02)
+      strategy: "kill_relaunch", // default strategy
       status: "pending",
       resolvedAt: null,
+      relaunchCount: 0,
+      maxRelaunchCount: 3,
       metadata: {},
     };
 
-    // Store in memory
-    let companySnapshots = snapshotStore.get(companyId);
-    if (!companySnapshots) {
-      companySnapshots = [];
-      snapshotStore.set(companyId, companySnapshots);
-    }
-    companySnapshots.push(snapshot);
+    // comp-s02-persist-snapshot-to-db: persist to DB instead of in-memory
+    await killRelaunch.persistSnapshot(companyId, snapshot);
 
     return snapshot;
   }
