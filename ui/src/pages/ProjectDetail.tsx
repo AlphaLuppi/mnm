@@ -30,10 +30,12 @@ import { TestsPane } from "../components/TestsPane";
 import { TimelineBar } from "../components/TimelineBar";
 import { ProjectNavigationProvider } from "../context/ProjectNavigationContext";
 import { Drift } from "./Drift";
+import { ProjectAccessTab } from "../components/ProjectAccessTab";
+import { usePermissions } from "../hooks/usePermissions";
 
 /* ── Top-level tab types ── */
 
-type ProjectTab = "cockpit" | "agents" | "workflows" | "drift" | "settings";
+type ProjectTab = "cockpit" | "agents" | "workflows" | "drift" | "access" | "settings";
 
 function resolveProjectTab(pathname: string, projectId: string): ProjectTab | null {
   const segments = pathname.split("/").filter(Boolean);
@@ -43,6 +45,7 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   if (tab === "issues" || tab === "cockpit") return "cockpit"; // backward compat
   if (tab === "overview" || tab === "settings") return "settings"; // backward compat
   if (tab === "drift") return "drift";
+  if (tab === "access") return "access";
   if (tab === "agents") return "agents";
   if (tab === "workflows") return "workflows";
   return null;
@@ -390,6 +393,7 @@ export function ProjectDetail() {
     projectId: string;
   }>();
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
+  const { hasPermission } = usePermissions();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -470,6 +474,10 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/drift`, { replace: true });
       return;
     }
+    if (activeTab === "access") {
+      navigate(`/projects/${canonicalProjectRef}/access`, { replace: true });
+      return;
+    }
     navigate(`/projects/${canonicalProjectRef}`, { replace: true });
   }, [project, routeProjectRef, canonicalProjectRef, activeTab, navigate]);
 
@@ -494,9 +502,19 @@ export function ProjectDetail() {
     <div className="h-full -m-6 flex flex-col">
       {/* Project-level tab bar */}
       <div className="shrink-0 flex items-center gap-1 border-b border-border px-6">
-        {(["cockpit", "agents", "workflows", "drift", "settings"] as ProjectTab[]).map((tab) => (
+        {(
+          [
+            "cockpit",
+            "agents",
+            "workflows",
+            "drift",
+            ...(hasPermission("projects:manage_members") ? ["access" as const] : []),
+            "settings",
+          ] as ProjectTab[]
+        ).map((tab) => (
           <button
             key={tab}
+            data-testid={tab === "access" ? "proj-s04-tab-access" : undefined}
             className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
               activeTab === tab
                 ? "border-foreground text-foreground"
@@ -508,6 +526,7 @@ export function ProjectDetail() {
               : tab === "agents" ? "Agents"
               : tab === "workflows" ? "Workflows"
               : tab === "drift" ? "Drift"
+              : tab === "access" ? "Access"
               : "Settings"}
           </button>
         ))}
@@ -544,6 +563,12 @@ export function ProjectDetail() {
           <div className="p-6 h-full overflow-auto">
             <Drift />
           </div>
+        ) : activeTab === "access" && project?.id && resolvedCompanyId ? (
+          <ScrollArea className="h-full">
+            <div className="p-6">
+              <ProjectAccessTab projectId={project.id} companyId={resolvedCompanyId} />
+            </div>
+          </ScrollArea>
         ) : activeTab === "settings" ? (
           <ScrollArea className="h-full">
             <div className="p-6">
