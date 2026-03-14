@@ -52,3 +52,5 @@ export { driftItems } from "./drift_items.js";
 export { a2aMessages } from "./a2a_messages.js";
 // comp-s02-barrel-schema
 export { compactionSnapshots } from "./compaction_snapshots.js";
+// a2a-s02-schema-export
+export { a2aPermissionRules } from "./a2a-permission-rules.js";

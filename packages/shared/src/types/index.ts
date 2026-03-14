@@ -257,6 +257,9 @@ export type {
 export {
   A2A_MESSAGE_TYPES,
   A2A_MESSAGE_STATUSES,
+  // A2A-S02: Permission types
+  // a2a-s02-barrel-types
+  A2A_DEFAULT_POLICIES,
 } from "./a2a.js";
 export type {
   A2AMessageType,
@@ -265,4 +268,8 @@ export type {
   A2AChainInfo,
   A2AStats,
   A2AMessageFilters,
+  // A2A-S02: Permission types
+  A2ADefaultPolicy,
+  A2APermissionRule,
+  A2APermissionCheckResult,
 } from "./a2a.js";

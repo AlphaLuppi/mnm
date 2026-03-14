@@ -20,6 +20,8 @@ export const companies = pgTable(
     maxUsers: integer("max_users").notNull().default(50),
     invitationOnly: boolean("invitation_only").notNull().default(false),
     parentCompanyId: uuid("parent_company_id").references((): AnyPgColumn => companies.id),
+    // a2a-s02-schema-company-col
+    a2aDefaultPolicy: text("a2a_default_policy").notNull().default("allow"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

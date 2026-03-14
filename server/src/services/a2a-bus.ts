@@ -16,7 +16,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql, desc, inArray, lt, count } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { a2aMessages } from "@mnm/db";
+import { a2aMessages, agents } from "@mnm/db";
 import type {
   A2AMessage,
   A2AMessageType,
@@ -27,6 +27,8 @@ import type {
 } from "@mnm/shared";
 import { publishLiveEvent } from "./live-events.js";
 import { auditService } from "./audit.js";
+// a2a-s02-bus-integration
+import { a2aPermissionsService } from "./a2a-permissions.js";
 import { logger as parentLogger } from "../middleware/logger.js";
 
 const logger = parentLogger.child({ module: "a2a-bus" });
@@ -104,6 +106,7 @@ function rowToMessage(row: typeof a2aMessages.$inferSelect): A2AMessage {
 // a2a-s01-service-factory
 export function a2aBusService(db: Db) {
   const audit = auditService(db);
+  const permSvc = a2aPermissionsService(db);
 
   // --- Cycle detection tracking (in-memory per companyId) ---
   // Counts cycles detected for stats
@@ -149,6 +152,57 @@ export function a2aBusService(db: Db) {
       throw Object.assign(new Error("RATE_LIMITED"), {
         statusCode: 429,
         retryAfter: rl.retryAfter,
+      });
+    }
+
+    // a2a-s02-bus-integration — Permission check before sending
+    // Resolve sender and receiver roles from agents table
+    const [senderAgent] = await db
+      .select({ role: agents.role })
+      .from(agents)
+      .where(eq(agents.id, senderId));
+    const [receiverAgent] = await db
+      .select({ role: agents.role })
+      .from(agents)
+      .where(eq(agents.id, input.receiverId));
+
+    const senderRole = senderAgent?.role ?? "general";
+    const receiverRole = receiverAgent?.role ?? "general";
+
+    const permResult = await permSvc.checkPermission(
+      companyId,
+      senderId,
+      senderRole,
+      input.receiverId,
+      receiverRole,
+    );
+
+    if (!permResult.allowed) {
+      await audit.emit({
+        companyId,
+        actorId: senderId,
+        actorType: "agent",
+        action: "a2a.permission_denied",
+        targetType: "a2a_message",
+        targetId: input.receiverId,
+        metadata: {
+          senderId,
+          senderRole,
+          receiverId: input.receiverId,
+          receiverRole,
+          matchedRuleId: permResult.matchedRuleId,
+          reason: permResult.reason,
+          defaultPolicy: permResult.defaultPolicy,
+        },
+        severity: "warning",
+      });
+
+      throw Object.assign(new Error("A2A_PERMISSION_DENIED"), {
+        statusCode: 403,
+        senderId,
+        receiverId: input.receiverId,
+        reason: permResult.reason,
+        matchedRuleId: permResult.matchedRuleId,
       });
     }
 
