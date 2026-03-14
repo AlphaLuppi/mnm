@@ -238,6 +238,14 @@ export type {
   ContainerPipeStatus,
   ChatPipeStatus,
   ChatPipeAttachRequest,
+  // COMP-S01: Compaction types
+  // comp-s01-barrel-shared
+  CompactionStrategy,
+  CompactionSnapshotStatus,
+  CompactionSnapshot,
+  CompactionWatcherConfig,
+  CompactionWatcherStatus,
+  CompactionSnapshotFilters,
 } from "./types/index.js";
 
 export {
@@ -257,6 +265,9 @@ export {
   CONTAINER_HEALTH_CHECK_STATUSES,
   // CONT-S03: Mount allowlist constants
   MOUNT_VIOLATION_CODES,
+  // COMP-S01: Compaction constants
+  COMPACTION_STRATEGIES,
+  COMPACTION_SNAPSHOT_STATUSES,
 } from "./types/index.js";
 
 export {
@@ -426,6 +437,11 @@ export {
   mountValidateSchema,
   type MountPathsInput,
   type MountValidateInput,
+  // COMP-S01: Compaction validators
+  startCompactionWatcherSchema,
+  compactionSnapshotFiltersSchema,
+  type StartCompactionWatcher,
+  type CompactionSnapshotFiltersInput,
 } from "./validators/index.js";
 
 export {

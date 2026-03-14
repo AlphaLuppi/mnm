@@ -200,6 +200,20 @@ export type {
   MountValidateRequest,
   MountValidateResponse,
 } from "./mount-allowlist.js";
+// COMP-S01: Compaction types
+// comp-s01-barrel-types
+export {
+  COMPACTION_STRATEGIES,
+  COMPACTION_SNAPSHOT_STATUSES,
+} from "./compaction.js";
+export type {
+  CompactionStrategy,
+  CompactionSnapshotStatus,
+  CompactionSnapshot,
+  CompactionWatcherConfig,
+  CompactionWatcherStatus,
+  CompactionSnapshotFilters,
+} from "./compaction.js";
 export type {
   ChatChannelStatus,
   ChatSenderType,
