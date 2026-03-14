@@ -97,7 +97,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| CONT-S01 | ContainerManager Docker | PENDING | | | | | |
+| CONT-S01 | ContainerManager Docker | DONE | a3f7e7a | 8f8a222 | bd16d64 | PASS (no fix) | 85/85 E2E pass, Docker adapter + service + 7 routes |
 | CONT-S05 | Tables container | PENDING | | | | | |
 | DRIFT-S03 | UI diff drift | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 35 |
+| Stories DONE | 36 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 34 |
-| Batch courant | 8 (complete) |
-| Dernière story complétée | PROJ-S04 |
-| Prochain batch débloqué | Batch 9 (CONT-S01, CONT-S05, DRIFT-S03) |
+| Stories PENDING | 33 |
+| Batch courant | 9 |
+| Dernière story complétée | CONT-S01 |
+| Prochain batch débloqué | BATCH 9 (CONT-S05, DRIFT-S03) |
 
 ---
 
