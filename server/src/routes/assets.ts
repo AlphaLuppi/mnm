@@ -3,6 +3,7 @@ import multer from "multer";
 import type { Db } from "@mnm/db";
 import { createAssetImageMetadataSchema } from "@mnm/shared";
 import type { StorageService } from "../storage/types.js";
+import { requirePermission } from "../middleware/require-permission.js";
 import { assetService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
@@ -32,7 +33,7 @@ export function assetRoutes(db: Db, storage: StorageService) {
     });
   }
 
-  router.post("/companies/:companyId/assets/images", async (req, res) => {
+  router.post("/companies/:companyId/assets/images", requirePermission(db, "stories:create"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
