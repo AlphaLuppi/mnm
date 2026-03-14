@@ -451,12 +451,13 @@ test.describe("Groupe 8: Integration patterns", () => {
   });
 
   test("T42 — Routes POST and PATCH use validate() middleware", () => {
-    // POST route should use validate(addProjectMemberSchema)
-    const postIdx = routesContent.indexOf("router.post(");
-    expect(postIdx).toBeGreaterThan(-1);
-    const postSection = routesContent.slice(postIdx, postIdx + 500);
-    expect(postSection).toContain("validate(");
-    expect(postSection).toContain("addProjectMemberSchema");
+    // POST route (single add) should use validate(addProjectMemberSchema)
+    // Match the specific POST route pattern (not bulk) by looking for addProjectMemberSchema usage
+    expect(routesContent).toContain("validate(addProjectMemberSchema)");
+    // Verify it's on a POST route
+    const schemaIdx = routesContent.indexOf("validate(addProjectMemberSchema)");
+    const precedingSection = routesContent.slice(Math.max(0, schemaIdx - 300), schemaIdx);
+    expect(precedingSection).toContain("router.post(");
 
     // PATCH route should use validate(updateProjectMemberRoleSchema)
     const patchIdx = routesContent.indexOf("router.patch(");
