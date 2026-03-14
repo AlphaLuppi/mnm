@@ -42,7 +42,7 @@
 | TECH-05 | RLS PostgreSQL 41 tables | DONE | e78bb21 | 39c6ecb | 39c6ecb | 7a0492b | 169/169 E2E pass, 41 tables RLS + tenant-context middleware, review fix: comment wording + test assertion |
 | RBAC-S01 | Fix hasPermission ⚠️ P0 | DONE | 8fe8b42 | 660c4d7 | dd9775b | PASS (no fix needed) | 26/26 E2E pass, scope logic secure, .strict() validated, all ACs verified |
 | RBAC-S03 | businessRole migration | DONE | 42e0df6 | 4f58b19 | 4f58b19 | PASS (no fix needed) | 33/33 E2E pass, constants + validators + migration + API endpoint + seed |
-| MU-S01 | API invitations email | PENDING | | | | | |
+| MU-S01 | API invitations email | DONE | 5e6f34c | dev | 84e073c | 1176efd | 31/31 E2E pass, email service + schema migration + 7-day TTL + dedup + GET list |
 | MU-S05 | Désactivation signup | PENDING | | | | | |
 
 ### BATCH 4 — RBAC + Multi-User (← RBAC-S01, MU-S01)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 10 |
+| Stories DONE | 11 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 59 |
+| Stories PENDING | 58 |
 | Batch courant | 3 |
-| Dernière story complétée | RBAC-S03 |
-| Prochain batch débloqué | BATCH 3 (MU-S01, MU-S05) |
+| Dernière story complétée | MU-S01 |
+| Prochain batch débloqué | BATCH 3 (MU-S05) then BATCH 4 |
 
 ---
 
@@ -215,3 +215,7 @@
 | 2026-03-14 | RBAC-S03 | Dev | Dev Agent | 4f58b19 | Constants + validators + migration 0031 + service + API endpoint + seed |
 | 2026-03-14 | RBAC-S03 | QA | QA Agent | 4f58b19 | 33 Playwright E2E tests (file-content based, included in Dev commit) |
 | 2026-03-14 | RBAC-S03 | Review | Review Agent | — | PASS — all 10 files verified, 33/33 E2E pass, no regressions |
+| 2026-03-14 | MU-S01 | PM | PM Agent | 5e6f34c | Story spec with data-test-id — email invitations + 9 ACs |
+| 2026-03-14 | MU-S01 | Dev | Dev Agent | dev | Schema migration + email service + route mods + GET list + .env |
+| 2026-03-14 | MU-S01 | QA | QA Agent | 84e073c | 31 Playwright E2E tests (file-content based) |
+| 2026-03-14 | MU-S01 | Review | Review Agent | 1176efd | Fix: migration file ref 0032→0033 in tests. 31/31 pass |
