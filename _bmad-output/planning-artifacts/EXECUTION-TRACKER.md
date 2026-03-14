@@ -117,7 +117,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | COMP-S01 | CompactionWatcher | DONE | 65e34c5 | f6d9566 | 7e96bdf | PASS (no fix) | 50/50 E2E pass, 316/316 regressions pass (ORCH-S01+ORCH-S02) |
-| DUAL-S01 | Table automation_cursors | PENDING | | | | | |
+| DUAL-S01 | Table automation_cursors | DONE | 6e5a867 | 9c8996f | 6a82843 | PASS (no fix) | 50/50 E2E pass, 92/93 RBAC-S01 + 67/67 PROJ-S01 + 50/50 COMP-S01 regressions (1 pre-existing RBAC-S01 T26 failure) |
 | A2A-S01 | A2A Bus | PENDING | | | | | |
 
 ### BATCH 12 — A2A avancé + Dual UI (← A2A-S01, DUAL-S01)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 45 |
+| Stories DONE | 46 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 24 |
+| Stories PENDING | 23 |
 | Batch courant | 11 (in progress) |
-| Dernière story complétée | COMP-S01 |
-| Prochain batch débloqué | BATCH 11 (DUAL-S01, A2A-S01 remaining) |
+| Dernière story complétée | DUAL-S01 |
+| Prochain batch débloqué | BATCH 11 (A2A-S01 remaining) |
 
 ---
 
@@ -335,3 +335,7 @@
 | 2026-03-14 | COMP-S01 | Dev | Dev Agent | f6d9566 | CompactionWatcher service + 15 patterns + 5 routes + types + validators + 4 LiveEvents |
 | 2026-03-14 | COMP-S01 | QA | QA Agent | 7e96bdf | 50 Playwright E2E tests (file-content based) |
 | 2026-03-14 | COMP-S01 | Review | Review Agent | — | PASS — 50/50 E2E pass, 316/316 regressions pass (ORCH-S01+ORCH-S02), no fix needed |
+| 2026-03-14 | DUAL-S01 | PM | PM Agent | 6e5a867 | Story spec — automation cursors + 12 ACs + 14 data-testid + 50 test cases |
+| 2026-03-14 | DUAL-S01 | Dev | Dev Agent | 9c8996f | automationCursorService + 5 routes + types + validators + barrel exports |
+| 2026-03-14 | DUAL-S01 | QA | QA Agent | 6a82843 | 50 Playwright E2E tests (file-content based) |
+| 2026-03-14 | DUAL-S01 | Review | Review Agent | — | PASS — 50/50 E2E pass, 209/210 regressions (RBAC-S01+PROJ-S01+COMP-S01, 1 pre-existing), no fix needed |
