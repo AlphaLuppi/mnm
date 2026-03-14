@@ -112,4 +112,13 @@ export const queryKeys = {
     verify: (companyId: string) =>
       ["audit", companyId, "verify"] as const,
   },
+  // CONT-S06: container status UI
+  containers: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["containers", companyId, "list", filters] as const,
+    detail: (companyId: string, containerId: string) =>
+      ["containers", companyId, "detail", containerId] as const,
+    health: (companyId: string) =>
+      ["containers", companyId, "health"] as const,
+  },
 };
