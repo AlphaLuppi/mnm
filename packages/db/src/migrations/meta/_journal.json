@@ -253,6 +253,13 @@
       "when": 1773515807705,
       "tag": "0035_special_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1773522068187,
+      "tag": "0036_adorable_luke_cage",
+      "breakpoints": true
     }
   ]
 }

@@ -23,6 +23,7 @@ const stopSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+// cont-s05-validator-create-enriched
 const createProfileSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
@@ -33,6 +34,39 @@ const createProfileSchema = z.object({
   gpuEnabled: z.boolean().optional(),
   networkPolicy: z.string().optional(),
   isDefault: z.boolean().optional(),
+  // New fields from CONT-S05
+  dockerImage: z.string().max(255).optional(),
+  maxContainers: z.number().int().min(1).max(200).optional(),
+  credentialProxyEnabled: z.boolean().optional(),
+  allowedMountPaths: z.array(z.string()).optional(),
+  networkMode: z.enum(["isolated", "company-bridge", "host-restricted"]).optional(),
+  maxDiskIops: z.number().int().min(100).max(100000).optional().nullable(),
+  labels: z.record(z.string()).optional(),
+});
+
+// cont-s05-validator-update-profile
+const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  dockerImage: z.string().max(255).optional().nullable(),
+  cpuMillicores: z.number().int().min(100).max(16000).optional(),
+  memoryMb: z.number().int().min(64).max(32768).optional(),
+  diskMb: z.number().int().min(128).max(65536).optional(),
+  timeoutSeconds: z.number().int().min(60).max(86400).optional(),
+  gpuEnabled: z.boolean().optional(),
+  mountAllowlist: z.array(z.string()).optional(),
+  allowedMountPaths: z.array(z.string()).optional(),
+  networkPolicy: z.string().optional(),
+  networkMode: z.enum(["isolated", "company-bridge", "host-restricted"]).optional(),
+  credentialProxyEnabled: z.boolean().optional(),
+  maxContainers: z.number().int().min(1).max(200).optional(),
+  maxDiskIops: z.number().int().min(100).max(100000).optional().nullable(),
+  labels: z.record(z.string()).optional(),
+  isDefault: z.boolean().optional(),
+});
+
+const duplicateProfileSchema = z.object({
+  newName: z.string().min(1).max(100),
 });
 
 export function containerRoutes(db: Db) {
@@ -125,6 +159,112 @@ export function containerRoutes(db: Db) {
         targetType: "container_profile",
         targetId: profile.id,
         metadata: { name: parsed.data.name },
+      });
+
+      res.status(201).json(profile);
+    },
+  );
+
+  // cont-s05-route-get-profile
+  // GET /companies/:companyId/containers/profiles/:profileId — get profile by id
+  router.get(
+    "/companies/:companyId/containers/profiles/:profileId",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, profileId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const profile = await manager.getProfile(companyId as string, profileId as string);
+      res.json(profile);
+    },
+  );
+
+  // cont-s05-route-update-profile
+  // PUT /companies/:companyId/containers/profiles/:profileId — update profile
+  router.put(
+    "/companies/:companyId/containers/profiles/:profileId",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, profileId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const parsed = updateProfileSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
+      }
+
+      const profile = await manager.updateProfile(
+        companyId as string,
+        profileId as string,
+        parsed.data,
+      );
+
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "container.profile_updated",
+        targetType: "container_profile",
+        targetId: profileId as string,
+        metadata: { name: profile.name, changes: Object.keys(parsed.data) },
+      });
+
+      res.json(profile);
+    },
+  );
+
+  // cont-s05-route-delete-profile
+  // DELETE /companies/:companyId/containers/profiles/:profileId — delete profile
+  router.delete(
+    "/companies/:companyId/containers/profiles/:profileId",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, profileId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const deleted = await manager.deleteProfile(companyId as string, profileId as string);
+
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "container.profile_deleted",
+        targetType: "container_profile",
+        targetId: profileId as string,
+        metadata: { name: deleted.name },
+      });
+
+      res.json({ status: "deleted", id: profileId });
+    },
+  );
+
+  // POST /companies/:companyId/containers/profiles/:profileId/duplicate — duplicate profile
+  router.post(
+    "/companies/:companyId/containers/profiles/:profileId/duplicate",
+    requirePermission(db, "agents:manage_containers"),
+    async (req, res) => {
+      const { companyId, profileId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const parsed = duplicateProfileSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
+      }
+
+      const profile = await manager.duplicateProfile(
+        companyId as string,
+        profileId as string,
+        parsed.data.newName,
+      );
+
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "container.profile_created",
+        targetType: "container_profile",
+        targetId: profile.id,
+        metadata: { name: parsed.data.newName, duplicatedFrom: profileId },
       });
 
       res.status(201).json(profile);

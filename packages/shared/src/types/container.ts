@@ -85,3 +85,84 @@ export const CONTAINER_EVENT_TYPES = [
   "container.resource_update",
 ] as const;
 export type ContainerEventType = (typeof CONTAINER_EVENT_TYPES)[number];
+
+// ---- CONT-S05: New types ----
+
+// cont-s05-type-network-mode
+// Container network mode (isolation level)
+export const CONTAINER_NETWORK_MODES = [
+  "isolated",          // No network access (--network none)
+  "company-bridge",    // Company-scoped Docker bridge network
+  "host-restricted",   // Host network with iptables restrictions
+] as const;
+export type ContainerNetworkMode = (typeof CONTAINER_NETWORK_MODES)[number];
+
+// cont-s05-type-health-status
+// Container health check status
+export const CONTAINER_HEALTH_CHECK_STATUSES = [
+  "healthy",    // Health check passed
+  "unhealthy",  // Health check failed
+  "unknown",    // No health check performed yet
+] as const;
+export type ContainerHealthCheckStatus = (typeof CONTAINER_HEALTH_CHECK_STATUSES)[number];
+
+// cont-s05-type-profile-info
+// Extended profile info (for API responses, includes new fields)
+export interface ContainerProfileInfo {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  dockerImage: string | null;
+  cpuMillicores: number;
+  memoryMb: number;
+  diskMb: number;
+  timeoutSeconds: number;
+  gpuEnabled: boolean;
+  mountAllowlist: string[];
+  allowedMountPaths: string[];
+  networkPolicy: string;
+  networkMode: string;
+  credentialProxyEnabled: boolean;
+  maxContainers: number;
+  maxDiskIops: number | null;
+  labels: Record<string, string>;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// cont-s05-type-info-full
+// Extended container info (for API responses, includes new fields)
+export interface ContainerInfoFull extends ContainerInfo {
+  networkId: string | null;
+  credentialProxyPort: number | null;
+  mountedPaths: string[] | null;
+  healthCheckStatus: ContainerHealthCheckStatus;
+  restartCount: number;
+  lastHealthCheckAt: string | null;
+  labels: Record<string, string> | null;
+  logStreamUrl: string | null;
+}
+
+// cont-s05-type-profile-update
+// Profile update payload
+export interface ContainerProfileUpdate {
+  name?: string;
+  description?: string | null;
+  dockerImage?: string | null;
+  cpuMillicores?: number;
+  memoryMb?: number;
+  diskMb?: number;
+  timeoutSeconds?: number;
+  gpuEnabled?: boolean;
+  mountAllowlist?: string[];
+  allowedMountPaths?: string[];
+  networkPolicy?: string;
+  networkMode?: ContainerNetworkMode;
+  credentialProxyEnabled?: boolean;
+  maxContainers?: number;
+  maxDiskIops?: number | null;
+  labels?: Record<string, string>;
+  isDefault?: boolean;
+}
