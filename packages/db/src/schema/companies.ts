@@ -18,6 +18,7 @@ export const companies = pgTable(
     tier: text("tier").notNull().default("free"),
     ssoEnabled: boolean("sso_enabled").notNull().default(false),
     maxUsers: integer("max_users").notNull().default(50),
+    invitationOnly: boolean("invitation_only").notNull().default(false),
     parentCompanyId: uuid("parent_company_id").references((): AnyPgColumn => companies.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
