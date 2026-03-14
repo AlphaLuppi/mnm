@@ -10,6 +10,8 @@ import { validate } from "../middleware/validate.js";
 import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { emitAudit, workflowService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
+import { forbidden } from "../errors.js";
 
 export function workflowRoutes(db: Db) {
   const router = Router();
@@ -114,9 +116,14 @@ export function workflowRoutes(db: Db) {
   router.get("/companies/:companyId/workflows", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const filters: { status?: string; projectId?: string } = {};
+
+    // PROJ-S03: Scope filtering
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
+    const filters: { status?: string; projectId?: string; allowedProjectIds?: string[] | null } = {};
     if (typeof req.query.status === "string") filters.status = req.query.status;
     if (typeof req.query.projectId === "string") filters.projectId = req.query.projectId;
+    filters.allowedProjectIds = scopeProjectIds; // PROJ-S03
     const instances = await svc.listInstances(companyId, filters);
     res.json(instances);
   });
@@ -124,6 +131,26 @@ export function workflowRoutes(db: Db) {
   router.get("/workflows/:id", async (req, res) => {
     const instance = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, instance.companyId);
+
+    // PROJ-S03: Scope check for single entity
+    const scopeProjectIds = await getScopeProjectIds(db, instance.companyId, req);
+    if (scopeProjectIds !== null && instance.projectId !== null) {
+      if (!scopeProjectIds.includes(instance.projectId)) {
+        await emitAudit({
+          req, db, companyId: instance.companyId,
+          action: "access.scope_denied",
+          targetType: "workflow",
+          targetId: instance.id,
+          metadata: { requestedProjectId: instance.projectId, allowedProjectIds: scopeProjectIds },
+          severity: "warning",
+        });
+        throw forbidden("Access denied: resource outside project scope", {
+          error: "SCOPE_DENIED",
+          projectId: instance.projectId,
+        });
+      }
+    }
+
     res.json(instance);
   });
 
