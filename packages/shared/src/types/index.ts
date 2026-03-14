@@ -251,6 +251,8 @@ export type {
   AutomationCursorLevel,
   AutomationCursor,
   EffectiveCursor,
+  // dual-s03-barrel-types
+  CursorEnforcementResult,
 } from "./automation-cursor.js";
 // A2A-S01: A2A Bus types
 // a2a-s01-barrel-types

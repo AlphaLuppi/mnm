@@ -11,6 +11,8 @@ import { publishLiveEvent } from "./live-events.js";
 import { accessService } from "./access.js";
 import { workflowEnforcerService } from "./workflow-enforcer.js";
 import { hitlValidationService } from "./hitl-validation.js";
+// dual-s03-orchestrator-integration
+import { cursorEnforcementService } from "./cursor-enforcement.js";
 import { conflict, forbidden, notFound } from "../errors.js";
 import type {
   StageState,
@@ -45,6 +47,8 @@ export function orchestratorService(db: Db) {
   const access = accessService(db);
   const enforcer = workflowEnforcerService(db);
   const hitl = hitlValidationService(db);
+  // dual-s03-orchestrator-integration
+  const cursorEnforce = cursorEnforcementService(db);
 
   // ---- Stage Transitions ----
 
@@ -151,13 +155,40 @@ export function orchestratorService(db: Db) {
       );
     }
 
+    // DUAL-S03: Cursor enforcement — after ORCH-S02 enforcement, before ORCH-S03 HITL
+    // Only evaluated for agent actors (user and system bypass cursor enforcement)
+    // dual-s03-orchestrator-integration
+    let cursorRequiresHitl = false;
+    if (actor.actorType === "agent") {
+      const cursorResult = await cursorEnforce.enforceCursor(stageId, event, actor);
+
+      if (!cursorResult.allowed) {
+        throw conflict(
+          cursorResult.reason ?? "Cursor enforcement blocked",
+          {
+            error: "CURSOR_ENFORCEMENT_BLOCKED",
+            position: cursorResult.position,
+            reason: cursorResult.reason,
+            effectiveCursor: cursorResult.effectiveCursor,
+          },
+        );
+      }
+
+      // If cursor enforcement says to redirect to HITL (assisted mode),
+      // flag it for the HITL section below
+      if (cursorResult.redirectToHitl) {
+        cursorRequiresHitl = true;
+      }
+    }
+
     // ORCH-S03: HITL interception — after enforcement, before XState evaluation
     // If the event is "complete" and the stage requires HITL validation,
     // intercept and replace with "request_validation" to route to "validating" state.
+    // DUAL-S03: Also intercept if cursor enforcement requires HITL (assisted mode).
     let effectiveEvent: StageEvent = event;
     if (event === "complete") {
-      const needsHitl = await hitl.shouldRequestValidation(stageId);
-      if (needsHitl) {
+      const templateRequiresHitl = await hitl.shouldRequestValidation(stageId);
+      if (templateRequiresHitl || cursorRequiresHitl) {
         effectiveEvent = "request_validation";
         // Emit hitl.validation_requested and persist metadata
         await hitl.requestValidation(stageId, actor);
