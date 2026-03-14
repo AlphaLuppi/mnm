@@ -52,8 +52,8 @@
 | RBAC-S02 | 20 permission keys + presets | DONE | 996876d | dev | 2aa5fc9 | 9d3921a | 36/36 E2E pass, 5 new keys (20 total) + presets matrix + hasPermission fallback + effective-permissions API |
 | MU-S02 | Page membres UI | DONE | b40a986 | dev | 104d901 | review | 85/85 E2E pass, Members page + table + filters + invite dialog + enriched API |
 | MU-S03 | Invitation bulk CSV | DONE | 8138c08 | dev | d57c130 | b610ad0 | 54/54 E2E pass, BulkInviteTab 4-phase + CSV parsing + tabbed dialog |
-| MU-S04 | Sélecteur company | PENDING | | | | | |
-| RBAC-S07 | Badges rôle | PENDING | | | | | |
+| MU-S04 | Sélecteur company | DONE | spec | dev | qa | 00ec212 | 16/16 E2E pass, fix: align test data-testid with switcher- prefix per story spec mapping table |
+| RBAC-S07 | Badges rôle | DONE | 5d1fff8 | b20540d | 133bc89 | review | 27/27 E2E pass, RoleBadge component + Members.tsx + BulkInviteTab integration |
 
 ### BATCH 5 — Enforcement + Navigation (← RBAC-S02)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 15 |
+| Stories DONE | 17 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 54 |
+| Stories PENDING | 52 |
 | Batch courant | 4 |
-| Dernière story complétée | MU-S03 |
-| Prochain batch débloqué | BATCH 4 (MU-S04, RBAC-S07) |
+| Dernière story complétée | RBAC-S07 |
+| Prochain batch débloqué | BATCH 5 (RBAC-S04, RBAC-S05, RBAC-S06) |
 
 ---
 
@@ -235,3 +235,5 @@
 | 2026-03-14 | MU-S03 | Dev | Dev Agent | dev | BulkInviteTab 4-phase + tabbed dialog + CSV parsing |
 | 2026-03-14 | MU-S03 | QA | QA Agent | d57c130 | 54 Playwright E2E tests (file-content based) |
 | 2026-03-14 | MU-S03 | Review | Review Agent | b610ad0 | Fix: numeric literal separator in test. 54/54 pass |
+| 2026-03-14 | MU-S04 | Review | Review Agent | 00ec212 | Fix: align 6 test data-testid with switcher- prefix per story spec mapping. 16/16 pass |
+| 2026-03-14 | RBAC-S07 | Review | Review Agent | review | Fix: E2E test regex to accept `as BusinessRole` type cast. 27/27 pass |
