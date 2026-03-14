@@ -78,7 +78,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | ORCH-S02 | WorkflowEnforcer | DONE | 3f02ffd | de158fd | f18b731 | de36ff5 | 51/51 E2E pass, fix: T38 import() regex + T44c enforce call idx |
-| ORCH-S03 | Validation HITL | PENDING | | | | | |
+| ORCH-S03 | Validation HITL | DONE | 162507e | 48f270e | 128ea3c | 4e021ce | 69/69 E2E pass, fix: stale machineState check in approve/reject |
 | ORCH-S04 | API routes orchestrateur | PENDING | | | | | |
 | OBS-S02 | Service audit émission | PENDING | | | | | |
 | PROJ-S02 | Service project-memberships | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 26 |
+| Stories DONE | 27 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 43 |
-| Batch courant | 7 (in progress) |
-| Dernière story complétée | ORCH-S02 |
-| Prochain batch débloqué | BATCH 7 |
+| Stories PENDING | 42 |
+| Batch courant | 7 |
+| Dernière story complétée | ORCH-S03 |
+| Prochain batch débloqué | BATCH 7 (ORCH-S04, OBS-S02, PROJ-S02) |
 
 ---
 
@@ -269,3 +269,11 @@
 | 2026-03-14 | CHAT-S02 | Dev | Dev Agent | 76f9356 | 4+4 new columns + 3 indexes + migration + 3 new service fns + 2 routes |
 | 2026-03-14 | CHAT-S02 | QA | QA Agent | f4bf271 | 60 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CHAT-S02 | Review | Review Agent | cc8f14b | Fix: migration threshold 0037->0034 + CHAT-S01 route count compat. 60/60 pass |
+| 2026-03-14 | ORCH-S02 | PM | PM Agent | 3f02ffd | Story spec — WorkflowEnforcer + 28 data-testid + 12 ACs |
+| 2026-03-14 | ORCH-S02 | Dev | Dev Agent | de158fd | WorkflowEnforcer service + schema ext + migration + orchestrator integration |
+| 2026-03-14 | ORCH-S02 | QA | QA Agent | f18b731 | 51 Playwright E2E tests (file-content based) |
+| 2026-03-14 | ORCH-S02 | Review | Review Agent | de36ff5 | Fix: T38 import() regex + T44c enforce call idx. 51/51 pass |
+| 2026-03-14 | ORCH-S03 | PM | PM Agent | 162507e | Story spec — HITL validation + 48 data-testid + 15 ACs |
+| 2026-03-14 | ORCH-S03 | Dev | Dev Agent | 48f270e | HITL service + orchestrator integration + 3 UI components + migration |
+| 2026-03-14 | ORCH-S03 | QA | QA Agent | 128ea3c | 69 Playwright E2E tests (file-content based) |
+| 2026-03-14 | ORCH-S03 | Review | Review Agent | 4e021ce | Fix: stale machineState check in approve/reject. 69/69 pass |
