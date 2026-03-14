@@ -89,7 +89,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | DRIFT-S01 | Drift persistance DB | DONE | fa02ea0 | f856e36 | 2d52708 | PASS (no fix needed) | 48/48 E2E pass, 2 schemas + migration + service + refactor + routes + types |
 | DRIFT-S02 | Drift monitor service | DONE | 43cd8e2 | e1172dd | 0bb74cb | PASS (no fix needed) | 50/50 E2E pass, drift-monitor service + 5 routes + 4 LiveEventTypes + types + audit |
-| OBS-S04 | UI AuditLog | PENDING | | | | | |
+| OBS-S04 | UI AuditLog | DONE | d3922c7 | 4a859ea | 281868e | PASS (no fix needed) | 88/88 E2E pass, API client + AuditLog page + AuditEventDetail modal + route + sidebar + query keys |
 | PROJ-S03 | Filtrage par scope | PENDING | | | | | |
 | PROJ-S04 | Page ProjectAccess | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 32 |
+| Stories DONE | 33 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 37 |
+| Stories PENDING | 36 |
 | Batch courant | 8 |
-| Dernière story complétée | DRIFT-S02 |
-| Prochain batch débloqué | DRIFT-S03 (← DRIFT-S02 complete) |
+| Dernière story complétée | OBS-S04 |
+| Prochain batch débloqué | PROJ-S03, PROJ-S04 (Batch 8 remaining) |
 
 ---
 
@@ -293,3 +293,7 @@
 | 2026-03-14 | DRIFT-S01 | Dev | Dev Agent | f856e36 | 2 schemas + migration + drift-persistence service + drift.ts refactor + routes |
 | 2026-03-14 | DRIFT-S01 | QA | QA Agent | 2d52708 | 48 Playwright E2E tests (file-content based) |
 | 2026-03-14 | DRIFT-S01 | Review | Review Agent | — | PASS — 48/48 E2E pass, 166/166 regressions pass, no fix needed |
+| 2026-03-14 | OBS-S04 | PM | PM Agent | d3922c7 | Story spec — UI AuditLog + 15 ACs + 55 data-testid + 88 test cases |
+| 2026-03-14 | OBS-S04 | Dev | Dev Agent | 4a859ea | API client + AuditLog page + AuditEventDetail modal + route + sidebar + query keys |
+| 2026-03-14 | OBS-S04 | QA | QA Agent | 281868e | 88 Playwright E2E tests (file-content based) |
+| 2026-03-14 | OBS-S04 | Review | Review Agent | — | PASS — 88/88 E2E pass, 233/233 regressions pass (OBS-S01 + RBAC-S05), no fix needed |
