@@ -110,7 +110,7 @@
 | CONT-S04 | Isolation réseau | DONE | 5f8eddb | 2320e54 | 6adb7d9 | PASS (no fix) | 58/58 E2E pass, 252/252 regressions pass (CONT-S01+S02+S03+S05) |
 | CONT-S06 | UI container status | DONE | 2d1d047 | 49078f8 | 14d4ae4 | PASS (no fix) | 75/75 E2E pass, 348/348 regressions pass (CONT-S01+S05+RBAC-S05) |
 | CHAT-S03 | ChatService pipe stdin | DONE | 667d879 | c229e20 | 0fc2392 | 895caf2 | 44/44 E2E pass, 283/283 regressions pass (CHAT-S01+S02+CONT-S01), fix: require→readFile ESM compat |
-| CHAT-S04 | AgentChatPanel UI | PENDING | | | | | |
+| CHAT-S04 | AgentChatPanel UI | DONE | c2cd56f | a31c3ce | 1e0e0f0 | PASS (no fix) | 47/47 E2E pass, 376/376 regressions pass (CHAT-S01+S02+S03+RBAC-S05) |
 
 ### BATCH 11 — A2A + Dual-Speed + Compaction (← CONT-S02, ORCH-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 43 |
+| Stories DONE | 44 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 26 |
-| Batch courant | 10 (in progress) |
-| Dernière story complétée | CHAT-S03 |
-| Prochain batch débloqué | BATCH 10 (CHAT-S04) |
+| Stories PENDING | 25 |
+| Batch courant | 10 (complete) |
+| Dernière story complétée | CHAT-S04 |
+| Prochain batch débloqué | BATCH 11 (COMP-S01, DUAL-S01, A2A-S01) |
 
 ---
 
@@ -327,3 +327,7 @@
 | 2026-03-14 | CHAT-S03 | Dev | Dev Agent | c229e20 | ContainerPipeService + ChatWsManager integration + 3 routes + types + validator + LiveEvents |
 | 2026-03-14 | CHAT-S03 | QA | QA Agent | 0fc2392 | 44 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CHAT-S03 | Review | Review Agent | 895caf2 | Fix: require→readFile ESM compat in T26/T27. 44/44 pass, 283/283 regressions pass |
+| 2026-03-14 | CHAT-S04 | PM | PM Agent | c2cd56f | Story spec — AgentChatPanel UI + 12 ACs + 35 data-testid + 47 test cases |
+| 2026-03-14 | CHAT-S04 | Dev | Dev Agent | a31c3ce | API client + useAgentChat hook + AgentChatPanel + 4 chat sub-components + Chat page + route + sidebar |
+| 2026-03-14 | CHAT-S04 | QA | QA Agent | 1e0e0f0 | 47 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CHAT-S04 | Review | Review Agent | — | PASS — 47/47 E2E pass, 376/376 regressions pass (CHAT-S01+S02+S03+RBAC-S05), no fix needed |
