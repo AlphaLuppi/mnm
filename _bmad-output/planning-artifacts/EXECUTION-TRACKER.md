@@ -60,7 +60,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | RBAC-S04 | Enforcement 22 routes | DONE | 0d96835 | 8c0bd97 | 29edcdd | 4aa1f37 | 81/81 E2E pass, fix: enriched 403 details in access.ts + issues.ts |
-| RBAC-S05 | Navigation masquée | PENDING | | | | | |
+| RBAC-S05 | Navigation masquée | DONE | db62198 | 20fca35 | cdbd940 | 3f7d649 | 134/134 E2E pass, fix: test regex + MU-S02 route wrapper compat |
 | RBAC-S06 | UI admin matrice permissions | PENDING | | | | | |
 
 ### BATCH 6 — Orchestrateur + Scoping (← RBAC-S01)
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 18 |
+| Stories DONE | 19 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 51 |
+| Stories PENDING | 50 |
 | Batch courant | 5 |
-| Dernière story complétée | RBAC-S04 |
-| Prochain batch débloqué | BATCH 5 (RBAC-S05, RBAC-S06) |
+| Dernière story complétée | RBAC-S05 |
+| Prochain batch débloqué | BATCH 5 (RBAC-S06) |
 
 ---
 
@@ -244,3 +244,7 @@
 | 2026-03-14 | RBAC-S04 | Dev | Dev Agent | 8c0bd97 | requirePermission middleware + assertCompanyPermission + 10 route files |
 | 2026-03-14 | RBAC-S04 | QA | QA Agent | 29edcdd | 81 Playwright E2E tests (file-content based) |
 | 2026-03-14 | RBAC-S04 | Review | Review Agent | 4aa1f37 | Fix: enriched 403 details in access.ts + issues.ts. 81/81 pass |
+| 2026-03-14 | RBAC-S05 | PM | PM Agent | db62198 | Story spec — navigation masquée + 31 data-testid + visibility matrix |
+| 2026-03-14 | RBAC-S05 | Dev | Dev Agent | 20fca35 | usePermissions hook + RequirePermission + Sidebar/CommandPalette masking + route protection |
+| 2026-03-14 | RBAC-S05 | QA | QA Agent | cdbd940 | 134 Playwright E2E tests (file-content based) |
+| 2026-03-14 | RBAC-S05 | Review | Review Agent | 3f7d649 | Fix: 4 test regex + MU-S02 route wrapper compat. 134/134 pass |
