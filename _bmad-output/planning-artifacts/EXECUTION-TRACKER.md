@@ -79,7 +79,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | ORCH-S02 | WorkflowEnforcer | DONE | 3f02ffd | de158fd | f18b731 | de36ff5 | 51/51 E2E pass, fix: T38 import() regex + T44c enforce call idx |
 | ORCH-S03 | Validation HITL | DONE | 162507e | 48f270e | 128ea3c | 4e021ce | 69/69 E2E pass, fix: stale machineState check in approve/reject |
-| ORCH-S04 | API routes orchestrateur | PENDING | | | | | |
+| ORCH-S04 | API routes orchestrateur | DONE | 8cb386a | 0a79f74 | a3e6225 | PASS (no fix) | 79/79 E2E pass, 14 routes + 6 validators, no fix needed |
 | OBS-S02 | Service audit émission | PENDING | | | | | |
 | PROJ-S02 | Service project-memberships | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 27 |
+| Stories DONE | 28 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 42 |
+| Stories PENDING | 41 |
 | Batch courant | 7 |
-| Dernière story complétée | ORCH-S03 |
-| Prochain batch débloqué | BATCH 7 (ORCH-S04, OBS-S02, PROJ-S02) |
+| Dernière story complétée | ORCH-S04 |
+| Prochain batch débloqué | BATCH 7 (OBS-S02, PROJ-S02) |
 
 ---
 
@@ -277,3 +277,7 @@
 | 2026-03-14 | ORCH-S03 | Dev | Dev Agent | 48f270e | HITL service + orchestrator integration + 3 UI components + migration |
 | 2026-03-14 | ORCH-S03 | QA | QA Agent | 128ea3c | 69 Playwright E2E tests (file-content based) |
 | 2026-03-14 | ORCH-S03 | Review | Review Agent | 4e021ce | Fix: stale machineState check in approve/reject. 69/69 pass |
+| 2026-03-14 | ORCH-S04 | PM | PM Agent | 8cb386a | Story spec — 14 API routes + 6 validators + 62 data-testid + 20 ACs |
+| 2026-03-14 | ORCH-S04 | Dev | Dev Agent | 0a79f74 | 14 routes + 6 validators + barrel exports + app.ts mounting |
+| 2026-03-14 | ORCH-S04 | QA | QA Agent | a3e6225 | 79 Playwright E2E tests (file-content based) |
+| 2026-03-14 | ORCH-S04 | Review | Review Agent | — | PASS — 79/79 pass, 0 regressions, no fix needed |
