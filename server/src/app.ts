@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import type { StorageService } from "./storage/types.js";
 import type { RedisState } from "./redis.js";
-import { httpLogger, errorHandler, createRateLimiter } from "./middleware/index.js";
+import { httpLogger, errorHandler, createRateLimiter, tenantContextMiddleware } from "./middleware/index.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
@@ -74,6 +74,7 @@ export async function createApp(
       resolveSession: opts.resolveSession,
     }),
   );
+  app.use(tenantContextMiddleware(db));
   app.get("/api/auth/get-session", async (req, res) => {
     if (req.actor.type !== "board" || !req.actor.userId) {
       res.status(401).json({ error: "Unauthorized" });
