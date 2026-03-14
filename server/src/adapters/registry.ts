@@ -47,6 +47,7 @@ import {
 } from "@mnm/adapter-pi-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
+import { dockerAdapter } from "./docker/index.js";
 
 const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",
@@ -121,6 +122,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     openclawGatewayAdapter,
     processAdapter,
     httpAdapter,
+    dockerAdapter,
   ].map((a) => [a.type, a]),
 );
 

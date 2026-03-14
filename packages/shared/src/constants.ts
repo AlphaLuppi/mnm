@@ -254,6 +254,15 @@ export const LIVE_EVENT_TYPES = [
   "drift.alert_resolved",
   "drift.monitoring_started",
   "drift.monitoring_stopped",
+  // CONT-S01: Container lifecycle events
+  "container.created",
+  "container.started",
+  "container.completed",
+  "container.failed",
+  "container.timeout",
+  "container.oom",
+  "container.stopped",
+  "container.resource_update",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

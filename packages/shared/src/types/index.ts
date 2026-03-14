@@ -150,6 +150,21 @@ export type {
   AuditListResult,
   AuditVerifyResult,
 } from "./audit.js";
+export {
+  CONTAINER_STATUSES,
+  CONTAINER_PROFILE_PRESETS,
+  CONTAINER_EVENT_TYPES,
+} from "./container.js";
+export type {
+  ContainerStatus,
+  ContainerProfilePreset,
+  ContainerResourceUsage,
+  ContainerLaunchOptions,
+  ContainerLaunchResult,
+  ContainerInfo,
+  ContainerStopOptions,
+  ContainerEventType,
+} from "./container.js";
 export type {
   ChatChannelStatus,
   ChatSenderType,

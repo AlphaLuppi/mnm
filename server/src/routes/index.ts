@@ -19,3 +19,4 @@ export { driftRoutes } from "./drift.js";
 export { projectMembershipRoutes } from "./project-memberships.js";
 export { auditRoutes } from "./audit.js";
 export { orchestratorRoutes } from "./orchestrator.js";
+export { containerRoutes } from "./containers.js";
