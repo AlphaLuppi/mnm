@@ -1525,7 +1525,22 @@ export function accessRoutes(
         req.actor.agentId,
         permissionKey
       );
-      if (!allowed) throw forbidden("Permission denied");
+      if (!allowed) {
+        logger.warn({
+          event: "access.denied",
+          permissionKey,
+          companyId,
+          actorType: "agent",
+          agentId: req.actor.agentId,
+          resourceScope: null,
+          route: `${req.method} ${req.originalUrl}`,
+        }, `Permission denied: ${permissionKey} for agent ${req.actor.agentId}`);
+        throw forbidden(`Missing permission: ${permissionKey}`, {
+          requiredPermission: permissionKey,
+          companyId,
+          resourceScope: null,
+        });
+      }
       return;
     }
     if (req.actor.type !== "board") throw unauthorized();
@@ -1535,7 +1550,22 @@ export function accessRoutes(
       req.actor.userId,
       permissionKey
     );
-    if (!allowed) throw forbidden("Permission denied");
+    if (!allowed) {
+      logger.warn({
+        event: "access.denied",
+        permissionKey,
+        companyId,
+        actorType: "board",
+        userId: req.actor.userId,
+        resourceScope: null,
+        route: `${req.method} ${req.originalUrl}`,
+      }, `Permission denied: ${permissionKey} for user ${req.actor.userId ?? "unknown"}`);
+      throw forbidden(`Missing permission: ${permissionKey}`, {
+        requiredPermission: permissionKey,
+        companyId,
+        resourceScope: null,
+      });
+    }
   }
 
   async function assertCanGenerateOpenClawInvitePrompt(
