@@ -116,7 +116,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| COMP-S01 | CompactionWatcher | PENDING | | | | | |
+| COMP-S01 | CompactionWatcher | DONE | 65e34c5 | f6d9566 | 7e96bdf | PASS (no fix) | 50/50 E2E pass, 316/316 regressions pass (ORCH-S01+ORCH-S02) |
 | DUAL-S01 | Table automation_cursors | PENDING | | | | | |
 | A2A-S01 | A2A Bus | PENDING | | | | | |
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 44 |
+| Stories DONE | 45 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 25 |
-| Batch courant | 10 (complete) |
-| Dernière story complétée | CHAT-S04 |
-| Prochain batch débloqué | BATCH 11 (COMP-S01, DUAL-S01, A2A-S01) |
+| Stories PENDING | 24 |
+| Batch courant | 11 (in progress) |
+| Dernière story complétée | COMP-S01 |
+| Prochain batch débloqué | BATCH 11 (DUAL-S01, A2A-S01 remaining) |
 
 ---
 
@@ -331,3 +331,7 @@
 | 2026-03-14 | CHAT-S04 | Dev | Dev Agent | a31c3ce | API client + useAgentChat hook + AgentChatPanel + 4 chat sub-components + Chat page + route + sidebar |
 | 2026-03-14 | CHAT-S04 | QA | QA Agent | 1e0e0f0 | 47 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CHAT-S04 | Review | Review Agent | — | PASS — 47/47 E2E pass, 376/376 regressions pass (CHAT-S01+S02+S03+RBAC-S05), no fix needed |
+| 2026-03-14 | COMP-S01 | PM | PM Agent | 65e34c5 | Story spec — CompactionWatcher + 12 ACs + 35 data-testid + 50 test cases |
+| 2026-03-14 | COMP-S01 | Dev | Dev Agent | f6d9566 | CompactionWatcher service + 15 patterns + 5 routes + types + validators + 4 LiveEvents |
+| 2026-03-14 | COMP-S01 | QA | QA Agent | 7e96bdf | 50 Playwright E2E tests (file-content based) |
+| 2026-03-14 | COMP-S01 | Review | Review Agent | — | PASS — 50/50 E2E pass, 316/316 regressions pass (ORCH-S01+ORCH-S02), no fix needed |
