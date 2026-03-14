@@ -99,7 +99,8 @@ test.describe("Group 1: BulkInviteTab component (ui/src/components/BulkInviteTab
       content.includes("1024 * 1024") ||
       content.includes("1024*1024") ||
       /1\s*\*\s*1024\s*\*\s*1024/.test(content) ||
-      content.includes("1048576");
+      content.includes("1048576") ||
+      content.includes("1_048_576");
     expect(hasSizeCheck, "Must have a max file size check around 1MB").toBe(true);
   });
 
