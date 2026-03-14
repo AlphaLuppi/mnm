@@ -30,7 +30,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| TECH-06 | 10 nouvelles tables | PENDING | | | | | |
+| TECH-06 | 10 nouvelles tables | DONE | b03c048 | 1323023 | 1bbdbc7 | PASS (no fix needed) | 90 E2E pass, all 10 schemas + migration verified |
 | TECH-07 | Modifications 5 tables | PENDING | | | | | |
 | TECH-04 | Redis setup | PENDING | | | | | |
 | TECH-03 | Infrastructure test | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 3 |
+| Stories DONE | 4 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 66 |
+| Stories PENDING | 65 |
 | Batch courant | 2 |
-| Dernière story complétée | MU-S06 |
-| Prochain batch débloqué | BATCH 2 (TECH-06, TECH-07, TECH-04, TECH-03) |
+| Dernière story complétée | TECH-06 |
+| Prochain batch débloqué | BATCH 2 (TECH-07, TECH-04, TECH-03) |
 
 ---
 
@@ -187,3 +187,7 @@
 | 2026-03-14 | MU-S06 | Dev | Dev Agent | 9de804c | UserMenu + useCurrentUser + get-session enrichment |
 | 2026-03-14 | MU-S06 | QA | QA Agent | efb12d9 | 19 Playwright E2E tests |
 | 2026-03-14 | MU-S06 | Review | Review Agent | 9b772e1 | Fix: skip guard for API tests + health URL /api/health |
+| 2026-03-14 | TECH-06 | PM | PM Agent | b03c048 | Story spec with data-test-id — 10 tables detailed |
+| 2026-03-14 | TECH-06 | Dev | Dev Agent | 1323023 | 10 new schema files + index.ts exports + migration 0028 |
+| 2026-03-14 | TECH-06 | QA | QA Agent | 1bbdbc7 | 90 Playwright E2E tests (file-content based) |
+| 2026-03-14 | TECH-06 | Review | Review Agent | — | PASS — all 10 schemas verified, 90/90 E2E pass, typecheck OK |
