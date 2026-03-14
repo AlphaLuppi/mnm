@@ -28,6 +28,7 @@ import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
 
 const MAX_ATTACHMENT_BYTES = Number(process.env.MNM_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_CONTENT_TYPES = new Set([
@@ -206,6 +207,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
   router.get("/companies/:companyId/issues", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+
+    // PROJ-S03: Determine scope-based project filtering
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
     const assigneeUserFilterRaw = req.query.assigneeUserId as string | undefined;
     const touchedByUserFilterRaw = req.query.touchedByUserId as string | undefined;
     const unreadForUserFilterRaw = req.query.unreadForUserId as string | undefined;
@@ -242,6 +247,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       touchedByUserId,
       unreadForUserId,
       projectId: req.query.projectId as string | undefined,
+      allowedProjectIds: scopeProjectIds, // PROJ-S03: scope filter
       labelId: req.query.labelId as string | undefined,
       q: req.query.q as string | undefined,
     });
@@ -328,6 +334,26 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+
+    // PROJ-S03: Scope check for single entity
+    const scopeProjectIds = await getScopeProjectIds(db, issue.companyId, req);
+    if (scopeProjectIds !== null && issue.projectId !== null) {
+      if (!scopeProjectIds.includes(issue.projectId)) {
+        await emitAudit({
+          req, db, companyId: issue.companyId,
+          action: "access.scope_denied",
+          targetType: "issue",
+          targetId: issue.id,
+          metadata: { requestedProjectId: issue.projectId, allowedProjectIds: scopeProjectIds },
+          severity: "warning",
+        });
+        throw forbidden("Access denied: resource outside project scope", {
+          error: "SCOPE_DENIED",
+          projectId: issue.projectId,
+        });
+      }
+    }
+
     const [ancestors, project, goal, mentionedProjectIds] = await Promise.all([
       svc.getAncestors(issue.id),
       issue.projectId ? projectsSvc.getById(issue.projectId) : null,
