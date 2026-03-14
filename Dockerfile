@@ -36,17 +36,17 @@ COPY --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 
 ENV NODE_ENV=production \
-  HOME=/paperclip \
+  HOME=/mnm \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
-  PAPERCLIP_HOME=/paperclip \
-  PAPERCLIP_INSTANCE_ID=default \
-  PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
-  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+  MNM_HOME=/mnm \
+  MNM_INSTANCE_ID=default \
+  MNM_CONFIG=/mnm/instances/default/config.json \
+  MNM_DEPLOYMENT_MODE=authenticated \
+  MNM_DEPLOYMENT_EXPOSURE=private
 
-VOLUME ["/paperclip"]
+VOLUME ["/mnm"]
 EXPOSE 3100
 
 CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
