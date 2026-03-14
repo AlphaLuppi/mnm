@@ -42,6 +42,8 @@ import { automationCursorRoutes } from "./routes/automation-cursors.js";
 import { a2aRoutes } from "./routes/a2a.js";
 // sso-s01-barrel-app
 import { ssoRoutes } from "./routes/sso.js";
+// sso-s02-barrel-app
+import { ssoAuthRoutes } from "./routes/sso-auth.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -174,6 +176,8 @@ export async function createApp(
   api.use(a2aRoutes(db));
   // sso-s01-barrel-app
   api.use(ssoRoutes(db));
+  // sso-s02-barrel-app
+  api.use(ssoAuthRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

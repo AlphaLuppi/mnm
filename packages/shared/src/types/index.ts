@@ -292,4 +292,11 @@ export type {
   SsoConfiguration,
   CreateSsoConfigurationInput,
   UpdateSsoConfigurationInput,
+  // sso-s02-barrel-types
+  SsoLoginInitiation,
+  SsoDiscoverResult,
+  SsoAuthResult,
+  SsoSamlConfig,
+  SsoOidcConfig,
+  SsoMetadataSyncResult,
 } from "./sso.js";
