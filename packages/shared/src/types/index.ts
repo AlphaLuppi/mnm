@@ -213,6 +213,10 @@ export type {
   CompactionWatcherConfig,
   CompactionWatcherStatus,
   CompactionSnapshotFilters,
+  // comp-s02-barrel-types
+  KillRelaunchResult,
+  RelaunchHistoryEntry,
+  RelaunchHistoryFilters,
 } from "./compaction.js";
 export type {
   ChatChannelStatus,

@@ -211,6 +211,11 @@ export {
   compactionSnapshotFiltersSchema,
   type StartCompactionWatcher,
   type CompactionSnapshotFilters as CompactionSnapshotFiltersInput,
+  // comp-s02-barrel-validators
+  killRelaunchSchema,
+  relaunchHistoryFiltersSchema,
+  type KillRelaunchInput,
+  type RelaunchHistoryFiltersInput,
 } from "./compaction.js";
 
 // cont-s03-barrel-validators

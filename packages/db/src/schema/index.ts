@@ -50,3 +50,5 @@ export { driftReports } from "./drift_reports.js";
 export { driftItems } from "./drift_items.js";
 // a2a-s01-schema-export
 export { a2aMessages } from "./a2a_messages.js";
+// comp-s02-barrel-schema
+export { compactionSnapshots } from "./compaction_snapshots.js";

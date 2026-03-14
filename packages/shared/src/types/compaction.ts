@@ -30,7 +30,44 @@ export interface CompactionSnapshot {
   strategy: CompactionStrategy;
   status: CompactionSnapshotStatus;
   resolvedAt: string | null;
+  // comp-s02-snapshot-relaunch-fields
+  relaunchCount: number;
+  maxRelaunchCount: number;
   metadata: Record<string, unknown>;
+}
+
+// comp-s02-type-kill-relaunch-result
+export interface KillRelaunchResult {
+  success: boolean;
+  snapshotId: string;
+  reason?: string; // "circuit_breaker" | "container_stop_failed" | "relaunch_failed"
+  newInstanceId?: string;
+  relaunchCount?: number;
+}
+
+// comp-s02-type-relaunch-history-entry
+export interface RelaunchHistoryEntry {
+  snapshotId: string;
+  companyId: string;
+  workflowInstanceId: string;
+  stageId: string;
+  agentId: string;
+  stageOrder: number;
+  strategy: CompactionStrategy;
+  status: CompactionSnapshotStatus;
+  relaunchCount: number;
+  maxRelaunchCount: number;
+  detectedAt: string;
+  resolvedAt: string | null;
+}
+
+// comp-s02-relaunch-history-filters
+export interface RelaunchHistoryFilters {
+  agentId?: string;
+  workflowInstanceId?: string;
+  status?: CompactionSnapshotStatus;
+  limit?: number;
+  offset?: number;
 }
 
 // comp-s01-config-type
