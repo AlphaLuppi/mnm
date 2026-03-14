@@ -15,3 +15,4 @@ export { heartbeatsApi } from "./heartbeats";
 export { sidebarBadgesApi } from "./sidebarBadges";
 export { workspaceContextApi } from "./workspaceContext";
 export { containersApi } from "./containers";
+export { chatApi } from "./chat";
