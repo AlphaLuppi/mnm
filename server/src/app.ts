@@ -32,6 +32,7 @@ import { stageRoutes } from "./routes/stages.js";
 import { workspaceContextRoutes } from "./routes/workspace-context.js";
 import { driftRoutes } from "./routes/drift.js";
 import { projectMembershipRoutes } from "./routes/project-memberships.js";
+import { auditRoutes } from "./routes/audit.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -154,6 +155,7 @@ export async function createApp(
   api.use(workspaceContextRoutes(db));
   api.use(driftRoutes(db));
   api.use(projectMembershipRoutes(db));
+  api.use(auditRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

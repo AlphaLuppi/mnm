@@ -237,6 +237,7 @@ export const LIVE_EVENT_TYPES = [
   "stage.compaction_failed",
   "stage.skipped",
   "workspace.context.changed",
+  "audit.event_created",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
