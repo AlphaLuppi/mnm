@@ -128,8 +128,8 @@ test.describe("Groupe 4: Schema extensions -- workflow_templates", () => {
 
   test("T38 -- WorkflowStageTemplateDef contains requiredFiles field", () => {
     expect(content).toContain("requiredFiles");
-    // Should reference RequiredFileDef type
-    expect(content).toMatch(/requiredFiles\s*\?\s*:\s*RequiredFileDef\s*\[\s*\]/);
+    // Should reference RequiredFileDef type (possibly via import("@mnm/shared").RequiredFileDef[])
+    expect(content).toMatch(/requiredFiles\s*\?\s*:\s*(import\([^)]+\)\.)?RequiredFileDef\s*\[\s*\]/);
   });
 
   test("T39 -- WorkflowStageTemplateDef contains prePrompts field", () => {
@@ -214,16 +214,17 @@ test.describe("Groupe 6: Orchestrator integration", () => {
   });
 
   test("T44c -- enforcement happens AFTER RBAC pre-evaluation", () => {
-    // RBAC checks (hasPermission, canUser) should appear before enforcement
+    // RBAC checks (hasPermission, canUser) should appear before the enforcement call
+    // Use indexOf to find the first usage in the function body (not imports)
     const rbacIdx = content.indexOf("hasPermission");
-    const enforceIdx = content.search(
-      /enforce(Transition|RequiredFiles)|workflowEnforcer/,
-    );
+    // Match the actual enforceTransition *call* (e.g. enforcer.enforceTransition or .enforceTransition()
+    // not the import statement which contains workflowEnforcerService)
+    const enforceCallIdx = content.search(/\.enforceTransition\s*\(/);
 
     expect(rbacIdx).toBeGreaterThan(-1);
-    expect(enforceIdx).toBeGreaterThan(-1);
-    // RBAC should come before enforcement
-    expect(rbacIdx).toBeLessThan(enforceIdx);
+    expect(enforceCallIdx).toBeGreaterThan(-1);
+    // RBAC should come before enforcement call
+    expect(rbacIdx).toBeLessThan(enforceCallIdx);
   });
 });
 
