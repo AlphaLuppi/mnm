@@ -38,6 +38,7 @@ export interface ContainerLaunchOptions {
   environmentVars?: Record<string, string>; // Additional env vars
   timeout?: number;           // Override timeout in seconds
   labels?: Record<string, string>; // Docker labels
+  mountPaths?: string[];      // cont-s03: Paths to mount (validated against allowlist)
 }
 
 // Container launch result

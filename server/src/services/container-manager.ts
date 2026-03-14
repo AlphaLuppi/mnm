@@ -19,6 +19,7 @@ import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { logger } from "../middleware/logger.js";
 import { credentialProxyService } from "./credential-proxy.js";
 import { credentialProxyRulesService } from "./credential-proxy-rules.js";
+import { mountAllowlistService } from "./mount-allowlist.js";
 
 const DEFAULT_DOCKER_IMAGE = "node:20-slim";
 const MONITOR_INTERVAL_MS = 5_000;       // 5 seconds
@@ -70,6 +71,44 @@ export function containerManagerService(db: Db) {
     // 3. Resolve profile
     const profile = await resolveProfile(companyId, agent.containerProfileId ?? null, options?.profileId);
 
+    // cont-s03-cm-validate
+    // 3b. Validate mount paths against allowlist
+    const requestedMounts: string[] = options?.mountPaths ?? [];
+    let validatedMountPaths: string[] = [];
+
+    if (requestedMounts.length > 0) {
+      const allowlistSvc = mountAllowlistService(db);
+      const allowedPaths = (profile.allowedMountPaths as string[] | null) ?? [];
+      const mountResult = await allowlistSvc.validateAllMounts(requestedMounts, allowedPaths);
+
+      if (!mountResult.valid) {
+        // cont-s03-audit-violation
+        // Emit critical audit for each violation
+        for (const violation of mountResult.violations) {
+          await emitAudit({
+            req: { actor: { type: "board", userId: actorId, source: "session" }, ip: null, get: () => null } as any,
+            db,
+            companyId,
+            action: "container.mount_violation",
+            targetType: "container_instance",
+            targetId: agentId,
+            metadata: {
+              code: violation.code,
+              originalPath: violation.originalPath,
+              normalizedPath: violation.normalizedPath,
+              message: violation.message,
+            },
+            severity: "critical",
+          });
+        }
+
+        const violationSummary = mountResult.violations.map((v) => `${v.code}: ${v.originalPath}`).join("; ");
+        throw conflict(`Mount validation failed: ${violationSummary}`);
+      }
+
+      validatedMountPaths = requestedMounts.map((p) => allowlistSvc.normalizePath(p));
+    }
+
     // 4. Resolve image — CONT-S05: use profile.dockerImage as fallback
     const dockerImage = options?.dockerImage
       ?? (agent.adapterConfig as Record<string, unknown>)?.dockerImage as string
@@ -89,6 +128,7 @@ export function containerManagerService(db: Db) {
       const agentJwt = createLocalAgentJwt(agentId, companyId, "docker", instance!.id);
 
       // 7. Build container options
+      // cont-s03-cm-binds
       const containerOpts = buildDockerCreateOptions({
         instanceId: instance!.id,
         agentId,
@@ -99,6 +139,7 @@ export function containerManagerService(db: Db) {
         additionalEnv: options?.environmentVars,
         labels: options?.labels,
         timeout: options?.timeout,
+        mountPaths: validatedMountPaths,
       });
 
       // cont-s02-cm-proxy-check
@@ -158,9 +199,15 @@ export function containerManagerService(db: Db) {
       await container.start();
       const startedAt = new Date();
 
-      // 12. Update status to "running"
+      // cont-s03-cm-mounted-paths
+      // 12. Update status to "running" and record mounted paths
       await db.update(containerInstances)
-        .set({ status: "running", startedAt, updatedAt: new Date() })
+        .set({
+          status: "running",
+          startedAt,
+          mountedPaths: validatedMountPaths.length > 0 ? validatedMountPaths : null,
+          updatedAt: new Date(),
+        })
         .where(eq(containerInstances.id, instance!.id));
 
       // cont-s02-cm-proxy-start
@@ -835,8 +882,9 @@ export function buildDockerCreateOptions(input: {
   additionalEnv?: Record<string, string>;
   labels?: Record<string, string>;
   timeout?: number;
+  mountPaths?: string[]; // cont-s03-cm-binds — validated mount paths
 }): Docker.ContainerCreateOptions {
-  const { instanceId, agentId, companyId, profile, dockerImage, agentJwt, additionalEnv, labels } = input;
+  const { instanceId, agentId, companyId, profile, dockerImage, agentJwt, additionalEnv, labels, mountPaths } = input;
 
   const env: string[] = [
     `MNM_AGENT_ID=${agentId}`,
@@ -872,6 +920,8 @@ export function buildDockerCreateOptions(input: {
       PidsLimit: 256,
       Binds: [
         "/dev/null:/workspace/.env:ro", // Shadow .env
+        // cont-s03-cm-binds — add validated mount paths as read-only binds
+        ...(mountPaths ?? []).map((p) => `${p}:${p}:ro`),
       ],
       Tmpfs: {
         "/tmp": "rw,noexec,nosuid,size=256m",
