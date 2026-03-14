@@ -3,6 +3,8 @@ import type { Db } from "@mnm/db";
 import { count, sql } from "drizzle-orm";
 import { instanceUserRoles } from "@mnm/db";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
+import type { RedisState } from "../redis.js";
+import { pingRedis } from "../redis.js";
 
 export function healthRoutes(
   db?: Db,
@@ -11,6 +13,7 @@ export function healthRoutes(
     deploymentExposure: DeploymentExposure;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    redisState?: RedisState | null;
   } = {
     deploymentMode: "local_trusted",
     deploymentExposure: "private",
@@ -44,10 +47,28 @@ export function healthRoutes(
       dbError = err instanceof Error ? err.message : String(err);
     }
 
+    // Redis health (optional — does not affect overall status)
+    const redisConfigured = !!opts.redisState?.client;
+    let redisConnected = false;
+    let redisLatencyMs: number | undefined;
+    if (opts.redisState) {
+      redisConnected = opts.redisState.connected;
+      const ping = await pingRedis(opts.redisState);
+      if (ping) {
+        redisLatencyMs = ping.latencyMs;
+      }
+    }
+    const redisInfo = {
+      configured: redisConfigured,
+      connected: redisConnected,
+      ...(redisLatencyMs !== undefined ? { latencyMs: redisLatencyMs } : {}),
+    };
+
     if (!dbConnected) {
       res.status(503).json({
         status: "degraded",
         db: { connected: false, error: dbError },
+        redis: redisInfo,
         deploymentMode: opts.deploymentMode,
         deploymentExposure: opts.deploymentExposure,
       });
@@ -71,6 +92,7 @@ export function healthRoutes(
         latencyMs: dbLatencyMs,
         version: pgVersion,
       },
+      redis: redisInfo,
       deploymentMode: opts.deploymentMode,
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
