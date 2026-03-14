@@ -71,7 +71,7 @@
 | PROJ-S01 | Table project_memberships | DONE | 93b1dd5 | cfa62fc | a551d44 | da092d1 | 67/67 E2E pass, fix: 4 test regex patterns for multiline Drizzle chaining |
 | OBS-S01 | Table audit_events | DONE | a0a3463 | 69c0773 | 0c5b4c7 | c796c47 | 99/99 E2E pass, fix: T09 barrel re-export path + T46 offset regex false positive |
 | CHAT-S01 | WebSocket bidirectionnel | DONE | 0787eed | 1aab461 | 22bde6e | f9d3a36 | 138/138 E2E pass, fix: function names + CHANNEL_CLOSED error + test regex |
-| CHAT-S02 | Tables chat | PENDING | | | | | |
+| CHAT-S02 | Tables chat | DONE | 5c7ad86 | 76f9356 | f4bf271 | cc8f14b | 60/60 E2E pass, fix: migration threshold 0037->0034 + CHAT-S01 route count compat |
 
 ### BATCH 7 — Orchestrateur avancé (← ORCH-S01)
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 24 |
+| Stories DONE | 25 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 45 |
-| Batch courant | 6 |
-| Dernière story complétée | CHAT-S01 |
-| Prochain batch débloqué | BATCH 6 (CHAT-S02) then BATCH 7+ |
+| Stories PENDING | 44 |
+| Batch courant | 6 (complete) |
+| Dernière story complétée | CHAT-S02 |
+| Prochain batch débloqué | BATCH 7 |
 
 ---
 
@@ -265,3 +265,7 @@
 | 2026-03-14 | CHAT-S01 | Dev | Dev Agent | 1aab461 | ChatWsManager + chat service + REST routes + WS server + types/validators |
 | 2026-03-14 | CHAT-S01 | QA | QA Agent | 22bde6e | 138 Playwright E2E tests (file-content based) |
 | 2026-03-14 | CHAT-S01 | Review | Review Agent | f9d3a36 | Fix: function names + CHANNEL_CLOSED error + 8 test regex. 138/138 pass |
+| 2026-03-14 | CHAT-S02 | PM | PM Agent | 5c7ad86 | Story spec with data-test-id — enriched chat tables + service |
+| 2026-03-14 | CHAT-S02 | Dev | Dev Agent | 76f9356 | 4+4 new columns + 3 indexes + migration + 3 new service fns + 2 routes |
+| 2026-03-14 | CHAT-S02 | QA | QA Agent | f4bf271 | 60 Playwright E2E tests (file-content based) |
+| 2026-03-14 | CHAT-S02 | Review | Review Agent | cc8f14b | Fix: migration threshold 0037->0034 + CHAT-S01 route count compat. 60/60 pass |
