@@ -230,3 +230,13 @@ export {
   type CursorFilters,
   type ResolveCursor,
 } from "./automation-cursor.js";
+
+// a2a-s01-barrel-validators
+export {
+  sendA2AMessageSchema,
+  respondA2AMessageSchema,
+  a2aMessageFiltersSchema,
+  type SendA2AMessage,
+  type RespondA2AMessage,
+  type A2AMessageFiltersInput,
+} from "./a2a.js";

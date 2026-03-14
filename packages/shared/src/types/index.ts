@@ -248,3 +248,17 @@ export type {
   AutomationCursor,
   EffectiveCursor,
 } from "./automation-cursor.js";
+// A2A-S01: A2A Bus types
+// a2a-s01-barrel-types
+export {
+  A2A_MESSAGE_TYPES,
+  A2A_MESSAGE_STATUSES,
+} from "./a2a.js";
+export type {
+  A2AMessageType,
+  A2AMessageStatus,
+  A2AMessage,
+  A2AChainInfo,
+  A2AStats,
+  A2AMessageFilters,
+} from "./a2a.js";

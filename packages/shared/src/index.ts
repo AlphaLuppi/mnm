@@ -252,6 +252,14 @@ export type {
   AutomationCursorLevel,
   AutomationCursor,
   EffectiveCursor,
+  // A2A-S01: A2A Bus types
+  // a2a-s01-barrel-shared
+  A2AMessageType,
+  A2AMessageStatus,
+  A2AMessage,
+  A2AChainInfo,
+  A2AStats,
+  A2AMessageFilters,
 } from "./types/index.js";
 
 export {
@@ -277,6 +285,9 @@ export {
   // DUAL-S01: Automation cursor constants
   AUTOMATION_CURSOR_POSITIONS,
   AUTOMATION_CURSOR_LEVELS,
+  // A2A-S01: A2A Bus constants
+  A2A_MESSAGE_TYPES,
+  A2A_MESSAGE_STATUSES,
 } from "./types/index.js";
 
 export {
@@ -458,6 +469,13 @@ export {
   type SetCursor,
   type CursorFilters,
   type ResolveCursor,
+  // A2A-S01: A2A Bus validators
+  sendA2AMessageSchema,
+  respondA2AMessageSchema,
+  a2aMessageFiltersSchema,
+  type SendA2AMessage,
+  type RespondA2AMessage,
+  type A2AMessageFiltersInput,
 } from "./validators/index.js";
 
 export {
