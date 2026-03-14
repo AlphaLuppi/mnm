@@ -254,6 +254,7 @@ export const JOIN_REQUEST_STATUSES = ["pending_approval", "approved", "rejected"
 export type JoinRequestStatus = (typeof JOIN_REQUEST_STATUSES)[number];
 
 export const PERMISSION_KEYS = [
+  // --- Existing (15) ---
   "agents:create",
   "users:invite",
   "users:manage_permissions",
@@ -269,5 +270,11 @@ export const PERMISSION_KEYS = [
   "company:manage_sso",
   "audit:read",
   "audit:export",
+  // --- New (5) — RBAC-S02 ---
+  "agents:launch",
+  "stories:create",
+  "stories:edit",
+  "dashboard:view",
+  "chat:agent",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];

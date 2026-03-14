@@ -15,6 +15,7 @@ import {
   agentApiKeys,
   authUsers,
   companies,
+  companyMemberships,
   invites,
   joinRequests
 } from "@mnm/db";
@@ -27,7 +28,8 @@ import {
   updateMemberPermissionsSchema,
   updateMemberBusinessRoleSchema,
   updateUserCompanyAccessSchema,
-  PERMISSION_KEYS
+  PERMISSION_KEYS,
+  getPresetsMatrix
 } from "@mnm/shared";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import {
@@ -2709,6 +2711,57 @@ export function accessRoutes(
       });
       res.json(updated);
     }
+  );
+
+  // --- RBAC Presets endpoints (RBAC-S02) ---
+
+  // GET /companies/:companyId/rbac/presets — return the preset matrix
+  router.get("/companies/:companyId/rbac/presets", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const matrix = getPresetsMatrix();
+    res.json(matrix);
+  });
+
+  // GET /companies/:companyId/rbac/effective-permissions/:memberId
+  router.get(
+    "/companies/:companyId/rbac/effective-permissions/:memberId",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const memberId = req.params.memberId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Find the member first to check own-profile access
+      const member = await db
+        .select()
+        .from(companyMemberships)
+        .where(
+          and(
+            eq(companyMemberships.companyId, companyId),
+            eq(companyMemberships.id, memberId),
+          ),
+        )
+        .then((rows) => rows[0] ?? null);
+
+      if (!member) throw notFound("Member not found");
+
+      // Check authorization: own profile OR users:manage_permissions
+      const isOwnProfile =
+        req.actor.type === "board" &&
+        member.principalType === "user" &&
+        member.principalId === req.actor.userId;
+
+      if (!isOwnProfile) {
+        await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      }
+
+      const effective = await access.getEffectivePermissions(
+        companyId,
+        member.principalType as any,
+        member.principalId,
+      );
+      res.json(effective);
+    },
   );
 
   router.post(

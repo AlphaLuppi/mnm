@@ -282,6 +282,13 @@ export {
   type UpdateStage,
 } from "./validators/index.js";
 
+export {
+  ROLE_PERMISSION_PRESETS,
+  isPermissionInPreset,
+  getPresetPermissions,
+  getPresetsMatrix,
+} from "./rbac-presets.js";
+
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey } from "./project-url-key.js";
