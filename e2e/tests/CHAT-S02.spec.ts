@@ -189,9 +189,9 @@ test.describe("Groupe 3: Migration SQL", () => {
     // Look for a migration that contains ALTER TABLE "chat_channels" ADD COLUMN
     let found = false;
     for (const file of migrationFiles) {
-      // Only check files >= 0037
+      // Only check files >= 0034 (combined migration 0034_tan_sleepwalker.sql)
       const num = parseInt(file.substring(0, 4), 10);
-      if (num < 37) continue;
+      if (num < 34) continue;
 
       const content = await readFile(
         resolve(MIGRATIONS_DIR, file),
@@ -209,7 +209,7 @@ test.describe("Groupe 3: Migration SQL", () => {
 
     if (!found) {
       throw new Error(
-        "No CHAT-S02 migration file found (>= 0037) with ALTER TABLE chat_channels ADD COLUMN",
+        "No CHAT-S02 migration file found (>= 0034) with ALTER TABLE chat_channels ADD COLUMN",
       );
     }
   });
@@ -677,7 +677,7 @@ test.describe("Groupe 13: Migration -- backward-compatible details", () => {
 
     for (const file of migrationFiles) {
       const num = parseInt(file.substring(0, 4), 10);
-      if (num < 37) continue;
+      if (num < 34) continue;
 
       const content = await readFile(
         resolve(MIGRATIONS_DIR, file),
@@ -693,7 +693,7 @@ test.describe("Groupe 13: Migration -- backward-compatible details", () => {
     }
 
     if (!migrationContent) {
-      throw new Error("No CHAT-S02 migration file found");
+      throw new Error("No CHAT-S02 migration file found (>= 0034)");
     }
   });
 
