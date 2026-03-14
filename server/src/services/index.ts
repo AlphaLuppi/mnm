@@ -21,6 +21,7 @@ export { createStorageServiceFromConfig, getStorageService } from "../storage/in
 export { workflowService } from "./workflows.js";
 export { stageService } from "./stages.js";
 export { orchestratorService } from "./orchestrator.js";
+export { workflowEnforcerService } from "./workflow-enforcer.js";
 export { analyzeWorkspace } from "./workspace-analyzer.js";
 export { checkDrift, getDriftResults, resolveDrift } from "./drift.js";
 export { createEmailService, type EmailService } from "./email.js";

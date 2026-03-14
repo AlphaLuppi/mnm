@@ -20,4 +20,8 @@ export type WorkflowStageTemplateDef = {
   agentRole?: string;
   autoTransition: boolean;
   acceptanceCriteria?: string[];
+  // ORCH-S02: WorkflowEnforcer fields
+  requiredFiles?: import("@mnm/shared").RequiredFileDef[];
+  prePrompts?: string[];
+  expectedOutputs?: string[];
 };
