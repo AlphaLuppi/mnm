@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { Company } from "@mnm/shared";
 import { CompanyPatternIcon } from "./CompanyPatternIcon";
+import { UserMenu } from "./UserMenu";
 
 const ORDER_STORAGE_KEY = "mnm.companyOrder";
 
@@ -311,6 +312,11 @@ export function CompanyRail() {
             <p>Add company</p>
           </TooltipContent>
         </Tooltip>
+      </div>
+
+      {/* User menu */}
+      <div className="flex items-center justify-center pb-3 shrink-0">
+        <UserMenu />
       </div>
     </div>
   );
