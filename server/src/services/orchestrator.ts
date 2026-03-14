@@ -5,7 +5,6 @@ import { transition as xstateTransition } from "xstate";
 import {
   stageMachine,
   buildMachineEvent,
-  eventToEmitType,
   type StageGuardInput,
 } from "./workflow-state-machine.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -461,4 +460,29 @@ function getRequiredPermission(event: StageEvent): PermissionKey | null {
     default:
       return null;
   }
+}
+
+/**
+ * Map a stage event to the emitted event type suffix for audit events.
+ * E.g. "initialize" -> "initialized", "approve" -> "approved"
+ */
+function eventToEmitType(event: StageEvent, _toState: StageState): string {
+  const mapping: Record<string, string> = {
+    initialize: "initialized",
+    start: "started",
+    request_validation: "validation_requested",
+    complete: "completed",
+    pause: "paused",
+    fail: "failed",
+    compact_detected: "compaction_detected",
+    approve: "approved",
+    reject_with_feedback: "rejected",
+    resume: "resumed",
+    retry: "retried",
+    terminate: "terminated",
+    reinjected: "reinjected",
+    compaction_failed: "compaction_failed",
+    skip: "skipped",
+  };
+  return mapping[event] ?? event;
 }

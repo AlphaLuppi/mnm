@@ -758,9 +758,12 @@ test.describe("Group 3: Orchestrator service -- event emission", () => {
   });
 
   test("emits events with companyId in payload", () => {
-    const publishIdx = content.indexOf("publishLiveEvent");
-    expect(publishIdx).toBeGreaterThan(-1);
-    const publishBlock = content.slice(publishIdx, publishIdx + 400);
+    // Skip the import line and find the actual call to publishLiveEvent
+    const importIdx = content.indexOf("publishLiveEvent");
+    expect(importIdx).toBeGreaterThan(-1);
+    const callIdx = content.indexOf("publishLiveEvent(", importIdx + 1);
+    expect(callIdx).toBeGreaterThan(-1);
+    const publishBlock = content.slice(callIdx, callIdx + 400);
     expect(publishBlock).toContain("companyId");
   });
 
