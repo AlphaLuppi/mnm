@@ -273,8 +273,8 @@ test.describe("Group 3: Tenant context middleware", () => {
 
   test("contains UUID validation regex", () => {
     // Should have a UUID regex pattern for input validation
-    expect(middlewareContent).toMatch(
-      /[0-9a-f]\{8\}-\[0-9a-f\]\{4\}-\[0-9a-f\]\{4\}-\[0-9a-f\]\{4\}-\[0-9a-f\]\{12\}/i,
+    expect(middlewareContent).toContain(
+      "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
     );
   });
 
