@@ -131,7 +131,7 @@ test.describe("Group 2: Members.tsx integration", () => {
   });
 
   test("RoleBadge receives role prop from member.businessRole", () => {
-    expect(content).toMatch(/<RoleBadge\s[^>]*role=\{member\.businessRole\}/);
+    expect(content).toMatch(/<RoleBadge\s[^>]*role=\{member\.businessRole(\s+as\s+BusinessRole)?\}/);
   });
 
   test("existing Select for role change is preserved (mu-s02-member-role-)", () => {
