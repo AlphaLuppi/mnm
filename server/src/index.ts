@@ -388,6 +388,12 @@ if (config.databaseUrl) {
 
   db = createDb(embeddedConnectionString);
   logger.info("Embedded PostgreSQL ready");
+  logger.warn(
+    "⚠️  You are using embedded PostgreSQL. For B2B/production workloads, " +
+      "use an external PostgreSQL instance instead. " +
+      "Quick start: pnpm db:dev (runs docker compose -f docker-compose.dev.yml up -d) " +
+      "then set DATABASE_URL=postgres://mnm:mnm_dev@127.0.0.1:5432/mnm",
+  );
   activeDatabaseConnectionString = embeddedConnectionString;
   startupDbInfo = { mode: "embedded-postgres", dataDir, port };
 }
