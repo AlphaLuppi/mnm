@@ -1,8 +1,6 @@
--- TECH-05: Row-Level Security (RLS) for all 41 tenant-scoped tables
--- Each table gets:
---   1. ALTER TABLE ... ENABLE ROW LEVEL SECURITY
---   2. ALTER TABLE ... FORCE ROW LEVEL SECURITY
---   3. A RESTRICTIVE policy using app.current_company_id session variable
+-- TECH-05: Row-Level Security (RLS) for all 41 tenant-scoped tables (ADR-001)
+-- Each table gets: ENABLE RLS, FORCE RLS, and a RESTRICTIVE tenant_isolation policy
+-- using the app.current_company_id session variable
 
 -- 1. agents
 ALTER TABLE "agents" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
