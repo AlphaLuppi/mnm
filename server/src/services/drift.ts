@@ -1,34 +1,24 @@
-import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { Db } from "@mnm/db";
 import type {
   DriftReport,
   DriftItem,
-  DriftSeverity,
-  DriftType,
-  DriftRecommendation,
   DriftDecision,
   DriftScanStatus,
+  DriftReportFilters,
+  DriftItemFilters,
 } from "@mnm/shared";
 import { logger } from "../middleware/logger.js";
 import { analyzeDrift, type DriftResultItem } from "./drift-analyzer.js";
 import { loadCustomInstructions } from "./drift-instructions.js";
+import { driftPersistenceService } from "./drift-persistence.js";
 
-/**
- * In-memory cache of drift reports per project.
- * Key = projectId, Value = array of DriftReports (most recent first).
- */
-const reportCache = new Map<string, DriftReport[]>();
-
-const MAX_REPORTS_PER_PROJECT = 50;
-
-/**
- * Per-project scan status tracking.
- */
-const scanStatusMap = new Map<string, DriftScanStatus>();
-
-/** Abort controllers for cancellable scans */
+/** Abort controllers for cancellable scans — remains in-memory (process state) */
 const scanAbortMap = new Map<string, AbortController>();
+
+/** In-memory tracking for active scan progress (non-persistent process state) */
+const activeScanStatus = new Map<string, DriftScanStatus>();
 
 function getDefaultScanStatus(): DriftScanStatus {
   return {
@@ -55,15 +45,14 @@ async function readDocContent(docPath: string): Promise<string | null> {
 }
 
 /**
- * Convert an LLM drift result item to a DriftItem.
+ * Convert an LLM drift result item to an input for persistence.
  */
-function toDriftItem(
+function toDriftItemInput(
   item: DriftResultItem,
   sourceDoc: string,
   targetDoc: string,
-): DriftItem {
+) {
   return {
-    id: crypto.randomUUID(),
     severity: item.severity,
     driftType: item.drift_type,
     confidence: item.confidence,
@@ -73,75 +62,7 @@ function toDriftItem(
     targetExcerpt: item.target_excerpt,
     sourceDoc,
     targetDoc,
-    decision: "pending" as DriftDecision,
   };
-}
-
-/**
- * Generate mock drift items for testing when no API key is available.
- */
-function generateMockDrifts(sourceDoc: string, targetDoc: string): DriftItem[] {
-  return [
-    {
-      id: crypto.randomUUID(),
-      severity: "critical" as DriftSeverity,
-      driftType: "approach_change" as DriftType,
-      confidence: 0.92,
-      description:
-        "Le PRD mentionne une authentification OAuth2 mais l'architecture spécifie uniquement des clés API. Contradiction sur le mécanisme d'authentification.",
-      recommendation: "recenter_code" as DriftRecommendation,
-      sourceExcerpt:
-        "Authentication will be handled via OAuth2 with refresh tokens for all user-facing endpoints.",
-      targetExcerpt:
-        "All endpoints are secured with API key authentication passed via X-Api-Key header.",
-      sourceDoc,
-      targetDoc,
-      decision: "pending" as DriftDecision,
-    },
-    {
-      id: crypto.randomUUID(),
-      severity: "moderate" as DriftSeverity,
-      driftType: "scope_expansion" as DriftType,
-      confidence: 0.78,
-      description:
-        "Le brief produit exige un support multi-langue (FR/EN) mais aucune story ne couvre l'internationalisation.",
-      recommendation: "update_spec" as DriftRecommendation,
-      sourceExcerpt:
-        "The product must support French and English locales at launch.",
-      targetExcerpt: "",
-      sourceDoc,
-      targetDoc,
-      decision: "pending" as DriftDecision,
-    },
-    {
-      id: crypto.randomUUID(),
-      severity: "minor" as DriftSeverity,
-      driftType: "design_deviation" as DriftType,
-      confidence: 0.65,
-      description:
-        "La story mentionne un cache Redis alors que l'architecture prévoit un cache en mémoire. Divergence mineure sur la stratégie de cache.",
-      recommendation: "recenter_code" as DriftRecommendation,
-      sourceExcerpt:
-        "Caching layer: in-memory LRU cache with configurable TTL.",
-      targetExcerpt:
-        "Use Redis for caching API responses with a 5-minute TTL.",
-      sourceDoc,
-      targetDoc,
-      decision: "pending" as DriftDecision,
-    },
-  ];
-}
-
-/**
- * Cache a report and enforce the max limit.
- */
-function cacheReport(report: DriftReport): void {
-  const existing = reportCache.get(report.projectId) ?? [];
-  existing.unshift(report);
-  if (existing.length > MAX_REPORTS_PER_PROJECT) {
-    existing.length = MAX_REPORTS_PER_PROJECT;
-  }
-  reportCache.set(report.projectId, existing);
 }
 
 /**
@@ -149,8 +70,12 @@ function cacheReport(report: DriftReport): void {
  *
  * Uses the Claude API if ANTHROPIC_API_KEY is set,
  * otherwise falls back to mock data for development.
+ *
+ * Persists results to PostgreSQL via drift-persistence service.
  */
 export async function checkDrift(
+  db: Db,
+  companyId: string,
   projectId: string,
   sourceDoc: string,
   targetDoc: string,
@@ -183,68 +108,89 @@ export async function checkDrift(
     customInstructions,
   );
 
-  const drifts: DriftItem[] = results.map((r) => toDriftItem(r, sourceDoc, targetDoc));
+  const items = results.map((r) => toDriftItemInput(r, sourceDoc, targetDoc));
   logger.info(
-    { driftCount: drifts.length, sourceDoc, targetDoc },
+    { driftCount: items.length, sourceDoc, targetDoc },
     "Drift analysis complete",
   );
 
-  const report: DriftReport = {
-    id: crypto.randomUUID(),
+  // Persist to DB via drift-persistence service (atomic transaction)
+  const svc = driftPersistenceService(db);
+  const report = await svc.createReport({
+    companyId,
     projectId,
     sourceDoc,
     targetDoc,
-    drifts,
-    checkedAt: new Date().toISOString(),
-  };
+    items,
+  });
 
-  cacheReport(report);
   return report;
 }
 
 /**
- * Returns all cached drift reports for a project.
+ * Returns drift reports for a project from the database.
+ * Supports pagination and filters.
  */
-export function getDriftResults(projectId: string): DriftReport[] {
-  return reportCache.get(projectId) ?? [];
+export async function getDriftResults(
+  db: Db,
+  companyId: string,
+  projectId: string,
+  filters?: { limit?: number; offset?: number; status?: string },
+): Promise<{ data: DriftReport[]; total: number }> {
+  const svc = driftPersistenceService(db);
+  return svc.listReports({
+    companyId,
+    projectId,
+    status: filters?.status,
+    limit: filters?.limit,
+    offset: filters?.offset,
+  });
 }
 
 /**
  * Resolve a drift item (accept or reject).
+ * Persists the decision to the database.
  * Returns the updated DriftItem or null if not found.
  */
-export function resolveDrift(
-  projectId: string,
-  driftId: string,
-  decision: "accepted" | "rejected",
+export async function resolveDrift(
+  db: Db,
+  companyId: string,
+  itemId: string,
+  decision: DriftDecision,
+  decidedBy: string,
   remediationNote?: string,
-): DriftItem | null {
-  const reports = reportCache.get(projectId);
-  if (!reports) return null;
+): Promise<DriftItem | null> {
+  const svc = driftPersistenceService(db);
+  const updated = await svc.resolveItem(companyId, itemId, decision, decidedBy, remediationNote);
 
-  for (const report of reports) {
-    const drift = report.drifts.find((d) => d.id === driftId);
-    if (drift) {
-      drift.decision = decision;
-      drift.decidedAt = new Date().toISOString();
-      if (remediationNote) {
-        drift.remediationNote = remediationNote;
-      }
-      logger.info(
-        { driftId, decision, projectId },
-        "Drift resolved",
-      );
-      return drift;
-    }
+  if (updated) {
+    logger.info(
+      { driftId: itemId, decision, decidedBy },
+      "Drift resolved",
+    );
   }
-  return null;
+
+  return updated;
 }
 
 /**
  * Get scan status for a project.
+ * Merges in-memory active scan state with DB-derived last scan info.
  */
-export function getDriftScanStatus(projectId: string): DriftScanStatus {
-  return scanStatusMap.get(projectId) ?? getDefaultScanStatus();
+export async function getDriftScanStatus(
+  db: Db,
+  companyId: string,
+  projectId: string,
+): Promise<DriftScanStatus> {
+  // Check for active in-memory scan first
+  const activeStatus = activeScanStatus.get(projectId);
+  if (activeStatus?.scanning) {
+    return activeStatus;
+  }
+
+  // Derive from DB
+  const svc = driftPersistenceService(db);
+  return svc.getScanStatus(companyId, projectId);
 }
 
 /**
@@ -255,7 +201,7 @@ export function cancelDriftScan(projectId: string): boolean {
   if (controller) {
     controller.abort();
     scanAbortMap.delete(projectId);
-    const status = scanStatusMap.get(projectId);
+    const status = activeScanStatus.get(projectId);
     if (status) {
       status.scanning = false;
       status.progress = "Scan cancelled";
@@ -291,7 +237,7 @@ async function buildScanPairs(
           pairs.push({
             source: planFiles[i],
             target: planFiles[j],
-            label: `${path.basename(planFiles[i], ".md")} ↔ ${path.basename(planFiles[j], ".md")}`,
+            label: `${path.basename(planFiles[i], ".md")} \u2194 ${path.basename(planFiles[j], ".md")}`,
           });
         }
       }
@@ -313,7 +259,7 @@ async function buildScanPairs(
           pairs.push({
             source: epicsFile,
             target: story,
-            label: `epics ↔ ${path.basename(story, ".md")}`,
+            label: `epics \u2194 ${path.basename(story, ".md")}`,
           });
         }
       }
@@ -324,7 +270,7 @@ async function buildScanPairs(
           pairs.push({
             source: prdFile,
             target: story,
-            label: `prd ↔ ${path.basename(story, ".md")}`,
+            label: `prd \u2194 ${path.basename(story, ".md")}`,
           });
         }
       }
@@ -342,11 +288,13 @@ async function buildScanPairs(
  * Runs in the background and updates status as it progresses.
  */
 export async function runDriftScan(
+  db: Db,
+  companyId: string,
   projectId: string,
   workspacePath: string,
   scope: string,
 ): Promise<void> {
-  const existingStatus = scanStatusMap.get(projectId);
+  const existingStatus = activeScanStatus.get(projectId);
   if (existingStatus?.scanning) {
     throw new Error("A scan is already in progress for this project");
   }
@@ -364,7 +312,7 @@ export async function runDriftScan(
     lastScanAt: null,
     lastScanIssueCount: null,
   };
-  scanStatusMap.set(projectId, status);
+  activeScanStatus.set(projectId, status);
 
   if (pairs.length === 0) {
     status.scanning = false;
@@ -384,7 +332,7 @@ export async function runDriftScan(
     status.completed = i;
 
     try {
-      const report = await checkDrift(projectId, pair.source, pair.target);
+      const report = await checkDrift(db, companyId, projectId, pair.source, pair.target);
       totalIssues += report.drifts.length;
     } catch (err) {
       logger.warn({ pair, err }, "Failed to check drift for pair");
@@ -397,6 +345,11 @@ export async function runDriftScan(
   status.lastScanAt = new Date().toISOString();
   status.lastScanIssueCount = totalIssues;
   scanAbortMap.delete(projectId);
+
+  // Clean up active status after scan completes (keep for a short time for status queries)
+  setTimeout(() => {
+    activeScanStatus.delete(projectId);
+  }, 60_000);
 
   logger.info(
     { projectId, pairs: pairs.length, totalIssues },

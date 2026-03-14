@@ -6,7 +6,11 @@ import type { DriftCheckRequest, DriftResolveRequest, DriftScanRequest } from "@
 export function useDriftResults(projectId: string | undefined, companyId?: string) {
   return useQuery({
     queryKey: queryKeys.drift.results(projectId!),
-    queryFn: () => driftApi.getResults(projectId!, companyId),
+    queryFn: async () => {
+      const result = await driftApi.getResults(projectId!, companyId);
+      // Return the data array for backward compatibility with existing consumers
+      return result.data;
+    },
     enabled: !!projectId,
   });
 }

@@ -246,6 +246,13 @@
       "when": 1773499755161,
       "tag": "0034_tan_sleepwalker",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1773515807705,
+      "tag": "0035_special_lady_ursula",
+      "breakpoints": true
     }
   ]
 }
