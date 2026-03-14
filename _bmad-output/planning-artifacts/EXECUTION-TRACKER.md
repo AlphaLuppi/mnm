@@ -1,6 +1,6 @@
 # EXECUTION TRACKER — Pipeline B2B Autonome
 
-> **Dernière mise à jour** : 2026-03-14
+> **Dernière mise à jour** : 2026-03-15
 > **Méthode** : Pipeline 4-agents (PM → Dev+QA parallèle → Review)
 > **Compact** : `/compact — autonomous B2B pipeline, read CLAUDE.md then EXECUTION-TRACKER.md`
 
@@ -125,7 +125,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | COMP-S02 | Kill+relance | DONE | 08a5424 | f35a77f | edc95c0 | PASS (no fix) | 38/38 E2E pass, 135/135 regressions pass (COMP-S01 + CONT-S01) |
-| A2A-S02 | Permissions A2A | PENDING | | | | | |
+| A2A-S02 | Permissions A2A | DONE | 5cb4e6f | 13542d8 | a5f54c6 | PASS (no fix) | 55/55 E2E pass, 242/242 regressions pass (A2A-S01+COMP-S02+RBAC-S04) |
 | A2A-S03 | Audit A2A | PENDING | | | | | |
 | DUAL-S02 | UI curseur | PENDING | | | | | |
 | DUAL-S03 | Enforcement curseur | PENDING | | | | | |
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 48 |
+| Stories DONE | 49 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 21 |
+| Stories PENDING | 20 |
 | Batch courant | 12 (in progress) |
-| Dernière story complétée | COMP-S02 |
-| Prochain batch débloqué | BATCH 12 (A2A-S02, A2A-S03, DUAL-S02, DUAL-S03) |
+| Dernière story complétée | A2A-S02 |
+| Prochain batch débloqué | BATCH 12 (A2A-S03, DUAL-S02, DUAL-S03) |
 
 ---
 
@@ -347,3 +347,7 @@
 | 2026-03-15 | COMP-S02 | Dev | Dev Agent | f35a77f | compactionKillRelaunchService + schema + migration + 2 routes + types + validators + watcher DB integration |
 | 2026-03-15 | COMP-S02 | QA | QA Agent | edc95c0 | 38 Playwright E2E tests (file-content based) |
 | 2026-03-15 | COMP-S02 | Review | Review Agent | — | PASS — 38/38 E2E pass, 135/135 regressions (COMP-S01+CONT-S01), no fix needed |
+| 2026-03-15 | A2A-S02 | PM | PM Agent | 5cb4e6f | Story spec — permissions A2A + 12 ACs + 26 data-testid + 55 test cases |
+| 2026-03-15 | A2A-S02 | Dev | Dev Agent | 13542d8 | a2aPermissionsService + schema + migration + 7 routes + types + validators + a2a-bus integration |
+| 2026-03-15 | A2A-S02 | QA | QA Agent | a5f54c6 | 55 Playwright E2E tests (file-content based) |
+| 2026-03-15 | A2A-S02 | Review | Review Agent | — | PASS — 55/55 E2E pass, 242/242 regressions (A2A-S01+COMP-S02+RBAC-S04), no fix needed |
