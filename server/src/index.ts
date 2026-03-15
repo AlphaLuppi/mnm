@@ -27,7 +27,7 @@ import { logger } from "./middleware/logger.js";
 import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
-import { heartbeatService } from "./services/index.js";
+import { heartbeatService, subscribeDashboardRefreshEvents } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -520,6 +520,9 @@ setupChatWebSocketServer(server, db as any, {
   resolveSessionFromHeaders,
   redisState,
 });
+
+// DASH-S03: Initialize dashboard refresh emitter (debounced live event relay)
+subscribeDashboardRefreshEvents();
 
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);

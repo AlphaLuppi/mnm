@@ -529,6 +529,19 @@ function handleLiveEvent(
     }
     return;
   }
+
+  // DASH-S03: Dashboard real-time refresh
+  if (event.type === "dashboard.refresh") {
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.kpis(expectedCompanyId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.timeline(expectedCompanyId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.breakdown(expectedCompanyId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(expectedCompanyId) });
+    // Dispatch custom DOM event so useDashboardLiveIndicator can flash
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("dashboard:refresh", { detail: { companyId: expectedCompanyId } }));
+    }
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
