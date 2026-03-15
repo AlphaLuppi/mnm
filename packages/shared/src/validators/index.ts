@@ -253,6 +253,14 @@ export {
   type UpdateA2ADefaultPolicy,
 } from "./a2a.js";
 
+// dash-s01-barrel-validators
+export {
+  dashboardTimelineFiltersSchema,
+  dashboardBreakdownCategorySchema,
+  type DashboardTimelineFilters,
+  type DashboardBreakdownCategoryInput,
+} from "./dashboard.js";
+
 // sso-s01-barrel-validators
 export {
   createSsoConfigurationSchema,
