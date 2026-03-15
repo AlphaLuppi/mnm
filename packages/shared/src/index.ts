@@ -191,6 +191,11 @@ export type {
   AuditEvent,
   AuditListResult,
   AuditVerifyResult,
+  // OBS-S03: Audit summary types
+  AuditSummaryPeriod,
+  AuditSummarySource,
+  AuditSummaryStats,
+  AuditSummary,
   ChatChannelStatus,
   ChatSenderType,
   ChatMessageType,
@@ -307,6 +312,9 @@ export {
   AUDIT_SEVERITY_LEVELS,
   AUDIT_TARGET_TYPES,
   AUDIT_ACTIONS,
+  // OBS-S03: Audit summary constants
+  AUDIT_SUMMARY_PERIODS,
+  AUDIT_SUMMARY_SOURCES,
   // CONT-S01: Container constants
   CONTAINER_STATUSES,
   CONTAINER_PROFILE_PRESETS,
@@ -481,6 +489,11 @@ export {
   type AuditEventFilters,
   type AuditExportFilters,
   type AuditVerifyParams,
+  // OBS-S03: Audit summary validators
+  auditSummaryFiltersSchema,
+  auditSummaryGenerateSchema,
+  type AuditSummaryFilters,
+  type AuditSummaryGenerate,
   orchestratorTransitionSchema,
   orchestratorApproveSchema,
   orchestratorRejectSchema,

@@ -2,12 +2,20 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { auditService } from "../services/audit.js";
+import { auditSummarizerService } from "../services/audit-summarizer.js";
 import { assertCompanyAccess } from "./authz.js";
-import { auditEventFiltersSchema, auditExportFiltersSchema, auditVerifySchema } from "@mnm/shared";
+import {
+  auditEventFiltersSchema,
+  auditExportFiltersSchema,
+  auditVerifySchema,
+  auditSummaryFiltersSchema,
+  auditSummaryGenerateSchema,
+} from "@mnm/shared";
 
 export function auditRoutes(db: Db) {
   const router = Router();
   const svc = auditService(db);
+  const summarizer = auditSummarizerService(db);
 
   // GET /api/companies/:companyId/audit — list with 12 filters + pagination
   router.get(
@@ -84,9 +92,55 @@ export function auditRoutes(db: Db) {
     },
   );
 
+  // OBS-S03: GET /api/companies/:companyId/audit/summary — get summary for period (obs-s03-summary-route)
+  router.get(
+    "/companies/:companyId/audit/summary",
+    requirePermission(db, "audit:read"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const filters = auditSummaryFiltersSchema.parse(req.query);
+      const summary = await summarizer.summarize(companyId, filters.period, { req });
+      res.json(summary);
+    },
+  );
+
+  // OBS-S03: GET /api/companies/:companyId/audit/summaries — list cached summaries (obs-s03-summaries-route)
+  router.get(
+    "/companies/:companyId/audit/summaries",
+    requirePermission(db, "audit:read"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const filters = auditSummaryFiltersSchema.parse(req.query);
+      const result = await summarizer.listSummaries(companyId, {
+        limit: filters.limit,
+        offset: filters.offset,
+      });
+      res.json(result);
+    },
+  );
+
+  // OBS-S03: POST /api/companies/:companyId/audit/summary/generate — force generate (obs-s03-generate-route)
+  router.post(
+    "/companies/:companyId/audit/summary/generate",
+    requirePermission(db, "audit:read"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const body = auditSummaryGenerateSchema.parse(req.body);
+      summarizer.invalidateCache(companyId);
+      const summary = await summarizer.summarize(companyId, body.period, {
+        forceRefresh: body.forceRefresh,
+        req,
+      });
+      res.json(summary);
+    },
+  );
+
   // GET /api/companies/:companyId/audit/:id — single event detail
-  // NOTE: This route MUST be declared AFTER /count, /export/*, /verify
-  // to prevent Express from matching "count", "export", "verify" as :id.
+  // NOTE: This route MUST be declared AFTER /count, /export/*, /verify, /summary, /summaries
+  // to prevent Express from matching "count", "export", "verify", "summary", "summaries" as :id.
   router.get(
     "/companies/:companyId/audit/:id",
     requirePermission(db, "audit:read"),
