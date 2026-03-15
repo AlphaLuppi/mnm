@@ -18,6 +18,9 @@ import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
+import { DashboardKpiCards } from "../components/DashboardKpiCards";
+import { DashboardTimeline } from "../components/DashboardTimeline";
+import { DashboardBreakdownPanel } from "../components/DashboardBreakdownPanel";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
 import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Radar, HeartPulse } from "lucide-react";
@@ -83,6 +86,13 @@ export function Dashboard() {
   const { data: runs } = useQuery({
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  // DASH-S02: Enriched KPIs from new endpoint
+  const { data: kpisData } = useQuery({
+    queryKey: queryKeys.dashboard.kpis(selectedCompanyId!),
+    queryFn: () => dashboardApi.kpis(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
@@ -348,6 +358,15 @@ export function Dashboard() {
             <ChartCard title="Success Rate" subtitle="Last 14 days">
               <SuccessRateChart runs={runs ?? []} />
             </ChartCard>
+          </div>
+
+          {/* DASH-S02: Enterprise KPI Cards */}
+          <DashboardKpiCards data={kpisData} />
+
+          {/* DASH-S02: Activity Timeline + Breakdown */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <DashboardTimeline companyId={selectedCompanyId!} />
+            <DashboardBreakdownPanel companyId={selectedCompanyId!} />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
