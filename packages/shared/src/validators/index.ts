@@ -261,6 +261,15 @@ export {
   type CreateA2APermissionRule,
   type UpdateA2APermissionRule,
   type UpdateA2ADefaultPolicy,
+  // a2a-s04-barrel-validators
+  createMcpConnectorSchema,
+  updateMcpConnectorSchema,
+  mcpConnectorFiltersSchema,
+  invokeMcpToolSchema,
+  type CreateMcpConnector,
+  type UpdateMcpConnector,
+  type McpConnectorFiltersInput,
+  type InvokeMcpTool,
 } from "./a2a.js";
 
 // dash-s01-barrel-validators

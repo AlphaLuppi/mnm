@@ -307,6 +307,22 @@ export type {
   A2APermissionCheckResult,
   // A2A-S03: Audit A2A type
   A2AAuditAction,
+  // A2A-S04: MCP Connector types
+  // a2a-s04-barrel-types
+  MCP_TRANSPORT_TYPES,
+  MCP_AUTH_TYPES,
+  MCP_CONNECTOR_STATUSES,
+} from "./a2a.js";
+export type {
+  McpTransportType,
+  McpAuthType,
+  McpConnectorStatus,
+  McpConnector,
+  McpTool,
+  McpToolInvocationResult,
+  McpConnectorTestResult,
+  McpConnectorStats,
+  McpConnectorFilters,
 } from "./a2a.js";
 // SSO-S01: SSO configuration types
 // sso-s01-barrel-types
