@@ -152,7 +152,7 @@
 | ONB-S03 | Import Jira | DONE | 731b00d | 3c523f8 | f984d2d | PASS (no fix) | 68/68 E2E pass, 559/559 regressions pass (ONB-S01+ONB-S02+TECH-06+RBAC-S04+RBAC-S05+OBS-S02) |
 | ONB-S04 | Dual-mode config | DONE | 18dae62 | 461081a | 48973cf | PASS (no fix) | 48/48 E2E pass, 102/102 regressions pass (ONB-S01 52/52 + DUAL-S01 50/50) |
 | ORCH-S05 | UI éditeur workflow | DONE | 6be2b1a | 4d2d110 | 8d74c1f | PASS (no fix) | 68/68 E2E pass, 212/213 regressions pass (ORCH-S04 78/79 + RBAC-S05 134/134, 1 pre-existing ORCH-S04 T16) |
-| A2A-S04 | Connecteurs MCP | PENDING | | | | | |
+| A2A-S04 | Connecteurs MCP | DONE | 4109444 | eeea866 | 1a67ac5 | 14a5308 | 30/30 E2E pass, 190/190 regressions pass (A2A-S01+A2A-S02+A2A-S03), fix: A2A-S02 T44 route count |
 | TECH-08 | CI/CD pipeline | PENDING | | | | | |
 
 ---
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 65 |
+| Stories DONE | 66 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 4 |
+| Stories PENDING | 3 |
 | Batch courant | 14 (in progress) |
-| Dernière story complétée | ORCH-S05 |
+| Dernière story complétée | A2A-S04 |
 | Prochain batch débloqué | BATCH 14 (Onboarding + Polish) |
 
 ---
@@ -415,3 +415,7 @@
 | 2026-03-15 | ORCH-S05 | Dev | Dev Agent | 4d2d110 | WorkflowEditor page + StageEditorCard + WorkflowEditorPreview + route + sidebar |
 | 2026-03-15 | ORCH-S05 | QA | QA Agent | 8d74c1f | 68 Playwright E2E tests (file-content based) |
 | 2026-03-15 | ORCH-S05 | Review | Review Agent | — | PASS — 68/68 E2E pass, 212/213 regressions (ORCH-S04+RBAC-S05, 1 pre-existing), no fix needed |
+| 2026-03-15 | A2A-S04 | PM | PM Agent | 4109444 | Story spec — MCP connectors + 12 ACs + 30 data-testid + 30 test cases |
+| 2026-03-15 | A2A-S04 | Dev | Dev Agent | eeea866 | mcpConnectorService + 9 routes + types + validators + barrel exports + LiveEvent |
+| 2026-03-15 | A2A-S04 | QA | QA Agent | 1a67ac5 | 30 Playwright E2E tests (file-content based) |
+| 2026-03-15 | A2A-S04 | Review | Review Agent | 14a5308 | Fix: A2A-S02 T44 route count regression (14→>=14). 190/190 pass |
