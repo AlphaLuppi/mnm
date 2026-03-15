@@ -263,6 +263,11 @@ export type {
   KillRelaunchResult,
   RelaunchHistoryEntry,
   RelaunchHistoryFilters,
+  // comp-s03-barrel-shared
+  ReinjectionResult,
+  ReinjectionHistoryEntry,
+  ReinjectionHistoryFilters,
+  RecoveryPrompt,
   // DUAL-S01: Automation cursor types
   // dual-s01-barrel-shared
   AutomationCursorPosition,
@@ -529,6 +534,12 @@ export {
   relaunchHistoryFiltersSchema,
   type KillRelaunchInput,
   type RelaunchHistoryFiltersInput,
+  // COMP-S03: Reinjection validators
+  // comp-s03-barrel-validators-shared
+  reinjectionSchema,
+  reinjectionHistoryFiltersSchema,
+  type ReinjectionInput,
+  type ReinjectionHistoryFiltersInput,
   // DUAL-S01: Automation cursor validators
   setCursorSchema,
   cursorFiltersSchema,

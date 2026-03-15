@@ -1,8 +1,9 @@
 /**
  * COMP-S01: Compaction Watcher API Routes
  * COMP-S02: Kill+Relaunch routes added
+ * COMP-S03: Reinjection routes added
  *
- * 7 routes for managing the CompactionWatcher:
+ * 9 routes for managing the CompactionWatcher:
  * - POST /companies/:companyId/compaction/start — start watching
  * - POST /companies/:companyId/compaction/stop — stop watching
  * - GET  /companies/:companyId/compaction/status — get watcher status
@@ -10,6 +11,8 @@
  * - GET  /companies/:companyId/compaction/snapshots/:snapshotId — get snapshot
  * - POST /companies/:companyId/compaction/snapshots/:snapshotId/kill-relaunch — kill and relaunch (COMP-S02)
  * - GET  /companies/:companyId/compaction/relaunch-history — list relaunch history (COMP-S02)
+ * - POST /companies/:companyId/compaction/snapshots/:snapshotId/reinject — reinject context (COMP-S03)
+ * - GET  /companies/:companyId/compaction/reinjection-history — list reinjection history (COMP-S03)
  */
 
 import { Router } from "express";
@@ -19,11 +22,14 @@ import {
   compactionSnapshotFiltersSchema,
   killRelaunchSchema,
   relaunchHistoryFiltersSchema,
+  reinjectionSchema,
+  reinjectionHistoryFiltersSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { compactionWatcherService } from "../services/compaction-watcher.js";
 import { compactionKillRelaunchService } from "../services/compaction-kill-relaunch.js";
+import { compactionReinjectionService } from "../services/compaction-reinjection.js";
 import { emitAudit, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { notFound } from "../errors.js";
@@ -32,6 +38,7 @@ export function compactionRoutes(db: Db) {
   const router = Router();
   const watcher = compactionWatcherService(db);
   const killRelaunch = compactionKillRelaunchService(db);
+  const reinjection = compactionReinjectionService(db);
 
   // ──────────────────────────────────────────────────────────
   // comp-s01-route-start
@@ -228,6 +235,70 @@ export function compactionRoutes(db: Db) {
 
       const filters = relaunchHistoryFiltersSchema.parse(req.query);
       const history = await killRelaunch.getRelaunchHistory(
+        companyId as string,
+        filters,
+      );
+
+      res.json(history);
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // comp-s03-route-reinject
+  // POST /companies/:companyId/compaction/snapshots/:snapshotId/reinject
+  // ──────────────────────────────────────────────────────────
+  router.post(
+    "/companies/:companyId/compaction/snapshots/:snapshotId/reinject",
+    requirePermission(db, "workflows:enforce"),
+    validate(reinjectionSchema),
+    async (req, res) => {
+      const { companyId, snapshotId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+      const actor = getActorInfo(req);
+
+      const result = await reinjection.executeReinjection(
+        companyId as string,
+        snapshotId as string,
+        actor.actorId,
+        req.body,
+      );
+
+      await logActivity(db, {
+        companyId: companyId as string,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        action: "compaction.reinject",
+        entityType: "compaction_snapshot",
+        entityId: snapshotId as string,
+        details: { result },
+      });
+
+      await emitAudit({
+        req, db, companyId: companyId as string,
+        action: "compaction.reinject_requested",
+        targetType: "compaction_snapshot",
+        targetId: snapshotId as string,
+        metadata: { result },
+      });
+
+      res.json(result);
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // comp-s03-route-reinjection-history
+  // GET /companies/:companyId/compaction/reinjection-history
+  // ──────────────────────────────────────────────────────────
+  router.get(
+    "/companies/:companyId/compaction/reinjection-history",
+    requirePermission(db, "workflows:enforce"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const filters = reinjectionHistoryFiltersSchema.parse(req.query);
+      const history = await reinjection.getReinjectionHistory(
         companyId as string,
         filters,
       );
