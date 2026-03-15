@@ -591,6 +591,15 @@ export {
   getPresetsMatrix,
 } from "./rbac-presets.js";
 
+// onb-s02-barrel-shared
+export {
+  BUSINESS_ROLE_LEVELS,
+  canInviteRole,
+  isHierarchyValid,
+  getInvitableRoles,
+  getRoleLevel,
+} from "./role-hierarchy.js";
+
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey } from "./project-url-key.js";
