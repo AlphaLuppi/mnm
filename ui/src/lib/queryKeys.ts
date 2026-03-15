@@ -132,6 +132,13 @@ export const queryKeys = {
     resolve: (companyId: string, body?: Record<string, unknown>) =>
       ["automation-cursors", companyId, "resolve", body] as const,
   },
+  // SSO-S03: SSO configuration UI
+  sso: {
+    list: (companyId: string) =>
+      ["sso", companyId, "list"] as const,
+    detail: (companyId: string, configId: string) =>
+      ["sso", companyId, "detail", configId] as const,
+  },
   // CONT-S06: container status UI
   containers: {
     list: (companyId: string, filters?: Record<string, unknown>) =>

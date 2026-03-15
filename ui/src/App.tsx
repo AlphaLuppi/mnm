@@ -35,6 +35,7 @@ import { AuditLog } from "./pages/AuditLog";
 import { Containers } from "./pages/Containers";
 import { Chat } from "./pages/Chat";
 import { AutomationCursors } from "./pages/AutomationCursors";
+import { SsoConfig } from "./pages/SsoConfig";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -108,6 +109,7 @@ function boardRoutes() {
       <Route path="companies" element={<Companies />} />
       <Route path="members" element={<RequirePermission permission="users:invite" showForbidden><Members /></RequirePermission>} />
       <Route path="admin/roles" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminRoles /></RequirePermission>} />
+      <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
