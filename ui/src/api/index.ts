@@ -20,3 +20,5 @@ export { automationCursorsApi } from "./automation-cursors";
 export { ssoApi } from "./sso";
 // onb-s01-barrel-api
 export { onboardingApi } from "./onboarding";
+// onb-s03-barrel-api
+export { jiraImportApi } from "./jira-import";

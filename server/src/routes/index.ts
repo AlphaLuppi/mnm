@@ -32,3 +32,5 @@ export { ssoRoutes } from "./sso.js";
 export { ssoAuthRoutes } from "./sso-auth.js";
 // onb-s01-barrel-route
 export { onboardingRoutes } from "./onboarding.js";
+// onb-s03-barrel-route
+export { jiraImportRoutes } from "./jira-import.js";
