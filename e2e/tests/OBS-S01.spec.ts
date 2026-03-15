@@ -782,12 +782,15 @@ test.describe("Groupe 11: Routes imports and patterns", () => {
     expect(content).toContain("res.end()");
   });
 
-  test("All 6 routes are GET (no POST, PUT, DELETE, PATCH)", () => {
+  test("At least 6 GET routes and only POST for OBS-S03 summary generate (no PUT, DELETE, PATCH)", () => {
     const getCount = (content.match(/router\.get\(/g) || []).length;
     expect(getCount).toBeGreaterThanOrEqual(6);
 
-    // Should NOT have other HTTP methods
-    expect(content).not.toMatch(/router\.post\(/);
+    // OBS-S03 added 1 POST route for summary/generate
+    const postCount = (content.match(/router\.post\(/g) || []).length;
+    expect(postCount).toBeLessThanOrEqual(1);
+
+    // Should NOT have PUT, DELETE, PATCH
     expect(content).not.toMatch(/router\.put\(/);
     expect(content).not.toMatch(/router\.delete\(/);
     expect(content).not.toMatch(/router\.patch\(/);
