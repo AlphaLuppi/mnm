@@ -151,7 +151,7 @@
 | ONB-S02 | Cascade hiérarchique | DONE | 01a0e55 | 193e6a9 | 7fe364a | PASS (no fix) | 45/45 E2E pass, 185/187 regressions pass (RBAC-S01+RBAC-S03+MU-S01+ONB-S01, 2 pre-existing) |
 | ONB-S03 | Import Jira | DONE | 731b00d | 3c523f8 | f984d2d | PASS (no fix) | 68/68 E2E pass, 559/559 regressions pass (ONB-S01+ONB-S02+TECH-06+RBAC-S04+RBAC-S05+OBS-S02) |
 | ONB-S04 | Dual-mode config | DONE | 18dae62 | 461081a | 48973cf | PASS (no fix) | 48/48 E2E pass, 102/102 regressions pass (ONB-S01 52/52 + DUAL-S01 50/50) |
-| ORCH-S05 | UI éditeur workflow | PENDING | | | | | |
+| ORCH-S05 | UI éditeur workflow | DONE | 6be2b1a | 4d2d110 | 8d74c1f | PASS (no fix) | 68/68 E2E pass, 212/213 regressions pass (ORCH-S04 78/79 + RBAC-S05 134/134, 1 pre-existing ORCH-S04 T16) |
 | A2A-S04 | Connecteurs MCP | PENDING | | | | | |
 | TECH-08 | CI/CD pipeline | PENDING | | | | | |
 
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 64 |
+| Stories DONE | 65 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 5 |
+| Stories PENDING | 4 |
 | Batch courant | 14 (in progress) |
-| Dernière story complétée | ONB-S04 |
+| Dernière story complétée | ORCH-S05 |
 | Prochain batch débloqué | BATCH 14 (Onboarding + Polish) |
 
 ---
@@ -411,3 +411,7 @@
 | 2026-03-15 | ONB-S04 | Dev | Dev Agent | 461081a | OnboardingDualModeStep + wizard 5→6 steps + ProgressBar Speed label + route/service step 7 |
 | 2026-03-15 | ONB-S04 | QA | QA Agent | 48973cf | 48 Playwright E2E tests (file-content based) |
 | 2026-03-15 | ONB-S04 | Review | Review Agent | — | PASS — 48/48 E2E pass, 102/102 regressions (ONB-S01+DUAL-S01), no fix needed |
+| 2026-03-15 | ORCH-S05 | PM | PM Agent | 6be2b1a | Story spec — UI editeur workflow + 15 ACs + 30 data-testid + 48 test cases |
+| 2026-03-15 | ORCH-S05 | Dev | Dev Agent | 4d2d110 | WorkflowEditor page + StageEditorCard + WorkflowEditorPreview + route + sidebar |
+| 2026-03-15 | ORCH-S05 | QA | QA Agent | 8d74c1f | 68 Playwright E2E tests (file-content based) |
+| 2026-03-15 | ORCH-S05 | Review | Review Agent | — | PASS — 68/68 E2E pass, 212/213 regressions (ORCH-S04+RBAC-S05, 1 pre-existing), no fix needed |
