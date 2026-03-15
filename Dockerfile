@@ -1,3 +1,13 @@
+# tech-08-dockerfile-optimized
+# =============================================================================
+# MnM — Multi-stage Dockerfile (CI/CD optimized)
+# =============================================================================
+# Build stages: base -> deps -> build -> production
+# Optimized for Docker layer caching and BuildKit cache mounts.
+# Story: TECH-08 — CI/CD Pipeline
+# =============================================================================
+# syntax=docker/dockerfile:1
+
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git \
@@ -6,6 +16,7 @@ RUN corepack enable
 
 FROM base AS deps
 WORKDIR /app
+# Copy only package manifests first for optimal layer caching
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY cli/package.json cli/
 COPY server/package.json server/
@@ -20,7 +31,9 @@ COPY packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-
 COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
 
-RUN pnpm install --frozen-lockfile
+# Use BuildKit cache mount for pnpm store to speed up CI builds
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile
 
 FROM base AS build
 WORKDIR /app
