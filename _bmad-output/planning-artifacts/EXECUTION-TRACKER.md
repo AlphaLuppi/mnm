@@ -140,7 +140,7 @@
 | DASH-S01 | API dashboards | DONE | ab77da3 | cfaa7ac | 6f8413d | PASS (no fix) | 68/68 E2E pass, 410/410 regressions pass (OBS-S01+OBS-S02+OBS-S04+RBAC-S05) |
 | DASH-S02 | DashboardCards UI | DONE | bde004a | e66285c | 2a207b9 | PASS (no fix) | 52/52 E2E pass, 202/202 regressions pass (DASH-S01+RBAC-S05) |
 | DASH-S03 | Dashboard temps réel | DONE | 1900148 | efb7e71 | 1e3add9 | PASS (no fix) | 45/45 E2E pass, 299/299 regressions pass (DASH-S01+DASH-S02+RBAC-S05) |
-| OBS-S03 | Résumé LLM | PENDING | | | | | |
+| OBS-S03 | Résumé LLM | DONE | 1597353 | 46b3bc0 | bb8557d | d547d6d | 45/45 E2E pass, 389/389 regressions pass (OBS-S01+OBS-S02+OBS-S04+DASH-S01), fix: OBS-S01 T85 POST route count |
 | COMP-S03 | Réinjection compaction | PENDING | | | | | |
 
 ### BATCH 14 — Onboarding + Polish
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 58 |
+| Stories DONE | 59 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 11 |
+| Stories PENDING | 10 |
 | Batch courant | 13 (in progress) |
-| Dernière story complétée | DASH-S03 |
+| Dernière story complétée | OBS-S03 |
 | Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
@@ -387,3 +387,7 @@
 | 2026-03-15 | DASH-S03 | Dev | Dev Agent | efb7e71 | dashboard.refresh LiveEventType + dashboard-refresh service + subscribeAllLiveEvents + LiveUpdatesProvider handler + useDashboardLiveIndicator hook + Dashboard.tsx live indicator |
 | 2026-03-15 | DASH-S03 | QA | QA Agent | 1e3add9 | 45 Playwright E2E tests (file-content based) |
 | 2026-03-15 | DASH-S03 | Review | Review Agent | — | PASS — 45/45 E2E pass, 299/299 regressions (DASH-S01+DASH-S02+RBAC-S05), no fix needed |
+| 2026-03-15 | OBS-S03 | PM | PM Agent | 1597353 | Story spec — résumé LLM + 12 ACs + 18 data-testid + 45 test cases |
+| 2026-03-15 | OBS-S03 | Dev | Dev Agent | 46b3bc0 | auditSummarizerService + cache + 3 routes + types + validators + barrel exports |
+| 2026-03-15 | OBS-S03 | QA | QA Agent | bb8557d | 45 Playwright E2E tests (file-content based) |
+| 2026-03-15 | OBS-S03 | Review | Review Agent | d547d6d | Fix: OBS-S01 T85 POST route count regression. 389/389 regressions pass |
