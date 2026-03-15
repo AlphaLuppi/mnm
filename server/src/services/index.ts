@@ -67,3 +67,5 @@ export { ssoConfigurationService } from "./sso-configurations.js";
 export { ssoAuthService } from "./sso-auth.js";
 // onb-s01-barrel-svc
 export { onboardingService } from "./onboarding.js";
+// onb-s02-barrel-svc
+export { cascadeService } from "./cascade.js";

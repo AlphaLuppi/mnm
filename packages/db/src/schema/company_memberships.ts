@@ -11,6 +11,8 @@ export const companyMemberships = pgTable(
     status: text("status").notNull().default("active"),
     membershipRole: text("membership_role"),
     businessRole: text("business_role").notNull().default("contributor"),
+    // onb-s02-invited-by-column
+    invitedBy: text("invited_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
