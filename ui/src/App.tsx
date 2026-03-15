@@ -29,6 +29,7 @@ import { NewAgent } from "./pages/NewAgent";
 import { Workflows } from "./pages/Workflows";
 import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { NewWorkflow } from "./pages/NewWorkflow";
+import { WorkflowEditor } from "./pages/WorkflowEditor";
 import { Members } from "./pages/Members";
 import { AdminRoles } from "./pages/AdminRoles";
 import { AuditLog } from "./pages/AuditLog";
@@ -143,6 +144,8 @@ function boardRoutes() {
       <Route path="workflows" element={<RequirePermission permission="workflows:create" showForbidden><Workflows /></RequirePermission>} />
       <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><NewWorkflow /></RequirePermission>} />
       <Route path="workflows/:workflowId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowDetail /></RequirePermission>} />
+      <Route path="workflow-editor/new" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
+      <Route path="workflow-editor/:templateId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
       <Route path="goals" element={<RequirePermission permission="projects:create" showForbidden><Goals /></RequirePermission>} />
       <Route path="goals/:goalId" element={<RequirePermission permission="projects:create" showForbidden><GoalDetail /></RequirePermission>} />
       <Route path="approvals" element={<RequirePermission permission="joins:approve" showForbidden><Navigate to="/approvals/pending" replace /></RequirePermission>} />
