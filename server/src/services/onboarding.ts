@@ -3,6 +3,7 @@ import { companies } from "@mnm/db";
 import { eq } from "drizzle-orm";
 
 // onb-s01-service-marker
+// onb-s04-service-completion-marker
 
 export interface OnboardingStatus {
   step: number;
@@ -75,12 +76,13 @@ export function onboardingService(db: Db) {
   }
 
   // onb-s01-svc-complete
+  // onb-s04: step 7 = all 6 wizard steps completed (was 6 for 5-step wizard)
   async function completeOnboarding(companyId: string): Promise<OnboardingStatus> {
     const [updated] = await db
       .update(companies)
       .set({
         onboardingCompleted: true,
-        onboardingStep: 6,
+        onboardingStep: 7,
         updatedAt: new Date(),
       })
       .where(eq(companies.id, companyId))
