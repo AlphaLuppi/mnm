@@ -221,6 +221,11 @@ export {
   relaunchHistoryFiltersSchema,
   type KillRelaunchInput,
   type RelaunchHistoryFiltersInput,
+  // comp-s03-barrel-validators
+  reinjectionSchema,
+  reinjectionHistoryFiltersSchema,
+  type ReinjectionInput,
+  type ReinjectionHistoryFiltersInput,
 } from "./compaction.js";
 
 // cont-s03-barrel-validators

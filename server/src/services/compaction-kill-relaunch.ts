@@ -20,18 +20,29 @@ import type {
   RelaunchHistoryEntry,
   RelaunchHistoryFilters,
   LiveEventType,
+  ReinjectionResult,
 } from "@mnm/shared";
 import { containerManagerService } from "./container-manager.js";
 import { orchestratorService } from "./orchestrator.js";
 import { auditService } from "./audit.js";
 import { publishLiveEvent } from "./live-events.js";
 import { logger } from "../middleware/logger.js";
+// comp-s03-auto-reinject-import
+import { compactionReinjectionService } from "./compaction-reinjection.js";
 
 // comp-s02-kill-relaunch-service
 export function compactionKillRelaunchService(db: Db) {
   const containerManager = containerManagerService(db);
   const orchestrator = orchestratorService(db);
   const audit = auditService(db);
+  // comp-s03-auto-reinject-flag
+  let reinjection: ReturnType<typeof compactionReinjectionService> | null = null;
+  function getReinjection() {
+    if (!reinjection) {
+      reinjection = compactionReinjectionService(db);
+    }
+    return reinjection;
+  }
 
   // ========================================================
   // comp-s02-execute-kill-relaunch
@@ -41,7 +52,8 @@ export function compactionKillRelaunchService(db: Db) {
     companyId: string,
     snapshotId: string,
     actorId: string,
-    options?: { maxRelaunchCount?: number },
+    // comp-s03-auto-reinject-flag
+    options?: { maxRelaunchCount?: number; autoReinject?: boolean },
   ): Promise<KillRelaunchResult> {
     // 1. Load snapshot from DB
     const snapshot = await getSnapshotFromDb(companyId, snapshotId);
@@ -282,11 +294,32 @@ export function compactionKillRelaunchService(db: Db) {
         "CompactionKillRelaunch: relaunch completed successfully",
       );
 
+      // comp-s03-auto-reinject-trigger
+      let reinjectionTriggered = false;
+      if (options?.autoReinject) {
+        try {
+          const reinjResult = await getReinjection().executeReinjection(
+            companyId,
+            snapshotId,
+            actorId,
+            { autoReinject: true },
+          );
+          reinjectionTriggered = reinjResult.success;
+          logger.info(
+            { companyId, snapshotId, reinjectionTriggered },
+            "CompactionKillRelaunch: auto-reinjection triggered",
+          );
+        } catch (err) {
+          logger.warn({ err, snapshotId }, "CompactionKillRelaunch: auto-reinjection failed");
+        }
+      }
+
       return {
         success: true,
         snapshotId,
         newInstanceId: result.instanceId,
         relaunchCount: newRelaunchCount,
+        reinjectionTriggered,
       };
     } catch (err: any) {
       logger.error({ err, snapshotId }, "CompactionKillRelaunch: failed to relaunch container");

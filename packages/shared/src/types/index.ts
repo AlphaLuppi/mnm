@@ -240,6 +240,11 @@ export type {
   KillRelaunchResult,
   RelaunchHistoryEntry,
   RelaunchHistoryFilters,
+  // comp-s03-barrel-types
+  ReinjectionResult,
+  ReinjectionHistoryEntry,
+  ReinjectionHistoryFilters,
+  RecoveryPrompt,
 } from "./compaction.js";
 export type {
   ChatChannelStatus,
