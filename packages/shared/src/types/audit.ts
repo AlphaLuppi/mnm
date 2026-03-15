@@ -110,3 +110,31 @@ export interface AuditVerifyResult {
   lastEventId: string | null;
   brokenAt?: string;
 }
+
+// OBS-S03: Audit summary types (obs-s03-types)
+
+export const AUDIT_SUMMARY_PERIODS = ["1h", "6h", "12h", "24h", "7d", "30d"] as const;
+export type AuditSummaryPeriod = (typeof AUDIT_SUMMARY_PERIODS)[number];
+
+export const AUDIT_SUMMARY_SOURCES = ["llm", "fallback"] as const;
+export type AuditSummarySource = (typeof AUDIT_SUMMARY_SOURCES)[number];
+
+export interface AuditSummaryStats {
+  totalEvents: number;
+  topActions: Array<{ action: string; count: number }>;
+  eventsByDomain: Record<string, number>;
+  eventsBySeverity: Record<string, number>;
+}
+
+export interface AuditSummary {
+  id: string;
+  companyId: string;
+  title: string;
+  body: string;
+  stats: AuditSummaryStats;
+  period: AuditSummaryPeriod;
+  periodStart: string;
+  periodEnd: string;
+  generatedAt: string;
+  source: AuditSummarySource;
+}

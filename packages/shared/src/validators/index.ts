@@ -179,6 +179,11 @@ export {
   type AuditEventFilters,
   type AuditExportFilters,
   type AuditVerifyParams,
+  // obs-s03-barrel-validators
+  auditSummaryFiltersSchema,
+  auditSummaryGenerateSchema,
+  type AuditSummaryFilters,
+  type AuditSummaryGenerate,
 } from "./audit.js";
 
 export {

@@ -154,6 +154,9 @@ export {
   AUDIT_SEVERITY_LEVELS,
   AUDIT_TARGET_TYPES,
   AUDIT_ACTIONS,
+  // obs-s03-barrel-types
+  AUDIT_SUMMARY_PERIODS,
+  AUDIT_SUMMARY_SOURCES,
 } from "./audit.js";
 export type {
   AuditActorType,
@@ -164,6 +167,11 @@ export type {
   AuditEvent,
   AuditListResult,
   AuditVerifyResult,
+  // obs-s03-barrel-types
+  AuditSummaryPeriod,
+  AuditSummarySource,
+  AuditSummaryStats,
+  AuditSummary,
 } from "./audit.js";
 export {
   CONTAINER_STATUSES,
