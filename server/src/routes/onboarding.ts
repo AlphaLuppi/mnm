@@ -7,6 +7,7 @@ import { emitAudit } from "../services/audit-emitter.js";
 import { badRequest } from "../errors.js";
 
 // onb-s01-route-marker
+// onb-s04-route-validation-marker
 
 export function onboardingRoutes(db: Db) {
   const router = Router();
@@ -30,8 +31,8 @@ export function onboardingRoutes(db: Db) {
     assertCompanyAccess(req, companyId as string);
 
     const { step, data } = req.body;
-    if (typeof step !== "number" || step < 0 || step > 6) {
-      throw badRequest("step must be a number between 0 and 6");
+    if (typeof step !== "number" || step < 0 || step > 7) {
+      throw badRequest("step must be a number between 0 and 7");
     }
 
     const status = await svc.updateOnboardingStep(
@@ -68,7 +69,7 @@ export function onboardingRoutes(db: Db) {
       action: "onboarding.completed",
       targetType: "company",
       targetId: companyId as string,
-      metadata: { steps_completed: 5 },
+      metadata: { steps_completed: 6 },
     });
 
     res.json(status);

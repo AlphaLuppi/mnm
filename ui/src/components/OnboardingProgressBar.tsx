@@ -1,4 +1,4 @@
-import { Building2, Bot, ListTodo, Users, Rocket, Check } from "lucide-react";
+import { Building2, Bot, ListTodo, Users, Gauge, Rocket, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 
 // onb-s01-progress-component
@@ -13,6 +13,7 @@ const STEP_CONFIG = [
   { label: "Agent", icon: Bot },
   { label: "Task", icon: ListTodo },
   { label: "Invite", icon: Users },
+  { label: "Speed", icon: Gauge },
   { label: "Launch", icon: Rocket },
 ];
 

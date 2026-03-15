@@ -31,7 +31,9 @@ import { HintIcon } from "./agent-config-primitives";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import { OnboardingProgressBar } from "./OnboardingProgressBar";
 import { OnboardingInviteStep, type InviteEntry } from "./OnboardingInviteStep";
+import { OnboardingDualModeStep, type DualModePosition } from "./OnboardingDualModeStep";
 import { onboardingApi } from "../api/onboarding";
+import { automationCursorsApi } from "../api/automation-cursors";
 import { api } from "../api/client";
 import {
   Building2,
@@ -50,11 +52,12 @@ import {
   ChevronDown,
   X,
   Users,
+  Gauge,
   Wifi,
   WifiOff
 } from "lucide-react";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 type AdapterType =
   | "claude_local"
   | "codex_local"
@@ -120,6 +123,9 @@ export function OnboardingWizard() {
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
   }, []);
+
+  // Step 5 — dual-mode (onb-s04)
+  const [dualModePosition, setDualModePosition] = useState<DualModePosition>("assisted");
 
   // onb-s01-sync-state
   const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "offline">("synced");
@@ -550,6 +556,40 @@ export function OnboardingWizard() {
     setStep(5);
   }
 
+  // onb-s04-dual-mode-handler
+  async function handleDualModeNext() {
+    if (!createdCompanyId) {
+      setStep(6);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await automationCursorsApi.set(createdCompanyId, {
+        level: "company",
+        position: dualModePosition,
+        ceiling: "auto",
+      });
+    } catch {
+      // Non-blocking — dual-mode config is best-effort during onboarding
+    }
+    setLoading(false);
+    setStep(6);
+  }
+
+  function handleDualModeSkip() {
+    // Default to "assisted" when skipping
+    setDualModePosition("assisted");
+    if (createdCompanyId) {
+      automationCursorsApi.set(createdCompanyId, {
+        level: "company",
+        position: "assisted",
+        ceiling: "auto",
+      }).catch(() => {});
+    }
+    setStep(6);
+  }
+
   async function handleLaunch() {
     if (!createdAgentId) return;
     setLoading(true);
@@ -585,7 +625,8 @@ export function OnboardingWizard() {
       else if (step === 2 && agentName.trim()) handleStep2Next();
       else if (step === 3 && taskTitle.trim()) handleStep3Next();
       else if (step === 4) handleInviteSkip();
-      else if (step === 5) handleLaunch();
+      else if (step === 5) handleDualModeNext();
+      else if (step === 6) handleLaunch();
     }
   }
 
@@ -632,10 +673,10 @@ export function OnboardingWizard() {
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Get Started</span>
                   <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
-                    Step {step} of 5
+                    Step {step} of 6
                   </span>
                 </div>
-                <OnboardingProgressBar currentStep={step} totalSteps={5} />
+                <OnboardingProgressBar currentStep={step} totalSteps={6} />
               </div>
 
               {/* Step content */}
@@ -1119,7 +1160,31 @@ export function OnboardingWizard() {
                 </div>
               )}
 
+              {/* onb-s04-dual-mode-step */}
               {step === 5 && (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="bg-muted/50 p-2">
+                      <Gauge className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Set agent speed</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Choose how much autonomy your agents have. You can
+                        change this later per project or agent.
+                      </p>
+                    </div>
+                  </div>
+                  <OnboardingDualModeStep
+                    selectedPosition={dualModePosition}
+                    onSelect={setDualModePosition}
+                    onSkip={handleDualModeSkip}
+                    loading={loading}
+                  />
+                </div>
+              )}
+
+              {step === 6 && (
                 <div className="space-y-5">
                   <div className="flex items-center gap-3 mb-1">
                     <div className="bg-muted/50 p-2">
@@ -1163,6 +1228,23 @@ export function OnboardingWizard() {
                           {taskTitle}
                         </p>
                         <p className="text-xs text-muted-foreground">Task</p>
+                      </div>
+                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    </div>
+                    <div
+                      data-testid="onb-s04-speed-summary"
+                      className="flex items-center gap-3 px-3 py-2.5"
+                    >
+                      <Gauge className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate capitalize">
+                          {dualModePosition === "assisted"
+                            ? "Assisted Mode"
+                            : dualModePosition === "manual"
+                              ? "Manual Control"
+                              : "Full Automation"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Agent Speed</p>
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
@@ -1243,6 +1325,21 @@ export function OnboardingWizard() {
                   )}
                   {/* Step 4 (Invite) buttons are inside OnboardingInviteStep */}
                   {step === 5 && (
+                    <Button
+                      data-testid="onb-s04-next"
+                      size="sm"
+                      disabled={loading}
+                      onClick={handleDualModeNext}
+                    >
+                      {loading ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {loading ? "Saving..." : "Next"}
+                    </Button>
+                  )}
+                  {step === 6 && (
                     <Button data-testid="onb-s01-complete" size="sm" disabled={loading} onClick={handleLaunch}>
                       {loading ? (
                         <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
