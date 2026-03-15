@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   KeyRound,
   Upload,
+  PenTool,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -148,6 +149,9 @@ export function Sidebar() {
             <SidebarNavItem data-testid="rbac-s05-nav-issues" to="/issues" label="Issues" icon={CircleDot} />
             {canViewWorkflows && (
               <SidebarNavItem data-testid="rbac-s05-nav-workflows" to="/workflows" label="Workflows" icon={Workflow} />
+            )}
+            {canViewWorkflows && (
+              <SidebarNavItem data-testid="orch-s05-nav-editor" to="/workflow-editor/new" label="Workflow Editor" icon={PenTool} />
             )}
             {canViewGoals && (
               <SidebarNavItem data-testid="rbac-s05-nav-goals" to="/goals" label="Goals" icon={Target} />
