@@ -65,3 +65,5 @@ export { a2aPermissionsService } from "./a2a-permissions.js";
 export { ssoConfigurationService } from "./sso-configurations.js";
 // sso-s02-barrel-svc
 export { ssoAuthService } from "./sso-auth.js";
+// onb-s01-barrel-svc
+export { onboardingService } from "./onboarding.js";

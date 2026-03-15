@@ -30,3 +30,5 @@ export { a2aRoutes } from "./a2a.js";
 export { ssoRoutes } from "./sso.js";
 // sso-s02-barrel-route
 export { ssoAuthRoutes } from "./sso-auth.js";
+// onb-s01-barrel-route
+export { onboardingRoutes } from "./onboarding.js";

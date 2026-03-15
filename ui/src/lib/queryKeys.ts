@@ -150,6 +150,11 @@ export const queryKeys = {
     detail: (companyId: string, configId: string) =>
       ["sso", companyId, "detail", configId] as const,
   },
+  // ONB-S01: onboarding tracking
+  onboarding: {
+    status: (companyId: string) =>
+      ["onboarding", companyId, "status"] as const,
+  },
   // CONT-S06: container status UI
   containers: {
     list: (companyId: string, filters?: Record<string, unknown>) =>

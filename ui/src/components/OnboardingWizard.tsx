@@ -29,6 +29,10 @@ import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { HintIcon } from "./agent-config-primitives";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
+import { OnboardingProgressBar } from "./OnboardingProgressBar";
+import { OnboardingInviteStep, type InviteEntry } from "./OnboardingInviteStep";
+import { onboardingApi } from "../api/onboarding";
+import { api } from "../api/client";
 import {
   Building2,
   Bot,
@@ -44,10 +48,13 @@ import {
   Loader2,
   FolderOpen,
   ChevronDown,
-  X
+  X,
+  Users,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 type AdapterType =
   | "claude_local"
   | "codex_local"
@@ -114,6 +121,10 @@ export function OnboardingWizard() {
     el.style.height = el.scrollHeight + "px";
   }, []);
 
+  // onb-s01-sync-state
+  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "offline">("synced");
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Created entity IDs — pre-populate from existing company when skipping step 1
   const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(
     existingCompanyId ?? null
@@ -145,6 +156,32 @@ export function OnboardingWizard() {
     const company = companies.find((c) => c.id === createdCompanyId);
     if (company) setCreatedCompanyPrefix(company.issuePrefix);
   }, [onboardingOpen, createdCompanyId, createdCompanyPrefix, companies]);
+
+  // onb-s01-server-sync — debounced sync to server
+  const syncToServer = useCallback((companyId: string, currentStep: number) => {
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(async () => {
+      setSyncStatus("syncing");
+      try {
+        await onboardingApi.updateStep(companyId, currentStep);
+        setSyncStatus("synced");
+      } catch {
+        setSyncStatus("offline");
+      }
+    }, 2000);
+  }, []);
+
+  // onb-s01-localStorage-persistence
+  useEffect(() => {
+    if (!onboardingOpen || !createdCompanyId) return;
+    const key = `mnm-onboarding-${createdCompanyId}`;
+    try {
+      localStorage.setItem(key, JSON.stringify({ step, timestamp: Date.now() }));
+    } catch {
+      // localStorage not available
+    }
+    syncToServer(createdCompanyId, step);
+  }, [step, createdCompanyId, onboardingOpen, syncToServer]);
 
   // Resize textarea when step 3 is shown or description changes
   useEffect(() => {
@@ -493,10 +530,40 @@ export function OnboardingWizard() {
     }
   }
 
+  // onb-s01-invite-handler
+  async function handleInviteSend(entries: InviteEntry[]) {
+    if (!createdCompanyId) return;
+    for (const inv of entries) {
+      await api.post(`/companies/${createdCompanyId}/invites`, {
+        allowedJoinTypes: "human",
+        email: inv.email,
+        businessRole: inv.role,
+      });
+    }
+  }
+
+  function handleInviteSkip() {
+    setStep(5);
+  }
+
+  function handleInviteComplete() {
+    setStep(5);
+  }
+
   async function handleLaunch() {
     if (!createdAgentId) return;
     setLoading(true);
     setError(null);
+
+    // onb-s01-completion — mark onboarding as complete on server
+    if (createdCompanyId) {
+      try {
+        await onboardingApi.complete(createdCompanyId);
+      } catch {
+        // non-blocking — onboarding completion tracking is best-effort
+      }
+    }
+
     setLoading(false);
     reset();
     closeOnboarding();
@@ -517,7 +584,8 @@ export function OnboardingWizard() {
       if (step === 1 && companyName.trim()) handleStep1Next();
       else if (step === 2 && agentName.trim()) handleStep2Next();
       else if (step === 3 && taskTitle.trim()) handleStep3Next();
-      else if (step === 4) handleLaunch();
+      else if (step === 4) handleInviteSkip();
+      else if (step === 5) handleLaunch();
     }
   }
 
@@ -535,7 +603,7 @@ export function OnboardingWizard() {
             RemoveScroll which blocks wheel events on our custom (non-DialogContent)
             scroll container. A plain div preserves the background without scroll-locking. */}
         <div className="fixed inset-0 z-50 bg-background" />
-        <div className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
+        <div data-testid="onb-s01-wizard" className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
           {/* Close button */}
           <button
             onClick={handleClose}
@@ -545,31 +613,29 @@ export function OnboardingWizard() {
             <span className="sr-only">Close</span>
           </button>
 
+          {/* onb-s01-sync-status indicator */}
+          <div
+            data-testid="onb-s01-sync-status"
+            className="absolute top-4 right-4 z-10 flex items-center gap-1 text-xs text-muted-foreground/60"
+          >
+            {syncStatus === "synced" && <Wifi className="h-3 w-3 text-green-500" />}
+            {syncStatus === "syncing" && <Loader2 className="h-3 w-3 animate-spin" />}
+            {syncStatus === "offline" && <WifiOff className="h-3 w-3 text-orange-500" />}
+          </div>
+
           {/* Left half — form */}
           <div className="w-full md:w-1/2 flex flex-col overflow-y-auto">
             <div className="w-full max-w-md mx-auto my-auto px-8 py-12 shrink-0">
-              {/* Progress indicators */}
-              <div className="flex items-center gap-2 mb-8">
-                <Sparkles className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Get Started</span>
-                <span className="text-sm text-muted-foreground/60">
-                  Step {step} of 4
-                </span>
-                <div className="flex items-center gap-1.5 ml-auto">
-                  {[1, 2, 3, 4].map((s) => (
-                    <div
-                      key={s}
-                      className={cn(
-                        "h-1.5 w-6 rounded-full transition-colors",
-                        s < step
-                          ? "bg-green-500"
-                          : s === step
-                            ? "bg-foreground"
-                            : "bg-muted"
-                      )}
-                    />
-                  ))}
+              {/* Progress indicators — onb-s01-progress */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Get Started</span>
+                  <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
+                    Step {step} of 5
+                  </span>
                 </div>
+                <OnboardingProgressBar currentStep={step} totalSteps={5} />
               </div>
 
               {/* Step content */}
@@ -1027,7 +1093,33 @@ export function OnboardingWizard() {
                 </div>
               )}
 
+              {/* onb-s01-invite-step */}
               {step === 4 && (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="bg-muted/50 p-2">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Invite your team</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Bring your team members on board. They'll receive an
+                        email invitation to join your company.
+                      </p>
+                    </div>
+                  </div>
+                  <OnboardingInviteStep
+                    onSendInvitations={async (invites) => {
+                      await handleInviteSend(invites);
+                      handleInviteComplete();
+                    }}
+                    onSkip={handleInviteSkip}
+                    loading={loading}
+                  />
+                </div>
+              )}
+
+              {step === 5 && (
                 <div className="space-y-5">
                   <div className="flex items-center gap-3 mb-1">
                     <div className="bg-muted/50 p-2">
@@ -1085,11 +1177,12 @@ export function OnboardingWizard() {
                 </div>
               )}
 
-              {/* Footer navigation */}
+              {/* Footer navigation — onb-s01-nav */}
               <div className="flex items-center justify-between mt-8">
                 <div>
-                  {step > 1 && step > (onboardingOptions.initialStep ?? 1) && (
+                  {step > 1 && step > (onboardingOptions.initialStep ?? 1) && step !== 4 && (
                     <Button
+                      data-testid="onb-s01-back"
                       variant="ghost"
                       size="sm"
                       onClick={() => setStep((step - 1) as Step)}
@@ -1103,6 +1196,7 @@ export function OnboardingWizard() {
                 <div className="flex items-center gap-2">
                   {step === 1 && (
                     <Button
+                      data-testid="onb-s01-next"
                       size="sm"
                       disabled={!companyName.trim() || loading}
                       onClick={handleStep1Next}
@@ -1117,6 +1211,7 @@ export function OnboardingWizard() {
                   )}
                   {step === 2 && (
                     <Button
+                      data-testid="onb-s01-next"
                       size="sm"
                       disabled={
                         !agentName.trim() || loading || adapterEnvLoading
@@ -1133,6 +1228,7 @@ export function OnboardingWizard() {
                   )}
                   {step === 3 && (
                     <Button
+                      data-testid="onb-s01-next"
                       size="sm"
                       disabled={!taskTitle.trim() || loading}
                       onClick={handleStep3Next}
@@ -1145,8 +1241,9 @@ export function OnboardingWizard() {
                       {loading ? "Creating..." : "Next"}
                     </Button>
                   )}
-                  {step === 4 && (
-                    <Button size="sm" disabled={loading} onClick={handleLaunch}>
+                  {/* Step 4 (Invite) buttons are inside OnboardingInviteStep */}
+                  {step === 5 && (
+                    <Button data-testid="onb-s01-complete" size="sm" disabled={loading} onClick={handleLaunch}>
                       {loading ? (
                         <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                       ) : (
