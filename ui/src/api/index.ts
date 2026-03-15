@@ -18,3 +18,5 @@ export { containersApi } from "./containers";
 export { chatApi } from "./chat";
 export { automationCursorsApi } from "./automation-cursors";
 export { ssoApi } from "./sso";
+// onb-s01-barrel-api
+export { onboardingApi } from "./onboarding";

@@ -1,4 +1,4 @@
-import { type AnyPgColumn, pgTable, uuid, text, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, pgTable, uuid, text, integer, timestamp, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const companies = pgTable(
   "companies",
@@ -22,6 +22,10 @@ export const companies = pgTable(
     parentCompanyId: uuid("parent_company_id").references((): AnyPgColumn => companies.id),
     // a2a-s02-schema-company-col
     a2aDefaultPolicy: text("a2a_default_policy").notNull().default("allow"),
+    // onb-s01-schema-onboarding-cols
+    onboardingStep: integer("onboarding_step").notNull().default(0),
+    onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
+    onboardingData: jsonb("onboarding_data").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
