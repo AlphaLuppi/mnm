@@ -147,7 +147,7 @@
 
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
-| ONB-S01 | Onboarding CEO | PENDING | | | | | |
+| ONB-S01 | Onboarding CEO | DONE | c702b1b | 1f5e0bc | 08eaca3 | PASS (no fix) | 52/52 E2E pass, 472/472 regressions pass (TECH-06+TECH-07+MU-S01+MU-S02+RBAC-S05+SSO-S01+SSO-S03) |
 | ONB-S02 | Cascade hiérarchique | PENDING | | | | | |
 | ONB-S03 | Import Jira | PENDING | | | | | |
 | ONB-S04 | Dual-mode config | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 60 |
+| Stories DONE | 61 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 9 |
-| Batch courant | 13 (complete) |
-| Dernière story complétée | COMP-S03 |
+| Stories PENDING | 8 |
+| Batch courant | 14 (in progress) |
+| Dernière story complétée | ONB-S01 |
 | Prochain batch débloqué | BATCH 14 (Onboarding + Polish) |
 
 ---
@@ -395,3 +395,7 @@
 | 2026-03-15 | COMP-S03 | Dev | Dev Agent | fd886e0 | compactionReinjectionService + buildRecoveryPrompt + 2 routes + types + validators + autoReinject integration |
 | 2026-03-15 | COMP-S03 | QA | QA Agent | f9c5832 | 38 Playwright E2E tests (file-content based) |
 | 2026-03-15 | COMP-S03 | Review | Review Agent | — | PASS — 38/38 E2E pass, 88/88 regressions (COMP-S01+COMP-S02), no fix needed |
+| 2026-03-15 | ONB-S01 | PM | PM Agent | c702b1b | Story spec — onboarding CEO wizard B2B + 12 ACs + 23 data-testid + 52 test cases |
+| 2026-03-15 | ONB-S01 | Dev | Dev Agent | 1f5e0bc | Migration 0043 + onboarding service (4 fns) + 4 API routes + OnboardingProgressBar + OnboardingInviteStep + wizard enhancement |
+| 2026-03-15 | ONB-S01 | QA | QA Agent | 08eaca3 | 52 Playwright E2E tests (file-content based) |
+| 2026-03-15 | ONB-S01 | Review | Review Agent | — | PASS — 52/52 E2E pass, 472/472 regressions (TECH-06+07+MU-S01+S02+RBAC-S05+SSO-S01+S03), no fix needed |
