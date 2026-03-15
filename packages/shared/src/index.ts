@@ -98,6 +98,14 @@ export type {
   AgentWakeupRequest,
   LiveEvent,
   DashboardSummary,
+  // DASH-S01: Dashboard API types
+  DashboardPeriod,
+  DashboardBreakdownCategory,
+  DashboardKpis,
+  DashboardTimelinePoint,
+  DashboardTimeline,
+  DashboardBreakdownItem,
+  DashboardBreakdown,
   ActivityEvent,
   SidebarBadges,
   CompanyMembership,
@@ -324,6 +332,10 @@ export {
   // SSO-S01: SSO configuration constants
   SSO_PROVIDERS,
   SSO_CONFIG_STATUSES,
+  // DASH-S01: Dashboard API constants
+  DASHBOARD_PERIODS,
+  DASHBOARD_BREAKDOWN_CATEGORIES,
+  K_ANONYMITY_THRESHOLD,
 } from "./types/index.js";
 
 export {
@@ -526,6 +538,12 @@ export {
   type CreateA2APermissionRule,
   type UpdateA2APermissionRule,
   type UpdateA2ADefaultPolicy,
+  // DASH-S01: Dashboard validators
+  // dash-s01-barrel-validators-shared
+  dashboardTimelineFiltersSchema,
+  dashboardBreakdownCategorySchema,
+  type DashboardTimelineFilters,
+  type DashboardBreakdownCategoryInput,
   // SSO-S01: SSO configuration validators
   // sso-s01-barrel-validators-shared
   createSsoConfigurationSchema,

@@ -43,6 +43,21 @@ export type {
 } from "./heartbeat.js";
 export type { LiveEvent } from "./live.js";
 export type { DashboardSummary } from "./dashboard.js";
+// DASH-S01: Dashboard API types
+export {
+  DASHBOARD_PERIODS,
+  DASHBOARD_BREAKDOWN_CATEGORIES,
+  K_ANONYMITY_THRESHOLD,
+} from "./dashboard.js";
+export type {
+  DashboardPeriod,
+  DashboardBreakdownCategory,
+  DashboardKpis,
+  DashboardTimelinePoint,
+  DashboardTimeline,
+  DashboardBreakdownItem,
+  DashboardBreakdown,
+} from "./dashboard.js";
 export type { ActivityEvent } from "./activity.js";
 export type { SidebarBadges } from "./sidebar-badges.js";
 export type {
