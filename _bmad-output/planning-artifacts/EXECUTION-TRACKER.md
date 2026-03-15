@@ -153,7 +153,7 @@
 | ONB-S04 | Dual-mode config | DONE | 18dae62 | 461081a | 48973cf | PASS (no fix) | 48/48 E2E pass, 102/102 regressions pass (ONB-S01 52/52 + DUAL-S01 50/50) |
 | ORCH-S05 | UI éditeur workflow | DONE | 6be2b1a | 4d2d110 | 8d74c1f | PASS (no fix) | 68/68 E2E pass, 212/213 regressions pass (ORCH-S04 78/79 + RBAC-S05 134/134, 1 pre-existing ORCH-S04 T16) |
 | A2A-S04 | Connecteurs MCP | DONE | 4109444 | eeea866 | 1a67ac5 | 14a5308 | 30/30 E2E pass, 190/190 regressions pass (A2A-S01+A2A-S02+A2A-S03), fix: A2A-S02 T44 route count |
-| TECH-08 | CI/CD pipeline | PENDING | | | | | |
+| TECH-08 | CI/CD pipeline | DONE | 168c665 | 41b4b64 | cd691f6 | PASS (no fix) | 35/35 E2E pass, CI+Deploy+Security workflows + Dependabot + Dockerfile optimized |
 
 ---
 
@@ -162,12 +162,12 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 66 |
+| Stories DONE | 69 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 3 |
-| Batch courant | 14 (in progress) |
-| Dernière story complétée | A2A-S04 |
-| Prochain batch débloqué | BATCH 14 (Onboarding + Polish) |
+| Stories PENDING | 0 |
+| Batch courant | 14 (COMPLETE) |
+| Dernière story complétée | TECH-08 |
+| Statut global | ALL 69 STORIES COMPLETE |
 
 ---
 
@@ -419,3 +419,7 @@
 | 2026-03-15 | A2A-S04 | Dev | Dev Agent | eeea866 | mcpConnectorService + 9 routes + types + validators + barrel exports + LiveEvent |
 | 2026-03-15 | A2A-S04 | QA | QA Agent | 1a67ac5 | 30 Playwright E2E tests (file-content based) |
 | 2026-03-15 | A2A-S04 | Review | Review Agent | 14a5308 | Fix: A2A-S02 T44 route count regression (14→>=14). 190/190 pass |
+| 2026-03-15 | TECH-08 | PM | PM Agent | 168c665 | Story spec — CI/CD pipeline + 12 ACs + 14 data-testid + 35 test cases |
+| 2026-03-15 | TECH-08 | Dev | Dev Agent | 41b4b64 | CI workflow (QG-0→QG-5) + Deploy workflow + Security workflow + Dependabot + Dockerfile optimized |
+| 2026-03-15 | TECH-08 | QA | QA Agent | cd691f6 | 35 Playwright E2E tests (file-content based) |
+| 2026-03-15 | TECH-08 | Review | Review Agent | — | PASS — 35/35 E2E pass, no fix needed. ALL 69 STORIES COMPLETE! |
