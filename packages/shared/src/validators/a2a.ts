@@ -76,3 +76,47 @@ export const updateA2ADefaultPolicySchema = z.object({
   policy: z.enum(A2A_DEFAULT_POLICIES),
 });
 export type UpdateA2ADefaultPolicy = z.infer<typeof updateA2ADefaultPolicySchema>;
+
+// =============================================
+// A2A-S04: MCP Connector validators
+// =============================================
+
+import { MCP_TRANSPORT_TYPES, MCP_AUTH_TYPES, MCP_CONNECTOR_STATUSES } from "../types/a2a.js";
+
+// a2a-s04-validator-create
+export const createMcpConnectorSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).nullable().optional(),
+  url: z.string().url().max(2048),
+  transport: z.enum(MCP_TRANSPORT_TYPES),
+  authType: z.enum(MCP_AUTH_TYPES).default("none"),
+  authConfig: z.record(z.unknown()).nullable().optional(),
+});
+export type CreateMcpConnector = z.infer<typeof createMcpConnectorSchema>;
+
+// a2a-s04-validator-update
+export const updateMcpConnectorSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  url: z.string().url().max(2048).optional(),
+  transport: z.enum(MCP_TRANSPORT_TYPES).optional(),
+  authType: z.enum(MCP_AUTH_TYPES).optional(),
+  authConfig: z.record(z.unknown()).nullable().optional(),
+  status: z.enum(MCP_CONNECTOR_STATUSES).optional(),
+});
+export type UpdateMcpConnector = z.infer<typeof updateMcpConnectorSchema>;
+
+// a2a-s04-validator-filters
+export const mcpConnectorFiltersSchema = z.object({
+  status: z.enum(MCP_CONNECTOR_STATUSES).optional(),
+  transport: z.enum(MCP_TRANSPORT_TYPES).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type McpConnectorFiltersInput = z.infer<typeof mcpConnectorFiltersSchema>;
+
+// a2a-s04-validator-invoke
+export const invokeMcpToolSchema = z.object({
+  args: z.record(z.unknown()).default({}),
+});
+export type InvokeMcpTool = z.infer<typeof invokeMcpToolSchema>;

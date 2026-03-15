@@ -285,6 +285,9 @@ export const LIVE_EVENT_TYPES = [
   "a2a.message_expired",
   // DASH-S03: Dashboard real-time refresh event
   "dashboard.refresh",
+  // A2A-S04: MCP connector live events
+  // a2a-s04-live-event
+  "a2a.mcp_connector_changed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

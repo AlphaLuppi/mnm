@@ -1,7 +1,7 @@
 /**
- * A2A-S01 + A2A-S02: A2A Bus API Routes
+ * A2A-S01 + A2A-S02 + A2A-S04: A2A Bus API Routes
  *
- * 14 routes for inter-agent communication and permissions:
+ * 23 routes for inter-agent communication, permissions, and MCP connectors:
  * --- A2A-S01 (7 routes) ---
  * - POST   /companies/:companyId/a2a/messages              — send message
  * - POST   /companies/:companyId/a2a/messages/:id/respond  — respond to message
@@ -18,6 +18,16 @@
  * - DELETE /companies/:companyId/a2a/permissions/:ruleId    — delete permission rule
  * - GET    /companies/:companyId/a2a/default-policy         — get default policy
  * - PUT    /companies/:companyId/a2a/default-policy         — update default policy
+ * --- A2A-S04 (9 routes) ---
+ * - POST   /companies/:companyId/a2a/mcp-connectors                                — create connector
+ * - GET    /companies/:companyId/a2a/mcp-connectors                                 — list connectors
+ * - GET    /companies/:companyId/a2a/mcp-connectors/stats                           — connector stats
+ * - GET    /companies/:companyId/a2a/mcp-connectors/:connectorId                    — get connector
+ * - PUT    /companies/:companyId/a2a/mcp-connectors/:connectorId                    — update connector
+ * - DELETE /companies/:companyId/a2a/mcp-connectors/:connectorId                    — delete connector
+ * - POST   /companies/:companyId/a2a/mcp-connectors/:connectorId/test               — test connectivity
+ * - GET    /companies/:companyId/a2a/mcp-connectors/:connectorId/tools              — list tools
+ * - POST   /companies/:companyId/a2a/mcp-connectors/:connectorId/tools/:toolName/invoke — invoke tool
  */
 
 import { Router } from "express";
@@ -29,11 +39,16 @@ import {
   createA2APermissionRuleSchema,
   updateA2APermissionRuleSchema,
   updateA2ADefaultPolicySchema,
+  createMcpConnectorSchema,
+  updateMcpConnectorSchema,
+  mcpConnectorFiltersSchema,
+  invokeMcpToolSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { a2aBusService } from "../services/a2a-bus.js";
 import { a2aPermissionsService } from "../services/a2a-permissions.js";
+import { mcpConnectorService } from "../services/mcp-connectors.js";
 import { emitAudit } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { notFound } from "../errors.js";
@@ -42,6 +57,7 @@ export function a2aRoutes(db: Db) {
   const router = Router();
   const svc = a2aBusService(db);
   const permSvc = a2aPermissionsService(db);
+  const mcpSvc = mcpConnectorService(db);
 
   // ──────────────────────────────────────────────────────────
   // a2a-s01-route-send
@@ -457,6 +473,259 @@ export function a2aRoutes(db: Db) {
       });
 
       res.json({ defaultPolicy: policy });
+    },
+  );
+
+  // ==============================================================
+  // A2A-S04: MCP Connector Routes (9 routes)
+  // ==============================================================
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-create
+  // POST /companies/:companyId/a2a/mcp-connectors
+  // ──────────────────────────────────────────────────────────
+  router.post(
+    "/companies/:companyId/a2a/mcp-connectors",
+    requirePermission(db, "agents:create"),
+    validate(createMcpConnectorSchema),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const connector = await mcpSvc.createConnector(companyId as string, req.body);
+
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "a2a.mcp_connector_created",
+        targetType: "mcp_connector",
+        targetId: connector.id,
+        metadata: { name: connector.name, transport: connector.transport },
+      });
+
+      res.status(201).json(connector);
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-list
+  // GET /companies/:companyId/a2a/mcp-connectors
+  // ──────────────────────────────────────────────────────────
+  router.get(
+    "/companies/:companyId/a2a/mcp-connectors",
+    requirePermission(db, "agents:create"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const filters = mcpConnectorFiltersSchema.parse(req.query);
+      const connectors = await mcpSvc.listConnectors(companyId as string, filters);
+
+      res.json(connectors);
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-stats
+  // GET /companies/:companyId/a2a/mcp-connectors/stats
+  // ──────────────────────────────────────────────────────────
+  router.get(
+    "/companies/:companyId/a2a/mcp-connectors/stats",
+    requirePermission(db, "agents:create"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const stats = await mcpSvc.getStats(companyId as string);
+
+      res.json(stats);
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-detail
+  // GET /companies/:companyId/a2a/mcp-connectors/:connectorId
+  // ──────────────────────────────────────────────────────────
+  router.get(
+    "/companies/:companyId/a2a/mcp-connectors/:connectorId",
+    requirePermission(db, "agents:create"),
+    async (req, res) => {
+      const { companyId, connectorId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      const connector = await mcpSvc.getConnector(companyId as string, connectorId as string);
+      if (!connector) {
+        throw notFound("MCP connector not found");
+      }
+
+      res.json(connector);
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-update
+  // PUT /companies/:companyId/a2a/mcp-connectors/:connectorId
+  // ──────────────────────────────────────────────────────────
+  router.put(
+    "/companies/:companyId/a2a/mcp-connectors/:connectorId",
+    requirePermission(db, "agents:create"),
+    validate(updateMcpConnectorSchema),
+    async (req, res) => {
+      const { companyId, connectorId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      try {
+        const connector = await mcpSvc.updateConnector(companyId as string, connectorId as string, req.body);
+
+        await emitAudit({
+          req,
+          db,
+          companyId: companyId as string,
+          action: "a2a.mcp_connector_updated",
+          targetType: "mcp_connector",
+          targetId: connectorId as string,
+          metadata: { changes: Object.keys(req.body) },
+        });
+
+        res.json(connector);
+      } catch (err: any) {
+        if (err.statusCode === 404) {
+          throw notFound("MCP connector not found");
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-delete
+  // DELETE /companies/:companyId/a2a/mcp-connectors/:connectorId
+  // ──────────────────────────────────────────────────────────
+  router.delete(
+    "/companies/:companyId/a2a/mcp-connectors/:connectorId",
+    requirePermission(db, "agents:create"),
+    async (req, res) => {
+      const { companyId, connectorId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      try {
+        await mcpSvc.deleteConnector(companyId as string, connectorId as string);
+
+        await emitAudit({
+          req,
+          db,
+          companyId: companyId as string,
+          action: "a2a.mcp_connector_deleted",
+          targetType: "mcp_connector",
+          targetId: connectorId as string,
+        });
+
+        res.status(204).end();
+      } catch (err: any) {
+        if (err.statusCode === 404) {
+          throw notFound("MCP connector not found");
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-test
+  // POST /companies/:companyId/a2a/mcp-connectors/:connectorId/test
+  // ──────────────────────────────────────────────────────────
+  router.post(
+    "/companies/:companyId/a2a/mcp-connectors/:connectorId/test",
+    requirePermission(db, "agents:create"),
+    async (req, res) => {
+      const { companyId, connectorId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      try {
+        const result = await mcpSvc.testConnector(companyId as string, connectorId as string);
+
+        await emitAudit({
+          req,
+          db,
+          companyId: companyId as string,
+          action: "a2a.mcp_connector_tested",
+          targetType: "mcp_connector",
+          targetId: connectorId as string,
+          metadata: { reachable: result.reachable, latencyMs: result.latencyMs },
+        });
+
+        res.json(result);
+      } catch (err: any) {
+        if (err.statusCode === 404) {
+          throw notFound("MCP connector not found");
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-tools
+  // GET /companies/:companyId/a2a/mcp-connectors/:connectorId/tools
+  // ──────────────────────────────────────────────────────────
+  router.get(
+    "/companies/:companyId/a2a/mcp-connectors/:connectorId/tools",
+    requirePermission(db, "agents:create"),
+    async (req, res) => {
+      const { companyId, connectorId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      try {
+        const tools = await mcpSvc.listTools(companyId as string, connectorId as string);
+
+        res.json(tools);
+      } catch (err: any) {
+        if (err.statusCode === 404) {
+          throw notFound("MCP connector not found");
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────
+  // a2a-s04-route-invoke
+  // POST /companies/:companyId/a2a/mcp-connectors/:connectorId/tools/:toolName/invoke
+  // ──────────────────────────────────────────────────────────
+  router.post(
+    "/companies/:companyId/a2a/mcp-connectors/:connectorId/tools/:toolName/invoke",
+    requirePermission(db, "agents:create"),
+    validate(invokeMcpToolSchema),
+    async (req, res) => {
+      const { companyId, connectorId, toolName } = req.params;
+      assertCompanyAccess(req, companyId as string);
+
+      try {
+        const result = await mcpSvc.invokeTool(
+          companyId as string,
+          connectorId as string,
+          toolName as string,
+          req.body.args ?? {},
+        );
+
+        await emitAudit({
+          req,
+          db,
+          companyId: companyId as string,
+          action: "a2a.mcp_tool_invoked",
+          targetType: "mcp_connector",
+          targetId: connectorId as string,
+          metadata: { toolName, durationMs: result.durationMs, success: result.success },
+        });
+
+        res.json(result);
+      } catch (err: any) {
+        if (err.statusCode === 404) {
+          throw notFound("MCP connector or tool not found");
+        }
+        throw err;
+      }
     },
   );
 
