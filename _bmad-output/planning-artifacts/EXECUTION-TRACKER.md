@@ -148,7 +148,7 @@
 | Story | Description | Status | Agent PM | Agent Dev | Agent QA | Agent Review | Notes |
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | ONB-S01 | Onboarding CEO | DONE | c702b1b | 1f5e0bc | 08eaca3 | PASS (no fix) | 52/52 E2E pass, 472/472 regressions pass (TECH-06+TECH-07+MU-S01+MU-S02+RBAC-S05+SSO-S01+SSO-S03) |
-| ONB-S02 | Cascade hiérarchique | PENDING | | | | | |
+| ONB-S02 | Cascade hiérarchique | DONE | 01a0e55 | 193e6a9 | 7fe364a | PASS (no fix) | 45/45 E2E pass, 185/187 regressions pass (RBAC-S01+RBAC-S03+MU-S01+ONB-S01, 2 pre-existing) |
 | ONB-S03 | Import Jira | PENDING | | | | | |
 | ONB-S04 | Dual-mode config | PENDING | | | | | |
 | ORCH-S05 | UI éditeur workflow | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 61 |
+| Stories DONE | 62 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 8 |
+| Stories PENDING | 7 |
 | Batch courant | 14 (in progress) |
-| Dernière story complétée | ONB-S01 |
+| Dernière story complétée | ONB-S02 |
 | Prochain batch débloqué | BATCH 14 (Onboarding + Polish) |
 
 ---
@@ -399,3 +399,7 @@
 | 2026-03-15 | ONB-S01 | Dev | Dev Agent | 1f5e0bc | Migration 0043 + onboarding service (4 fns) + 4 API routes + OnboardingProgressBar + OnboardingInviteStep + wizard enhancement |
 | 2026-03-15 | ONB-S01 | QA | QA Agent | 08eaca3 | 52 Playwright E2E tests (file-content based) |
 | 2026-03-15 | ONB-S01 | Review | Review Agent | — | PASS — 52/52 E2E pass, 472/472 regressions (TECH-06+07+MU-S01+S02+RBAC-S05+SSO-S01+S03), no fix needed |
+| 2026-03-15 | ONB-S02 | PM | PM Agent | 01a0e55 | Story spec — cascade hiérarchique + 12 ACs + 15 markers + 45 test cases |
+| 2026-03-15 | ONB-S02 | Dev | Dev Agent | 193e6a9 | role-hierarchy.ts (shared) + cascade.ts service + migration 0044 + access route cascade check + onboarding cascade-info route |
+| 2026-03-15 | ONB-S02 | QA | QA Agent | 7fe364a | 45 Playwright E2E tests (file-content based) |
+| 2026-03-15 | ONB-S02 | Review | Review Agent | — | PASS — 45/45 E2E pass, 185/187 regressions (RBAC-S01+RBAC-S03+MU-S01+ONB-S01, 2 pre-existing), no fix needed |
