@@ -139,7 +139,7 @@
 | SSO-S03 | UI config SSO | DONE | 651084b | c5721c9 | 4a4f11c | PASS (no fix) | 51/51 E2E pass, 251/251 regressions pass (SSO-S01+SSO-S02+RBAC-S05) |
 | DASH-S01 | API dashboards | DONE | ab77da3 | cfaa7ac | 6f8413d | PASS (no fix) | 68/68 E2E pass, 410/410 regressions pass (OBS-S01+OBS-S02+OBS-S04+RBAC-S05) |
 | DASH-S02 | DashboardCards UI | DONE | bde004a | e66285c | 2a207b9 | PASS (no fix) | 52/52 E2E pass, 202/202 regressions pass (DASH-S01+RBAC-S05) |
-| DASH-S03 | Dashboard temps réel | PENDING | | | | | |
+| DASH-S03 | Dashboard temps réel | DONE | 1900148 | efb7e71 | 1e3add9 | PASS (no fix) | 45/45 E2E pass, 299/299 regressions pass (DASH-S01+DASH-S02+RBAC-S05) |
 | OBS-S03 | Résumé LLM | PENDING | | | | | |
 | COMP-S03 | Réinjection compaction | PENDING | | | | | |
 
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 57 |
+| Stories DONE | 58 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 12 |
+| Stories PENDING | 11 |
 | Batch courant | 13 (in progress) |
-| Dernière story complétée | DASH-S02 |
+| Dernière story complétée | DASH-S03 |
 | Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
@@ -383,3 +383,7 @@
 | 2026-03-15 | DASH-S02 | Dev | Dev Agent | e66285c | API client + DashboardKpiCards + DashboardTimeline + DashboardBreakdownPanel + Dashboard.tsx integration |
 | 2026-03-15 | DASH-S02 | QA | QA Agent | 2a207b9 | 52 Playwright E2E tests (file-content based) |
 | 2026-03-15 | DASH-S02 | Review | Review Agent | — | PASS — 52/52 E2E pass, 202/202 regressions (DASH-S01+RBAC-S05), no fix needed |
+| 2026-03-15 | DASH-S03 | PM | PM Agent | 1900148 | Story spec — dashboard temps réel + 12 ACs + 4 data-testid + 36 test cases |
+| 2026-03-15 | DASH-S03 | Dev | Dev Agent | efb7e71 | dashboard.refresh LiveEventType + dashboard-refresh service + subscribeAllLiveEvents + LiveUpdatesProvider handler + useDashboardLiveIndicator hook + Dashboard.tsx live indicator |
+| 2026-03-15 | DASH-S03 | QA | QA Agent | 1e3add9 | 45 Playwright E2E tests (file-content based) |
+| 2026-03-15 | DASH-S03 | Review | Review Agent | — | PASS — 45/45 E2E pass, 299/299 regressions (DASH-S01+DASH-S02+RBAC-S05), no fix needed |
