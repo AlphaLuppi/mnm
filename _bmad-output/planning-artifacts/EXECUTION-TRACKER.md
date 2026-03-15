@@ -150,7 +150,7 @@
 | ONB-S01 | Onboarding CEO | DONE | c702b1b | 1f5e0bc | 08eaca3 | PASS (no fix) | 52/52 E2E pass, 472/472 regressions pass (TECH-06+TECH-07+MU-S01+MU-S02+RBAC-S05+SSO-S01+SSO-S03) |
 | ONB-S02 | Cascade hiérarchique | DONE | 01a0e55 | 193e6a9 | 7fe364a | PASS (no fix) | 45/45 E2E pass, 185/187 regressions pass (RBAC-S01+RBAC-S03+MU-S01+ONB-S01, 2 pre-existing) |
 | ONB-S03 | Import Jira | DONE | 731b00d | 3c523f8 | f984d2d | PASS (no fix) | 68/68 E2E pass, 559/559 regressions pass (ONB-S01+ONB-S02+TECH-06+RBAC-S04+RBAC-S05+OBS-S02) |
-| ONB-S04 | Dual-mode config | PENDING | | | | | |
+| ONB-S04 | Dual-mode config | DONE | 18dae62 | 461081a | 48973cf | PASS (no fix) | 48/48 E2E pass, 102/102 regressions pass (ONB-S01 52/52 + DUAL-S01 50/50) |
 | ORCH-S05 | UI éditeur workflow | PENDING | | | | | |
 | A2A-S04 | Connecteurs MCP | PENDING | | | | | |
 | TECH-08 | CI/CD pipeline | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 63 |
+| Stories DONE | 64 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 6 |
+| Stories PENDING | 5 |
 | Batch courant | 14 (in progress) |
-| Dernière story complétée | ONB-S03 |
+| Dernière story complétée | ONB-S04 |
 | Prochain batch débloqué | BATCH 14 (Onboarding + Polish) |
 
 ---
@@ -407,3 +407,7 @@
 | 2026-03-15 | ONB-S03 | Dev | Dev Agent | 3c523f8 | jira-client + jira-field-mapping + jira-import service + jira-validators + 6 routes + JiraImport page + API client + sidebar |
 | 2026-03-15 | ONB-S03 | QA | QA Agent | f984d2d | 68 Playwright E2E tests (file-content based) |
 | 2026-03-15 | ONB-S03 | Review | Review Agent | — | PASS — 68/68 E2E pass, 559/559 regressions (ONB-S01+S02+TECH-06+RBAC-S04+S05+OBS-S02), no fix needed |
+| 2026-03-15 | ONB-S04 | PM | PM Agent | 18dae62 | Story spec — dual-mode config + 12 ACs + 20 data-testid + 48 test cases |
+| 2026-03-15 | ONB-S04 | Dev | Dev Agent | 461081a | OnboardingDualModeStep + wizard 5→6 steps + ProgressBar Speed label + route/service step 7 |
+| 2026-03-15 | ONB-S04 | QA | QA Agent | 48973cf | 48 Playwright E2E tests (file-content based) |
+| 2026-03-15 | ONB-S04 | Review | Review Agent | — | PASS — 48/48 E2E pass, 102/102 regressions (ONB-S01+DUAL-S01), no fix needed |
