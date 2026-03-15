@@ -136,7 +136,7 @@
 |-------|-------------|--------|----------|-----------|----------|-------------|-------|
 | SSO-S01 | Table SSO | DONE | fabcf71 | 0c29db9 | 9801762 | PASS (no fix) | 52/52 E2E pass, 90/90 TECH-06 + 29/29 TECH-07 regressions pass |
 | SSO-S02 | Better Auth SAML/OIDC | DONE | a94815e | f27ca4e | b2998cd | PASS (no fix) | 65/65 E2E pass, 52/52 SSO-S01 + 13/13 MU-S06 + 119/119 TECH-06+07 regressions pass |
-| SSO-S03 | UI config SSO | PENDING | | | | | |
+| SSO-S03 | UI config SSO | DONE | 651084b | c5721c9 | 4a4f11c | PASS (no fix) | 51/51 E2E pass, 251/251 regressions pass (SSO-S01+SSO-S02+RBAC-S05) |
 | DASH-S01 | API dashboards | PENDING | | | | | |
 | DASH-S02 | DashboardCards UI | PENDING | | | | | |
 | DASH-S03 | Dashboard temps réel | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 54 |
+| Stories DONE | 55 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 15 |
+| Stories PENDING | 14 |
 | Batch courant | 13 (in progress) |
-| Dernière story complétée | SSO-S02 |
+| Dernière story complétée | SSO-S03 |
 | Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
@@ -371,3 +371,7 @@
 | 2026-03-15 | SSO-S02 | Dev | Dev Agent | f27ca4e | SSO auth service (8 fns) + 6 public routes + 1 admin route + types (6) + validators (3) + barrel exports |
 | 2026-03-15 | SSO-S02 | QA | QA Agent | b2998cd | 65 Playwright E2E tests (file-content based) |
 | 2026-03-15 | SSO-S02 | Review | Review Agent | — | PASS — 65/65 E2E pass, 184/184 regressions (SSO-S01+MU-S06+TECH-06+TECH-07), no fix needed |
+| 2026-03-15 | SSO-S03 | PM | PM Agent | 651084b | Story spec — UI config SSO + 15 ACs + 51 data-testid + 51 test cases |
+| 2026-03-15 | SSO-S03 | Dev | Dev Agent | c5721c9 | API client + SsoConfig page + SsoProviderCard + Create/Edit/Delete dialogs + Switch component + route + sidebar |
+| 2026-03-15 | SSO-S03 | QA | QA Agent | 4a4f11c | 51 Playwright E2E tests (file-content based) |
+| 2026-03-15 | SSO-S03 | Review | Review Agent | — | PASS — 51/51 E2E pass, 251/251 regressions (SSO-S01+SSO-S02+RBAC-S05), no fix needed |
