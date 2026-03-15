@@ -69,3 +69,7 @@ export { ssoAuthService } from "./sso-auth.js";
 export { onboardingService } from "./onboarding.js";
 // onb-s02-barrel-svc
 export { cascadeService } from "./cascade.js";
+// onb-s03-barrel-svc
+export { jiraImportService } from "./jira-import.js";
+export { createJiraClient } from "./jira-client.js";
+export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js";

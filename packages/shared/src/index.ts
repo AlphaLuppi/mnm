@@ -600,6 +600,14 @@ export {
   getRoleLevel,
 } from "./role-hierarchy.js";
 
+// onb-s03-barrel-shared
+export type {
+  ImportJobStatus,
+  JiraImportConfig,
+  JiraImportPreview,
+  JiraImportProgress,
+} from "./jira-import-types.js";
+
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey } from "./project-url-key.js";

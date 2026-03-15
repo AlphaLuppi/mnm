@@ -155,6 +155,13 @@ export const queryKeys = {
     status: (companyId: string) =>
       ["onboarding", companyId, "status"] as const,
   },
+  // ONB-S03: jira import
+  jiraImport: {
+    jobs: (companyId: string) =>
+      ["jiraImport", companyId, "jobs"] as const,
+    jobDetail: (companyId: string, jobId: string) =>
+      ["jiraImport", companyId, "detail", jobId] as const,
+  },
   // CONT-S06: container status UI
   containers: {
     list: (companyId: string, filters?: Record<string, unknown>) =>

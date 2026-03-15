@@ -17,6 +17,7 @@ import {
   MessageSquare,
   SlidersHorizontal,
   KeyRound,
+  Upload,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -65,6 +66,7 @@ export function Sidebar() {
   const canViewChat = hasPermission("chat:agent");
   const canViewCursors = hasPermission("workflows:enforce");
   const canViewSso = hasPermission("company:manage_sso");
+  const canViewImport = hasPermission("projects:manage");
 
   // Section visibility: "Work" visible if at least one child is visible
   // Issues is always visible, so Work section is always visible
@@ -189,6 +191,9 @@ export function Sidebar() {
             )}
             {canViewSso && (
               <SidebarNavItem data-testid="sso-s03-nav-sso" to="/admin/sso" label="SSO" icon={KeyRound} />
+            )}
+            {canViewImport && (
+              <SidebarNavItem data-testid="onb-s03-nav-import" to="/import/jira" label="Import Jira" icon={Upload} />
             )}
           </SidebarSection>
         )}
