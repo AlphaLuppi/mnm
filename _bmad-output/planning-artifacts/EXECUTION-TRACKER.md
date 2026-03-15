@@ -137,7 +137,7 @@
 | SSO-S01 | Table SSO | DONE | fabcf71 | 0c29db9 | 9801762 | PASS (no fix) | 52/52 E2E pass, 90/90 TECH-06 + 29/29 TECH-07 regressions pass |
 | SSO-S02 | Better Auth SAML/OIDC | DONE | a94815e | f27ca4e | b2998cd | PASS (no fix) | 65/65 E2E pass, 52/52 SSO-S01 + 13/13 MU-S06 + 119/119 TECH-06+07 regressions pass |
 | SSO-S03 | UI config SSO | DONE | 651084b | c5721c9 | 4a4f11c | PASS (no fix) | 51/51 E2E pass, 251/251 regressions pass (SSO-S01+SSO-S02+RBAC-S05) |
-| DASH-S01 | API dashboards | PENDING | | | | | |
+| DASH-S01 | API dashboards | DONE | ab77da3 | cfaa7ac | 6f8413d | PASS (no fix) | 68/68 E2E pass, 410/410 regressions pass (OBS-S01+OBS-S02+OBS-S04+RBAC-S05) |
 | DASH-S02 | DashboardCards UI | PENDING | | | | | |
 | DASH-S03 | Dashboard temps réel | PENDING | | | | | |
 | OBS-S03 | Résumé LLM | PENDING | | | | | |
@@ -162,11 +162,11 @@
 | Métrique | Valeur |
 |----------|--------|
 | Stories totales | 69 |
-| Stories DONE | 55 |
+| Stories DONE | 56 |
 | Stories IN_PROGRESS | 0 |
-| Stories PENDING | 14 |
+| Stories PENDING | 13 |
 | Batch courant | 13 (in progress) |
-| Dernière story complétée | SSO-S03 |
+| Dernière story complétée | DASH-S01 |
 | Prochain batch débloqué | BATCH 13 (Enterprise) |
 
 ---
@@ -375,3 +375,7 @@
 | 2026-03-15 | SSO-S03 | Dev | Dev Agent | c5721c9 | API client + SsoConfig page + SsoProviderCard + Create/Edit/Delete dialogs + Switch component + route + sidebar |
 | 2026-03-15 | SSO-S03 | QA | QA Agent | 4a4f11c | 51 Playwright E2E tests (file-content based) |
 | 2026-03-15 | SSO-S03 | Review | Review Agent | — | PASS — 51/51 E2E pass, 251/251 regressions (SSO-S01+SSO-S02+RBAC-S05), no fix needed |
+| 2026-03-15 | DASH-S01 | PM | PM Agent | ab77da3 | Story spec — API dashboards aggregees + 12 ACs + 12 data-testid + 68 test cases |
+| 2026-03-15 | DASH-S01 | Dev | Dev Agent | cfaa7ac | Dashboard service (kpis+timeline+breakdown) + 3 routes + types + validators + k-anonymity + barrel exports |
+| 2026-03-15 | DASH-S01 | QA | QA Agent | 6f8413d | 68 Playwright E2E tests (file-content based) |
+| 2026-03-15 | DASH-S01 | Review | Review Agent | — | PASS — 68/68 E2E pass, 410/410 regressions (OBS-S01+OBS-S02+OBS-S04+RBAC-S05), no fix needed |
