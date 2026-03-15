@@ -144,3 +144,95 @@ export const A2A_AUDIT_ACTIONS = [
 ] as const;
 
 export type A2AAuditAction = (typeof A2A_AUDIT_ACTIONS)[number];
+
+// =============================================
+// A2A-S04: MCP Connector Types
+// =============================================
+
+// a2a-s04-types-transport
+export const MCP_TRANSPORT_TYPES = ["stdio", "sse", "streamable-http"] as const;
+export type McpTransportType = (typeof MCP_TRANSPORT_TYPES)[number];
+
+export const MCP_AUTH_TYPES = ["none", "bearer", "api_key", "oauth2"] as const;
+export type McpAuthType = (typeof MCP_AUTH_TYPES)[number];
+
+export const MCP_CONNECTOR_STATUSES = ["active", "inactive", "error"] as const;
+export type McpConnectorStatus = (typeof MCP_CONNECTOR_STATUSES)[number];
+
+/**
+ * A registered MCP server connector within a company.
+ * Allows agents to access external tools via the Model Context Protocol.
+ */
+// a2a-s04-types-connector
+export interface McpConnector {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  url: string;
+  transport: McpTransportType;
+  authType: McpAuthType;
+  authConfig: Record<string, unknown> | null;
+  status: McpConnectorStatus;
+  toolCount: number;
+  lastTestedAt: string | null;
+  lastTestResult: McpConnectorTestResult | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A tool exposed by an MCP server.
+ */
+// a2a-s04-types-tool
+export interface McpTool {
+  name: string;
+  description: string | null;
+  inputSchema: Record<string, unknown>;
+}
+
+/**
+ * Result of invoking an MCP tool.
+ */
+export interface McpToolInvocationResult {
+  connectorId: string;
+  toolName: string;
+  success: boolean;
+  result: unknown;
+  error: string | null;
+  durationMs: number;
+  invokedAt: string;
+}
+
+/**
+ * Result of testing connectivity to an MCP server.
+ */
+export interface McpConnectorTestResult {
+  reachable: boolean;
+  latencyMs: number;
+  toolCount: number;
+  error: string | null;
+  testedAt: string;
+}
+
+/**
+ * Aggregated statistics for MCP connectors within a company.
+ */
+export interface McpConnectorStats {
+  totalConnectors: number;
+  activeCount: number;
+  inactiveCount: number;
+  errorCount: number;
+  totalToolInvocations: number;
+  averageLatencyMs: number | null;
+}
+
+/**
+ * Filters for querying MCP connectors.
+ */
+export interface McpConnectorFilters {
+  status?: McpConnectorStatus;
+  transport?: McpTransportType;
+  limit?: number;
+  offset?: number;
+}
