@@ -16,6 +16,7 @@ import {
   Box,
   MessageSquare,
   SlidersHorizontal,
+  KeyRound,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -63,6 +64,7 @@ export function Sidebar() {
   const canViewContainers = hasPermission("agents:manage_containers");
   const canViewChat = hasPermission("chat:agent");
   const canViewCursors = hasPermission("workflows:enforce");
+  const canViewSso = hasPermission("company:manage_sso");
 
   // Section visibility: "Work" visible if at least one child is visible
   // Issues is always visible, so Work section is always visible
@@ -184,6 +186,9 @@ export function Sidebar() {
             )}
             {canViewSettings && (
               <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />
+            )}
+            {canViewSso && (
+              <SidebarNavItem data-testid="sso-s03-nav-sso" to="/admin/sso" label="SSO" icon={KeyRound} />
             )}
           </SidebarSection>
         )}
