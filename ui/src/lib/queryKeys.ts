@@ -74,7 +74,18 @@ export const queryKeys = {
     list: (companyId: string) => ["secrets", companyId] as const,
     providers: (companyId: string) => ["secret-providers", companyId] as const,
   },
-  dashboard: (companyId: string) => ["dashboard", companyId] as const,
+  dashboard: Object.assign(
+    (companyId: string) => ["dashboard", companyId] as const,
+    {
+      // DASH-S02: Enriched dashboard query keys
+      kpis: (companyId: string) =>
+        ["dashboard", companyId, "kpis"] as const,
+      timeline: (companyId: string, period?: string) =>
+        ["dashboard", companyId, "timeline", period] as const,
+      breakdown: (companyId: string, category?: string) =>
+        ["dashboard", companyId, "breakdown", category] as const,
+    },
+  ),
   sidebarBadges: (companyId: string) => ["sidebar-badges", companyId] as const,
   activity: (companyId: string) => ["activity", companyId] as const,
   costs: (companyId: string, from?: string, to?: string) =>
