@@ -51,6 +51,8 @@ export { createContainerPipeManager, type ContainerPipeManager } from "./contain
 export { compactionWatcherService } from "./compaction-watcher.js";
 // comp-s02-barrel-service
 export { compactionKillRelaunchService } from "./compaction-kill-relaunch.js";
+// comp-s03-barrel-service
+export { compactionReinjectionService } from "./compaction-reinjection.js";
 // dual-s01-barrel-svc
 export { automationCursorService } from "./automation-cursors.js";
 // dual-s03-barrel-svc

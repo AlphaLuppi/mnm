@@ -34,3 +34,19 @@ export const relaunchHistoryFiltersSchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 export type RelaunchHistoryFiltersInput = z.infer<typeof relaunchHistoryFiltersSchema>;
+
+// comp-s03-validator-reinjection
+export const reinjectionSchema = z.object({
+  autoReinject: z.boolean().optional(),
+});
+export type ReinjectionInput = z.infer<typeof reinjectionSchema>;
+
+// comp-s03-validator-history-filters
+export const reinjectionHistoryFiltersSchema = z.object({
+  agentId: z.string().uuid().optional(),
+  workflowInstanceId: z.string().uuid().optional(),
+  status: z.enum(COMPACTION_SNAPSHOT_STATUSES).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+export type ReinjectionHistoryFiltersInput = z.infer<typeof reinjectionHistoryFiltersSchema>;

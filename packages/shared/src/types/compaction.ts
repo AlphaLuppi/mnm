@@ -43,6 +43,8 @@ export interface KillRelaunchResult {
   reason?: string; // "circuit_breaker" | "container_stop_failed" | "relaunch_failed"
   newInstanceId?: string;
   relaunchCount?: number;
+  // comp-s03-reinjection-triggered
+  reinjectionTriggered?: boolean;
 }
 
 // comp-s02-type-relaunch-history-entry
@@ -68,6 +70,52 @@ export interface RelaunchHistoryFilters {
   status?: CompactionSnapshotStatus;
   limit?: number;
   offset?: number;
+}
+
+// comp-s03-type-reinjection-result
+export interface ReinjectionResult {
+  success: boolean;
+  snapshotId: string;
+  reason?: string; // "snapshot_not_found" | "send_failed"
+  promptLength: number;
+}
+
+// comp-s03-type-reinjection-history
+export interface ReinjectionHistoryEntry {
+  snapshotId: string;
+  companyId: string;
+  workflowInstanceId: string;
+  stageId: string;
+  agentId: string;
+  stageOrder: number;
+  strategy: CompactionStrategy;
+  status: CompactionSnapshotStatus;
+  reinjected: boolean;
+  promptLength: number | null;
+  detectedAt: string;
+  resolvedAt: string | null;
+}
+
+// comp-s03-type-reinjection-filters
+export interface ReinjectionHistoryFilters {
+  agentId?: string;
+  workflowInstanceId?: string;
+  status?: CompactionSnapshotStatus;
+  limit?: number;
+  offset?: number;
+}
+
+// comp-s03-type-recovery-prompt
+export interface RecoveryPrompt {
+  workflowInstanceId: string;
+  stageId: string;
+  snapshotId: string;
+  stageOrder: number;
+  totalStages: number;
+  sections: Array<{
+    title: string;
+    content: string;
+  }>;
 }
 
 // comp-s01-config-type
