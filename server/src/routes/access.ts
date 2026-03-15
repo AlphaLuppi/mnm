@@ -44,6 +44,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  cascadeService,
   createEmailService,
   deduplicateAgentName,
   emitAudit,
@@ -1456,6 +1457,7 @@ export function accessRoutes(
   const router = Router();
   const access = accessService(db);
   const agents = agentService(db);
+  const cascade = cascadeService(db);
 
   async function assertInstanceAdmin(req: Request) {
     if (req.actor.type !== "board") throw unauthorized();
@@ -1695,6 +1697,51 @@ export function accessRoutes(
         }
       }
 
+      // onb-s02-access-cascade-check
+      // Cascade hierarchy validation: check if the inviter can assign the target role
+      const targetRole = req.body.businessRole;
+      if (targetRole && req.actor.userId && req.actor.type !== "agent") {
+        const targetScope = req.body.scope ?? null;
+        const cascadeResult = await cascade.validateCascadeInvite(
+          companyId,
+          req.actor.userId,
+          email ?? "",
+          targetRole,
+          targetScope,
+        );
+
+        if (!cascadeResult.valid) {
+          // onb-s02-cascade-audit
+          await emitAudit({
+            req, db, companyId,
+            action: "cascade.invite_denied",
+            targetType: "invite",
+            targetId: email ?? "unknown",
+            metadata: {
+              inviterRole: req.actor.userId,
+              targetRole,
+              targetEmail: email ?? null,
+              reason: cascadeResult.reason,
+            },
+            severity: "warning",
+          });
+
+          throw forbidden(cascadeResult.reason ?? "Hierarchy violation: cannot invite with this role", {
+            code: "HIERARCHY_VIOLATION",
+            reason: cascadeResult.reason,
+            targetRole,
+          });
+        }
+
+        // Store inherited scope for later use when invite is accepted
+        if (cascadeResult.inheritedScope) {
+          req.body._inheritedScope = cascadeResult.inheritedScope;
+        }
+      }
+
+      // onb-s02-invited-by
+      const inviterUserId = req.actor.userId ?? null;
+
       const { token, created, normalizedAgentMessage } =
         await createCompanyInviteForCompany({
           req,
@@ -1731,6 +1778,22 @@ export function accessRoutes(
         targetId: created.id,
         metadata: { email: email ?? null, businessRole: req.body.businessRole ?? null, method: created.inviteType },
       });
+
+      // Cascade audit: emit cascade.invite_created when a role hierarchy invite is used
+      if (req.body.businessRole && req.actor.userId) {
+        await emitAudit({
+          req, db, companyId,
+          action: "cascade.invite_created",
+          targetType: "invite",
+          targetId: created.id,
+          metadata: {
+            inviterRole: req.actor.userId,
+            targetRole: req.body.businessRole,
+            targetEmail: email ?? null,
+            inheritedScope: req.body._inheritedScope ?? null,
+          },
+        });
+      }
 
       // Send email invitation if email was provided
       if (email) {
