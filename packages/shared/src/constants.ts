@@ -283,6 +283,8 @@ export const LIVE_EVENT_TYPES = [
   "a2a.message_responded",
   // a2a-s01-live-event-expired
   "a2a.message_expired",
+  // DASH-S03: Dashboard real-time refresh event
+  "dashboard.refresh",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

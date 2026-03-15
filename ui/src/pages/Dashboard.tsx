@@ -12,6 +12,7 @@ import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useDriftScanStatus, useDriftResults } from "../hooks/useDriftResults";
+import { useDashboardLiveIndicator } from "../hooks/useDashboardLiveIndicator";
 import { MetricCard } from "../components/MetricCard";
 import { EmptyState } from "../components/EmptyState";
 import { StatusIcon } from "../components/StatusIcon";
@@ -48,6 +49,9 @@ export function Dashboard() {
     localStorage.getItem("mnm:drift-prompt-hidden") === "true",
   );
   const [driftSessionDismissed, setDriftSessionDismissed] = useState(false);
+
+  // DASH-S03: Real-time live indicator
+  const { isLive, isFlashing, lastRefreshAt } = useDashboardLiveIndicator();
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -214,6 +218,35 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* DASH-S03: Live indicator */}
+      <div data-testid="dash-s03-live-indicator" className="flex items-center gap-2">
+        <span data-testid="dash-s03-live-dot" className="relative flex h-2.5 w-2.5 shrink-0">
+          <span className={cn(
+            "absolute inline-flex h-full w-full rounded-full opacity-75",
+            isFlashing
+              ? "animate-ping bg-green-400"
+              : isLive
+                ? "animate-ping bg-green-400/50"
+                : "bg-muted-foreground/40",
+          )} />
+          <span className={cn(
+            "relative inline-flex rounded-full h-2.5 w-2.5",
+            isLive ? "bg-green-500" : "bg-muted-foreground/40",
+          )} />
+        </span>
+        <span data-testid="dash-s03-live-label" className={cn(
+          "text-xs font-medium",
+          isFlashing ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
+        )}>
+          Live
+        </span>
+        {lastRefreshAt && (
+          <span data-testid="dash-s03-last-refresh" className="text-xs text-muted-foreground">
+            Last updated {timeAgo(lastRefreshAt.toISOString())}
+          </span>
+        )}
+      </div>
+
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {hasNoAgents && (
