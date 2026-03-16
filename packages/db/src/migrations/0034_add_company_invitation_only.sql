@@ -1,1 +1,1 @@
-ALTER TABLE "companies" ADD COLUMN "invitation_only" boolean DEFAULT false NOT NULL;
+ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "invitation_only" boolean DEFAULT false NOT NULL;

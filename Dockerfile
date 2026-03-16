@@ -48,6 +48,14 @@ WORKDIR /app
 COPY --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 
+# Non-root user so Claude Code accepts --dangerously-skip-permissions
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/* \
+  && groupadd -r mnm && useradd -r -g mnm -d /mnm -s /bin/bash mnm \
+  && mkdir -p /mnm && chown -R mnm:mnm /mnm
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 ENV NODE_ENV=production \
   HOME=/mnm \
   HOST=0.0.0.0 \
@@ -62,4 +70,4 @@ ENV NODE_ENV=production \
 VOLUME ["/mnm"]
 EXPOSE 3100
 
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+ENTRYPOINT ["entrypoint.sh"]
