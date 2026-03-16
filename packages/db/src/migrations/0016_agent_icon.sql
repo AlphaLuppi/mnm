@@ -1,1 +1,1 @@
-ALTER TABLE "agents" ADD COLUMN "icon" text;
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "icon" text;

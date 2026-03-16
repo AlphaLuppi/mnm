@@ -2,7 +2,7 @@
 -- Granular permission control for agent-to-agent communication
 
 -- Add default policy column to companies
-ALTER TABLE "companies" ADD COLUMN "a2a_default_policy" text NOT NULL DEFAULT 'allow';
+ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "a2a_default_policy" text NOT NULL DEFAULT 'allow';
 
 -- Create permission rules table
 CREATE TABLE IF NOT EXISTS "a2a_permission_rules" (

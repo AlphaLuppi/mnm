@@ -1,1 +1,1 @@
-ALTER TABLE "issues" ADD COLUMN "assignee_adapter_overrides" jsonb;
+ALTER TABLE "issues" ADD COLUMN IF NOT EXISTS "assignee_adapter_overrides" jsonb;

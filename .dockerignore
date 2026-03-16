@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+.env
+.env.*
+*.stackdump
+_legacy
+_bmad
+_bmad-output
+e2e
+dist
+**/dist
+.turbo
+**/.turbo

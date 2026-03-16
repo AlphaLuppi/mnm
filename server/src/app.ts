@@ -136,7 +136,7 @@ export async function createApp(
   const apiRateLimiter = createRateLimiter({
     redisState: opts.redisState ?? null,
     windowMs: 60_000,
-    max: 100,
+    max: 1000,
   });
 
   // Mount API routes

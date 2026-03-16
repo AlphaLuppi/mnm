@@ -1,4 +1,4 @@
-CREATE TABLE "activity_log" (
+CREATE TABLE IF NOT EXISTS "activity_log" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"actor_type" text DEFAULT 'system' NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE "activity_log" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "agent_api_keys" (
+CREATE TABLE IF NOT EXISTS "agent_api_keys" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"agent_id" uuid NOT NULL,
 	"company_id" uuid NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE "agent_api_keys" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "agents" (
+CREATE TABLE IF NOT EXISTS "agents" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"name" text NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE "agents" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "approvals" (
+CREATE TABLE IF NOT EXISTS "approvals" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"type" text NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE "approvals" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "companies" (
+CREATE TABLE IF NOT EXISTS "companies" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
@@ -68,7 +68,7 @@ CREATE TABLE "companies" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "cost_events" (
+CREATE TABLE IF NOT EXISTS "cost_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"agent_id" uuid NOT NULL,
@@ -85,7 +85,7 @@ CREATE TABLE "cost_events" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "goals" (
+CREATE TABLE IF NOT EXISTS "goals" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"title" text NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE "goals" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "heartbeat_runs" (
+CREATE TABLE IF NOT EXISTS "heartbeat_runs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"agent_id" uuid NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE "heartbeat_runs" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "issue_comments" (
+CREATE TABLE IF NOT EXISTS "issue_comments" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"issue_id" uuid NOT NULL,
@@ -124,7 +124,7 @@ CREATE TABLE "issue_comments" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "issues" (
+CREATE TABLE IF NOT EXISTS "issues" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"project_id" uuid,
@@ -146,7 +146,7 @@ CREATE TABLE "issues" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "projects" (
+CREATE TABLE IF NOT EXISTS "projects" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"goal_id" uuid,
@@ -189,20 +189,20 @@ ALTER TABLE "issues" ADD CONSTRAINT "issues_created_by_agent_id_agents_id_fk" FO
 ALTER TABLE "projects" ADD CONSTRAINT "projects_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_goal_id_goals_id_fk" FOREIGN KEY ("goal_id") REFERENCES "public"."goals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_lead_agent_id_agents_id_fk" FOREIGN KEY ("lead_agent_id") REFERENCES "public"."agents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "activity_log_company_created_idx" ON "activity_log" USING btree ("company_id","created_at");--> statement-breakpoint
-CREATE INDEX "agent_api_keys_key_hash_idx" ON "agent_api_keys" USING btree ("key_hash");--> statement-breakpoint
-CREATE INDEX "agent_api_keys_company_agent_idx" ON "agent_api_keys" USING btree ("company_id","agent_id");--> statement-breakpoint
-CREATE INDEX "agents_company_status_idx" ON "agents" USING btree ("company_id","status");--> statement-breakpoint
-CREATE INDEX "agents_company_reports_to_idx" ON "agents" USING btree ("company_id","reports_to");--> statement-breakpoint
-CREATE INDEX "approvals_company_status_type_idx" ON "approvals" USING btree ("company_id","status","type");--> statement-breakpoint
-CREATE INDEX "cost_events_company_occurred_idx" ON "cost_events" USING btree ("company_id","occurred_at");--> statement-breakpoint
-CREATE INDEX "cost_events_company_agent_occurred_idx" ON "cost_events" USING btree ("company_id","agent_id","occurred_at");--> statement-breakpoint
-CREATE INDEX "goals_company_idx" ON "goals" USING btree ("company_id");--> statement-breakpoint
-CREATE INDEX "heartbeat_runs_company_agent_started_idx" ON "heartbeat_runs" USING btree ("company_id","agent_id","started_at");--> statement-breakpoint
-CREATE INDEX "issue_comments_issue_idx" ON "issue_comments" USING btree ("issue_id");--> statement-breakpoint
-CREATE INDEX "issue_comments_company_idx" ON "issue_comments" USING btree ("company_id");--> statement-breakpoint
-CREATE INDEX "issues_company_status_idx" ON "issues" USING btree ("company_id","status");--> statement-breakpoint
-CREATE INDEX "issues_company_assignee_status_idx" ON "issues" USING btree ("company_id","assignee_agent_id","status");--> statement-breakpoint
-CREATE INDEX "issues_company_parent_idx" ON "issues" USING btree ("company_id","parent_id");--> statement-breakpoint
-CREATE INDEX "issues_company_project_idx" ON "issues" USING btree ("company_id","project_id");--> statement-breakpoint
-CREATE INDEX "projects_company_idx" ON "projects" USING btree ("company_id");
+CREATE INDEX IF NOT EXISTS "activity_log_company_created_idx" ON "activity_log" USING btree ("company_id","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_api_keys_key_hash_idx" ON "agent_api_keys" USING btree ("key_hash");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_api_keys_company_agent_idx" ON "agent_api_keys" USING btree ("company_id","agent_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agents_company_status_idx" ON "agents" USING btree ("company_id","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agents_company_reports_to_idx" ON "agents" USING btree ("company_id","reports_to");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "approvals_company_status_type_idx" ON "approvals" USING btree ("company_id","status","type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "cost_events_company_occurred_idx" ON "cost_events" USING btree ("company_id","occurred_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "cost_events_company_agent_occurred_idx" ON "cost_events" USING btree ("company_id","agent_id","occurred_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "goals_company_idx" ON "goals" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "heartbeat_runs_company_agent_started_idx" ON "heartbeat_runs" USING btree ("company_id","agent_id","started_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issue_comments_issue_idx" ON "issue_comments" USING btree ("issue_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issue_comments_company_idx" ON "issue_comments" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issues_company_status_idx" ON "issues" USING btree ("company_id","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issues_company_assignee_status_idx" ON "issues" USING btree ("company_id","assignee_agent_id","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issues_company_parent_idx" ON "issues" USING btree ("company_id","parent_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issues_company_project_idx" ON "issues" USING btree ("company_id","project_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "projects_company_idx" ON "projects" USING btree ("company_id");

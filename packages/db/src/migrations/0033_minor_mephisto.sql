@@ -1,2 +1,2 @@
-ALTER TABLE "invites" ADD COLUMN "target_email" text;--> statement-breakpoint
-CREATE INDEX "invites_company_email_pending_idx" ON "invites" USING btree ("company_id","target_email");
+ALTER TABLE "invites" ADD COLUMN IF NOT EXISTS "target_email" text;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "invites_company_email_pending_idx" ON "invites" USING btree ("company_id","target_email");
