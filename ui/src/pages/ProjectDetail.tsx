@@ -499,9 +499,9 @@ export function ProjectDetail() {
   ) : null;
 
   return (
-    <div className="h-full -m-6 flex flex-col">
+    <div className="h-full -m-4 md:-m-6 flex flex-col">
       {/* Project-level tab bar */}
-      <div className="shrink-0 flex items-center gap-1 border-b border-border px-6">
+      <div className="shrink-0 flex items-center gap-1 border-b border-border px-4 md:px-6 overflow-x-auto scrollbar-none">
         {(
           [
             "cockpit",
@@ -515,7 +515,7 @@ export function ProjectDetail() {
           <button
             key={tab}
             data-testid={tab === "access" ? "proj-s04-tab-access" : undefined}
-            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
               activeTab === tab
                 ? "border-foreground text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
