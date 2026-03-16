@@ -25,8 +25,8 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
-    ports:
-      - "5432:5432"
+    # Port not exposed to host — accessed internally by server via Docker network
+    # Uncomment to debug: ports: ["5433:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -53,6 +53,9 @@ services:
       MNM_DEPLOYMENT_EXPOSURE: "private"
       MNM_PUBLIC_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      MNM_AGENT_JWT_SECRET: "${MNM_AGENT_JWT_SECRET}"
+      BETTER_AUTH_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
     volumes:
       - mnm-data:/mnm
     depends_on:

@@ -351,6 +351,7 @@ if (config.databaseUrl) {
     // on the data directory to force-release them before trying to start.
     if (process.platform === "win32") {
       try {
+        // @ts-expect-error — windows-only optional dependency, not available on Linux
         const { pg_ctl } = await import("@embedded-postgres/windows-x64");
         await new Promise<void>((done) => {
           const proc = spawn(pg_ctl, ["stop", "-D", dataDir, "-m", "immediate", "-s"], {

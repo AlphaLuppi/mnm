@@ -45,6 +45,7 @@ export const AGENT_ROLES = [
   "devops",
   "researcher",
   "general",
+  "ic",
 ] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
@@ -60,6 +61,7 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
   devops: "DevOps",
   researcher: "Researcher",
   general: "General",
+  ic: "IC",
 };
 
 export const AGENT_ICON_NAMES = [
@@ -331,6 +333,7 @@ export const PERMISSION_KEYS = [
   "tasks:assign_scope",
   "joins:approve",
   "projects:create",
+  "projects:manage",
   "projects:manage_members",
   "workflows:create",
   "workflows:enforce",
