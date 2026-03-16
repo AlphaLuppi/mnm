@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { PanelLeftClose, PanelLeft } from "lucide-react";
+import { PanelLeftClose, PanelLeft, FolderOpen, Wrench, FlaskConical } from "lucide-react";
+import { useSidebar } from "../context/SidebarContext";
+import { cn } from "../lib/utils";
 
 /* ── Three Pane Layout with maximize/restore ── */
 
 type MaximizedPane = "left" | "center" | "right" | null;
+type MobileTab = "left" | "center" | "right";
 
 interface ThreePaneLayoutProps {
   left: ReactNode;
@@ -15,6 +18,44 @@ interface ThreePaneLayoutProps {
   rightTitle?: string;
 }
 
+/* ── Mobile segmented control ── */
+
+const mobileTabs: { key: MobileTab; label: string; icon: typeof FolderOpen }[] = [
+  { key: "left", label: "Context", icon: FolderOpen },
+  { key: "center", label: "Work", icon: Wrench },
+  { key: "right", label: "Tests", icon: FlaskConical },
+];
+
+function MobilePaneSelector({
+  active,
+  onChange,
+  titles,
+}: {
+  active: MobileTab;
+  onChange: (tab: MobileTab) => void;
+  titles: { left: string; center: string; right: string };
+}) {
+  return (
+    <div className="shrink-0 flex items-center gap-1 p-1.5 border-b border-border bg-muted/30">
+      {mobileTabs.map(({ key, icon: Icon }) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+            active === key
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          <span>{titles[key]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function ThreePaneLayout({
   left,
   center,
@@ -24,8 +65,10 @@ export function ThreePaneLayout({
   centerTitle = "Work",
   rightTitle = "Tests",
 }: ThreePaneLayoutProps) {
+  const { isMobile } = useSidebar();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [maximized, setMaximized] = useState<MaximizedPane>(null);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("center");
 
   const toggleMaximize = (pane: "left" | "center" | "right") => {
     setMaximized((prev) => (prev === pane ? null : pane));
@@ -34,6 +77,28 @@ export function ThreePaneLayout({
   const isHidden = (pane: "left" | "center" | "right") =>
     maximized !== null && maximized !== pane;
 
+  /* ── Mobile layout ── */
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-full">
+        <MobilePaneSelector
+          active={mobileTab}
+          onChange={setMobileTab}
+          titles={{ left: leftTitle, center: centerTitle, right: rightTitle }}
+        />
+        <div className="flex-1 min-h-0 overflow-auto">
+          {mobileTab === "left" && left}
+          {mobileTab === "center" && center}
+          {mobileTab === "right" && <div className="p-3">{right}</div>}
+        </div>
+        {bottom && (
+          <div className="shrink-0 border-t border-border">{bottom}</div>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Desktop layout ── */
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-1 min-h-0">
