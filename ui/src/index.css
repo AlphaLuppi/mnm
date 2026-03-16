@@ -178,6 +178,15 @@
   background: oklch(0.5 0 0);
 }
 
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Auto-hide scrollbar: transparent by default, visible on container hover */
 .scrollbar-auto-hide::-webkit-scrollbar-thumb {
   background: transparent !important;
