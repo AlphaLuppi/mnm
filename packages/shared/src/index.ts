@@ -307,6 +307,15 @@ export type {
   SsoSamlConfig,
   SsoOidcConfig,
   SsoMetadataSyncResult,
+  // A2A-S04: MCP Connector types
+  McpConnectorStatus,
+  McpTransportType,
+  McpConnector,
+  McpTool,
+  McpToolInvocationResult,
+  McpConnectorTestResult,
+  McpConnectorStats,
+  McpConnectorFilters,
 } from "./types/index.js";
 
 export {
@@ -582,6 +591,14 @@ export {
   type SsoDiscover,
   type SsoSamlConfigInput,
   type SsoOidcConfigInput,
+  // A2A-S04: MCP Connector validators
+  createMcpConnectorSchema,
+  updateMcpConnectorSchema,
+  mcpConnectorFiltersSchema,
+  invokeMcpToolSchema,
+  type CreateMcpConnector,
+  type UpdateMcpConnector,
+  type InvokeMcpTool,
 } from "./validators/index.js";
 
 export {

@@ -1,1 +1,1 @@
-ALTER TABLE "companies" ADD COLUMN "brand_color" text;
+ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "brand_color" text;
