@@ -7,7 +7,7 @@ import { cn } from "../../lib/utils";
 
 interface WorkflowTimelineProps {
   traces: Trace[];
-  stages: Array<{ order: number; name: string }>;
+  stages: Array<{ stageOrder?: number; order?: number; name: string }>;
   agentMap: Map<string, string>;
 }
 
