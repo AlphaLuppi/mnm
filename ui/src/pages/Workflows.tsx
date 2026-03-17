@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { workflowsApi, workflowTemplatesApi } from "../api/workflows";
 import { useCompany } from "../context/CompanyContext";
@@ -8,6 +8,14 @@ import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Workflow,
   Plus,
@@ -18,6 +26,7 @@ import {
   ChevronRight,
   Pencil,
   Play,
+  Trash2,
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
@@ -31,6 +40,9 @@ export function Workflows() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Workflows" }]);
@@ -46,6 +58,14 @@ export function Workflows() {
     queryKey: queryKeys.workflows.templates(selectedCompanyId!),
     queryFn: () => workflowTemplatesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => workflowTemplatesApi.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflows.templates(selectedCompanyId!) });
+      setDeleteTarget(null);
+    },
   });
 
   if (!selectedCompanyId) {
@@ -173,12 +193,50 @@ export function Workflows() {
                   >
                     <Play className="h-3.5 w-3.5" />
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeleteTarget({ id: t.id, name: t.name })}
+                    title="Delete template"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); deleteMutation.reset(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete template</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteMutation.error && (
+            <p className="text-sm text-destructive">
+              {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Failed to delete template"}
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); deleteMutation.reset(); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

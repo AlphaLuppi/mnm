@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { workflowTemplates, workflowInstances, stageInstances, type WorkflowStageTemplateDef } from "@mnm/db";
-import { notFound } from "../errors.js";
+import { notFound, conflict } from "../errors.js";
 import { publishLiveEvent } from "./live-events.js";
 
 const BMAD_STAGES: WorkflowStageTemplateDef[] = [
@@ -110,6 +110,18 @@ export function workflowService(db: Db) {
   }
 
   async function deleteTemplate(id: string): Promise<void> {
+    // Check for workflow instances referencing this template
+    const [usage] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(workflowInstances)
+      .where(eq(workflowInstances.templateId, id));
+
+    if (usage && usage.count > 0) {
+      throw conflict(
+        `This template is used by ${usage.count} workflow(s) and cannot be deleted`,
+      );
+    }
+
     const [row] = await db.delete(workflowTemplates).where(eq(workflowTemplates.id, id)).returning();
     if (!row) throw notFound("Workflow template not found");
   }

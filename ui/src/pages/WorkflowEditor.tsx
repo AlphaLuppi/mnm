@@ -10,7 +10,15 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { StageEditorCard, type StageDef } from "../components/StageEditorCard";
 import { WorkflowEditorPreview } from "../components/WorkflowEditorPreview";
 import { Button } from "@/components/ui/button";
-import { Plus, Save, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Plus, Save, Eye, EyeOff, ArrowLeft, Trash2 } from "lucide-react";
 
 function makeDefaultStage(order: number): StageDef {
   return {
@@ -41,6 +49,7 @@ export function WorkflowEditor() {
   const [stages, setStages] = useState<StageDef[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Load existing template
   const { data: existingTemplate, isLoading } = useQuery({
@@ -110,6 +119,15 @@ export function WorkflowEditor() {
         description: data.description || null,
         stages: data.stages.map((s, i) => ({ ...s, order: i + 1 })),
       }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workflows.templates(selectedCompanyId!) });
+      navigate("/workflows");
+    },
+  });
+
+  // Delete template
+  const deleteMutation = useMutation({
+    mutationFn: () => workflowTemplatesApi.remove(templateId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.templates(selectedCompanyId!) });
       navigate("/workflows");
@@ -304,7 +322,48 @@ export function WorkflowEditor() {
         >
           Cancel
         </Button>
+        {!isNew && (
+          <Button
+            variant="ghost"
+            className="ml-auto text-muted-foreground hover:text-destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Delete
+          </Button>
+        )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {!isNew && (
+        <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); deleteMutation.reset(); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete template</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete <strong>{templateName || existingTemplate?.name}</strong>? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            {deleteMutation.error && (
+              <p className="text-sm text-destructive">
+                {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Failed to delete template"}
+              </p>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); deleteMutation.reset(); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
