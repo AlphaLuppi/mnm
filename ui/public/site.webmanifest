@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Paperclip",
-  "short_name": "Paperclip",
-  "description": "AI-powered project management and agent coordination platform",
+  "name": "MnM",
+  "short_name": "MnM",
+  "description": "Enterprise B2B supervision cockpit for AI agent orchestration",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
