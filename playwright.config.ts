@@ -3,12 +3,18 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright E2E configuration for MnM.
  *
- * Two project types:
+ * Three project types:
  *   - "api": File-content and API tests (no browser needed)
- *   - "browser": Real UI tests with authenticated Chromium session
+ *   - "browser": Real UI tests with authenticated Chromium session (admin role)
+ *   - "browser-rbac": RBAC-specific UI tests using role-based fixtures
  *
- * Global setup creates an authenticated session via better-auth sign-up,
- * saved to e2e/.auth/storageState.json for browser tests to reuse.
+ * Global setup:
+ *   - Registers 5 test users (4 roles + cross-tenant admin)
+ *   - Seeds companies, agents, projects, workflows via e2e-seed API
+ *   - Saves role-based auth states to e2e/.auth/
+ *
+ * Global teardown:
+ *   - Cleans up test data via e2e-seed API (when available)
  */
 export default defineConfig({
   testDir: "./e2e/tests",
@@ -18,9 +24,14 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
   use: {
     baseURL: process.env.MNM_BASE_URL ?? "http://localhost:3100",
     trace: "on-first-retry",
+    video: "on",
+    screenshot: "only-on-failure",
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
   },
   projects: [
     {
@@ -31,9 +42,18 @@ export default defineConfig({
     {
       name: "browser",
       testMatch: /.*\.browser\.ts/,
+      testIgnore: /.*\.rbac\.browser\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "e2e/.auth/storageState.json",
+      },
+    },
+    {
+      name: "browser-rbac",
+      testMatch: /.*\.rbac\.browser\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        // No storageState — role-based fixtures create their own contexts
       },
     },
   ],
