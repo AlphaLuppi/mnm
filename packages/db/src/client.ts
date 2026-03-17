@@ -42,7 +42,15 @@ export type MigrationState =
     };
 
 export function createDb(url: string) {
-  const sql = postgres(url);
+  const sql = postgres(url, {
+    max: 20,
+    idle_timeout: 30,
+    max_lifetime: 60 * 30,
+    connect_timeout: 10,
+    connection: {
+      application_name: "mnm-server",
+    },
+  });
   return drizzlePg(sql, { schema });
 }
 
