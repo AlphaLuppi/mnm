@@ -594,6 +594,22 @@ function handleLiveEvent(
     }
     return;
   }
+
+  // TRACE-13: Trace live events — invalidate trace queries
+  if (
+    event.type === "trace.created" ||
+    event.type === "trace.observation_created" ||
+    event.type === "trace.observation_completed" ||
+    event.type === "trace.completed"
+  ) {
+    // Invalidate trace list queries (for live multi-agent panel)
+    queryClient.invalidateQueries({ queryKey: ["traces", expectedCompanyId] });
+    const traceId = readString(payload.traceId);
+    if (traceId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.traces.detail(expectedCompanyId, traceId) });
+    }
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
