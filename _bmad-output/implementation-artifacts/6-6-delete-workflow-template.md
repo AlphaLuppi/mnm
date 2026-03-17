@@ -1,6 +1,6 @@
 # Story 6.6: Suppression de Workflow Template
 
-Status: review
+Status: done
 
 ## Story
 

@@ -48,4 +48,4 @@ development_status:
 
   # Epic 6: Orchestrateur Déterministe (ORCH)
   epic-6: in-progress
-  6-6-delete-workflow-template: review              # UI delete + FK guard backend
+  6-6-delete-workflow-template: done                 # UI delete + FK guard backend + code review fixes
