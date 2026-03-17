@@ -381,12 +381,12 @@ export function Drift() {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Last scanned: {timeAgo(scanStatus!.lastScanAt!)}
+                  Last scanned: {scanStatus?.lastScanAt ? timeAgo(scanStatus.lastScanAt) : "—"}
                 </span>
-                {scanStatus!.lastScanIssueCount !== null && (
+                {scanStatus?.lastScanIssueCount != null && (
                   <span>
-                    {scanStatus!.lastScanIssueCount} issue
-                    {scanStatus!.lastScanIssueCount !== 1 ? "s" : ""} found
+                    {scanStatus.lastScanIssueCount} issue
+                    {scanStatus.lastScanIssueCount !== 1 ? "s" : ""} found
                   </span>
                 )}
                 {pendingCount > 0 && (
