@@ -16,15 +16,28 @@
 services:
   db:
     image: postgres:17-alpine
+    restart: unless-stopped
+    shm_size: 256mb
     environment:
       POSTGRES_USER: mnm
       POSTGRES_PASSWORD: mnm
       POSTGRES_DB: mnm
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "log_min_duration_statement=1000"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mnm -d mnm"]
-      interval: 2s
+      interval: 5s
       timeout: 5s
       retries: 30
+      start_period: 10s
     # Port not exposed to host — accessed internally by server via Docker network
     # Uncomment to debug: ports: ["5433:5432"]
     volumes:
@@ -32,16 +45,20 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 2s
+      interval: 5s
       timeout: 5s
       retries: 30
+      start_period: 5s
     volumes:
       - redisdata:/data
 
   server:
     build: .
+    restart: unless-stopped
     ports:
       - "3100:3100"
     environment:
@@ -56,6 +73,13 @@ services:
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       MNM_AGENT_JWT_SECRET: "${MNM_AGENT_JWT_SECRET}"
       BETTER_AUTH_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
+      MNM_MIGRATION_AUTO_APPLY: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3100/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     volumes:
       - mnm-data:/mnm
     depends_on:
