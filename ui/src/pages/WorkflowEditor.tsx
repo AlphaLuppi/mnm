@@ -10,14 +10,7 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { StageEditorCard, type StageDef } from "../components/StageEditorCard";
 import { WorkflowEditorPreview } from "../components/WorkflowEditorPreview";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ConfirmDeleteTemplateDialog } from "../components/ConfirmDeleteTemplateDialog";
 import { Plus, Save, Eye, EyeOff, ArrowLeft, Trash2 } from "lucide-react";
 
 function makeDefaultStage(order: number): StageDef {
@@ -324,6 +317,7 @@ export function WorkflowEditor() {
         </Button>
         {!isNew && (
           <Button
+            data-testid="orch-s06-delete-btn"
             variant="ghost"
             className="ml-auto text-muted-foreground hover:text-destructive"
             onClick={() => setShowDeleteConfirm(true)}
@@ -336,33 +330,14 @@ export function WorkflowEditor() {
 
       {/* Delete Confirmation Dialog */}
       {!isNew && (
-        <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); deleteMutation.reset(); } }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete template</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete <strong>{templateName || existingTemplate?.name}</strong>? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            {deleteMutation.error && (
-              <p className="text-sm text-destructive">
-                {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Failed to delete template"}
-              </p>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); deleteMutation.reset(); }}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-              >
-                {deleteMutation.isPending ? "Deleting..." : "Delete"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDeleteTemplateDialog
+          templateName={templateName || existingTemplate?.name}
+          open={showDeleteConfirm}
+          onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); deleteMutation.reset(); } }}
+          onConfirm={() => deleteMutation.mutate()}
+          isPending={deleteMutation.isPending}
+          error={deleteMutation.error instanceof Error ? deleteMutation.error : null}
+        />
       )}
     </div>
   );

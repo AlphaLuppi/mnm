@@ -122,8 +122,16 @@ export function workflowService(db: Db) {
       );
     }
 
-    const [row] = await db.delete(workflowTemplates).where(eq(workflowTemplates.id, id)).returning();
-    if (!row) throw notFound("Workflow template not found");
+    try {
+      const [row] = await db.delete(workflowTemplates).where(eq(workflowTemplates.id, id)).returning();
+      if (!row) throw notFound("Workflow template not found");
+    } catch (err: unknown) {
+      // Fallback: catch FK violation if instance was created between COUNT and DELETE
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "23503") {
+        throw conflict("This template is in use by workflow(s) and cannot be deleted");
+      }
+      throw err;
+    }
   }
 
   async function ensureBmadTemplate(companyId: string): Promise<TemplateRow> {
