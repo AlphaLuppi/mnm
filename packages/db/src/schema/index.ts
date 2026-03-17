@@ -54,3 +54,5 @@ export { a2aMessages } from "./a2a_messages.js";
 export { compactionSnapshots } from "./compaction_snapshots.js";
 // a2a-s02-schema-export
 export { a2aPermissionRules } from "./a2a-permission-rules.js";
+// TRACE-01: Trace tables + TRACE-07: Lens tables
+export { traces, traceObservations, traceLenses, traceLensResults } from "./traces.js";

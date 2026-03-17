@@ -292,6 +292,18 @@ export type {
   // A2A-S03: Audit A2A type
   // a2a-s03-barrel-shared
   A2AAuditAction,
+  // TRACE-01: Trace types
+  TraceStatus,
+  TraceObservationType,
+  TraceObservationStatus,
+  Trace,
+  TraceObservation,
+  TraceObservationNode,
+  TraceWithTree,
+  TraceListResult,
+  TraceLensScope,
+  TraceLens,
+  TraceLensResult,
   // SSO-S01: SSO configuration types
   // sso-s01-barrel-shared
   SsoProvider,
@@ -351,6 +363,10 @@ export {
   A2A_DEFAULT_POLICIES,
   // A2A-S03: Audit A2A constants
   A2A_AUDIT_ACTIONS,
+  // TRACE-01: Trace constants
+  TRACE_STATUSES,
+  TRACE_OBSERVATION_TYPES,
+  TRACE_OBSERVATION_STATUSES,
   // SSO-S01: SSO configuration constants
   SSO_PROVIDERS,
   SSO_CONFIG_STATUSES,
@@ -591,6 +607,23 @@ export {
   type SsoDiscover,
   type SsoSamlConfigInput,
   type SsoOidcConfigInput,
+  // TRACE: Trace validators
+  createTraceSchema,
+  completeTraceSchema,
+  createObservationSchema,
+  batchCreateObservationsSchema,
+  completeObservationSchema,
+  traceListFiltersSchema,
+  createTraceLensSchema,
+  updateTraceLensSchema,
+  type CreateTrace,
+  type CompleteTrace,
+  type CreateObservation,
+  type BatchCreateObservations,
+  type CompleteObservation,
+  type TraceListFilters,
+  type CreateTraceLens,
+  type UpdateTraceLens,
   // A2A-S04: MCP Connector validators
   createMcpConnectorSchema,
   updateMcpConnectorSchema,

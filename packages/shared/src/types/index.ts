@@ -324,6 +324,25 @@ export type {
   McpConnectorStats,
   McpConnectorFilters,
 } from "./a2a.js";
+// TRACE-01: Trace types + TRACE-07: Lens types
+export {
+  TRACE_STATUSES,
+  TRACE_OBSERVATION_TYPES,
+  TRACE_OBSERVATION_STATUSES,
+} from "./trace.js";
+export type {
+  TraceStatus,
+  TraceObservationType,
+  TraceObservationStatus,
+  Trace,
+  TraceObservation,
+  TraceObservationNode,
+  TraceWithTree,
+  TraceListResult,
+  TraceLensScope,
+  TraceLens,
+  TraceLensResult,
+} from "./trace.js";
 // SSO-S01: SSO configuration types
 // sso-s01-barrel-types
 export {

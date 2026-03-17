@@ -280,6 +280,26 @@ export {
   type DashboardBreakdownCategoryInput,
 } from "./dashboard.js";
 
+// TRACE-01/02/03/07: Trace validators
+export {
+  createTraceSchema,
+  completeTraceSchema,
+  createObservationSchema,
+  batchCreateObservationsSchema,
+  completeObservationSchema,
+  traceListFiltersSchema,
+  createTraceLensSchema,
+  updateTraceLensSchema,
+  type CreateTrace,
+  type CompleteTrace,
+  type CreateObservation,
+  type BatchCreateObservations,
+  type CompleteObservation,
+  type TraceListFilters,
+  type CreateTraceLens,
+  type UpdateTraceLens,
+} from "./trace.js";
+
 // sso-s01-barrel-validators
 export {
   createSsoConfigurationSchema,
