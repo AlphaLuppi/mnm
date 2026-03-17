@@ -410,6 +410,8 @@ export function setupChatWebSocketServer(
         { err, channelId, actorId },
         "Chat WebSocket client error",
       );
+      manager.removeConnection(channelId, socket);
+      aliveByClient.delete(socket);
     });
   });
 
