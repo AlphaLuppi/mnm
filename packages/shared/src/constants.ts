@@ -290,6 +290,11 @@ export const LIVE_EVENT_TYPES = [
   // A2A-S04: MCP connector live events
   // a2a-s04-live-event
   "a2a.mcp_connector_changed",
+  // TRACE-06: Trace live events
+  "trace.created",
+  "trace.observation_created",
+  "trace.observation_completed",
+  "trace.completed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
@@ -348,5 +353,8 @@ export const PERMISSION_KEYS = [
   "stories:edit",
   "dashboard:view",
   "chat:agent",
+  // TRACE: Trace permissions
+  "traces:read",
+  "traces:write",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
