@@ -29,7 +29,7 @@ export default defineConfig({
     baseURL: process.env.MNM_BASE_URL ?? "http://localhost:3100",
     trace: "on-first-retry",
     video: "on",
-    screenshot: "only-on-failure",
+    screenshot: "on",
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
   },
