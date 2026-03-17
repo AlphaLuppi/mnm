@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Paperclip, Plus } from "lucide-react";
+import { Boxes, Plus } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import {
   DndContext,
@@ -268,7 +268,7 @@ export function CompanyRail() {
     <div data-testid="mu-s04-company-rail" role="navigation" aria-label="Company selector" className="flex flex-col items-center w-[72px] shrink-0 h-full bg-background border-r border-border">
       {/* MnM icon - aligned with top sections (implied line, no visible border) */}
       <div className="flex items-center justify-center h-12 w-full shrink-0">
-        <Paperclip className="h-5 w-5 text-foreground" />
+        <Boxes className="h-5 w-5 text-foreground" />
       </div>
 
       {/* Company list */}
