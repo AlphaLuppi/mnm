@@ -42,7 +42,7 @@ export function Workflows() {
     return <EmptyState icon={Workflow} message="Select a company to view workflows." />;
   }
 
-  if (isLoading) {
+  if (isLoading || !workflows) {
     return <PageSkeleton variant="list" />;
   }
 
@@ -50,7 +50,7 @@ export function Workflows() {
     <div className="space-y-4">
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
-      {workflows && workflows.length === 0 && (
+      {workflows.length === 0 && (
         <EmptyState
           icon={Workflow}
           message="No workflows yet. Create one from a template to get started."
@@ -59,7 +59,7 @@ export function Workflows() {
         />
       )}
 
-      {workflows && workflows.length > 0 && (
+      {workflows.length > 0 && (
         <>
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground">
@@ -76,7 +76,7 @@ export function Workflows() {
               const cfg = STATUS_CONFIG[wf.status] ?? STATUS_CONFIG.active;
               const StatusIcon = cfg.icon;
               const stageCount = wf.stages?.length ?? 0;
-              const doneCount = wf.stages?.filter((s) => s.status === "done" || s.status === "skipped").length ?? 0;
+              const doneCount = wf.stages?.filter((s) => s.status === "completed" || s.status === "skipped").length ?? 0;
               const runningStage = wf.stages?.find((s) => s.status === "running");
 
               return (
