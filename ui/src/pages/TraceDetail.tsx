@@ -24,7 +24,7 @@ import { LensAnalysisResult } from "../components/traces/LensAnalysisResult";
 import { RawObservationTree } from "../components/traces/RawObservationTree";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatTokens, relativeTime } from "../lib/utils";
+import { formatTokens, relativeTime, formatDuration, formatCost } from "../lib/utils";
 import type { TraceStatus } from "../api/traces";
 
 function statusVariant(status: TraceStatus): "secondary" | "outline" | "destructive" | "default" {
@@ -40,21 +40,6 @@ function statusVariant(status: TraceStatus): "secondary" | "outline" | "destruct
     default:
       return "secondary";
   }
-}
-
-function formatDuration(ms: number | null): string {
-  if (ms == null) return "-";
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1000);
-  return `${min}m ${sec}s`;
-}
-
-function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
 }
 
 export function TraceDetail() {
@@ -165,11 +150,11 @@ export function TraceDetail() {
           {isRunning && (
             <span
               data-testid="trace-09-live-indicator"
-              className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium"
+              className="flex items-center gap-1.5 text-agent font-medium"
             >
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-agent opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-agent" />
               </span>
               In progress...
             </span>

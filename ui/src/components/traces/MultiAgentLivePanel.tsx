@@ -19,21 +19,7 @@ import {
 import { tracesApi, type Trace } from "../../api/traces";
 import { queryKeys } from "../../lib/queryKeys";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatTokens } from "../../lib/utils";
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1000);
-  return `${min}m ${sec}s`;
-}
-
-function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
-}
+import { cn, formatTokens, formatDuration, formatCost } from "../../lib/utils";
 
 function elapsedMs(startedAt: string): number {
   return Date.now() - new Date(startedAt).getTime();
@@ -215,8 +201,8 @@ export function MultiAgentLivePanel({ companyId }: MultiAgentLivePanelProps) {
           Active Agents ({liveCount})
         </h3>
         <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-agent opacity-75" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-agent" />
         </span>
       </div>
 
@@ -226,10 +212,10 @@ export function MultiAgentLivePanel({ companyId }: MultiAgentLivePanelProps) {
           {fileConflicts.map((conflict) => (
             <div
               key={conflict.file}
-              className="flex items-center gap-2 text-xs rounded-sm border border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/30 px-2 py-1.5"
+              className="flex items-center gap-2 text-xs rounded-sm border border-warning/30 bg-warning-bg px-2 py-1.5"
             >
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span className="text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
+              <span className="text-warning">
                 Potential conflict: <span className="font-mono">{conflict.file}</span>{" "}
                 ({conflict.agents.join(", ")})
               </span>
@@ -272,7 +258,7 @@ export function MultiAgentLivePanel({ companyId }: MultiAgentLivePanelProps) {
                 </span>
                 <div className="flex-1 h-3 bg-muted/30 rounded-sm overflow-hidden">
                   <div
-                    className="h-full bg-blue-500 rounded-sm animate-pulse"
+                    className="h-full bg-agent rounded-sm animate-pulse"
                     style={{ width: `${widthPct}%` }}
                   />
                 </div>

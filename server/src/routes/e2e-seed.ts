@@ -33,6 +33,10 @@ import {
   driftReports,
   driftItems,
   principalPermissionGrants,
+  traces,
+  traceObservations,
+  traceLenses,
+  traceLensResults,
 } from "@mnm/db";
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
@@ -213,6 +217,69 @@ export function e2eSeedRoutes(db: Db) {
           targetType: string;
           severity?: string;
           metadata?: Record<string, unknown>;
+        }>;
+        traces?: Array<{
+          id: string;
+          companyId: string;
+          agentId: string;
+          parentTraceId?: string | null;
+          name: string;
+          status: string;
+          startedAt: string;
+          completedAt?: string | null;
+          totalDurationMs?: number | null;
+          totalTokensIn?: number;
+          totalTokensOut?: number;
+          totalCostUsd?: string;
+          metadata?: Record<string, unknown> | null;
+          tags?: string[] | null;
+        }>;
+        traceObservations?: Array<{
+          id: string;
+          traceId: string;
+          companyId: string;
+          parentObservationId?: string | null;
+          type: string;
+          name: string;
+          status: string;
+          startedAt: string;
+          completedAt?: string | null;
+          durationMs?: number | null;
+          level?: string | null;
+          statusMessage?: string | null;
+          input?: Record<string, unknown> | null;
+          output?: Record<string, unknown> | null;
+          inputTokens?: number | null;
+          outputTokens?: number | null;
+          totalTokens?: number | null;
+          costUsd?: string | null;
+          model?: string | null;
+          modelParameters?: Record<string, unknown> | null;
+          metadata?: Record<string, unknown> | null;
+        }>;
+        traceLenses?: Array<{
+          id: string;
+          companyId: string;
+          userId: string;
+          name: string;
+          prompt: string;
+          scope?: Record<string, unknown>;
+          isTemplate?: boolean;
+          isActive?: boolean;
+        }>;
+        traceLensResults?: Array<{
+          id: string;
+          lensId: string;
+          traceId?: string | null;
+          workflowInstanceId?: string | null;
+          companyId: string;
+          userId: string;
+          resultMarkdown: string;
+          resultStructured?: Record<string, unknown> | null;
+          modelUsed?: string | null;
+          inputTokens?: number | null;
+          outputTokens?: number | null;
+          costUsd?: string | null;
         }>;
       };
 
@@ -425,6 +492,103 @@ export function e2eSeedRoutes(db: Db) {
         }
       }
 
+      // ── 10. Seed traces (parent first, then children) ─────────────────────
+      if (body.traces) {
+        // Insert parent traces first (parentTraceId = null), then children
+        const parents = body.traces.filter((t) => !t.parentTraceId);
+        const children = body.traces.filter((t) => t.parentTraceId);
+        const allTraces = [...parents, ...children].map((t) => ({
+          id: t.id,
+          companyId: t.companyId,
+          agentId: t.agentId,
+          parentTraceId: t.parentTraceId ?? null,
+          name: t.name,
+          status: t.status,
+          startedAt: new Date(t.startedAt),
+          completedAt: t.completedAt ? new Date(t.completedAt) : null,
+          totalDurationMs: t.totalDurationMs ?? null,
+          totalTokensIn: t.totalTokensIn ?? 0,
+          totalTokensOut: t.totalTokensOut ?? 0,
+          totalCostUsd: t.totalCostUsd ?? "0",
+          metadata: t.metadata ?? null,
+          tags: t.tags ?? null,
+        }));
+        stats.tracesCreated = await upsertById(db, traces, traces.id, allTraces);
+      }
+
+      // ── 11. Seed trace observations ─────────────────────────────────────
+      if (body.traceObservations) {
+        // Insert parent observations first, then children
+        const parentObs = body.traceObservations.filter((o) => !o.parentObservationId);
+        const childObs = body.traceObservations.filter((o) => o.parentObservationId);
+        const allObs = [...parentObs, ...childObs].map((o) => ({
+          id: o.id,
+          traceId: o.traceId,
+          companyId: o.companyId,
+          parentObservationId: o.parentObservationId ?? null,
+          type: o.type,
+          name: o.name,
+          status: o.status,
+          startedAt: new Date(o.startedAt),
+          completedAt: o.completedAt ? new Date(o.completedAt) : null,
+          durationMs: o.durationMs ?? null,
+          level: o.level ?? null,
+          statusMessage: o.statusMessage ?? null,
+          input: o.input ?? null,
+          output: o.output ?? null,
+          inputTokens: o.inputTokens ?? null,
+          outputTokens: o.outputTokens ?? null,
+          totalTokens: o.totalTokens ?? null,
+          costUsd: o.costUsd ?? null,
+          model: o.model ?? null,
+          modelParameters: o.modelParameters ?? null,
+          metadata: o.metadata ?? null,
+        }));
+        stats.traceObservationsCreated = await upsertById(db, traceObservations, traceObservations.id, allObs);
+      }
+
+      // ── 12. Seed trace lenses ───────────────────────────────────────────
+      if (body.traceLenses) {
+        stats.traceLensesCreated = await upsertById(
+          db,
+          traceLenses,
+          traceLenses.id,
+          body.traceLenses.map((l) => ({
+            id: l.id,
+            companyId: l.companyId,
+            userId: l.userId,
+            name: l.name,
+            prompt: l.prompt,
+            scope: l.scope ?? {},
+            isTemplate: l.isTemplate ?? false,
+            isActive: l.isActive ?? true,
+          })),
+        );
+      }
+
+      // ── 13. Seed trace lens results ─────────────────────────────────────
+      if (body.traceLensResults) {
+        stats.traceLensResultsCreated = await upsertById(
+          db,
+          traceLensResults,
+          traceLensResults.id,
+          body.traceLensResults.map((r) => ({
+            id: r.id,
+            lensId: r.lensId,
+            traceId: r.traceId ?? null,
+            workflowInstanceId: r.workflowInstanceId ?? null,
+            companyId: r.companyId,
+            userId: r.userId,
+            resultMarkdown: r.resultMarkdown,
+            resultStructured: r.resultStructured ?? null,
+            modelUsed: r.modelUsed ?? null,
+            inputTokens: r.inputTokens ?? null,
+            outputTokens: r.outputTokens ?? null,
+            costUsd: r.costUsd ?? null,
+          })),
+        );
+      }
+
       res.json({ ok: true, stats });
     } catch (err) {
       console.error("[e2e-seed] ensure-multi-role-access error:", err);
@@ -455,6 +619,19 @@ export function e2eSeedRoutes(db: Db) {
           return 0;
         }
       }
+
+      // Trace tables (lens results → lenses → observations → traces)
+      stats.traceLensResults = await safeDelete(traceLensResults, traceLensResults.companyId);
+      stats.traceLenses = await safeDelete(traceLenses, traceLenses.companyId);
+      stats.traceObservations = await safeDelete(traceObservations, traceObservations.companyId);
+      // Clear parentTraceId self-ref before deleting traces
+      try {
+        await db
+          .update(traces)
+          .set({ parentTraceId: null })
+          .where(inArray(traces.companyId, seedCompanyIds));
+      } catch { /* ignore */ }
+      stats.traces = await safeDelete(traces, traces.companyId);
 
       // Leaf tables first (no other tables reference them)
       stats.auditEvents = await safeDelete(auditEvents, auditEvents.companyId);

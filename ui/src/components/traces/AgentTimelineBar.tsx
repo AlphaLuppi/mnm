@@ -1,7 +1,7 @@
 import { Link } from "@/lib/router";
 import { Bot, Loader2 } from "lucide-react";
 import type { Trace, TraceStatus } from "../../api/traces";
-import { cn } from "../../lib/utils";
+import { cn, formatDuration, formatCost } from "../../lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -11,30 +11,16 @@ import {
 function statusColor(status: TraceStatus): string {
   switch (status) {
     case "running":
-      return "bg-blue-500";
+      return "bg-agent";
     case "completed":
-      return "bg-green-500";
+      return "bg-success";
     case "failed":
-      return "bg-red-500";
+      return "bg-error";
     case "cancelled":
-      return "bg-gray-400";
+      return "bg-muted-foreground";
     default:
-      return "bg-gray-300";
+      return "bg-muted-foreground/50";
   }
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1000);
-  return `${min}m ${sec}s`;
-}
-
-function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
 }
 
 interface AgentTimelineBarProps {

@@ -59,6 +59,47 @@ export const IDS = {
   // Automation Cursors
   CURSOR_COMPANY_LEVEL: "f3000000-0000-4000-8000-000000000001",
   CURSOR_PROJECT_LEVEL: "f3000000-0000-4000-8000-000000000002",
+
+  // Traces
+  TRACE_COMPLETED: "f4000000-0000-4000-8000-000000000001",
+  TRACE_RUNNING: "f4000000-0000-4000-8000-000000000002",
+  TRACE_PARENT: "f4000000-0000-4000-8000-000000000003",
+  TRACE_CHILD_1: "f4000000-0000-4000-8000-000000000004",
+  TRACE_CHILD_2: "f4000000-0000-4000-8000-000000000005",
+
+  // Trace Observations (completed trace — 10 observations simulating a code review)
+  OBS_INIT: "f5000000-0000-4000-8000-000000000001",
+  OBS_READ_SPEC: "f5000000-0000-4000-8000-000000000002",
+  OBS_ANALYZE_CODE: "f5000000-0000-4000-8000-000000000003",
+  OBS_GENERATION_PLAN: "f5000000-0000-4000-8000-000000000004",
+  OBS_TOOL_GREP: "f5000000-0000-4000-8000-000000000005",
+  OBS_TOOL_READ_FILE: "f5000000-0000-4000-8000-000000000006",
+  OBS_GENERATION_REVIEW: "f5000000-0000-4000-8000-000000000007",
+  OBS_TOOL_WRITE_FILE: "f5000000-0000-4000-8000-000000000008",
+  OBS_TOOL_RUN_TESTS: "f5000000-0000-4000-8000-000000000009",
+  OBS_FINAL_SUMMARY: "f5000000-0000-4000-8000-00000000000a",
+
+  // Trace Observations (running trace — 3 in-progress)
+  OBS_RUNNING_INIT: "f5100000-0000-4000-8000-000000000001",
+  OBS_RUNNING_GEN: "f5100000-0000-4000-8000-000000000002",
+  OBS_RUNNING_TOOL: "f5100000-0000-4000-8000-000000000003",
+
+  // Trace Observations (parent trace — 2 obs)
+  OBS_PARENT_INIT: "f5200000-0000-4000-8000-000000000001",
+  OBS_PARENT_DELEGATE: "f5200000-0000-4000-8000-000000000002",
+
+  // Trace Observations (child traces — 2 obs each)
+  OBS_CHILD1_INIT: "f5300000-0000-4000-8000-000000000001",
+  OBS_CHILD1_WORK: "f5300000-0000-4000-8000-000000000002",
+  OBS_CHILD2_INIT: "f5400000-0000-4000-8000-000000000001",
+  OBS_CHILD2_WORK: "f5400000-0000-4000-8000-000000000002",
+
+  // Trace Lenses
+  LENS_PERFORMANCE: "f6000000-0000-4000-8000-000000000001",
+  LENS_ERROR_ANALYSIS: "f6000000-0000-4000-8000-000000000002",
+
+  // Trace Lens Results
+  LENS_RESULT_PERF_COMPLETED: "f7000000-0000-4000-8000-000000000001",
 } as const;
 
 // Mutable copy for runtime ID tracking (user IDs from auth)
@@ -499,6 +540,458 @@ export const PERMISSION_KEYS_ADMIN = [
 
 export const PERMISSION_KEYS_VIEWER = [
   "audit:read", "dashboard:view",
+] as const;
+
+// ─── Traces (NovaTech) ───────────────────────────────────────────────────────
+
+const HOUR_AGO = new Date(Date.now() - 3_600_000).toISOString();
+const HALF_HOUR_AGO = new Date(Date.now() - 1_800_000).toISOString();
+const TWENTY_MIN_AGO = new Date(Date.now() - 1_200_000).toISOString();
+const TEN_MIN_AGO = new Date(Date.now() - 600_000).toISOString();
+const FIVE_MIN_AGO = new Date(Date.now() - 300_000).toISOString();
+
+export const TRACES = [
+  // 1. Completed trace — code review by Marcus (10 observations)
+  {
+    id: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    agentId: IDS.AGENT_MARCUS_ARCHITECTE,
+    parentTraceId: null,
+    name: "Code Review: Migration API endpoints",
+    status: "completed",
+    startedAt: HOUR_AGO,
+    completedAt: HALF_HOUR_AGO,
+    totalDurationMs: 1_800_000,
+    totalTokensIn: 45_200,
+    totalTokensOut: 12_800,
+    totalCostUsd: "0.1840",
+    metadata: { trigger: "workflow", reviewType: "architecture" },
+    tags: ["code-review", "migration"],
+  },
+  // 2. Running trace — Luna actively developing
+  {
+    id: IDS.TRACE_RUNNING,
+    companyId: IDS.NOVATECH_COMPANY,
+    agentId: IDS.AGENT_LUNA_DEVELOPPEUR,
+    parentTraceId: null,
+    name: "Implement auth middleware refactor",
+    status: "running",
+    startedAt: TEN_MIN_AGO,
+    completedAt: null,
+    totalDurationMs: null,
+    totalTokensIn: 8_400,
+    totalTokensOut: 3_200,
+    totalCostUsd: "0.0420",
+    metadata: { trigger: "manual" },
+    tags: ["auth", "refactor"],
+  },
+  // 3. Parent trace (orchestration) — Claude delegates to sub-agents
+  {
+    id: IDS.TRACE_PARENT,
+    companyId: IDS.NOVATECH_COMPANY,
+    agentId: IDS.AGENT_CLAUDE_STRATEGE,
+    parentTraceId: null,
+    name: "Orchestrate: Security Audit Pipeline",
+    status: "completed",
+    startedAt: HOUR_AGO,
+    completedAt: TWENTY_MIN_AGO,
+    totalDurationMs: 2_400_000,
+    totalTokensIn: 62_000,
+    totalTokensOut: 18_500,
+    totalCostUsd: "0.2560",
+    metadata: { trigger: "workflow", pipelineType: "audit" },
+    tags: ["orchestration", "security"],
+  },
+  // 4. Child trace 1 — Marcus does architecture review (sub of parent)
+  {
+    id: IDS.TRACE_CHILD_1,
+    companyId: IDS.NOVATECH_COMPANY,
+    agentId: IDS.AGENT_MARCUS_ARCHITECTE,
+    parentTraceId: IDS.TRACE_PARENT,
+    name: "Sub: Architecture vulnerability scan",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_000_000).toISOString(),
+    completedAt: HALF_HOUR_AGO,
+    totalDurationMs: 1_200_000,
+    totalTokensIn: 28_000,
+    totalTokensOut: 8_500,
+    totalCostUsd: "0.1160",
+    metadata: { delegatedBy: IDS.AGENT_CLAUDE_STRATEGE },
+    tags: ["security", "architecture"],
+  },
+  // 5. Child trace 2 — Aria does QA testing (sub of parent)
+  {
+    id: IDS.TRACE_CHILD_2,
+    companyId: IDS.NOVATECH_COMPANY,
+    agentId: IDS.AGENT_ARIA_QA,
+    parentTraceId: IDS.TRACE_PARENT,
+    name: "Sub: Security test suite execution",
+    status: "completed",
+    startedAt: HALF_HOUR_AGO,
+    completedAt: TWENTY_MIN_AGO,
+    totalDurationMs: 600_000,
+    totalTokensIn: 15_000,
+    totalTokensOut: 4_200,
+    totalCostUsd: "0.0610",
+    metadata: { delegatedBy: IDS.AGENT_CLAUDE_STRATEGE },
+    tags: ["security", "testing"],
+  },
+] as const;
+
+// ─── Trace Observations ─────────────────────────────────────────────────────
+
+export const TRACE_OBSERVATIONS = [
+  // --- Completed trace: 10 observations (code review flow) ---
+  {
+    id: IDS.OBS_INIT,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "event",
+    name: "trace.init",
+    status: "completed",
+    startedAt: HOUR_AGO,
+    completedAt: HOUR_AGO,
+    durationMs: 5,
+    metadata: { message: "Code review session started" },
+  },
+  {
+    id: IDS.OBS_READ_SPEC,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "Read specification document",
+    status: "completed",
+    startedAt: HOUR_AGO,
+    completedAt: new Date(Date.now() - 3_540_000).toISOString(),
+    durationMs: 60_000,
+    input: { file: "docs/api-migration-spec.md" },
+    output: { lines: 342 },
+  },
+  {
+    id: IDS.OBS_ANALYZE_CODE,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "Analyze existing codebase",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_540_000).toISOString(),
+    completedAt: new Date(Date.now() - 3_300_000).toISOString(),
+    durationMs: 240_000,
+    input: { directory: "server/src/routes/" },
+    output: { filesAnalyzed: 12, issuesFound: 3 },
+  },
+  {
+    id: IDS.OBS_GENERATION_PLAN,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "generation",
+    name: "Generate review plan",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_300_000).toISOString(),
+    completedAt: new Date(Date.now() - 3_240_000).toISOString(),
+    durationMs: 60_000,
+    model: "claude-sonnet-4-20250514",
+    inputTokens: 8_200,
+    outputTokens: 2_400,
+    totalTokens: 10_600,
+    costUsd: "0.0380",
+  },
+  {
+    id: IDS.OBS_TOOL_GREP,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: IDS.OBS_ANALYZE_CODE,
+    type: "span",
+    name: "grep: deprecated API patterns",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_240_000).toISOString(),
+    completedAt: new Date(Date.now() - 3_180_000).toISOString(),
+    durationMs: 60_000,
+    input: { pattern: "app.get\\(/api/v1", directory: "server/" },
+    output: { matches: 7 },
+  },
+  {
+    id: IDS.OBS_TOOL_READ_FILE,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: IDS.OBS_ANALYZE_CODE,
+    type: "span",
+    name: "read_file: routes/users.ts",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_180_000).toISOString(),
+    completedAt: new Date(Date.now() - 3_120_000).toISOString(),
+    durationMs: 60_000,
+    input: { file: "server/src/routes/users.ts" },
+    output: { lines: 185 },
+  },
+  {
+    id: IDS.OBS_GENERATION_REVIEW,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "generation",
+    name: "Generate code review feedback",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_120_000).toISOString(),
+    completedAt: new Date(Date.now() - 2_700_000).toISOString(),
+    durationMs: 420_000,
+    model: "claude-sonnet-4-20250514",
+    inputTokens: 22_000,
+    outputTokens: 6_800,
+    totalTokens: 28_800,
+    costUsd: "0.0980",
+  },
+  {
+    id: IDS.OBS_TOOL_WRITE_FILE,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "write_file: review-report.md",
+    status: "completed",
+    startedAt: new Date(Date.now() - 2_700_000).toISOString(),
+    completedAt: new Date(Date.now() - 2_400_000).toISOString(),
+    durationMs: 300_000,
+    input: { file: "docs/review-report.md" },
+    output: { bytesWritten: 4_280 },
+  },
+  {
+    id: IDS.OBS_TOOL_RUN_TESTS,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "run_tests: affected modules",
+    status: "completed",
+    startedAt: new Date(Date.now() - 2_400_000).toISOString(),
+    completedAt: new Date(Date.now() - 2_100_000).toISOString(),
+    durationMs: 300_000,
+    input: { command: "pnpm test --filter server" },
+    output: { passed: 42, failed: 0, skipped: 2 },
+  },
+  {
+    id: IDS.OBS_FINAL_SUMMARY,
+    traceId: IDS.TRACE_COMPLETED,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "generation",
+    name: "Generate final summary",
+    status: "completed",
+    startedAt: new Date(Date.now() - 2_100_000).toISOString(),
+    completedAt: HALF_HOUR_AGO,
+    durationMs: 300_000,
+    model: "claude-sonnet-4-20250514",
+    inputTokens: 15_000,
+    outputTokens: 3_600,
+    totalTokens: 18_600,
+    costUsd: "0.0480",
+  },
+
+  // --- Running trace: 3 observations (in-progress dev work) ---
+  {
+    id: IDS.OBS_RUNNING_INIT,
+    traceId: IDS.TRACE_RUNNING,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "event",
+    name: "trace.init",
+    status: "completed",
+    startedAt: TEN_MIN_AGO,
+    completedAt: TEN_MIN_AGO,
+    durationMs: 3,
+    metadata: { message: "Development session started" },
+  },
+  {
+    id: IDS.OBS_RUNNING_GEN,
+    traceId: IDS.TRACE_RUNNING,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "generation",
+    name: "Plan auth middleware changes",
+    status: "completed",
+    startedAt: TEN_MIN_AGO,
+    completedAt: FIVE_MIN_AGO,
+    durationMs: 300_000,
+    model: "claude-sonnet-4-20250514",
+    inputTokens: 6_200,
+    outputTokens: 2_400,
+    totalTokens: 8_600,
+    costUsd: "0.0310",
+  },
+  {
+    id: IDS.OBS_RUNNING_TOOL,
+    traceId: IDS.TRACE_RUNNING,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "write_file: middleware/auth-v2.ts",
+    status: "started",
+    startedAt: FIVE_MIN_AGO,
+    completedAt: null,
+    durationMs: null,
+    input: { file: "server/src/middleware/auth-v2.ts" },
+  },
+
+  // --- Parent trace: 2 observations (orchestration) ---
+  {
+    id: IDS.OBS_PARENT_INIT,
+    traceId: IDS.TRACE_PARENT,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "event",
+    name: "trace.init",
+    status: "completed",
+    startedAt: HOUR_AGO,
+    completedAt: HOUR_AGO,
+    durationMs: 4,
+    metadata: { message: "Security audit pipeline orchestration started" },
+  },
+  {
+    id: IDS.OBS_PARENT_DELEGATE,
+    traceId: IDS.TRACE_PARENT,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "generation",
+    name: "Plan sub-agent delegation",
+    status: "completed",
+    startedAt: HOUR_AGO,
+    completedAt: new Date(Date.now() - 3_300_000).toISOString(),
+    durationMs: 300_000,
+    model: "claude-sonnet-4-20250514",
+    inputTokens: 12_000,
+    outputTokens: 3_800,
+    totalTokens: 15_800,
+    costUsd: "0.0520",
+  },
+
+  // --- Child trace 1: 2 observations (architecture scan) ---
+  {
+    id: IDS.OBS_CHILD1_INIT,
+    traceId: IDS.TRACE_CHILD_1,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "event",
+    name: "trace.init",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_000_000).toISOString(),
+    completedAt: new Date(Date.now() - 3_000_000).toISOString(),
+    durationMs: 3,
+    metadata: { message: "Architecture vulnerability scan started" },
+  },
+  {
+    id: IDS.OBS_CHILD1_WORK,
+    traceId: IDS.TRACE_CHILD_1,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "Scan dependency tree",
+    status: "completed",
+    startedAt: new Date(Date.now() - 3_000_000).toISOString(),
+    completedAt: HALF_HOUR_AGO,
+    durationMs: 1_200_000,
+    input: { command: "npm audit --json" },
+    output: { vulnerabilities: { high: 0, medium: 2, low: 5 } },
+  },
+
+  // --- Child trace 2: 2 observations (QA testing) ---
+  {
+    id: IDS.OBS_CHILD2_INIT,
+    traceId: IDS.TRACE_CHILD_2,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "event",
+    name: "trace.init",
+    status: "completed",
+    startedAt: HALF_HOUR_AGO,
+    completedAt: HALF_HOUR_AGO,
+    durationMs: 2,
+    metadata: { message: "Security test suite started" },
+  },
+  {
+    id: IDS.OBS_CHILD2_WORK,
+    traceId: IDS.TRACE_CHILD_2,
+    companyId: IDS.NOVATECH_COMPANY,
+    parentObservationId: null,
+    type: "span",
+    name: "Run OWASP security tests",
+    status: "completed",
+    startedAt: HALF_HOUR_AGO,
+    completedAt: TWENTY_MIN_AGO,
+    durationMs: 600_000,
+    input: { command: "pnpm test:security" },
+    output: { passed: 28, failed: 1, skipped: 0 },
+  },
+] as const;
+
+// ─── Trace Lenses (NovaTech) ─────────────────────────────────────────────────
+// userId will be set at runtime to the admin user
+
+export const TRACE_LENSES = [
+  {
+    id: IDS.LENS_PERFORMANCE,
+    companyId: IDS.NOVATECH_COMPANY,
+    userId: "__RUNTIME_ADMIN_USER__", // replaced at seed time
+    name: "Performance Bottleneck Analysis",
+    prompt: "Analyze this trace for performance bottlenecks. Identify the slowest operations, token-heavy generations, and suggest optimizations to reduce latency and cost.",
+    scope: { global: true },
+    isTemplate: true,
+    isActive: true,
+  },
+  {
+    id: IDS.LENS_ERROR_ANALYSIS,
+    companyId: IDS.NOVATECH_COMPANY,
+    userId: "__RUNTIME_ADMIN_USER__",
+    name: "Error & Failure Pattern Detection",
+    prompt: "Examine this trace for errors, failures, and anomalies. Identify failed tool calls, unexpected outputs, and suggest root causes.",
+    scope: { agentIds: [IDS.AGENT_MARCUS_ARCHITECTE, IDS.AGENT_LUNA_DEVELOPPEUR] },
+    isTemplate: false,
+    isActive: true,
+  },
+] as const;
+
+// ─── Trace Lens Results (NovaTech) ───────────────────────────────────────────
+
+export const TRACE_LENS_RESULTS = [
+  {
+    id: IDS.LENS_RESULT_PERF_COMPLETED,
+    lensId: IDS.LENS_PERFORMANCE,
+    traceId: IDS.TRACE_COMPLETED,
+    workflowInstanceId: null,
+    companyId: IDS.NOVATECH_COMPANY,
+    userId: "__RUNTIME_ADMIN_USER__",
+    resultMarkdown: `## Performance Analysis: Code Review
+
+### Summary
+The code review trace completed in 30 minutes with 58,000 total tokens.
+
+### Bottlenecks Identified
+1. **Code review generation** (7m) — largest single operation, 28.8K tokens
+2. **Write file** (5m) — slow file write for 4KB report
+3. **Test execution** (5m) — 42 tests took 5 minutes
+
+### Cost Breakdown
+- Total: $0.184
+- Generations: $0.184 (3 LLM calls)
+- Tools: $0.00 (no cost)
+
+### Recommendations
+- Consider streaming review output to reduce perceived latency
+- Cache test results for unchanged modules`,
+    resultStructured: {
+      totalDurationMs: 1_800_000,
+      totalTokens: 58_000,
+      totalCost: 0.184,
+      bottlenecks: ["generation:review", "span:write_file", "span:run_tests"],
+    },
+    modelUsed: "claude-sonnet-4-20250514",
+    inputTokens: 4_200,
+    outputTokens: 1_800,
+    costUsd: "0.0190",
+  },
 ] as const;
 
 // ─── Auth State Paths ───────────────────────────────────────────────────────
