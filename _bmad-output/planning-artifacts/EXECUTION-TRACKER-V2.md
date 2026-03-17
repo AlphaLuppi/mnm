@@ -21,10 +21,10 @@
 
 | Step | Description | Status | Commit | Notes |
 |------|-------------|--------|--------|-------|
-| 1.1 | Migrate pnpm → bun (workspace, scripts, lockfile, CI) | PENDING | | |
-| 1.2 | Fix TypeScript typecheck errors | PENDING | | |
-| 1.3 | Fix linter issues | PENDING | | |
-| 1.4 | Verify build + dev server boots | PENDING | | |
+| 1.1 | Migrate pnpm → bun (workspace, scripts, lockfile, CI) | DONE | a9ed143 | bun 1.3.2, workspaces in package.json, dev-runner updated |
+| 1.2 | Fix TypeScript typecheck errors | DONE | 64a7152 | 2 issues: unused @ts-expect-error + missing disableSignUp in CLI AuthConfig |
+| 1.3 | Fix linter issues | SKIPPED | — | No linter configured (.eslintrc, biome.json absent) |
+| 1.4 | Verify build + dev server boots | DONE | 152ff9a | All 12 packages build OK, db cp -r fix for bun shell, dev server boots |
 
 ## Phase 2 — UI/UX Design Review + Polish
 
@@ -71,11 +71,11 @@
 | Metrique | Valeur |
 |----------|--------|
 | Steps totales | 27 |
-| Steps DONE | 1 |
+| Steps DONE | 4 |
 | Steps IN_PROGRESS | 0 |
-| Steps PENDING | 26 |
-| Phase courante | 1 (Bun Migration) |
-| Statut global | STARTING |
+| Steps PENDING | 23 |
+| Phase courante | 2 (UI/UX Design Review) |
+| Statut global | Phase 1 COMPLETE |
 
 ---
 
@@ -85,3 +85,7 @@
 |------|------|--------|-------|
 | 2026-03-17 | Setup | — | Pipeline V2 created, CLAUDE.md updated, agents launching |
 | 2026-03-17 | 3.1 | — | QA Architecture: E2E-TEST-ARCHITECTURE.md, seed-data.ts, auth.fixture.ts, test-helpers.ts, global-setup.ts, global-teardown.ts, playwright.config.ts updated |
+| 2026-03-17 | 1.1 | a9ed143 | pnpm → bun migration: workspaces, scripts, lockfile, dev-runner |
+| 2026-03-17 | 1.2 | 64a7152 | TypeScript fixes: @ts-expect-error removed, disableSignUp added |
+| 2026-03-17 | 1.3 | — | SKIPPED: no linter configured |
+| 2026-03-17 | 1.4 | 152ff9a | Build verified (12/12), dev server boots, db cp -r fix |
