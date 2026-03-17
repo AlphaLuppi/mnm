@@ -77,5 +77,7 @@ export { jiraImportService } from "./jira-import.js";
 export { traceService } from "./trace-service.js";
 // TRACE-08: Lens Analysis Engine
 export { lensAnalysisService } from "./lens-analysis.js";
+// TRACE-04: Trace Emitter (adapter instrumentation)
+export { traceEmitter } from "./trace-emitter.js";
 export { createJiraClient } from "./jira-client.js";
 export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js";
