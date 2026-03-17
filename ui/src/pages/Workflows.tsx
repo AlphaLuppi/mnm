@@ -8,14 +8,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ConfirmDeleteTemplateDialog } from "../components/ConfirmDeleteTemplateDialog";
 import {
   Workflow,
   Plus,
@@ -210,33 +203,14 @@ export function Workflows() {
       </section>
 
       {/* ── Delete Confirmation Dialog ── */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); deleteMutation.reset(); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete template</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          {deleteMutation.error && (
-            <p className="text-sm text-destructive">
-              {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Failed to delete template"}
-            </p>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setDeleteTarget(null); deleteMutation.reset(); }}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDeleteTemplateDialog
+        templateName={deleteTarget?.name}
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) { setDeleteTarget(null); deleteMutation.reset(); } }}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        isPending={deleteMutation.isPending}
+        error={deleteMutation.error instanceof Error ? deleteMutation.error : null}
+      />
     </div>
   );
 }
