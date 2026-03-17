@@ -37,7 +37,7 @@
 
 | Step | Description | Status | Commit | Notes |
 |------|-------------|--------|--------|-------|
-| 3.1 | QA Architecture (seed system, cleanup, test strategy doc) | PENDING | | |
+| 3.1 | QA Architecture (seed system, cleanup, test strategy doc) | DONE | | E2E-TEST-ARCHITECTURE.md + seed-data.ts + auth.fixture.ts + test-helpers.ts + global-setup/teardown |
 | 3.2 | Global setup (DB seed, auth fixtures, cleanup hooks) | PENDING | | |
 | 3.3 | E2E tests — Auth + Members + RBAC flows | PENDING | | |
 | 3.4 | E2E tests — Orchestration + Workflow flows | PENDING | | |
@@ -71,9 +71,9 @@
 | Metrique | Valeur |
 |----------|--------|
 | Steps totales | 27 |
-| Steps DONE | 0 |
+| Steps DONE | 1 |
 | Steps IN_PROGRESS | 0 |
-| Steps PENDING | 27 |
+| Steps PENDING | 26 |
 | Phase courante | 1 (Bun Migration) |
 | Statut global | STARTING |
 
@@ -84,3 +84,4 @@
 | Date | Step | Commit | Notes |
 |------|------|--------|-------|
 | 2026-03-17 | Setup | — | Pipeline V2 created, CLAUDE.md updated, agents launching |
+| 2026-03-17 | 3.1 | — | QA Architecture: E2E-TEST-ARCHITECTURE.md, seed-data.ts, auth.fixture.ts, test-helpers.ts, global-setup.ts, global-teardown.ts, playwright.config.ts updated |
