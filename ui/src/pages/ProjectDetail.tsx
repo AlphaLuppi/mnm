@@ -315,7 +315,7 @@ function ProjectWorkflowsTab({ projectId, companyId }: { projectId: string; comp
         </p>
         <input
           type="search"
-          placeholder="Rechercher…"
+          placeholder="Search…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-7 w-52 rounded-md border border-input bg-background px-2.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -323,7 +323,7 @@ function ProjectWorkflowsTab({ projectId, companyId }: { projectId: string; comp
       </div>
 
       {grouped.length === 0 && (
-        <p className="text-xs text-muted-foreground">Aucun workflow ne correspond à la recherche.</p>
+        <p className="text-xs text-muted-foreground">No workflows match your search.</p>
       )}
 
       {grouped.map(([role, wfs]) => {

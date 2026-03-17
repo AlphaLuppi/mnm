@@ -26,7 +26,7 @@ export function OnboardingProgressBar({
   return (
     <div
       data-testid="onb-s01-progress-bar"
-      className="flex items-center justify-between w-full px-4 py-3"
+      className="flex items-center w-full px-4 py-3"
     >
       {steps.map((step, index) => {
         const stepNumber = index + 1;
@@ -34,42 +34,46 @@ export function OnboardingProgressBar({
         const isCurrent = stepNumber === currentStep;
         const isUpcoming = stepNumber > currentStep;
         const StepIcon = step.icon;
+        const showConnector = index < steps.length - 1;
 
         return (
           <div
             key={stepNumber}
-            className="flex flex-col items-center flex-1"
+            className={cn("flex items-center", showConnector ? "flex-1" : "")}
           >
-            <div
-              data-testid={`onb-s01-progress-step-${stepNumber}`}
-              className={cn(
-                "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all",
-                isCompleted && "bg-primary border-primary text-primary-foreground",
-                isCurrent && "border-primary text-primary animate-pulse",
-                isUpcoming && "border-muted-foreground/30 text-muted-foreground/50",
-              )}
-            >
-              {isCompleted ? (
-                <Check className="w-5 h-5" />
-              ) : (
-                <StepIcon className="w-5 h-5" />
-              )}
+            <div className="flex flex-col items-center">
+              <div
+                data-testid={`onb-s01-progress-step-${stepNumber}`}
+                className={cn(
+                  "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all",
+                  isCompleted && "bg-primary border-primary text-primary-foreground",
+                  isCurrent && "border-primary text-primary animate-pulse",
+                  isUpcoming && "border-muted-foreground/30 text-muted-foreground/50",
+                )}
+              >
+                {isCompleted ? (
+                  <Check className="w-5 h-5" />
+                ) : (
+                  <StepIcon className="w-5 h-5" />
+                )}
+              </div>
+              <span
+                data-testid={`onb-s01-step-label-${stepNumber}`}
+                className={cn(
+                  "mt-1 text-xs font-medium",
+                  isCompleted && "text-primary",
+                  isCurrent && "text-primary font-semibold",
+                  isUpcoming && "text-muted-foreground/50",
+                )}
+              >
+                {step.label}
+              </span>
             </div>
-            <span
-              data-testid={`onb-s01-step-label-${stepNumber}`}
-              className={cn(
-                "mt-1 text-xs font-medium",
-                isCompleted && "text-primary",
-                isCurrent && "text-primary font-semibold",
-                isUpcoming && "text-muted-foreground/50",
-              )}
-            >
-              {step.label}
-            </span>
-            {index < steps.length - 1 && (
+            {showConnector && (
               <div
                 className={cn(
-                  "hidden",
+                  "flex-1 h-0.5 mx-2 mt-[-1.25rem]",
+                  isCompleted ? "bg-primary" : "bg-muted-foreground/20",
                 )}
               />
             )}

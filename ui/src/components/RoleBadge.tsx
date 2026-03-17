@@ -3,10 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const ROLE_STYLES: Record<BusinessRole, string> = {
-  admin: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800",
-  manager: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
-  contributor: "bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
-  viewer: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+  admin: "bg-role-admin-bg text-role-admin border-role-admin/20",
+  manager: "bg-role-manager-bg text-role-manager border-role-manager/20",
+  contributor: "bg-role-contributor-bg text-role-contributor border-role-contributor/20",
+  viewer: "bg-role-viewer-bg text-role-viewer border-role-viewer/20",
 };
 
 interface RoleBadgeProps {
