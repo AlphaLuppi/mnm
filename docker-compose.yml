@@ -74,6 +74,7 @@ services:
       MNM_AGENT_JWT_SECRET: "${MNM_AGENT_JWT_SECRET}"
       BETTER_AUTH_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
       MNM_MIGRATION_AUTO_APPLY: "true"
+      MNM_E2E_SEED: "${MNM_E2E_SEED:-false}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3100/api/health || exit 1"]
       interval: 15s
