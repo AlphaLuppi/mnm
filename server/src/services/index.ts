@@ -73,5 +73,7 @@ export { onboardingService } from "./onboarding.js";
 export { cascadeService } from "./cascade.js";
 // onb-s03-barrel-svc
 export { jiraImportService } from "./jira-import.js";
+// TRACE-02: Trace service
+export { traceService } from "./trace-service.js";
 export { createJiraClient } from "./jira-client.js";
 export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js";
