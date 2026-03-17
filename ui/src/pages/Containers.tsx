@@ -31,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const AUTO_REFRESH_INTERVAL = 10_000; // 10 seconds
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -95,7 +94,6 @@ export function Containers() {
     queryKey: queryKeys.containers.health(selectedCompanyId!),
     queryFn: () => containersApi.dockerHealth(selectedCompanyId!),
     enabled: !!selectedCompanyId,
-    refetchInterval: 30_000,
   });
 
   // Container list
@@ -108,7 +106,6 @@ export function Containers() {
         status: (statusFilter || undefined) as ContainerStatus | undefined,
       }),
     enabled: !!selectedCompanyId,
-    refetchInterval: AUTO_REFRESH_INTERVAL,
   });
 
   const containers = useMemo(
