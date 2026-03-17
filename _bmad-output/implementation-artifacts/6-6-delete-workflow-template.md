@@ -1,6 +1,6 @@
 # Story 6.6: Suppression de Workflow Template
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -19,25 +19,25 @@ so that **je puisse nettoyer les templates obsolètes ou erronés sans intervent
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Composant ConfirmDeleteDialog (AC: #1, #3)
-  - [ ] 1.1 Créer un dialog de confirmation réutilisable (ou réutiliser un AlertDialog existant de shadcn)
-  - [ ] 1.2 Afficher le nom du template dans le message de confirmation
-  - [ ] 1.3 Boutons "Annuler" et "Supprimer" avec état loading
+- [x] Task 1 — Composant ConfirmDeleteDialog (AC: #1, #3)
+  - [x] 1.1 Réutiliser le Dialog shadcn/ui existant (`ui/src/components/ui/dialog.tsx`)
+  - [x] 1.2 Afficher le nom du template dans le message de confirmation
+  - [x] 1.3 Boutons "Cancel" et "Delete" (destructive) avec état loading
 
-- [ ] Task 2 — Bouton supprimer sur la page Workflows (AC: #1, #2, #4)
-  - [ ] 2.1 Ajouter une icône Trash2 à côté des boutons edit/launch dans `Workflows.tsx`
-  - [ ] 2.2 Brancher `useMutation` sur `workflowTemplatesApi.remove(id)`
-  - [ ] 2.3 Invalider `queryKeys.workflows.templates` on success
-  - [ ] 2.4 Gérer l'erreur FK constraint (status 409 ou 500) avec message user-friendly
+- [x] Task 2 — Bouton supprimer sur la page Workflows (AC: #1, #2, #4)
+  - [x] 2.1 Ajouté icône Trash2 à côté des boutons edit/launch dans `Workflows.tsx`
+  - [x] 2.2 Branché `useMutation` sur `workflowTemplatesApi.remove(id)`
+  - [x] 2.3 Invalidation `queryKeys.workflows.templates` on success
+  - [x] 2.4 Gestion de l'erreur FK (message affiché dans la modale via `deleteMutation.error`)
 
-- [ ] Task 3 — Bouton supprimer sur WorkflowEditor (AC: #5, #6)
-  - [ ] 3.1 Ajouter un bouton "Supprimer ce template" dans la barre d'actions du WorkflowEditor
-  - [ ] 3.2 Même flow de confirmation + mutation
-  - [ ] 3.3 Redirect vers `/workflows` on success
+- [x] Task 3 — Bouton supprimer sur WorkflowEditor (AC: #5, #6)
+  - [x] 3.1 Ajouté bouton "Delete" avec Trash2 dans la barre d'actions (visible seulement en mode edit, pas new)
+  - [x] 3.2 Même flow de confirmation Dialog + mutation
+  - [x] 3.3 Redirect vers `/workflows` on success via `navigate("/workflows")`
 
-- [ ] Task 4 — Gestion d'erreur backend (AC: #4)
-  - [ ] 4.1 Vérifier que le backend retourne une erreur claire quand FK constraint viole (pas juste un 500 générique)
-  - [ ] 4.2 Si nécessaire, ajouter un check dans `deleteTemplate` service pour compter les instances liées et retourner un 409 Conflict avec message explicite
+- [x] Task 4 — Gestion d'erreur backend (AC: #4)
+  - [x] 4.1 Ajouté COUNT des instances liées avant le DELETE dans `deleteTemplate` service
+  - [x] 4.2 Retourne 409 Conflict via `conflict()` helper avec message explicite incluant le nombre d'instances
 
 ## Dev Notes
 
@@ -54,10 +54,8 @@ so that **je puisse nettoyer les templates obsolètes ou erronés sans intervent
 
 ### Ce qui manque
 
-- **UI** : Aucun bouton de suppression n'existe nulle part dans le frontend
-- **Erreur FK** : Le backend ne gère pas proprement l'erreur FK — il va retourner un 500 avec l'erreur Postgres brute. Il faut soit :
-  - Catch l'erreur Postgres `23503` (foreign_key_violation) et retourner un 409
-  - Ou faire un COUNT des instances avant le DELETE
+- ~~**UI** : Aucun bouton de suppression n'existe nulle part dans le frontend~~ DONE
+- ~~**Erreur FK** : Le backend ne gère pas proprement l'erreur FK~~ DONE — check COUNT avant DELETE, retourne 409
 
 ### Architecture & Patterns à suivre
 
@@ -72,19 +70,6 @@ so that **je puisse nettoyer les templates obsolètes ou erronés sans intervent
 - `ui/src/pages/WorkflowEditor.tsx` — Éditeur de template. Ajouter un bouton delete dans la barre d'actions.
 - `server/src/routes/workflows.ts` — Route DELETE existante. Améliorer la gestion d'erreur FK.
 - `server/src/services/workflows.ts` — Service `deleteTemplate`. Ajouter le check des instances liées.
-
-### Contrainte FK — Stratégie recommandée
-
-```typescript
-// Dans le service, AVANT le delete:
-const instanceCount = await db.select({ count: count() })
-  .from(workflowInstances)
-  .where(eq(workflowInstances.templateId, templateId));
-
-if (instanceCount[0].count > 0) {
-  throw new ApiError(`Ce template est utilisé par ${instanceCount[0].count} workflow(s) actif(s)`, 409);
-}
-```
 
 ### References
 
@@ -103,13 +88,17 @@ Claude Opus 4.6
 
 ### Completion Notes List
 
-- Backend DELETE + API client déjà implémentés, seule l'UI manque
-- FK constraint non-cascade = guard naturel, mais besoin d'un message d'erreur propre (409 au lieu de 500)
-- Story simple, scope limité — pas de migration DB nécessaire
+- Backend DELETE + API client existaient déjà, seule l'UI manquait
+- Ajouté guard FK dans `deleteTemplate` service : COUNT instances avant DELETE, retourne 409 Conflict
+- Ajouté bouton Trash2 + Dialog de confirmation sur Workflows.tsx (inline, pas de composant séparé)
+- Ajouté bouton Delete + Dialog dans WorkflowEditor.tsx (visible seulement en mode edit)
+- Dialog réutilise le composant Dialog shadcn/ui existant
+- Mutation reset l'erreur quand le dialog se ferme
+- Testé manuellement dans Chrome : suppression OK, modale OK, refresh de liste OK
+- Build Docker réussi, server healthy
 
 ### File List
 
-- `ui/src/pages/Workflows.tsx` (modify)
-- `ui/src/pages/WorkflowEditor.tsx` (modify)
-- `server/src/services/workflows.ts` (modify — check FK avant delete)
-- `server/src/routes/workflows.ts` (modify — catch erreur FK → 409)
+- `ui/src/pages/Workflows.tsx` (modify — ajout bouton delete + Dialog + mutation)
+- `ui/src/pages/WorkflowEditor.tsx` (modify — ajout bouton delete + Dialog + mutation)
+- `server/src/services/workflows.ts` (modify — guard FK COUNT + 409 Conflict avant delete)
