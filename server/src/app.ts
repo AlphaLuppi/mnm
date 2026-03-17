@@ -195,6 +195,13 @@ export async function createApp(
     }),
   );
   app.use("/api", api);
+
+  // E2E seed endpoint — only active when MNM_E2E_SEED=true
+  if (process.env.MNM_E2E_SEED === "true") {
+    const { e2eSeedRoutes } = await import("./routes/e2e-seed.js");
+    app.use("/api", e2eSeedRoutes(db));
+  }
+
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });
   });

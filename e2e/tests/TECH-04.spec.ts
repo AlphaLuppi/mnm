@@ -241,11 +241,11 @@ test.describe("API integration tests (require server)", () => {
     expect(remaining).toBeDefined();
     expect(reset).toBeDefined();
 
-    // Limit should be 100 (API general rate limit)
-    expect(Number(limit)).toBe(100);
+    // Limit should be 1000 (API general rate limit per minute)
+    expect(Number(limit)).toBe(1000);
     // Remaining should be a non-negative number
     expect(Number(remaining)).toBeGreaterThanOrEqual(0);
-    expect(Number(remaining)).toBeLessThanOrEqual(100);
+    expect(Number(remaining)).toBeLessThanOrEqual(1000);
     // Reset should be a Unix timestamp in the future (or very recent)
     expect(Number(reset)).toBeGreaterThan(0);
   });
