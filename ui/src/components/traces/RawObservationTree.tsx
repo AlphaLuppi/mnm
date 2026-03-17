@@ -15,11 +15,11 @@ import { cn } from "../../lib/utils";
 function typeIcon(type: ObservationType) {
   switch (type) {
     case "span":
-      return <Wrench className="h-3.5 w-3.5 text-blue-500" />;
+      return <Wrench className="h-3.5 w-3.5 text-info" />;
     case "generation":
-      return <Brain className="h-3.5 w-3.5 text-purple-500" />;
+      return <Brain className="h-3.5 w-3.5 text-agent" />;
     case "event":
-      return <Circle className="h-3.5 w-3.5 text-gray-500" />;
+      return <Circle className="h-3.5 w-3.5 text-muted-foreground" />;
     default:
       return <Circle className="h-3.5 w-3.5 text-muted-foreground" />;
   }
@@ -28,10 +28,10 @@ function typeIcon(type: ObservationType) {
 function statusIcon(status: string) {
   switch (status) {
     case "completed":
-      return <CheckCircle className="h-3 w-3 text-green-500" />;
+      return <CheckCircle className="h-3 w-3 text-success" />;
     case "failed":
     case "error":
-      return <XCircle className="h-3 w-3 text-red-500" />;
+      return <XCircle className="h-3 w-3 text-error" />;
     default:
       return <Clock className="h-3 w-3 text-muted-foreground" />;
   }
