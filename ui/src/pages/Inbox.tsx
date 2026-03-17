@@ -814,8 +814,8 @@ export function Inbox() {
                   >
                     <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
                     <span className="text-sm">
-                      <span className="font-medium">{dashboard!.agents.error}</span>{" "}
-                      {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
+                      <span className="font-medium">{dashboard?.agents.error}</span>{" "}
+                      {dashboard?.agents.error === 1 ? "agent has" : "agents have"} errors
                     </span>
                   </Link>
                   <button
@@ -837,7 +837,7 @@ export function Inbox() {
                     <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
                     <span className="text-sm">
                       Budget at{" "}
-                      <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
+                      <span className="font-medium">{dashboard?.costs.monthUtilizationPercent}%</span>{" "}
                       utilization this month
                     </span>
                   </Link>

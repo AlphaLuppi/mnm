@@ -241,8 +241,8 @@ export function Agents() {
                       {liveRunByAgent.has(agent.id) ? (
                         <LiveRunIndicator
                           agentRef={agentRouteRef(agent)}
-                          runId={liveRunByAgent.get(agent.id)!.runId}
-                          liveCount={liveRunByAgent.get(agent.id)!.liveCount}
+                          runId={liveRunByAgent.get(agent.id)?.runId ?? ""}
+                          liveCount={liveRunByAgent.get(agent.id)?.liveCount ?? 0}
                         />
                       ) : (
                         <StatusBadge status={agent.status} />
@@ -252,8 +252,8 @@ export function Agents() {
                       {liveRunByAgent.has(agent.id) && (
                         <LiveRunIndicator
                           agentRef={agentRouteRef(agent)}
-                          runId={liveRunByAgent.get(agent.id)!.runId}
-                          liveCount={liveRunByAgent.get(agent.id)!.liveCount}
+                          runId={liveRunByAgent.get(agent.id)?.runId ?? ""}
+                          liveCount={liveRunByAgent.get(agent.id)?.liveCount ?? 0}
                         />
                       )}
                       <span className="text-xs text-muted-foreground font-mono w-14 text-right">
@@ -340,8 +340,8 @@ function OrgTreeNode({
             {liveRunByAgent.has(node.id) ? (
               <LiveRunIndicator
                 agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
+                runId={liveRunByAgent.get(node.id)?.runId ?? ""}
+                liveCount={liveRunByAgent.get(node.id)?.liveCount ?? 0}
               />
             ) : (
               <StatusBadge status={node.status} />
@@ -351,8 +351,8 @@ function OrgTreeNode({
             {liveRunByAgent.has(node.id) && (
               <LiveRunIndicator
                 agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
+                runId={liveRunByAgent.get(node.id)?.runId ?? ""}
+                liveCount={liveRunByAgent.get(node.id)?.liveCount ?? 0}
               />
             )}
             {agent && (

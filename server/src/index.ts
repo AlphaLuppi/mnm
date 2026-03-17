@@ -221,6 +221,31 @@ async function ensureLocalTrustedBoardPrincipal(db: any): Promise<void> {
   }
 }
 
+async function waitForDatabase(url: string, label: string, maxRetries = 10): Promise<void> {
+  const pgLib = await import("postgres");
+  const pg = pgLib.default;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const testSql = pg(url, { max: 1, connect_timeout: 5 });
+      try {
+        await testSql`SELECT 1`;
+      } finally {
+        await testSql.end();
+      }
+      logger.info(`${label} is reachable (attempt ${attempt}/${maxRetries})`);
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        logger.error({ err }, `${label} not reachable after ${maxRetries} attempts`);
+        throw err;
+      }
+      const delay = Math.min(1000 * 2 ** (attempt - 1), 15000);
+      logger.warn(`${label} not reachable (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 let db;
 let embeddedPostgres: EmbeddedPostgresInstance | null = null;
 let embeddedPostgresStartedByThisProcess = false;
@@ -230,6 +255,7 @@ let startupDbInfo:
   | { mode: "external-postgres"; connectionString: string }
   | { mode: "embedded-postgres"; dataDir: string; port: number };
 if (config.databaseUrl) {
+  await waitForDatabase(config.databaseUrl, "PostgreSQL");
   migrationSummary = await ensureMigrations(config.databaseUrl, "PostgreSQL");
 
   db = createDb(config.databaseUrl);
@@ -651,16 +677,35 @@ server.listen(listenPort, config.host, () => {
   }
 });
 
+let shuttingDown = false;
 const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
-  logger.info({ signal }, "Shutting down");
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "Graceful shutdown initiated");
+
+  // Stop accepting new connections
+  server.close(() => {
+    logger.info("HTTP server closed");
+  });
+
+  // Give in-flight requests time to finish (10s)
+  const forceExitTimer = setTimeout(() => {
+    logger.warn("Forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+  forceExitTimer.unref();
+
   await disconnectRedis(redisState);
+
   if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
     try {
       await embeddedPostgres.stop();
+      logger.info("Embedded PostgreSQL stopped");
     } catch (err) {
       logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
     }
   }
+
   process.exit(0);
 };
 

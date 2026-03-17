@@ -70,4 +70,7 @@ ENV NODE_ENV=production \
 VOLUME ["/mnm"]
 EXPOSE 3100
 
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3100/api/health || exit 1
+
 ENTRYPOINT ["entrypoint.sh"]
