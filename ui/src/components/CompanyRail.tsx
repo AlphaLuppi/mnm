@@ -170,14 +170,12 @@ export function CompanyRail() {
     queries: companyIds.map((companyId) => ({
       queryKey: queryKeys.liveRuns(companyId),
       queryFn: () => heartbeatsApi.liveRunsForCompany(companyId),
-      refetchInterval: 10_000,
     })),
   });
   const sidebarBadgeQueries = useQueries({
     queries: companyIds.map((companyId) => ({
       queryKey: queryKeys.sidebarBadges(companyId),
       queryFn: () => sidebarBadgesApi.get(companyId),
-      refetchInterval: 15_000,
     })),
   });
   const hasLiveAgentsByCompanyId = useMemo(() => {
