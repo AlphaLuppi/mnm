@@ -127,11 +127,11 @@ if (tailscaleAuth) {
   console.log("[mnm] dev mode: local_trusted (default)");
 }
 
-const pnpmBin = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const bunBin = process.platform === "win32" ? "bun.exe" : "bun";
 const serverScript = mode === "watch" ? "dev:watch" : "dev";
 const child = spawn(
-  pnpmBin,
-  ["--filter", "@mnm/server", serverScript, ...forwardedArgs],
+  bunBin,
+  ["run", "--cwd", "server", serverScript, ...forwardedArgs],
   { stdio: "inherit", env, shell: process.platform === "win32" },
 );
 

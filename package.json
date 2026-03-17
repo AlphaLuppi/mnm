@@ -2,18 +2,25 @@
   "name": "mnm",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "packages/adapters/*",
+    "server",
+    "ui",
+    "cli"
+  ],
   "scripts": {
     "dev": "node scripts/dev-runner.mjs watch",
     "dev:watch": "MNM_MIGRATION_PROMPT=never node scripts/dev-runner.mjs watch",
     "dev:once": "node scripts/dev-runner.mjs dev",
-    "dev:server": "pnpm --filter @mnm/server dev",
-    "dev:ui": "pnpm --filter @mnm/ui dev",
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "dev:server": "bun run --cwd server dev",
+    "dev:ui": "bun run --cwd ui dev",
+    "build": "bun run --filter '*' build",
+    "typecheck": "bun run --filter '*' typecheck",
     "test": "vitest",
     "test:run": "vitest run",
-    "db:generate": "pnpm --filter @mnm/db generate",
-    "db:migrate": "pnpm --filter @mnm/db migrate",
+    "db:generate": "bun run --cwd packages/db generate",
+    "db:migrate": "bun run --cwd packages/db migrate",
     "secrets:migrate-inline-env": "tsx scripts/migrate-inline-env-secrets.ts",
     "db:backup": "./scripts/backup-db.sh",
     "mnm": "node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts",
@@ -44,6 +51,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "packageManager": "pnpm@9.15.4"
+  }
 }
