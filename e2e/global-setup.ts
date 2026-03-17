@@ -164,12 +164,65 @@ async function seedViaApi(
 
 // ─── Main Setup ─────────────────────────────────────────────────────────────
 
+async function getDeploymentMode(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/health`);
+    const data = await res.json() as { deploymentMode?: string };
+    return data.deploymentMode ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function setupLocalTrusted(): Promise<void> {
+  console.log("[e2e-setup] local_trusted mode — no auth needed, saving empty storage states.");
+  const { mkdirSync, writeFileSync } = await import("fs");
+  const { dirname } = await import("path");
+
+  // Create empty storage states (no cookies needed in local_trusted)
+  const emptyState = JSON.stringify({ cookies: [], origins: [] });
+  for (const statePath of Object.values(AUTH_STATES)) {
+    mkdirSync(dirname(statePath), { recursive: true });
+    writeFileSync(statePath, emptyState, "utf-8");
+  }
+  console.log("[e2e-setup] Empty storage states saved for all roles.");
+
+  // Try to seed data via API (use plain request, no auth needed)
+  const ctx = await request.newContext({
+    baseURL: BASE_URL,
+    extraHTTPHeaders: { Origin: BASE_URL },
+  });
+
+  try {
+    const seedRes = await ctx.post("/api/e2e-seed/ensure-access");
+    if (seedRes.ok()) {
+      const seed = await seedRes.json();
+      console.log(`[e2e-setup] Basic seed: userId=${seed.userId}, companiesJoined=${seed.companiesJoined}`);
+    } else {
+      console.log(`[e2e-setup] Seed endpoint returned ${seedRes.status()} — OK for local_trusted.`);
+    }
+  } finally {
+    await ctx.dispose();
+  }
+}
+
 export default async function globalSetup(): Promise<void> {
   console.log("[e2e-setup] Starting global setup...");
   await waitForServer();
   console.log("[e2e-setup] Server is healthy.");
 
-  // ─── Step 1: Authenticate all test users ──────────────────────────────────
+  const mode = await getDeploymentMode();
+  console.log(`[e2e-setup] Deployment mode: ${mode}`);
+  process.env.E2E_DEPLOYMENT_MODE = mode;
+
+  // ─── local_trusted: no auth needed ────────────────────────────────────────
+  if (mode === "local_trusted") {
+    await setupLocalTrusted();
+    console.log("[e2e-setup] Global setup complete (local_trusted).");
+    return;
+  }
+
+  // ─── authenticated mode: full auth flow ───────────────────────────────────
 
   const userResults: Record<string, AuthResult> = {};
   const roleToStorageState: Record<string, string> = {
