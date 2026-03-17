@@ -342,9 +342,9 @@ test.describe("Groupe 5: Routes", () => {
     }
   });
 
-  test("T38 — KPIs route calls emitAudit for dashboard.viewed", async () => {
-    expect(routesContent).toContain("dashboard.viewed");
-    expect(routesContent).toContain("emitAudit");
+  test("T38 — KPIs route does NOT emit audit (removed to prevent infinite loop RT-S01)", async () => {
+    // emitAudit on a GET route caused: dashboard.refresh → refetch kpis → audit → dashboard.refresh → ∞
+    expect(routesContent).not.toContain("emitAudit");
   });
 
   test("T39 — Timeline route validates period query param with Zod", async () => {
@@ -520,38 +520,24 @@ test.describe("Groupe 9: Audit integration", () => {
     routesContent = await readFile(ROUTES_FILE, "utf-8");
   });
 
-  test("T57 — emitAudit imported in dashboard routes", async () => {
-    expect(routesContent).toMatch(/import\s*\{[^}]*emitAudit[^}]*\}\s*from/);
+  test("T57 — emitAudit NOT imported in dashboard routes (removed RT-S01)", async () => {
+    // emitAudit on GET dashboard/kpis created an infinite loop with dashboard.refresh
+    expect(routesContent).not.toMatch(/import\s*\{[^}]*emitAudit[^}]*\}\s*from/);
   });
 
-  test("T58 — KPIs route emits audit event with action 'dashboard.viewed'", async () => {
-    expect(routesContent).toContain("dashboard.viewed");
-    // Verify it's in the kpis route context
-    const kpisRouteIdx = routesContent.indexOf("dashboard/kpis");
-    expect(kpisRouteIdx).toBeGreaterThan(-1);
-    const afterKpis = routesContent.slice(kpisRouteIdx, kpisRouteIdx + 800);
-    expect(afterKpis).toContain("emitAudit");
-    expect(afterKpis).toContain("dashboard.viewed");
+  test("T58 — KPIs route does not emit audit event (removed RT-S01)", async () => {
+    expect(routesContent).not.toContain("dashboard.viewed");
   });
 
-  test("T59 — emitAudit uses req, db, companyId parameters", async () => {
-    expect(routesContent).toMatch(/emitAudit\s*\(\s*\{[\s\S]*?req[\s\S]*?db[\s\S]*?companyId/);
+  test("T59 — No emitAudit call in dashboard routes", async () => {
+    expect(routesContent).not.toContain("emitAudit");
   });
 
-  test("T60 — Audit emission is non-blocking (fire-and-forget pattern)", async () => {
-    // emitAudit is called without await — fire-and-forget
-    // The emitAudit function itself handles the try/catch internally
-    // Check that emitAudit is NOT preceded by 'await' in the kpis route
-    const kpisRouteIdx = routesContent.indexOf("dashboard/kpis");
-    const afterKpis = routesContent.slice(kpisRouteIdx, kpisRouteIdx + 800);
-    // emitAudit should appear without await (fire-and-forget)
-    // The function internally catches errors
-    expect(afterKpis).toMatch(/emitAudit\s*\(/);
-    // It should NOT have "await emitAudit" — it's fire-and-forget
-    const awaitEmitCount = (afterKpis.match(/await\s+emitAudit/g) ?? []).length;
-    const emitCount = (afterKpis.match(/emitAudit\s*\(/g) ?? []).length;
-    // Either zero await (fire-and-forget) or emitAudit itself returns void
-    expect(emitCount).toBeGreaterThan(0);
+  test("T60 — Dashboard routes are read-only with no side effects", async () => {
+    // Dashboard GET routes should not emit audit events or live events
+    // to avoid feedback loops with dashboard.refresh
+    expect(routesContent).not.toContain("emitAudit");
+    expect(routesContent).not.toContain("publishLiveEvent");
   });
 });
 

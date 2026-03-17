@@ -388,14 +388,15 @@ test.describe("Groupe 8: Route + Sidebar + Permission", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Groupe 9: Auto-refresh and Docker health", () => {
-  test("T56 -- Containers page uses refetchInterval for auto-refresh", async () => {
+  test("T56 -- Containers page relies on WebSocket for live updates (no polling)", async () => {
     const content = await readFile(CONTAINERS_PAGE_FILE, "utf-8");
-    expect(content).toContain("refetchInterval");
+    // RT-S01: polling removed, container.* WS events trigger invalidation via LiveUpdatesProvider
+    expect(content).not.toContain("refetchInterval");
   });
 
-  test("T57 -- Auto-refresh interval is 10000ms (10 seconds)", async () => {
+  test("T57 -- No AUTO_REFRESH_INTERVAL constant (polling removed)", async () => {
     const content = await readFile(CONTAINERS_PAGE_FILE, "utf-8");
-    expect(content).toContain("10_000");
+    expect(content).not.toContain("AUTO_REFRESH_INTERVAL");
   });
 
   test("T58 -- has data-testid cont-s06-health-indicator", async () => {
