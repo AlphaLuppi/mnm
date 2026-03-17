@@ -182,7 +182,6 @@ export function IssueDetail() {
     queryKey: queryKeys.issues.runs(issueId!),
     queryFn: () => activityApi.runsForIssue(issueId!),
     enabled: !!issueId,
-    refetchInterval: 5000,
   });
 
   const { data: linkedApprovals } = useQuery({
@@ -201,14 +200,12 @@ export function IssueDetail() {
     queryKey: queryKeys.issues.liveRuns(issueId!),
     queryFn: () => heartbeatsApi.liveRunsForIssue(issueId!),
     enabled: !!issueId,
-    refetchInterval: 3000,
   });
 
   const { data: activeRun } = useQuery({
     queryKey: queryKeys.issues.activeRun(issueId!),
     queryFn: () => heartbeatsApi.activeRunForIssue(issueId!),
     enabled: !!issueId,
-    refetchInterval: 3000,
   });
 
   const hasLiveRuns = (liveRuns ?? []).length > 0 || !!activeRun;

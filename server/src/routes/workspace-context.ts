@@ -4,7 +4,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 import type { Db } from "@mnm/db";
 import { AGENT_ROLES } from "@mnm/shared";
-import { projectService, agentService } from "../services/index.js";
+import { projectService, agentService, publishLiveEvent } from "../services/index.js";
 import { analyzeWorkspace } from "../services/workspace-analyzer.js";
 import { startWorkspaceContextWatcher } from "../services/workspace-context-watcher.js";
 import { checkDrift } from "../services/drift.js";
@@ -355,6 +355,11 @@ export function workspaceContextRoutes(db: Db) {
       });
     }
 
+    publishLiveEvent({
+      companyId: project.companyId,
+      type: "activity.logged",
+      payload: { entityType: "agent", action: "agent.imported", details: { count: created.length } },
+    });
     res.status(201).json({ created, assignments: newAssignments });
   });
 
@@ -384,6 +389,11 @@ export function workspaceContextRoutes(db: Db) {
     const existingMeta = (project.primaryWorkspace?.metadata ?? {}) as Record<string, unknown>;
     await svc.updateWorkspace(id, workspaceId, {
       metadata: { ...existingMeta, bmadAssignments: assignments },
+    });
+    publishLiveEvent({
+      companyId: project.companyId,
+      type: "workspace.context.changed",
+      payload: { projectId: id },
     });
     res.json({ ok: true });
   });

@@ -215,7 +215,11 @@ export function setupLiveEventsWebSocketServer(
 
     const unsubscribe = subscribeCompanyLiveEvents(context.companyId, (event) => {
       if (socket.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify(event));
+      try {
+        socket.send(JSON.stringify(event));
+      } catch (err) {
+        logger.warn({ err, companyId: context.companyId }, "failed to send live event to client");
+      }
     });
 
     cleanupByClient.set(socket, unsubscribe);

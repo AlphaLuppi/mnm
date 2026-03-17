@@ -7,6 +7,7 @@ import { createChannelSchema, updateMessageSchema, pipeAttachSchema } from "../v
 import { badRequest, forbidden, notFound, conflict } from "../errors.js";
 import { createContainerPipeManager } from "../services/container-pipe.js";
 import { emitAudit } from "../services/audit-emitter.js";
+import { publishLiveEvent } from "../services/live-events.js";
 
 export function chatRoutes(db: Db) {
   const router = Router();
@@ -188,6 +189,11 @@ export function chatRoutes(db: Db) {
       // Handle soft-delete
       if (body.data.deleted) {
         const deleted = await svc.softDeleteMessage(message.id, channel.id);
+        publishLiveEvent({
+          companyId,
+          type: "chat.message_sent",
+          payload: { channelId: channel.id, messageId: message.id, action: "deleted" },
+        });
         res.json(deleted);
         return;
       }
@@ -196,6 +202,11 @@ export function chatRoutes(db: Db) {
       if (body.data.content) {
         const updated = await svc.updateMessage(message.id, channel.id, {
           content: body.data.content,
+        });
+        publishLiveEvent({
+          companyId,
+          type: "chat.message_sent",
+          payload: { channelId: channel.id, messageId: message.id, action: "edited" },
         });
         res.json(updated);
         return;
