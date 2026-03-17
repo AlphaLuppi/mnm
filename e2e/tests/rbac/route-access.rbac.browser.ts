@@ -88,39 +88,70 @@ const PROTECTED_ROUTES = [
   },
 ] as const;
 
+/**
+ * Checks whether a page was forbidden (either redirected to /forbidden,
+ * shows "Forbidden" text, or was redirected away from the target path).
+ */
+async function assertForbidden(page: any, targetPath: string): Promise<void> {
+  await page.waitForTimeout(3_000);
+  const url = page.url();
+  const hasForbidden = url.includes("forbidden") ||
+    (await page.locator("text=Forbidden").isVisible().catch(() => false)) ||
+    (await page.locator("text=permission").isVisible().catch(() => false));
+  expect(hasForbidden || !url.includes(targetPath)).toBeTruthy();
+}
+
+/**
+ * Checks that a page loaded without being forbidden.
+ */
+async function assertAllowed(page: any, targetPath: string): Promise<void> {
+  await page.waitForTimeout(3_000);
+  const hasForbidden = await page.locator("text=Forbidden").isVisible().catch(() => false);
+  expect(hasForbidden).toBeFalsy();
+}
+
 for (const route of PROTECTED_ROUTES) {
   test.describe(`RBAC: ${route.path} (${route.permission})`, () => {
     if (route.admin) {
       test(`admin can access ${route.path}`, async ({ adminPage }) => {
         await adminPage.goto(route.path);
-        await adminPage.waitForTimeout(3_000);
-        // Should not show forbidden
-        const hasForbidden = await adminPage.locator("text=Forbidden").isVisible().catch(() => false);
-        expect(hasForbidden).toBeFalsy();
+        await assertAllowed(adminPage, route.path);
       });
     }
 
     if (!route.viewer) {
       test(`viewer cannot access ${route.path}`, async ({ viewerPage }) => {
         await viewerPage.goto(route.path);
-        await viewerPage.waitForTimeout(3_000);
-        const url = viewerPage.url();
-        const hasForbidden = url.includes("forbidden") ||
-          (await viewerPage.locator("text=Forbidden").isVisible().catch(() => false)) ||
-          (await viewerPage.locator("text=permission").isVisible().catch(() => false));
-        expect(hasForbidden || !url.includes(route.path)).toBeTruthy();
+        await assertForbidden(viewerPage, route.path);
+      });
+    } else {
+      test(`viewer CAN access ${route.path}`, async ({ viewerPage }) => {
+        await viewerPage.goto(route.path);
+        await assertAllowed(viewerPage, route.path);
       });
     }
 
     if (!route.contributor) {
       test(`contributor cannot access ${route.path}`, async ({ contributorPage }) => {
         await contributorPage.goto(route.path);
-        await contributorPage.waitForTimeout(3_000);
-        const url = contributorPage.url();
-        const hasForbidden = url.includes("forbidden") ||
-          (await contributorPage.locator("text=Forbidden").isVisible().catch(() => false)) ||
-          (await contributorPage.locator("text=permission").isVisible().catch(() => false));
-        expect(hasForbidden || !url.includes(route.path)).toBeTruthy();
+        await assertForbidden(contributorPage, route.path);
+      });
+    } else {
+      test(`contributor CAN access ${route.path}`, async ({ contributorPage }) => {
+        await contributorPage.goto(route.path);
+        await assertAllowed(contributorPage, route.path);
+      });
+    }
+
+    if (!route.manager) {
+      test(`manager cannot access ${route.path}`, async ({ managerPage }) => {
+        await managerPage.goto(route.path);
+        await assertForbidden(managerPage, route.path);
+      });
+    } else {
+      test(`manager CAN access ${route.path}`, async ({ managerPage }) => {
+        await managerPage.goto(route.path);
+        await assertAllowed(managerPage, route.path);
       });
     }
   });

@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatTokens, relativeTime } from "../lib/utils";
+import { formatTokens, relativeTime, formatDuration, formatCost } from "../lib/utils";
 
 const PAGE_SIZE = 25;
 
@@ -50,21 +50,6 @@ function statusVariant(status: TraceStatus): "secondary" | "outline" | "destruct
 
 function statusLabel(status: TraceStatus): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-function formatDuration(ms: number | null): string {
-  if (ms == null) return "-";
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1000);
-  return `${min}m ${sec}s`;
-}
-
-function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
 }
 
 export function Traces() {

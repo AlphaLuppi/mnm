@@ -8,22 +8,7 @@ import { agentsApi } from "../../api/agents";
 import { queryKeys } from "../../lib/queryKeys";
 import { MarkdownBody } from "../MarkdownBody";
 import { Badge } from "@/components/ui/badge";
-import { formatTokens } from "../../lib/utils";
-
-function formatDuration(ms: number | null): string {
-  if (ms == null) return "-";
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1000);
-  return `${min}m ${sec}s`;
-}
-
-function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
-}
+import { formatTokens, formatDuration, formatCost } from "../../lib/utils";
 
 interface AgentTraceSummaryProps {
   trace: Trace;
