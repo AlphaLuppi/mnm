@@ -31,8 +31,9 @@ const DASHBOARD_TRIGGER_EVENTS: ReadonlySet<LiveEventType> = new Set<LiveEventTy
   "workflow.failed",
   // Agent status changes
   "agent.status",
-  // Audit events
-  "audit.event_created",
+  // Note: audit.event_created intentionally excluded — it creates an infinite
+  // loop when dashboard GET routes emit audit events, which triggers
+  // dashboard.refresh, which causes refetch, which emits more audit events.
   // Container lifecycle
   "container.created",
   "container.started",
