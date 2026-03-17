@@ -367,7 +367,7 @@ function SpecViewer({
           {driftResultsOpen && (
             <div className="px-5 pb-3 space-y-2 max-h-64 overflow-y-auto">
               {driftReport.drifts.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">Aucun drift détecté.</p>
+                <p className="text-xs text-muted-foreground py-2">No drift detected.</p>
               ) : (
                 driftReport.drifts.map((drift) => (
                   <DriftAlertCard key={drift.id} drift={drift} />
@@ -590,7 +590,7 @@ function NodeGroupViewer({
       <ScrollArea className="flex-1 min-h-0">
         <div className="px-5 py-4 space-y-3">
           {node.children.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun élément dans ce groupe.</p>
+            <p className="text-sm text-muted-foreground">No items in this group.</p>
           ) : (
             node.children.map((child) => {
               const pct = child.progress.total > 0

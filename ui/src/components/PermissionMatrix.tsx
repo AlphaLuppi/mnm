@@ -1,3 +1,4 @@
+import React from "react";
 import { Check, Minus } from "lucide-react";
 import type { BusinessRole, PermissionKey } from "@mnm/shared";
 import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS } from "@mnm/shared";
@@ -124,10 +125,9 @@ export function PermissionMatrix({ presets }: PermissionMatrixProps) {
         </thead>
         <tbody>
           {PERMISSION_CATEGORIES.map((category) => (
-            <>
+            <React.Fragment key={category.id}>
               {/* Category header row */}
               <tr
-                key={`cat-${category.id}`}
                 data-testid={`rbac-s06-matrix-category-${category.id}`}
                 className="bg-muted/20"
               >
@@ -178,7 +178,7 @@ export function PermissionMatrix({ presets }: PermissionMatrixProps) {
                   })}
                 </tr>
               ))}
-            </>
+            </React.Fragment>
           ))}
         </tbody>
       </table>

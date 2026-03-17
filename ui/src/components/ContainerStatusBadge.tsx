@@ -8,44 +8,37 @@ const STATUS_CONFIG: Record<
   { classes: string; icon: typeof Loader2; label: string }
 > = {
   running: {
-    classes:
-      "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
+    classes: "bg-success-bg text-success",
     icon: Loader2,
     label: "Running",
   },
   stopped: {
-    classes:
-      "bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300",
+    classes: "bg-role-viewer-bg text-role-viewer",
     icon: Square,
     label: "Stopped",
   },
   exited: {
-    classes:
-      "bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300",
+    classes: "bg-role-viewer-bg text-role-viewer",
     icon: CheckCircle2,
     label: "Exited",
   },
   failed: {
-    classes:
-      "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+    classes: "bg-error-bg text-error",
     icon: XCircle,
     label: "Failed",
   },
   creating: {
-    classes:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+    classes: "bg-warning-bg text-warning",
     icon: Clock,
     label: "Creating",
   },
   pending: {
-    classes:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+    classes: "bg-warning-bg text-warning",
     icon: Clock,
     label: "Pending",
   },
   stopping: {
-    classes:
-      "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
+    classes: "bg-warning-bg text-warning",
     icon: Loader2,
     label: "Stopping",
   },
