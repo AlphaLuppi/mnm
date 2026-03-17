@@ -125,7 +125,7 @@ test.describe("Group 4: Permission keys in constants.ts", () => {
     });
   }
 
-  test("PERMISSION_KEYS array has at least 15 entries (15 original + 5 from RBAC-S02)", () => {
+  test("PERMISSION_KEYS array has 21 entries (16 existing + 5 from RBAC-S02)", () => {
     // Extract the PERMISSION_KEYS array block
     const match = content.match(
       /PERMISSION_KEYS\s*=\s*\[([\s\S]*?)\]\s*as\s*const/,
@@ -134,7 +134,7 @@ test.describe("Group 4: Permission keys in constants.ts", () => {
     // Count quoted strings in the array
     const entries = match![1].match(/"[^"]+"/g);
     expect(entries).toBeTruthy();
-    expect(entries!.length).toBe(20);
+    expect(entries!.length).toBe(21);
   });
 });
 

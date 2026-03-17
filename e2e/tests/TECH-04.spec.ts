@@ -199,7 +199,7 @@ test.describe("API integration tests (require server)", () => {
 
   test.beforeAll(async ({ request }) => {
     try {
-      const res = await request.get("/health", { timeout: 3000 });
+      const res = await request.get("/api/health", { timeout: 3000 });
       serverAvailable = res.status() === 200;
     } catch {
       serverAvailable = false;
@@ -209,7 +209,7 @@ test.describe("API integration tests (require server)", () => {
   test("GET /health response includes redis field", async ({ request }) => {
     test.skip(!serverAvailable, "Server not running — skipping API test");
 
-    const res = await request.get("/health");
+    const res = await request.get("/api/health");
     expect(res.status()).toBe(200);
 
     const body = await res.json();
