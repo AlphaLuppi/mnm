@@ -41,6 +41,7 @@ import { JiraImport } from "./pages/JiraImport";
 import { Traces } from "./pages/Traces";
 import { TraceDetail } from "./pages/TraceDetail";
 import { TraceSettings } from "./pages/TraceSettings";
+import { WorkflowTraces } from "./pages/WorkflowTraces";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -165,6 +166,7 @@ function boardRoutes() {
       <Route path="traces" element={<RequirePermission permission="audit:read" showForbidden><Traces /></RequirePermission>} />
       <Route path="traces/:traceId" element={<RequirePermission permission="audit:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="settings/trace-lenses" element={<RequirePermission permission="audit:read" showForbidden><TraceSettings /></RequirePermission>} />
+      <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="audit:read" showForbidden><WorkflowTraces /></RequirePermission>} />
       <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
