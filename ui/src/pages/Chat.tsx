@@ -49,7 +49,6 @@ export function Chat() {
         sortBy: "lastMessageAt",
       }),
     enabled: !!selectedCompanyId,
-    refetchInterval: 15_000,
   });
 
   const channels = useMemo(

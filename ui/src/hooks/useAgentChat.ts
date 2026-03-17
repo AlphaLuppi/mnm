@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ChatServerPayload, ChatClientPayload } from "@mnm/shared";
+import type { ChatServerPayload } from "@mnm/shared";
 import { chatApi, type ChatMessage } from "../api/chat";
 import { queryKeys } from "../lib/queryKeys";
 
@@ -57,132 +57,130 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
   }, [historyQuery.data]);
 
   // chat-s04-ws-connect
-  const connectWebSocket = useCallback(() => {
+  useEffect(() => {
     if (!companyId || !channelId || !enabled) return;
 
-    // Close existing connection
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    let closed = false;
+    let socket: WebSocket | null = null;
+    let reconnectAttempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/chat/${channelId}`;
-
-    setConnectionState("connecting");
-
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setConnectionState("connected");
-      reconnectAttemptRef.current = 0;
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const payload: ChatServerPayload = JSON.parse(event.data);
-
-        switch (payload.type) {
-          case "chat_message": {
-            const newMsg: ChatMessage = {
-              id: payload.id,
-              channelId: payload.channelId,
-              companyId: companyId,
-              senderId: payload.senderId,
-              senderType: payload.senderType,
-              content: payload.content,
-              metadata: payload.metadata ?? null,
-              messageType: "text",
-              replyToId: null,
-              editedAt: null,
-              deletedAt: null,
-              createdAt: payload.createdAt,
-            };
-            setMessages((prev) => [...prev, newMsg]);
-            break;
-          }
-
-          case "typing_indicator": {
-            setIsTyping(payload.isTyping);
-            setTypingSenderName(payload.senderName ?? null);
-            break;
-          }
-
-          case "message_ack": {
-            // Update optimistic message with server ID
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === payload.clientMessageId
-                  ? { ...m, id: payload.messageId, createdAt: payload.createdAt }
-                  : m,
-              ),
-            );
-            break;
-          }
-
-          case "channel_closed": {
-            // Channel was closed remotely
-            break;
-          }
-
-          case "error": {
-            // Handle error from server
-            console.warn("[chat-ws] Server error:", payload.code, payload.message);
-            break;
-          }
-
-          case "pong":
-          case "sync_response":
-            // No-op
-            break;
-        }
-      } catch {
-        // Ignore unparseable messages
+    const clearReconnect = () => {
+      if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
 
-    ws.onclose = () => {
-      wsRef.current = null;
-
-      if (!enabled) {
-        setConnectionState("disconnected");
-        return;
-      }
-
-      // chat-s04-reconnect — exponential backoff
+    const scheduleReconnect = () => {
+      if (closed) return;
+      reconnectAttempt += 1;
+      const delay = Math.min(30000, 1000 * 2 ** Math.min(reconnectAttempt - 1, 4));
       setConnectionState("reconnecting");
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 30000);
-      reconnectAttemptRef.current++;
-
-      reconnectTimerRef.current = setTimeout(() => {
-        connectWebSocket();
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
       }, delay);
     };
 
-    ws.onerror = () => {
-      // onclose will fire after onerror
-    };
-  }, [companyId, channelId, enabled]);
+    const connect = () => {
+      if (closed) return;
 
-  // Connect WebSocket on mount / when channelId changes
-  useEffect(() => {
-    if (companyId && channelId && enabled) {
-      connectWebSocket();
-    }
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws/chat/${channelId}`;
+
+      setConnectionState("connecting");
+      socket = new WebSocket(wsUrl);
+      wsRef.current = socket;
+
+      socket.onopen = () => {
+        setConnectionState("connected");
+        reconnectAttempt = 0;
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload: ChatServerPayload = JSON.parse(event.data);
+
+          switch (payload.type) {
+            case "chat_message": {
+              const newMsg: ChatMessage = {
+                id: payload.id,
+                channelId: payload.channelId,
+                companyId: companyId,
+                senderId: payload.senderId,
+                senderType: payload.senderType,
+                content: payload.content,
+                metadata: payload.metadata ?? null,
+                messageType: "text",
+                replyToId: null,
+                editedAt: null,
+                deletedAt: null,
+                createdAt: payload.createdAt,
+              };
+              setMessages((prev) => [...prev, newMsg]);
+              break;
+            }
+
+            case "typing_indicator": {
+              setIsTyping(payload.isTyping);
+              setTypingSenderName(payload.senderName ?? null);
+              break;
+            }
+
+            case "message_ack": {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === payload.clientMessageId
+                    ? { ...m, id: payload.messageId, createdAt: payload.createdAt }
+                    : m,
+                ),
+              );
+              break;
+            }
+
+            case "channel_closed":
+              break;
+
+            case "error":
+              console.warn("[chat-ws] Server error:", payload.code, payload.message);
+              break;
+
+            case "pong":
+            case "sync_response":
+              break;
+          }
+        } catch {
+          // Ignore unparseable messages
+        }
+      };
+
+      socket.onclose = () => {
+        if (closed) return;
+        scheduleReconnect();
+      };
+
+      socket.onerror = () => {
+        // onclose will fire after onerror
+      };
+    };
+
+    connect();
 
     return () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
+      closed = true;
+      clearReconnect();
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close(1000, "chat_unmount");
       }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      wsRef.current = null;
       setConnectionState("disconnected");
     };
-  }, [companyId, channelId, enabled, connectWebSocket]);
+  }, [companyId, channelId, enabled]);
 
   // chat-s04-send-message
   const sendMessage = useCallback(
@@ -191,7 +189,11 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
 
       const clientMessageId = `client-${Date.now()}-${++clientMsgIdRef.current}`;
 
-      // Optimistic message
+      // Send via WebSocket — only add optimistic message if socket is open
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
       const optimistic: ChatMessage = {
         id: clientMessageId,
         channelId,
@@ -208,14 +210,15 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
       };
       setMessages((prev) => [...prev, optimistic]);
 
-      // Send via WebSocket
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        const payload: ChatClientPayload = {
-          type: "chat_message",
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: "chat_message" as const,
           content: content.trim(),
           clientMessageId,
-        };
-        wsRef.current.send(JSON.stringify(payload));
+        }));
+      } catch {
+        // Remove optimistic message on send failure
+        setMessages((prev) => prev.filter((m) => m.id !== clientMessageId));
       }
     },
     [channelId, companyId],

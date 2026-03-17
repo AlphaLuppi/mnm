@@ -262,14 +262,12 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
     queryKey: queryKeys.issues.liveRuns(issueId),
     queryFn: () => heartbeatsApi.liveRunsForIssue(issueId),
     enabled: !!issueId,
-    refetchInterval: 3000,
   });
 
   const { data: activeRun } = useQuery({
     queryKey: queryKeys.issues.activeRun(issueId),
     queryFn: () => heartbeatsApi.activeRunForIssue(issueId),
     enabled: !!issueId,
-    refetchInterval: 3000,
   });
 
   const runs = useMemo(() => {
@@ -379,8 +377,10 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
     }
   }, [activeRunIds]);
 
+  const [wsConnected, setWsConnected] = useState(false);
+
   useEffect(() => {
-    if (runs.length === 0) return;
+    if (runs.length === 0 || wsConnected) return;
 
     let cancelled = false;
 
@@ -435,18 +435,24 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [runIdsKey, runs]);
+  }, [runIdsKey, runs, wsConnected]);
 
   useEffect(() => {
     if (!companyId || activeRunIds.size === 0) return;
 
     let closed = false;
     let reconnectTimer: number | null = null;
+    let reconnectAttempt = 0;
     let socket: WebSocket | null = null;
 
     const scheduleReconnect = () => {
       if (closed) return;
-      reconnectTimer = window.setTimeout(connect, 1500);
+      reconnectAttempt += 1;
+      const delay = Math.min(15000, 1000 * 2 ** Math.min(reconnectAttempt - 1, 4));
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
     };
 
     const connect = () => {
@@ -454,6 +460,11 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
       const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(companyId)}/events/ws`;
       socket = new WebSocket(url);
+
+      socket.onopen = () => {
+        reconnectAttempt = 0;
+        setWsConnected(true);
+      };
 
       socket.onmessage = (message) => {
         const raw = typeof message.data === "string" ? message.data : "";
@@ -521,6 +532,8 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
       };
 
       socket.onclose = () => {
+        setWsConnected(false);
+        if (closed) return;
         scheduleReconnect();
       };
     };
@@ -529,15 +542,17 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
 
     return () => {
       closed = true;
+      setWsConnected(false);
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (socket) {
+        socket.onopen = null;
         socket.onmessage = null;
         socket.onerror = null;
         socket.onclose = null;
         socket.close(1000, "issue_live_widget_unmount");
       }
     };
-  }, [activeRunIds, companyId, runById]);
+  }, [runIdsKey, companyId]);
 
   if (runs.length === 0 && feed.length === 0) return null;
 

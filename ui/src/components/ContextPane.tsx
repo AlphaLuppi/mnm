@@ -401,7 +401,6 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
     queryKey: queryKeys.liveRuns(companyId ?? ""),
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId!),
     enabled: !!companyId,
-    refetchInterval: 5000,
   });
 
   const { data: activeIssues = [] } = useQuery({
@@ -411,7 +410,6 @@ export function ContextPane({ projectId, companyId }: ContextPaneProps) {
         mod.issuesApi.list(companyId!, { status: "in_progress" }),
       ),
     enabled: !!companyId && liveRuns.length > 0,
-    refetchInterval: 10000,
   });
 
   const { data: driftReports = [] } = useDriftResults(projectId, companyId);

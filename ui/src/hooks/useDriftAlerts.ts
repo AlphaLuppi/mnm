@@ -14,7 +14,6 @@ export function useDriftAlerts(
     queryKey: queryKeys.drift.alerts(companyId!, filters as Record<string, unknown>),
     queryFn: () => driftAlertsApi.listAlerts(companyId!, filters),
     enabled: !!companyId,
-    refetchInterval: 30_000, // refresh every 30s for near-realtime
   });
 }
 
@@ -46,7 +45,6 @@ export function useDriftMonitoringStatus(companyId: string | undefined) {
     queryKey: queryKeys.drift.monitoringStatus(companyId!),
     queryFn: () => driftAlertsApi.getMonitoringStatus(companyId!),
     enabled: !!companyId,
-    refetchInterval: 60_000, // refresh every 60s
   });
 }
 

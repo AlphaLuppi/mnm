@@ -299,6 +299,7 @@ export function setupChatWebSocketServer(
       socket.ping();
     }
   }, 30_000);
+  pingInterval.unref();
 
   wss.on("connection", (socket: WsSocket, req: IncomingMessage) => {
     const context = (req as IncomingMessageWithChatContext)

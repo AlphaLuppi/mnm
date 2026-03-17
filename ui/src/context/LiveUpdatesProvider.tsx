@@ -345,6 +345,13 @@ function invalidateHeartbeatQueries(
     queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(companyId, agentId) });
   }
+
+  const issueId = readString(payload.issueId);
+  if (issueId) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(issueId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(issueId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(issueId) });
+  }
 }
 
 function invalidateActivityQueries(
@@ -530,6 +537,51 @@ function handleLiveEvent(
     return;
   }
 
+  // Container lifecycle events → invalidate container queries
+  if (
+    event.type === "container.created" ||
+    event.type === "container.started" ||
+    event.type === "container.completed" ||
+    event.type === "container.failed" ||
+    event.type === "container.timeout" ||
+    event.type === "container.oom" ||
+    event.type === "container.stopped" ||
+    event.type === "container.resource_update"
+  ) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.containers.list(expectedCompanyId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.containers.health(expectedCompanyId) });
+    const containerId = readString(payload.containerId);
+    if (containerId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.containers.detail(expectedCompanyId, containerId) });
+    }
+    return;
+  }
+
+  // Drift monitor events → invalidate drift queries
+  if (
+    event.type === "drift.alert_created" ||
+    event.type === "drift.alert_resolved" ||
+    event.type === "drift.monitoring_started" ||
+    event.type === "drift.monitoring_stopped"
+  ) {
+    queryClient.invalidateQueries({ queryKey: ["drift", "alerts", expectedCompanyId] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.drift.monitoringStatus(expectedCompanyId) });
+    return;
+  }
+
+  // Chat events → invalidate chat queries
+  if (
+    event.type === "chat.channel_created" ||
+    event.type === "chat.channel_closed" ||
+    event.type === "chat.message_sent" ||
+    event.type === "chat.pipe_attached" ||
+    event.type === "chat.pipe_detached" ||
+    event.type === "chat.pipe_error"
+  ) {
+    queryClient.invalidateQueries({ queryKey: ["chat", expectedCompanyId] });
+    return;
+  }
+
   // DASH-S03: Dashboard real-time refresh
   if (event.type === "dashboard.refresh") {
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.kpis(expectedCompanyId) });
@@ -590,6 +642,13 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
       socket.onopen = () => {
         if (reconnectAttempt > 0) {
           gateRef.current.suppressUntil = Date.now() + RECONNECT_SUPPRESS_MS;
+          // Refresh critical caches after reconnect to recover from stale data
+          queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(selectedCompanyId) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(selectedCompanyId) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(selectedCompanyId) });
+          queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId) });
         }
         reconnectAttempt = 0;
       };
@@ -600,10 +659,14 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
         try {
           const parsed = JSON.parse(raw) as LiveEvent;
-          handleLiveEvent(queryClient, selectedCompanyId, parsed, pushToast, gateRef.current, {
-            userId: currentUserId,
-            agentId: null,
-          });
+          try {
+            handleLiveEvent(queryClient, selectedCompanyId, parsed, pushToast, gateRef.current, {
+              userId: currentUserId,
+              agentId: null,
+            });
+          } catch (err) {
+            console.error("[live-updates] handleLiveEvent error:", err);
+          }
         } catch {
           // Ignore non-JSON payloads.
         }
@@ -619,11 +682,22 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
       };
     };
 
+    // Reconnect on network recovery
+    const handleOnline = () => {
+      if (closed) return;
+      if (socket && socket.readyState === WebSocket.OPEN) return;
+      clearReconnect();
+      reconnectAttempt = 0;
+      connect();
+    };
+    window.addEventListener("online", handleOnline);
+
     connect();
 
     return () => {
       closed = true;
       clearReconnect();
+      window.removeEventListener("online", handleOnline);
       if (socket) {
         socket.onopen = null;
         socket.onmessage = null;

@@ -43,7 +43,6 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
     queryKey: queryKeys.chat.pipeStatus(selectedCompanyId!, channel.id),
     queryFn: () => chatApi.getPipeStatus(selectedCompanyId!, channel.id),
     enabled: !!selectedCompanyId && channel.status === "open",
-    refetchInterval: 10_000,
   });
 
   const pipeStatus: ChatPipeStatus | null = pipeQuery.data ?? null;

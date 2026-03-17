@@ -88,7 +88,6 @@ export function Agents() {
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
-    refetchInterval: 15_000,
   });
 
   // Map agentId -> first live run + live run count

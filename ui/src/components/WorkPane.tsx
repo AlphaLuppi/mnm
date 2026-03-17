@@ -464,7 +464,6 @@ function StoryDetail({
         mod.issuesApi.list(companyId!, { q: node.title }),
       ),
     enabled: !!companyId,
-    refetchInterval: 10000,
   });
 
   const matchedIssueId = useMemo(() => {
@@ -813,7 +812,6 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
     queryKey: queryKeys.liveRuns(companyId ?? ""),
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId!),
     enabled: !!companyId,
-    refetchInterval: 5000,
   });
 
   const { data: assignmentsData } = useQuery({
@@ -830,7 +828,6 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
     queryFn: () =>
       import("../api/issues").then((m) => m.issuesApi.list(companyId!, { projectId })),
     enabled: !!companyId && !!projectId,
-    refetchInterval: 10000,
   });
 
   const { data: workspaceAgents = [] } = useQuery({

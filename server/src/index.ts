@@ -537,12 +537,12 @@ process.env.MNM_LISTEN_HOST = runtimeListenHost;
 process.env.MNM_LISTEN_PORT = String(listenPort);
 process.env.MNM_API_URL = `http://${runtimeApiHost}:${listenPort}`;
 
-setupLiveEventsWebSocketServer(server, db as any, {
+const liveEventsWss = setupLiveEventsWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
   resolveSessionFromHeaders,
 });
 
-setupChatWebSocketServer(server, db as any, {
+const { wss: chatWss } = setupChatWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
   resolveSessionFromHeaders,
   redisState,
@@ -682,6 +682,10 @@ const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, "Graceful shutdown initiated");
+
+  // Close all WebSocket connections
+  for (const client of liveEventsWss.clients) client.terminate();
+  for (const client of chatWss.clients) client.terminate();
 
   // Stop accepting new connections
   server.close(() => {

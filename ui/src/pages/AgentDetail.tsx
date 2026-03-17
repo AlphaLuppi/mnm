@@ -2027,9 +2027,16 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     let reconnectTimer: number | null = null;
     let socket: WebSocket | null = null;
 
+    let reconnectAttempt = 0;
+
     const scheduleReconnect = () => {
       if (closed) return;
-      reconnectTimer = window.setTimeout(connect, 1500);
+      reconnectAttempt += 1;
+      const delay = Math.min(15000, 1000 * 2 ** Math.min(reconnectAttempt - 1, 4));
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
     };
 
     const connect = () => {
@@ -2039,6 +2046,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
       socket = new WebSocket(url);
 
       socket.onopen = () => {
+        reconnectAttempt = 0;
         setIsStreamingConnected(true);
       };
 
@@ -2111,6 +2119,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
       socket.onclose = () => {
         setIsStreamingConnected(false);
+        if (closed) return;
         scheduleReconnect();
       };
     };
