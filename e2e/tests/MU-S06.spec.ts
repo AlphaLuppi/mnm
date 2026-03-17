@@ -247,7 +247,7 @@ test.describe("MU-S06 — API: get-session endpoint (AC-3, AC-5)", () => {
 test.describe("MU-S06 — UI: Sign-out flow (AC-1, AC-2, AC-4, AC-6)", () => {
   test.beforeEach(async ({ request }) => {
     // Skip UI tests if server is in local_trusted mode (AC-6: no sign-out UI)
-    const res = await request.get("/health").catch(() => null);
+    const res = await request.get("/api/health").catch(() => null);
     if (!res || !res.ok()) {
       test.skip(true, "Server not running — skipping UI tests");
       return;
@@ -262,7 +262,7 @@ test.describe("MU-S06 — UI: Sign-out flow (AC-1, AC-2, AC-4, AC-6)", () => {
     page,
     request,
   }) => {
-    const healthRes = await request.get("/health");
+    const healthRes = await request.get("/api/health");
     const health = await healthRes.json();
 
     if (health.deploymentMode === "local_trusted") {

@@ -75,8 +75,9 @@ export function requirePermission(
         const userId = req.actor.userId;
         const allowed = await access.canUser(companyId, userId, permissionKey, resourceScope);
         if (!allowed) {
+          const deniedEvent = resourceScope ? "access.scope_denied" : "access.denied";
           logger.warn({
-            event: "access.denied",
+            event: deniedEvent,
             permissionKey,
             companyId,
             actorType: "board",

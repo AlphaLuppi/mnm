@@ -22,7 +22,7 @@ test.describe("GET /health — DB connectivity (AC-5)", () => {
   test("returns 200 with status ok and db info when DB is connected", async ({
     request,
   }) => {
-    const res = await request.get("/health");
+    const res = await request.get("/api/health");
     expect(res.status()).toBe(200);
 
     const body = await res.json();
@@ -41,7 +41,7 @@ test.describe("GET /health — DB connectivity (AC-5)", () => {
   test("returns deployment metadata alongside db info", async ({
     request,
   }) => {
-    const res = await request.get("/health");
+    const res = await request.get("/api/health");
     const body = await res.json();
 
     // Existing fields should still be present when db is passed
@@ -58,7 +58,7 @@ test.describe("GET /health — DB connectivity (AC-5)", () => {
   test("db.latencyMs is within a reasonable range (< 5000ms)", async ({
     request,
   }) => {
-    const res = await request.get("/health");
+    const res = await request.get("/api/health");
     const body = await res.json();
     expect(body.db?.latencyMs).toBeLessThan(5000);
   });

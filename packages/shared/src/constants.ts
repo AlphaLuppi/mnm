@@ -325,7 +325,7 @@ export const JOIN_REQUEST_STATUSES = ["pending_approval", "approved", "rejected"
 export type JoinRequestStatus = (typeof JOIN_REQUEST_STATUSES)[number];
 
 export const PERMISSION_KEYS = [
-  // --- Existing (15) ---
+  // --- Existing (16) ---
   "agents:create",
   "users:invite",
   "users:manage_permissions",
