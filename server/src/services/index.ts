@@ -75,5 +75,7 @@ export { cascadeService } from "./cascade.js";
 export { jiraImportService } from "./jira-import.js";
 // TRACE-02: Trace service
 export { traceService } from "./trace-service.js";
+// TRACE-08: Lens Analysis Engine
+export { lensAnalysisService } from "./lens-analysis.js";
 export { createJiraClient } from "./jira-client.js";
 export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js";
