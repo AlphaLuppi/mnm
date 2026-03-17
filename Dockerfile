@@ -10,14 +10,16 @@
 
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git \
+  && apt-get install -y --no-install-recommends ca-certificates curl git unzip \
   && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+# Install bun (project has migrated from pnpm to bun)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
 
 FROM base AS deps
 WORKDIR /app
-# Copy only package manifests first for optimal layer caching
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+# Copy only package manifests + lock for optimal layer caching
+COPY package.json bun.lock .npmrc ./
 COPY cli/package.json cli/
 COPY server/package.json server/
 COPY ui/package.json ui/
@@ -31,22 +33,23 @@ COPY packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-
 COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
 
-# Use BuildKit cache mount for pnpm store to speed up CI builds
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-  pnpm install --frozen-lockfile
+# Use BuildKit cache mount for bun cache to speed up CI builds
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install
 
 FROM base AS build
 WORKDIR /app
 COPY --from=deps /app /app
 COPY . .
-RUN pnpm --filter @mnm/ui build
-RUN pnpm --filter @mnm/server build
+RUN bun run --filter @mnm/ui build
+RUN bun run --filter @mnm/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 FROM base AS production
 WORKDIR /app
 COPY --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
+# tsx is needed at runtime because workspace packages (e.g. @mnm/db) export .ts files
+RUN npm install --global tsx @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 
 # Non-root user so Claude Code accepts --dangerously-skip-permissions
 RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/* \
