@@ -197,6 +197,14 @@ export function setupLiveEventsWebSocketServer(
       socket.ping();
     }
   }, 30000);
+  pingInterval.unref();
+
+  const cleanupSocket = (socket: WsSocket) => {
+    const cleanup = cleanupByClient.get(socket);
+    if (cleanup) cleanup();
+    cleanupByClient.delete(socket);
+    aliveByClient.delete(socket);
+  };
 
   wss.on("connection", (socket: WsSocket, req: IncomingMessage) => {
     const context = (req as IncomingMessageWithContext).mnmUpgradeContext;
@@ -218,14 +226,12 @@ export function setupLiveEventsWebSocketServer(
     });
 
     socket.on("close", () => {
-      const cleanup = cleanupByClient.get(socket);
-      if (cleanup) cleanup();
-      cleanupByClient.delete(socket);
-      aliveByClient.delete(socket);
+      cleanupSocket(socket);
     });
 
     socket.on("error", (err: Error) => {
       logger.warn({ err, companyId: context.companyId }, "live websocket client error");
+      cleanupSocket(socket);
     });
   });
 
