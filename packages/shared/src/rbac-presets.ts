@@ -12,7 +12,7 @@ import type { BusinessRole, PermissionKey } from "./constants.js";
  */
 export const ROLE_PERMISSION_PRESETS: Record<BusinessRole, readonly PermissionKey[]> = {
   admin: [
-    // Admin a TOUTES les permissions (20/20)
+    // Admin a TOUTES les permissions (22/22)
     "agents:create",
     "agents:launch",
     "agents:manage_containers",
@@ -33,10 +33,12 @@ export const ROLE_PERMISSION_PRESETS: Record<BusinessRole, readonly PermissionKe
     "stories:edit",
     "dashboard:view",
     "chat:agent",
+    "traces:read",
+    "traces:write",
   ],
 
   manager: [
-    // Manager : gestion courante, pas d'admin systeme (14/20)
+    // Manager : gestion courante, pas d'admin systeme (16/22)
     // Exclut : users:manage_permissions, tasks:assign_scope, agents:manage_containers,
     //          company:manage_settings, company:manage_sso, audit:export
     "agents:create",
@@ -53,21 +55,25 @@ export const ROLE_PERMISSION_PRESETS: Record<BusinessRole, readonly PermissionKe
     "stories:edit",
     "dashboard:view",
     "chat:agent",
+    "traces:read",
+    "traces:write",
   ],
 
   contributor: [
-    // Contributor : productivite quotidienne (5/20)
+    // Contributor : productivite quotidienne (6/22)
     "agents:launch",
     "tasks:assign",
     "stories:create",
     "stories:edit",
     "chat:agent",
+    "traces:read",
   ],
 
   viewer: [
-    // Viewer : lecture seule (2/20)
+    // Viewer : lecture seule (3/22)
     "audit:read",
     "dashboard:view",
+    "traces:read",
   ],
 } as const;
 

@@ -46,7 +46,7 @@ test.describe("Group 1: PERMISSION_KEYS has 20 entries", () => {
     expect(content).toMatch(/export\s+const\s+PERMISSION_KEYS\s*=\s*\[/);
   });
 
-  test("PERMISSION_KEYS has exactly 21 entries (16 existing + 5 from RBAC-S02)", () => {
+  test("PERMISSION_KEYS has exactly 23 entries (16 existing + 5 RBAC-S02 + 2 TRACE)", () => {
     // Extract the PERMISSION_KEYS array content
     const match = content.match(
       /PERMISSION_KEYS\s*=\s*\[([\s\S]*?)\]\s*as\s+const/,
@@ -56,7 +56,7 @@ test.describe("Group 1: PERMISSION_KEYS has 20 entries", () => {
     // Count quoted string entries
     const entries = arrayBody.match(/"[^"]+"/g);
     expect(entries).toBeTruthy();
-    expect(entries!.length).toBe(21);
+    expect(entries!.length).toBe(23);
   });
 
   test('contains new key "agents:launch"', () => {
