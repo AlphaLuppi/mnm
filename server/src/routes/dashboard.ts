@@ -3,7 +3,6 @@ import type { Db } from "@mnm/db";
 import { dashboardService } from "../services/dashboard.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess } from "./authz.js";
-import { emitAudit } from "../services/audit-emitter.js";
 import {
   dashboardTimelineFiltersSchema,
   dashboardBreakdownCategorySchema,
@@ -29,19 +28,6 @@ export function dashboardRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
       const kpis = await svc.kpis(companyId);
-
-      // Audit emission — fire-and-forget (AC9, dash-s01-audit-emit)
-      emitAudit({
-        req,
-        db,
-        companyId,
-        action: "dashboard.viewed",
-        targetType: "dashboard",
-        targetId: "kpis",
-        metadata: null,
-        severity: "info",
-      });
-
       res.json(kpis);
     },
   );
