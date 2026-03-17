@@ -45,3 +45,7 @@ development_status:
   4-1-cockpit-dashboard-widgets: review             # AC3 health indicator implemente
   4-2-one-click-navigation: review                # Code complet, tests manquants
   epic-4-retrospective: optional
+
+  # Epic 6: Orchestrateur Déterministe (ORCH)
+  epic-6: in-progress
+  6-6-delete-workflow-template: review              # UI delete + FK guard backend
