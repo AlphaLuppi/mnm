@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { traceService } from "../services/trace-service.js";
+import { lensAnalysisService } from "../services/lens-analysis.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import {
   createTraceSchema,
@@ -17,6 +18,7 @@ import {
 export function traceRoutes(db: Db) {
   const router = Router();
   const svc = traceService(db);
+  const analysisEngine = lensAnalysisService(db);
 
   // --- Trace endpoints ---
 
@@ -168,6 +170,24 @@ export function traceRoutes(db: Db) {
       assertCompanyAccess(req, companyId);
       await svc.deleteLens(companyId, req.params.lensId as string);
       res.status(204).end();
+    },
+  );
+
+  // POST /api/companies/:companyId/trace-lenses/:lensId/analyze/:traceId — run lens analysis
+  router.post(
+    "/companies/:companyId/trace-lenses/:lensId/analyze/:traceId",
+    requirePermission(db, "traces:read"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const actor = getActorInfo(req);
+      const result = await analysisEngine.analyze(
+        companyId,
+        actor.actorId,
+        req.params.traceId as string,
+        req.params.lensId as string,
+      );
+      res.json(result);
     },
   );
 
