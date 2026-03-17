@@ -461,9 +461,10 @@ test.describe("Groupe 11: Edge cases et robustesse", () => {
     expect(content).toContain("enabled: !!companyId");
   });
 
-  test("T67 -- Refetch interval for near-realtime", async () => {
+  test("T67 -- Drift alerts rely on WebSocket for near-realtime (no polling)", async () => {
     const content = await readFile(HOOKS_FILE, "utf-8");
-    expect(content).toMatch(/refetchInterval:\s*\d+/);
+    // RT-S01: polling removed, drift.* WS events trigger invalidation via LiveUpdatesProvider
+    expect(content).not.toMatch(/refetchInterval:\s*\d+/);
   });
 
   test("T68 -- Error boundary in Drift.tsx (drift-s03-error data-testid)", async () => {

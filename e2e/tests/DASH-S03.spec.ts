@@ -68,9 +68,12 @@ test.describe("Groupe 2: Dashboard refresh service", () => {
     expect(content).toContain("agent.status");
   });
 
-  test("T06 — dashboard-refresh subscribes to audit.event_created", async () => {
+  test("T06 — dashboard-refresh excludes audit.event_created (prevents infinite loop)", async () => {
     const content = await readFile(DASHBOARD_REFRESH, "utf-8");
-    expect(content).toContain("audit.event_created");
+    // audit.event_created was removed from triggers because dashboard GET routes
+    // emit audit events, creating a feedback loop: dashboard.refresh → refetch →
+    // audit → dashboard.refresh → ∞
+    expect(content).not.toMatch(/^\s*"audit\.event_created",?\s*$/m);
   });
 
   test("T07 — dashboard-refresh subscribes to container.started", async () => {
