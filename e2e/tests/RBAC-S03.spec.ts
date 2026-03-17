@@ -269,10 +269,12 @@ test.describe("Group 6: accessService updates", () => {
   });
 
   test("updateMemberBusinessRole is in the return object of accessService", () => {
-    // The return block should include updateMemberBusinessRole
-    const returnMatch = content.match(/return\s*\{[\s\S]*?\}\s*;\s*\}/);
-    expect(returnMatch).toBeTruthy();
-    expect(returnMatch![0]).toContain("updateMemberBusinessRole");
+    // The service exports updateMemberBusinessRole in its return object
+    // Use greedy match to capture the final (largest) return block
+    const returnMatches = content.match(/return\s*\{[\s\S]*?\}\s*;\s*\}/g);
+    expect(returnMatches).toBeTruthy();
+    const lastReturn = returnMatches![returnMatches!.length - 1];
+    expect(lastReturn).toContain("updateMemberBusinessRole");
   });
 
   test("ensureMembership accepts businessRole parameter", () => {

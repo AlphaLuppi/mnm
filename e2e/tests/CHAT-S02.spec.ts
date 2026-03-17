@@ -228,19 +228,19 @@ test.describe("Groupe 3: Migration SQL", () => {
 
   test("T16 -- Migration contient CREATE INDEX chat_channels_company_project_idx @chat-s02-migration-file", () => {
     expect(migrationContent).toMatch(
-      /CREATE\s+INDEX\s+["']?chat_channels_company_project_idx["']?/i,
+      /CREATE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?chat_channels_company_project_idx["']?/i,
     );
   });
 
   test("T17 -- Migration contient CREATE INDEX chat_channels_company_last_msg_idx @chat-s02-migration-file", () => {
     expect(migrationContent).toMatch(
-      /CREATE\s+INDEX\s+["']?chat_channels_company_last_msg_idx["']?/i,
+      /CREATE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?chat_channels_company_last_msg_idx["']?/i,
     );
   });
 
   test("T18 -- Migration contient CREATE INDEX chat_messages_reply_to_idx @chat-s02-migration-file", () => {
     expect(migrationContent).toMatch(
-      /CREATE\s+INDEX\s+["']?chat_messages_reply_to_idx["']?/i,
+      /CREATE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?chat_messages_reply_to_idx["']?/i,
     );
   });
 });
@@ -699,31 +699,31 @@ test.describe("Groupe 13: Migration -- backward-compatible details", () => {
 
   test("Migration adds project_id column to chat_channels", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?project_id["']?\s+UUID/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?project_id["']?\s+UUID/i,
     );
   });
 
   test("Migration adds created_by column to chat_channels", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?created_by["']?\s+TEXT/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?created_by["']?\s+TEXT/i,
     );
   });
 
   test("Migration adds description column to chat_channels", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?description["']?\s+TEXT/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?description["']?\s+TEXT/i,
     );
   });
 
   test("Migration adds last_message_at column to chat_channels", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?last_message_at["']?\s+TIMESTAMP/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?last_message_at["']?\s+TIMESTAMP/i,
     );
   });
 
   test("Migration adds message_type column to chat_messages with default", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?message_type["']?\s+TEXT/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?message_type["']?\s+TEXT/i,
     );
     // Should have DEFAULT 'text'
     expect(migrationContent).toMatch(/DEFAULT\s+['"]text['"]/i);
@@ -731,19 +731,19 @@ test.describe("Groupe 13: Migration -- backward-compatible details", () => {
 
   test("Migration adds reply_to_id column to chat_messages", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?reply_to_id["']?\s+UUID/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?reply_to_id["']?\s+UUID/i,
     );
   });
 
   test("Migration adds edited_at column to chat_messages", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?edited_at["']?\s+TIMESTAMP/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?edited_at["']?\s+TIMESTAMP/i,
     );
   });
 
   test("Migration adds deleted_at column to chat_messages", () => {
     expect(migrationContent).toMatch(
-      /ADD\s+COLUMN\s+["']?deleted_at["']?\s+TIMESTAMP/i,
+      /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?deleted_at["']?\s+TIMESTAMP/i,
     );
   });
 });

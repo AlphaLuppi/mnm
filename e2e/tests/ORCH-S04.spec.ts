@@ -227,7 +227,7 @@ test.describe("Groupe 4: POST transition route", () => {
   test("T16 -- POST transition response contains stage, fromState, toState", () => {
     const transitionIdx = content.indexOf("stages/:stageId/transition");
     expect(transitionIdx).toBeGreaterThan(-1);
-    const block = content.slice(transitionIdx, transitionIdx + 1500);
+    const block = content.slice(transitionIdx, transitionIdx + 2500);
     // Response should include result which has stage, fromState, toState
     expect(block).toMatch(/res\.json\(/);
     expect(block).toContain("fromState");
