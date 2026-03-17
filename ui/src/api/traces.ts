@@ -67,6 +67,7 @@ export interface TraceListResult {
 export interface TraceFilters {
   agentId?: string;
   status?: TraceStatus;
+  workflowInstanceId?: string;
   search?: string;
   dateFrom?: string;
   dateTo?: string;
