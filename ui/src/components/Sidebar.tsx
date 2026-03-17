@@ -7,6 +7,7 @@ import {
   DollarSign,
   History,
   ScrollText,
+  Scan,
   Search,
   SquarePen,
   Network,
@@ -185,6 +186,9 @@ export function Sidebar() {
             )}
             {canViewActivity && (
               <SidebarNavItem data-testid="obs-s04-nav-audit" to="/audit" label="Audit Log" icon={ScrollText} />
+            )}
+            {canViewActivity && (
+              <SidebarNavItem data-testid="trace-09-nav-traces" to="/traces" label="Traces" icon={Scan} />
             )}
             {canViewContainers && (
               <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Containers" icon={Box} />

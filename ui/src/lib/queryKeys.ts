@@ -171,4 +171,20 @@ export const queryKeys = {
     health: (companyId: string) =>
       ["containers", companyId, "health"] as const,
   },
+  // TRACE-09: Trace Vision UI
+  traces: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["traces", companyId, "list", filters] as const,
+    detail: (companyId: string, traceId: string) =>
+      ["traces", companyId, "detail", traceId] as const,
+  },
+  // TRACE-09: Lens analysis
+  lenses: {
+    list: (companyId: string) =>
+      ["lenses", companyId, "list"] as const,
+    result: (companyId: string, lensId: string, traceId: string) =>
+      ["lenses", companyId, "result", lensId, traceId] as const,
+    costEstimate: (companyId: string, traceId: string) =>
+      ["lenses", companyId, "cost-estimate", traceId] as const,
+  },
 };

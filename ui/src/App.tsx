@@ -38,6 +38,8 @@ import { Chat } from "./pages/Chat";
 import { AutomationCursors } from "./pages/AutomationCursors";
 import { SsoConfig } from "./pages/SsoConfig";
 import { JiraImport } from "./pages/JiraImport";
+import { Traces } from "./pages/Traces";
+import { TraceDetail } from "./pages/TraceDetail";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -159,6 +161,8 @@ function boardRoutes() {
       <Route path="chat" element={<RequirePermission permission="chat:agent" showForbidden><Chat /></RequirePermission>} />
       <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
       <Route path="import/jira" element={<RequirePermission permission="projects:manage" showForbidden><JiraImport /></RequirePermission>} />
+      <Route path="traces" element={<RequirePermission permission="audit:read" showForbidden><Traces /></RequirePermission>} />
+      <Route path="traces/:traceId" element={<RequirePermission permission="audit:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
