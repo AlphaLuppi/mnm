@@ -41,7 +41,7 @@ export function PendingValidationsPanel({
         data-testid="orch-s03-pending-validations-panel"
         className="p-4 text-sm text-muted-foreground text-center"
       >
-        Aucune validation en attente
+        No pending validations
       </div>
     );
   }

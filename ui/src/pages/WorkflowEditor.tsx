@@ -10,6 +10,9 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { StageEditorCard, type StageDef } from "../components/StageEditorCard";
 import { WorkflowEditorPreview } from "../components/WorkflowEditorPreview";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { ConfirmDeleteTemplateDialog } from "../components/ConfirmDeleteTemplateDialog";
 import { Plus, Save, Eye, EyeOff, ArrowLeft, Trash2 } from "lucide-react";
 
@@ -215,31 +218,27 @@ export function WorkflowEditor() {
       {/* Template meta */}
       <div className="space-y-3">
         <div>
-          <label className="text-sm font-medium" htmlFor="template-name">
-            Template Name
-          </label>
-          <input
+          <Label htmlFor="template-name">Template Name</Label>
+          <Input
             id="template-name"
             data-testid="orch-s05-template-name-input"
             type="text"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
             placeholder="e.g. BMAD Full Pipeline"
-            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="mt-1"
           />
         </div>
         <div>
-          <label className="text-sm font-medium" htmlFor="template-desc">
-            Description
-          </label>
-          <textarea
+          <Label htmlFor="template-desc">Description</Label>
+          <Textarea
             id="template-desc"
             data-testid="orch-s05-template-description-input"
             value={templateDescription}
             onChange={(e) => setTemplateDescription(e.target.value)}
             placeholder="Describe the workflow template..."
             rows={2}
-            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            className="mt-1 resize-none"
           />
         </div>
       </div>
