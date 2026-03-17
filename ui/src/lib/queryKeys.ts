@@ -177,6 +177,8 @@ export const queryKeys = {
       ["traces", companyId, "list", filters] as const,
     detail: (companyId: string, traceId: string) =>
       ["traces", companyId, "detail", traceId] as const,
+    byWorkflow: (companyId: string, workflowInstanceId: string) =>
+      ["traces", companyId, "workflow", workflowInstanceId] as const,
   },
   // TRACE-09: Lens analysis
   lenses: {
