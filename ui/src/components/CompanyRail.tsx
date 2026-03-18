@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
+import { useNavigate } from "@/lib/router";
 import { cn } from "../lib/utils";
 import { queryKeys } from "../lib/queryKeys";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
@@ -159,7 +159,7 @@ function SortableCompanyItem({
 
 export function CompanyRail() {
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
-  const { openOnboarding } = useDialog();
+  const navigate = useNavigate();
   const sidebarCompanies = useMemo(
     () => companies.filter((company) => company.status !== "archived"),
     [companies],
@@ -304,7 +304,7 @@ export function CompanyRail() {
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
             <button
-              onClick={() => openOnboarding()}
+              onClick={() => navigate("/onboarding")}
               data-testid="mu-s04-add-company-btn"
               className="flex items-center justify-center w-11 h-11 rounded-[22px] hover:rounded-[14px] border-2 border-dashed border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-[border-color,color,border-radius] duration-150"
               aria-label="Add company"

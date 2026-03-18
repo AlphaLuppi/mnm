@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { queryKeys } from "../lib/queryKeys";
@@ -36,7 +36,7 @@ export function Companies() {
     loading,
     error,
   } = useCompany();
-  const { openOnboarding } = useDialog();
+  const navigate = useNavigate();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
 
@@ -90,7 +90,7 @@ export function Companies() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
-        <Button size="sm" onClick={() => openOnboarding()}>
+        <Button size="sm" onClick={() => navigate("/onboarding")}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           New Company
         </Button>

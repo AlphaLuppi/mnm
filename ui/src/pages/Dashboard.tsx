@@ -8,7 +8,6 @@ import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useDriftScanStatus, useDriftResults } from "../hooks/useDriftResults";
@@ -38,7 +37,6 @@ function getRecentIssues(issues: Issue[]): Issue[] {
 
 export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
-  const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
@@ -201,7 +199,7 @@ export function Dashboard() {
           icon={LayoutDashboard}
           message="Welcome to MnM. Set up your first company and agent to get started."
           action="Get Started"
-          onAction={openOnboarding}
+          onAction={() => navigate("/onboarding")}
         />
       );
     }
@@ -258,7 +256,7 @@ export function Dashboard() {
             </p>
           </div>
           <button
-            onClick={() => openOnboarding({ initialStep: 2, companyId: selectedCompanyId! })}
+            onClick={() => navigate(`/onboarding?step=2&companyId=${selectedCompanyId}`)}
             className="text-sm font-medium text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 underline underline-offset-2 shrink-0"
           >
             Create one here
