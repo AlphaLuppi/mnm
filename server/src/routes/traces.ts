@@ -4,6 +4,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { traceService } from "../services/trace-service.js";
 import { lensAnalysisService } from "../services/lens-analysis.js";
 import { enrichTrace, backfillSilverEnrichment } from "../services/silver-trace-enrichment.js";
+import { goldTraceEnrichment } from "../services/gold-trace-enrichment.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import {
   createTraceSchema,
@@ -234,6 +235,15 @@ export function traceRoutes(db: Db) {
     "/traces/backfill-silver",
     async (_req, res) => {
       const enriched = await backfillSilverEnrichment(db);
+      res.json({ enriched });
+    },
+  );
+
+  // POST /api/traces/backfill-gold — backfill gold enrichment on traces with silver but no gold
+  router.post(
+    "/traces/backfill-gold",
+    async (_req, res) => {
+      const enriched = await goldTraceEnrichment(db).backfillGoldEnrichment();
       res.json({ enriched });
     },
   );

@@ -32,6 +32,7 @@ import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
 import { backfillSilverEnrichment } from "./services/silver-trace-enrichment.js";
+import { goldTraceEnrichment } from "./services/gold-trace-enrichment.js";
 
 type BetterAuthSessionUser = {
   id: string;
@@ -559,10 +560,12 @@ if (config.heartbeatSchedulerEnabled) {
     logger.error({ err }, "startup reap of orphaned heartbeat runs failed");
   });
 
-  // Silver enrichment backfill: enrich completed traces that have no phases yet
-  void backfillSilverEnrichment(db as any).catch((err) => {
-    logger.error({ err }, "startup silver enrichment backfill failed");
-  });
+  // Silver → Gold enrichment backfill: silver first (phases), then gold (LLM/deterministic analysis)
+  void backfillSilverEnrichment(db as any)
+    .then(() => goldTraceEnrichment(db as any).backfillGoldEnrichment())
+    .catch((err) => {
+      logger.error({ err }, "startup silver→gold enrichment backfill failed");
+    });
 
   setInterval(() => {
     void heartbeat
