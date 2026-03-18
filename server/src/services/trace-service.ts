@@ -185,7 +185,7 @@ export function traceService(db: Db) {
           totalDurationMs: sql`EXTRACT(EPOCH FROM (NOW() - ${traces.startedAt})) * 1000`,
           totalTokensIn: sql`COALESCE((SELECT SUM("input_tokens") FROM "trace_observations" WHERE "trace_id" = ${traceId}), 0)`,
           totalTokensOut: sql`COALESCE((SELECT SUM("output_tokens") FROM "trace_observations" WHERE "trace_id" = ${traceId}), 0)`,
-          totalCostUsd: sql`COALESCE((SELECT SUM("cost_usd"::numeric) FROM "trace_observations" WHERE "trace_id" = ${traceId}), 0)::text`,
+          totalCostUsd: sql`COALESCE((SELECT SUM(CAST("cost_usd" AS numeric)) FROM "trace_observations" WHERE "trace_id" = ${traceId}), 0)::text`,
           updatedAt: new Date(),
         })
         .where(and(eq(traces.companyId, companyId), eq(traces.id, traceId)))
