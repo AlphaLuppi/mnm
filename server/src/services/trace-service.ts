@@ -1,6 +1,6 @@
 import { and, eq, gte, lte, desc, ilike, or, sql, isNull } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { traces, traceObservations, traceLenses, traceLensResults } from "@mnm/db";
+import { traces, traceObservations, traceLenses, traceLensResults, goldPrompts } from "@mnm/db";
 import type {
   Trace,
   TraceObservation,
@@ -9,6 +9,7 @@ import type {
   TraceListResult,
   TraceLens,
   TraceLensResult,
+  GoldPrompt,
   CreateTrace,
   CompleteTrace,
   CreateObservation,
@@ -16,6 +17,9 @@ import type {
   TraceListFilters,
   CreateTraceLens,
   UpdateTraceLens,
+  CreateGoldPrompt,
+  UpdateGoldPrompt,
+  GoldPromptFilters,
 } from "@mnm/shared";
 import { publishLiveEvent } from "./live-events.js";
 import { notFound } from "../errors.js";
@@ -481,6 +485,81 @@ export function traceService(db: Db) {
         costUsd: input.costUsd ?? null,
       }).returning();
       return row as unknown as TraceLensResult;
+    },
+
+    // --- Gold Prompt CRUD (PIPE-03) ---
+
+    createGoldPrompt: async (
+      companyId: string,
+      createdBy: string,
+      input: CreateGoldPrompt,
+    ): Promise<GoldPrompt> => {
+      const [row] = await db.insert(goldPrompts).values({
+        companyId,
+        scope: input.scope,
+        scopeId: input.scopeId ?? null,
+        prompt: input.prompt,
+        isActive: input.isActive,
+        createdBy,
+      }).returning();
+      return row as unknown as GoldPrompt;
+    },
+
+    listGoldPrompts: async (
+      companyId: string,
+      filters: GoldPromptFilters,
+    ): Promise<GoldPrompt[]> => {
+      const conditions = [
+        eq(goldPrompts.companyId, companyId),
+      ];
+
+      if (filters.scope) conditions.push(eq(goldPrompts.scope, filters.scope));
+      if (filters.scopeId) {
+        conditions.push(eq(goldPrompts.scopeId, filters.scopeId));
+      }
+
+      const rows = await db
+        .select()
+        .from(goldPrompts)
+        .where(and(...conditions))
+        .orderBy(desc(goldPrompts.isActive), goldPrompts.scope, goldPrompts.createdAt);
+      return rows as unknown as GoldPrompt[];
+    },
+
+    getGoldPrompt: async (companyId: string, promptId: string): Promise<GoldPrompt> => {
+      const row = await db
+        .select()
+        .from(goldPrompts)
+        .where(and(eq(goldPrompts.companyId, companyId), eq(goldPrompts.id, promptId)))
+        .then((rows) => rows[0] ?? null);
+      if (!row) throw notFound("Gold prompt not found");
+      return row as unknown as GoldPrompt;
+    },
+
+    updateGoldPrompt: async (
+      companyId: string,
+      promptId: string,
+      input: UpdateGoldPrompt,
+    ): Promise<GoldPrompt> => {
+      const [row] = await db
+        .update(goldPrompts)
+        .set({
+          ...(input.prompt !== undefined && { prompt: input.prompt }),
+          ...(input.isActive !== undefined && { isActive: input.isActive }),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(goldPrompts.companyId, companyId), eq(goldPrompts.id, promptId)))
+        .returning();
+      if (!row) throw notFound("Gold prompt not found");
+      return row as unknown as GoldPrompt;
+    },
+
+    deleteGoldPrompt: async (companyId: string, promptId: string): Promise<void> => {
+      const [row] = await db
+        .delete(goldPrompts)
+        .where(and(eq(goldPrompts.companyId, companyId), eq(goldPrompts.id, promptId)))
+        .returning();
+      if (!row) throw notFound("Gold prompt not found");
     },
   };
 }

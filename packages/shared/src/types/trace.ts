@@ -96,6 +96,23 @@ export interface TraceLens {
   updatedAt: string;
 }
 
+// PIPE-03: Gold prompt scopes
+export const GOLD_PROMPT_SCOPES = ["global", "workflow", "agent", "issue"] as const;
+export type GoldPromptScope = (typeof GOLD_PROMPT_SCOPES)[number];
+
+// PIPE-03: Gold prompt data type
+export interface GoldPrompt {
+  id: string;
+  companyId: string;
+  scope: GoldPromptScope;
+  scopeId: string | null;
+  prompt: string;
+  isActive: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // TRACE-07: Lens result data type
 export interface TraceLensResult {
   id: string;
