@@ -1,24 +1,29 @@
 /**
- * TraceTimeline — Langfuse-style horizontal timeline visualization
+ * TraceTimeline — Langfuse-style horizontal timeline visualization (OBS-06 upgrade)
  *
  * Renders agent trace observations as proportional horizontal bars
  * showing sequential/parallel execution, grouped by silver phases,
  * enriched with gold annotations.
  *
+ * OBS-06: Now integrates with providers:
+ *  - useTraceData() for roots/flatList
+ *  - useTraceSelection() for click-to-select (synced with tree view)
+ *  - useTraceViewPrefs() to show/hide duration/cost
+ *
  * Structure:
  *   Gold verdict banner (top)
- *   ├── Phase row (COMPREHENSION)  ██████░░░░░░░░░░░░░░░░
- *   │   ├── tool:Read              ██░░░░░░░░░░░░░░░░░░░░
- *   │   ├── tool:Read              ░██░░░░░░░░░░░░░░░░░░░
- *   │   └── tool:Grep              ░░██░░░░░░░░░░░░░░░░░░
- *   ├── Phase row (IMPLEMENTATION) ░░░░░░██████████░░░░░░
- *   │   ├── tool:Edit              ░░░░░░███░░░░░░░░░░░░░
- *   │   └── tool:Edit              ░░░░░░░░░███░░░░░░░░░░
- *   └── Phase row (VERIFICATION)   ░░░░░░░░░░░░░░░████░░
- *       └── tool:Bash              ░░░░░░░░░░░░░░░████░░
+ *   +-- Phase row (COMPREHENSION)  ===========
+ *   |   +-- tool:Read              ==
+ *   |   +-- tool:Read              .==
+ *   |   +-- tool:Grep              ..==
+ *   +-- Phase row (IMPLEMENTATION) ......==========
+ *   |   +-- tool:Edit              ......===
+ *   |   +-- tool:Edit              .........===
+ *   +-- Phase row (VERIFICATION)   ..............====
+ *       +-- tool:Bash              ..............====
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   BookOpen, Code, Terminal, MessageSquare, Play, Trophy,
   HelpCircle, ChevronDown, ChevronRight, Sparkles,
@@ -26,16 +31,10 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "../../lib/utils";
-import type { TracePhase, TraceObservation, TraceGold, TraceGoldPhase } from "../../api/traces";
-
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface TraceTimelineProps {
-  observations: TraceObservation[];
-  phases: TracePhase[] | null;
-  gold: TraceGold | null;
-  totalDurationMs: number | null;
-}
+import { useTraceData, type TreeNode } from "../../context/TraceDataContext";
+import { useTraceSelection } from "../../context/TraceSelectionContext";
+import { useTraceViewPrefs } from "../../context/TraceViewPrefsContext";
+import type { TracePhaseType, GoldVerdict, TracePhase, TraceObservation, TraceGold, TraceGoldPhase } from "../../api/traces";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -100,7 +99,7 @@ export const MOCK_GOLD: TraceGold = {
   generatedAt: "2026-03-18T10:01:00Z",
   modelUsed: "claude-haiku-via-cli",
   prompt: "Analyse cette trace...",
-  promptSources: { global: "Résumé livraison" },
+  promptSources: { global: "Resume livraison" },
   phases: [
     { phaseOrder: 0, relevanceScore: 20, annotation: "Session initialized with Sonnet model", verdict: "neutral", keyObservationIds: ["obs-01"] },
     { phaseOrder: 1, relevanceScore: 75, annotation: "Agent read auth files to understand the login flow and searched for password validation pattern", verdict: "success", keyObservationIds: ["obs-02", "obs-04"] },
@@ -110,7 +109,7 @@ export const MOCK_GOLD: TraceGold = {
     { phaseOrder: 5, relevanceScore: 30, annotation: "Run completed successfully within budget", verdict: "success", keyObservationIds: ["obs-10"] },
   ],
   verdict: "success",
-  verdictReason: "Bug de sécurité corrigé (== → bcrypt.compare), tests passent, fix vérifié.",
+  verdictReason: "Bug de securite corrige (== -> bcrypt.compare), tests passent, fix verifie.",
   highlights: ["obs-05", "obs-07", "obs-09"],
   issueAcStatus: [
     { acId: "1", label: "Password uses bcrypt.compare()", status: "met", evidence: "obs-07: Edit login.ts" },
@@ -119,256 +118,355 @@ export const MOCK_GOLD: TraceGold = {
   ],
 };
 
-// ─── Timeline Component ─────────────────────────────────────────────────────
+// ─── Provider-backed Timeline Component (OBS-06) ────────────────────────────
 
-export function TraceTimeline({ observations, phases, gold, totalDurationMs }: TraceTimelineProps) {
-  const [expandedPhases, setExpandedPhases] = useState<Set<number>>(new Set());
-  const [expandedObs, setExpandedObs] = useState<Set<string>>(new Set());
+export function TraceTimeline() {
+  const { roots, trace } = useTraceData();
+  const { selectedNodeId, setSelectedNodeId } = useTraceSelection();
+  const { showDuration, showCost } = useTraceViewPrefs();
 
-  const timelineStart = useMemo(() => {
-    if (observations.length === 0) return 0;
-    return new Date(observations[0].startedAt).getTime();
-  }, [observations]);
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 
-  const duration = totalDurationMs ?? useMemo(() => {
-    if (observations.length === 0) return 1;
-    const starts = observations.map(o => new Date(o.startedAt).getTime());
-    const ends = observations.filter(o => o.completedAt).map(o => new Date(o.completedAt!).getTime());
-    return Math.max(...ends, ...starts) - Math.min(...starts) || 1;
-  }, [observations]);
+  // Compute overall timeline bounds from the trace data
+  const { timelineStart, duration } = useMemo(() => {
+    if (!trace) return { timelineStart: 0, duration: 1 };
+    const obs = trace.observations ?? [];
+    if (obs.length === 0) return { timelineStart: 0, duration: 1 };
+    const start = new Date(obs[0].startedAt).getTime();
+    if (trace.totalDurationMs) return { timelineStart: start, duration: trace.totalDurationMs };
+    const starts = obs.map(o => new Date(o.startedAt).getTime());
+    const ends = obs.filter(o => o.completedAt).map(o => new Date(o.completedAt!).getTime());
+    const dur = Math.max(...ends, ...starts) - Math.min(...starts) || 1;
+    return { timelineStart: start, duration: dur };
+  }, [trace]);
 
-  const togglePhase = (order: number) => {
+  // Gold highlights
+  const highlightSet = useMemo(() => new Set(trace?.gold?.highlights ?? []), [trace]);
+
+  const togglePhase = useCallback((id: string) => {
     setExpandedPhases(prev => {
-      const next = new Set(prev);
-      next.has(order) ? next.delete(order) : next.add(order);
-      return next;
-    });
-  };
-
-  const toggleObs = (id: string) => {
-    setExpandedObs(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  // Build phase → observations mapping
-  const phaseObsMap = useMemo(() => {
-    const map = new Map<number, TraceObservation[]>();
-    if (!phases) return map;
-    for (const phase of phases) {
-      map.set(phase.order, observations.slice(phase.startIdx, phase.endIdx + 1));
-    }
-    return map;
-  }, [phases, observations]);
+  const handleSelect = useCallback((id: string) => {
+    setSelectedNodeId(selectedNodeId === id ? null : id);
+  }, [selectedNodeId, setSelectedNodeId]);
 
-  // Gold phase lookup
-  const goldPhaseMap = useMemo(() => {
-    const map = new Map<number, TraceGoldPhase>();
-    if (!gold?.phases) return map;
-    for (const gp of gold.phases) {
-      map.set(gp.phaseOrder, gp);
-    }
-    return map;
-  }, [gold]);
+  // Helper: compute bar position for an observation
+  const getBarStyle = useCallback((obs: TraceObservation) => {
+    const obsStart = new Date(obs.startedAt).getTime() - timelineStart;
+    const obsDur = obs.durationMs ?? 500;
+    const leftPct = (obsStart / duration) * 100;
+    const widthPct = Math.max((obsDur / duration) * 100, 0.5);
+    return { left: `${leftPct}%`, width: `${widthPct}%` };
+  }, [timelineStart, duration]);
 
-  const highlightSet = useMemo(() => new Set(gold?.highlights ?? []), [gold]);
+  if (roots.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center h-full text-sm text-muted-foreground"
+        data-testid="trace-timeline-empty"
+      >
+        No observations to display
+      </div>
+    );
+  }
 
   return (
-    <div data-testid="trace-timeline" className="space-y-1">
+    <div data-testid="trace-timeline" className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border/50 shrink-0">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Timeline
+        </span>
+        <div className="flex-1" />
+      </div>
+
       {/* Time ruler */}
-      <TimeRuler durationMs={duration} />
+      <div className="shrink-0 px-2 pt-1">
+        <TimeRuler durationMs={duration} />
+      </div>
 
-      {/* Phases as timeline rows */}
-      {phases?.map((phase) => {
-        const colors = PHASE_COLORS[phase.type] ?? PHASE_COLORS.UNKNOWN;
-        const Icon = PHASE_ICONS[phase.type] ?? HelpCircle;
-        const goldPhase = goldPhaseMap.get(phase.order);
-        const isExpanded = expandedPhases.has(phase.order);
-        const phaseObs = phaseObsMap.get(phase.order) ?? [];
-
-        // Calculate phase position on timeline
-        const phaseStart = phaseObs.length > 0
-          ? new Date(phaseObs[0].startedAt).getTime() - timelineStart
-          : 0;
-        const phaseEnd = phaseObs.length > 0
-          ? Math.max(...phaseObs.map(o => {
-              const end = o.completedAt ? new Date(o.completedAt).getTime() : new Date(o.startedAt).getTime() + (o.durationMs ?? 500);
-              return end;
-            })) - timelineStart
-          : phaseStart + 1000;
-        const leftPct = (phaseStart / duration) * 100;
-        const widthPct = Math.max(((phaseEnd - phaseStart) / duration) * 100, 1);
-
-        return (
-          <div key={phase.order} data-testid={`trace-phase-${phase.order}`}>
-            {/* Phase row */}
-            <div
-              className={cn(
-                "group flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer transition-colors duration-150",
-                "hover:bg-white/5",
-                isExpanded && colors.bg,
-              )}
-              onClick={() => togglePhase(phase.order)}
-            >
-              {/* Expand chevron */}
-              <div className="w-4 flex-shrink-0">
-                {isExpanded
-                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                }
-              </div>
-
-              {/* Phase type icon + badge */}
-              <div className={cn("flex items-center gap-1.5 w-36 flex-shrink-0", colors.text)}>
-                <Icon className="h-3.5 w-3.5" />
-                <span className="text-xs font-medium truncate">{phase.type}</span>
-              </div>
-
-              {/* Timeline bar */}
-              <div className="flex-1 relative h-6 bg-white/[0.03] rounded overflow-hidden">
-                <div
-                  className={cn("absolute top-0.5 bottom-0.5 rounded-sm transition-all", colors.bar, "opacity-70")}
-                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+      {/* Scrollable timeline body */}
+      <div className="flex-1 overflow-auto px-1">
+        <div className="space-y-0.5">
+          {roots.map((node) => {
+            if (node.type === "phase") {
+              return (
+                <PhaseTimelineRow
+                  key={node.id}
+                  node={node}
+                  isExpanded={expandedPhases.has(node.id)}
+                  isSelected={selectedNodeId === node.id}
+                  timelineStart={timelineStart}
+                  duration={duration}
+                  highlightSet={highlightSet}
+                  selectedNodeId={selectedNodeId}
+                  showDuration={showDuration}
+                  showCost={showCost}
+                  onToggle={() => togglePhase(node.id)}
+                  onSelect={() => handleSelect(node.id)}
+                  onSelectObs={handleSelect}
+                  getBarStyle={getBarStyle}
                 />
-                {/* Gold annotation overlay */}
-                {goldPhase && (
-                  <div className="absolute inset-0 flex items-center px-2">
-                    <span className="text-[10px] text-white/70 truncate drop-shadow-sm">
-                      {goldPhase.annotation}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Right-side metadata */}
-              <div className="flex items-center gap-2 flex-shrink-0 w-44">
-                {/* Relevance score */}
-                {goldPhase && (
-                  <div className="flex items-center gap-1 w-12">
-                    <div className="h-1.5 w-8 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all", colors.bar)}
-                        style={{ width: `${goldPhase.relevanceScore}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{goldPhase.relevanceScore}</span>
-                  </div>
-                )}
-                {/* Verdict badge */}
-                {goldPhase && (
-                  <VerdictBadge verdict={goldPhase.verdict} size="sm" />
-                )}
-                {/* Observation count */}
-                <span className="text-[10px] text-muted-foreground w-8 text-right">
-                  {phase.observationCount} obs
-                </span>
-              </div>
-            </div>
-
-            {/* Expanded: Silver detail (observations within phase) */}
-            {isExpanded && (
-              <div className={cn("ml-6 border-l-2 pl-3 py-1 space-y-0.5", colors.border)}>
-                {/* Silver summary */}
-                <div className="text-xs text-muted-foreground italic mb-1 px-1">
-                  {phase.summary}
-                </div>
-                {/* Individual observations */}
-                {phaseObs.map((obs) => {
-                  const obsStart = new Date(obs.startedAt).getTime() - timelineStart;
-                  const obsDur = obs.durationMs ?? 500;
-                  const obsLeftPct = (obsStart / duration) * 100;
-                  const obsWidthPct = Math.max((obsDur / duration) * 100, 0.5);
-                  const isHighlight = highlightSet.has(obs.id);
-                  const isObsExpanded = expandedObs.has(obs.id);
-
-                  return (
-                    <div key={obs.id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2 rounded px-1 py-0.5 cursor-pointer transition-colors duration-150",
-                          "hover:bg-white/5",
-                          isHighlight && "ring-1 ring-amber-500/40 bg-amber-500/5",
-                          isObsExpanded && "bg-white/5",
-                        )}
-                        onClick={(e) => { e.stopPropagation(); toggleObs(obs.id); }}
-                        data-testid={`trace-obs-${obs.id}`}
-                      >
-                        {/* Expand */}
-                        <div className="w-3 flex-shrink-0">
-                          {isObsExpanded
-                            ? <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
-                            : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground" />
-                          }
-                        </div>
-                        {/* Name */}
-                        <span className={cn(
-                          "text-[11px] font-mono w-28 flex-shrink-0 truncate",
-                          obs.status === "error" ? "text-red-400" : "text-foreground/80"
-                        )}>
-                          {obs.name}
-                          {isHighlight && <Sparkles className="inline h-2.5 w-2.5 ml-0.5 text-amber-400" />}
-                        </span>
-
-                        {/* Mini timeline bar */}
-                        <div className="flex-1 relative h-4 bg-white/[0.02] rounded overflow-hidden">
-                          <div
-                            className={cn(
-                              "absolute top-0.5 bottom-0.5 rounded-sm",
-                              obs.status === "error" ? "bg-red-500/60" : [colors.bar, "opacity-50"].join(" "),
-                              isHighlight ? "opacity-80 ring-1 ring-amber-400/30" : "",
-                            )}
-                            style={{ left: `${obsLeftPct}%`, width: `${obsWidthPct}%` }}
-                          />
-                        </div>
-
-                        {/* Duration */}
-                        <span className="text-[10px] text-muted-foreground w-12 text-right flex-shrink-0">
-                          {obsDur >= 1000 ? `${(obsDur / 1000).toFixed(1)}s` : `${obsDur}ms`}
-                        </span>
-                      </div>
-
-                      {/* Bronze: Raw JSON (expanded) */}
-                      {isObsExpanded && (
-                        <div className="ml-5 my-1 rounded bg-black/30 border border-white/5 p-2 text-[10px] font-mono space-y-1 overflow-x-auto">
-                          {obs.input != null && (
-                            <div>
-                              <span className="text-blue-400">input:</span>
-                              <pre className="text-white/60 whitespace-pre-wrap break-all">
-                                {JSON.stringify(obs.input, null, 2) as string}
-                              </pre>
-                            </div>
-                          )}
-                          {obs.output != null && (
-                            <div>
-                              <span className="text-emerald-400">output:</span>
-                              <pre className="text-white/60 whitespace-pre-wrap break-all">
-                                {JSON.stringify(obs.output, null, 2) as string}
-                              </pre>
-                            </div>
-                          )}
-                          {obs.costUsd && (
-                            <div className="text-muted-foreground">
-                              cost: ${obs.costUsd} | tokens: {obs.totalTokens ?? "-"} | model: {obs.model ?? "-"}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* Fallback: no phases, show raw observations as flat timeline */}
-      {(!phases || phases.length === 0) && observations.length > 0 && (
-        <div className="text-xs text-muted-foreground italic p-2">
-          No phase analysis available. Showing raw observations.
+              );
+            }
+            // Flat observation (no phases)
+            const obs = node.observation;
+            if (!obs) return null;
+            return (
+              <ObsTimelineRow
+                key={node.id}
+                node={node}
+                obs={obs}
+                isSelected={selectedNodeId === node.id}
+                isHighlight={highlightSet.has(node.id)}
+                barStyle={getBarStyle(obs)}
+                barColorClass="bg-neutral-500 opacity-50"
+                showDuration={showDuration}
+                onSelect={() => handleSelect(node.id)}
+              />
+            );
+          })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Phase row in timeline ──────────────────────────────────────────────────
+
+interface PhaseTimelineRowProps {
+  node: TreeNode;
+  isExpanded: boolean;
+  isSelected: boolean;
+  timelineStart: number;
+  duration: number;
+  highlightSet: Set<string>;
+  selectedNodeId: string | null;
+  showDuration: boolean;
+  showCost: boolean;
+  onToggle: () => void;
+  onSelect: () => void;
+  onSelectObs: (id: string) => void;
+  getBarStyle: (obs: TraceObservation) => { left: string; width: string };
+}
+
+function PhaseTimelineRow({
+  node,
+  isExpanded,
+  isSelected,
+  timelineStart,
+  duration,
+  highlightSet,
+  selectedNodeId,
+  showDuration,
+  showCost,
+  onToggle,
+  onSelect,
+  onSelectObs,
+  getBarStyle,
+}: PhaseTimelineRowProps) {
+  const phaseType = (node.phaseType ?? "UNKNOWN") as string;
+  const colors = PHASE_COLORS[phaseType] ?? PHASE_COLORS.UNKNOWN;
+  const Icon = PHASE_ICONS[phaseType] ?? HelpCircle;
+  const goldPhase = node.goldPhase;
+
+  // Compute phase bar from child observations
+  const childObs = useMemo(() => {
+    const result: TraceObservation[] = [];
+    for (const child of node.children) {
+      if (child.observation) result.push(child.observation);
+    }
+    return result;
+  }, [node.children]);
+
+  const phaseBarStyle = useMemo(() => {
+    if (childObs.length === 0) return { left: "0%", width: "1%" };
+    const starts = childObs.map(o => new Date(o.startedAt).getTime());
+    const ends = childObs.map(o => {
+      const end = o.completedAt ? new Date(o.completedAt).getTime() : new Date(o.startedAt).getTime() + (o.durationMs ?? 500);
+      return end;
+    });
+    const phaseStart = Math.min(...starts) - timelineStart;
+    const phaseEnd = Math.max(...ends) - timelineStart;
+    const leftPct = (phaseStart / duration) * 100;
+    const widthPct = Math.max(((phaseEnd - phaseStart) / duration) * 100, 1);
+    return { left: `${leftPct}%`, width: `${widthPct}%` };
+  }, [childObs, timelineStart, duration]);
+
+  return (
+    <div data-testid={`timeline-phase-${node.id}`}>
+      {/* Phase header row */}
+      <div
+        className={cn(
+          "group flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer transition-colors duration-150",
+          "hover:bg-white/5",
+          isExpanded && colors.bg,
+          isSelected && "ring-2 ring-primary ring-inset bg-primary/5",
+        )}
+        onClick={onSelect}
+      >
+        {/* Expand chevron */}
+        <button
+          className="w-4 flex-shrink-0"
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          tabIndex={-1}
+        >
+          {isExpanded
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          }
+        </button>
+
+        {/* Phase type icon + badge */}
+        <div className={cn("flex items-center gap-1.5 w-36 flex-shrink-0", colors.text)}>
+          <Icon className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium truncate">{phaseType}</span>
+        </div>
+
+        {/* Timeline bar */}
+        <div className="flex-1 relative h-6 bg-white/[0.03] rounded overflow-hidden">
+          <div
+            className={cn("absolute top-0.5 bottom-0.5 rounded-sm transition-all", colors.bar, "opacity-70")}
+            style={phaseBarStyle}
+          />
+          {/* Gold annotation overlay */}
+          {goldPhase && (
+            <div className="absolute inset-0 flex items-center px-2">
+              <span className="text-[10px] text-white/70 truncate drop-shadow-sm">
+                {goldPhase.annotation}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Right-side metadata */}
+        <div className="flex items-center gap-2 flex-shrink-0 w-44">
+          {goldPhase && (
+            <div className="flex items-center gap-1 w-12">
+              <div className="h-1.5 w-8 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", colors.bar)}
+                  style={{ width: `${goldPhase.relevanceScore}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted-foreground">{goldPhase.relevanceScore}</span>
+            </div>
+          )}
+          {goldPhase && (
+            <VerdictBadge verdict={goldPhase.verdict} size="sm" />
+          )}
+          <span className="text-[10px] text-muted-foreground w-8 text-right">
+            {node.observationCount} obs
+          </span>
+          {showDuration && node.totalDurationMs > 0 && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {formatMs(node.totalDurationMs)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded: child observations */}
+      {isExpanded && (
+        <div className={cn("ml-6 border-l-2 pl-3 py-1 space-y-0.5", colors.border)}>
+          {/* Silver summary */}
+          {node.phase?.summary && (
+            <div className="text-xs text-muted-foreground italic mb-1 px-1">
+              {node.phase.summary}
+            </div>
+          )}
+          {node.children.map((child) => {
+            const obs = child.observation;
+            if (!obs) return null;
+            return (
+              <ObsTimelineRow
+                key={child.id}
+                node={child}
+                obs={obs}
+                isSelected={selectedNodeId === child.id}
+                isHighlight={highlightSet.has(child.id)}
+                barStyle={getBarStyle(obs)}
+                barColorClass={cn(
+                  obs.status === "error" ? "bg-red-500/60" : [colors.bar, "opacity-50"].join(" "),
+                )}
+                showDuration={showDuration}
+                onSelect={() => onSelectObs(child.id)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Observation row in timeline ────────────────────────────────────────────
+
+interface ObsTimelineRowProps {
+  node: TreeNode;
+  obs: TraceObservation;
+  isSelected: boolean;
+  isHighlight: boolean;
+  barStyle: { left: string; width: string };
+  barColorClass: string;
+  showDuration: boolean;
+  onSelect: () => void;
+}
+
+function ObsTimelineRow({
+  node,
+  obs,
+  isSelected,
+  isHighlight,
+  barStyle,
+  barColorClass,
+  showDuration,
+  onSelect,
+}: ObsTimelineRowProps) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded px-1 py-0.5 cursor-pointer transition-colors duration-150",
+        "hover:bg-white/5",
+        isHighlight && "ring-1 ring-amber-500/40 bg-amber-500/5",
+        isSelected && "ring-2 ring-primary ring-inset bg-primary/5",
+      )}
+      onClick={onSelect}
+      data-testid={`timeline-obs-${node.id}`}
+    >
+      {/* Name */}
+      <span className={cn(
+        "text-[11px] font-mono w-28 flex-shrink-0 truncate",
+        obs.status === "error" ? "text-red-400" : "text-foreground/80"
+      )}>
+        {obs.name}
+        {isHighlight && <Sparkles className="inline h-2.5 w-2.5 ml-0.5 text-amber-400" />}
+      </span>
+
+      {/* Mini timeline bar */}
+      <div className="flex-1 relative h-4 bg-white/[0.02] rounded overflow-hidden">
+        <div
+          className={cn(
+            "absolute top-0.5 bottom-0.5 rounded-sm",
+            barColorClass,
+            isHighlight ? "opacity-80 ring-1 ring-amber-400/30" : "",
+          )}
+          style={barStyle}
+        />
+      </div>
+
+      {/* Duration */}
+      {showDuration && (
+        <span className="text-[10px] text-muted-foreground w-12 text-right flex-shrink-0">
+          {(obs.durationMs ?? 0) >= 1000
+            ? `${((obs.durationMs ?? 0) / 1000).toFixed(1)}s`
+            : `${obs.durationMs ?? 0}ms`}
+        </span>
       )}
     </div>
   );
@@ -386,7 +484,7 @@ function TimeRuler({ durationMs }: { durationMs: number }) {
   }, [durationMs]);
 
   return (
-    <div className="flex items-center gap-2 ml-[184px] mr-[176px] h-5 relative">
+    <div className="flex items-center gap-2 h-5 relative ml-[168px] mr-[10px]">
       <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />
       {ticks.map((tick, i) => (
         <div
