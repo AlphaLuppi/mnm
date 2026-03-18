@@ -1008,7 +1008,7 @@ export const AUTH_STATES = {
 
 // ─── URL Helpers ────────────────────────────────────────────────────────────
 
-export const BASE_URL = process.env.MNM_BASE_URL ?? "http://localhost:3100";
+export const BASE_URL = process.env.MNM_BASE_URL ?? "http://127.0.0.1:3100";
 
 export function apiUrl(path: string): string {
   return `${BASE_URL}${path}`;

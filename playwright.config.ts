@@ -26,7 +26,7 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   use: {
-    baseURL: process.env.MNM_BASE_URL ?? "http://localhost:3100",
+    baseURL: process.env.MNM_BASE_URL ?? "http://127.0.0.1:3100",
     trace: "on-first-retry",
     video: "on",
     screenshot: "on",
