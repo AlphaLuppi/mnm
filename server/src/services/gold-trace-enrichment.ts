@@ -158,52 +158,84 @@ async function callLlm(
   systemPrompt: string,
   userMessage: string,
 ): Promise<{ text: string; inputTokens: number; outputTokens: number; model: string } | null> {
+  // Strategy 1: Direct API call (if configured)
   const llmEndpoint = process.env.MNM_LLM_SUMMARY_ENDPOINT;
   const llmApiKey = process.env.MNM_LLM_SUMMARY_API_KEY;
   const model = process.env.MNM_LLM_GOLD_MODEL ?? process.env.MNM_LLM_SUMMARY_MODEL ?? "claude-3-haiku-20240307";
 
-  if (!llmEndpoint || !llmApiKey) {
-    return null;
+  if (llmEndpoint && llmApiKey) {
+    try {
+      const response = await fetch(llmEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${llmApiKey}`,
+          "x-api-key": llmApiKey,
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
+
+      if (response.ok) {
+        const data = await response.json() as {
+          content?: Array<{ text: string }>;
+          usage?: { input_tokens: number; output_tokens: number };
+        };
+        const text = data?.content?.[0]?.text;
+        if (text) {
+          return {
+            text,
+            inputTokens: data?.usage?.input_tokens ?? 0,
+            outputTokens: data?.usage?.output_tokens ?? 0,
+            model,
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, "[gold-enrichment] API LLM call failed, trying claude -p fallback");
+    }
   }
 
+  // Strategy 2: claude -p fallback (uses existing Claude Code auth)
+  return callClaudeCli(systemPrompt, userMessage);
+}
+
+async function callClaudeCli(
+  systemPrompt: string,
+  userMessage: string,
+): Promise<{ text: string; inputTokens: number; outputTokens: number; model: string } | null> {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execFileAsync = promisify(execFile);
+
+  const combinedPrompt = `${systemPrompt}\n\n---\n\n${userMessage}`;
+
   try {
-    const response = await fetch(llmEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${llmApiKey}`,
-        "x-api-key": llmApiKey,
+    const { stdout } = await execFileAsync(
+      "claude",
+      ["-p", combinedPrompt, "--output-format", "text", "--model", "haiku"],
+      {
+        timeout: 90_000,
+        maxBuffer: 1024 * 1024,
+        env: { ...process.env, CLAUDE_CODE_ENABLE_TELEMETRY: "0" },
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
+    );
 
-    if (!response.ok) {
-      logger.warn({ status: response.status }, "[gold-enrichment] LLM call failed");
-      return null;
-    }
-
-    const data = await response.json() as {
-      content?: Array<{ text: string }>;
-      usage?: { input_tokens: number; output_tokens: number };
-    };
-
-    const text = data?.content?.[0]?.text;
-    if (!text) return null;
+    if (!stdout?.trim()) return null;
 
     return {
-      text,
-      inputTokens: data?.usage?.input_tokens ?? 0,
-      outputTokens: data?.usage?.output_tokens ?? 0,
-      model,
+      text: stdout.trim(),
+      inputTokens: 0, // claude -p doesn't report token usage
+      outputTokens: 0,
+      model: "claude-haiku-via-cli",
     };
   } catch (err) {
-    logger.warn({ err }, "[gold-enrichment] LLM call error");
+    logger.warn({ err }, "[gold-enrichment] claude -p fallback also failed");
     return null;
   }
 }
