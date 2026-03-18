@@ -53,6 +53,22 @@ export function traceRoutes(db: Db) {
     },
   );
 
+  // GET /api/companies/:companyId/traces/by-run/:heartbeatRunId — trace for a heartbeat run
+  router.get(
+    "/companies/:companyId/traces/by-run/:heartbeatRunId",
+    requirePermission(db, "traces:read"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const tree = await svc.getByHeartbeatRunId(companyId, req.params.heartbeatRunId as string);
+      if (!tree) {
+        res.status(404).json({ error: "No trace found for this run" });
+        return;
+      }
+      res.json(tree);
+    },
+  );
+
   // GET /api/companies/:companyId/traces/:traceId — detail + observation tree
   router.get(
     "/companies/:companyId/traces/:traceId",
