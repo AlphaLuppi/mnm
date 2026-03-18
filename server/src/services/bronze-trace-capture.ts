@@ -38,7 +38,7 @@ interface StreamJsonEvent {
   input?: Record<string, unknown>;
   // tool_result
   tool_use_id_ref?: string;
-  content?: string;
+  content?: string | ContentBlock[];
   is_error?: boolean;
   // text / thinking
   text?: string;
@@ -65,6 +65,77 @@ interface StreamJsonEvent {
   // init
   model?: string;
   session_id?: string;
+  // Claude Code wrapper: content blocks are inside message.content[]
+  message?: {
+    content?: ContentBlock[];
+    role?: string;
+  };
+}
+
+// ─── Content Block Types (inside assistant/user message.content[]) ───────────
+
+interface ContentBlock {
+  type: string;
+  // tool_use block
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+  // tool_result block
+  tool_use_id?: string;
+  content?: string | ContentBlock[];
+  is_error?: boolean;
+  // text block
+  text?: string;
+}
+
+/**
+ * Convert a content block (from inside assistant/user message.content[])
+ * into a synthetic StreamJsonEvent for unified processing.
+ */
+function contentBlockToEvent(block: ContentBlock): StreamJsonEvent | null {
+  switch (block.type) {
+    case "tool_use":
+      return {
+        type: "tool_use",
+        tool_use_id: block.id,
+        name: block.name,
+        input: block.input,
+      };
+    case "tool_result": {
+      // tool_result content can be string or array of content blocks
+      let textContent: string | undefined;
+      if (typeof block.content === "string") {
+        textContent = block.content;
+      } else if (Array.isArray(block.content)) {
+        textContent = block.content
+          .filter((c): c is ContentBlock & { text: string } => c.type === "text" && typeof c.text === "string")
+          .map((c) => c.text)
+          .join("\n");
+      }
+      return {
+        type: "tool_result",
+        tool_use_id_ref: block.tool_use_id,
+        content: textContent,
+        is_error: block.is_error,
+      };
+    }
+    case "thinking":
+      return {
+        type: "thinking",
+        text: block.text,
+      };
+    case "text":
+      return {
+        type: "text",
+        text: block.text,
+      };
+    default:
+      // Unknown block type — still capture
+      return {
+        type: block.type,
+        text: block.text,
+      };
+  }
 }
 
 // ─── Bronze Capture State per Run ───────────────────────────────────────────
@@ -158,6 +229,24 @@ export function bronzeTraceCapture(db: Db) {
 
         if (!event.type) continue;
 
+        // Claude Code stream-json format: tool calls and text are INSIDE
+        // assistant.message.content[] and user.message.content[], not top-level.
+        // We need to extract content blocks and process each one.
+        if ((event.type === "assistant" || event.type === "user") && event.message?.content) {
+          const blocks = event.message.content as ContentBlock[];
+          for (const block of blocks) {
+            if (!block.type) continue;
+            // Convert content block to a synthetic top-level event for processing
+            const syntheticEvent = contentBlockToEvent(block);
+            if (syntheticEvent) {
+              await persistBronzeObservation(db, state, syntheticEvent);
+            }
+          }
+          // Don't also process the wrapper event
+          continue;
+        }
+
+        // Top-level events (system:init, result, rate_limit_event, etc.)
         await persistBronzeObservation(db, state, event);
       }
     },
