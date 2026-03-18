@@ -14,6 +14,9 @@ import {
   traceListFiltersSchema,
   createTraceLensSchema,
   updateTraceLensSchema,
+  createGoldPromptSchema,
+  updateGoldPromptSchema,
+  goldPromptFiltersSchema,
 } from "@mnm/shared";
 
 export function traceRoutes(db: Db) {
@@ -232,6 +235,60 @@ export function traceRoutes(db: Db) {
     async (_req, res) => {
       const enriched = await backfillSilverEnrichment(db);
       res.json({ enriched });
+    },
+  );
+
+  // --- Gold Prompt endpoints (PIPE-03) ---
+
+  // POST /api/companies/:companyId/gold-prompts — create gold prompt
+  router.post(
+    "/companies/:companyId/gold-prompts",
+    requirePermission(db, "traces:write"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const actor = getActorInfo(req);
+      const body = createGoldPromptSchema.parse(req.body);
+      const prompt = await svc.createGoldPrompt(companyId, actor.actorId, body);
+      res.status(201).json(prompt);
+    },
+  );
+
+  // GET /api/companies/:companyId/gold-prompts — list gold prompts
+  router.get(
+    "/companies/:companyId/gold-prompts",
+    requirePermission(db, "traces:read"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const filters = goldPromptFiltersSchema.parse(req.query);
+      const prompts = await svc.listGoldPrompts(companyId, filters);
+      res.json(prompts);
+    },
+  );
+
+  // PUT /api/companies/:companyId/gold-prompts/:promptId — update gold prompt
+  router.put(
+    "/companies/:companyId/gold-prompts/:promptId",
+    requirePermission(db, "traces:write"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const body = updateGoldPromptSchema.parse(req.body);
+      const prompt = await svc.updateGoldPrompt(companyId, req.params.promptId as string, body);
+      res.json(prompt);
+    },
+  );
+
+  // DELETE /api/companies/:companyId/gold-prompts/:promptId — delete gold prompt
+  router.delete(
+    "/companies/:companyId/gold-prompts/:promptId",
+    requirePermission(db, "traces:write"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      await svc.deleteGoldPrompt(companyId, req.params.promptId as string);
+      res.status(204).end();
     },
   );
 

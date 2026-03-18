@@ -290,6 +290,10 @@ export {
   traceListFiltersSchema,
   createTraceLensSchema,
   updateTraceLensSchema,
+  // PIPE-03: Gold prompt validators
+  createGoldPromptSchema,
+  updateGoldPromptSchema,
+  goldPromptFiltersSchema,
   type CreateTrace,
   type CompleteTrace,
   type CreateObservation,
@@ -298,6 +302,10 @@ export {
   type TraceListFilters,
   type CreateTraceLens,
   type UpdateTraceLens,
+  // PIPE-03: Gold prompt types
+  type CreateGoldPrompt,
+  type UpdateGoldPrompt,
+  type GoldPromptFilters,
 } from "./trace.js";
 
 // sso-s01-barrel-validators

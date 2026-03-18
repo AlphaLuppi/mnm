@@ -329,6 +329,8 @@ export {
   TRACE_STATUSES,
   TRACE_OBSERVATION_TYPES,
   TRACE_OBSERVATION_STATUSES,
+  // PIPE-03: Gold prompt constants
+  GOLD_PROMPT_SCOPES,
 } from "./trace.js";
 export type {
   TraceStatus,
@@ -342,6 +344,9 @@ export type {
   TraceLensScope,
   TraceLens,
   TraceLensResult,
+  // PIPE-03: Gold prompt types
+  GoldPromptScope,
+  GoldPrompt,
 } from "./trace.js";
 // SSO-S01: SSO configuration types
 // sso-s01-barrel-types

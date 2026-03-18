@@ -304,6 +304,9 @@ export type {
   TraceLensScope,
   TraceLens,
   TraceLensResult,
+  // PIPE-03: Gold prompt types
+  GoldPromptScope,
+  GoldPrompt,
   // SSO-S01: SSO configuration types
   // sso-s01-barrel-shared
   SsoProvider,
@@ -367,6 +370,8 @@ export {
   TRACE_STATUSES,
   TRACE_OBSERVATION_TYPES,
   TRACE_OBSERVATION_STATUSES,
+  // PIPE-03: Gold prompt constants
+  GOLD_PROMPT_SCOPES,
   // SSO-S01: SSO configuration constants
   SSO_PROVIDERS,
   SSO_CONFIG_STATUSES,
@@ -616,6 +621,10 @@ export {
   traceListFiltersSchema,
   createTraceLensSchema,
   updateTraceLensSchema,
+  // PIPE-03: Gold prompt validators
+  createGoldPromptSchema,
+  updateGoldPromptSchema,
+  goldPromptFiltersSchema,
   type CreateTrace,
   type CompleteTrace,
   type CreateObservation,
@@ -624,6 +633,10 @@ export {
   type TraceListFilters,
   type CreateTraceLens,
   type UpdateTraceLens,
+  // PIPE-03: Gold prompt types
+  type CreateGoldPrompt,
+  type UpdateGoldPrompt,
+  type GoldPromptFilters,
   // A2A-S04: MCP Connector validators
   createMcpConnectorSchema,
   updateMcpConnectorSchema,
