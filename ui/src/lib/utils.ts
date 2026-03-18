@@ -42,8 +42,9 @@ export function relativeTime(date: Date | string): string {
   return formatDate(date);
 }
 
-export function formatDuration(ms: number | null): string {
+export function formatDuration(ms: number | string | null): string {
   if (ms == null) return "-";
+  if (typeof ms === "string") ms = parseFloat(ms);
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
   const min = Math.floor(ms / 60_000);
@@ -51,10 +52,11 @@ export function formatDuration(ms: number | null): string {
   return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
 }
 
-export function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
+export function formatCost(usd: number | string): string {
+  const n = typeof usd === "string" ? parseFloat(usd) : usd;
+  if (!n || isNaN(n) || n === 0) return "$0.00";
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
 }
 
 export function formatTokens(n: number): string {
