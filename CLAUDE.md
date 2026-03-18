@@ -23,25 +23,34 @@ Language: French for planning documents.
 
 | Step | Status | What |
 |------|--------|------|
-| PIPE-01 | DONE | Bronze capture in heartbeat.ts:onLog — 2000+ real observations from real agent runs |
+| PIPE-01 | DONE | Bronze capture in heartbeat.ts:onLog — 2530+ real observations from real agent runs |
 | PIPE-02 | DONE | Silver enrichment — deterministic phase detection (COMPREHENSION/IMPLEMENTATION/VERIFICATION...) |
 | PIPE-03 | DONE | Gold schema — traces.gold JSONB + gold_prompts table + CRUD API + default prompt seeded |
 | PIPE-04 | DONE | Gold engine — deterministic fallback + `claude -p --model haiku` fallback (no API key needed) |
-| PIPE-05 | DONE | UI Gold timeline — TraceDetail with Gold→Silver→Bronze drill-down (accordion style) |
+| PIPE-05 | DONE | UI Gold timeline — TraceDetail with Gold→Silver→Bronze drill-down |
 | PIPE-06 | DONE | Gold in RunDetail — agent run panel shows trace gold phases |
-| OBS-09 | DONE | Gold Haiku E2E — verified claude CLI in Docker, gold falls back to deterministic (JSON parse issue documented) |
-| OBS-10 | DONE | Agent Graph View — CSS-based phase flow graph (TraceGraphView.tsx), third view tab in Execution Explorer |
-| OBS-11 | DONE | Live Streaming — WebSocket subscription in TraceDetail for running traces, auto-refetch on new observations |
+| OBS-01 | DONE | Bronze fix — parse assistant.message.content[] blocks (tool_use/thinking/text) |
+| OBS-02 | DONE | TraceDataProvider — iterative tree building, nodeMap O(1), cost aggregation |
+| OBS-03 | DONE | SelectionProvider + ViewPreferencesProvider (shared state) |
+| OBS-04 | DONE | Resizable split layout (react-resizable-panels) |
+| OBS-05 | DONE | Tree view — virtualized, phase groups, icons, heatmap, click-to-select |
+| OBS-06 | DONE | Timeline Gantt upgrade — provider-backed, sync with tree selection |
+| OBS-07 | DONE | Detail panel — IO tab (Formatted/JSON/Raw toggle) |
+| OBS-08 | DONE | Detail panel — Gold tab (verdict, annotation, scores, AC status) |
+| OBS-09 | DONE | Gold Haiku E2E — WORKS! 20+ traces enriched by claude-haiku-via-cli |
+| OBS-10 | DONE | Agent Graph View — CSS flow nodes with arrows, scores, annotations |
+| OBS-11 | DONE | Live Streaming — WebSocket in TraceDetail for running traces |
+| OBS-12 | DONE | QC Chrome — screenshot verified: gold banner + tree + graph + detail panel |
 
 ### What REMAINS — Next Session TODO
 
 | Step | Description | Priority |
 |------|-------------|----------|
-| **REAL-RUN** | Lancer un VRAI agent run via MnM Docker avec tool calls riches (Read, Edit, Bash) sur un projet temp | P0 |
-| **HAIKU-GOLD-FIX** | Fix JSON parsing for Haiku gold (claude -p works in Docker, but response not always valid JSON — need retry/prompt improvement) | P0 |
+| **REAL-RUN** | Lancer un VRAI agent run avec tool calls riches (Read, Edit, Bash) pour avoir des traces variées | P0 |
+| **BACKFILL** | Le gold backfill timeout après 20 traces (156 total). Besoin de batch + retry logic. | P1 |
 | PIPE-07 | UI Gold prompts management (settings page pour configurer prompts par scope) | P1 |
 | PIPE-08 | Workflow-level gold (agréger traces multi-agent) | P1 |
-| PIPE-09 | QC final bout-en-bout avec screenshots Chrome | P1 |
+| **LANGFUSE** | Décision stratégique: garder MnM trace UI vs intégrer Langfuse pour LangGraph (Gabriel). Conclusion: garder MnM pour adapters process-based, ajouter Langfuse bridge quand LangGraph arrive. | P2 |
 
 ### OBS-09 Gold Haiku E2E Verification (2026-03-18)
 
