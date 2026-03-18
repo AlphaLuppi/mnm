@@ -119,11 +119,26 @@ bun run test:e2e:report  # View E2E test report
 - **Test Structure**: `e2e/tests/` organized by feature domain (auth/, members/, rbac/, orchestration/, etc.)
 
 ### Running E2E Tests
+
+#### Option A: Against Docker (authenticated mode — recommended for full coverage)
 ```bash
-docker compose -f docker-compose.test.yml up -d --wait  # Start test DB + Redis
-bun run test:e2e                                          # Run all E2E tests
-bun run test:e2e:report                                   # View HTML report with videos
+docker compose -f docker-compose.dev.yml build            # Rebuild with latest code
+docker compose -f docker-compose.dev.yml up -d --wait     # Start server + DB + Redis
+bun run test:e2e                                           # 59 tests pass, auth + RBAC included
+bun run test:e2e:report                                    # View HTML report with videos
 ```
+
+#### Option B: Against local dev server (local_trusted — faster, no auth)
+```bash
+bun run dev                                                # Start embedded postgres dev server
+bun run test:e2e                                           # 50 tests pass, auth tests skip
+bun run test:e2e:report                                    # View HTML report
+```
+
+#### Notes
+- Video capture (.webm) works for auth/signout tests. Other tests use storageState which doesn't produce separate videos.
+- Screenshots are captured for ALL tests (122 screenshots in authenticated mode).
+- After Docker rebuild, migration 0045_trace_vision.sql auto-applies on first start.
 
 ### Writing New E2E Tests
 When implementing new features, ALWAYS add E2E tests that:
