@@ -213,7 +213,8 @@ async function callClaudeCli(
   const { promisify } = await import("node:util");
   const execFileAsync = promisify(execFile);
 
-  const combinedPrompt = `${systemPrompt}\n\n---\n\n${userMessage}`;
+  // Force JSON output by appending a strict instruction
+  const combinedPrompt = `${systemPrompt}\n\n---\n\n${userMessage}\n\nIMPORTANT: Respond with ONLY valid JSON. No markdown, no explanation, no text before or after. Start with { and end with }.`;
 
   try {
     const { stdout } = await execFileAsync(
@@ -425,13 +426,57 @@ interface LlmGoldResponse {
   }>;
 }
 
+/** Extract valid JSON from LLM text that may contain markdown, explanations, etc. */
+function extractJsonFromText(text: string): string | null {
+  const trimmed = text.trim();
+
+  // Strategy 1: Direct parse (response is pure JSON)
+  if (trimmed.startsWith("{")) {
+    try { JSON.parse(trimmed); return trimmed; } catch { /* continue */ }
+  }
+
+  // Strategy 2: Extract from ```json ... ``` markdown block
+  const mdMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (mdMatch) {
+    const inner = mdMatch[1]!.trim();
+    try { JSON.parse(inner); return inner; } catch { /* continue */ }
+  }
+
+  // Strategy 3: Find the first { and last } — extract the JSON object
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = trimmed.slice(firstBrace, lastBrace + 1);
+    try { JSON.parse(candidate); return candidate; } catch { /* continue */ }
+  }
+
+  // Strategy 4: Try line by line (some LLMs put text before/after JSON lines)
+  const lines = trimmed.split("\n");
+  const jsonLines: string[] = [];
+  let inJson = false;
+  let braceCount = 0;
+  for (const line of lines) {
+    if (!inJson && line.trim().startsWith("{")) inJson = true;
+    if (inJson) {
+      jsonLines.push(line);
+      braceCount += (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
+      if (braceCount <= 0) break;
+    }
+  }
+  if (jsonLines.length > 0) {
+    const candidate = jsonLines.join("\n");
+    try { JSON.parse(candidate); return candidate; } catch { /* continue */ }
+  }
+
+  return null;
+}
+
 function parseGoldResponse(text: string, silverPhases: TracePhase[]): LlmGoldResponse | null {
   try {
-    // Extract JSON from response (in case LLM wraps it in markdown)
-    let jsonStr = text.trim();
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1]!.trim();
+    const jsonStr = extractJsonFromText(text);
+    if (!jsonStr) {
+      logger.warn({ textPreview: text.slice(0, 200) }, "[gold-enrichment] Could not extract JSON from LLM response");
+      return null;
     }
 
     const parsed = JSON.parse(jsonStr) as LlmGoldResponse;
