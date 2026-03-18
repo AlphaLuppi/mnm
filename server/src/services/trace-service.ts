@@ -152,6 +152,32 @@ export function traceService(db: Db) {
       };
     },
 
+    getByHeartbeatRunId: async (companyId: string, heartbeatRunId: string): Promise<TraceWithTree | null> => {
+      const trace = await db
+        .select()
+        .from(traces)
+        .where(and(eq(traces.companyId, companyId), eq(traces.heartbeatRunId, heartbeatRunId)))
+        .then((rows) => rows[0] ?? null);
+      if (!trace) return null;
+
+      const observations = await db
+        .select()
+        .from(traceObservations)
+        .where(eq(traceObservations.traceId, trace.id))
+        .orderBy(traceObservations.startedAt);
+
+      const childTraces = await db
+        .select()
+        .from(traces)
+        .where(and(eq(traces.companyId, companyId), eq(traces.parentTraceId, trace.id)));
+
+      return {
+        ...(trace as unknown as Trace),
+        observations: buildObservationTree(observations as unknown as TraceObservation[]),
+        childTraces: childTraces as unknown as Trace[],
+      };
+    },
+
     getTree: async (companyId: string, traceId: string): Promise<TraceWithTree> => {
       const trace = await db
         .select()

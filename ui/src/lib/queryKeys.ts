@@ -177,6 +177,8 @@ export const queryKeys = {
       ["traces", companyId, "list", filters] as const,
     detail: (companyId: string, traceId: string) =>
       ["traces", companyId, "detail", traceId] as const,
+    byRunId: (companyId: string, runId: string) =>
+      ["traces", companyId, "by-run", runId] as const,
     byWorkflow: (companyId: string, workflowInstanceId: string) =>
       ["traces", companyId, "workflow", workflowInstanceId] as const,
   },
