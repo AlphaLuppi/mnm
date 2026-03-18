@@ -51,7 +51,7 @@ test.describe("Containers Page — RBAC Enforcement", () => {
     await viewerPage.waitForTimeout(3_000);
     const url = viewerPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await viewerPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await viewerPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     expect(hasForbidden || !url.includes("/containers")).toBeTruthy();
   });
 
@@ -60,7 +60,7 @@ test.describe("Containers Page — RBAC Enforcement", () => {
     await contributorPage.waitForTimeout(3_000);
     const url = contributorPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await contributorPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await contributorPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     expect(hasForbidden || !url.includes("/containers")).toBeTruthy();
   });
 });

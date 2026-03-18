@@ -63,7 +63,7 @@ test.describe("RBAC — Access Control", () => {
     await viewerPage.waitForTimeout(3_000);
     const url = viewerPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await viewerPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await viewerPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     expect(hasForbidden || !url.includes("/admin/roles")).toBeTruthy();
   });
 
@@ -72,7 +72,7 @@ test.describe("RBAC — Access Control", () => {
     await contributorPage.waitForTimeout(3_000);
     const url = contributorPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await contributorPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await contributorPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     expect(hasForbidden || !url.includes("/admin/roles")).toBeTruthy();
   });
 
@@ -81,7 +81,7 @@ test.describe("RBAC — Access Control", () => {
     await managerPage.waitForTimeout(3_000);
     const url = managerPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await managerPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await managerPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     expect(hasForbidden || !url.includes("/admin/roles")).toBeTruthy();
   });
 });
