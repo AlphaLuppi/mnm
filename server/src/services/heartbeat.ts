@@ -1259,12 +1259,11 @@ export function heartbeatService(db: Db) {
         if (stream === "stderr") stderrExcerpt = appendExcerpt(stderrExcerpt, chunk);
 
         // ── Bronze Trace: capture stdout chunks as raw observations ──
+        // Fire-and-forget (no await) to avoid blocking the agent run
         if (stream === "stdout" && bronzeTraceId) {
-          try {
-            await bronze.ingestChunk(runId, chunk);
-          } catch {
+          bronze.ingestChunk(runId, chunk).catch(() => {
             // Don't fail the run if trace capture has issues
-          }
+          });
         }
 
         if (handle) {

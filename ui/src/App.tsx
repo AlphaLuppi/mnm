@@ -1,7 +1,5 @@
-import { useEffect, useRef } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { authApi } from "./api/auth";
@@ -48,7 +46,6 @@ import { InviteLandingPage } from "./pages/InviteLanding";
 import { RequirePermission } from "./components/RequirePermission";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
-import { useDialog } from "./context/DialogContext";
 
 function BootstrapPendingPage() {
   return (
@@ -177,20 +174,18 @@ function boardRoutes() {
 
 function CompanyRootRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
-  const { onboardingOpen } = useDialog();
 
   if (loading) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
   }
 
-  // Keep the first-run onboarding mounted until it completes.
-  if (onboardingOpen) {
-    return <NoCompaniesStartPage autoOpen={false} />;
+  if (companies.length === 0) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
-    return <NoCompaniesStartPage />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <Navigate to={`/${targetCompany.issuePrefix}/dashboard`} replace />;
@@ -206,7 +201,7 @@ function UnprefixedBoardRedirect() {
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
-    return <NoCompaniesStartPage />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (
@@ -214,32 +209,6 @@ function UnprefixedBoardRedirect() {
       to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`}
       replace
     />
-  );
-}
-
-function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
-  const { openOnboarding } = useDialog();
-  const opened = useRef(false);
-
-  useEffect(() => {
-    if (!autoOpen) return;
-    if (opened.current) return;
-    opened.current = true;
-    openOnboarding();
-  }, [autoOpen, openOnboarding]);
-
-  return (
-    <div className="mx-auto max-w-xl py-10">
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Create your first company</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
-        </p>
-        <div className="mt-4">
-          <Button onClick={() => openOnboarding()}>New Company</Button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -299,12 +268,12 @@ export function App() {
           <Route path="traces/:traceId" element={<UnprefixedBoardRedirect />} />
           <Route path="settings/trace-lenses" element={<UnprefixedBoardRedirect />} />
           <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
+          <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
           </Route>
         </Route>
       </Routes>
-      <OnboardingWizard />
     </>
   );
 }

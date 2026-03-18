@@ -1,15 +1,13 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AdapterEnvironmentTestResult } from "@mnm/shared";
-import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { companiesApi } from "../api/companies";
 import { goalsApi } from "../api/goals";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";
 import { queryKeys } from "../lib/queryKeys";
-import { Dialog, DialogPortal } from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -75,13 +73,14 @@ Create a folder agents/ceo with an AGENTS.md instruction file defining the CEO p
 Then hire yourself a Founding Engineer agent to start building.`;
 
 export function OnboardingWizard() {
-  const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
+  const [searchParams] = useSearchParams();
+  const { companyId: paramCompanyId } = useParams<{ companyId?: string }>();
   const { selectedCompanyId, companies, setSelectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const initialStep = onboardingOptions.initialStep ?? 1;
-  const existingCompanyId = onboardingOptions.companyId;
+  const initialStep = (Number(searchParams.get("step")) || 1) as Step;
+  const existingCompanyId = paramCompanyId ?? searchParams.get("companyId") ?? undefined;
 
   const [step, setStep] = useState<Step>(initialStep);
   const [loading, setLoading] = useState(false);
@@ -141,27 +140,23 @@ export function OnboardingWizard() {
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [createdIssueRef, setCreatedIssueRef] = useState<string | null>(null);
 
-  // Sync step and company when onboarding opens with options.
+  // Sync step and company from URL params on mount.
   // Keep this independent from company-list refreshes so Step 1 completion
   // doesn't get reset after creating a company.
   useEffect(() => {
-    if (!onboardingOpen) return;
-    const cId = onboardingOptions.companyId ?? null;
-    setStep(onboardingOptions.initialStep ?? 1);
+    const cId = existingCompanyId ?? null;
+    setStep(initialStep);
     setCreatedCompanyId(cId);
     setCreatedCompanyPrefix(null);
-  }, [
-    onboardingOpen,
-    onboardingOptions.companyId,
-    onboardingOptions.initialStep
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingCompanyId, initialStep]);
 
   // Backfill issue prefix for an existing company once companies are loaded.
   useEffect(() => {
-    if (!onboardingOpen || !createdCompanyId || createdCompanyPrefix) return;
+    if (!createdCompanyId || createdCompanyPrefix) return;
     const company = companies.find((c) => c.id === createdCompanyId);
     if (company) setCreatedCompanyPrefix(company.issuePrefix);
-  }, [onboardingOpen, createdCompanyId, createdCompanyPrefix, companies]);
+  }, [createdCompanyId, createdCompanyPrefix, companies]);
 
   // onb-s01-server-sync — debounced sync to server
   const syncToServer = useCallback((companyId: string, currentStep: number) => {
@@ -179,7 +174,7 @@ export function OnboardingWizard() {
 
   // onb-s01-localStorage-persistence
   useEffect(() => {
-    if (!onboardingOpen || !createdCompanyId) return;
+    if (!createdCompanyId) return;
     const key = `mnm-onboarding-${createdCompanyId}`;
     try {
       localStorage.setItem(key, JSON.stringify({ step, timestamp: Date.now() }));
@@ -187,7 +182,7 @@ export function OnboardingWizard() {
       // localStorage not available
     }
     syncToServer(createdCompanyId, step);
-  }, [step, createdCompanyId, onboardingOpen, syncToServer]);
+  }, [step, createdCompanyId, syncToServer]);
 
   // Resize textarea when step 3 is shown or description changes
   useEffect(() => {
@@ -205,7 +200,7 @@ export function OnboardingWizard() {
         ? queryKeys.agents.adapterModels(createdCompanyId, adapterType)
         : ["agents", "none", "adapter-models", adapterType],
     queryFn: () => agentsApi.adapterModels(createdCompanyId!, adapterType),
-    enabled: Boolean(createdCompanyId) && onboardingOpen && step === 2
+    enabled: Boolean(createdCompanyId) && step === 2
   });
   const isLocalAdapter =
     adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "opencode_local" || adapterType === "cursor";
@@ -299,7 +294,7 @@ export function OnboardingWizard() {
 
   function handleClose() {
     reset();
-    closeOnboarding();
+    navigate("/");
   }
 
   function buildAdapterConfig(): Record<string, unknown> {
@@ -606,7 +601,7 @@ export function OnboardingWizard() {
 
     setLoading(false);
     reset();
-    closeOnboarding();
+    await queryClient.refetchQueries({ queryKey: queryKeys.companies.all });
     if (createdCompanyPrefix && createdIssueRef) {
       navigate(`/${createdCompanyPrefix}/issues/${createdIssueRef}`);
       return;
@@ -617,6 +612,14 @@ export function OnboardingWizard() {
     }
     navigate("/dashboard");
   }
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -630,21 +633,9 @@ export function OnboardingWizard() {
     }
   }
 
-  if (!onboardingOpen) return null;
-
   return (
-    <Dialog
-      open={onboardingOpen}
-      onOpenChange={(open) => {
-        if (!open) handleClose();
-      }}
-    >
-      <DialogPortal>
-        {/* Plain div instead of DialogOverlay — Radix's overlay wraps in
-            RemoveScroll which blocks wheel events on our custom (non-DialogContent)
-            scroll container. A plain div preserves the background without scroll-locking. */}
-        <div className="fixed inset-0 z-50 bg-background" />
-        <div data-testid="onb-s01-wizard" className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-50 bg-background">
+      <div data-testid="onb-s01-wizard" className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
           {/* Close button */}
           <button
             onClick={handleClose}
@@ -1262,7 +1253,7 @@ export function OnboardingWizard() {
               {/* Footer navigation — onb-s01-nav */}
               <div className="flex items-center justify-between mt-8">
                 <div>
-                  {step > 1 && step > (onboardingOptions.initialStep ?? 1) && step !== 4 && (
+                  {step > 1 && step > initialStep && step !== 4 && (
                     <Button
                       data-testid="onb-s01-back"
                       variant="ghost"
@@ -1359,10 +1350,10 @@ export function OnboardingWizard() {
             <AsciiArtAnimation />
           </div>
         </div>
-      </DialogPortal>
-    </Dialog>
+      </div>
   );
 }
+
 
 function AdapterEnvironmentResult({
   result
