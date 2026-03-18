@@ -24,6 +24,8 @@ import {
   Play,
   Trophy,
   HelpCircle,
+  List,
+  BarChart3,
 } from "lucide-react";
 import { Link } from "@/lib/router";
 import { tracesApi } from "../api/traces";
@@ -88,6 +90,42 @@ function statusVariant(status: TraceStatus): "secondary" | "outline" | "destruct
     default:
       return "secondary";
   }
+}
+
+// OBS-06: Left panel wrapper that toggles between Tree and Timeline
+function LeftPanelWithToggle() {
+  const [activeView, setActiveView] = useState<"tree" | "timeline">("tree");
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* View toggle */}
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border/50 shrink-0">
+        <Button
+          variant={activeView === "tree" ? "secondary" : "ghost"}
+          size="sm"
+          className="h-6 text-[10px] px-2"
+          onClick={() => setActiveView("tree")}
+          data-testid="trace-view-toggle-tree"
+        >
+          <List className="h-3.5 w-3.5 mr-1" /> Tree
+        </Button>
+        <Button
+          variant={activeView === "timeline" ? "secondary" : "ghost"}
+          size="sm"
+          className="h-6 text-[10px] px-2"
+          onClick={() => setActiveView("timeline")}
+          data-testid="trace-view-toggle-timeline"
+        >
+          <BarChart3 className="h-3.5 w-3.5 mr-1" /> Timeline
+        </Button>
+      </div>
+
+      {/* Active view */}
+      <div className="flex-1 min-h-0">
+        {activeView === "tree" ? <TraceTreeView /> : <TraceTimeline />}
+      </div>
+    </div>
+  );
 }
 
 export function TraceDetail() {
@@ -231,13 +269,13 @@ export function TraceDetail() {
       {/* Gold Verdict Banner */}
       {hasGold && <GoldVerdictBanner gold={trace.gold!} />}
 
-      {/* OBS-05: Tree View + Detail Panel (split layout) */}
+      {/* OBS-05/06: Tree + Timeline View with toggle + Detail Panel (split layout) */}
       {(hasGold || hasPhases || observationCount > 0) && (
         <div data-testid="trace-tree-section" className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Layers className="h-4 w-4" />
-              Execution Tree
+              Execution Explorer
             </h2>
             {/* Demo toggle for mock rich data */}
             <Button
@@ -258,32 +296,12 @@ export function TraceDetail() {
               <TraceSelectionProvider>
                 <TraceViewPrefsProvider>
                   <TraceLayout
-                    leftPanel={<TraceTreeView />}
+                    leftPanel={<LeftPanelWithToggle />}
                     rightPanel={<TraceDetailPanel />}
                   />
                 </TraceViewPrefsProvider>
               </TraceSelectionProvider>
             </TraceDataProvider>
-          </div>
-        </div>
-      )}
-
-      {/* Legacy Timeline View (Langfuse-style horizontal bars) */}
-      {(hasGold || hasPhases) && (
-        <div data-testid="trace-timeline-section" className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <Layers className="h-4 w-4" />
-              Timeline View
-            </h2>
-          </div>
-          <div className="rounded-lg border border-border bg-background/60 p-3">
-            <TraceTimeline
-              observations={showMock ? MOCK_OBSERVATIONS : (trace.observations ?? [])}
-              phases={showMock ? MOCK_PHASES : trace.phases}
-              gold={showMock ? MOCK_GOLD : trace.gold}
-              totalDurationMs={showMock ? 36000 : trace.totalDurationMs}
-            />
           </div>
         </div>
       )}

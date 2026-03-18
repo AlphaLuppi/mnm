@@ -9,7 +9,38 @@ import { Link } from "@/lib/router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TraceTimeline, MOCK_OBSERVATIONS, MOCK_PHASES, MOCK_GOLD } from "../components/traces/TraceTimeline";
+import { TraceDetailPanel } from "../components/traces/TraceDetailPanel";
+import { TraceLayout } from "../components/traces/TraceLayout";
 import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
+import { TraceDataProvider } from "../context/TraceDataContext";
+import { TraceSelectionProvider } from "../context/TraceSelectionContext";
+import { TraceViewPrefsProvider } from "../context/TraceViewPrefsContext";
+import type { TraceDetail } from "../api/traces";
+
+const mockTraceDetail: TraceDetail = {
+  id: "demo-trace-001",
+  companyId: "c1",
+  heartbeatRunId: null,
+  workflowInstanceId: null,
+  stageInstanceId: null,
+  agentId: "agent-demo",
+  parentTraceId: null,
+  name: "Fix authentication bug in login flow",
+  status: "completed",
+  startedAt: "2026-03-18T10:00:00Z",
+  completedAt: "2026-03-18T10:00:36Z",
+  totalDurationMs: 36000,
+  totalTokensIn: 18500,
+  totalTokensOut: 4200,
+  totalCostUsd: "0.34",
+  metadata: null,
+  tags: ["demo"],
+  phases: MOCK_PHASES,
+  gold: MOCK_GOLD,
+  observations: MOCK_OBSERVATIONS,
+  createdAt: "2026-03-18T10:00:00Z",
+  updatedAt: "2026-03-18T10:00:36Z",
+};
 
 export function TraceTimelineDemo() {
   const [showAcStatus, setShowAcStatus] = useState(true);
@@ -82,7 +113,7 @@ export function TraceTimelineDemo() {
         </div>
       )}
 
-      {/* Execution Timeline */}
+      {/* Execution Timeline (now provider-backed) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
@@ -98,13 +129,17 @@ export function TraceTimelineDemo() {
             {showAcStatus ? "Hide AC status" : "Show AC status"}
           </Button>
         </div>
-        <div className="rounded-lg border border-border bg-background/60 p-3">
-          <TraceTimeline
-            observations={MOCK_OBSERVATIONS}
-            phases={MOCK_PHASES}
-            gold={MOCK_GOLD}
-            totalDurationMs={36000}
-          />
+        <div className="rounded-lg border border-border bg-background/60 h-[500px]">
+          <TraceDataProvider trace={mockTraceDetail} isLoading={false}>
+            <TraceSelectionProvider>
+              <TraceViewPrefsProvider>
+                <TraceLayout
+                  leftPanel={<TraceTimeline />}
+                  rightPanel={<TraceDetailPanel />}
+                />
+              </TraceViewPrefsProvider>
+            </TraceSelectionProvider>
+          </TraceDataProvider>
         </div>
       </div>
 
