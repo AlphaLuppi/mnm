@@ -62,7 +62,7 @@ export function LensAnalysisResult({
       <div data-testid="trace-09-analysis-result" className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Analyzed {new Date(result.generatedAt).toLocaleString()} | {result.modelUsed} | ${result.costUsd.toFixed(4)}
+            Analyzed {new Date(result.generatedAt).toLocaleString()} | {result.modelUsed} | ${Number(result.costUsd || 0).toFixed(4)}
           </span>
           <Button
             data-testid="trace-09-analysis-refresh"

@@ -73,7 +73,7 @@ export function WorkflowTraces() {
     return latest - earliest;
   }, [traces]);
 
-  const totalCost = traces.reduce((sum, t) => sum + t.totalCostUsd, 0);
+  const totalCost = traces.reduce((sum, t) => sum + Number(t.totalCostUsd || 0), 0);
   const totalTokens = traces.reduce(
     (sum, t) => sum + t.totalTokensIn + t.totalTokensOut,
     0,
