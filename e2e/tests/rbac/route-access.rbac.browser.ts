@@ -66,7 +66,7 @@ const PROTECTED_ROUTES = [
     path: "/containers",
     permission: "agents:manage_containers",
     admin: true,
-    manager: true,
+    manager: false,
     contributor: false,
     viewer: false,
   },

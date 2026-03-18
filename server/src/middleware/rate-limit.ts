@@ -82,7 +82,11 @@ export function createRateLimiter(opts: RateLimiterOptions = {}): RequestHandler
     return { count: entry.count, resetAt: entry.resetAt };
   }
 
+  // Disable rate limiting in E2E mode (parallel Playwright tests from same IP exceed limits)
+  const isE2eMode = process.env.MNM_E2E_SEED === "true";
+
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (isE2eMode) { next(); return; }
     const key = keyGenerator(req);
 
     let result = await getRedisCount(key);
