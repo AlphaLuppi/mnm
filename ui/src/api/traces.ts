@@ -155,4 +155,7 @@ export const tracesApi = {
 
   detail: (companyId: string, traceId: string) =>
     api.get<TraceDetail>(`/companies/${companyId}/traces/${traceId}`),
+
+  getByHeartbeatRunId: (companyId: string, runId: string) =>
+    api.get<TraceDetail>(`/companies/${companyId}/traces/by-run/${runId}`),
 };
