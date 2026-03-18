@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "@/lib/router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Bot,
@@ -11,6 +11,19 @@ import {
   ChevronDown,
   ChevronRight,
   Sparkles,
+  Layers,
+  Wrench,
+  Brain,
+  Circle,
+  CheckCircle,
+  XCircle,
+  BookOpen,
+  Code,
+  Search,
+  MessageSquare,
+  Play,
+  Trophy,
+  HelpCircle,
 } from "lucide-react";
 import { Link } from "@/lib/router";
 import { tracesApi } from "../api/traces";
@@ -22,10 +35,12 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { LensSelector } from "../components/traces/LensSelector";
 import { LensAnalysisResult } from "../components/traces/LensAnalysisResult";
 import { RawObservationTree } from "../components/traces/RawObservationTree";
+import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
+import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatTokens, relativeTime, formatDuration, formatCost } from "../lib/utils";
-import type { TraceStatus } from "../api/traces";
+import { formatTokens, relativeTime, formatDuration, formatCost, cn } from "../lib/utils";
+import type { TraceStatus, TracePhase, TraceObservation } from "../api/traces";
 
 function statusVariant(status: TraceStatus): "secondary" | "outline" | "destructive" | "default" {
   switch (status) {
@@ -54,7 +69,6 @@ export function TraceDetail() {
     queryFn: () => tracesApi.detail(selectedCompanyId!, traceId!),
     enabled: !!selectedCompanyId && !!traceId,
     refetchInterval: (query) => {
-      // Auto-refresh for running traces
       const d = query.state.data;
       return d && d.status === "running" ? 5000 : false;
     },
@@ -70,6 +84,13 @@ export function TraceDetail() {
     if (!trace || !agents) return null;
     return agents.find((a) => a.id === trace.agentId)?.name ?? null;
   }, [trace, agents]);
+
+  // Map gold phases to silver phases by order
+  const goldSilverMap = useMemo(() => {
+    if (!trace?.gold?.phases || !trace?.phases) return new Map<number, TracePhase>();
+    const silverByOrder = new Map(trace.phases.map((p) => [p.order, p]));
+    return silverByOrder;
+  }, [trace]);
 
   useEffect(() => {
     if (trace) {
@@ -100,6 +121,8 @@ export function TraceDetail() {
   const isRunning = trace.status === "running";
   const totalTokens = trace.totalTokensIn + trace.totalTokensOut;
   const observationCount = trace.observations?.length ?? 0;
+  const hasGold = !!trace.gold && trace.gold.phases.length > 0;
+  const hasPhases = !!trace.phases && trace.phases.length > 0;
 
   return (
     <div data-testid="trace-09-detail" className="space-y-6">
@@ -147,6 +170,15 @@ export function TraceDetail() {
           <span data-testid="trace-09-date">
             {relativeTime(trace.startedAt)}
           </span>
+          {hasGold && (
+            <span
+              data-testid="trace-gold-indicator"
+              className="flex items-center gap-1.5 text-amber-400/80 font-medium"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              Gold Analysis
+            </span>
+          )}
           {isRunning && (
             <span
               data-testid="trace-09-live-indicator"
@@ -161,6 +193,50 @@ export function TraceDetail() {
           )}
         </div>
       </div>
+
+      {/* Gold Verdict Banner */}
+      {hasGold && <GoldVerdictBanner gold={trace.gold!} />}
+
+      {/* Gold Phase Cards (default view for completed traces with gold) */}
+      {hasGold && (
+        <div data-testid="trace-gold-phases" className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Phases ({trace.gold!.phases.length})
+          </h2>
+          <div className="space-y-2">
+            {trace.gold!.phases.map((goldPhase, idx) => (
+              <GoldPhaseCard
+                key={idx}
+                goldPhase={goldPhase}
+                silverPhase={goldSilverMap.get(goldPhase.phaseOrder)}
+                allObservations={trace.observations ?? []}
+                phaseIndex={idx}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Silver phases without gold (fallback) */}
+      {!hasGold && hasPhases && (
+        <div data-testid="trace-silver-phases" className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            Silver Phases ({trace.phases!.length})
+          </h2>
+          <div className="space-y-2">
+            {trace.phases!.map((phase, idx) => (
+              <SilverPhaseCard
+                key={idx}
+                phase={phase}
+                observations={trace.observations ?? []}
+                index={idx}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Lens selector + Analysis zone */}
       {!isRunning && (
@@ -218,4 +294,186 @@ export function TraceDetail() {
       </div>
     </div>
   );
+}
+
+// ---------- Silver-only phase card (fallback when no gold) ----------
+
+const silverPhaseTypeConfig: Record<
+  string,
+  { label: string; color: string; borderColor: string; icon: React.ElementType }
+> = {
+  COMPREHENSION: { label: "Comprehension", color: "text-blue-400", borderColor: "border-blue-500/20", icon: BookOpen },
+  IMPLEMENTATION: { label: "Implementation", color: "text-emerald-400", borderColor: "border-emerald-500/20", icon: Code },
+  VERIFICATION: { label: "Verification", color: "text-amber-400", borderColor: "border-amber-500/20", icon: Search },
+  COMMUNICATION: { label: "Communication", color: "text-purple-400", borderColor: "border-purple-500/20", icon: MessageSquare },
+  INITIALIZATION: { label: "Initialization", color: "text-gray-400", borderColor: "border-gray-500/20", icon: Play },
+  RESULT: { label: "Result", color: "text-cyan-400", borderColor: "border-cyan-500/20", icon: Trophy },
+  UNKNOWN: { label: "Unknown", color: "text-muted-foreground", borderColor: "border-border", icon: HelpCircle },
+};
+
+function SilverPhaseCard({
+  phase,
+  observations,
+  index,
+}: {
+  phase: TracePhase;
+  observations: TraceObservation[];
+  index: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const config = silverPhaseTypeConfig[phase.type] ?? silverPhaseTypeConfig.UNKNOWN;
+  const Icon = config.icon;
+
+  const phaseObs = useMemo(() => {
+    const flat = flattenObservationsLocal(observations);
+    return flat.slice(phase.startIdx, phase.endIdx + 1);
+  }, [observations, phase]);
+
+  return (
+    <div
+      data-testid={`trace-silver-card-${index}`}
+      className={cn("rounded-lg border bg-card hover:bg-accent/20 transition-colors", config.borderColor)}
+    >
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        )}
+        <Badge variant="outline" className={cn("text-[10px] gap-1 shrink-0", config.color, config.borderColor)}>
+          <Icon className="h-3 w-3" />
+          {config.label}
+        </Badge>
+        <span className="text-sm flex-1 truncate text-foreground/90">{phase.summary}</span>
+        <span className="text-[10px] text-muted-foreground shrink-0">{phase.observationCount} obs</span>
+      </button>
+
+      {expanded && phaseObs.length > 0 && (
+        <div className="border-t border-border/50 px-4 py-3">
+          <div className="rounded-md border border-border/50 bg-card/50 p-1 space-y-0.5">
+            {phaseObs.map((obs) => (
+              <SilverObsRow key={obs.id} observation={obs} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SilverObsRow({ observation }: { observation: TraceObservation }) {
+  const [showRawLocal, setShowRawLocal] = useState(false);
+  const hasDetails = observation.input != null || observation.output != null;
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "flex items-center gap-2 py-1.5 px-2 text-xs hover:bg-accent/30 transition-colors rounded-sm",
+          hasDetails && "cursor-pointer",
+        )}
+        onClick={() => hasDetails && setShowRawLocal((v) => !v)}
+        role={hasDetails ? "button" : undefined}
+        tabIndex={hasDetails ? 0 : undefined}
+        onKeyDown={
+          hasDetails
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowRawLocal((v) => !v);
+                }
+              }
+            : undefined
+        }
+      >
+        <span className="w-4 shrink-0">
+          {hasDetails &&
+            (showRawLocal ? (
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            ))}
+        </span>
+        {typeIconLocal(observation.type)}
+        {statusIconLocal(observation.status)}
+        <span className="font-mono font-medium truncate flex-1">{observation.name}</span>
+        {observation.durationMs != null && (
+          <span className="text-muted-foreground shrink-0">{formatDurationLocal(observation.durationMs)}</span>
+        )}
+      </div>
+      {showRawLocal && (
+        <div className="ml-6 mb-2 space-y-2">
+          {observation.input != null && (
+            <div>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Input</span>
+              <pre className="mt-0.5 text-[11px] bg-muted/40 rounded-sm p-2 overflow-x-auto whitespace-pre-wrap break-words max-h-48 overflow-y-auto font-mono">
+                {truncateJsonLocal(observation.input)}
+              </pre>
+            </div>
+          )}
+          {observation.output != null && (
+            <div>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Output</span>
+              <pre className="mt-0.5 text-[11px] bg-muted/40 rounded-sm p-2 overflow-x-auto whitespace-pre-wrap break-words max-h-48 overflow-y-auto font-mono">
+                {truncateJsonLocal(observation.output)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Local helpers ----------
+
+function flattenObservationsLocal(observations: TraceObservation[]): TraceObservation[] {
+  const result: TraceObservation[] = [];
+  function walk(obs: TraceObservation[]) {
+    for (const o of obs) {
+      result.push(o);
+      if (o.children && o.children.length > 0) walk(o.children);
+    }
+  }
+  walk(observations);
+  return result;
+}
+
+function typeIconLocal(type: string) {
+  switch (type) {
+    case "span":
+      return <Wrench className="h-3.5 w-3.5 text-info" />;
+    case "generation":
+      return <Brain className="h-3.5 w-3.5 text-agent" />;
+    default:
+      return <Circle className="h-3.5 w-3.5 text-muted-foreground" />;
+  }
+}
+
+function statusIconLocal(status: string) {
+  switch (status) {
+    case "completed":
+      return <CheckCircle className="h-3 w-3 text-success" />;
+    case "failed":
+    case "error":
+      return <XCircle className="h-3 w-3 text-error" />;
+    default:
+      return <Clock className="h-3 w-3 text-muted-foreground" />;
+  }
+}
+
+function formatDurationLocal(ms: number | null): string {
+  if (ms == null) return "";
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function truncateJsonLocal(value: unknown, maxLen = 500): string {
+  if (value == null) return "";
+  const str = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen) + "...[truncated]";
 }

@@ -10,6 +10,60 @@ export type TraceObservationType = (typeof TRACE_OBSERVATION_TYPES)[number];
 export const TRACE_OBSERVATION_STATUSES = ["started", "completed", "failed"] as const;
 export type TraceObservationStatus = (typeof TRACE_OBSERVATION_STATUSES)[number];
 
+// PIPE-02: Silver phase types
+export type TracePhaseType =
+  | "COMPREHENSION"
+  | "IMPLEMENTATION"
+  | "VERIFICATION"
+  | "COMMUNICATION"
+  | "INITIALIZATION"
+  | "RESULT"
+  | "UNKNOWN";
+
+export interface TracePhase {
+  order: number;
+  type: TracePhaseType;
+  name: string;
+  startIdx: number;
+  endIdx: number;
+  observationCount: number;
+  summary: string;
+}
+
+// PIPE-03: Gold analysis types
+export type GoldVerdict = "success" | "partial" | "failure" | "neutral";
+
+export interface TraceGoldPhase {
+  phaseOrder: number;
+  relevanceScore: number; // 0-100
+  annotation: string;
+  verdict: GoldVerdict;
+  keyObservationIds: string[];
+}
+
+export interface TraceGold {
+  generatedAt: string;
+  modelUsed: string;
+  prompt: string;
+  promptSources: {
+    global?: string;
+    workflow?: string;
+    agent?: string;
+    issue?: { id: string; title: string };
+    custom?: string;
+  };
+  phases: TraceGoldPhase[];
+  verdict: "success" | "partial" | "failure";
+  verdictReason: string;
+  highlights: string[];
+  issueAcStatus?: {
+    acId: string;
+    label: string;
+    status: "met" | "partial" | "not_met" | "unknown";
+    evidence?: string;
+  }[];
+}
+
 // TRACE-01: Trace data types
 export interface Trace {
   id: string;
@@ -29,6 +83,8 @@ export interface Trace {
   totalCostUsd: string;
   metadata: Record<string, unknown> | null;
   tags: string[] | null;
+  phases: TracePhase[] | null;
+  gold: TraceGold | null;
   createdAt: string;
   updatedAt: string;
 }
