@@ -37,6 +37,7 @@ import { LensAnalysisResult } from "../components/traces/LensAnalysisResult";
 import { RawObservationTree } from "../components/traces/RawObservationTree";
 import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
 import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
+import { TraceTimeline, MOCK_OBSERVATIONS, MOCK_PHASES, MOCK_GOLD } from "../components/traces/TraceTimeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatTokens, relativeTime, formatDuration, formatCost, cn } from "../lib/utils";
@@ -62,6 +63,7 @@ export function TraceDetail() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [showRaw, setShowRaw] = useState(false);
+  const [showMock, setShowMock] = useState(false);
   const [selectedLensId, setSelectedLensId] = useState<string | null>(null);
 
   const { data: trace, isLoading, error } = useQuery({
@@ -197,43 +199,32 @@ export function TraceDetail() {
       {/* Gold Verdict Banner */}
       {hasGold && <GoldVerdictBanner gold={trace.gold!} />}
 
-      {/* Gold Phase Cards (default view for completed traces with gold) */}
-      {hasGold && (
-        <div data-testid="trace-gold-phases" className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            Phases ({trace.gold!.phases.length})
-          </h2>
-          <div className="space-y-2">
-            {trace.gold!.phases.map((goldPhase, idx) => (
-              <GoldPhaseCard
-                key={idx}
-                goldPhase={goldPhase}
-                silverPhase={goldSilverMap.get(goldPhase.phaseOrder)}
-                allObservations={trace.observations ?? []}
-                phaseIndex={idx}
-              />
-            ))}
+      {/* Timeline View (Langfuse-style) */}
+      {(hasGold || hasPhases) && (
+        <div data-testid="trace-timeline-section" className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+              <Layers className="h-4 w-4" />
+              Execution Timeline
+            </h2>
+            {/* Demo toggle for mock rich data */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-[10px] h-6 text-muted-foreground"
+              onClick={() => setShowMock(!showMock)}
+              data-testid="trace-toggle-mock"
+            >
+              {showMock ? "Show real data" : "Demo: rich trace"}
+            </Button>
           </div>
-        </div>
-      )}
-
-      {/* Silver phases without gold (fallback) */}
-      {!hasGold && hasPhases && (
-        <div data-testid="trace-silver-phases" className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            Silver Phases ({trace.phases!.length})
-          </h2>
-          <div className="space-y-2">
-            {trace.phases!.map((phase, idx) => (
-              <SilverPhaseCard
-                key={idx}
-                phase={phase}
-                observations={trace.observations ?? []}
-                index={idx}
-              />
-            ))}
+          <div className="rounded-lg border border-border bg-background/60 p-3">
+            <TraceTimeline
+              observations={showMock ? MOCK_OBSERVATIONS : (trace.observations ?? [])}
+              phases={showMock ? MOCK_PHASES : trace.phases}
+              gold={showMock ? MOCK_GOLD : trace.gold}
+              totalDurationMs={showMock ? 36000 : trace.totalDurationMs}
+            />
           </div>
         </div>
       )}
