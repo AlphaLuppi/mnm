@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Bot,
@@ -26,6 +26,8 @@ import {
   HelpCircle,
   List,
   BarChart3,
+  GitBranch,
+  Radio,
 } from "lucide-react";
 import { Link } from "@/lib/router";
 import { tracesApi } from "../api/traces";
@@ -42,6 +44,7 @@ import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
 import { TraceTimeline, MOCK_OBSERVATIONS, MOCK_PHASES, MOCK_GOLD } from "../components/traces/TraceTimeline";
 import { TraceLayout } from "../components/traces/TraceLayout";
 import { TraceTreeView } from "../components/traces/TraceTreeView";
+import { TraceGraphView } from "../components/traces/TraceGraphView";
 import { TraceDetailPanel } from "../components/traces/TraceDetailPanel";
 import { TraceDataProvider } from "../context/TraceDataContext";
 import { TraceSelectionProvider } from "../context/TraceSelectionContext";
@@ -92,9 +95,9 @@ function statusVariant(status: TraceStatus): "secondary" | "outline" | "destruct
   }
 }
 
-// OBS-06: Left panel wrapper that toggles between Tree and Timeline
+// OBS-06/10: Left panel wrapper that toggles between Tree, Timeline, and Graph
 function LeftPanelWithToggle() {
-  const [activeView, setActiveView] = useState<"tree" | "timeline">("tree");
+  const [activeView, setActiveView] = useState<"tree" | "timeline" | "graph">("tree");
 
   return (
     <div className="flex flex-col h-full">
@@ -118,11 +121,22 @@ function LeftPanelWithToggle() {
         >
           <BarChart3 className="h-3.5 w-3.5 mr-1" /> Timeline
         </Button>
+        <Button
+          variant={activeView === "graph" ? "secondary" : "ghost"}
+          size="sm"
+          className="h-6 text-[10px] px-2"
+          onClick={() => setActiveView("graph")}
+          data-testid="trace-view-toggle-graph"
+        >
+          <GitBranch className="h-3.5 w-3.5 mr-1" /> Graph
+        </Button>
       </div>
 
       {/* Active view */}
       <div className="flex-1 min-h-0">
-        {activeView === "tree" ? <TraceTreeView /> : <TraceTimeline />}
+        {activeView === "tree" && <TraceTreeView />}
+        {activeView === "timeline" && <TraceTimeline />}
+        {activeView === "graph" && <TraceGraphView />}
       </div>
     </div>
   );
@@ -132,9 +146,11 @@ export function TraceDetail() {
   const { traceId } = useParams<{ traceId: string }>();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const queryClient = useQueryClient();
   const [showRaw, setShowRaw] = useState(false);
   const [showMock, setShowMock] = useState(false);
   const [selectedLensId, setSelectedLensId] = useState<string | null>(null);
+  const [liveEventCount, setLiveEventCount] = useState(0);
 
   const { data: trace, isLoading, error } = useQuery({
     queryKey: queryKeys.traces.detail(selectedCompanyId!, traceId!),
@@ -145,6 +161,91 @@ export function TraceDetail() {
       return d && d.status === "running" ? 5000 : false;
     },
   });
+
+  // OBS-11: Live streaming — subscribe to trace-specific WebSocket events
+  // When the trace is "running", listen for real-time observation updates
+  useEffect(() => {
+    if (!selectedCompanyId || !traceId || !trace || trace.status !== "running") return;
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(selectedCompanyId)}/events/ws`;
+
+    let socket: WebSocket | null = null;
+    let closed = false;
+
+    const connect = () => {
+      if (closed) return;
+      socket = new WebSocket(url);
+
+      socket.onmessage = (message) => {
+        const raw = typeof message.data === "string" ? message.data : "";
+        if (!raw) return;
+
+        try {
+          const event = JSON.parse(raw) as {
+            type: string;
+            companyId: string;
+            payload: Record<string, unknown>;
+          };
+
+          // Only handle trace events for THIS trace
+          const eventTraceId =
+            typeof event.payload?.traceId === "string"
+              ? event.payload.traceId
+              : null;
+          if (eventTraceId !== traceId) return;
+
+          if (
+            event.type === "trace.observation_created" ||
+            event.type === "trace.observation_completed"
+          ) {
+            // Invalidate the trace detail query to refetch with new observations
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.traces.detail(selectedCompanyId, traceId),
+            });
+            setLiveEventCount((prev) => prev + 1);
+          }
+
+          if (event.type === "trace.completed") {
+            // Trace finished — refetch to get final state + gold enrichment
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.traces.detail(selectedCompanyId, traceId),
+            });
+            // Also invalidate list so trace list page updates
+            queryClient.invalidateQueries({
+              queryKey: ["traces", selectedCompanyId],
+            });
+          }
+        } catch {
+          // Ignore non-JSON messages
+        }
+      };
+
+      socket.onerror = () => {
+        socket?.close();
+      };
+
+      socket.onclose = () => {
+        if (!closed) {
+          // Reconnect after 3s
+          setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close(1000, "trace_detail_unmount");
+      }
+    };
+  }, [selectedCompanyId, traceId, trace?.status, queryClient]);
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -260,7 +361,13 @@ export function TraceDetail() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-agent opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-agent" />
               </span>
-              In progress...
+              <Radio className="h-3.5 w-3.5" />
+              Live
+              {liveEventCount > 0 && (
+                <span className="text-[10px] text-muted-foreground">
+                  ({liveEventCount} events)
+                </span>
+              )}
             </span>
           )}
         </div>

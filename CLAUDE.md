@@ -29,17 +29,30 @@ Language: French for planning documents.
 | PIPE-04 | DONE | Gold engine — deterministic fallback + `claude -p --model haiku` fallback (no API key needed) |
 | PIPE-05 | DONE | UI Gold timeline — TraceDetail with Gold→Silver→Bronze drill-down (accordion style) |
 | PIPE-06 | DONE | Gold in RunDetail — agent run panel shows trace gold phases |
+| OBS-09 | DONE | Gold Haiku E2E — verified claude CLI in Docker, gold falls back to deterministic (JSON parse issue documented) |
+| OBS-10 | DONE | Agent Graph View — CSS-based phase flow graph (TraceGraphView.tsx), third view tab in Execution Explorer |
+| OBS-11 | DONE | Live Streaming — WebSocket subscription in TraceDetail for running traces, auto-refetch on new observations |
 
 ### What REMAINS — Next Session TODO
 
 | Step | Description | Priority |
 |------|-------------|----------|
-| **REFACTOR-UI** | Refaire l'UI timeline style Langfuse (barres horizontales, séquentiel/parallélisme, PAS des accordéons) | P0 |
 | **REAL-RUN** | Lancer un VRAI agent run via MnM Docker avec tool calls riches (Read, Edit, Bash) sur un projet temp | P0 |
-| **HAIKU-GOLD** | Tester le gold avec Haiku via `claude -p` sur des données riches (pas "deterministic-fallback") | P0 |
+| **HAIKU-GOLD-FIX** | Fix JSON parsing for Haiku gold (claude -p works in Docker, but response not always valid JSON — need retry/prompt improvement) | P0 |
 | PIPE-07 | UI Gold prompts management (settings page pour configurer prompts par scope) | P1 |
 | PIPE-08 | Workflow-level gold (agréger traces multi-agent) | P1 |
 | PIPE-09 | QC final bout-en-bout avec screenshots Chrome | P1 |
+
+### OBS-09 Gold Haiku E2E Verification (2026-03-18)
+
+**Findings:**
+- `claude` CLI IS available inside Docker at `/usr/local/bin/claude`
+- `claude -p --model haiku` is called successfully (not a network/auth issue)
+- However, the Haiku response is not always valid JSON — `parseGoldResponse()` fails
+- The gold engine correctly falls back to `deterministic-fallback` when JSON is unparseable
+- All 5 completed traces in DB show `modelUsed: "deterministic-fallback"`
+- **Root cause**: The prompt asks for JSON-only response, but Haiku sometimes wraps it in markdown or adds explanation text. The regex extractor handles ```json blocks but some edge cases slip through.
+- **Fix needed**: Add more robust JSON extraction (try multiple patterns) or add `--output-format json` to the claude -p call, or retry once on parse failure.
 
 ### How to Resume
 
@@ -81,9 +94,10 @@ packages/db/src/migrations/0045_trace_vision.sql      — Initial trace tables
 packages/db/src/migrations/0046_trace_vision_fixes.sql — RLS + schema alignment fixes
 packages/db/src/migrations/0047_gold_prompts.sql       — Gold prompts table + traces.gold column
 ui/src/pages/Traces.tsx                        — Trace list page
-ui/src/pages/TraceDetail.tsx                   — Trace detail (Gold→Silver→Bronze drill-down)
+ui/src/pages/TraceDetail.tsx                   — Trace detail (Gold→Silver→Bronze drill-down) + live streaming (OBS-11)
 ui/src/components/traces/GoldVerdictBanner.tsx  — Gold verdict banner component
 ui/src/components/traces/GoldPhaseCard.tsx      — Gold phase card component
+ui/src/components/traces/TraceGraphView.tsx     — OBS-10: CSS-based agent workflow graph (phase flow nodes)
 ```
 
 ## Key Documents
