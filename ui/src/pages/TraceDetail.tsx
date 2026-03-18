@@ -38,10 +38,42 @@ import { RawObservationTree } from "../components/traces/RawObservationTree";
 import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
 import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
 import { TraceTimeline, MOCK_OBSERVATIONS, MOCK_PHASES, MOCK_GOLD } from "../components/traces/TraceTimeline";
+import { TraceLayout } from "../components/traces/TraceLayout";
+import { TraceTreeView } from "../components/traces/TraceTreeView";
+import { TraceDetailPanel } from "../components/traces/TraceDetailPanel";
+import { TraceDataProvider } from "../context/TraceDataContext";
+import { TraceSelectionProvider } from "../context/TraceSelectionContext";
+import { TraceViewPrefsProvider } from "../context/TraceViewPrefsContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatTokens, relativeTime, formatDuration, formatCost, cn } from "../lib/utils";
-import type { TraceStatus, TracePhase, TraceObservation } from "../api/traces";
+import type { TraceStatus, TracePhase, TraceObservation, TraceDetail as TraceDetailType } from "../api/traces";
+
+// Mock trace detail for demo mode (reuses MOCK_* from TraceTimeline)
+const mockTraceDetail: TraceDetailType = {
+  id: "mock-trace-001",
+  companyId: "c1",
+  heartbeatRunId: null,
+  workflowInstanceId: null,
+  stageInstanceId: null,
+  agentId: "agent-mock",
+  parentTraceId: null,
+  name: "Demo: Fix auth bug",
+  status: "completed",
+  startedAt: "2026-03-18T10:00:00Z",
+  completedAt: "2026-03-18T10:00:36Z",
+  totalDurationMs: 36000,
+  totalTokensIn: 18500,
+  totalTokensOut: 4200,
+  totalCostUsd: "0.34",
+  metadata: null,
+  tags: ["demo"],
+  phases: MOCK_PHASES,
+  gold: MOCK_GOLD,
+  observations: MOCK_OBSERVATIONS,
+  createdAt: "2026-03-18T10:00:00Z",
+  updatedAt: "2026-03-18T10:00:36Z",
+};
 
 function statusVariant(status: TraceStatus): "secondary" | "outline" | "destructive" | "default" {
   switch (status) {
@@ -199,13 +231,13 @@ export function TraceDetail() {
       {/* Gold Verdict Banner */}
       {hasGold && <GoldVerdictBanner gold={trace.gold!} />}
 
-      {/* Timeline View (Langfuse-style) */}
-      {(hasGold || hasPhases) && (
-        <div data-testid="trace-timeline-section" className="space-y-2">
+      {/* OBS-05: Tree View + Detail Panel (split layout) */}
+      {(hasGold || hasPhases || observationCount > 0) && (
+        <div data-testid="trace-tree-section" className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Layers className="h-4 w-4" />
-              Execution Timeline
+              Execution Tree
             </h2>
             {/* Demo toggle for mock rich data */}
             <Button
@@ -217,6 +249,33 @@ export function TraceDetail() {
             >
               {showMock ? "Show real data" : "Demo: rich trace"}
             </Button>
+          </div>
+          <div className="rounded-lg border border-border bg-background/60 h-[500px]">
+            <TraceDataProvider
+              trace={showMock ? mockTraceDetail : trace}
+              isLoading={false}
+            >
+              <TraceSelectionProvider>
+                <TraceViewPrefsProvider>
+                  <TraceLayout
+                    leftPanel={<TraceTreeView />}
+                    rightPanel={<TraceDetailPanel />}
+                  />
+                </TraceViewPrefsProvider>
+              </TraceSelectionProvider>
+            </TraceDataProvider>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy Timeline View (Langfuse-style horizontal bars) */}
+      {(hasGold || hasPhases) && (
+        <div data-testid="trace-timeline-section" className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+              <Layers className="h-4 w-4" />
+              Timeline View
+            </h2>
           </div>
           <div className="rounded-lg border border-border bg-background/60 p-3">
             <TraceTimeline
