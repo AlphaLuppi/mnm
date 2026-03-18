@@ -77,7 +77,6 @@ See `_bmad-output/planning-artifacts/EXECUTION-TRACKER-V2.md` for real-time stat
 - `_bmad-output/planning-artifacts/architecture-b2b.md` — Architecture (8 ADRs)
 - `_bmad-output/planning-artifacts/epics-b2b.md` — 16 Epics, ~69 Stories
 - `_bmad-output/planning-artifacts/epics-scale-trace.md` — SCALE + TRACE Epics (20 stories)
-- `_bmad-output/planning-artifacts/EXECUTION-TRACKER.md` — B2B stories execution log (69/69 DONE)
 - `_bmad-output/planning-artifacts/EXECUTION-TRACKER-V2.md` — Current pipeline tracker
 - `_bmad-output/brainstorming/brainstorming-trace-summarization-2026-03-16.md` — Trace design brainstorm
 - `_bmad-output/brainstorming/brainstorming-langfuse-tracing-2026-03-16.md` — Langfuse analysis
