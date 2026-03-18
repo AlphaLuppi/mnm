@@ -20,7 +20,7 @@ export interface Trace {
   totalDurationMs: number | null;
   totalTokensIn: number;
   totalTokensOut: number;
-  totalCostUsd: number;
+  totalCostUsd: number | string;
   metadata: Record<string, unknown> | null;
   tags: string[];
   childTraceCount?: number;
@@ -46,7 +46,7 @@ export interface TraceObservation {
   inputTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
-  costUsd: number | null;
+  costUsd: number | string | null;
   model: string | null;
   modelParameters: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;

@@ -34,7 +34,7 @@ export interface LensAnalysisResult {
   modelUsed: string;
   inputTokens: number;
   outputTokens: number;
-  costUsd: number;
+  costUsd: number | string;
   createdAt: string;
 }
 
