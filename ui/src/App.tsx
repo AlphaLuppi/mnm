@@ -38,6 +38,7 @@ import { SsoConfig } from "./pages/SsoConfig";
 import { JiraImport } from "./pages/JiraImport";
 import { Traces } from "./pages/Traces";
 import { TraceDetail } from "./pages/TraceDetail";
+import { TraceTimelineDemo } from "./pages/TraceTimelineDemo";
 import { TraceSettings } from "./pages/TraceSettings";
 import { WorkflowTraces } from "./pages/WorkflowTraces";
 import { AuthPage } from "./pages/Auth";
@@ -161,6 +162,7 @@ function boardRoutes() {
       <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
       <Route path="import/jira" element={<RequirePermission permission="projects:manage" showForbidden><JiraImport /></RequirePermission>} />
       <Route path="traces" element={<RequirePermission permission="audit:read" showForbidden><Traces /></RequirePermission>} />
+      <Route path="traces/demo" element={<TraceTimelineDemo />} />
       <Route path="traces/:traceId" element={<RequirePermission permission="audit:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="settings/trace-lenses" element={<RequirePermission permission="audit:read" showForbidden><TraceSettings /></RequirePermission>} />
       <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="audit:read" showForbidden><WorkflowTraces /></RequirePermission>} />
