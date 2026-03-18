@@ -75,6 +75,7 @@ services:
       BETTER_AUTH_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
       MNM_MIGRATION_AUTO_APPLY: "true"
       MNM_E2E_SEED: "${MNM_E2E_SEED:-false}"
+      MNM_ALLOWED_HOSTNAMES: "localhost,127.0.0.1"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3100/api/health || exit 1"]
       interval: 15s

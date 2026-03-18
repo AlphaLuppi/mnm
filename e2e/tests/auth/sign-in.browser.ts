@@ -4,18 +4,28 @@
  * Tests the /auth page sign-in flow with real browser interactions.
  * Uses the unauthenticated browser context (no storageState).
  */
-import { test, expect } from "@playwright/test";
-import { USERS, TEST_PASSWORD } from "../../fixtures/seed-data";
+import { test as base, expect } from "@playwright/test";
+import { USERS, TEST_PASSWORD, BASE_URL } from "../../fixtures/seed-data";
 import { isAuthenticatedMode } from "../../fixtures/test-helpers";
 
+// Override storageState to use a clean (unauthenticated) browser context.
+// The sign-in tests need to see the auth form, not an already-authenticated session.
+const test = base.extend({
+  storageState: async ({}, use) => {
+    await use({ cookies: [], origins: [] });
+  },
+});
+
 test.describe("Auth — Sign In Page", () => {
-  test.beforeEach(async ({ page, request }) => {
-    const res = await request.get("/api/health").catch(() => null);
-    if (!res || !res.ok()) {
+  test.beforeEach(async ({ request }) => {
+    // Use a fresh request context (not the pre-authed one from browser project)
+    const healthRes = await fetch(`${BASE_URL}/api/health`).catch(() => null);
+    if (!healthRes || !healthRes.ok) {
       test.skip(true, "Server not running");
       return;
     }
-    if (!(await isAuthenticatedMode(request))) {
+    const body = await healthRes.json() as { deploymentMode?: string };
+    if (body.deploymentMode === "local_trusted") {
       test.skip(true, "Server in local_trusted mode — auth UI not used");
     }
   });

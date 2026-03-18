@@ -85,7 +85,7 @@ test.describe("Drift — RBAC Enforcement", () => {
     await viewerPage.waitForTimeout(3_000);
     const url = viewerPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await viewerPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await viewerPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     // Viewer may be redirected or see forbidden — both valid
     expect(hasForbidden || !url.includes("/drift") || url.includes("/projects")).toBeTruthy();
   });

@@ -51,7 +51,7 @@ test.describe("Dashboard Page — Contributor Access", () => {
     // Contributor does NOT have dashboard:view in presets
     const url = contributorPage.url();
     const hasForbidden = url.includes("forbidden") ||
-      (await contributorPage.locator("text=Forbidden").isVisible().catch(() => false));
+      (await contributorPage.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false));
     // Contributor may or may not be blocked depending on route guard
     // If they can see the dashboard, that's also acceptable
     expect(true).toBeTruthy(); // Page loaded without crashing

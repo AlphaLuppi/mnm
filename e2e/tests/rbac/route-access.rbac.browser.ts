@@ -96,7 +96,7 @@ async function assertForbidden(page: any, targetPath: string): Promise<void> {
   await page.waitForTimeout(3_000);
   const url = page.url();
   const hasForbidden = url.includes("forbidden") ||
-    (await page.locator("text=Forbidden").isVisible().catch(() => false)) ||
+    (await page.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false)) ||
     (await page.locator("text=permission").isVisible().catch(() => false));
   expect(hasForbidden || !url.includes(targetPath)).toBeTruthy();
 }
@@ -106,7 +106,7 @@ async function assertForbidden(page: any, targetPath: string): Promise<void> {
  */
 async function assertAllowed(page: any, targetPath: string): Promise<void> {
   await page.waitForTimeout(3_000);
-  const hasForbidden = await page.locator("text=Forbidden").isVisible().catch(() => false);
+  const hasForbidden = await page.locator("text=/Forbidden|Access Denied/").isVisible().catch(() => false);
   expect(hasForbidden).toBeFalsy();
 }
 
