@@ -5,6 +5,60 @@ import { api } from "./client";
 export type TraceStatus = "running" | "completed" | "failed" | "cancelled";
 export type ObservationType = "span" | "generation" | "event";
 
+// PIPE-02: Silver phase types
+export type TracePhaseType =
+  | "COMPREHENSION"
+  | "IMPLEMENTATION"
+  | "VERIFICATION"
+  | "COMMUNICATION"
+  | "INITIALIZATION"
+  | "RESULT"
+  | "UNKNOWN";
+
+export interface TracePhase {
+  order: number;
+  type: TracePhaseType;
+  name: string;
+  startIdx: number;
+  endIdx: number;
+  observationCount: number;
+  summary: string;
+}
+
+// PIPE-03: Gold analysis types
+export type GoldVerdict = "success" | "partial" | "failure" | "neutral";
+
+export interface TraceGoldPhase {
+  phaseOrder: number;
+  relevanceScore: number; // 0-100
+  annotation: string;
+  verdict: GoldVerdict;
+  keyObservationIds: string[];
+}
+
+export interface TraceGold {
+  generatedAt: string;
+  modelUsed: string;
+  prompt: string;
+  promptSources: {
+    global?: string;
+    workflow?: string;
+    agent?: string;
+    issue?: { id: string; title: string };
+    custom?: string;
+  };
+  phases: TraceGoldPhase[];
+  verdict: "success" | "partial" | "failure";
+  verdictReason: string;
+  highlights: string[];
+  issueAcStatus?: {
+    acId: string;
+    label: string;
+    status: "met" | "partial" | "not_met" | "unknown";
+    evidence?: string;
+  }[];
+}
+
 export interface Trace {
   id: string;
   companyId: string;
@@ -23,6 +77,8 @@ export interface Trace {
   totalCostUsd: number | string;
   metadata: Record<string, unknown> | null;
   tags: string[];
+  phases: TracePhase[] | null;
+  gold: TraceGold | null;
   childTraceCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +112,7 @@ export interface TraceObservation {
 
 export interface TraceDetail extends Trace {
   observations: TraceObservation[];
+  childTraces?: Trace[];
 }
 
 export interface TraceListResult {

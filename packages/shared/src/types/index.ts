@@ -344,7 +344,13 @@ export type {
   TraceLensScope,
   TraceLens,
   TraceLensResult,
-  // PIPE-03: Gold prompt types
+  // PIPE-02: Silver phase types
+  TracePhaseType,
+  TracePhase,
+  // PIPE-03: Gold analysis types
+  GoldVerdict,
+  TraceGoldPhase,
+  TraceGold,
   GoldPromptScope,
   GoldPrompt,
 } from "./trace.js";
