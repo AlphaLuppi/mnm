@@ -26,6 +26,7 @@ import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } fr
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { bronzeTraceCapture } from "./bronze-trace-capture.js";
+import { silverEnrichAfterCapture } from "./silver-trace-enrichment.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -1427,6 +1428,9 @@ export function heartbeatService(db: Db) {
         } catch (err) {
           logger.warn({ err, runId }, "Bronze trace capture failed to complete");
         }
+
+        // ── Silver Trace: deterministic phase enrichment (fire-and-forget) ──
+        silverEnrichAfterCapture(db, bronzeTraceId, run.companyId);
       }
 
       const finalizedRun = await getRun(run.id);
