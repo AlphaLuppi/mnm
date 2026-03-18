@@ -42,7 +42,17 @@ interface StreamJsonEvent {
   is_error?: boolean;
   // text / thinking
   text?: string;
-  // result
+  // result — fields are at top level in the stream JSON, not nested under "result"
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cached_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
+  total_cost_usd?: number;
+  stop_reason?: string;
+  errors?: string[];
+  // legacy: some adapters nest under "result"
   result?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -164,19 +174,19 @@ export function bronzeTraceCapture(db: Db) {
       if (!state) return;
 
       // Atomic aggregation of totals from observations (with RLS context + proper casts)
+      // NOTE: cost_usd is text, so we CAST to numeric before SUM to avoid "function sum(text) does not exist"
       await withTenantContext(db, state.companyId, async (tx) => {
-        await tx
-          .update(traces)
-          .set({
-            status: outcome,
-            completedAt: new Date(),
-            totalDurationMs: sql`CAST(EXTRACT(EPOCH FROM (NOW() - ${traces.startedAt})) * 1000 AS integer)`,
-            totalTokensIn: sql`COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
-            totalTokensOut: sql`COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
-            totalCostUsd: sql`COALESCE((SELECT SUM(cost_usd::numeric) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)::text`,
-            updatedAt: new Date(),
-          })
-          .where(eq(traces.id, state.traceId));
+        await tx.execute(sql`
+          UPDATE traces SET
+            status = ${outcome},
+            completed_at = NOW(),
+            total_duration_ms = CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 AS integer),
+            total_tokens_in = COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0),
+            total_tokens_out = COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0),
+            total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)::text,
+            updated_at = NOW()
+          WHERE id = ${state.traceId}
+        `);
       });
 
       publishLiveEvent({
@@ -276,16 +286,25 @@ async function persistBronzeObservation(
     case "result": {
       type = "event";
       name = "run-result";
+      // Stream format: usage{input_tokens,output_tokens}, total_cost_usd at top level
+      // Legacy format: nested under event.result
+      const u = event.usage;
       const r = event.result;
-      inputTokens = r?.input_tokens;
-      outputTokens = r?.output_tokens;
-      costUsd = r?.cost_usd?.toString();
-      status = r?.is_error ? "error" : "completed";
-      output = r ? {
-        stopReason: r.stop_reason,
-        errors: r.errors,
-        cachedTokens: r.cache_read_input_tokens,
-      } : undefined;
+      inputTokens = u?.input_tokens ?? r?.input_tokens;
+      outputTokens = u?.output_tokens ?? r?.output_tokens;
+      costUsd = event.total_cost_usd != null
+        ? event.total_cost_usd.toString()
+        : r?.cost_usd?.toString();
+      const isError = event.subtype === "error" || r?.is_error;
+      status = isError ? "error" : "completed";
+      output = {
+        stopReason: event.stop_reason ?? r?.stop_reason,
+        errors: event.errors ?? r?.errors,
+        cachedTokens: u?.cache_read_input_tokens ?? u?.cached_input_tokens ?? r?.cache_read_input_tokens,
+        inputTokens,
+        outputTokens,
+        costUsd,
+      };
       break;
     }
     case "init": {
