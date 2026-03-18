@@ -15,146 +15,133 @@ Language: French for planning documents.
 - **Observability**: Immutable audit trail, LLM summaries, k-anonymity dashboards
 - **Security**: Container isolation (Docker), credential proxy, mount allowlist
 - **69 B2B stories implemented** (TECH/RBAC/MU/ORCH/PROJ/OBS/CHAT/CONT/A2A/COMP/DUAL/SSO/DASH/ONB/DRIFT)
-- **Trace Vision**: Prompt-driven personalized trace analysis (Epic TRACE, 13 stories)
+- **Trace Vision**: Bronze→Silver→Gold trace pipeline (PIPE-01 to PIPE-06 done)
 
-## Autonomous Execution Pipeline V2 (2026-03-17)
+## CURRENT STATE — Bronze→Silver→Gold Pipeline (2026-03-18)
 
-### How to Resume After Compaction
+### What's DONE (verified with Chrome screenshots)
 
-1. Read THIS FILE first (CLAUDE.md)
-2. Read `_bmad-output/planning-artifacts/EXECUTION-TRACKER-V2.md` for current phase + next step
-3. Execute the next PENDING step in the tracker
-4. Update tracker status (PENDING → DONE)
-5. Commit atomically after each step
-6. Continue to next step
+| Step | Status | What |
+|------|--------|------|
+| PIPE-01 | DONE | Bronze capture in heartbeat.ts:onLog — 2000+ real observations from real agent runs |
+| PIPE-02 | DONE | Silver enrichment — deterministic phase detection (COMPREHENSION/IMPLEMENTATION/VERIFICATION...) |
+| PIPE-03 | DONE | Gold schema — traces.gold JSONB + gold_prompts table + CRUD API + default prompt seeded |
+| PIPE-04 | DONE | Gold engine — deterministic fallback + `claude -p --model haiku` fallback (no API key needed) |
+| PIPE-05 | DONE | UI Gold timeline — TraceDetail with Gold→Silver→Bronze drill-down (accordion style) |
+| PIPE-06 | DONE | Gold in RunDetail — agent run panel shows trace gold phases |
 
-### Pipeline Phases
+### What REMAINS — Next Session TODO
+
+| Step | Description | Priority |
+|------|-------------|----------|
+| **REFACTOR-UI** | Refaire l'UI timeline style Langfuse (barres horizontales, séquentiel/parallélisme, PAS des accordéons) | P0 |
+| **REAL-RUN** | Lancer un VRAI agent run via MnM Docker avec tool calls riches (Read, Edit, Bash) sur un projet temp | P0 |
+| **HAIKU-GOLD** | Tester le gold avec Haiku via `claude -p` sur des données riches (pas "deterministic-fallback") | P0 |
+| PIPE-07 | UI Gold prompts management (settings page pour configurer prompts par scope) | P1 |
+| PIPE-08 | Workflow-level gold (agréger traces multi-agent) | P1 |
+| PIPE-09 | QC final bout-en-bout avec screenshots Chrome | P1 |
+
+### How to Resume
+
+1. Read THIS FILE
+2. Read `_bmad-output/planning-artifacts/tech-spec-bronze-silver-gold-2026-03-18.md` for full tech spec v2
+3. Read the 3 review reports in `_bmad-output/planning-artifacts/REVIEW-*.md` for known issues
+4. Check memory files for user feedback/vision (especially `feedback_gold_hierarchical_auto.md`)
+5. Start with REFACTOR-UI or REAL-RUN depending on priorities
+
+### Critical Architecture Decisions
+
+**Bronze→Silver→Gold vision (user-confirmed):**
+- **Gold** = DEFAULT view the user sees. Intelligent timeline, phases scored, annotated, contextualized
+- **Silver** = expand for more detail. Still retravaillé, not raw. Grouped observations with summaries
+- **Bronze** = expand further for raw JSON blocks. Debug only.
+- Gold is AUTO-GENERATED at trace completion (not manual click)
+- Gold prompt is HIERARCHICAL: global → workflow → agent → issue context
+- Traces are a MIDDLEWARE on top of all adapters (heartbeat.ts:onLog), NOT inside adapters
+- For LLM enrichment (silver naming + gold analysis): use `claude -p --model haiku` which reuses existing Claude Code auth. Works in Docker too since admin is logged in as MnM user.
+
+**UI direction (user feedback):**
+- Current accordion/dropdown UI is NOT acceptable
+- Need Langfuse-style timeline: horizontal bars, sequential/parallel visibility, proportional durations
+- Look at https://langfuse.com for inspiration
+- The timeline should show multi-agent workflows as parallel lanes
+
+### Key Files for Trace Pipeline
 
 ```
-PHASE 1 — BUN MIGRATION + BUILD FIX
-├── STEP-1.1: Migrate pnpm → bun (package.json, scripts, lockfile, CI)
-├── STEP-1.2: Fix TypeScript typecheck errors
-├── STEP-1.3: Fix linter issues
-└── STEP-1.4: Verify build + dev server boots
-
-PHASE 2 — UI/UX DESIGN REVIEW
-├── STEP-2.1: Design audit report (review ALL pages/components)
-└── STEP-2.2: Implement design fixes from audit report
-
-PHASE 3 — E2E TEST INFRASTRUCTURE
-├── STEP-3.1: QA Architecture (seed system, cleanup, test strategy)
-├── STEP-3.2: Global setup (DB seed, auth fixtures, cleanup hooks)
-├── STEP-3.3: Implement E2E tests — Auth + Members + RBAC flows
-├── STEP-3.4: Implement E2E tests — Orchestration + Workflow flows
-├── STEP-3.5: Implement E2E tests — Chat + Container + Agents flows
-├── STEP-3.6: Implement E2E tests — Dashboard + Audit + SSO flows
-├── STEP-3.7: Implement E2E tests — Onboarding + Settings + Drift flows
-└── STEP-3.8: Full E2E run with video capture verification
-
-PHASE 4 — TRACE VISION IMPLEMENTATION
-├── STEP-4.1: TRACE-01 Schema (traces + observations tables)
-├── STEP-4.2: TRACE-02 Trace Service (CRUD + aggregation)
-├── STEP-4.3: TRACE-03 API Routes
-├── STEP-4.4: TRACE-07 Schema Lenses (analysis prompts per user)
-├── STEP-4.5: TRACE-04 Adapter Instrumentation (claude-local)
-├── STEP-4.6: TRACE-06 LiveEvents Trace Streaming
-├── STEP-4.7: TRACE-08 Lens Analysis Engine (LLM-powered)
-├── STEP-4.8: TRACE-11 Sub-Agent Trace Linking
-├── STEP-4.9: TRACE-09 UI — Trace Page + Lens Selector
-├── STEP-4.10: TRACE-10 UI — Lens Management + Context Pane
-├── STEP-4.11: TRACE-12 Workflow Story View (multi-agent timeline)
-├── STEP-4.12: TRACE-13 Live Multi-Agent Dashboard
-└── STEP-4.13: E2E tests for Trace Vision features
+server/src/services/bronze-trace-capture.ts    — Bronze capture middleware (hooks into onLog)
+server/src/services/silver-trace-enrichment.ts — Silver phase detection (deterministic)
+server/src/services/gold-trace-enrichment.ts   — Gold enrichment (claude -p Haiku + fallback)
+server/src/services/trace-service.ts           — Trace CRUD + aggregation
+server/src/services/lens-analysis.ts           — Legacy lens analysis (may be replaced by gold)
+server/src/services/heartbeat.ts               — WHERE bronze hooks in (onLog callback ~line 1257)
+server/src/routes/traces.ts                    — API routes for traces, lenses, gold prompts
+packages/db/src/schema/traces.ts               — DB schema (traces, observations, lenses, gold_prompts)
+packages/db/src/migrations/0045_trace_vision.sql      — Initial trace tables
+packages/db/src/migrations/0046_trace_vision_fixes.sql — RLS + schema alignment fixes
+packages/db/src/migrations/0047_gold_prompts.sql       — Gold prompts table + traces.gold column
+ui/src/pages/Traces.tsx                        — Trace list page
+ui/src/pages/TraceDetail.tsx                   — Trace detail (Gold→Silver→Bronze drill-down)
+ui/src/components/traces/GoldVerdictBanner.tsx  — Gold verdict banner component
+ui/src/components/traces/GoldPhaseCard.tsx      — Gold phase card component
 ```
-
-### Status Tracking
-
-See `_bmad-output/planning-artifacts/EXECUTION-TRACKER-V2.md` for real-time status.
 
 ## Key Documents
 
-- `_bmad-output/planning-artifacts/prd-b2b.md` — Product Requirements (52 FRs)
-- `_bmad-output/planning-artifacts/architecture-b2b.md` — Architecture (8 ADRs)
-- `_bmad-output/planning-artifacts/epics-b2b.md` — 16 Epics, ~69 Stories
-- `_bmad-output/planning-artifacts/epics-scale-trace.md` — SCALE + TRACE Epics (20 stories)
-- `_bmad-output/planning-artifacts/EXECUTION-TRACKER-V2.md` — Current pipeline tracker
-- `_bmad-output/brainstorming/brainstorming-trace-summarization-2026-03-16.md` — Trace design brainstorm
-- `_bmad-output/brainstorming/brainstorming-langfuse-tracing-2026-03-16.md` — Langfuse analysis
+- `_bmad-output/planning-artifacts/tech-spec-bronze-silver-gold-2026-03-18.md` — Tech spec v2 (Gold=default, hierarchical prompts, 9 stories)
+- `_bmad-output/planning-artifacts/REVIEW-ARCHITECT-trace-pipeline.md` — Architecture review (6/10, RLS fix applied)
+- `_bmad-output/planning-artifacts/REVIEW-ADVERSARIAL-trace-pipeline.md` — Adversarial review (4 critical, all fixed)
+- `_bmad-output/planning-artifacts/REVIEW-QA-trace-pipeline.md` — QA review (60+ AC enriched)
+- `_bmad-output/planning-artifacts/epics-b2b.md` — 16 Epics, ~69 Stories (all done)
+- `_bmad-output/planning-artifacts/epics-scale-trace.md` — TRACE Epics (13 stories)
+- `_bmad-output/planning-artifacts/UI-UX-AUDIT-REPORT.md` — UI audit (7.2/10)
 
 ## Repository Structure
 
 - `server/src/` — Express backend (routes/, services/, middleware/, realtime/, auth/)
 - `ui/src/` — React frontend (pages/, components/, hooks/, api/)
-- `packages/db/src/` — Drizzle ORM schema, migrations (50 tables, multi-tenant)
+- `packages/db/src/` — Drizzle ORM schema, migrations (50+ tables, multi-tenant)
 - `packages/shared/` — Shared types (B2B domain models)
 - `packages/adapters/` — Agent adapters (claude-local, cursor-local, etc.)
-- `e2e/` — Playwright E2E tests (real functional tests with video capture)
+- `e2e/` — Playwright E2E tests (59 pass in Docker authenticated mode)
 - `_bmad/` — BMAD framework. Do NOT modify.
-- `_bmad-output/` — Planning artifacts (B2B docs), brainstorming, stories
-- `_research/` — Technical research (orchestration patterns, Nanoclaw, OpenClaw)
+- `_bmad-output/` — Planning artifacts, brainstorming, reviews, stories
 
 ## Dev Commands
 
 ```bash
 bun install         # Install all dependencies
-bun run dev         # Start dev (server + ui)
+bun run dev         # Start dev (server + ui, embedded postgres)
 bun run build       # Build all packages
-bun run test        # Run vitest unit tests
-bun run test:run    # Run vitest once
-bun run typecheck   # TypeScript check all packages
-bun run db:generate # Generate Drizzle migrations
-bun run db:migrate  # Run migrations
-bun run test:e2e    # Run Playwright E2E tests (real browser, video capture)
-bun run test:e2e:report  # View E2E test report
+bun run typecheck   # TypeScript check (13/13 packages pass)
+bun run test:e2e    # Run Playwright E2E tests
+```
+
+## Docker (Authenticated Mode)
+
+```bash
+docker compose build server                    # Rebuild with latest code
+docker compose up -d --wait                    # Start server + DB + Redis
+# Server on http://127.0.0.1:3100 (authenticated mode, 48 RLS tables)
+# 59 E2E tests pass against Docker
 ```
 
 ## E2E Test System
 
-### Architecture
-- **Framework**: Playwright with video capture on every test
-- **Seed Data**: `e2e/global-setup.ts` injects realistic demo data into PostgreSQL before tests
-- **Cleanup**: `e2e/global-teardown.ts` cleans up test data after all tests complete
-- **Fixtures**: `e2e/fixtures/` provides authenticated page objects per role (admin, manager, contributor, viewer)
-- **Test Structure**: `e2e/tests/` organized by feature domain (auth/, members/, rbac/, orchestration/, etc.)
-
-### Running E2E Tests
-
-#### Option A: Against Docker (authenticated mode — recommended for full coverage)
+### Running
 ```bash
-docker compose -f docker-compose.dev.yml build            # Rebuild with latest code
-docker compose -f docker-compose.dev.yml up -d --wait     # Start server + DB + Redis
-bun run test:e2e                                           # 59 tests pass, auth + RBAC included
-bun run test:e2e:report                                    # View HTML report with videos
-```
+# Docker (recommended): 59 tests, auth + RBAC
+docker compose build && docker compose up -d --wait
+bun run test:e2e
 
-#### Option B: Against local dev server (local_trusted — faster, no auth)
-```bash
-bun run dev                                                # Start embedded postgres dev server
-bun run test:e2e                                           # 50 tests pass, auth tests skip
-bun run test:e2e:report                                    # View HTML report
+# Local dev: 50 tests, auth skipped
+bun run dev
+bun run test:e2e
 ```
-
-#### Notes
-- Video capture (.webm) works for auth/signout tests. Other tests use storageState which doesn't produce separate videos.
-- Screenshots are captured for ALL tests (122 screenshots in authenticated mode).
-- After Docker rebuild, migration 0045_trace_vision.sql auto-applies on first start.
 
 ### Writing New E2E Tests
-When implementing new features, ALWAYS add E2E tests that:
-1. Use the seed data from `e2e/fixtures/seed-data.ts`
-2. Test the full user flow (not just check code structure)
-3. Cover happy path + error cases + RBAC enforcement
-4. Use `data-testid` attributes for selectors
-5. Video capture is automatic (configured in playwright.config.ts)
-
-## Trace Vision — Product Vision
-
-MnM's trace system is NOT a Langfuse clone. It's a **prompt-driven trace analysis** system.
-
-1. Raw traces stored (every tool call, result)
-2. Each user writes a prompt describing what they care about (or picks from suggestions)
-3. LLM analyzes raw traces through user's personal lens
-4. Two users, same trace = different analyses
-5. Prompts saved per agent/workflow, auto-apply to new traces
-
-This is MnM's core differentiator. Full spec in `epics-scale-trace.md`.
+1. Use seed data from `e2e/fixtures/seed-data.ts`
+2. Real browser interactions (not file-content checks)
+3. Cover RBAC enforcement (4 roles)
+4. `data-testid` attributes for selectors
+5. Video capture automatic (playwright.config.ts)
