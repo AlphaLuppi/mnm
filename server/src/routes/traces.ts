@@ -3,6 +3,7 @@ import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { traceService } from "../services/trace-service.js";
 import { lensAnalysisService } from "../services/lens-analysis.js";
+import { enrichTrace, backfillSilverEnrichment } from "../services/silver-trace-enrichment.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import {
   createTraceSchema,
@@ -208,6 +209,29 @@ export function traceRoutes(db: Db) {
         return;
       }
       res.json(result);
+    },
+  );
+
+  // --- Silver Enrichment endpoints ---
+
+  // POST /api/companies/:companyId/traces/:traceId/enrich — run silver enrichment on one trace
+  router.post(
+    "/companies/:companyId/traces/:traceId/enrich",
+    requirePermission(db, "traces:write"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const phases = await enrichTrace(db, req.params.traceId as string, companyId);
+      res.json({ traceId: req.params.traceId, phaseCount: phases.length, phases });
+    },
+  );
+
+  // POST /api/traces/backfill-silver — backfill silver enrichment on all completed traces without phases
+  router.post(
+    "/traces/backfill-silver",
+    async (_req, res) => {
+      const enriched = await backfillSilverEnrichment(db);
+      res.json({ enriched });
     },
   );
 
