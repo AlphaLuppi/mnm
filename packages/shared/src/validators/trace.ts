@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TRACE_STATUSES, TRACE_OBSERVATION_TYPES, TRACE_OBSERVATION_STATUSES } from "../types/trace.js";
+import { TRACE_STATUSES, TRACE_OBSERVATION_TYPES, TRACE_OBSERVATION_STATUSES, GOLD_PROMPT_SCOPES } from "../types/trace.js";
 
 // TRACE-02: Create trace
 export const createTraceSchema = z.object({
@@ -106,3 +106,29 @@ export const updateTraceLensSchema = z.object({
 }).strict();
 
 export type UpdateTraceLens = z.infer<typeof updateTraceLensSchema>;
+
+// PIPE-03: Create gold prompt
+export const createGoldPromptSchema = z.object({
+  scope: z.enum(GOLD_PROMPT_SCOPES),
+  scopeId: z.string().uuid().optional(),
+  prompt: z.string().min(1).max(10000),
+  isActive: z.boolean().default(true),
+}).strict();
+
+export type CreateGoldPrompt = z.infer<typeof createGoldPromptSchema>;
+
+// PIPE-03: Update gold prompt
+export const updateGoldPromptSchema = z.object({
+  prompt: z.string().min(1).max(10000).optional(),
+  isActive: z.boolean().optional(),
+}).strict();
+
+export type UpdateGoldPrompt = z.infer<typeof updateGoldPromptSchema>;
+
+// PIPE-03: List gold prompts filters
+export const goldPromptFiltersSchema = z.object({
+  scope: z.enum(GOLD_PROMPT_SCOPES).optional(),
+  scopeId: z.string().uuid().optional(),
+}).strict();
+
+export type GoldPromptFilters = z.infer<typeof goldPromptFiltersSchema>;

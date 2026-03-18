@@ -21,6 +21,38 @@ export interface TracePhase {
   observationCount: number;
   summary: string;
 }
+
+// PIPE-03: Gold analysis types
+export interface TraceGoldPhase {
+  phaseOrder: number;
+  relevanceScore: number; // 0-100
+  annotation: string;
+  verdict: "success" | "partial" | "failure" | "neutral";
+  keyObservationIds: string[];
+}
+
+export interface TraceGold {
+  generatedAt: string;
+  modelUsed: string;
+  prompt: string;
+  promptSources: {
+    global?: string;
+    workflow?: string;
+    agent?: string;
+    issue?: { id: string; title: string };
+    custom?: string;
+  };
+  phases: TraceGoldPhase[];
+  verdict: "success" | "partial" | "failure";
+  verdictReason: string;
+  highlights: string[];
+  issueAcStatus?: {
+    acId: string;
+    label: string;
+    status: "met" | "partial" | "not_met" | "unknown";
+    evidence?: string;
+  }[];
+}
 import { agents } from "./agents.js";
 import { heartbeatRuns } from "./heartbeat_runs.js";
 import { workflowInstances } from "./workflow_instances.js";
@@ -48,6 +80,7 @@ export const traces = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     tags: jsonb("tags").$type<string[]>(),
     phases: jsonb("phases").$type<TracePhase[]>(),
+    gold: jsonb("gold").$type<TraceGold>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -140,5 +173,24 @@ export const traceLensResults = pgTable(
     lensTraceUniqueIdx: uniqueIndex("trace_lens_results_lens_trace_idx").on(table.lensId, table.traceId),
     lensWorkflowIdx: index("trace_lens_results_lens_workflow_idx").on(table.lensId, table.workflowInstanceId),
     companyUserIdx: index("trace_lens_results_company_user_idx").on(table.companyId, table.userId),
+  }),
+);
+
+// PIPE-03: gold_prompts — configurable prompts for gold analysis per scope
+export const goldPrompts = pgTable(
+  "gold_prompts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    scope: text("scope").notNull(), // 'global', 'workflow', 'agent', 'issue'
+    scopeId: uuid("scope_id"), // FK to workflow_templates, agents, or issues (nullable for global)
+    prompt: text("prompt").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    scopeIdx: index("gold_prompts_scope_idx").on(table.companyId, table.scope, table.scopeId),
   }),
 );
