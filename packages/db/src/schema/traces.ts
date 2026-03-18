@@ -11,6 +11,16 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
+
+export interface TracePhase {
+  order: number;
+  type: "COMPREHENSION" | "IMPLEMENTATION" | "VERIFICATION" | "COMMUNICATION" | "INITIALIZATION" | "RESULT" | "UNKNOWN";
+  name: string;
+  startIdx: number;
+  endIdx: number;
+  observationCount: number;
+  summary: string;
+}
 import { agents } from "./agents.js";
 import { heartbeatRuns } from "./heartbeat_runs.js";
 import { workflowInstances } from "./workflow_instances.js";
@@ -37,6 +47,7 @@ export const traces = pgTable(
     totalCostUsd: text("total_cost_usd").notNull().default("0"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     tags: jsonb("tags").$type<string[]>(),
+    phases: jsonb("phases").$type<TracePhase[]>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

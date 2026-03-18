@@ -19,6 +19,14 @@ import { traces, traceObservations } from "@mnm/db";
 import { eq, sql } from "drizzle-orm";
 import { publishLiveEvent } from "./live-events.js";
 
+/** Execute a DB operation with RLS tenant context set inside a transaction */
+async function withTenantContext<T>(db: Db, companyId: string, fn: (tx: Db) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.current_company_id', ${companyId}, true)`);
+    return fn(tx as unknown as Db);
+  });
+}
+
 // ─── Stream-JSON Event Types ────────────────────────────────────────────────
 
 interface StreamJsonEvent {
@@ -79,15 +87,18 @@ export function bronzeTraceCapture(db: Db) {
       workflowInstanceId?: string | null;
       stageInstanceId?: string | null;
     }): Promise<string> => {
-      const [row] = await db.insert(traces).values({
-        companyId: opts.companyId,
-        heartbeatRunId: opts.runId,
-        workflowInstanceId: opts.workflowInstanceId ?? null,
-        stageInstanceId: opts.stageInstanceId ?? null,
-        agentId: opts.agentId,
-        name: `Run ${opts.runId.slice(0, 8)} — ${opts.agentName}`,
-        status: "running",
-      }).returning();
+      const row = await withTenantContext(db, opts.companyId, async (tx) => {
+        const [r] = await tx.insert(traces).values({
+          companyId: opts.companyId,
+          heartbeatRunId: opts.runId,
+          workflowInstanceId: opts.workflowInstanceId ?? null,
+          stageInstanceId: opts.stageInstanceId ?? null,
+          agentId: opts.agentId,
+          name: `Run ${opts.runId.slice(0, 8)} — ${opts.agentName}`,
+          status: "running",
+        }).returning();
+        return r;
+      });
 
       const traceId = row.id;
 
@@ -152,19 +163,21 @@ export function bronzeTraceCapture(db: Db) {
       const state = activeRuns.get(runId);
       if (!state) return;
 
-      // Atomic aggregation of totals from observations
-      await db
-        .update(traces)
-        .set({
-          status: outcome,
-          completedAt: new Date(),
-          totalDurationMs: sql`EXTRACT(EPOCH FROM (NOW() - ${traces.startedAt})) * 1000`,
-          totalTokensIn: sql`COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
-          totalTokensOut: sql`COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
-          totalCostUsd: sql`COALESCE((SELECT SUM(cost_usd) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
-          updatedAt: new Date(),
-        })
-        .where(eq(traces.id, state.traceId));
+      // Atomic aggregation of totals from observations (with RLS context + proper casts)
+      await withTenantContext(db, state.companyId, async (tx) => {
+        await tx
+          .update(traces)
+          .set({
+            status: outcome,
+            completedAt: new Date(),
+            totalDurationMs: sql`CAST(EXTRACT(EPOCH FROM (NOW() - ${traces.startedAt})) * 1000 AS integer)`,
+            totalTokensIn: sql`COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
+            totalTokensOut: sql`COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)`,
+            totalCostUsd: sql`COALESCE((SELECT SUM(cost_usd::numeric) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)::text`,
+            updatedAt: new Date(),
+          })
+          .where(eq(traces.id, state.traceId));
+      });
 
       publishLiveEvent({
         companyId: state.companyId,
@@ -217,18 +230,20 @@ async function persistBronzeObservation(
       if (toolUseId && state.pendingToolCalls.has(toolUseId)) {
         const obsId = state.pendingToolCalls.get(toolUseId)!;
         // Update the existing observation instead of creating new one
-        await db
-          .update(traceObservations)
-          .set({
-            status: event.is_error ? "error" : "completed",
-            completedAt: new Date(),
-            durationMs: sql`EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000`,
-            output: event.content
-              ? truncateOutput({ content: event.content, is_error: event.is_error })
-              : null,
-            statusMessage: event.is_error ? "error" : null,
-          })
-          .where(eq(traceObservations.id, obsId));
+        await withTenantContext(db, state.companyId, async (tx) => {
+          await tx
+            .update(traceObservations)
+            .set({
+              status: event.is_error ? "error" : "completed",
+              completedAt: new Date(),
+              durationMs: sql`CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 AS integer)`,
+              output: event.content
+                ? truncateOutput({ content: event.content, is_error: event.is_error })
+                : null,
+              statusMessage: event.is_error ? "error" : null,
+            })
+            .where(eq(traceObservations.id, obsId));
+        });
 
         state.pendingToolCalls.delete(toolUseId);
 
@@ -289,22 +304,25 @@ async function persistBronzeObservation(
     }
   }
 
-  const [row] = await db.insert(traceObservations).values({
-    traceId: state.traceId,
-    companyId: state.companyId,
-    parentObservationId: parentObservationId ?? null,
-    type,
-    name,
-    status,
-    level: String(state.observationCount),
-    input: input ? truncateOutput(input) : null,
-    output: output ? truncateOutput(output) : null,
-    inputTokens: inputTokens ?? null,
-    outputTokens: outputTokens ?? null,
-    totalTokens: (inputTokens ?? 0) + (outputTokens ?? 0) || null,
-    costUsd: costUsd ?? null,
-    model: model ?? null,
-  }).returning();
+  const row = await withTenantContext(db, state.companyId, async (tx) => {
+    const [r] = await tx.insert(traceObservations).values({
+      traceId: state.traceId,
+      companyId: state.companyId,
+      parentObservationId: parentObservationId ?? null,
+      type,
+      name,
+      status,
+      level: String(state.observationCount),
+      input: input ? truncateOutput(input) : null,
+      output: output ? truncateOutput(output) : null,
+      inputTokens: inputTokens ?? null,
+      outputTokens: outputTokens ?? null,
+      totalTokens: (inputTokens ?? 0) + (outputTokens ?? 0) || null,
+      costUsd: costUsd ?? null,
+      model: model ?? null,
+    }).returning();
+    return r;
+  });
 
   // Track pending tool_use for matching tool_result later
   if (event.type === "tool_use" && event.tool_use_id) {

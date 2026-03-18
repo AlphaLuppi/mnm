@@ -1,8 +1,8 @@
 /**
  * Onboarding — Onboarding Wizard (browser tests)
  *
- * Tests the onboarding wizard dialog: step navigation, company creation flow.
- * The wizard is a Dialog component triggered from EmptyState or sidebar.
+ * Tests the onboarding wizard as a standalone page at /onboarding,
+ * accessible via redirect when no companies exist or via direct navigation.
  *
  * Note: In a seeded environment, companies already exist, so the full wizard
  * flow may not be triggerable. Tests verify the initial states and fallback.
@@ -11,6 +11,13 @@ import { test, expect } from "../../fixtures/auth.fixture";
 import { navigateAndWait } from "../../fixtures/test-helpers";
 
 test.describe("Onboarding Wizard", () => {
+  test("onboarding page renders wizard as standalone page", async ({ adminPage }) => {
+    await adminPage.goto("/onboarding");
+    await expect(adminPage.locator('[data-testid="onb-s01-wizard"]')).toBeVisible({ timeout: 10_000 });
+    // Verify it's a standalone page (no sidebar visible)
+    await expect(adminPage.locator('[data-testid="mu-s04-sidebar-container"]')).not.toBeVisible();
+  });
+
   test("dashboard shows onboarding prompt when no company selected", async ({ adminPage }) => {
     // Navigate to root — if no company, should show welcome
     await navigateAndWait(adminPage, "/");

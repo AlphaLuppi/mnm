@@ -24,7 +24,7 @@ const BOARD_ROUTE_ROOTS = new Set([
   "import",
 ]);
 
-const GLOBAL_ROUTE_ROOTS = new Set(["auth", "invite", "board-claim", "docs"]);
+const GLOBAL_ROUTE_ROOTS = new Set(["auth", "invite", "board-claim", "docs", "onboarding"]);
 
 export function normalizeCompanyPrefix(prefix: string): string {
   return prefix.trim().toUpperCase();
