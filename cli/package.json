@@ -44,7 +44,7 @@
     "@mnm/db": "workspace:*",
     "@mnm/server": "workspace:*",
     "@mnm/shared": "workspace:*",
-    "drizzle-orm": "0.38.4",
+    "drizzle-orm": "0.45.1",
     "dotenv": "^17.0.1",
     "commander": "^13.1.0",
     "picocolors": "^1.1.1"
