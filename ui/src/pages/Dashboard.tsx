@@ -8,16 +8,19 @@ import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useDriftScanStatus, useDriftResults } from "../hooks/useDriftResults";
+import { useDashboardLiveIndicator } from "../hooks/useDashboardLiveIndicator";
 import { MetricCard } from "../components/MetricCard";
 import { EmptyState } from "../components/EmptyState";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
+import { DashboardKpiCards } from "../components/DashboardKpiCards";
+import { DashboardTimeline } from "../components/DashboardTimeline";
+import { DashboardBreakdownPanel } from "../components/DashboardBreakdownPanel";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
 import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Radar, HeartPulse } from "lucide-react";
@@ -34,7 +37,6 @@ function getRecentIssues(issues: Issue[]): Issue[] {
 
 export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
-  const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
@@ -45,6 +47,9 @@ export function Dashboard() {
     localStorage.getItem("mnm:drift-prompt-hidden") === "true",
   );
   const [driftSessionDismissed, setDriftSessionDismissed] = useState(false);
+
+  // DASH-S03: Real-time live indicator
+  const { isLive, isFlashing, lastRefreshAt } = useDashboardLiveIndicator();
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -83,6 +88,13 @@ export function Dashboard() {
   const { data: runs } = useQuery({
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  // DASH-S02: Enriched KPIs from new endpoint
+  const { data: kpisData } = useQuery({
+    queryKey: queryKeys.dashboard.kpis(selectedCompanyId!),
+    queryFn: () => dashboardApi.kpis(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
@@ -187,7 +199,7 @@ export function Dashboard() {
           icon={LayoutDashboard}
           message="Welcome to MnM. Set up your first company and agent to get started."
           action="Get Started"
-          onAction={openOnboarding}
+          onAction={() => navigate("/onboarding")}
         />
       );
     }
@@ -204,6 +216,35 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* DASH-S03: Live indicator */}
+      <div data-testid="dash-s03-live-indicator" className="flex items-center gap-2">
+        <span data-testid="dash-s03-live-dot" className="relative flex h-2.5 w-2.5 shrink-0">
+          <span className={cn(
+            "absolute inline-flex h-full w-full rounded-full opacity-75",
+            isFlashing
+              ? "animate-ping bg-green-400"
+              : isLive
+                ? "animate-ping bg-green-400/50"
+                : "bg-muted-foreground/40",
+          )} />
+          <span className={cn(
+            "relative inline-flex rounded-full h-2.5 w-2.5",
+            isLive ? "bg-green-500" : "bg-muted-foreground/40",
+          )} />
+        </span>
+        <span data-testid="dash-s03-live-label" className={cn(
+          "text-xs font-medium",
+          isFlashing ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
+        )}>
+          Live
+        </span>
+        {lastRefreshAt && (
+          <span data-testid="dash-s03-last-refresh" className="text-xs text-muted-foreground">
+            Last updated {timeAgo(lastRefreshAt.toISOString())}
+          </span>
+        )}
+      </div>
+
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {hasNoAgents && (
@@ -215,7 +256,7 @@ export function Dashboard() {
             </p>
           </div>
           <button
-            onClick={() => openOnboarding({ initialStep: 2, companyId: selectedCompanyId! })}
+            onClick={() => navigate(`/onboarding?step=2&companyId=${selectedCompanyId}`)}
             className="text-sm font-medium text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 underline underline-offset-2 shrink-0"
           >
             Create one here
@@ -348,6 +389,15 @@ export function Dashboard() {
             <ChartCard title="Success Rate" subtitle="Last 14 days">
               <SuccessRateChart runs={runs ?? []} />
             </ChartCard>
+          </div>
+
+          {/* DASH-S02: Enterprise KPI Cards */}
+          <DashboardKpiCards data={kpisData} />
+
+          {/* DASH-S02: Activity Timeline + Breakdown */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <DashboardTimeline companyId={selectedCompanyId!} />
+            <DashboardBreakdownPanel companyId={selectedCompanyId!} />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">

@@ -45,6 +45,7 @@ export const AGENT_ROLES = [
   "devops",
   "researcher",
   "general",
+  "ic",
 ] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
@@ -60,6 +61,7 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
   devops: "DevOps",
   researcher: "Researcher",
   general: "General",
+  ic: "IC",
 };
 
 export const AGENT_ICON_NAMES = [
@@ -217,8 +219,82 @@ export const LIVE_EVENT_TYPES = [
   "workflow.updated",
   "workflow.completed",
   "workflow.deleted",
+  "workflow.paused",
+  "workflow.failed",
+  "workflow.terminated",
   "stage.transitioned",
+  "stage.initialized",
+  "stage.started",
+  "stage.validation_requested",
+  "stage.completed",
+  "stage.paused",
+  "stage.failed",
+  "stage.compaction_detected",
+  "stage.approved",
+  "stage.rejected",
+  "stage.resumed",
+  "stage.retried",
+  "stage.terminated",
+  "stage.reinjected",
+  "stage.compaction_failed",
+  "stage.skipped",
   "workspace.context.changed",
+  "audit.event_created",
+  "chat.message_sent",
+  "chat.channel_created",
+  "chat.channel_closed",
+  // ORCH-S02: WorkflowEnforcer events
+  "enforcement.check_passed",
+  "enforcement.check_failed",
+  "enforcement.preprompts_injected",
+  // ORCH-S03: HITL events
+  "hitl.validation_requested",
+  "hitl.approved",
+  "hitl.rejected",
+  // DRIFT-S02: Drift monitor events
+  "drift.alert_created",
+  "drift.alert_resolved",
+  "drift.monitoring_started",
+  "drift.monitoring_stopped",
+  // CONT-S01: Container lifecycle events
+  "container.created",
+  "container.started",
+  "container.completed",
+  "container.failed",
+  "container.timeout",
+  "container.oom",
+  "container.stopped",
+  "container.resource_update",
+  // chat-s03-live-event-attached, chat-s03-live-event-detached, chat-s03-live-event-error
+  "chat.pipe_attached",
+  "chat.pipe_detached",
+  "chat.pipe_error",
+  // COMP-S01: Compaction watcher events
+  // comp-s01-live-event-detected
+  "compaction.detected",
+  // comp-s01-live-event-snapshot
+  "compaction.snapshot_created",
+  // comp-s01-live-event-started
+  "compaction.watching_started",
+  // comp-s01-live-event-stopped
+  "compaction.watching_stopped",
+  // A2A-S01: A2A Bus live events
+  // a2a-s01-live-event-sent
+  "a2a.message_sent",
+  // a2a-s01-live-event-responded
+  "a2a.message_responded",
+  // a2a-s01-live-event-expired
+  "a2a.message_expired",
+  // DASH-S03: Dashboard real-time refresh event
+  "dashboard.refresh",
+  // A2A-S04: MCP connector live events
+  // a2a-s04-live-event
+  "a2a.mcp_connector_changed",
+  // TRACE-06: Trace live events
+  "trace.created",
+  "trace.observation_created",
+  "trace.observation_completed",
+  "trace.completed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
@@ -227,6 +303,16 @@ export type PrincipalType = (typeof PRINCIPAL_TYPES)[number];
 
 export const MEMBERSHIP_STATUSES = ["pending", "active", "suspended"] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
+
+export const BUSINESS_ROLES = ["admin", "manager", "contributor", "viewer"] as const;
+export type BusinessRole = (typeof BUSINESS_ROLES)[number];
+
+export const BUSINESS_ROLE_LABELS: Record<BusinessRole, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  contributor: "Contributor",
+  viewer: "Viewer",
+};
 
 export const INSTANCE_USER_ROLES = ["instance_admin"] as const;
 export type InstanceUserRole = (typeof INSTANCE_USER_ROLES)[number];
@@ -244,11 +330,31 @@ export const JOIN_REQUEST_STATUSES = ["pending_approval", "approved", "rejected"
 export type JoinRequestStatus = (typeof JOIN_REQUEST_STATUSES)[number];
 
 export const PERMISSION_KEYS = [
+  // --- Existing (16) ---
   "agents:create",
   "users:invite",
   "users:manage_permissions",
   "tasks:assign",
   "tasks:assign_scope",
   "joins:approve",
+  "projects:create",
+  "projects:manage",
+  "projects:manage_members",
+  "workflows:create",
+  "workflows:enforce",
+  "agents:manage_containers",
+  "company:manage_settings",
+  "company:manage_sso",
+  "audit:read",
+  "audit:export",
+  // --- New (5) — RBAC-S02 ---
+  "agents:launch",
+  "stories:create",
+  "stories:edit",
+  "dashboard:view",
+  "chat:agent",
+  // TRACE: Trace permissions
+  "traces:read",
+  "traces:write",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];

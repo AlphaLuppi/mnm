@@ -1,7 +1,7 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { workflowTemplates, workflowInstances, stageInstances, type WorkflowStageTemplateDef } from "@mnm/db";
-import { notFound } from "../errors.js";
+import { notFound, conflict } from "../errors.js";
 import { publishLiveEvent } from "./live-events.js";
 
 const BMAD_STAGES: WorkflowStageTemplateDef[] = [
@@ -110,8 +110,28 @@ export function workflowService(db: Db) {
   }
 
   async function deleteTemplate(id: string): Promise<void> {
-    const [row] = await db.delete(workflowTemplates).where(eq(workflowTemplates.id, id)).returning();
-    if (!row) throw notFound("Workflow template not found");
+    // Check for workflow instances referencing this template
+    const [usage] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(workflowInstances)
+      .where(eq(workflowInstances.templateId, id));
+
+    if (usage && usage.count > 0) {
+      throw conflict(
+        `This template is used by ${usage.count} workflow(s) and cannot be deleted`,
+      );
+    }
+
+    try {
+      const [row] = await db.delete(workflowTemplates).where(eq(workflowTemplates.id, id)).returning();
+      if (!row) throw notFound("Workflow template not found");
+    } catch (err: unknown) {
+      // Fallback: catch FK violation if instance was created between COUNT and DELETE
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "23503") {
+        throw conflict("This template is in use by workflow(s) and cannot be deleted");
+      }
+      throw err;
+    }
   }
 
   async function ensureBmadTemplate(companyId: string): Promise<TemplateRow> {
@@ -132,9 +152,25 @@ export function workflowService(db: Db) {
 
   // ─── Instances ────────────────────────────────────────────────
 
-  async function listInstances(companyId: string, filters?: { status?: string; projectId?: string }): Promise<WorkflowInstanceWithStages[]> {
+  async function listInstances(companyId: string, filters?: { status?: string; projectId?: string; allowedProjectIds?: string[] | null }): Promise<WorkflowInstanceWithStages[]> {
     const conditions = [eq(workflowInstances.companyId, companyId)];
     if (filters?.status) conditions.push(eq(workflowInstances.status, filters.status));
+
+    // PROJ-S03: Scope-based project filtering
+    if (filters?.allowedProjectIds !== undefined && filters.allowedProjectIds !== null) {
+      if (filters.allowedProjectIds.length === 0) {
+        conditions.push(sql`${workflowInstances.projectId} IS NULL`);
+      } else {
+        conditions.push(
+          sql`(${workflowInstances.projectId} IS NULL OR ${workflowInstances.projectId} IN (${sql.join(
+            filters.allowedProjectIds.map((id) => sql`${id}`),
+            sql`, `,
+          )}))`,
+        );
+      }
+    }
+
+    // Existing explicit filter
     if (filters?.projectId) conditions.push(eq(workflowInstances.projectId, filters.projectId));
 
     const instances = await db

@@ -24,11 +24,15 @@ import detectPort from "detect-port";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
+import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
-import { heartbeatService } from "./services/index.js";
+import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
+import { heartbeatService, subscribeDashboardRefreshEvents } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
+import { backfillSilverEnrichment } from "./services/silver-trace-enrichment.js";
+import { goldTraceEnrichment } from "./services/gold-trace-enrichment.js";
 
 type BetterAuthSessionUser = {
   id: string;
@@ -219,6 +223,31 @@ async function ensureLocalTrustedBoardPrincipal(db: any): Promise<void> {
   }
 }
 
+async function waitForDatabase(url: string, label: string, maxRetries = 10): Promise<void> {
+  const pgLib = await import("postgres");
+  const pg = pgLib.default;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const testSql = pg(url, { max: 1, connect_timeout: 5 });
+      try {
+        await testSql`SELECT 1`;
+      } finally {
+        await testSql.end();
+      }
+      logger.info(`${label} is reachable (attempt ${attempt}/${maxRetries})`);
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        logger.error({ err }, `${label} not reachable after ${maxRetries} attempts`);
+        throw err;
+      }
+      const delay = Math.min(1000 * 2 ** (attempt - 1), 15000);
+      logger.warn(`${label} not reachable (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 let db;
 let embeddedPostgres: EmbeddedPostgresInstance | null = null;
 let embeddedPostgresStartedByThisProcess = false;
@@ -228,6 +257,7 @@ let startupDbInfo:
   | { mode: "external-postgres"; connectionString: string }
   | { mode: "embedded-postgres"; dataDir: string; port: number };
 if (config.databaseUrl) {
+  await waitForDatabase(config.databaseUrl, "PostgreSQL");
   migrationSummary = await ensureMigrations(config.databaseUrl, "PostgreSQL");
 
   db = createDb(config.databaseUrl);
@@ -388,6 +418,12 @@ if (config.databaseUrl) {
 
   db = createDb(embeddedConnectionString);
   logger.info("Embedded PostgreSQL ready");
+  logger.warn(
+    "⚠️  You are using embedded PostgreSQL. For B2B/production workloads, " +
+      "use an external PostgreSQL instance instead. " +
+      "Quick start: pnpm db:dev (runs docker compose -f docker-compose.dev.yml up -d) " +
+      "then set DATABASE_URL=postgres://mnm:mnm_dev@127.0.0.1:5432/mnm",
+  );
   activeDatabaseConnectionString = embeddedConnectionString;
   startupDbInfo = { mode: "embedded-postgres", dataDir, port };
 }
@@ -469,6 +505,8 @@ if (config.deploymentMode === "authenticated") {
   authReady = true;
 }
 
+const redisState = createRedisClient(config.redisUrl);
+
 const uiMode = config.uiDevMiddleware ? "vite-dev" : config.serveUi ? "static" : "none";
 const storageService = createStorageServiceFromConfig(config);
 const app = await createApp(db as any, {
@@ -480,6 +518,7 @@ const app = await createApp(db as any, {
   bindHost: config.host,
   authReady,
   companyDeletionEnabled: config.companyDeletionEnabled,
+  redisState,
   betterAuthHandler,
   resolveSession,
 });
@@ -499,10 +538,19 @@ process.env.MNM_LISTEN_HOST = runtimeListenHost;
 process.env.MNM_LISTEN_PORT = String(listenPort);
 process.env.MNM_API_URL = `http://${runtimeApiHost}:${listenPort}`;
 
-setupLiveEventsWebSocketServer(server, db as any, {
+const liveEventsWss = setupLiveEventsWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
   resolveSessionFromHeaders,
 });
+
+const { wss: chatWss } = setupChatWebSocketServer(server, db as any, {
+  deploymentMode: config.deploymentMode,
+  resolveSessionFromHeaders,
+  redisState,
+});
+
+// DASH-S03: Initialize dashboard refresh emitter (debounced live event relay)
+subscribeDashboardRefreshEvents();
 
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);
@@ -511,6 +559,13 @@ if (config.heartbeatSchedulerEnabled) {
   void heartbeat.reapOrphanedRuns().catch((err) => {
     logger.error({ err }, "startup reap of orphaned heartbeat runs failed");
   });
+
+  // Silver → Gold enrichment backfill: silver first (phases), then gold (LLM/deterministic analysis)
+  void backfillSilverEnrichment(db as any)
+    .then(() => goldTraceEnrichment(db as any).backfillGoldEnrichment())
+    .catch((err) => {
+      logger.error({ err }, "startup silver→gold enrichment backfill failed");
+    });
 
   setInterval(() => {
     void heartbeat
@@ -630,22 +685,45 @@ server.listen(listenPort, config.host, () => {
   }
 });
 
-if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
-  const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
-    logger.info({ signal }, "Stopping embedded PostgreSQL");
+let shuttingDown = false;
+const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "Graceful shutdown initiated");
+
+  // Close all WebSocket connections
+  for (const client of liveEventsWss.clients) client.terminate();
+  for (const client of chatWss.clients) client.terminate();
+
+  // Stop accepting new connections
+  server.close(() => {
+    logger.info("HTTP server closed");
+  });
+
+  // Give in-flight requests time to finish (10s)
+  const forceExitTimer = setTimeout(() => {
+    logger.warn("Forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+  forceExitTimer.unref();
+
+  await disconnectRedis(redisState);
+
+  if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
     try {
-      await embeddedPostgres?.stop();
+      await embeddedPostgres.stop();
+      logger.info("Embedded PostgreSQL stopped");
     } catch (err) {
       logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
-    } finally {
-      process.exit(0);
     }
-  };
+  }
 
-  process.once("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  process.once("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
-}
+  process.exit(0);
+};
+
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});

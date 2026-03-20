@@ -16,6 +16,7 @@ export const updateCompanySchema = createCompanySchema
     spentMonthlyCents: z.number().int().nonnegative().optional(),
     requireBoardApprovalForNewAgents: z.boolean().optional(),
     brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+    invitationOnly: z.boolean().optional(),
   });
 
 export type UpdateCompany = z.infer<typeof updateCompanySchema>;

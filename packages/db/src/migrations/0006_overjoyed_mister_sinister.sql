@@ -1,4 +1,4 @@
-CREATE TABLE "agent_config_revisions" (
+CREATE TABLE IF NOT EXISTS "agent_config_revisions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"agent_id" uuid NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE "agent_config_revisions" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "issue_approvals" (
+CREATE TABLE IF NOT EXISTS "issue_approvals" (
 	"company_id" uuid NOT NULL,
 	"issue_id" uuid NOT NULL,
 	"approval_id" uuid NOT NULL,
@@ -29,8 +29,8 @@ ALTER TABLE "issue_approvals" ADD CONSTRAINT "issue_approvals_company_id_compani
 ALTER TABLE "issue_approvals" ADD CONSTRAINT "issue_approvals_issue_id_issues_id_fk" FOREIGN KEY ("issue_id") REFERENCES "public"."issues"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "issue_approvals" ADD CONSTRAINT "issue_approvals_approval_id_approvals_id_fk" FOREIGN KEY ("approval_id") REFERENCES "public"."approvals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "issue_approvals" ADD CONSTRAINT "issue_approvals_linked_by_agent_id_agents_id_fk" FOREIGN KEY ("linked_by_agent_id") REFERENCES "public"."agents"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "agent_config_revisions_company_agent_created_idx" ON "agent_config_revisions" USING btree ("company_id","agent_id","created_at");--> statement-breakpoint
-CREATE INDEX "agent_config_revisions_agent_created_idx" ON "agent_config_revisions" USING btree ("agent_id","created_at");--> statement-breakpoint
-CREATE INDEX "issue_approvals_issue_idx" ON "issue_approvals" USING btree ("issue_id");--> statement-breakpoint
-CREATE INDEX "issue_approvals_approval_idx" ON "issue_approvals" USING btree ("approval_id");--> statement-breakpoint
-CREATE INDEX "issue_approvals_company_idx" ON "issue_approvals" USING btree ("company_id");
+CREATE INDEX IF NOT EXISTS "agent_config_revisions_company_agent_created_idx" ON "agent_config_revisions" USING btree ("company_id","agent_id","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_config_revisions_agent_created_idx" ON "agent_config_revisions" USING btree ("agent_id","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issue_approvals_issue_idx" ON "issue_approvals" USING btree ("issue_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issue_approvals_approval_idx" ON "issue_approvals" USING btree ("approval_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "issue_approvals_company_idx" ON "issue_approvals" USING btree ("company_id");

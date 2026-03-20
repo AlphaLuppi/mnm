@@ -367,7 +367,7 @@ function SpecViewer({
           {driftResultsOpen && (
             <div className="px-5 pb-3 space-y-2 max-h-64 overflow-y-auto">
               {driftReport.drifts.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">Aucun drift détecté.</p>
+                <p className="text-xs text-muted-foreground py-2">No drift detected.</p>
               ) : (
                 driftReport.drifts.map((drift) => (
                   <DriftAlertCard key={drift.id} drift={drift} />
@@ -464,7 +464,6 @@ function StoryDetail({
         mod.issuesApi.list(companyId!, { q: node.title }),
       ),
     enabled: !!companyId,
-    refetchInterval: 10000,
   });
 
   const matchedIssueId = useMemo(() => {
@@ -591,7 +590,7 @@ function NodeGroupViewer({
       <ScrollArea className="flex-1 min-h-0">
         <div className="px-5 py-4 space-y-3">
           {node.children.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun élément dans ce groupe.</p>
+            <p className="text-sm text-muted-foreground">No items in this group.</p>
           ) : (
             node.children.map((child) => {
               const pct = child.progress.total > 0
@@ -813,7 +812,6 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
     queryKey: queryKeys.liveRuns(companyId ?? ""),
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId!),
     enabled: !!companyId,
-    refetchInterval: 5000,
   });
 
   const { data: assignmentsData } = useQuery({
@@ -830,7 +828,6 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
     queryFn: () =>
       import("../api/issues").then((m) => m.issuesApi.list(companyId!, { projectId })),
     enabled: !!companyId && !!projectId,
-    refetchInterval: 10000,
   });
 
   const { data: workspaceAgents = [] } = useQuery({

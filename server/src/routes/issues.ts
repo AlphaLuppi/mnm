@@ -15,6 +15,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  emitAudit,
   goalService,
   heartbeatService,
   issueApprovalService,
@@ -24,8 +25,10 @@ import {
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
 
 const MAX_ATTACHMENT_BYTES = Number(process.env.MNM_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_CONTENT_TYPES = new Set([
@@ -94,7 +97,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (req.actor.type === "board") {
       if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return;
       const allowed = await access.canUser(companyId, req.actor.userId, "tasks:assign");
-      if (!allowed) throw forbidden("Missing permission: tasks:assign");
+      if (!allowed) {
+        throw forbidden("Missing permission: tasks:assign", {
+          requiredPermission: "tasks:assign",
+          companyId,
+          resourceScope: null,
+        });
+      }
       return;
     }
     if (req.actor.type === "agent") {
@@ -103,7 +112,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       if (allowedByGrant) return;
       const actorAgent = await agentsSvc.getById(req.actor.agentId);
       if (actorAgent && actorAgent.companyId === companyId && canCreateAgentsLegacy(actorAgent)) return;
-      throw forbidden("Missing permission: tasks:assign");
+      throw forbidden("Missing permission: tasks:assign", {
+        requiredPermission: "tasks:assign",
+        companyId,
+        resourceScope: null,
+      });
     }
     throw unauthorized();
   }
@@ -194,6 +207,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
   router.get("/companies/:companyId/issues", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+
+    // PROJ-S03: Determine scope-based project filtering
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
     const assigneeUserFilterRaw = req.query.assigneeUserId as string | undefined;
     const touchedByUserFilterRaw = req.query.touchedByUserId as string | undefined;
     const unreadForUserFilterRaw = req.query.unreadForUserId as string | undefined;
@@ -230,6 +247,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       touchedByUserId,
       unreadForUserId,
       projectId: req.query.projectId as string | undefined,
+      allowedProjectIds: scopeProjectIds, // PROJ-S03: scope filter
       labelId: req.query.labelId as string | undefined,
       q: req.query.q as string | undefined,
     });
@@ -243,7 +261,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(result);
   });
 
-  router.post("/companies/:companyId/labels", validate(createIssueLabelSchema), async (req, res) => {
+  router.post("/companies/:companyId/labels", requirePermission(db, "stories:create"), validate(createIssueLabelSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const label = await svc.createLabel(companyId, req.body);
@@ -259,6 +277,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityId: label.id,
       details: { name: label.name, color: label.color },
     });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "issue.label_created",
+      targetType: "issue",
+      targetId: label.id,
+      metadata: { name: label.name },
+    });
+
     res.status(201).json(label);
   });
 
@@ -270,6 +297,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "stories:create");
     const removed = await svc.deleteLabel(labelId);
     if (!removed) {
       res.status(404).json({ error: "Label not found" });
@@ -287,6 +315,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityId: removed.id,
       details: { name: removed.name, color: removed.color },
     });
+
+    await emitAudit({
+      req, db, companyId: removed.companyId,
+      action: "issue.label_deleted",
+      targetType: "issue",
+      targetId: removed.id,
+      metadata: { name: removed.name },
+    });
     res.json(removed);
   });
 
@@ -298,6 +334,26 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+
+    // PROJ-S03: Scope check for single entity
+    const scopeProjectIds = await getScopeProjectIds(db, issue.companyId, req);
+    if (scopeProjectIds !== null && issue.projectId !== null) {
+      if (!scopeProjectIds.includes(issue.projectId)) {
+        await emitAudit({
+          req, db, companyId: issue.companyId,
+          action: "access.scope_denied",
+          targetType: "issue",
+          targetId: issue.id,
+          metadata: { requestedProjectId: issue.projectId, allowedProjectIds: scopeProjectIds },
+          severity: "warning",
+        });
+        throw forbidden("Access denied: resource outside project scope", {
+          error: "SCOPE_DENIED",
+          projectId: issue.projectId,
+        });
+      }
+    }
+
     const [ancestors, project, goal, mentionedProjectIds] = await Promise.all([
       svc.getAncestors(issue.id),
       issue.projectId ? projectsSvc.getById(issue.projectId) : null,
@@ -413,7 +469,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json({ ok: true });
   });
 
-  router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
+  router.post("/companies/:companyId/issues", requirePermission(db, "stories:create"), validate(createIssueSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     if (req.body.assigneeAgentId || req.body.assigneeUserId) {
@@ -437,6 +493,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityType: "issue",
       entityId: issue.id,
       details: { title: issue.title, identifier: issue.identifier },
+    });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "issue.created",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { title: issue.title, projectId: issue.projectId },
     });
 
     if (issue.assigneeAgentId && issue.status !== "backlog") {
@@ -464,6 +528,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "stories:edit");
     const assigneeWillChange =
       (req.body.assigneeAgentId !== undefined && req.body.assigneeAgentId !== existing.assigneeAgentId) ||
       (req.body.assigneeUserId !== undefined && req.body.assigneeUserId !== existing.assigneeUserId);
@@ -545,6 +610,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
         ...(commentBody ? { source: "comment" } : {}),
         _previous: hasFieldChanges ? previous : undefined,
       },
+    });
+
+    await emitAudit({
+      req, db, companyId: issue.companyId,
+      action: "issue.updated",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { changedFields: Object.keys(updateFields) },
     });
 
     let comment = null;
@@ -656,6 +729,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "stories:create");
     const attachments = await svc.listAttachments(id);
 
     const issue = await svc.remove(id);
@@ -684,6 +758,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityId: issue.id,
     });
 
+    await emitAudit({
+      req, db, companyId: issue.companyId,
+      action: "issue.deleted",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { title: issue.title },
+      severity: "warning",
+    });
+
     res.json(issue);
   });
 
@@ -695,6 +778,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    await assertCompanyPermission(db, req, issue.companyId, "tasks:assign");
 
     if (req.actor.type === "agent" && req.actor.agentId !== req.body.agentId) {
       res.status(403).json({ error: "Agent can only checkout as itself" });
@@ -716,6 +800,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityType: "issue",
       entityId: issue.id,
       details: { agentId: req.body.agentId },
+    });
+
+    await emitAudit({
+      req, db, companyId: issue.companyId,
+      action: "issue.checked_out",
+      targetType: "issue",
+      targetId: issue.id,
+      metadata: { agentId: req.body.agentId },
     });
 
     if (
@@ -774,6 +866,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       action: "issue.released",
       entityType: "issue",
       entityId: released.id,
+    });
+
+    await emitAudit({
+      req, db, companyId: released.companyId,
+      action: "issue.released",
+      targetType: "issue",
+      targetId: released.id,
+      metadata: { agentId: actor.agentId },
     });
 
     res.json(released);
@@ -1033,7 +1133,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(attachments.map(withContentPath));
   });
 
-  router.post("/companies/:companyId/issues/:issueId/attachments", async (req, res) => {
+  router.post("/companies/:companyId/issues/:issueId/attachments", requirePermission(db, "stories:edit"), async (req, res) => {
     const companyId = req.params.companyId as string;
     const issueId = req.params.issueId as string;
     assertCompanyAccess(req, companyId);
@@ -1104,6 +1204,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "issue.attachment_added",
+      targetType: "issue",
+      targetId: issueId,
+      metadata: { filename: attachment.originalFilename },
+    });
+
     await logActivity(db, {
       companyId,
       actorType: actor.actorType,
@@ -1154,6 +1262,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, attachment.companyId);
+    await assertCompanyPermission(db, req, attachment.companyId, "stories:edit");
 
     try {
       await storage.deleteObject(attachment.companyId, attachment.objectKey);
@@ -1168,6 +1277,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
 
     const actor = getActorInfo(req);
+    await emitAudit({
+      req, db, companyId: removed.companyId,
+      action: "issue.attachment_deleted",
+      targetType: "issue",
+      targetId: removed.id,
+      metadata: { filename: removed.originalFilename },
+    });
+
     await logActivity(db, {
       companyId: removed.companyId,
       actorType: actor.actorType,

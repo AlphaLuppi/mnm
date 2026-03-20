@@ -28,14 +28,13 @@ import { Button } from "@/components/ui/button";
 
 export function Layout() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
-  const { openNewIssue, openOnboarding } = useDialog();
+  const { openNewIssue } = useDialog();
   const { togglePanelVisible } = usePanel();
   const { companies, loading: companiesLoading, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { theme, toggleTheme } = useTheme();
   const { companyPrefix } = useParams<{ companyPrefix: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const onboardingTriggered = useRef(false);
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const nextTheme = theme === "dark" ? "light" : "dark";
@@ -44,15 +43,6 @@ export function Layout() {
     queryFn: () => healthApi.get(),
     retry: false,
   });
-
-  useEffect(() => {
-    if (companiesLoading || onboardingTriggered.current) return;
-    if (health?.deploymentMode === "authenticated") return;
-    if (companies.length === 0) {
-      onboardingTriggered.current = true;
-      openOnboarding();
-    }
-  }, [companies, companiesLoading, openOnboarding, health?.deploymentMode]);
 
   useEffect(() => {
     if (!companyPrefix || companiesLoading || companies.length === 0) return;
@@ -184,7 +174,7 @@ export function Layout() {
   );
 
   return (
-    <div className="flex h-dvh bg-background text-foreground overflow-hidden pt-[env(safe-area-inset-top)]">
+    <div data-testid="mu-s04-layout" className="flex h-dvh bg-background text-foreground overflow-hidden pt-[env(safe-area-inset-top)]">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -204,6 +194,7 @@ export function Layout() {
       {/* Combined sidebar area: company rail + inner sidebar + docs bar */}
       {isMobile ? (
         <div
+          data-testid="mu-s04-sidebar-container"
           className={cn(
             "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] transition-transform duration-100 ease-out",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -236,7 +227,7 @@ export function Layout() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col shrink-0 h-full">
+        <div data-testid="mu-s04-sidebar-container" className="flex flex-col shrink-0 h-full">
           <div className="flex flex-1 min-h-0">
             <CompanyRail />
             <div

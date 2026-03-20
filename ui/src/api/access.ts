@@ -1,4 +1,4 @@
-import type { AgentAdapterType, JoinRequest } from "@mnm/shared";
+import type { AgentAdapterType, BusinessRole, JoinRequest, PermissionKey } from "@mnm/shared";
 import { api } from "./client";
 
 type InviteSummary = {
@@ -75,6 +75,21 @@ type CompanyInviteCreated = {
   inviteMessage?: string | null;
 };
 
+export type EnrichedMember = {
+  id: string;
+  companyId: string;
+  principalType: string;
+  principalId: string;
+  status: string;
+  membershipRole: string | null;
+  businessRole: string;
+  createdAt: string;
+  updatedAt: string;
+  userName: string | null;
+  userEmail: string | null;
+  userImage: string | null;
+};
+
 export const accessApi = {
   createCompanyInvite: (
     companyId: string,
@@ -127,4 +142,36 @@ export const accessApi = {
 
   claimBoard: (token: string, code: string) =>
     api.post<{ claimed: true; userId: string }>(`/board-claim/${token}/claim`, { code }),
+
+  listMembers: (companyId: string) =>
+    api.get<EnrichedMember[]>(`/companies/${companyId}/members`),
+
+  updateMemberBusinessRole: (companyId: string, memberId: string, businessRole: BusinessRole) =>
+    api.patch<EnrichedMember>(`/companies/${companyId}/members/${memberId}/business-role`, {
+      businessRole,
+    }),
+
+  updateMemberStatus: (companyId: string, memberId: string, status: "active" | "suspended") =>
+    api.patch<EnrichedMember>(`/companies/${companyId}/members/${memberId}/status`, {
+      status,
+    }),
+
+  createEmailInvite: (companyId: string, email: string) =>
+    api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, {
+      email,
+      allowedJoinTypes: "human" as const,
+    }),
+
+  getMyPermissions: (companyId: string) =>
+    api.get<{
+      businessRole: string | null;
+      presetPermissions: PermissionKey[];
+      explicitGrants: Array<{ permissionKey: PermissionKey; scope: unknown }>;
+      effectivePermissions: PermissionKey[];
+    }>(`/companies/${companyId}/my-permissions`),
+
+  getRbacPresets: (companyId: string) =>
+    api.get<Record<string, readonly string[]>>(
+      `/companies/${companyId}/rbac/presets`,
+    ),
 };

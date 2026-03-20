@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { createCostEventSchema, updateBudgetSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { costService, companyService, agentService, logActivity } from "../services/index.js";
+import { costService, companyService, agentService, emitAudit, logActivity } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function costRoutes(db: Db) {
@@ -89,6 +89,14 @@ export function costRoutes(db: Db) {
       details: { budgetMonthlyCents: req.body.budgetMonthlyCents },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "cost.budget_updated",
+      targetType: "company",
+      targetId: companyId,
+      metadata: { budgetField: "budgetMonthlyCents", newValue: req.body.budgetMonthlyCents },
+    });
+
     res.json(company);
   });
 
@@ -123,6 +131,14 @@ export function costRoutes(db: Db) {
       entityType: "agent",
       entityId: updated.id,
       details: { budgetMonthlyCents: updated.budgetMonthlyCents },
+    });
+
+    await emitAudit({
+      req, db, companyId: updated.companyId,
+      action: "cost.agent_budget_updated",
+      targetType: "agent",
+      targetId: updated.id,
+      metadata: { budgetField: "budgetMonthlyCents", newValue: updated.budgetMonthlyCents },
     });
 
     res.json(updated);

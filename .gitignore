@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
-.pnpm-store/
+
+# E2E auth state
+e2e/.auth/
 
 # Build
 dist/
@@ -37,3 +39,5 @@ npm-debug.log*
 
 # Test
 coverage/
+playwright-report/
+test-results/

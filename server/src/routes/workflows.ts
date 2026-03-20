@@ -7,8 +7,11 @@ import {
   updateWorkflowInstanceSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { workflowService, logActivity } from "../services/index.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
+import { emitAudit, workflowService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
+import { forbidden } from "../errors.js";
 
 export function workflowRoutes(db: Db) {
   const router = Router();
@@ -31,6 +34,7 @@ export function workflowRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/workflow-templates",
+    requirePermission(db, "workflows:create"),
     validate(createWorkflowTemplateSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -47,6 +51,15 @@ export function workflowRoutes(db: Db) {
         entityId: template.id,
         details: { name: template.name },
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "workflow.template_created",
+        targetType: "workflow",
+        targetId: template.id,
+        metadata: { name: template.name },
+      });
+
       res.status(201).json(template);
     },
   );
@@ -57,7 +70,17 @@ export function workflowRoutes(db: Db) {
     async (req, res) => {
       const existing = await svc.getTemplate(req.params.id as string);
       assertCompanyAccess(req, existing.companyId);
+      await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
       const template = await svc.updateTemplate(existing.id, req.body);
+
+      await emitAudit({
+        req, db, companyId: existing.companyId,
+        action: "workflow.template_updated",
+        targetType: "workflow",
+        targetId: existing.id,
+        metadata: { name: template.name },
+      });
+
       res.json(template);
     },
   );
@@ -65,12 +88,23 @@ export function workflowRoutes(db: Db) {
   router.delete("/workflow-templates/:id", async (req, res) => {
     const existing = await svc.getTemplate(req.params.id as string);
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
     await svc.deleteTemplate(existing.id);
+
+    await emitAudit({
+      req, db, companyId: existing.companyId,
+      action: "workflow.template_deleted",
+      targetType: "workflow",
+      targetId: existing.id,
+      metadata: { name: existing.name },
+      severity: "warning",
+    });
+
     res.json({ deleted: true });
   });
 
   // Ensure BMAD builtin template exists for a company
-  router.post("/companies/:companyId/workflow-templates/ensure-bmad", async (req, res) => {
+  router.post("/companies/:companyId/workflow-templates/ensure-bmad", requirePermission(db, "workflows:create"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const template = await svc.ensureBmadTemplate(companyId);
@@ -82,9 +116,14 @@ export function workflowRoutes(db: Db) {
   router.get("/companies/:companyId/workflows", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const filters: { status?: string; projectId?: string } = {};
+
+    // PROJ-S03: Scope filtering
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
+    const filters: { status?: string; projectId?: string; allowedProjectIds?: string[] | null } = {};
     if (typeof req.query.status === "string") filters.status = req.query.status;
     if (typeof req.query.projectId === "string") filters.projectId = req.query.projectId;
+    filters.allowedProjectIds = scopeProjectIds; // PROJ-S03
     const instances = await svc.listInstances(companyId, filters);
     res.json(instances);
   });
@@ -92,11 +131,32 @@ export function workflowRoutes(db: Db) {
   router.get("/workflows/:id", async (req, res) => {
     const instance = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, instance.companyId);
+
+    // PROJ-S03: Scope check for single entity
+    const scopeProjectIds = await getScopeProjectIds(db, instance.companyId, req);
+    if (scopeProjectIds !== null && instance.projectId !== null) {
+      if (!scopeProjectIds.includes(instance.projectId)) {
+        await emitAudit({
+          req, db, companyId: instance.companyId,
+          action: "access.scope_denied",
+          targetType: "workflow",
+          targetId: instance.id,
+          metadata: { requestedProjectId: instance.projectId, allowedProjectIds: scopeProjectIds },
+          severity: "warning",
+        });
+        throw forbidden("Access denied: resource outside project scope", {
+          error: "SCOPE_DENIED",
+          projectId: instance.projectId,
+        });
+      }
+    }
+
     res.json(instance);
   });
 
   router.post(
     "/companies/:companyId/workflows",
+    requirePermission(db, "workflows:create"),
     validate(createWorkflowInstanceSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -113,6 +173,15 @@ export function workflowRoutes(db: Db) {
         entityId: instance.id,
         details: { name: instance.name },
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "workflow.instance_created",
+        targetType: "workflow",
+        targetId: instance.id,
+        metadata: { templateName: instance.name },
+      });
+
       res.status(201).json(instance);
     },
   );
@@ -123,7 +192,17 @@ export function workflowRoutes(db: Db) {
     async (req, res) => {
       const existing = await svc.getInstance(req.params.id as string);
       assertCompanyAccess(req, existing.companyId);
+      await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
       const instance = await svc.updateInstance(existing.id, req.body);
+
+      await emitAudit({
+        req, db, companyId: existing.companyId,
+        action: "workflow.instance_updated",
+        targetType: "workflow",
+        targetId: existing.id,
+        metadata: { changedFields: Object.keys(req.body) },
+      });
+
       res.json(instance);
     },
   );
@@ -131,7 +210,18 @@ export function workflowRoutes(db: Db) {
   router.delete("/workflows/:id", async (req, res) => {
     const existing = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
     await svc.deleteInstance(existing.id);
+
+    await emitAudit({
+      req, db, companyId: existing.companyId,
+      action: "workflow.instance_deleted",
+      targetType: "workflow",
+      targetId: existing.id,
+      metadata: { name: existing.name },
+      severity: "warning",
+    });
+
     res.json({ deleted: true });
   });
 

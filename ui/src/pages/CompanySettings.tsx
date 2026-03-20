@@ -6,6 +6,7 @@ import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Settings, Check, Sun, Moon, Monitor } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
@@ -270,8 +271,7 @@ export function CompanySettings() {
             </div>
             <div className="space-y-3 rounded-md border border-border px-4 py-4">
               <Field label="Company name" hint="The display name for your company.">
-                <input
-                  className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                <Input
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
@@ -281,8 +281,7 @@ export function CompanySettings() {
                 label="Description"
                 hint="Optional description shown in the company profile."
               >
-                <input
-                  className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                <Input
                   type="text"
                   value={description}
                   placeholder="Optional company description"
@@ -318,7 +317,7 @@ export function CompanySettings() {
                         onChange={(e) => setBrandColor(e.target.value)}
                         className="h-8 w-8 cursor-pointer rounded border border-border bg-transparent p-0"
                       />
-                      <input
+                      <Input
                         type="text"
                         value={brandColor}
                         onChange={(e) => {
@@ -328,7 +327,7 @@ export function CompanySettings() {
                           }
                         }}
                         placeholder="Auto"
-                        className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none"
+                        className="w-28 font-mono"
                       />
                       {brandColor && (
                         <Button
@@ -406,11 +405,11 @@ export function CompanySettings() {
                 </select>
               </Field>
               <Field label="Max concurrent agents" hint="Maximum number of agents that can run simultaneously (1-10).">
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={10}
-                  className="w-24 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                  className="w-24"
                   value={prefs.maxConcurrentAgents}
                   onChange={(e) =>
                     updatePref(
@@ -421,10 +420,10 @@ export function CompanySettings() {
                 />
               </Field>
               <Field label="Agent timeout (seconds)" hint="Maximum seconds an agent run can take before being terminated.">
-                <input
+                <Input
                   type="number"
                   min={0}
-                  className="w-24 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                  className="w-24"
                   value={prefs.agentTimeoutSec}
                   onChange={(e) =>
                     updatePref("agentTimeoutSec", Math.max(0, parseInt(e.target.value) || 0))

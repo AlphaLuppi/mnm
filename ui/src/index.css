@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -36,6 +37,24 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-role-admin: var(--role-admin);
+  --color-role-admin-bg: var(--role-admin-bg);
+  --color-role-manager: var(--role-manager);
+  --color-role-manager-bg: var(--role-manager-bg);
+  --color-role-contributor: var(--role-contributor);
+  --color-role-contributor-bg: var(--role-contributor-bg);
+  --color-role-viewer: var(--role-viewer);
+  --color-role-viewer-bg: var(--role-viewer-bg);
+  --color-agent: var(--agent);
+  --color-agent-bg: var(--agent-bg);
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0px;
@@ -77,6 +96,30 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* B2B semantic tokens — status */
+  --success: oklch(0.55 0.16 145);
+  --success-bg: oklch(0.95 0.04 145);
+  --warning: oklch(0.68 0.16 75);
+  --warning-bg: oklch(0.95 0.05 85);
+  --error: oklch(0.55 0.22 27);
+  --error-bg: oklch(0.95 0.04 25);
+  --info: oklch(0.55 0.15 250);
+  --info-bg: oklch(0.95 0.03 250);
+
+  /* B2B semantic tokens — roles */
+  --role-admin: oklch(0.55 0.2 15);
+  --role-admin-bg: oklch(0.95 0.04 15);
+  --role-manager: oklch(0.55 0.15 250);
+  --role-manager-bg: oklch(0.95 0.03 250);
+  --role-contributor: oklch(0.55 0.16 145);
+  --role-contributor-bg: oklch(0.95 0.04 145);
+  --role-viewer: oklch(0.55 0 0);
+  --role-viewer-bg: oklch(0.95 0 0);
+
+  /* B2B semantic tokens — agent */
+  --agent: oklch(0.55 0.15 200);
+  --agent-bg: oklch(0.95 0.03 200);
 }
 
 .dark {
@@ -112,6 +155,30 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* B2B semantic tokens — status (dark) */
+  --success: oklch(0.7 0.14 145);
+  --success-bg: oklch(0.25 0.04 145);
+  --warning: oklch(0.78 0.14 75);
+  --warning-bg: oklch(0.25 0.04 85);
+  --error: oklch(0.7 0.2 25);
+  --error-bg: oklch(0.25 0.04 25);
+  --info: oklch(0.7 0.13 250);
+  --info-bg: oklch(0.25 0.03 250);
+
+  /* B2B semantic tokens — roles (dark) */
+  --role-admin: oklch(0.72 0.17 15);
+  --role-admin-bg: oklch(0.22 0.04 15);
+  --role-manager: oklch(0.72 0.13 250);
+  --role-manager-bg: oklch(0.22 0.03 250);
+  --role-contributor: oklch(0.72 0.14 145);
+  --role-contributor-bg: oklch(0.22 0.04 145);
+  --role-viewer: oklch(0.72 0 0);
+  --role-viewer-bg: oklch(0.22 0 0);
+
+  /* B2B semantic tokens — agent (dark) */
+  --agent: oklch(0.72 0.13 200);
+  --agent-bg: oklch(0.22 0.03 200);
 }
 
 @layer base {
@@ -124,8 +191,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
     height: 100%;
     overflow: hidden;
+  }
+  .font-mono, code, pre, kbd, samp {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   h1,
   h2,
@@ -176,6 +247,15 @@
 
 .dark *::-webkit-scrollbar-thumb:hover {
   background: oklch(0.5 0 0);
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 /* Auto-hide scrollbar: transparent by default, visible on container hover */
@@ -237,8 +317,8 @@
 }
 
 /* MDXEditor theme integration */
-.paperclip-mdxeditor-scope,
-.paperclip-mdxeditor {
+.mnm-mdxeditor-scope,
+.mnm-mdxeditor {
   --baseBase: var(--background);
   --baseBg: transparent;
   --baseBgSubtle: color-mix(in oklab, var(--accent) 35%, transparent);
@@ -269,62 +349,62 @@
   color: var(--foreground);
 }
 
-.paperclip-mdxeditor-scope [class*="_iconButton_"],
-.paperclip-mdxeditor [class*="_iconButton_"] {
+.mnm-mdxeditor-scope [class*="_iconButton_"],
+.mnm-mdxeditor [class*="_iconButton_"] {
   color: var(--baseText);
 }
 
-.paperclip-mdxeditor-scope [class*="_iconButton_"]:hover,
-.paperclip-mdxeditor [class*="_iconButton_"]:hover {
+.mnm-mdxeditor-scope [class*="_iconButton_"]:hover,
+.mnm-mdxeditor [class*="_iconButton_"]:hover {
   color: var(--baseTextContrast);
 }
 
-.paperclip-mdxeditor .mdxeditor-root-contenteditable {
+.mnm-mdxeditor .mdxeditor-root-contenteditable {
   min-height: 2.5rem;
   padding: 0;
   line-height: 1.5;
 }
 
-.paperclip-mdxeditor [class*="_contentEditable_"] {
+.mnm-mdxeditor [class*="_contentEditable_"] {
   padding: 0.375rem 0.625rem !important;
 }
 
-.paperclip-mdxeditor--borderless [class*="_contentEditable_"] {
+.mnm-mdxeditor--borderless [class*="_contentEditable_"] {
   padding: 0 !important;
 }
 
-.paperclip-mdxeditor [class*="_placeholder_"] {
+.mnm-mdxeditor [class*="_placeholder_"] {
   font-family: inherit;
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--muted-foreground);
 }
 
-.paperclip-mdxeditor-content {
+.mnm-mdxeditor-content {
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
   color: inherit;
 }
 
-.paperclip-mdxeditor-content > *:first-child {
+.mnm-mdxeditor-content > *:first-child {
   margin-top: 0;
 }
 
-.paperclip-mdxeditor-content > *:last-child {
+.mnm-mdxeditor-content > *:last-child {
   margin-bottom: 0;
 }
 
-.paperclip-mdxeditor-content p {
+.mnm-mdxeditor-content p {
   margin: 0;
   line-height: 1.4;
 }
 
-.paperclip-mdxeditor-content p + p {
+.mnm-mdxeditor-content p + p {
   margin-top: 0.6rem;
 }
 
-.paperclip-mdxeditor-content a.paperclip-project-mention-chip {
+.mnm-mdxeditor-content a.mnm-project-mention-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -340,43 +420,43 @@
   user-select: none;
 }
 
-.paperclip-mdxeditor-content ul,
-.paperclip-mdxeditor-content ol {
+.mnm-mdxeditor-content ul,
+.mnm-mdxeditor-content ol {
   margin: 0.35rem 0;
   padding-left: 1.1rem;
 }
 
-.paperclip-mdxeditor-content ul {
+.mnm-mdxeditor-content ul {
   list-style: disc;
 }
 
-.paperclip-mdxeditor-content ol {
+.mnm-mdxeditor-content ol {
   list-style: decimal;
 }
 
-.paperclip-mdxeditor-content li {
+.mnm-mdxeditor-content li {
   display: list-item;
   margin: 0.15rem 0;
   line-height: 1.4;
 }
 
-.paperclip-mdxeditor-content li::marker {
+.mnm-mdxeditor-content li::marker {
   color: var(--muted-foreground);
 }
 
-.paperclip-mdxeditor-content h1,
-.paperclip-mdxeditor-content h2,
-.paperclip-mdxeditor-content h3 {
+.mnm-mdxeditor-content h1,
+.mnm-mdxeditor-content h2,
+.mnm-mdxeditor-content h3 {
   margin: 0.4rem 0 0.25rem;
   line-height: 1.3;
 }
 
-.paperclip-mdxeditor-content img {
+.mnm-mdxeditor-content img {
   max-height: 18rem;
   border-radius: calc(var(--radius) - 2px);
 }
 
-.paperclip-mdxeditor-content blockquote {
+.mnm-mdxeditor-content blockquote {
   margin: 0.45rem 0;
   padding-left: 0.7rem;
   border-left: 2px solid var(--border);
@@ -384,12 +464,12 @@
   line-height: 1.4;
 }
 
-.paperclip-mdxeditor-content code {
+.mnm-mdxeditor-content code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.84em;
 }
 
-.paperclip-mdxeditor-content pre {
+.mnm-mdxeditor-content pre {
   margin: 0.5rem 0;
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--border);
@@ -426,7 +506,7 @@
   font-weight: 500;
 }
 
-.paperclip-mermaid {
+.mnm-mermaid {
   margin: 0.5rem 0;
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--border);
@@ -435,7 +515,7 @@
   overflow-x: auto;
 }
 
-.paperclip-mermaid svg {
+.mnm-mermaid svg {
   display: block;
   width: max-content;
   max-width: none;
@@ -443,17 +523,17 @@
   height: auto;
 }
 
-.paperclip-mermaid-status {
+.mnm-mermaid-status {
   margin: 0 0 0.45rem;
   font-size: 0.75rem;
   color: var(--muted-foreground);
 }
 
-.paperclip-mermaid-status-error {
+.mnm-mermaid-status-error {
   color: var(--destructive);
 }
 
-.paperclip-mermaid-source {
+.mnm-mermaid-source {
   margin: 0;
   padding: 0;
   border: 0;
@@ -461,7 +541,7 @@
 }
 
 /* Project mention chips rendered inside MarkdownBody */
-a.paperclip-project-mention-chip {
+a.mnm-project-mention-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -477,24 +557,24 @@ a.paperclip-project-mention-chip {
 }
 
 /* Keep MDXEditor popups above app dialogs when editor is inside a modal. */
-.paperclip-mdxeditor-scope [class*="_dialogOverlay_"],
-.paperclip-mdxeditor [class*="_dialogOverlay_"] {
+.mnm-mdxeditor-scope [class*="_dialogOverlay_"],
+.mnm-mdxeditor [class*="_dialogOverlay_"] {
   z-index: 80;
 }
 
-.paperclip-mdxeditor-scope [class*="_dialogContent_"],
-.paperclip-mdxeditor-scope [class*="_largeDialogContent_"],
-.paperclip-mdxeditor-scope [class*="_popoverContent_"],
-.paperclip-mdxeditor-scope [class*="_linkDialogPopoverContent_"],
-.paperclip-mdxeditor-scope [class*="_tableColumnEditorPopoverContent_"],
-.paperclip-mdxeditor-scope [class*="_toolbarButtonDropdownContainer_"],
-.paperclip-mdxeditor-scope [class*="_toolbarNodeKindSelectContainer_"],
-.paperclip-mdxeditor [class*="_dialogContent_"],
-.paperclip-mdxeditor [class*="_largeDialogContent_"],
-.paperclip-mdxeditor [class*="_popoverContent_"],
-.paperclip-mdxeditor [class*="_linkDialogPopoverContent_"],
-.paperclip-mdxeditor [class*="_tableColumnEditorPopoverContent_"],
-.paperclip-mdxeditor [class*="_toolbarButtonDropdownContainer_"],
-.paperclip-mdxeditor [class*="_toolbarNodeKindSelectContainer_"] {
+.mnm-mdxeditor-scope [class*="_dialogContent_"],
+.mnm-mdxeditor-scope [class*="_largeDialogContent_"],
+.mnm-mdxeditor-scope [class*="_popoverContent_"],
+.mnm-mdxeditor-scope [class*="_linkDialogPopoverContent_"],
+.mnm-mdxeditor-scope [class*="_tableColumnEditorPopoverContent_"],
+.mnm-mdxeditor-scope [class*="_toolbarButtonDropdownContainer_"],
+.mnm-mdxeditor-scope [class*="_toolbarNodeKindSelectContainer_"],
+.mnm-mdxeditor [class*="_dialogContent_"],
+.mnm-mdxeditor [class*="_largeDialogContent_"],
+.mnm-mdxeditor [class*="_popoverContent_"],
+.mnm-mdxeditor [class*="_linkDialogPopoverContent_"],
+.mnm-mdxeditor [class*="_tableColumnEditorPopoverContent_"],
+.mnm-mdxeditor [class*="_toolbarButtonDropdownContainer_"],
+.mnm-mdxeditor [class*="_toolbarNodeKindSelectContainer_"] {
   z-index: 81 !important;
 }
