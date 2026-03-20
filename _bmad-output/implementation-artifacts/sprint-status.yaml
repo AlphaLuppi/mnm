@@ -1,0 +1,193 @@
+# generated: 2026-03-19 14:00
+# project: mnm
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+generated: 2026-03-19 14:00
+project: mnm
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ══════════════════════════════════════════════════
+  # EPICS B2B (epics-b2b.md)
+  # ══════════════════════════════════════════════════
+
+  # Epic 0 — Infrastructure & Setup
+  epic-0-infra: in-progress
+  tech-01-migration-postgresql-externe: done
+  tech-02-docker-compose-environment: done
+  tech-03-infrastructure-de-test: done
+  tech-04-redis-setup: done
+  tech-05-rls-postgresql: done
+  tech-06-schema-db-10-nouvelles-tables: in-progress
+  tech-07-schema-db-modifications-5-tables: in-progress
+  tech-08-ci-cd-pipeline-github-actions: in-progress
+  epic-0-infra-retrospective: optional
+
+  # Epic MU — Multi-User & Auth
+  epic-mu-multi-user-auth: in-progress
+  mu-s01-api-invitations-par-email: done
+  mu-s02-page-membres-avec-tableau-et-filtres: done
+  mu-s03-invitation-bulk-csv: backlog
+  mu-s04-selecteur-de-company: done
+  mu-s05-desactivation-signup-libre: done
+  mu-s06-sign-out-avec-invalidation-session: done
+  epic-mu-retrospective: optional
+
+  # Epic RBAC — Roles & Permissions
+  epic-rbac-roles-permissions: in-progress
+  rbac-s01-fix-haspermission-scope-jsonb: backlog
+  rbac-s02-9-permission-keys-presets-par-role: backlog
+  rbac-s03-businessrole-sur-company-memberships: backlog
+  rbac-s04-enforcement-dans-22-fichiers-routes: backlog
+  rbac-s05-navigation-ui-masquee-selon-permissions: backlog
+  rbac-s06-ui-admin-matrice-permissions-page-roles: backlog
+  rbac-s07-badges-couleur-par-role: backlog
+  epic-rbac-retrospective: optional
+
+  # Epic PROJ — Scoping par Projet
+  epic-proj-scoping-par-projet: backlog
+  proj-s01-table-project-memberships-migration: backlog
+  proj-s02-service-project-memberships: backlog
+  proj-s03-filtrage-agents-issues-par-scope-projet: backlog
+  proj-s04-page-projectaccess: backlog
+  epic-proj-retrospective: optional
+
+  # Epic ORCH — Orchestrateur Deterministe (Noyau A)
+  epic-orch-orchestrateur-deterministe: backlog
+  orch-s01-state-machine-workflow-state-machine: backlog
+  orch-s02-workflowenforcer-fichiers-obligatoires: backlog
+  orch-s03-validation-humaine-hitl: backlog
+  orch-s04-api-routes-orchestrateur: backlog
+  orch-s05-ui-editeur-de-workflow: backlog
+  epic-orch-retrospective: optional
+
+  # Epic DRIFT — Drift Detection
+  epic-drift-drift-detection: in-progress
+  drift-s01-fix-drift-en-memoire-persistance-db: backlog
+  drift-s02-drift-monitor-service: backlog
+  drift-s03-ui-diff-visuel-drift: backlog
+  epic-drift-retrospective: optional
+
+  # Epic OBS — Observabilite & Audit (Noyau B)
+  epic-obs-observabilite-audit: done
+  obs-s01-table-audit-events-migration: done
+  obs-s02-service-audit-emission-systematique: done
+  obs-s03-resume-llm-actions-agent: done
+  obs-s04-ui-auditlog-filtres-export: done
+  epic-obs-retrospective: optional
+
+  # Epic ONB — Onboarding Cascade (Noyau C)
+  epic-onb-onboarding-cascade: backlog
+  onb-s01-onboarding-ceo-conversationnel: backlog
+  onb-s02-cascade-hierarchique: backlog
+  onb-s03-import-jira-intelligent: backlog
+  onb-s04-dual-mode-configuration: backlog
+  epic-onb-retrospective: optional
+
+  # Epic A2A — Agent-to-Agent + Permissions (Noyau D)
+  epic-a2a-agent-to-agent-permissions: backlog
+  a2a-s01-a2a-bus: backlog
+  a2a-s02-permissions-granulaires-a2a: backlog
+  a2a-s03-audit-a2a: backlog
+  a2a-s04-connecteurs-auto-generes-mcp: backlog
+  epic-a2a-retrospective: optional
+
+  # Epic DUAL — Dual-Speed Workflow (Noyau E)
+  epic-dual-dual-speed-workflow: backlog
+  dual-s01-table-automation-cursors-service: backlog
+  dual-s02-ui-curseur-3-positions: backlog
+  dual-s03-enforcement-curseur-dans-workflow: backlog
+  epic-dual-retrospective: optional
+
+  # Epic CHAT — Chat Temps Reel
+  epic-chat-chat-temps-reel: backlog
+  chat-s01-websocket-bidirectionnel: backlog
+  chat-s02-tables-chat-channels-messages: backlog
+  chat-s03-chatservice-pipe-stdin-agent: backlog
+  chat-s04-agentchatpanel-useagentchat: backlog
+  epic-chat-retrospective: optional
+
+  # Epic CONT — Containerisation
+  epic-cont-containerisation: backlog
+  cont-s01-containermanager-docker-api: backlog
+  cont-s02-credential-proxy-http: backlog
+  cont-s03-mount-allowlist-tamper-proof: backlog
+  cont-s04-isolation-reseau-docker: backlog
+  cont-s05-tables-container-profiles-instances: backlog
+  cont-s06-ui-containerstatus: backlog
+  epic-cont-retrospective: optional
+
+  # Epic COMP — Gestion Compaction
+  epic-comp-gestion-compaction: backlog
+  comp-s01-compactionwatcher-detection: backlog
+  comp-s02-strategie-kill-relance: backlog
+  comp-s03-strategie-reinjection-post-compaction: backlog
+  epic-comp-retrospective: optional
+
+  # Epic DASH — Dashboards par Role
+  epic-dash-dashboards-par-role: in-progress
+  dash-s01-api-dashboards-agreges: in-progress
+  dash-s02-dashboardcards-par-role: in-progress
+  dash-s03-dashboard-temps-reel-via-websocket: done
+  epic-dash-retrospective: optional
+
+  # Epic SSO — Enterprise Auth
+  epic-sso-enterprise-auth: backlog
+  sso-s01-table-sso-configurations-config: backlog
+  sso-s02-better-auth-plugins-saml-oidc: backlog
+  sso-s03-ui-configuration-sso: backlog
+  epic-sso-retrospective: optional
+
+  # ══════════════════════════════════════════════════
+  # EPICS SCALE & TRACE (epics-scale-trace.md)
+  # ══════════════════════════════════════════════════
+
+  # Epic SCALE — Infrastructure Hardening
+  epic-scale-infrastructure-hardening: backlog
+  scale-01-postgresql-connection-pool-tuning: backlog
+  scale-02-nodejs-cluster-mode: backlog
+  scale-03-liveevents-redis-pub-sub: backlog
+  scale-04-bullmq-job-queue-infrastructure: backlog
+  scale-05-migration-background-jobs-vers-bullmq: backlog
+  scale-06-rate-limiting-per-endpoint-agent-aware: backlog
+  scale-07-connection-health-graceful-shutdown: backlog
+  epic-scale-retrospective: optional
+
+  # Epic TRACE — Prompt-Driven Trace Analysis
+  epic-trace-prompt-driven-trace-analysis: in-progress
+  trace-01-schema-tables-traces-observations: done
+  trace-02-trace-service-crud-aggregation: done
+  trace-03-api-routes-trace: done
+  trace-04-adapter-instrumentation-claude-local: done
+  trace-05-trace-ingestion-worker-bullmq: backlog
+  trace-06-liveevents-trace-streaming: done
+  trace-07-schema-analyses-personnalisees-lenses: done
+  trace-08-lens-analysis-engine: done
+  trace-09-ui-trace-page-lens-selector: done
+  trace-10-ui-lens-management-context-pane: in-progress
+  trace-11-sub-agent-trace-linking: backlog
+  trace-12-workflow-story-view: backlog
+  trace-13-live-multi-agent-dashboard: in-progress
+  epic-trace-retrospective: optional
