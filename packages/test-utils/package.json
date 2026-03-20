@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@mnm/db": "workspace:*",
-    "drizzle-orm": "^0.38.4",
+    "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
