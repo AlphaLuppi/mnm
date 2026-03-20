@@ -1,15 +1,13 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AdapterEnvironmentTestResult } from "@mnm/shared";
-import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { companiesApi } from "../api/companies";
 import { goalsApi } from "../api/goals";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";
 import { queryKeys } from "../lib/queryKeys";
-import { Dialog, DialogPortal } from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -29,6 +27,12 @@ import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { HintIcon } from "./agent-config-primitives";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
+import { OnboardingProgressBar } from "./OnboardingProgressBar";
+import { OnboardingInviteStep, type InviteEntry } from "./OnboardingInviteStep";
+import { OnboardingDualModeStep, type DualModePosition } from "./OnboardingDualModeStep";
+import { onboardingApi } from "../api/onboarding";
+import { automationCursorsApi } from "../api/automation-cursors";
+import { api } from "../api/client";
 import {
   Building2,
   Bot,
@@ -44,10 +48,14 @@ import {
   Loader2,
   FolderOpen,
   ChevronDown,
-  X
+  X,
+  Users,
+  Gauge,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 type AdapterType =
   | "claude_local"
   | "codex_local"
@@ -58,20 +66,21 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
-const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO. Use the ceo persona found here: [https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md](https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md)
+const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO agent for this company.
 
-Ensure you have a folder agents/ceo and then download this AGENTS.md as well as the sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
+Create a folder agents/ceo with an AGENTS.md instruction file defining the CEO persona, goals, and responsibilities.
 
-And after you've finished that, hire yourself a Founding Engineer agent`;
+Then hire yourself a Founding Engineer agent to start building.`;
 
 export function OnboardingWizard() {
-  const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
+  const [searchParams] = useSearchParams();
+  const { companyId: paramCompanyId } = useParams<{ companyId?: string }>();
   const { selectedCompanyId, companies, setSelectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const initialStep = onboardingOptions.initialStep ?? 1;
-  const existingCompanyId = onboardingOptions.companyId;
+  const initialStep = (Number(searchParams.get("step")) || 1) as Step;
+  const existingCompanyId = paramCompanyId ?? searchParams.get("companyId") ?? undefined;
 
   const [step, setStep] = useState<Step>(initialStep);
   const [loading, setLoading] = useState(false);
@@ -114,6 +123,13 @@ export function OnboardingWizard() {
     el.style.height = el.scrollHeight + "px";
   }, []);
 
+  // Step 5 — dual-mode (onb-s04)
+  const [dualModePosition, setDualModePosition] = useState<DualModePosition>("assisted");
+
+  // onb-s01-sync-state
+  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "offline">("synced");
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Created entity IDs — pre-populate from existing company when skipping step 1
   const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(
     existingCompanyId ?? null
@@ -124,27 +140,49 @@ export function OnboardingWizard() {
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [createdIssueRef, setCreatedIssueRef] = useState<string | null>(null);
 
-  // Sync step and company when onboarding opens with options.
+  // Sync step and company from URL params on mount.
   // Keep this independent from company-list refreshes so Step 1 completion
   // doesn't get reset after creating a company.
   useEffect(() => {
-    if (!onboardingOpen) return;
-    const cId = onboardingOptions.companyId ?? null;
-    setStep(onboardingOptions.initialStep ?? 1);
+    const cId = existingCompanyId ?? null;
+    setStep(initialStep);
     setCreatedCompanyId(cId);
     setCreatedCompanyPrefix(null);
-  }, [
-    onboardingOpen,
-    onboardingOptions.companyId,
-    onboardingOptions.initialStep
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingCompanyId, initialStep]);
 
   // Backfill issue prefix for an existing company once companies are loaded.
   useEffect(() => {
-    if (!onboardingOpen || !createdCompanyId || createdCompanyPrefix) return;
+    if (!createdCompanyId || createdCompanyPrefix) return;
     const company = companies.find((c) => c.id === createdCompanyId);
     if (company) setCreatedCompanyPrefix(company.issuePrefix);
-  }, [onboardingOpen, createdCompanyId, createdCompanyPrefix, companies]);
+  }, [createdCompanyId, createdCompanyPrefix, companies]);
+
+  // onb-s01-server-sync — debounced sync to server
+  const syncToServer = useCallback((companyId: string, currentStep: number) => {
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(async () => {
+      setSyncStatus("syncing");
+      try {
+        await onboardingApi.updateStep(companyId, currentStep);
+        setSyncStatus("synced");
+      } catch {
+        setSyncStatus("offline");
+      }
+    }, 2000);
+  }, []);
+
+  // onb-s01-localStorage-persistence
+  useEffect(() => {
+    if (!createdCompanyId) return;
+    const key = `mnm-onboarding-${createdCompanyId}`;
+    try {
+      localStorage.setItem(key, JSON.stringify({ step, timestamp: Date.now() }));
+    } catch {
+      // localStorage not available
+    }
+    syncToServer(createdCompanyId, step);
+  }, [step, createdCompanyId, syncToServer]);
 
   // Resize textarea when step 3 is shown or description changes
   useEffect(() => {
@@ -162,7 +200,7 @@ export function OnboardingWizard() {
         ? queryKeys.agents.adapterModels(createdCompanyId, adapterType)
         : ["agents", "none", "adapter-models", adapterType],
     queryFn: () => agentsApi.adapterModels(createdCompanyId!, adapterType),
-    enabled: Boolean(createdCompanyId) && onboardingOpen && step === 2
+    enabled: Boolean(createdCompanyId) && step === 2
   });
   const isLocalAdapter =
     adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "opencode_local" || adapterType === "cursor";
@@ -256,7 +294,7 @@ export function OnboardingWizard() {
 
   function handleClose() {
     reset();
-    closeOnboarding();
+    navigate("/");
   }
 
   function buildAdapterConfig(): Record<string, unknown> {
@@ -493,13 +531,77 @@ export function OnboardingWizard() {
     }
   }
 
+  // onb-s01-invite-handler
+  async function handleInviteSend(entries: InviteEntry[]) {
+    if (!createdCompanyId) return;
+    for (const inv of entries) {
+      await api.post(`/companies/${createdCompanyId}/invites`, {
+        allowedJoinTypes: "human",
+        email: inv.email,
+        businessRole: inv.role,
+      });
+    }
+  }
+
+  function handleInviteSkip() {
+    setStep(5);
+  }
+
+  function handleInviteComplete() {
+    setStep(5);
+  }
+
+  // onb-s04-dual-mode-handler
+  async function handleDualModeNext() {
+    if (!createdCompanyId) {
+      setStep(6);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await automationCursorsApi.set(createdCompanyId, {
+        level: "company",
+        position: dualModePosition,
+        ceiling: "auto",
+      });
+    } catch {
+      // Non-blocking — dual-mode config is best-effort during onboarding
+    }
+    setLoading(false);
+    setStep(6);
+  }
+
+  function handleDualModeSkip() {
+    // Default to "assisted" when skipping
+    setDualModePosition("assisted");
+    if (createdCompanyId) {
+      automationCursorsApi.set(createdCompanyId, {
+        level: "company",
+        position: "assisted",
+        ceiling: "auto",
+      }).catch(() => {});
+    }
+    setStep(6);
+  }
+
   async function handleLaunch() {
     if (!createdAgentId) return;
     setLoading(true);
     setError(null);
+
+    // onb-s01-completion — mark onboarding as complete on server
+    if (createdCompanyId) {
+      try {
+        await onboardingApi.complete(createdCompanyId);
+      } catch {
+        // non-blocking — onboarding completion tracking is best-effort
+      }
+    }
+
     setLoading(false);
     reset();
-    closeOnboarding();
+    await queryClient.refetchQueries({ queryKey: queryKeys.companies.all });
     if (createdCompanyPrefix && createdIssueRef) {
       navigate(`/${createdCompanyPrefix}/issues/${createdIssueRef}`);
       return;
@@ -511,31 +613,29 @@ export function OnboardingWizard() {
     navigate("/dashboard");
   }
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       if (step === 1 && companyName.trim()) handleStep1Next();
       else if (step === 2 && agentName.trim()) handleStep2Next();
       else if (step === 3 && taskTitle.trim()) handleStep3Next();
-      else if (step === 4) handleLaunch();
+      else if (step === 4) handleInviteSkip();
+      else if (step === 5) handleDualModeNext();
+      else if (step === 6) handleLaunch();
     }
   }
 
-  if (!onboardingOpen) return null;
-
   return (
-    <Dialog
-      open={onboardingOpen}
-      onOpenChange={(open) => {
-        if (!open) handleClose();
-      }}
-    >
-      <DialogPortal>
-        {/* Plain div instead of DialogOverlay — Radix's overlay wraps in
-            RemoveScroll which blocks wheel events on our custom (non-DialogContent)
-            scroll container. A plain div preserves the background without scroll-locking. */}
-        <div className="fixed inset-0 z-50 bg-background" />
-        <div className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-50 bg-background">
+      <div data-testid="onb-s01-wizard" className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
           {/* Close button */}
           <button
             onClick={handleClose}
@@ -545,31 +645,29 @@ export function OnboardingWizard() {
             <span className="sr-only">Close</span>
           </button>
 
+          {/* onb-s01-sync-status indicator */}
+          <div
+            data-testid="onb-s01-sync-status"
+            className="absolute top-4 right-4 z-10 flex items-center gap-1 text-xs text-muted-foreground/60"
+          >
+            {syncStatus === "synced" && <Wifi className="h-3 w-3 text-green-500" />}
+            {syncStatus === "syncing" && <Loader2 className="h-3 w-3 animate-spin" />}
+            {syncStatus === "offline" && <WifiOff className="h-3 w-3 text-orange-500" />}
+          </div>
+
           {/* Left half — form */}
           <div className="w-full md:w-1/2 flex flex-col overflow-y-auto">
             <div className="w-full max-w-md mx-auto my-auto px-8 py-12 shrink-0">
-              {/* Progress indicators */}
-              <div className="flex items-center gap-2 mb-8">
-                <Sparkles className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Get Started</span>
-                <span className="text-sm text-muted-foreground/60">
-                  Step {step} of 4
-                </span>
-                <div className="flex items-center gap-1.5 ml-auto">
-                  {[1, 2, 3, 4].map((s) => (
-                    <div
-                      key={s}
-                      className={cn(
-                        "h-1.5 w-6 rounded-full transition-colors",
-                        s < step
-                          ? "bg-green-500"
-                          : s === step
-                            ? "bg-foreground"
-                            : "bg-muted"
-                      )}
-                    />
-                  ))}
+              {/* Progress indicators — onb-s01-progress */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Get Started</span>
+                  <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
+                    Step {step} of 6
+                  </span>
                 </div>
+                <OnboardingProgressBar currentStep={step} totalSteps={6} />
               </div>
 
               {/* Step content */}
@@ -1027,7 +1125,57 @@ export function OnboardingWizard() {
                 </div>
               )}
 
+              {/* onb-s01-invite-step */}
               {step === 4 && (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="bg-muted/50 p-2">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Invite your team</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Bring your team members on board. They'll receive an
+                        email invitation to join your company.
+                      </p>
+                    </div>
+                  </div>
+                  <OnboardingInviteStep
+                    onSendInvitations={async (invites) => {
+                      await handleInviteSend(invites);
+                      handleInviteComplete();
+                    }}
+                    onSkip={handleInviteSkip}
+                    loading={loading}
+                  />
+                </div>
+              )}
+
+              {/* onb-s04-dual-mode-step */}
+              {step === 5 && (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="bg-muted/50 p-2">
+                      <Gauge className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Set agent speed</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Choose how much autonomy your agents have. You can
+                        change this later per project or agent.
+                      </p>
+                    </div>
+                  </div>
+                  <OnboardingDualModeStep
+                    selectedPosition={dualModePosition}
+                    onSelect={setDualModePosition}
+                    onSkip={handleDualModeSkip}
+                    loading={loading}
+                  />
+                </div>
+              )}
+
+              {step === 6 && (
                 <div className="space-y-5">
                   <div className="flex items-center gap-3 mb-1">
                     <div className="bg-muted/50 p-2">
@@ -1074,6 +1222,23 @@ export function OnboardingWizard() {
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
+                    <div
+                      data-testid="onb-s04-speed-summary"
+                      className="flex items-center gap-3 px-3 py-2.5"
+                    >
+                      <Gauge className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate capitalize">
+                          {dualModePosition === "assisted"
+                            ? "Assisted Mode"
+                            : dualModePosition === "manual"
+                              ? "Manual Control"
+                              : "Full Automation"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Agent Speed</p>
+                      </div>
+                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1085,11 +1250,12 @@ export function OnboardingWizard() {
                 </div>
               )}
 
-              {/* Footer navigation */}
+              {/* Footer navigation — onb-s01-nav */}
               <div className="flex items-center justify-between mt-8">
                 <div>
-                  {step > 1 && step > (onboardingOptions.initialStep ?? 1) && (
+                  {step > 1 && step > initialStep && step !== 4 && (
                     <Button
+                      data-testid="onb-s01-back"
                       variant="ghost"
                       size="sm"
                       onClick={() => setStep((step - 1) as Step)}
@@ -1103,6 +1269,7 @@ export function OnboardingWizard() {
                 <div className="flex items-center gap-2">
                   {step === 1 && (
                     <Button
+                      data-testid="onb-s01-next"
                       size="sm"
                       disabled={!companyName.trim() || loading}
                       onClick={handleStep1Next}
@@ -1117,6 +1284,7 @@ export function OnboardingWizard() {
                   )}
                   {step === 2 && (
                     <Button
+                      data-testid="onb-s01-next"
                       size="sm"
                       disabled={
                         !agentName.trim() || loading || adapterEnvLoading
@@ -1133,6 +1301,7 @@ export function OnboardingWizard() {
                   )}
                   {step === 3 && (
                     <Button
+                      data-testid="onb-s01-next"
                       size="sm"
                       disabled={!taskTitle.trim() || loading}
                       onClick={handleStep3Next}
@@ -1145,8 +1314,24 @@ export function OnboardingWizard() {
                       {loading ? "Creating..." : "Next"}
                     </Button>
                   )}
-                  {step === 4 && (
-                    <Button size="sm" disabled={loading} onClick={handleLaunch}>
+                  {/* Step 4 (Invite) buttons are inside OnboardingInviteStep */}
+                  {step === 5 && (
+                    <Button
+                      data-testid="onb-s04-next"
+                      size="sm"
+                      disabled={loading}
+                      onClick={handleDualModeNext}
+                    >
+                      {loading ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {loading ? "Saving..." : "Next"}
+                    </Button>
+                  )}
+                  {step === 6 && (
+                    <Button data-testid="onb-s01-complete" size="sm" disabled={loading} onClick={handleLaunch}>
                       {loading ? (
                         <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                       ) : (
@@ -1165,10 +1350,10 @@ export function OnboardingWizard() {
             <AsciiArtAnimation />
           </div>
         </div>
-      </DialogPortal>
-    </Dialog>
+      </div>
   );
 }
+
 
 function AdapterEnvironmentResult({
   result

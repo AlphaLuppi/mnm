@@ -60,6 +60,11 @@ export const queryKeys = {
     joinRequests: (companyId: string, status: string = "pending_approval") =>
       ["access", "join-requests", companyId, status] as const,
     invite: (token: string) => ["access", "invite", token] as const,
+    members: (companyId: string) => ["access", "members", companyId] as const,
+    myPermissions: (companyId: string) =>
+      ["access", "my-permissions", companyId] as const,
+    rbacPresets: (companyId: string) =>
+      ["access", "rbac-presets", companyId] as const,
   },
   auth: {
     session: ["auth", "session"] as const,
@@ -69,7 +74,18 @@ export const queryKeys = {
     list: (companyId: string) => ["secrets", companyId] as const,
     providers: (companyId: string) => ["secret-providers", companyId] as const,
   },
-  dashboard: (companyId: string) => ["dashboard", companyId] as const,
+  dashboard: Object.assign(
+    (companyId: string) => ["dashboard", companyId] as const,
+    {
+      // DASH-S02: Enriched dashboard query keys
+      kpis: (companyId: string) =>
+        ["dashboard", companyId, "kpis"] as const,
+      timeline: (companyId: string, period?: string) =>
+        ["dashboard", companyId, "timeline", period] as const,
+      breakdown: (companyId: string, category?: string) =>
+        ["dashboard", companyId, "breakdown", category] as const,
+    },
+  ),
   sidebarBadges: (companyId: string) => ["sidebar-badges", companyId] as const,
   activity: (companyId: string) => ["activity", companyId] as const,
   costs: (companyId: string, from?: string, to?: string) =>
@@ -86,6 +102,93 @@ export const queryKeys = {
     results: (projectId: string) => ["drift", "results", projectId] as const,
     check: (projectId: string) => ["drift", "check", projectId] as const,
     status: (projectId: string) => ["drift", "status", projectId] as const,
+    // DRIFT-S03: execution alerts
+    alerts: (companyId: string, filters?: Record<string, unknown>) =>
+      ["drift", "alerts", companyId, filters] as const,
+    monitoringStatus: (companyId: string) =>
+      ["drift", "monitoring-status", companyId] as const,
   },
   org: (companyId: string) => ["org", companyId] as const,
+  projectMemberships: {
+    list: (companyId: string, projectId: string) =>
+      ["project-memberships", companyId, projectId] as const,
+  },
+  audit: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["audit", companyId, "list", filters] as const,
+    detail: (companyId: string, eventId: string) =>
+      ["audit", companyId, "detail", eventId] as const,
+    count: (companyId: string, filters?: Record<string, unknown>) =>
+      ["audit", companyId, "count", filters] as const,
+    verify: (companyId: string) =>
+      ["audit", companyId, "verify"] as const,
+  },
+  // CHAT-S04: chat UI
+  chat: {
+    channels: (companyId: string, filters?: Record<string, unknown>) =>
+      ["chat", companyId, "channels", filters] as const,
+    detail: (companyId: string, channelId: string) =>
+      ["chat", companyId, "detail", channelId] as const,
+    messages: (companyId: string, channelId: string) =>
+      ["chat", companyId, "messages", channelId] as const,
+    pipeStatus: (companyId: string, channelId: string) =>
+      ["chat", companyId, "pipe-status", channelId] as const,
+  },
+  // DUAL-S02: automation cursors UI
+  automationCursors: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["automation-cursors", companyId, "list", filters] as const,
+    detail: (companyId: string, cursorId: string) =>
+      ["automation-cursors", companyId, "detail", cursorId] as const,
+    resolve: (companyId: string, body?: Record<string, unknown>) =>
+      ["automation-cursors", companyId, "resolve", body] as const,
+  },
+  // SSO-S03: SSO configuration UI
+  sso: {
+    list: (companyId: string) =>
+      ["sso", companyId, "list"] as const,
+    detail: (companyId: string, configId: string) =>
+      ["sso", companyId, "detail", configId] as const,
+  },
+  // ONB-S01: onboarding tracking
+  onboarding: {
+    status: (companyId: string) =>
+      ["onboarding", companyId, "status"] as const,
+  },
+  // ONB-S03: jira import
+  jiraImport: {
+    jobs: (companyId: string) =>
+      ["jiraImport", companyId, "jobs"] as const,
+    jobDetail: (companyId: string, jobId: string) =>
+      ["jiraImport", companyId, "detail", jobId] as const,
+  },
+  // CONT-S06: container status UI
+  containers: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["containers", companyId, "list", filters] as const,
+    detail: (companyId: string, containerId: string) =>
+      ["containers", companyId, "detail", containerId] as const,
+    health: (companyId: string) =>
+      ["containers", companyId, "health"] as const,
+  },
+  // TRACE-09: Trace Vision UI
+  traces: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["traces", companyId, "list", filters] as const,
+    detail: (companyId: string, traceId: string) =>
+      ["traces", companyId, "detail", traceId] as const,
+    byRunId: (companyId: string, runId: string) =>
+      ["traces", companyId, "by-run", runId] as const,
+    byWorkflow: (companyId: string, workflowInstanceId: string) =>
+      ["traces", companyId, "workflow", workflowInstanceId] as const,
+  },
+  // TRACE-09: Lens analysis
+  lenses: {
+    list: (companyId: string) =>
+      ["lenses", companyId, "list"] as const,
+    result: (companyId: string, lensId: string, traceId: string) =>
+      ["lenses", companyId, "result", lensId, traceId] as const,
+    costEstimate: (companyId: string, traceId: string) =>
+      ["lenses", companyId, "cost-estimate", traceId] as const,
+  },
 };

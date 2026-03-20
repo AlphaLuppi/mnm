@@ -10,9 +10,11 @@ import {
   updateProjectWorkspaceSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { projectService, issueService, agentService, heartbeatService, logActivity } from "../services/index.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
+import { emitAudit, projectService, issueService, agentService, heartbeatService, logActivity } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
 
 export function projectRoutes(db: Db) {
   const router = Router();
@@ -57,6 +59,20 @@ export function projectRoutes(db: Db) {
   router.get("/companies/:companyId/projects", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+
+    // PROJ-S03: Scope filtering -- only show projects the user is a member of
+    const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+
+    if (scopeProjectIds !== null) {
+      if (scopeProjectIds.length === 0) {
+        res.json([]);
+        return;
+      }
+      const result = await svc.listByIds(companyId, scopeProjectIds);
+      res.json(result);
+      return;
+    }
+
     const result = await svc.list(companyId);
     res.json(result);
   });
@@ -72,7 +88,7 @@ export function projectRoutes(db: Db) {
     res.json(project);
   });
 
-  router.post("/companies/:companyId/projects", validate(createProjectSchema), async (req, res) => {
+  router.post("/companies/:companyId/projects", requirePermission(db, "projects:create"), validate(createProjectSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     type CreateProjectPayload = Parameters<typeof svc.create>[1] & {
@@ -107,6 +123,15 @@ export function projectRoutes(db: Db) {
         workspaceId: createdWorkspaceId,
       },
     });
+
+    await emitAudit({
+      req, db, companyId,
+      action: "project.created",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { name: project.name },
+    });
+
     res.status(201).json(hydratedProject ?? project);
   });
 
@@ -118,6 +143,7 @@ export function projectRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
     const project = await svc.update(id, req.body);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
@@ -136,6 +162,14 @@ export function projectRoutes(db: Db) {
       details: req.body,
     });
 
+    await emitAudit({
+      req, db, companyId: project.companyId,
+      action: "project.updated",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { changedFields: Object.keys(req.body) },
+    });
+
     res.json(project);
   });
 
@@ -144,6 +178,7 @@ export function projectRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertCompanyPermission(db, req, project.companyId, "projects:create");
 
     const workspacePath = project.primaryWorkspace?.cwd;
     if (!workspacePath) {
@@ -423,6 +458,14 @@ Reply A or B.`;
       }).catch((err) => console.error("Failed to wake agent on discovery:", err));
     }
 
+    await emitAudit({
+      req, db, companyId: project.companyId,
+      action: "project.onboarded",
+      targetType: "project",
+      targetId: id,
+      metadata: {},
+    });
+
     res.status(201).json({ issueId: issue.id, identifier: issue.identifier });
   });
 
@@ -446,6 +489,7 @@ Reply A or B.`;
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
     const workspace = await svc.createWorkspace(id, req.body);
     if (!workspace) {
       res.status(422).json({ error: "Invalid project workspace payload" });
@@ -469,6 +513,14 @@ Reply A or B.`;
       },
     });
 
+    await emitAudit({
+      req, db, companyId: existing.companyId,
+      action: "project.workspace_created",
+      targetType: "project",
+      targetId: id,
+      metadata: { workspacePath: workspace.cwd },
+    });
+
     res.status(201).json(workspace);
   });
 
@@ -484,6 +536,7 @@ Reply A or B.`;
         return;
       }
       assertCompanyAccess(req, existing.companyId);
+      await assertCompanyPermission(db, req, existing.companyId, "projects:create");
       const workspaceExists = (await svc.listWorkspaces(id)).some((workspace) => workspace.id === workspaceId);
       if (!workspaceExists) {
         res.status(404).json({ error: "Project workspace not found" });
@@ -510,6 +563,14 @@ Reply A or B.`;
         },
       });
 
+      await emitAudit({
+        req, db, companyId: existing.companyId,
+        action: "project.workspace_updated",
+        targetType: "project",
+        targetId: id,
+        metadata: { workspaceId: workspace.id },
+      });
+
       res.json(workspace);
     },
   );
@@ -523,6 +584,7 @@ Reply A or B.`;
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
     const workspace = await svc.removeWorkspace(id, workspaceId);
     if (!workspace) {
       res.status(404).json({ error: "Project workspace not found" });
@@ -544,6 +606,14 @@ Reply A or B.`;
       },
     });
 
+    await emitAudit({
+      req, db, companyId: existing.companyId,
+      action: "project.workspace_deleted",
+      targetType: "project",
+      targetId: id,
+      metadata: { workspaceId: workspace.id },
+    });
+
     res.json(workspace);
   });
 
@@ -555,6 +625,7 @@ Reply A or B.`;
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
 
     // Cascade: delete scoped agents and issues before removing the project.
     // The DB schema does not define onDelete cascade for agents (no FK) or issues
@@ -595,6 +666,15 @@ Reply A or B.`;
       action: "project.deleted",
       entityType: "project",
       entityId: project.id,
+    });
+
+    await emitAudit({
+      req, db, companyId: project.companyId,
+      action: "project.deleted",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { name: project.name },
+      severity: "warning",
     });
 
     res.json(project);

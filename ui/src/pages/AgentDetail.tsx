@@ -3,6 +3,10 @@ import { useParams, useNavigate, Link, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentKey, type ClaudeLoginResult } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { tracesApi } from "../api/traces";
+import type { TracePhase, TraceObservation } from "../api/traces";
+import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
+import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
 import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
@@ -54,6 +58,7 @@ import {
   ChevronDown,
   ArrowLeft,
   Settings,
+  Layers,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
@@ -1466,6 +1471,20 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
     [touchedIssues],
   );
 
+  // PIPE-06: Fetch trace linked to this run
+  const { data: linkedTrace } = useQuery({
+    queryKey: queryKeys.traces.byRunId(run.companyId, run.id),
+    queryFn: () => tracesApi.getByHeartbeatRunId(run.companyId, run.id),
+    enabled: !!run.id,
+    retry: false,
+  });
+
+  // Map gold phases to silver phases by order for GoldPhaseCard
+  const goldSilverMap = useMemo(() => {
+    if (!linkedTrace?.gold?.phases || !linkedTrace?.phases) return new Map<number, TracePhase>();
+    return new Map(linkedTrace.phases.map((p) => [p.order, p]));
+  }, [linkedTrace]);
+
   const clearSessionsForTouchedIssues = useMutation({
     mutationFn: async () => {
       if (touchedIssueIds.length === 0) return 0;
@@ -1769,6 +1788,33 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
         </div>
       )}
 
+      {/* PIPE-06: Gold trace analysis linked to this run */}
+      {linkedTrace?.gold && linkedTrace.gold.phases.length > 0 && (
+        <div className="space-y-3" data-testid="run-detail-gold-trace">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <Layers className="h-3 w-3" /> Trace Analysis
+            </h3>
+            <Link
+              to={`/traces/${linkedTrace.id}`}
+              className="text-xs text-muted-foreground hover:text-foreground no-underline"
+            >
+              View full trace &rarr;
+            </Link>
+          </div>
+          <GoldVerdictBanner gold={linkedTrace.gold} />
+          {linkedTrace.gold.phases.map((gp, i) => (
+            <GoldPhaseCard
+              key={i}
+              goldPhase={gp}
+              silverPhase={goldSilverMap.get(gp.phaseOrder)}
+              allObservations={linkedTrace.observations ?? []}
+              phaseIndex={i}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Log viewer */}
       <LogViewer run={run} adapterType={adapterType} />
     </div>
@@ -2027,9 +2073,16 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     let reconnectTimer: number | null = null;
     let socket: WebSocket | null = null;
 
+    let reconnectAttempt = 0;
+
     const scheduleReconnect = () => {
       if (closed) return;
-      reconnectTimer = window.setTimeout(connect, 1500);
+      reconnectAttempt += 1;
+      const delay = Math.min(15000, 1000 * 2 ** Math.min(reconnectAttempt - 1, 4));
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
     };
 
     const connect = () => {
@@ -2039,6 +2092,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
       socket = new WebSocket(url);
 
       socket.onopen = () => {
+        reconnectAttempt = 0;
         setIsStreamingConnected(true);
       };
 
@@ -2111,6 +2165,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
       socket.onclose = () => {
         setIsStreamingConnected(false);
+        if (closed) return;
         scheduleReconnect();
       };
     };

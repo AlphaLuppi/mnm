@@ -1,0 +1,52 @@
+import { z } from "zod";
+import { COMPACTION_SNAPSHOT_STATUSES } from "../types/compaction.js";
+
+// comp-s01-validator-start
+export const startCompactionWatcherSchema = z.object({
+  enabled: z.boolean().optional(),
+  cooldownMs: z.number().int().positive().optional(),
+  patterns: z.array(z.string()).optional(),
+});
+export type StartCompactionWatcher = z.infer<typeof startCompactionWatcherSchema>;
+
+// comp-s01-validator-snapshots
+export const compactionSnapshotFiltersSchema = z.object({
+  stageId: z.string().uuid().optional(),
+  agentId: z.string().uuid().optional(),
+  status: z.enum(COMPACTION_SNAPSHOT_STATUSES).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+export type CompactionSnapshotFilters = z.infer<typeof compactionSnapshotFiltersSchema>;
+
+// comp-s02-validator-kill-relaunch
+export const killRelaunchSchema = z.object({
+  maxRelaunchCount: z.number().int().positive().max(10).optional(),
+});
+export type KillRelaunchInput = z.infer<typeof killRelaunchSchema>;
+
+// comp-s02-validator-history-filters
+export const relaunchHistoryFiltersSchema = z.object({
+  agentId: z.string().uuid().optional(),
+  workflowInstanceId: z.string().uuid().optional(),
+  status: z.enum(COMPACTION_SNAPSHOT_STATUSES).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+export type RelaunchHistoryFiltersInput = z.infer<typeof relaunchHistoryFiltersSchema>;
+
+// comp-s03-validator-reinjection
+export const reinjectionSchema = z.object({
+  autoReinject: z.boolean().optional(),
+});
+export type ReinjectionInput = z.infer<typeof reinjectionSchema>;
+
+// comp-s03-validator-history-filters
+export const reinjectionHistoryFiltersSchema = z.object({
+  agentId: z.string().uuid().optional(),
+  workflowInstanceId: z.string().uuid().optional(),
+  status: z.enum(COMPACTION_SNAPSHOT_STATUSES).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+export type ReinjectionHistoryFiltersInput = z.infer<typeof reinjectionHistoryFiltersSchema>;
