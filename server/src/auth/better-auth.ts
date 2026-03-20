@@ -54,11 +54,21 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
     }
   }
   if (config.deploymentMode === "authenticated") {
+    // Derive port from public URL for origin matching (browsers include port in origin)
+    const publicUrl = process.env.MNM_PUBLIC_URL ?? baseUrl;
+    let port: string | null = null;
+    if (publicUrl) {
+      try { port = new URL(publicUrl).port || null; } catch { /* ignore */ }
+    }
     for (const hostname of config.allowedHostnames) {
       const trimmed = hostname.trim().toLowerCase();
       if (!trimmed) continue;
       trustedOrigins.add(`https://${trimmed}`);
       trustedOrigins.add(`http://${trimmed}`);
+      if (port) {
+        trustedOrigins.add(`https://${trimmed}:${port}`);
+        trustedOrigins.add(`http://${trimmed}:${port}`);
+      }
     }
   }
 
@@ -72,6 +82,9 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
 
   const publicUrl = process.env.MNM_PUBLIC_URL ?? baseUrl;
   const isHttpOnly = publicUrl ? publicUrl.startsWith("http://") : false;
+
+  // Disable rate limiting when running E2E tests (prevents "Too Many Requests" during parallel tests)
+  const isE2eMode = process.env.MNM_E2E_SEED === "true";
 
   const authConfig = {
     baseURL: baseUrl,
@@ -92,6 +105,7 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       disableSignUp: config.authDisableSignUp,
     },
     ...(isHttpOnly ? { advanced: { useSecureCookies: false } } : {}),
+    ...(isE2eMode ? { rateLimit: { enabled: false } } : {}),
   };
 
   if (!baseUrl) {

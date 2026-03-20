@@ -34,7 +34,7 @@ fi
 # ── Step 2: TypeScript type-check ──────────────────────────────────────────────
 echo "  [2/5] Type-checking..."
 cd "$REPO_ROOT"
-pnpm -r typecheck
+bun run --filter '*' typecheck
 
 # ── Step 3: Bundle CLI with esbuild ────────────────────────────────────────────
 echo "  [3/5] Bundling CLI with esbuild..."

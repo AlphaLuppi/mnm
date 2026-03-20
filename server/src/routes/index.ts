@@ -16,3 +16,23 @@ export { workflowRoutes } from "./workflows.js";
 export { stageRoutes } from "./stages.js";
 export { workspaceContextRoutes } from "./workspace-context.js";
 export { driftRoutes } from "./drift.js";
+export { projectMembershipRoutes } from "./project-memberships.js";
+export { auditRoutes } from "./audit.js";
+export { orchestratorRoutes } from "./orchestrator.js";
+export { containerRoutes } from "./containers.js";
+// comp-s01-barrel-route
+export { compactionRoutes } from "./compaction.js";
+// dual-s01-barrel-route
+export { automationCursorRoutes } from "./automation-cursors.js";
+// a2a-s01-barrel-route
+export { a2aRoutes } from "./a2a.js";
+// sso-s01-barrel-route
+export { ssoRoutes } from "./sso.js";
+// sso-s02-barrel-route
+export { ssoAuthRoutes } from "./sso-auth.js";
+// onb-s01-barrel-route
+export { onboardingRoutes } from "./onboarding.js";
+// onb-s03-barrel-route
+export { jiraImportRoutes } from "./jira-import.js";
+// TRACE-03: Trace routes
+export { traceRoutes } from "./traces.js";

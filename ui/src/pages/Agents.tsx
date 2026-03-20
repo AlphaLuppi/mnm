@@ -17,6 +17,7 @@ import { relativeTime, cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { PageTabBar } from "../components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Bot, Plus, List, GitBranch, SlidersHorizontal } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@mnm/shared";
 
@@ -88,7 +89,6 @@ export function Agents() {
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
-    refetchInterval: 15_000,
   });
 
   // Map agentId -> first live run + live run count
@@ -158,18 +158,16 @@ export function Agents() {
             </button>
             {filtersOpen && (
               <div className="absolute right-0 top-full mt-1 z-50 w-48 border border-border bg-popover shadow-md p-1">
-                <button
-                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-left hover:bg-accent/50 transition-colors"
-                  onClick={() => setShowTerminated(!showTerminated)}
+                <label
+                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-left hover:bg-accent/50 transition-colors cursor-pointer"
                 >
-                  <span className={cn(
-                    "flex items-center justify-center h-3.5 w-3.5 border border-border rounded-sm",
-                    showTerminated && "bg-foreground"
-                  )}>
-                    {showTerminated && <span className="text-background text-[10px] leading-none">&#10003;</span>}
-                  </span>
+                  <Checkbox
+                    checked={showTerminated}
+                    onCheckedChange={() => setShowTerminated(!showTerminated)}
+                    aria-label="Show terminated agents"
+                  />
                   Show terminated
-                </button>
+                </label>
               </div>
             )}
           </div>
@@ -182,6 +180,8 @@ export function Agents() {
                   effectiveView === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
                 )}
                 onClick={() => setView("list")}
+                aria-label="List view"
+                aria-pressed={effectiveView === "list"}
               >
                 <List className="h-3.5 w-3.5" />
               </button>
@@ -191,6 +191,8 @@ export function Agents() {
                   effectiveView === "org" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
                 )}
                 onClick={() => setView("org")}
+                aria-label="Organization chart view"
+                aria-pressed={effectiveView === "org"}
               >
                 <GitBranch className="h-3.5 w-3.5" />
               </button>
@@ -241,8 +243,8 @@ export function Agents() {
                       {liveRunByAgent.has(agent.id) ? (
                         <LiveRunIndicator
                           agentRef={agentRouteRef(agent)}
-                          runId={liveRunByAgent.get(agent.id)!.runId}
-                          liveCount={liveRunByAgent.get(agent.id)!.liveCount}
+                          runId={liveRunByAgent.get(agent.id)?.runId ?? ""}
+                          liveCount={liveRunByAgent.get(agent.id)?.liveCount ?? 0}
                         />
                       ) : (
                         <StatusBadge status={agent.status} />
@@ -252,8 +254,8 @@ export function Agents() {
                       {liveRunByAgent.has(agent.id) && (
                         <LiveRunIndicator
                           agentRef={agentRouteRef(agent)}
-                          runId={liveRunByAgent.get(agent.id)!.runId}
-                          liveCount={liveRunByAgent.get(agent.id)!.liveCount}
+                          runId={liveRunByAgent.get(agent.id)?.runId ?? ""}
+                          liveCount={liveRunByAgent.get(agent.id)?.liveCount ?? 0}
                         />
                       )}
                       <span className="text-xs text-muted-foreground font-mono w-14 text-right">
@@ -340,8 +342,8 @@ function OrgTreeNode({
             {liveRunByAgent.has(node.id) ? (
               <LiveRunIndicator
                 agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
+                runId={liveRunByAgent.get(node.id)?.runId ?? ""}
+                liveCount={liveRunByAgent.get(node.id)?.liveCount ?? 0}
               />
             ) : (
               <StatusBadge status={node.status} />
@@ -351,8 +353,8 @@ function OrgTreeNode({
             {liveRunByAgent.has(node.id) && (
               <LiveRunIndicator
                 agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
+                runId={liveRunByAgent.get(node.id)?.runId ?? ""}
+                liveCount={liveRunByAgent.get(node.id)?.liveCount ?? 0}
               />
             )}
             {agent && (

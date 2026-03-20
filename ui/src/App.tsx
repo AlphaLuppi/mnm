@@ -1,7 +1,5 @@
-import { useEffect, useRef } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { authApi } from "./api/auth";
@@ -29,12 +27,26 @@ import { NewAgent } from "./pages/NewAgent";
 import { Workflows } from "./pages/Workflows";
 import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { NewWorkflow } from "./pages/NewWorkflow";
+import { WorkflowEditor } from "./pages/WorkflowEditor";
+import { Members } from "./pages/Members";
+import { AdminRoles } from "./pages/AdminRoles";
+import { AuditLog } from "./pages/AuditLog";
+import { Containers } from "./pages/Containers";
+import { Chat } from "./pages/Chat";
+import { AutomationCursors } from "./pages/AutomationCursors";
+import { SsoConfig } from "./pages/SsoConfig";
+import { JiraImport } from "./pages/JiraImport";
+import { Traces } from "./pages/Traces";
+import { TraceDetail } from "./pages/TraceDetail";
+import { TraceTimelineDemo } from "./pages/TraceTimelineDemo";
+import { TraceSettings } from "./pages/TraceSettings";
+import { WorkflowTraces } from "./pages/WorkflowTraces";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
+import { RequirePermission } from "./components/RequirePermission";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
-import { useDialog } from "./context/DialogContext";
 
 function BootstrapPendingPage() {
   return (
@@ -99,14 +111,17 @@ function boardRoutes() {
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard" element={<Dashboard />} />
       <Route path="companies" element={<Companies />} />
-      <Route path="company/settings" element={<CompanySettings />} />
+      <Route path="members" element={<RequirePermission permission="users:invite" showForbidden><Members /></RequirePermission>} />
+      <Route path="admin/roles" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminRoles /></RequirePermission>} />
+      <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
+      <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
       <Route path="agents/all" element={<Agents />} />
       <Route path="agents/active" element={<Agents />} />
       <Route path="agents/paused" element={<Agents />} />
       <Route path="agents/error" element={<Agents />} />
-      <Route path="agents/new" element={<NewAgent />} />
+      <Route path="agents/new" element={<RequirePermission permission="agents:create" showForbidden><NewAgent /></RequirePermission>} />
       <Route path="agents/:agentId" element={<AgentDetail />} />
       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
       <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
@@ -120,6 +135,7 @@ function boardRoutes() {
       <Route path="projects/:projectId/workflows" element={<ProjectDetail />} />
       <Route path="projects/:projectId/settings" element={<ProjectDetail />} />
       <Route path="projects/:projectId/drift" element={<ProjectDetail />} />
+      <Route path="projects/:projectId/access" element={<ProjectDetail />} />
       <Route path="issues" element={<Issues />} />
       <Route path="issues/all" element={<Navigate to="/issues" replace />} />
       <Route path="issues/active" element={<Navigate to="/issues" replace />} />
@@ -127,17 +143,29 @@ function boardRoutes() {
       <Route path="issues/done" element={<Navigate to="/issues" replace />} />
       <Route path="issues/recent" element={<Navigate to="/issues" replace />} />
       <Route path="issues/:issueId" element={<IssueDetail />} />
-      <Route path="workflows" element={<Workflows />} />
-      <Route path="workflows/new" element={<NewWorkflow />} />
-      <Route path="workflows/:workflowId" element={<WorkflowDetail />} />
-      <Route path="goals" element={<Goals />} />
-      <Route path="goals/:goalId" element={<GoalDetail />} />
-      <Route path="approvals" element={<Navigate to="/approvals/pending" replace />} />
-      <Route path="approvals/pending" element={<Approvals />} />
-      <Route path="approvals/all" element={<Approvals />} />
-      <Route path="approvals/:approvalId" element={<ApprovalDetail />} />
-      <Route path="costs" element={<Costs />} />
-      <Route path="activity" element={<Activity />} />
+      <Route path="workflows" element={<RequirePermission permission="workflows:create" showForbidden><Workflows /></RequirePermission>} />
+      <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><NewWorkflow /></RequirePermission>} />
+      <Route path="workflows/:workflowId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowDetail /></RequirePermission>} />
+      <Route path="workflow-editor/new" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
+      <Route path="workflow-editor/:templateId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
+      <Route path="goals" element={<RequirePermission permission="projects:create" showForbidden><Goals /></RequirePermission>} />
+      <Route path="goals/:goalId" element={<RequirePermission permission="projects:create" showForbidden><GoalDetail /></RequirePermission>} />
+      <Route path="approvals" element={<RequirePermission permission="joins:approve" showForbidden><Navigate to="/approvals/pending" replace /></RequirePermission>} />
+      <Route path="approvals/pending" element={<RequirePermission permission="joins:approve" showForbidden><Approvals /></RequirePermission>} />
+      <Route path="approvals/all" element={<RequirePermission permission="joins:approve" showForbidden><Approvals /></RequirePermission>} />
+      <Route path="approvals/:approvalId" element={<RequirePermission permission="joins:approve" showForbidden><ApprovalDetail /></RequirePermission>} />
+      <Route path="costs" element={<RequirePermission permission="dashboard:view" showForbidden><Costs /></RequirePermission>} />
+      <Route path="activity" element={<RequirePermission permission="audit:read" showForbidden><Activity /></RequirePermission>} />
+      <Route path="audit" element={<RequirePermission permission="audit:read" showForbidden><AuditLog /></RequirePermission>} />
+      <Route path="containers" element={<RequirePermission permission="agents:manage_containers" showForbidden><Containers /></RequirePermission>} />
+      <Route path="chat" element={<RequirePermission permission="chat:agent" showForbidden><Chat /></RequirePermission>} />
+      <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
+      <Route path="import/jira" element={<RequirePermission permission="projects:manage" showForbidden><JiraImport /></RequirePermission>} />
+      <Route path="traces" element={<RequirePermission permission="audit:read" showForbidden><Traces /></RequirePermission>} />
+      <Route path="traces/demo" element={<TraceTimelineDemo />} />
+      <Route path="traces/:traceId" element={<RequirePermission permission="audit:read" showForbidden><TraceDetail /></RequirePermission>} />
+      <Route path="settings/trace-lenses" element={<RequirePermission permission="audit:read" showForbidden><TraceSettings /></RequirePermission>} />
+      <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="audit:read" showForbidden><WorkflowTraces /></RequirePermission>} />
       <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
@@ -148,20 +176,18 @@ function boardRoutes() {
 
 function CompanyRootRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
-  const { onboardingOpen } = useDialog();
 
   if (loading) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
   }
 
-  // Keep the first-run onboarding mounted until it completes.
-  if (onboardingOpen) {
-    return <NoCompaniesStartPage autoOpen={false} />;
+  if (companies.length === 0) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
-    return <NoCompaniesStartPage />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <Navigate to={`/${targetCompany.issuePrefix}/dashboard`} replace />;
@@ -177,7 +203,7 @@ function UnprefixedBoardRedirect() {
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
-    return <NoCompaniesStartPage />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (
@@ -185,32 +211,6 @@ function UnprefixedBoardRedirect() {
       to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`}
       replace
     />
-  );
-}
-
-function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
-  const { openOnboarding } = useDialog();
-  const opened = useRef(false);
-
-  useEffect(() => {
-    if (!autoOpen) return;
-    if (opened.current) return;
-    opened.current = true;
-    openOnboarding();
-  }, [autoOpen, openOnboarding]);
-
-  return (
-    <div className="mx-auto max-w-xl py-10">
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Create your first company</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
-        </p>
-        <div className="mt-4">
-          <Button onClick={() => openOnboarding()}>New Company</Button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -224,6 +224,7 @@ export function App() {
 
         <Route element={<CloudAccessGate />}>
           <Route index element={<CompanyRootRedirect />} />
+          <Route path="dashboard" element={<UnprefixedBoardRedirect />} />
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
           <Route path="issues/:issueId" element={<UnprefixedBoardRedirect />} />
@@ -239,14 +240,42 @@ export function App() {
           <Route path="projects/:projectId/agents" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/workflows" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/settings" element={<UnprefixedBoardRedirect />} />
+          <Route path="projects/:projectId/access" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues/:filter" element={<UnprefixedBoardRedirect />} />
+          <Route path="projects/:projectId/drift" element={<UnprefixedBoardRedirect />} />
+          <Route path="members" element={<UnprefixedBoardRedirect />} />
+          <Route path="admin/roles" element={<UnprefixedBoardRedirect />} />
+          <Route path="admin/sso" element={<UnprefixedBoardRedirect />} />
+          <Route path="company/settings" element={<UnprefixedBoardRedirect />} />
+          <Route path="audit" element={<UnprefixedBoardRedirect />} />
+          <Route path="containers" element={<UnprefixedBoardRedirect />} />
+          <Route path="approvals" element={<UnprefixedBoardRedirect />} />
+          <Route path="approvals/pending" element={<UnprefixedBoardRedirect />} />
+          <Route path="approvals/all" element={<UnprefixedBoardRedirect />} />
+          <Route path="approvals/:approvalId" element={<UnprefixedBoardRedirect />} />
+          <Route path="chat" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows/new" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows/:workflowId" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflow-editor/new" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflow-editor/:templateId" element={<UnprefixedBoardRedirect />} />
+          <Route path="goals" element={<UnprefixedBoardRedirect />} />
+          <Route path="goals/:goalId" element={<UnprefixedBoardRedirect />} />
+          <Route path="automation-cursors" element={<UnprefixedBoardRedirect />} />
+          <Route path="inbox" element={<UnprefixedBoardRedirect />} />
+          <Route path="inbox/:tab" element={<UnprefixedBoardRedirect />} />
+          <Route path="org" element={<UnprefixedBoardRedirect />} />
+          <Route path="traces" element={<UnprefixedBoardRedirect />} />
+          <Route path="traces/:traceId" element={<UnprefixedBoardRedirect />} />
+          <Route path="settings/trace-lenses" element={<UnprefixedBoardRedirect />} />
+          <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
+          <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
           </Route>
         </Route>
       </Routes>
-      <OnboardingWizard />
     </>
   );
 }

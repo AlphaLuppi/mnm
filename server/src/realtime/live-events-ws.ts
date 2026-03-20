@@ -197,6 +197,14 @@ export function setupLiveEventsWebSocketServer(
       socket.ping();
     }
   }, 30000);
+  pingInterval.unref();
+
+  const cleanupSocket = (socket: WsSocket) => {
+    const cleanup = cleanupByClient.get(socket);
+    if (cleanup) cleanup();
+    cleanupByClient.delete(socket);
+    aliveByClient.delete(socket);
+  };
 
   wss.on("connection", (socket: WsSocket, req: IncomingMessage) => {
     const context = (req as IncomingMessageWithContext).mnmUpgradeContext;
@@ -207,7 +215,11 @@ export function setupLiveEventsWebSocketServer(
 
     const unsubscribe = subscribeCompanyLiveEvents(context.companyId, (event) => {
       if (socket.readyState !== WebSocket.OPEN) return;
-      socket.send(JSON.stringify(event));
+      try {
+        socket.send(JSON.stringify(event));
+      } catch (err) {
+        logger.warn({ err, companyId: context.companyId }, "failed to send live event to client");
+      }
     });
 
     cleanupByClient.set(socket, unsubscribe);
@@ -218,14 +230,12 @@ export function setupLiveEventsWebSocketServer(
     });
 
     socket.on("close", () => {
-      const cleanup = cleanupByClient.get(socket);
-      if (cleanup) cleanup();
-      cleanupByClient.delete(socket);
-      aliveByClient.delete(socket);
+      cleanupSocket(socket);
     });
 
     socket.on("error", (err: Error) => {
       logger.warn({ err, companyId: context.companyId }, "live websocket client error");
+      cleanupSocket(socket);
     });
   });
 
@@ -242,7 +252,7 @@ export function setupLiveEventsWebSocketServer(
     const url = new URL(req.url, "http://localhost");
     const companyId = parseCompanyId(url.pathname);
     if (!companyId) {
-      socket.destroy();
+      // Don't destroy — other WebSocket servers (e.g. chat-ws) may handle this path
       return;
     }
 

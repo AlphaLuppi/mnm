@@ -40,7 +40,7 @@ let found = false;
 for (const token of tokens) {
   try {
     const result = execSync(
-      `git grep -in --no-color -- ${JSON.stringify(token)} -- ':!pnpm-lock.yaml' ':!.git'`,
+      `git grep -in --no-color -- ${JSON.stringify(token)} -- ':!bun.lock' ':!pnpm-lock.yaml' ':!.git'`,
       { encoding: "utf8", cwd: repoRoot, stdio: ["pipe", "pipe", "pipe"] },
     );
     if (result.trim()) {

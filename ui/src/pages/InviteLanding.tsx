@@ -6,6 +6,16 @@ import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AGENT_ADAPTER_TYPES } from "@mnm/shared";
 import type { AgentAdapterType, JoinRequest } from "@mnm/shared";
 
@@ -249,37 +259,43 @@ export function InviteLandingPage() {
 
         {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-4 space-y-3">
-            <label className="block text-sm">
-              <span className="mb-1 block text-muted-foreground">Agent name</span>
-              <input
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            <div>
+              <Label htmlFor="invite-agent-name">Agent name</Label>
+              <Input
+                id="invite-agent-name"
                 value={agentName}
                 onChange={(event) => setAgentName(event.target.value)}
+                className="mt-1"
               />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-muted-foreground">Adapter type</span>
-              <select
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            </div>
+            <div>
+              <Label>Adapter type</Label>
+              <Select
                 value={adapterType}
-                onChange={(event) => setAdapterType(event.target.value as AgentAdapterType)}
+                onValueChange={(value) => setAdapterType(value as AgentAdapterType)}
               >
-                {joinAdapterOptions.map((type) => (
-                  <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTERS.has(type)}>
-                    {adapterLabels[type]}{!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-muted-foreground">Capabilities (optional)</span>
-              <textarea
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {joinAdapterOptions.filter((type) => ENABLED_INVITE_ADAPTERS.has(type)).map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {adapterLabels[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="invite-capabilities">Capabilities (optional)</Label>
+              <Textarea
+                id="invite-capabilities"
                 rows={4}
                 value={capabilities}
                 onChange={(event) => setCapabilities(event.target.value)}
+                className="mt-1"
               />
-            </label>
+            </div>
           </div>
         )}
 

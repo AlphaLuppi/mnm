@@ -21,6 +21,7 @@ import {
   agentService,
   accessService,
   approvalService,
+  emitAudit,
   heartbeatService,
   issueApprovalService,
   issueService,
@@ -28,6 +29,7 @@ import {
   secretService,
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
+import { assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
@@ -69,7 +71,11 @@ export function agentRoutes(db: Db) {
       if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return null;
       const allowed = await access.canUser(companyId, req.actor.userId, "agents:create");
       if (!allowed) {
-        throw forbidden("Missing permission: agents:create");
+        throw forbidden("Missing permission: agents:create", {
+          requiredPermission: "agents:create",
+          companyId,
+          resourceScope: null,
+        });
       }
       return null;
     }
@@ -80,7 +86,11 @@ export function agentRoutes(db: Db) {
     }
     const allowedByGrant = await access.hasPermission(companyId, "agent", actorAgent.id, "agents:create");
     if (!allowedByGrant && !canCreateAgents(actorAgent)) {
-      throw forbidden("Missing permission: can create agents");
+      throw forbidden("Missing permission: agents:create", {
+        requiredPermission: "agents:create",
+        companyId,
+        resourceScope: null,
+      });
     }
     return actorAgent;
   }
@@ -577,6 +587,14 @@ export function agentRoutes(db: Db) {
       details: { revisionId },
     });
 
+    await emitAudit({
+      req, db, companyId: updated.companyId,
+      action: "agent.config_rollback",
+      targetType: "agent",
+      targetId: updated.id,
+      metadata: { revisionId },
+    });
+
     res.json(updated);
   });
 
@@ -589,6 +607,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const state = await heartbeat.getRuntimeState(id);
     res.json(state);
@@ -603,6 +622,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const sessions = await heartbeat.listTaskSessions(id);
     res.json(
@@ -622,6 +642,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const taskKey =
       typeof req.body.taskKey === "string" && req.body.taskKey.trim().length > 0
@@ -637,6 +658,14 @@ export function agentRoutes(db: Db) {
       entityType: "agent",
       entityId: id,
       details: { taskKey: taskKey ?? null },
+    });
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.session_reset",
+      targetType: "agent",
+      targetId: id,
+      metadata: {},
     });
 
     res.json(state);
@@ -744,6 +773,14 @@ export function agentRoutes(db: Db) {
       }
     }
 
+    await emitAudit({
+      req, db, companyId,
+      action: "agent.hired",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { name: agent.name, adapterType: agent.adapterType },
+    });
+
     await logActivity(db, {
       companyId,
       actorType: actor.actorType,
@@ -782,6 +819,7 @@ export function agentRoutes(db: Db) {
   router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    await assertCompanyPermission(db, req, companyId, "agents:create");
 
     if (req.actor.type === "agent") {
       assertBoard(req);
@@ -823,6 +861,14 @@ export function agentRoutes(db: Db) {
       details: { name: agent.name, role: agent.role },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "agent.created",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { name: agent.name, adapterType: agent.adapterType },
+    });
+
     res.status(201).json(agent);
   });
 
@@ -834,6 +880,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "users:manage_permissions");
 
     if (req.actor.type === "agent") {
       const actorAgent = req.actor.agentId ? await svc.getById(req.actor.agentId) : null;
@@ -864,6 +911,14 @@ export function agentRoutes(db: Db) {
       entityType: "agent",
       entityId: agent.id,
       details: req.body,
+    });
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.permissions_changed",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { permissions: req.body },
     });
 
     res.json(agent);
@@ -921,6 +976,14 @@ export function agentRoutes(db: Db) {
 
     const updatedAdapterConfig = asRecord(agent.adapterConfig) ?? {};
     const pathValue = asNonEmptyString(updatedAdapterConfig[adapterConfigKey]);
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.instructions_changed",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { path: pathValue ?? null },
+    });
 
     await logActivity(db, {
       companyId: agent.companyId,
@@ -1030,12 +1093,24 @@ export function agentRoutes(db: Db) {
       details: summarizeAgentUpdateDetails(patchData),
     });
 
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.updated",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { changedFields: Object.keys(patchData) },
+    });
+
     res.json(agent);
   });
 
   router.post("/agents/:id/pause", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.pause(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1059,6 +1134,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/resume", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.resume(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1080,6 +1159,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/terminate", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.terminate(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1103,6 +1186,10 @@ export function agentRoutes(db: Db) {
   router.delete("/agents/:id", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "agents:create");
     const agent = await svc.remove(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1118,6 +1205,15 @@ export function agentRoutes(db: Db) {
       entityId: agent.id,
     });
 
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.deleted",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: { name: agent.name },
+      severity: "warning",
+    });
+
     res.json({ ok: true });
   });
 
@@ -1131,6 +1227,10 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/keys", validate(createAgentKeySchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const agentForPermCheck = await svc.getById(id);
+    if (!agentForPermCheck) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, agentForPermCheck.companyId);
+    await assertCompanyPermission(db, req, agentForPermCheck.companyId, "agents:create");
     const key = await svc.createApiKey(id, req.body.name);
 
     const agent = await svc.getById(id);
@@ -1143,6 +1243,14 @@ export function agentRoutes(db: Db) {
         entityType: "agent",
         entityId: agent.id,
         details: { keyId: key.id, name: key.name },
+      });
+
+      await emitAudit({
+        req, db, companyId: agent.companyId,
+        action: "agent.key_created",
+        targetType: "agent",
+        targetId: agent.id,
+        metadata: { keyType: key.name },
       });
     }
 
@@ -1206,6 +1314,14 @@ export function agentRoutes(db: Db) {
       details: { agentId: id },
     });
 
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.woken",
+      targetType: "agent",
+      targetId: id,
+      metadata: { issueId: req.body.payload?.issueId ?? null },
+    });
+
     res.status(202).json(run);
   });
 
@@ -1267,6 +1383,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    await assertCompanyPermission(db, req, agent.companyId, "agents:create");
     if (agent.adapterType !== "claude_local") {
       res.status(400).json({ error: "Login is only supported for claude_local agents" });
       return;
@@ -1284,6 +1401,14 @@ export function agentRoutes(db: Db) {
         adapterConfig: agent.adapterConfig,
       },
       config: runtimeConfig,
+    });
+
+    await emitAudit({
+      req, db, companyId: agent.companyId,
+      action: "agent.claude_login",
+      targetType: "agent",
+      targetId: agent.id,
+      metadata: {},
     });
 
     res.json(result);

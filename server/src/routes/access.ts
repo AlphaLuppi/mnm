@@ -9,11 +9,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import type { Request } from "express";
-import { and, eq, isNull, desc } from "drizzle-orm";
+import { and, eq, gt, isNull, desc } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
   agentApiKeys,
   authUsers,
+  companies,
+  companyMemberships,
   invites,
   joinRequests
 } from "@mnm/db";
@@ -24,8 +26,10 @@ import {
   createOpenClawInvitePromptSchema,
   listJoinRequestsQuerySchema,
   updateMemberPermissionsSchema,
+  updateMemberBusinessRoleSchema,
   updateUserCompanyAccessSchema,
-  PERMISSION_KEYS
+  PERMISSION_KEYS,
+  getPresetsMatrix
 } from "@mnm/shared";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import {
@@ -40,7 +44,10 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  cascadeService,
+  createEmailService,
   deduplicateAgentName,
+  emitAudit,
   logActivity,
   notifyHireApproved
 } from "../services/index.js";
@@ -59,6 +66,7 @@ const INVITE_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const INVITE_TOKEN_SUFFIX_LENGTH = 8;
 const INVITE_TOKEN_MAX_RETRIES = 5;
 const COMPANY_INVITE_TTL_MS = 10 * 60 * 1000;
+const EMAIL_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function createInviteToken() {
   const bytes = randomBytes(INVITE_TOKEN_SUFFIX_LENGTH);
@@ -73,8 +81,8 @@ function createClaimSecret() {
   return `pcp_claim_${randomBytes(24).toString("hex")}`;
 }
 
-export function companyInviteExpiresAt(nowMs: number = Date.now()) {
-  return new Date(nowMs + COMPANY_INVITE_TTL_MS);
+export function companyInviteExpiresAt(nowMs: number = Date.now(), ttlMs: number = COMPANY_INVITE_TTL_MS) {
+  return new Date(nowMs + ttlMs);
 }
 
 function tokenHashesMatch(left: string, right: string) {
@@ -1449,6 +1457,7 @@ export function accessRoutes(
   const router = Router();
   const access = accessService(db);
   const agents = agentService(db);
+  const cascade = cascadeService(db);
 
   async function assertInstanceAdmin(req: Request) {
     if (req.actor.type !== "board") throw unauthorized();
@@ -1519,7 +1528,22 @@ export function accessRoutes(
         req.actor.agentId,
         permissionKey
       );
-      if (!allowed) throw forbidden("Permission denied");
+      if (!allowed) {
+        logger.warn({
+          event: "access.denied",
+          permissionKey,
+          companyId,
+          actorType: "agent",
+          agentId: req.actor.agentId,
+          resourceScope: null,
+          route: `${req.method} ${req.originalUrl}`,
+        }, `Permission denied: ${permissionKey} for agent ${req.actor.agentId}`);
+        throw forbidden(`Missing permission: ${permissionKey}`, {
+          requiredPermission: permissionKey,
+          companyId,
+          resourceScope: null,
+        });
+      }
       return;
     }
     if (req.actor.type !== "board") throw unauthorized();
@@ -1529,7 +1553,22 @@ export function accessRoutes(
       req.actor.userId,
       permissionKey
     );
-    if (!allowed) throw forbidden("Permission denied");
+    if (!allowed) {
+      logger.warn({
+        event: "access.denied",
+        permissionKey,
+        companyId,
+        actorType: "board",
+        userId: req.actor.userId,
+        resourceScope: null,
+        route: `${req.method} ${req.originalUrl}`,
+      }, `Permission denied: ${permissionKey} for user ${req.actor.userId ?? "unknown"}`);
+      throw forbidden(`Missing permission: ${permissionKey}`, {
+        requiredPermission: permissionKey,
+        companyId,
+        resourceScope: null,
+      });
+    }
   }
 
   async function assertCanGenerateOpenClawInvitePrompt(
@@ -1560,11 +1599,13 @@ export function accessRoutes(
     allowedJoinTypes: "human" | "agent" | "both";
     defaultsPayload?: Record<string, unknown> | null;
     agentMessage?: string | null;
+    targetEmail?: string | null;
   }) {
     const normalizedAgentMessage =
       typeof input.agentMessage === "string"
         ? input.agentMessage.trim() || null
         : null;
+    const ttl = input.targetEmail ? EMAIL_INVITE_TTL_MS : COMPANY_INVITE_TTL_MS;
     const insertValues = {
       companyId: input.companyId,
       inviteType: "company_join" as const,
@@ -1573,7 +1614,8 @@ export function accessRoutes(
         input.defaultsPayload ?? null,
         normalizedAgentMessage
       ),
-      expiresAt: companyInviteExpiresAt(),
+      targetEmail: input.targetEmail ?? null,
+      expiresAt: companyInviteExpiresAt(Date.now(), ttl),
       invitedByUserId: input.req.actor.userId ?? null
     };
 
@@ -1631,13 +1673,83 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       await assertCompanyPermission(req, companyId, "users:invite");
+
+      const email: string | undefined = req.body.email;
+
+      // Duplicate check: if email provided, reject if a pending invite exists
+      if (email) {
+        const now = new Date();
+        const existing = await db
+          .select({ id: invites.id })
+          .from(invites)
+          .where(
+            and(
+              eq(invites.companyId, companyId),
+              eq(invites.targetEmail, email),
+              isNull(invites.revokedAt),
+              isNull(invites.acceptedAt),
+              gt(invites.expiresAt, now),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+        if (existing) {
+          throw conflict("A pending invitation already exists for this email address");
+        }
+      }
+
+      // onb-s02-access-cascade-check
+      // Cascade hierarchy validation: check if the inviter can assign the target role
+      const targetRole = req.body.businessRole;
+      if (targetRole && req.actor.userId && req.actor.type !== "agent") {
+        const targetScope = req.body.scope ?? null;
+        const cascadeResult = await cascade.validateCascadeInvite(
+          companyId,
+          req.actor.userId,
+          email ?? "",
+          targetRole,
+          targetScope,
+        );
+
+        if (!cascadeResult.valid) {
+          // onb-s02-cascade-audit
+          await emitAudit({
+            req, db, companyId,
+            action: "cascade.invite_denied",
+            targetType: "invite",
+            targetId: email ?? "unknown",
+            metadata: {
+              inviterRole: req.actor.userId,
+              targetRole,
+              targetEmail: email ?? null,
+              reason: cascadeResult.reason,
+            },
+            severity: "warning",
+          });
+
+          throw forbidden(cascadeResult.reason ?? "Hierarchy violation: cannot invite with this role", {
+            code: "HIERARCHY_VIOLATION",
+            reason: cascadeResult.reason,
+            targetRole,
+          });
+        }
+
+        // Store inherited scope for later use when invite is accepted
+        if (cascadeResult.inheritedScope) {
+          req.body._inheritedScope = cascadeResult.inheritedScope;
+        }
+      }
+
+      // onb-s02-invited-by
+      const inviterUserId = req.actor.userId ?? null;
+
       const { token, created, normalizedAgentMessage } =
         await createCompanyInviteForCompany({
           req,
           companyId,
           allowedJoinTypes: req.body.allowedJoinTypes,
           defaultsPayload: req.body.defaultsPayload ?? null,
-          agentMessage: req.body.agentMessage ?? null
+          agentMessage: req.body.agentMessage ?? null,
+          targetEmail: email ?? null,
         });
 
       await logActivity(db, {
@@ -1654,9 +1766,72 @@ export function accessRoutes(
           inviteType: created.inviteType,
           allowedJoinTypes: created.allowedJoinTypes,
           expiresAt: created.expiresAt.toISOString(),
-          hasAgentMessage: Boolean(normalizedAgentMessage)
+          hasAgentMessage: Boolean(normalizedAgentMessage),
+          targetEmail: email ?? null,
         }
       });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.invite_created",
+        targetType: "invite",
+        targetId: created.id,
+        metadata: { email: email ?? null, businessRole: req.body.businessRole ?? null, method: created.inviteType },
+      });
+
+      // Cascade audit: emit cascade.invite_created when a role hierarchy invite is used
+      if (req.body.businessRole && req.actor.userId) {
+        await emitAudit({
+          req, db, companyId,
+          action: "cascade.invite_created",
+          targetType: "invite",
+          targetId: created.id,
+          metadata: {
+            inviterRole: req.actor.userId,
+            targetRole: req.body.businessRole,
+            targetEmail: email ?? null,
+            inheritedScope: req.body._inheritedScope ?? null,
+          },
+        });
+      }
+
+      // Send email invitation if email was provided
+      if (email) {
+        const publicUrl = process.env.MNM_PUBLIC_URL ?? requestBaseUrl(req);
+        const inviteUrl = `${publicUrl}/invite/${token}`;
+
+        // Fetch company name
+        const company = await db
+          .select({ name: companies.name })
+          .from(companies)
+          .where(eq(companies.id, companyId))
+          .then((rows) => rows[0] ?? null);
+        const companyName = company?.name ?? "your organization";
+
+        // Fetch inviter name
+        let inviterName: string | null = null;
+        if (req.actor.userId) {
+          const inviter = await db
+            .select({ name: authUsers.name })
+            .from(authUsers)
+            .where(eq(authUsers.id, req.actor.userId))
+            .then((rows) => rows[0] ?? null);
+          inviterName = inviter?.name ?? null;
+        }
+
+        const emailService = createEmailService();
+        try {
+          await emailService.sendInviteEmail({
+            to: email,
+            inviteUrl,
+            companyName,
+            inviterName,
+            expiresAt: created.expiresAt,
+          });
+        } catch (err) {
+          logger.error({ err, to: email, inviteId: created.id }, "Failed to send invite email");
+        }
+      }
 
       const inviteSummary = toInviteSummaryResponse(req, token, created);
       res.status(201).json({
@@ -1669,6 +1844,32 @@ export function accessRoutes(
       });
     }
   );
+
+  router.get("/companies/:companyId/invites", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCompanyPermission(req, companyId, "users:invite");
+
+    const inviteList = await db
+      .select()
+      .from(invites)
+      .where(eq(invites.companyId, companyId))
+      .orderBy(desc(invites.createdAt));
+
+    // Add computed status
+    const now = new Date();
+    const result = inviteList.map((inv) => ({
+      ...inv,
+      status: inv.revokedAt
+        ? "revoked"
+        : inv.acceptedAt
+          ? "accepted"
+          : inv.expiresAt && inv.expiresAt < now
+            ? "expired"
+            : "pending",
+    }));
+
+    res.json(result);
+  });
 
   router.post(
     "/companies/:companyId/openclaw/invite-prompt",
@@ -2172,6 +2373,16 @@ export function accessRoutes(
         }
       });
 
+      if (!inviteAlreadyAccepted) {
+        await emitAudit({
+          req, db, companyId,
+          action: "access.invite_accepted",
+          targetType: "invite",
+          targetId: invite.id,
+          metadata: { userId: req.actor.type === "board" ? req.actor.userId : null, email: invite.targetEmail ?? null },
+        });
+      }
+
       const response = toJoinRequestResponse(created);
       if (claimSecret) {
         const onboardingManifest = buildInviteOnboardingManifest(
@@ -2255,6 +2466,33 @@ export function accessRoutes(
       return true;
     });
     res.json(filtered.map(toJoinRequestResponse));
+  });
+
+  // Spontaneous join-request endpoint (without an invite link).
+  // Currently the join_requests table requires inviteId (NOT NULL), so this
+  // endpoint guards against spontaneous joins when invitationOnly is enabled
+  // and returns 400 otherwise (no spontaneous join flow implemented yet).
+  router.post("/companies/:companyId/join-requests", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    // Check invitationOnly flag on the target company
+    const company = await db
+      .select({ invitationOnly: companies.invitationOnly })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+
+    if (!company) throw notFound("Company not found");
+
+    if (company.invitationOnly) {
+      throw forbidden("This company accepts members by invitation only");
+    }
+
+    // Spontaneous join requests are not yet supported — use an invite link.
+    throw badRequest(
+      "Spontaneous join requests are not supported. Use an invitation link to join this company."
+    );
   });
 
   router.post(
@@ -2390,6 +2628,14 @@ export function accessRoutes(
         details: { requestType: existing.requestType, createdAgentId }
       });
 
+      await emitAudit({
+        req, db, companyId,
+        action: "access.join_request_approved",
+        targetType: "member",
+        targetId: requestId,
+        metadata: { requestType: existing.requestType, approvedBy: req.actor.userId ?? "board" },
+      });
+
       if (createdAgentId) {
         void notifyHireApproved(db, {
           companyId,
@@ -2446,6 +2692,14 @@ export function accessRoutes(
         entityType: "join_request",
         entityId: requestId,
         details: { requestType: existing.requestType }
+      });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.join_request_rejected",
+        targetType: "member",
+        targetId: requestId,
+        metadata: { requestType: existing.requestType, rejectedBy: req.actor.userId ?? "board" },
       });
 
       res.json(toJoinRequestResponse(rejected));
@@ -2554,8 +2808,175 @@ export function accessRoutes(
         req.actor.userId ?? null
       );
       if (!updated) throw notFound("Member not found");
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.member_permissions_updated",
+        targetType: "permission",
+        targetId: memberId,
+        metadata: { permissionKey: "grants", granted: req.body.grants ?? [] },
+      });
+
       res.json(updated);
     }
+  );
+
+  router.patch(
+    "/companies/:companyId/members/:memberId/business-role",
+    validate(updateMemberBusinessRoleSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const memberId = req.params.memberId as string;
+      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      const updated = await access.updateMemberBusinessRole(
+        companyId,
+        memberId,
+        req.body.businessRole
+      );
+      if (!updated) throw notFound("Member not found");
+      await logActivity(db, {
+        companyId,
+        actorType: req.actor.type === "agent" ? "agent" : "user",
+        actorId:
+          req.actor.type === "agent"
+            ? req.actor.agentId ?? "unknown"
+            : req.actor.userId ?? "unknown",
+        action: "member.business_role.updated",
+        entityType: "member",
+        entityId: memberId,
+        details: { businessRole: req.body.businessRole }
+      });
+
+      await emitAudit({
+        req, db, companyId,
+        action: "access.member_role_changed",
+        targetType: "member",
+        targetId: memberId,
+        metadata: { newRole: req.body.businessRole }
+      });
+      res.json(updated);
+    }
+  );
+
+  router.patch(
+    "/companies/:companyId/members/:memberId/status",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const memberId = req.params.memberId as string;
+      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      const status = req.body.status;
+      if (status !== "active" && status !== "suspended") {
+        throw badRequest("status must be 'active' or 'suspended'");
+      }
+      const updated = await access.updateMemberStatus(companyId, memberId, status);
+      if (!updated) throw notFound("Member not found");
+      await logActivity(db, {
+        companyId,
+        actorType: req.actor.type === "agent" ? "agent" : "user",
+        actorId:
+          req.actor.type === "agent"
+            ? req.actor.agentId ?? "unknown"
+            : req.actor.userId ?? "unknown",
+        action: `member.status.${status}`,
+        entityType: "member",
+        entityId: memberId,
+        details: { status }
+      });
+
+      if (status === "suspended") {
+        await emitAudit({
+          req, db, companyId,
+          action: "access.member_removed",
+          targetType: "member",
+          targetId: memberId,
+          metadata: { principalId: updated.principalId },
+          severity: "warning",
+        });
+      }
+
+      res.json(updated);
+    }
+  );
+
+  // --- RBAC Presets endpoints (RBAC-S02) ---
+
+  // GET /companies/:companyId/rbac/presets — return the preset matrix
+  router.get("/companies/:companyId/rbac/presets", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const matrix = getPresetsMatrix();
+    res.json(matrix);
+  });
+
+  // GET /companies/:companyId/my-permissions — current user's effective permissions
+  router.get(
+    "/companies/:companyId/my-permissions",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      // In local_trusted mode, return all permissions
+      if (isLocalImplicit(req)) {
+        res.json({
+          businessRole: "admin" as const,
+          presetPermissions: [...PERMISSION_KEYS],
+          explicitGrants: [],
+          effectivePermissions: [...PERMISSION_KEYS],
+        });
+        return;
+      }
+
+      const userId = req.actor.userId;
+      if (!userId) throw unauthorized();
+
+      const effective = await access.getEffectivePermissions(
+        companyId,
+        "user",
+        userId,
+      );
+      res.json(effective);
+    },
+  );
+
+  // GET /companies/:companyId/rbac/effective-permissions/:memberId
+  router.get(
+    "/companies/:companyId/rbac/effective-permissions/:memberId",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const memberId = req.params.memberId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Find the member first to check own-profile access
+      const member = await db
+        .select()
+        .from(companyMemberships)
+        .where(
+          and(
+            eq(companyMemberships.companyId, companyId),
+            eq(companyMemberships.id, memberId),
+          ),
+        )
+        .then((rows) => rows[0] ?? null);
+
+      if (!member) throw notFound("Member not found");
+
+      // Check authorization: own profile OR users:manage_permissions
+      const isOwnProfile =
+        req.actor.type === "board" &&
+        member.principalType === "user" &&
+        member.principalId === req.actor.userId;
+
+      if (!isOwnProfile) {
+        await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      }
+
+      const effective = await access.getEffectivePermissions(
+        companyId,
+        member.principalType as any,
+        member.principalId,
+      );
+      res.json(effective);
+    },
   );
 
   router.post(

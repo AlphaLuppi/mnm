@@ -1,4 +1,4 @@
-CREATE TABLE "agent_runtime_state" (
+CREATE TABLE IF NOT EXISTS "agent_runtime_state" (
 	"agent_id" uuid PRIMARY KEY NOT NULL,
 	"company_id" uuid NOT NULL,
 	"adapter_type" text NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE "agent_runtime_state" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "agent_wakeup_requests" (
+CREATE TABLE IF NOT EXISTS "agent_wakeup_requests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"agent_id" uuid NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE "agent_wakeup_requests" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "heartbeat_run_events" (
+CREATE TABLE IF NOT EXISTS "heartbeat_run_events" (
 	"id" bigserial PRIMARY KEY NOT NULL,
 	"company_id" uuid NOT NULL,
 	"run_id" uuid NOT NULL,
@@ -53,23 +53,23 @@ CREATE TABLE "heartbeat_run_events" (
 );
 --> statement-breakpoint
 ALTER TABLE "heartbeat_runs" ALTER COLUMN "invocation_source" SET DEFAULT 'on_demand';--> statement-breakpoint
-ALTER TABLE "agents" ADD COLUMN "runtime_config" jsonb DEFAULT '{}'::jsonb NOT NULL;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "trigger_detail" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "wakeup_request_id" uuid;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "exit_code" integer;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "signal" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "usage_json" jsonb;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "result_json" jsonb;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "session_id_before" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "session_id_after" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "log_store" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "log_ref" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "log_bytes" bigint;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "log_sha256" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "log_compressed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "stdout_excerpt" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "stderr_excerpt" text;--> statement-breakpoint
-ALTER TABLE "heartbeat_runs" ADD COLUMN "error_code" text;--> statement-breakpoint
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "runtime_config" jsonb DEFAULT '{}'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "trigger_detail" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "wakeup_request_id" uuid;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "exit_code" integer;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "signal" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "usage_json" jsonb;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "result_json" jsonb;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "session_id_before" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "session_id_after" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "log_store" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "log_ref" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "log_bytes" bigint;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "log_sha256" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "log_compressed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "stdout_excerpt" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "stderr_excerpt" text;--> statement-breakpoint
+ALTER TABLE "heartbeat_runs" ADD COLUMN IF NOT EXISTS "error_code" text;--> statement-breakpoint
 ALTER TABLE "agent_runtime_state" ADD CONSTRAINT "agent_runtime_state_agent_id_agents_id_fk" FOREIGN KEY ("agent_id") REFERENCES "public"."agents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agent_runtime_state" ADD CONSTRAINT "agent_runtime_state_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agent_wakeup_requests" ADD CONSTRAINT "agent_wakeup_requests_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -77,11 +77,11 @@ ALTER TABLE "agent_wakeup_requests" ADD CONSTRAINT "agent_wakeup_requests_agent_
 ALTER TABLE "heartbeat_run_events" ADD CONSTRAINT "heartbeat_run_events_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "heartbeat_run_events" ADD CONSTRAINT "heartbeat_run_events_run_id_heartbeat_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."heartbeat_runs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "heartbeat_run_events" ADD CONSTRAINT "heartbeat_run_events_agent_id_agents_id_fk" FOREIGN KEY ("agent_id") REFERENCES "public"."agents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "agent_runtime_state_company_agent_idx" ON "agent_runtime_state" USING btree ("company_id","agent_id");--> statement-breakpoint
-CREATE INDEX "agent_runtime_state_company_updated_idx" ON "agent_runtime_state" USING btree ("company_id","updated_at");--> statement-breakpoint
-CREATE INDEX "agent_wakeup_requests_company_agent_status_idx" ON "agent_wakeup_requests" USING btree ("company_id","agent_id","status");--> statement-breakpoint
-CREATE INDEX "agent_wakeup_requests_company_requested_idx" ON "agent_wakeup_requests" USING btree ("company_id","requested_at");--> statement-breakpoint
-CREATE INDEX "agent_wakeup_requests_agent_requested_idx" ON "agent_wakeup_requests" USING btree ("agent_id","requested_at");--> statement-breakpoint
-CREATE INDEX "heartbeat_run_events_run_seq_idx" ON "heartbeat_run_events" USING btree ("run_id","seq");--> statement-breakpoint
-CREATE INDEX "heartbeat_run_events_company_run_idx" ON "heartbeat_run_events" USING btree ("company_id","run_id");--> statement-breakpoint
-CREATE INDEX "heartbeat_run_events_company_created_idx" ON "heartbeat_run_events" USING btree ("company_id","created_at");
+CREATE INDEX IF NOT EXISTS "agent_runtime_state_company_agent_idx" ON "agent_runtime_state" USING btree ("company_id","agent_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_runtime_state_company_updated_idx" ON "agent_runtime_state" USING btree ("company_id","updated_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_wakeup_requests_company_agent_status_idx" ON "agent_wakeup_requests" USING btree ("company_id","agent_id","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_wakeup_requests_company_requested_idx" ON "agent_wakeup_requests" USING btree ("company_id","requested_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "agent_wakeup_requests_agent_requested_idx" ON "agent_wakeup_requests" USING btree ("agent_id","requested_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "heartbeat_run_events_run_seq_idx" ON "heartbeat_run_events" USING btree ("run_id","seq");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "heartbeat_run_events_company_run_idx" ON "heartbeat_run_events" USING btree ("company_id","run_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "heartbeat_run_events_company_created_idx" ON "heartbeat_run_events" USING btree ("company_id","created_at");

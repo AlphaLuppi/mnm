@@ -35,3 +35,24 @@ export { workflowTemplates, type WorkflowStageTemplateDef } from "./workflow_tem
 export { workflowInstances } from "./workflow_instances.js";
 export { stageInstances } from "./stage_instances.js";
 export { inboxDismissals } from "./inbox_dismissals.js";
+export { projectMemberships } from "./project_memberships.js";
+export { automationCursors } from "./automation_cursors.js";
+export { chatChannels } from "./chat_channels.js";
+export { chatMessages } from "./chat_messages.js";
+export { containerProfiles } from "./container_profiles.js";
+export { containerInstances } from "./container_instances.js";
+export { containerProfilesRelations, containerInstancesRelations } from "./container_relations.js"; // cont-s05-export-profiles-relations, cont-s05-export-instances-relations
+export { credentialProxyRules } from "./credential_proxy_rules.js";
+export { auditEvents } from "./audit_events.js";
+export { ssoConfigurations } from "./sso_configurations.js";
+export { importJobs } from "./import_jobs.js";
+export { driftReports } from "./drift_reports.js";
+export { driftItems } from "./drift_items.js";
+// a2a-s01-schema-export
+export { a2aMessages } from "./a2a_messages.js";
+// comp-s02-barrel-schema
+export { compactionSnapshots } from "./compaction_snapshots.js";
+// a2a-s02-schema-export
+export { a2aPermissionRules } from "./a2a-permission-rules.js";
+// TRACE-01: Trace tables + TRACE-07: Lens tables + PIPE-03: Gold
+export { traces, traceObservations, traceLenses, traceLensResults, goldPrompts, type TracePhase, type TraceGold, type TraceGoldPhase } from "./traces.js";

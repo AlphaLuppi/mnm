@@ -1,0 +1,46 @@
+# =============================================================================
+# MnM — Docker Compose (Development)
+# =============================================================================
+# Spins up PostgreSQL and Redis for local development.
+# Usage:
+#   pnpm dev:docker:up     # start services
+#   pnpm dev:docker:down   # stop services
+#
+# The MnM server itself runs on the host via `pnpm dev`.
+# Configure .env with:
+#   DATABASE_URL=postgres://mnm:mnm_dev@127.0.0.1:5432/mnm
+#   REDIS_URL=redis://127.0.0.1:6379
+# =============================================================================
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mnm
+      POSTGRES_PASSWORD: mnm_dev
+      POSTGRES_DB: mnm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnm -d mnm"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata-dev:/data
+
+volumes:
+  pgdata-dev:
+  redisdata-dev:

@@ -10,6 +10,7 @@ export const invites = pgTable(
     tokenHash: text("token_hash").notNull(),
     allowedJoinTypes: text("allowed_join_types").notNull().default("both"),
     defaultsPayload: jsonb("defaults_payload").$type<Record<string, unknown> | null>(),
+    targetEmail: text("target_email"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     invitedByUserId: text("invited_by_user_id"),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -24,6 +25,10 @@ export const invites = pgTable(
       table.inviteType,
       table.revokedAt,
       table.expiresAt,
+    ),
+    companyEmailPendingIdx: index("invites_company_email_pending_idx").on(
+      table.companyId,
+      table.targetEmail,
     ),
   }),
 );

@@ -8,9 +8,11 @@ import {
   resubmitApprovalSchema,
 } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { logger } from "../middleware/logger.js";
 import {
   approvalService,
+  emitAudit,
   heartbeatService,
   issueApprovalService,
   logActivity,
@@ -103,6 +105,14 @@ export function approvalRoutes(db: Db) {
       details: { type: approval.type, issueIds: uniqueIssueIds },
     });
 
+    await emitAudit({
+      req, db, companyId,
+      action: "approval.created",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type },
+    });
+
     res.status(201).json(redactApprovalPayload(approval));
   });
 
@@ -121,6 +131,10 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
     const approval = await svc.approve(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
     const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
     const linkedIssueIds = linkedIssues.map((issue) => issue.id);
@@ -138,6 +152,14 @@ export function approvalRoutes(db: Db) {
         requestedByAgentId: approval.requestedByAgentId,
         linkedIssueIds,
       },
+    });
+
+    await emitAudit({
+      req, db, companyId: approval.companyId,
+      action: "approval.approved",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type, approvedBy: req.actor.userId ?? "board" },
     });
 
     if (approval.requestedByAgentId) {
@@ -209,6 +231,10 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
+    assertCompanyAccess(req, existing.companyId);
+    await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
     const approval = await svc.reject(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
 
     await logActivity(db, {
@@ -221,6 +247,14 @@ export function approvalRoutes(db: Db) {
       details: { type: approval.type },
     });
 
+    await emitAudit({
+      req, db, companyId: approval.companyId,
+      action: "approval.rejected",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type, rejectedBy: req.actor.userId ?? "board" },
+    });
+
     res.json(redactApprovalPayload(approval));
   });
 
@@ -230,6 +264,10 @@ export function approvalRoutes(db: Db) {
     async (req, res) => {
       assertBoard(req);
       const id = req.params.id as string;
+      const existing = await svc.getById(id);
+      if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
+      assertCompanyAccess(req, existing.companyId);
+      await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
       const approval = await svc.requestRevision(
         id,
         req.body.decidedByUserId ?? "board",
@@ -244,6 +282,14 @@ export function approvalRoutes(db: Db) {
         entityType: "approval",
         entityId: approval.id,
         details: { type: approval.type },
+      });
+
+      await emitAudit({
+        req, db, companyId: approval.companyId,
+        action: "approval.revision_requested",
+        targetType: "approval",
+        targetId: approval.id,
+        metadata: { agentName: approval.type },
       });
 
       res.json(redactApprovalPayload(approval));
@@ -285,6 +331,15 @@ export function approvalRoutes(db: Db) {
       entityId: approval.id,
       details: { type: approval.type },
     });
+
+    await emitAudit({
+      req, db, companyId: approval.companyId,
+      action: "approval.resubmitted",
+      targetType: "approval",
+      targetId: approval.id,
+      metadata: { agentName: approval.type },
+    });
+
     res.json(redactApprovalPayload(approval));
   });
 

@@ -1,12 +1,25 @@
+# tech-08-dockerfile-optimized
+# =============================================================================
+# MnM — Multi-stage Dockerfile (CI/CD optimized)
+# =============================================================================
+# Build stages: base -> deps -> build -> production
+# Optimized for Docker layer caching and BuildKit cache mounts.
+# Story: TECH-08 — CI/CD Pipeline
+# =============================================================================
+# syntax=docker/dockerfile:1
+
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git \
+  && apt-get install -y --no-install-recommends ca-certificates curl git unzip \
   && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+# Install bun (project has migrated from pnpm to bun)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+# Copy only package manifests + lock for optimal layer caching
+COPY package.json bun.lock .npmrc ./
 COPY cli/package.json cli/
 COPY server/package.json server/
 COPY ui/package.json ui/
@@ -20,33 +33,47 @@ COPY packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-
 COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
 
-RUN pnpm install --frozen-lockfile
+# Use BuildKit cache mount for bun cache to speed up CI builds
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install
 
 FROM base AS build
 WORKDIR /app
 COPY --from=deps /app /app
 COPY . .
-RUN pnpm --filter @paperclipai/ui build
-RUN pnpm --filter @paperclipai/server build
+RUN bun run --filter @mnm/ui build
+RUN bun run --filter @mnm/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 FROM base AS production
 WORKDIR /app
 COPY --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
+# tsx is needed at runtime because workspace packages (e.g. @mnm/db) export .ts files
+RUN npm install --global tsx @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
+
+# Non-root user so Claude Code accepts --dangerously-skip-permissions
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/* \
+  && groupadd -r mnm && useradd -r -g mnm -d /mnm -s /bin/bash mnm \
+  && mkdir -p /mnm && chown -R mnm:mnm /mnm
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENV NODE_ENV=production \
-  HOME=/paperclip \
+  HOME=/mnm \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
-  PAPERCLIP_HOME=/paperclip \
-  PAPERCLIP_INSTANCE_ID=default \
-  PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
-  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+  MNM_HOME=/mnm \
+  MNM_INSTANCE_ID=default \
+  MNM_CONFIG=/mnm/instances/default/config.json \
+  MNM_DEPLOYMENT_MODE=authenticated \
+  MNM_DEPLOYMENT_EXPOSURE=private
 
-VOLUME ["/paperclip"]
+VOLUME ["/mnm"]
 EXPOSE 3100
 
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3100/api/health || exit 1
+
+ENTRYPOINT ["entrypoint.sh"]

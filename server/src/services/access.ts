@@ -1,17 +1,31 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
+  authUsers,
   companyMemberships,
   instanceUserRoles,
   principalPermissionGrants,
 } from "@mnm/db";
-import type { PermissionKey, PrincipalType } from "@mnm/shared";
+import type { BusinessRole, PermissionKey, PrincipalType, ResourceScope } from "@mnm/shared";
+import { BUSINESS_ROLES, isPermissionInPreset, getPresetPermissions } from "@mnm/shared";
+import { scopeSchema } from "@mnm/shared";
+import { badRequest } from "../errors.js";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
 type GrantInput = {
   permissionKey: PermissionKey;
   scope?: Record<string, unknown> | null;
 };
+
+function validateScope(scope: unknown): void {
+  if (scope === undefined || scope === null) return;
+  const result = scopeSchema.safeParse(scope);
+  if (!result.success) {
+    throw badRequest("Invalid permission scope", {
+      issues: result.error.issues,
+    });
+  }
+}
 
 export function accessService(db: Db) {
   async function isInstanceAdmin(userId: string | null | undefined): Promise<boolean> {
@@ -47,11 +61,15 @@ export function accessService(db: Db) {
     principalType: PrincipalType,
     principalId: string,
     permissionKey: PermissionKey,
+    resourceScope?: ResourceScope,
   ): Promise<boolean> {
     const membership = await getMembership(companyId, principalType, principalId);
     if (!membership || membership.status !== "active") return false;
     const grant = await db
-      .select({ id: principalPermissionGrants.id })
+      .select({
+        id: principalPermissionGrants.id,
+        scope: principalPermissionGrants.scope,
+      })
       .from(principalPermissionGrants)
       .where(
         and(
@@ -62,25 +80,100 @@ export function accessService(db: Db) {
         ),
       )
       .then((rows) => rows[0] ?? null);
-    return Boolean(grant);
+    // If an explicit grant exists, evaluate it (with scope)
+    if (grant) {
+      // No resource scope requested — grant alone is sufficient
+      if (!resourceScope) return true;
+
+      // Grant has no scope (null or empty) — wildcard access
+      const grantScope = grant.scope as Record<string, unknown> | null | undefined;
+      if (!grantScope || Object.keys(grantScope).length === 0) return true;
+
+      // Check projectIds coverage
+      const requestedProjectIds = resourceScope.projectIds;
+      if (requestedProjectIds && requestedProjectIds.length > 0) {
+        const grantedProjectIds = Array.isArray(grantScope.projectIds)
+          ? new Set(grantScope.projectIds as string[])
+          : null;
+        // Grant has no projectIds restriction — wildcard for projects
+        if (!grantedProjectIds) return true;
+        // All requested projectIds must be covered by the grant
+        const allCovered = requestedProjectIds.every((id) => grantedProjectIds.has(id));
+        if (!allCovered) return false;
+      }
+
+      return true;
+    }
+
+    // No explicit grant — fallback to businessRole preset
+    const businessRole = membership.businessRole as BusinessRole | null;
+    if (!businessRole) return false;
+
+    // Preset grants company-wide access (no scope restriction).
+    // If the permission is in the preset, it covers any resourceScope.
+    return isPermissionInPreset(businessRole, permissionKey);
   }
 
   async function canUser(
     companyId: string,
     userId: string | null | undefined,
     permissionKey: PermissionKey,
+    resourceScope?: ResourceScope,
   ): Promise<boolean> {
     if (!userId) return false;
+    // Instance admins bypass ALL permission and scope checks
     if (await isInstanceAdmin(userId)) return true;
-    return hasPermission(companyId, "user", userId, permissionKey);
+    return hasPermission(companyId, "user", userId, permissionKey, resourceScope);
   }
 
   async function listMembers(companyId: string) {
-    return db
-      .select()
+    const rows = await db
+      .select({
+        id: companyMemberships.id,
+        companyId: companyMemberships.companyId,
+        principalType: companyMemberships.principalType,
+        principalId: companyMemberships.principalId,
+        status: companyMemberships.status,
+        membershipRole: companyMemberships.membershipRole,
+        businessRole: companyMemberships.businessRole,
+        createdAt: companyMemberships.createdAt,
+        updatedAt: companyMemberships.updatedAt,
+        userName: authUsers.name,
+        userEmail: authUsers.email,
+        userImage: authUsers.image,
+      })
       .from(companyMemberships)
+      .leftJoin(
+        authUsers,
+        and(
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.principalId, authUsers.id),
+        ),
+      )
       .where(eq(companyMemberships.companyId, companyId))
       .orderBy(sql`${companyMemberships.createdAt} desc`);
+    return rows;
+  }
+
+  async function updateMemberStatus(
+    companyId: string,
+    memberId: string,
+    status: "active" | "suspended",
+  ) {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.id, memberId)))
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    const updated = await db
+      .update(companyMemberships)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(companyMemberships.id, member.id))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+    return updated ?? member;
   }
 
   async function setMemberPermissions(
@@ -89,6 +182,11 @@ export function accessService(db: Db) {
     grants: GrantInput[],
     grantedByUserId: string | null,
   ) {
+    // Validate all scopes before touching the DB
+    for (const grant of grants) {
+      validateScope(grant.scope);
+    }
+
     const member = await db
       .select()
       .from(companyMemberships)
@@ -190,6 +288,7 @@ export function accessService(db: Db) {
     principalId: string,
     membershipRole: string | null = "member",
     status: "pending" | "active" | "suspended" = "active",
+    businessRole: BusinessRole = "contributor",
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
     if (existing) {
@@ -213,9 +312,31 @@ export function accessService(db: Db) {
         principalId,
         status,
         membershipRole,
+        businessRole,
       })
       .returning()
       .then((rows) => rows[0]);
+  }
+
+  async function updateMemberBusinessRole(
+    companyId: string,
+    memberId: string,
+    businessRole: BusinessRole,
+  ) {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.id, memberId)))
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    const updated = await db
+      .update(companyMemberships)
+      .set({ businessRole, updatedAt: new Date() })
+      .where(eq(companyMemberships.id, member.id))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+    return updated ?? member;
   }
 
   async function setPrincipalGrants(
@@ -225,6 +346,11 @@ export function accessService(db: Db) {
     grants: GrantInput[],
     grantedByUserId: string | null,
   ) {
+    // Validate all scopes before touching the DB
+    for (const grant of grants) {
+      validateScope(grant.scope);
+    }
+
     await db.transaction(async (tx) => {
       await tx
         .delete(principalPermissionGrants)
@@ -251,6 +377,90 @@ export function accessService(db: Db) {
     });
   }
 
+  async function getEffectivePermissions(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+  ): Promise<{
+    businessRole: BusinessRole | null;
+    presetPermissions: PermissionKey[];
+    explicitGrants: Array<{
+      permissionKey: PermissionKey;
+      scope: Record<string, unknown> | null;
+    }>;
+    effectivePermissions: PermissionKey[];
+  }> {
+    const membership = await getMembership(companyId, principalType, principalId);
+    if (!membership || membership.status !== "active") {
+      return {
+        businessRole: null,
+        presetPermissions: [],
+        explicitGrants: [],
+        effectivePermissions: [],
+      };
+    }
+
+    const businessRole = membership.businessRole as BusinessRole | null;
+    const presetPerms = businessRole ? [...getPresetPermissions(businessRole)] : [];
+
+    const grants = await db
+      .select({
+        permissionKey: principalPermissionGrants.permissionKey,
+        scope: principalPermissionGrants.scope,
+      })
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, companyId),
+          eq(principalPermissionGrants.principalType, principalType),
+          eq(principalPermissionGrants.principalId, principalId),
+        ),
+      );
+
+    const explicitGrants = grants.map((g) => ({
+      permissionKey: g.permissionKey as PermissionKey,
+      scope: g.scope as Record<string, unknown> | null,
+    }));
+
+    // Effective permissions = union of preset + explicit grants
+    const effectiveSet = new Set<PermissionKey>(presetPerms);
+    for (const grant of explicitGrants) {
+      effectiveSet.add(grant.permissionKey);
+    }
+
+    return {
+      businessRole,
+      presetPermissions: presetPerms,
+      explicitGrants,
+      effectivePermissions: [...effectiveSet].sort(),
+    };
+  }
+
+  // PROJ-S03: Check if user has global scope (no project restriction)
+  async function hasGlobalScope(companyId: string, userId: string): Promise<boolean> {
+    const membership = await getMembership(companyId, "user", userId);
+    if (!membership || membership.status !== "active") return false;
+
+    // Admin and Manager businessRoles have global scope (company-wide preset permissions)
+    const businessRole = membership.businessRole as BusinessRole | null;
+    if (businessRole === "admin" || businessRole === "manager") {
+      return true;
+    }
+
+    // For other roles, check if any explicit grant has scope: null (global access)
+    const grants = await db
+      .select({ id: principalPermissionGrants.id, scope: principalPermissionGrants.scope })
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, companyId),
+          eq(principalPermissionGrants.principalType, "user"),
+          eq(principalPermissionGrants.principalId, userId),
+        ),
+      );
+    return grants.some((g) => g.scope === null);
+  }
+
   return {
     isInstanceAdmin,
     canUser,
@@ -259,10 +469,14 @@ export function accessService(db: Db) {
     ensureMembership,
     listMembers,
     setMemberPermissions,
+    updateMemberBusinessRole,
+    updateMemberStatus,
+    getEffectivePermissions,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,
     setUserCompanyAccess,
     setPrincipalGrants,
+    hasGlobalScope,
   };
 }

@@ -159,8 +159,8 @@ export function LaunchAgentDialog({
       // Lazy creation: ghost selected → create a workspace-scoped agent
       if (selectedAgentId === SENTINEL_GHOST && !ghostWsAgent) {
         pushToast({
-          title: "Aucun agent workspace trouvé",
-          body: "Aucun fichier bmad-agent-*.md trouvé pour ce rôle. Sélectionnez un agent manuellement.",
+          title: "No agent workspace found",
+          body: "No bmad-agent-*.md file found for this role. Select an agent manually.",
           tone: "error",
         });
         setSubmitting(false);
@@ -168,8 +168,8 @@ export function LaunchAgentDialog({
       }
       if (selectedAgentId === SENTINEL_GHOST && !workspaceId) {
         pushToast({
-          title: "Workspace introuvable",
-          body: "Aucun workspace configuré pour ce projet.",
+          title: "Workspace not found",
+          body: "No workspace configured for this project.",
           tone: "error",
         });
         setSubmitting(false);
@@ -351,7 +351,7 @@ export function LaunchAgentDialog({
                       : "border-border border-dashed hover:border-foreground/40 hover:bg-accent/50 text-muted-foreground",
                   )}
                 >
-                  Aucun
+                  None
                 </button>
               </div>
             </div>
@@ -363,7 +363,7 @@ export function LaunchAgentDialog({
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
-                placeholder="Rechercher un workflow…"
+                placeholder="Search workflows…"
                 value={workflowSearch}
                 onChange={(e) => setWorkflowSearch(e.target.value)}
                 className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"

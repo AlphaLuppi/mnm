@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Paperclip, Plus } from "lucide-react";
+import { Boxes, Plus } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import {
   DndContext,
@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
+import { useNavigate } from "@/lib/router";
 import { cn } from "../lib/utils";
 import { queryKeys } from "../lib/queryKeys";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { Company } from "@mnm/shared";
 import { CompanyPatternIcon } from "./CompanyPatternIcon";
+import { UserMenu } from "./UserMenu";
 
 const ORDER_STORAGE_KEY = "mnm.companyOrder";
 
@@ -41,7 +42,9 @@ function getStoredOrder(): string[] {
 }
 
 function saveOrder(ids: string[]) {
-  localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(ids));
+  try {
+    localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(ids));
+  } catch { /* ignore — private browsing mode */ }
 }
 
 /** Sort companies by stored order, appending any new ones at the end. */
@@ -96,7 +99,7 @@ function SortableCompanyItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="overflow-visible">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="overflow-visible" {...(isSelected ? { "data-testid": "mu-s04-company-icon-selected" } : {})}>
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <a
@@ -105,10 +108,13 @@ function SortableCompanyItem({
               e.preventDefault();
               onSelect();
             }}
+            data-testid={`mu-s04-company-icon-${company.id}`}
+            {...(isSelected ? { "aria-current": true as const } : {})}
             className="relative flex items-center justify-center group overflow-visible"
           >
             {/* Selection indicator pill */}
             <div
+              data-testid="mu-s04-selection-pill"
               className={cn(
                 "absolute left-[-14px] w-1 rounded-r-full bg-foreground transition-[height] duration-150",
                 isSelected
@@ -130,7 +136,7 @@ function SortableCompanyItem({
                 )}
               />
               {hasLiveAgents && (
-                <span className="pointer-events-none absolute -right-0.5 -top-0.5 z-10">
+                <span data-testid={`mu-s04-live-badge-${company.id}`} className="pointer-events-none absolute -right-0.5 -top-0.5 z-10">
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-80" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-background" />
@@ -138,12 +144,12 @@ function SortableCompanyItem({
                 </span>
               )}
               {hasUnreadInbox && (
-                <span className="pointer-events-none absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+                <span data-testid={`mu-s04-unread-badge-${company.id}`} className="pointer-events-none absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
               )}
             </div>
           </a>
         </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>
+        <TooltipContent side="right" sideOffset={8} data-testid={`mu-s04-company-tooltip-${company.id}`}>
           <p>{company.name}</p>
         </TooltipContent>
       </Tooltip>
@@ -153,7 +159,7 @@ function SortableCompanyItem({
 
 export function CompanyRail() {
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
-  const { openOnboarding } = useDialog();
+  const navigate = useNavigate();
   const sidebarCompanies = useMemo(
     () => companies.filter((company) => company.status !== "archived"),
     [companies],
@@ -164,14 +170,12 @@ export function CompanyRail() {
     queries: companyIds.map((companyId) => ({
       queryKey: queryKeys.liveRuns(companyId),
       queryFn: () => heartbeatsApi.liveRunsForCompany(companyId),
-      refetchInterval: 10_000,
     })),
   });
   const sidebarBadgeQueries = useQueries({
     queries: companyIds.map((companyId) => ({
       queryKey: queryKeys.sidebarBadges(companyId),
       queryFn: () => sidebarBadgesApi.get(companyId),
-      refetchInterval: 15_000,
     })),
   });
   const hasLiveAgentsByCompanyId = useMemo(() => {
@@ -261,10 +265,10 @@ export function CompanyRail() {
   );
 
   return (
-    <div className="flex flex-col items-center w-[72px] shrink-0 h-full bg-background border-r border-border">
+    <div data-testid="mu-s04-company-rail" role="navigation" aria-label="Company selector" className="flex flex-col items-center w-[72px] shrink-0 h-full bg-background border-r border-border">
       {/* MnM icon - aligned with top sections (implied line, no visible border) */}
       <div className="flex items-center justify-center h-12 w-full shrink-0">
-        <Paperclip className="h-5 w-5 text-foreground" />
+        <Boxes className="h-5 w-5 text-foreground" />
       </div>
 
       {/* Company list */}
@@ -300,7 +304,8 @@ export function CompanyRail() {
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
             <button
-              onClick={() => openOnboarding()}
+              onClick={() => navigate("/onboarding")}
+              data-testid="mu-s04-add-company-btn"
               className="flex items-center justify-center w-11 h-11 rounded-[22px] hover:rounded-[14px] border-2 border-dashed border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-[border-color,color,border-radius] duration-150"
               aria-label="Add company"
             >
@@ -311,6 +316,11 @@ export function CompanyRail() {
             <p>Add company</p>
           </TooltipContent>
         </Tooltip>
+      </div>
+
+      {/* User menu */}
+      <div className="flex items-center justify-center pb-3 shrink-0">
+        <UserMenu />
       </div>
     </div>
   );

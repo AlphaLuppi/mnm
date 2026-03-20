@@ -1,0 +1,44 @@
+# =============================================================================
+# MnM — Docker Compose (Test / CI)
+# =============================================================================
+# Ephemeral PostgreSQL and Redis for integration & E2E tests.
+# Uses tmpfs (no persistent volumes) so each run starts fresh.
+# Ports are offset (5433 / 6380) to coexist with dev services.
+#
+# Usage:
+#   pnpm test:docker:up    # start services
+#   pnpm test:docker:down  # stop services and remove ephemeral data
+#
+# Configure test .env with:
+#   DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test
+#   REDIS_URL=redis://127.0.0.1:6380
+# =============================================================================
+
+services:
+  db-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mnm_test
+      POSTGRES_PASSWORD: mnm_test
+      POSTGRES_DB: mnm_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnm_test -d mnm_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  redis-test:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "6380:6379"
+    tmpfs:
+      - /data

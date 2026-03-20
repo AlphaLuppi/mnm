@@ -25,6 +25,8 @@ export {
   LIVE_EVENT_TYPES,
   PRINCIPAL_TYPES,
   MEMBERSHIP_STATUSES,
+  BUSINESS_ROLES,
+  BUSINESS_ROLE_LABELS,
   INSTANCE_USER_ROLES,
   INVITE_TYPES,
   INVITE_JOIN_TYPES,
@@ -55,6 +57,7 @@ export {
   type LiveEventType,
   type PrincipalType,
   type MembershipStatus,
+  type BusinessRole,
   type InstanceUserRole,
   type InviteType,
   type InviteJoinType,
@@ -95,6 +98,14 @@ export type {
   AgentWakeupRequest,
   LiveEvent,
   DashboardSummary,
+  // DASH-S01: Dashboard API types
+  DashboardPeriod,
+  DashboardBreakdownCategory,
+  DashboardKpis,
+  DashboardTimelinePoint,
+  DashboardTimeline,
+  DashboardBreakdownItem,
+  DashboardBreakdown,
   ActivityEvent,
   SidebarBadges,
   CompanyMembership,
@@ -144,12 +155,230 @@ export type {
   DriftType,
   DriftRecommendation,
   DriftDecision,
+  DriftReportStatus,
   DriftItem,
   DriftReport,
   DriftCheckRequest,
   DriftResolveRequest,
   DriftScanRequest,
   DriftScanStatus,
+  DriftReportFilters,
+  DriftItemFilters,
+  // DRIFT-S02: Drift monitor types
+  DriftAlertType,
+  DriftAlert,
+  DriftMonitorConfig,
+  DriftMonitorStatus,
+  StageState,
+  WorkflowState,
+  StageEvent,
+  StageContext,
+  TransitionRecord,
+  OrchestratorEvent,
+  RequiredFileDef,
+  FileCheckResult,
+  EnforcementResult,
+  StageArtifact,
+  PrePromptPayload,
+  HitlDecision,
+  HitlValidationRequest,
+  PendingValidation,
+  AuditActorType,
+  AuditSeverity,
+  AuditTargetType,
+  AuditAction,
+  AuditEventInput,
+  AuditEvent,
+  AuditListResult,
+  AuditVerifyResult,
+  // OBS-S03: Audit summary types
+  AuditSummaryPeriod,
+  AuditSummarySource,
+  AuditSummaryStats,
+  AuditSummary,
+  ChatChannelStatus,
+  ChatSenderType,
+  ChatMessageType,
+  ChatClientMessage,
+  ChatClientTyping,
+  ChatClientSync,
+  ChatClientPing,
+  ChatClientPayload,
+  ChatServerMessage,
+  ChatServerAck,
+  ChatServerTyping,
+  ChatServerSync,
+  ChatServerError,
+  ChatServerPong,
+  ChatServerChannelClosed,
+  ChatServerPayload,
+  // CONT-S01: Container types
+  ContainerStatus,
+  ContainerProfilePreset,
+  ContainerResourceUsage,
+  ContainerLaunchOptions,
+  ContainerLaunchResult,
+  ContainerInfo,
+  ContainerStopOptions,
+  ContainerEventType,
+  // CONT-S05: Enriched container types
+  ContainerNetworkMode,
+  ContainerHealthCheckStatus,
+  ContainerProfileInfo,
+  ContainerInfoFull,
+  ContainerProfileUpdate,
+  // CONT-S04: Network isolation types
+  NetworkInfo,
+  NetworkCleanupResult,
+  // CONT-S02: Credential proxy types
+  CredentialProxyRule,
+  CredentialProxyConfig,
+  CredentialProxySecretMapping,
+  CredentialProxyStatus,
+  CredentialProxyAccessEvent,
+  CreateCredentialProxyRuleInput,
+  UpdateCredentialProxyRuleInput,
+  CredentialProxyTestResult,
+  // CONT-S03: Mount allowlist types
+  MountViolationCode,
+  MountViolation,
+  MountValidationResult,
+  MountValidationBatchResult,
+  MountAllowlistUpdatePayload,
+  MountValidateRequest,
+  MountValidateResponse,
+  // CHAT-S03: Container pipe types
+  ContainerPipeStatus,
+  ChatPipeStatus,
+  ChatPipeAttachRequest,
+  // COMP-S01: Compaction types
+  // comp-s01-barrel-shared
+  CompactionStrategy,
+  CompactionSnapshotStatus,
+  CompactionSnapshot,
+  CompactionWatcherConfig,
+  CompactionWatcherStatus,
+  CompactionSnapshotFilters,
+  // comp-s02-barrel-shared
+  KillRelaunchResult,
+  RelaunchHistoryEntry,
+  RelaunchHistoryFilters,
+  // comp-s03-barrel-shared
+  ReinjectionResult,
+  ReinjectionHistoryEntry,
+  ReinjectionHistoryFilters,
+  RecoveryPrompt,
+  // DUAL-S01: Automation cursor types
+  // dual-s01-barrel-shared
+  AutomationCursorPosition,
+  AutomationCursorLevel,
+  AutomationCursor,
+  EffectiveCursor,
+  // dual-s03-barrel-shared
+  CursorEnforcementResult,
+  // A2A-S01: A2A Bus types
+  // a2a-s01-barrel-shared
+  A2AMessageType,
+  A2AMessageStatus,
+  A2AMessage,
+  A2AChainInfo,
+  A2AStats,
+  A2AMessageFilters,
+  // A2A-S02: A2A Permission types
+  // a2a-s02-barrel-shared
+  A2ADefaultPolicy,
+  A2APermissionRule,
+  A2APermissionCheckResult,
+  // A2A-S03: Audit A2A type
+  // a2a-s03-barrel-shared
+  A2AAuditAction,
+  // TRACE-01: Trace types
+  TraceStatus,
+  TraceObservationType,
+  TraceObservationStatus,
+  Trace,
+  TraceObservation,
+  TraceObservationNode,
+  TraceWithTree,
+  TraceListResult,
+  TraceLensScope,
+  TraceLens,
+  TraceLensResult,
+  // PIPE-03: Gold prompt types
+  GoldPromptScope,
+  GoldPrompt,
+  // SSO-S01: SSO configuration types
+  // sso-s01-barrel-shared
+  SsoProvider,
+  SsoConfigStatus,
+  SsoConfiguration,
+  CreateSsoConfigurationInput,
+  UpdateSsoConfigurationInput,
+  // SSO-S02: SSO auth flow types
+  // sso-s02-barrel-shared
+  SsoLoginInitiation,
+  SsoDiscoverResult,
+  SsoAuthResult,
+  SsoSamlConfig,
+  SsoOidcConfig,
+  SsoMetadataSyncResult,
+  // A2A-S04: MCP Connector types
+  McpConnectorStatus,
+  McpTransportType,
+  McpConnector,
+  McpTool,
+  McpToolInvocationResult,
+  McpConnectorTestResult,
+  McpConnectorStats,
+  McpConnectorFilters,
+} from "./types/index.js";
+
+export {
+  STAGE_STATES,
+  WORKFLOW_STATES,
+  STAGE_EVENTS,
+  AUDIT_ACTOR_TYPES,
+  AUDIT_SEVERITY_LEVELS,
+  AUDIT_TARGET_TYPES,
+  AUDIT_ACTIONS,
+  // OBS-S03: Audit summary constants
+  AUDIT_SUMMARY_PERIODS,
+  AUDIT_SUMMARY_SOURCES,
+  // CONT-S01: Container constants
+  CONTAINER_STATUSES,
+  CONTAINER_PROFILE_PRESETS,
+  CONTAINER_EVENT_TYPES,
+  // CONT-S05: Enriched container constants
+  CONTAINER_NETWORK_MODES,
+  CONTAINER_HEALTH_CHECK_STATUSES,
+  // CONT-S03: Mount allowlist constants
+  MOUNT_VIOLATION_CODES,
+  // COMP-S01: Compaction constants
+  COMPACTION_STRATEGIES,
+  COMPACTION_SNAPSHOT_STATUSES,
+  // DUAL-S01: Automation cursor constants
+  AUTOMATION_CURSOR_POSITIONS,
+  AUTOMATION_CURSOR_LEVELS,
+  // A2A-S01: A2A Bus constants
+  A2A_MESSAGE_TYPES,
+  A2A_MESSAGE_STATUSES,
+  // A2A-S02: A2A Permission constants
+  A2A_DEFAULT_POLICIES,
+  // A2A-S03: Audit A2A constants
+  A2A_AUDIT_ACTIONS,
+  // TRACE-01: Trace constants
+  TRACE_STATUSES,
+  TRACE_OBSERVATION_TYPES,
+  TRACE_OBSERVATION_STATUSES,
+  // PIPE-03: Gold prompt constants
+  GOLD_PROMPT_SCOPES,
+  // SSO-S01: SSO configuration constants
+  SSO_PROVIDERS,
+  SSO_CONFIG_STATUSES,
+  // DASH-S01: Dashboard API constants
+  DASHBOARD_PERIODS,
+  DASHBOARD_BREAKDOWN_CATEGORIES,
+  K_ANONYMITY_THRESHOLD,
 } from "./types/index.js";
 
 export {
@@ -225,6 +454,10 @@ export {
   createCostEventSchema,
   updateBudgetSchema,
   createAssetImageMetadataSchema,
+  scopeSchema,
+  resourceScopeSchema,
+  type PermissionScope,
+  type ResourceScope,
   createCompanyInviteSchema,
   createOpenClawInvitePromptSchema,
   acceptInviteSchema,
@@ -232,6 +465,8 @@ export {
   claimJoinRequestApiKeySchema,
   updateMemberPermissionsSchema,
   updateUserCompanyAccessSchema,
+  businessRoleSchema,
+  updateMemberBusinessRoleSchema,
   type CreateCostEvent,
   type UpdateBudget,
   type CreateAssetImageMetadata,
@@ -242,6 +477,7 @@ export {
   type ClaimJoinRequestApiKey,
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
+  type UpdateMemberBusinessRole,
   portabilityIncludeSchema,
   portabilitySecretRequirementSchema,
   portabilityCompanyManifestEntrySchema,
@@ -270,7 +506,170 @@ export {
   type UpdateWorkflowInstance,
   type TransitionStage,
   type UpdateStage,
+  PROJECT_MEMBERSHIP_ROLES,
+  addProjectMemberSchema,
+  updateProjectMemberRoleSchema,
+  bulkAddProjectMembersSchema,
+  bulkRemoveProjectMembersSchema,
+  memberCountsSchema,
+  type ProjectMembershipRole,
+  type AddProjectMember,
+  type UpdateProjectMemberRole,
+  type BulkAddProjectMembers,
+  type BulkRemoveProjectMembers,
+  type MemberCounts,
+  auditEventFiltersSchema,
+  auditExportFiltersSchema,
+  auditVerifySchema,
+  type AuditEventFilters,
+  type AuditExportFilters,
+  type AuditVerifyParams,
+  // OBS-S03: Audit summary validators
+  auditSummaryFiltersSchema,
+  auditSummaryGenerateSchema,
+  type AuditSummaryFilters,
+  type AuditSummaryGenerate,
+  orchestratorTransitionSchema,
+  orchestratorApproveSchema,
+  orchestratorRejectSchema,
+  orchestratorCheckEnforcementSchema,
+  orchestratorWorkflowFilterSchema,
+  orchestratorStageFilterSchema,
+  type OrchestratorTransition,
+  type OrchestratorApprove,
+  type OrchestratorReject,
+  type OrchestratorCheckEnforcement,
+  type OrchestratorWorkflowFilter,
+  type OrchestratorStageFilter,
+  // CONT-S02: Credential proxy validators
+  createCredentialProxyRuleSchema,
+  updateCredentialProxyRuleSchema,
+  testCredentialProxyRuleSchema,
+  type CreateCredentialProxyRule,
+  type UpdateCredentialProxyRule,
+  type TestCredentialProxyRule,
+  // CONT-S03: Mount allowlist validators
+  mountPathsSchema,
+  mountValidateSchema,
+  type MountPathsInput,
+  type MountValidateInput,
+  // COMP-S01: Compaction validators
+  startCompactionWatcherSchema,
+  compactionSnapshotFiltersSchema,
+  type StartCompactionWatcher,
+  type CompactionSnapshotFiltersInput,
+  // COMP-S02: Kill+Relaunch validators
+  // comp-s02-barrel-validators-shared
+  killRelaunchSchema,
+  relaunchHistoryFiltersSchema,
+  type KillRelaunchInput,
+  type RelaunchHistoryFiltersInput,
+  // COMP-S03: Reinjection validators
+  // comp-s03-barrel-validators-shared
+  reinjectionSchema,
+  reinjectionHistoryFiltersSchema,
+  type ReinjectionInput,
+  type ReinjectionHistoryFiltersInput,
+  // DUAL-S01: Automation cursor validators
+  setCursorSchema,
+  cursorFiltersSchema,
+  resolveCursorSchema,
+  type SetCursor,
+  type CursorFilters,
+  type ResolveCursor,
+  // A2A-S01: A2A Bus validators
+  sendA2AMessageSchema,
+  respondA2AMessageSchema,
+  a2aMessageFiltersSchema,
+  type SendA2AMessage,
+  type RespondA2AMessage,
+  type A2AMessageFiltersInput,
+  // A2A-S02: A2A Permission validators
+  // a2a-s02-barrel-validators-shared
+  createA2APermissionRuleSchema,
+  updateA2APermissionRuleSchema,
+  updateA2ADefaultPolicySchema,
+  type CreateA2APermissionRule,
+  type UpdateA2APermissionRule,
+  type UpdateA2ADefaultPolicy,
+  // DASH-S01: Dashboard validators
+  // dash-s01-barrel-validators-shared
+  dashboardTimelineFiltersSchema,
+  dashboardBreakdownCategorySchema,
+  type DashboardTimelineFilters,
+  type DashboardBreakdownCategoryInput,
+  // SSO-S01: SSO configuration validators
+  // sso-s01-barrel-validators-shared
+  createSsoConfigurationSchema,
+  updateSsoConfigurationSchema,
+  type CreateSsoConfiguration,
+  type UpdateSsoConfiguration,
+  // SSO-S02: SSO auth validators
+  // sso-s02-barrel-validators-shared
+  ssoDiscoverSchema,
+  ssoSamlConfigSchema,
+  ssoOidcConfigSchema,
+  type SsoDiscover,
+  type SsoSamlConfigInput,
+  type SsoOidcConfigInput,
+  // TRACE: Trace validators
+  createTraceSchema,
+  completeTraceSchema,
+  createObservationSchema,
+  batchCreateObservationsSchema,
+  completeObservationSchema,
+  traceListFiltersSchema,
+  createTraceLensSchema,
+  updateTraceLensSchema,
+  // PIPE-03: Gold prompt validators
+  createGoldPromptSchema,
+  updateGoldPromptSchema,
+  goldPromptFiltersSchema,
+  type CreateTrace,
+  type CompleteTrace,
+  type CreateObservation,
+  type BatchCreateObservations,
+  type CompleteObservation,
+  type TraceListFilters,
+  type CreateTraceLens,
+  type UpdateTraceLens,
+  // PIPE-03: Gold prompt types
+  type CreateGoldPrompt,
+  type UpdateGoldPrompt,
+  type GoldPromptFilters,
+  // A2A-S04: MCP Connector validators
+  createMcpConnectorSchema,
+  updateMcpConnectorSchema,
+  mcpConnectorFiltersSchema,
+  invokeMcpToolSchema,
+  type CreateMcpConnector,
+  type UpdateMcpConnector,
+  type InvokeMcpTool,
 } from "./validators/index.js";
+
+export {
+  ROLE_PERMISSION_PRESETS,
+  isPermissionInPreset,
+  getPresetPermissions,
+  getPresetsMatrix,
+} from "./rbac-presets.js";
+
+// onb-s02-barrel-shared
+export {
+  BUSINESS_ROLE_LEVELS,
+  canInviteRole,
+  isHierarchyValid,
+  getInvitableRoles,
+  getRoleLevel,
+} from "./role-hierarchy.js";
+
+// onb-s03-barrel-shared
+export type {
+  ImportJobStatus,
+  JiraImportConfig,
+  JiraImportPreview,
+  JiraImportProgress,
+} from "./jira-import-types.js";
 
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";

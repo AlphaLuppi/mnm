@@ -25,6 +25,9 @@ import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
+import { bronzeTraceCapture } from "./bronze-trace-capture.js";
+import { enrichTrace as silverEnrichTrace } from "./silver-trace-enrichment.js";
+import { goldTraceEnrichment } from "./gold-trace-enrichment.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -1228,6 +1231,22 @@ export function heartbeatService(db: Db) {
         runId,
       });
 
+      // ── Bronze Trace Capture: start trace for this run ──────────────
+      const bronze = bronzeTraceCapture(db);
+      let bronzeTraceId: string | undefined;
+      try {
+        bronzeTraceId = await bronze.startCapture({
+          runId,
+          companyId: run.companyId,
+          agentId: run.agentId,
+          agentName: agent.name,
+          workflowInstanceId: (run as Record<string, unknown>).workflowInstanceId as string | undefined,
+          stageInstanceId: (run as Record<string, unknown>).stageInstanceId as string | undefined,
+        });
+      } catch (err) {
+        logger.warn({ err, runId }, "Bronze trace capture failed to start — continuing without traces");
+      }
+
       await db
         .update(heartbeatRuns)
         .set({
@@ -1240,6 +1259,14 @@ export function heartbeatService(db: Db) {
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
         if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, chunk);
         if (stream === "stderr") stderrExcerpt = appendExcerpt(stderrExcerpt, chunk);
+
+        // ── Bronze Trace: capture stdout chunks as raw observations ──
+        // Fire-and-forget (no await) to avoid blocking the agent run
+        if (stream === "stdout" && bronzeTraceId) {
+          bronze.ingestChunk(runId, chunk).catch(() => {
+            // Don't fail the run if trace capture has issues
+          });
+        }
 
         if (handle) {
           await runLogStore.append(handle, {
@@ -1391,6 +1418,26 @@ export function heartbeatService(db: Db) {
         finishedAt: new Date(),
         error: adapterResult.errorMessage ?? null,
       });
+
+      // ── Bronze Trace: complete the trace ──────────────────────────
+      if (bronzeTraceId) {
+        try {
+          await bronze.completeCapture(
+            runId,
+            outcome === "succeeded" ? "completed" : "failed",
+          );
+        } catch (err) {
+          logger.warn({ err, runId }, "Bronze trace capture failed to complete");
+        }
+
+        // ── Silver → Gold Trace Pipeline (fire-and-forget) ──
+        // Silver (deterministic phases) then Gold (LLM analysis) — chained so gold sees silver phases
+        silverEnrichTrace(db, bronzeTraceId, run.companyId)
+          .then(() => goldTraceEnrichment(db).enrichTraceGold(bronzeTraceId, run.companyId))
+          .catch((err) => {
+            logger.warn({ err, runId }, "Silver→Gold trace enrichment pipeline failed");
+          });
+      }
 
       const finalizedRun = await getRun(run.id);
       if (finalizedRun) {
