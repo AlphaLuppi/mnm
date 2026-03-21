@@ -16,6 +16,7 @@ import { relativeTime, cn, formatTokens } from "../lib/utils";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
 import { IssueProperties } from "../components/IssueProperties";
+import { IssueDeploymentLinks } from "../components/deployments/IssueDeploymentLinks";
 import { LiveRunWidget } from "../components/LiveRunWidget";
 import type { MentionOption } from "../components/MarkdownEditor";
 import { StatusIcon } from "../components/StatusIcon";
@@ -739,6 +740,9 @@ export function IssueDetail() {
           </div>
         )}
       </div>
+
+      {/* DEPLOY-08: Deployment links for this issue */}
+      {issueId && <IssueDeploymentLinks issueId={issueId} />}
 
       <Separator />
 

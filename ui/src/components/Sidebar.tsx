@@ -20,6 +20,8 @@ import {
   KeyRound,
   Upload,
   PenTool,
+  Terminal,
+  Globe,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -162,6 +164,7 @@ export function Sidebar() {
             {canViewCursors && (
               <SidebarNavItem data-testid="dual-s02-nav-cursors" to="/automation-cursors" label="Cursors" icon={SlidersHorizontal} />
             )}
+            <SidebarNavItem data-testid="pod-06-nav-workspace" to="/workspace" label="My Workspace" icon={Terminal} />
           </SidebarSection>
         )}
 
@@ -193,6 +196,7 @@ export function Sidebar() {
             {canViewContainers && (
               <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Containers" icon={Box} />
             )}
+            <SidebarNavItem data-testid="deploy-06-nav-deployments" to="/deployments" label="Deployments" icon={Globe} />
             {canViewSettings && (
               <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />
             )}

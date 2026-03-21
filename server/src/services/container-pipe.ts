@@ -6,6 +6,7 @@ import type { ChatPipeStatus, ContainerPipeStatus } from "@mnm/shared";
 import { publishLiveEvent } from "./live-events.js";
 import { chatService } from "./chat.js";
 import { logger as parentLogger } from "../middleware/logger.js";
+import { getDockerClient } from "./docker-client.js";
 
 const logger = parentLogger.child({ module: "container-pipe" });
 
@@ -46,7 +47,7 @@ interface ActivePipe {
 
 // chat-s03-pipe-service
 export function createContainerPipeManager(db: Db) {
-  const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+  const docker = getDockerClient();
   const svc = chatService(db);
 
   // channelId -> ActivePipe

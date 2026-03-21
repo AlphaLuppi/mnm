@@ -354,6 +354,28 @@ export type {
   GoldPromptScope,
   GoldPrompt,
 } from "./trace.js";
+// POD-01: Per-User Pod types
+export {
+  POD_STATUSES,
+  POD_CLAUDE_AUTH_STATUSES,
+} from "./pod.js";
+export type {
+  PodStatus,
+  PodClaudeAuthStatus,
+  UserPod,
+  PodProvisionOptions,
+} from "./pod.js";
+// DEPLOY-01: Artifact Deployment types
+export {
+  DEPLOYMENT_STATUSES,
+  DEPLOYMENT_PROJECT_TYPES,
+} from "./deployment.js";
+export type {
+  DeploymentStatus,
+  DeploymentProjectType,
+  ArtifactDeployment,
+  DeploymentCreateOptions,
+} from "./deployment.js";
 // SSO-S01: SSO configuration types
 // sso-s01-barrel-types
 export {

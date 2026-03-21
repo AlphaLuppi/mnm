@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentKey, type ClaudeLoginResult } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { deploymentsApi } from "../api/deployments";
 import { tracesApi } from "../api/traces";
 import type { TracePhase, TraceObservation } from "../api/traces";
 import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
@@ -59,6 +60,7 @@ import {
   ArrowLeft,
   Settings,
   Layers,
+  Rocket,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
@@ -1462,6 +1464,25 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
     },
   });
 
+  // DEPLOY-07: Deploy button — create deployment from run output
+  const canDeploy = run.status === "succeeded";
+  const deployRun = useMutation({
+    mutationFn: () => {
+      const context = asRecord(run.contextSnapshot);
+      const issueId = asNonEmptyString(context?.issueId);
+      return deploymentsApi.create(run.companyId, {
+        sourcePath: "/workspace",
+        name: `Deploy from run ${run.id.slice(0, 8)}`,
+        runId: run.id,
+        agentId: run.agentId,
+        ...(issueId ? { issueId } : {}),
+      });
+    },
+    onSuccess: () => {
+      navigate("/deployments");
+    },
+  });
+
   const { data: touchedIssues } = useQuery({
     queryKey: queryKeys.runIssues(run.id),
     queryFn: () => activityApi.issuesForRun(run.id),
@@ -1578,6 +1599,18 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
                   {retryRun.isPending ? "Retrying…" : "Retry"}
                 </Button>
               )}
+              {canDeploy && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-6 px-2"
+                  onClick={() => deployRun.mutate()}
+                  disabled={deployRun.isPending}
+                >
+                  <Rocket className="h-3.5 w-3.5 mr-1" />
+                  {deployRun.isPending ? "Deploying…" : "Deploy"}
+                </Button>
+              )}
             </div>
             {resumeRun.isError && (
               <div className="text-xs text-destructive">
@@ -1587,6 +1620,11 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
             {retryRun.isError && (
               <div className="text-xs text-destructive">
                 {retryRun.error instanceof Error ? retryRun.error.message : "Failed to retry run"}
+              </div>
+            )}
+            {deployRun.isError && (
+              <div className="text-xs text-destructive">
+                {deployRun.error instanceof Error ? deployRun.error.message : "Failed to create deployment"}
               </div>
             )}
             {startTime && (

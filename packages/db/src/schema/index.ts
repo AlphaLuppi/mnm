@@ -56,3 +56,7 @@ export { compactionSnapshots } from "./compaction_snapshots.js";
 export { a2aPermissionRules } from "./a2a-permission-rules.js";
 // TRACE-01: Trace tables + TRACE-07: Lens tables + PIPE-03: Gold
 export { traces, traceObservations, traceLenses, traceLensResults, goldPrompts, type TracePhase, type TraceGold, type TraceGoldPhase } from "./traces.js";
+// POD-02: Per-User Pods
+export { userPods } from "./user_pods.js";
+// DEPLOY-01: Artifact Deployments
+export { artifactDeployments } from "./artifact_deployments.js";

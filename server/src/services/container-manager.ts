@@ -2,6 +2,7 @@ import Docker from "dockerode";
 import { and, eq, inArray, desc } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { containerInstances, containerProfiles, agents } from "@mnm/db";
+import { getDockerClient } from "./docker-client.js";
 import type {
   ContainerStatus,
   ContainerLaunchOptions,
@@ -31,7 +32,7 @@ const MAX_CONTAINERS_PER_COMPANY = 50;
 const activeMonitors = new Map<string, NodeJS.Timeout>();
 
 export function containerManagerService(db: Db) {
-  const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+  const docker = getDockerClient();
 
   // ---- Health check ----
 

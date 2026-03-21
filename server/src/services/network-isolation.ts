@@ -2,6 +2,7 @@ import Docker from "dockerode";
 import type { ContainerNetworkMode, NetworkInfo, NetworkCleanupResult } from "@mnm/shared";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
+import { getDockerClient } from "./docker-client.js";
 
 // cont-s04-network-isolation-service
 const NETWORK_PREFIX = "mnm-company-"; // cont-s04-ensure-company-network
@@ -11,7 +12,7 @@ const NETWORK_LABELS_BASE: Record<string, string> = {
 };
 
 export function networkIsolationService() {
-  const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+  const docker = getDockerClient();
 
   // cont-s04-ensure-company-network
   /**
