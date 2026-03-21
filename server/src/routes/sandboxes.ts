@@ -1,8 +1,8 @@
-// POD-04: Pod API routes
+// POD-04: Sandbox API routes (renamed from pods.ts)
 import { Router } from "express";
 import { z } from "zod";
 import type { Db } from "@mnm/db";
-import { podManagerService } from "../services/pod-manager.js";
+import { sandboxManagerService } from "../services/sandbox-manager.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
@@ -13,13 +13,13 @@ const provisionSchema = z.object({
   memoryMb: z.number().int().min(256).max(8192).optional(),
 });
 
-export function podRoutes(db: Db) {
+export function sandboxRoutes(db: Db) {
   const router = Router();
-  const manager = podManagerService(db);
+  const manager = sandboxManagerService(db);
 
-  // POST /companies/:companyId/pods/provision — provision user's pod
+  // POST /companies/:companyId/sandboxes/provision — provision user's sandbox
   router.post(
-    "/companies/:companyId/pods/provision",
+    "/companies/:companyId/sandboxes/provision",
     requirePermission(db, "agents:launch"),
     async (req, res) => {
       const { companyId } = req.params;
@@ -32,80 +32,80 @@ export function podRoutes(db: Db) {
         return;
       }
 
-      const pod = await manager.provisionPod(actor.actorId, companyId as string, parsed.data);
+      const sandbox = await manager.provisionSandbox(actor.actorId, companyId as string, parsed.data);
 
       await emitAudit({
         req,
         db,
         companyId: companyId as string,
-        action: "pod.provisioned",
+        action: "sandbox.provisioned",
         targetType: "user_pod",
-        targetId: pod.id,
-        metadata: { image: pod.dockerImage },
+        targetId: sandbox.id,
+        metadata: { image: sandbox.dockerImage },
       });
 
-      res.status(202).json(pod);
+      res.status(202).json(sandbox);
     },
   );
 
-  // GET /companies/:companyId/pods/my — get current user's pod
+  // GET /companies/:companyId/sandboxes/my — get current user's sandbox
   router.get(
-    "/companies/:companyId/pods/my",
+    "/companies/:companyId/sandboxes/my",
     requirePermission(db, "agents:launch"),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
       const actor = getActorInfo(req);
 
-      const pod = await manager.getMyPod(actor.actorId, companyId as string);
-      res.json({ pod });
+      const sandbox = await manager.getMySandbox(actor.actorId, companyId as string);
+      res.json({ pod: sandbox });
     },
   );
 
-  // POST /companies/:companyId/pods/my/wake — wake hibernated pod
+  // POST /companies/:companyId/sandboxes/my/wake — wake hibernated sandbox
   router.post(
-    "/companies/:companyId/pods/my/wake",
+    "/companies/:companyId/sandboxes/my/wake",
     requirePermission(db, "agents:launch"),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
       const actor = getActorInfo(req);
 
-      const pod = await manager.wakePod(actor.actorId, companyId as string);
-      res.status(202).json(pod);
+      const sandbox = await manager.wakeSandbox(actor.actorId, companyId as string);
+      res.status(202).json(sandbox);
     },
   );
 
-  // POST /companies/:companyId/pods/my/hibernate — hibernate pod
+  // POST /companies/:companyId/sandboxes/my/hibernate — hibernate sandbox
   router.post(
-    "/companies/:companyId/pods/my/hibernate",
+    "/companies/:companyId/sandboxes/my/hibernate",
     requirePermission(db, "agents:launch"),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
       const actor = getActorInfo(req);
 
-      const pod = await manager.hibernatePod(actor.actorId, companyId as string);
-      res.json(pod);
+      const sandbox = await manager.hibernateSandbox(actor.actorId, companyId as string);
+      res.json(sandbox);
     },
   );
 
-  // DELETE /companies/:companyId/pods/my — destroy pod
+  // DELETE /companies/:companyId/sandboxes/my — destroy sandbox
   router.delete(
-    "/companies/:companyId/pods/my",
+    "/companies/:companyId/sandboxes/my",
     requirePermission(db, "agents:manage_containers"),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
       const actor = getActorInfo(req);
 
-      await manager.destroyPod(actor.actorId, companyId as string);
+      await manager.destroySandbox(actor.actorId, companyId as string);
 
       await emitAudit({
         req,
         db,
         companyId: companyId as string,
-        action: "pod.destroyed",
+        action: "sandbox.destroyed",
         targetType: "user_pod",
         targetId: actor.actorId,
         metadata: {},
@@ -115,16 +115,16 @@ export function podRoutes(db: Db) {
     },
   );
 
-  // GET /companies/:companyId/pods — list all pods (admin)
+  // GET /companies/:companyId/sandboxes — list all sandboxes (admin)
   router.get(
-    "/companies/:companyId/pods",
+    "/companies/:companyId/sandboxes",
     requirePermission(db, "agents:manage_containers"),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
 
-      const pods = await manager.listPods(companyId as string);
-      res.json({ pods });
+      const sandboxes = await manager.listSandboxes(companyId as string);
+      res.json({ pods: sandboxes });
     },
   );
 

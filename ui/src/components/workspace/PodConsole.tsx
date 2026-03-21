@@ -1,4 +1,4 @@
-// POD-05: Chat-style pod console with interactive command support
+// POD-05: Chat-style pod console with persistent session support for interactive commands
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -11,7 +11,7 @@ import {
   Key,
   ClipboardPaste,
 } from "lucide-react";
-import { podsApi } from "../../api/pods";
+import { sandboxesApi } from "../../api/sandboxes";
 import { useCompany } from "../../context/CompanyContext";
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +20,7 @@ interface ConsoleMessage {
   type: "command" | "output" | "error" | "system" | "input-prompt";
   content: string;
   timestamp: Date;
-  exitCode?: number;
+  exitCode?: number | null;
 }
 
 // Detect URLs in text and make them clickable
@@ -53,9 +53,6 @@ const QUICK_COMMANDS = [
   { label: "Who Am I", cmd: "whoami && pwd", icon: ChevronRight, description: "Current user and directory" },
 ];
 
-// Commands that are interactive and need stdin follow-up
-const INTERACTIVE_COMMANDS = ["claude auth login", "claude setup-token"];
-
 export function PodConsole() {
   const { selectedCompanyId } = useCompany();
   const [input, setInput] = useState("");
@@ -72,8 +69,8 @@ export function PodConsole() {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Track if we're waiting for interactive input (e.g., auth code)
-  const [pendingInteractive, setPendingInteractive] = useState<string | null>(null);
+  // Session ID for interactive commands (kept alive on server)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -81,11 +78,10 @@ export function PodConsole() {
     }
   }, [messages]);
 
-  // Standard command execution
+  // Execute a command
   const execMutation = useMutation({
-    mutationFn: ({ command, stdin }: { command: string; stdin?: string }) =>
-      podsApi.exec(selectedCompanyId!, command, stdin),
-    onSuccess: (data, variables) => {
+    mutationFn: (command: string) => sandboxesApi.exec(selectedCompanyId!, command),
+    onSuccess: (data) => {
       const outputMessages: ConsoleMessage[] = [];
 
       if (data.stdout) {
@@ -100,7 +96,7 @@ export function PodConsole() {
       if (data.stderr) {
         outputMessages.push({
           id: `err-${Date.now()}`,
-          type: data.stderr.includes("error") ? "error" : "output",
+          type: data.stderr.toLowerCase().includes("error") ? "error" : "output",
           content: data.stderr,
           timestamp: new Date(),
         });
@@ -115,93 +111,107 @@ export function PodConsole() {
         });
       }
 
-      // Check if the command output indicates it's waiting for input (auth flow)
-      const fullOutput = (data.stdout || "") + (data.stderr || "");
-      const isAuthWaiting = fullOutput.includes("Opening browser") || fullOutput.includes("visit:");
-
-      if (isAuthWaiting && !variables.stdin) {
-        // The command showed an auth URL — now we need the user to paste the code
-        setPendingInteractive(variables.command);
+      // If the server returned a sessionId, this is an interactive command
+      if (data.sessionId && data.interactive) {
+        setActiveSessionId(data.sessionId);
         outputMessages.push({
           id: `prompt-${Date.now()}`,
           type: "input-prompt",
-          content: "Open the URL above in your browser, authenticate, then paste the code below.",
+          content: "Open the URL above in your browser, authenticate, then paste the auth code below.",
           timestamp: new Date(),
         });
-      } else if (variables.stdin) {
-        // We sent stdin — the interactive flow is complete
-        setPendingInteractive(null);
       }
 
       setMessages((prev) => [...prev, ...outputMessages]);
     },
     onError: (err: Error) => {
-      setPendingInteractive(null);
       setMessages((prev) => [
         ...prev,
-        {
-          id: `err-${Date.now()}`,
-          type: "error",
-          content: err.message,
-          timestamp: new Date(),
-        },
+        { id: `err-${Date.now()}`, type: "error", content: err.message, timestamp: new Date() },
       ]);
     },
   });
+
+  // Send input to an active interactive session
+  const sendInputMutation = useMutation({
+    mutationFn: ({ sessionId, input }: { sessionId: string; input: string }) =>
+      sandboxesApi.sendInput(selectedCompanyId!, sessionId, input),
+    onSuccess: (data) => {
+      setActiveSessionId(null); // Session is done
+
+      const outputMessages: ConsoleMessage[] = [];
+      if (data.stdout) {
+        outputMessages.push({
+          id: `out-${Date.now()}`,
+          type: "output",
+          content: data.stdout,
+          timestamp: new Date(),
+          exitCode: data.exitCode,
+        });
+      }
+      if (!data.stdout) {
+        outputMessages.push({
+          id: `done-${Date.now()}`,
+          type: "system",
+          content: "Authentication flow completed.",
+          timestamp: new Date(),
+        });
+      }
+      setMessages((prev) => [...prev, ...outputMessages]);
+    },
+    onError: (err: Error) => {
+      setActiveSessionId(null);
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, type: "error", content: err.message, timestamp: new Date() },
+      ]);
+    },
+  });
+
+  const isPending = execMutation.isPending || sendInputMutation.isPending;
 
   const runCommand = useCallback(
     (command: string) => {
       const trimmed = command.trim();
       if (!trimmed) return;
 
-      // If we're in interactive mode, send as stdin to the pending command
-      if (pendingInteractive) {
+      // If we have an active session, send as input
+      if (activeSessionId) {
         setMessages((prev) => [
           ...prev,
-          {
-            id: `stdin-${Date.now()}`,
-            type: "command",
-            content: `[pasting code] ${trimmed.slice(0, 20)}...`,
-            timestamp: new Date(),
-          },
+          { id: `stdin-${Date.now()}`, type: "command", content: `[auth code] ${trimmed.slice(0, 20)}...`, timestamp: new Date() },
         ]);
         setInput("");
-        execMutation.mutate({ command: pendingInteractive, stdin: trimmed });
+        sendInputMutation.mutate({ sessionId: activeSessionId, input: trimmed });
         return;
       }
 
       // Normal command
       setMessages((prev) => [
         ...prev,
-        {
-          id: `cmd-${Date.now()}`,
-          type: "command",
-          content: trimmed,
-          timestamp: new Date(),
-        },
+        { id: `cmd-${Date.now()}`, type: "command", content: trimmed, timestamp: new Date() },
       ]);
 
       setCommandHistory((prev) => [...prev, trimmed]);
       setHistoryIndex(-1);
       setInput("");
-
-      execMutation.mutate({ command: trimmed });
+      execMutation.mutate(trimmed);
     },
-    [execMutation, pendingInteractive],
+    [execMutation, sendInputMutation, activeSessionId],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       runCommand(input);
-    } else if (e.key === "ArrowUp" && !pendingInteractive) {
+    } else if (e.key === "ArrowUp" && !activeSessionId) {
       e.preventDefault();
       if (commandHistory.length > 0) {
         const newIndex = historyIndex === -1 ? commandHistory.length - 1 : Math.max(0, historyIndex - 1);
         setHistoryIndex(newIndex);
         setInput(commandHistory[newIndex]!);
       }
-    } else if (e.key === "ArrowDown" && !pendingInteractive) {
+    } else if (e.key === "ArrowDown" && !activeSessionId) {
       e.preventDefault();
       if (historyIndex >= 0) {
         const newIndex = historyIndex + 1;
@@ -213,11 +223,11 @@ export function PodConsole() {
           setInput(commandHistory[newIndex]!);
         }
       }
-    } else if (e.key === "Escape" && pendingInteractive) {
-      setPendingInteractive(null);
+    } else if (e.key === "Escape" && activeSessionId) {
+      setActiveSessionId(null);
       setMessages((prev) => [
         ...prev,
-        { id: `cancel-${Date.now()}`, type: "system", content: "Interactive input cancelled.", timestamp: new Date() },
+        { id: `cancel-${Date.now()}`, type: "system", content: "Interactive session cancelled.", timestamp: new Date() },
       ]);
     }
   };
@@ -229,12 +239,12 @@ export function PodConsole() {
         <Terminal className="h-3.5 w-3.5 text-green-400" />
         <span className="text-xs font-medium">Console</span>
         <span className="text-[10px] text-muted-foreground ml-auto">
-          {execMutation.isPending ? "Running..." : pendingInteractive ? "Awaiting input..." : "Ready"}
+          {isPending ? "Running..." : activeSessionId ? "Awaiting auth code..." : "Ready"}
         </span>
       </div>
 
       {/* Quick commands */}
-      {!pendingInteractive && (
+      {!activeSessionId && (
         <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/10 overflow-x-auto">
           {QUICK_COMMANDS.map((qc) => (
             <Button
@@ -243,7 +253,7 @@ export function PodConsole() {
               size="sm"
               className="h-7 text-[11px] px-2.5 shrink-0 gap-1.5"
               onClick={() => runCommand(qc.cmd)}
-              disabled={execMutation.isPending}
+              disabled={isPending}
               title={qc.description}
             >
               <qc.icon className="h-3 w-3" />
@@ -254,10 +264,7 @@ export function PodConsole() {
       )}
 
       {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.map((msg) => (
           <div key={msg.id} className="space-y-0.5">
             {msg.type === "command" && (
@@ -310,18 +317,18 @@ export function PodConsole() {
           </div>
         ))}
 
-        {execMutation.isPending && (
+        {isPending && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span>Running command...</span>
+            <span>{sendInputMutation.isPending ? "Authenticating..." : "Running command..."}</span>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className={`border-t px-4 py-3 flex items-center gap-2 ${pendingInteractive ? "bg-amber-500/5 border-amber-500/20" : ""}`}>
-        <span className={`text-xs font-mono shrink-0 ${pendingInteractive ? "text-amber-400" : "text-green-400"}`}>
-          {pendingInteractive ? ">" : "$"}
+      <div className={`border-t px-4 py-3 flex items-center gap-2 ${activeSessionId ? "bg-amber-500/5 border-amber-500/20" : ""}`}>
+        <span className={`text-xs font-mono shrink-0 ${activeSessionId ? "text-amber-400" : "text-green-400"}`}>
+          {activeSessionId ? ">" : "$"}
         </span>
         <input
           ref={inputRef}
@@ -329,9 +336,9 @@ export function PodConsole() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={pendingInteractive ? "Paste your auth code here..." : "Type a command..."}
+          placeholder={activeSessionId ? "Paste your auth code here..." : "Type a command..."}
           className="flex-1 bg-transparent text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none"
-          disabled={execMutation.isPending}
+          disabled={isPending}
           autoFocus
         />
         <Button
@@ -339,7 +346,7 @@ export function PodConsole() {
           size="sm"
           className="h-7 px-2"
           onClick={() => runCommand(input)}
-          disabled={!input.trim() || execMutation.isPending}
+          disabled={!input.trim() || isPending}
         >
           <Send className="h-3.5 w-3.5" />
         </Button>

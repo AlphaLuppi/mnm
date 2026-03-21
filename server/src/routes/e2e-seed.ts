@@ -22,7 +22,6 @@ import {
   projects,
   goals,
   workflowTemplates,
-  containerProfiles,
   automationCursors,
   auditEvents,
   chatChannels,
@@ -185,23 +184,6 @@ export function e2eSeedRoutes(db: Db) {
           isDefault?: boolean;
           createdFrom?: string;
           stages: unknown[];
-        }>;
-        containerProfiles?: Array<{
-          id: string;
-          companyId: string;
-          name: string;
-          description?: string;
-          cpuMillicores?: number;
-          memoryMb?: number;
-          diskMb?: number;
-          timeoutSeconds?: number;
-          gpuEnabled?: boolean;
-          networkPolicy?: string;
-          isDefault?: boolean;
-          dockerImage?: string;
-          maxContainers?: number;
-          credentialProxyEnabled?: boolean;
-          networkMode?: string;
         }>;
         automationCursors?: Array<{
           id: string;
@@ -427,33 +409,7 @@ export function e2eSeedRoutes(db: Db) {
         );
       }
 
-      // ── 7. Seed container profiles ────────────────────────────────────────
-      if (body.containerProfiles) {
-        stats.containerProfilesCreated = await upsertById(
-          db,
-          containerProfiles,
-          containerProfiles.id,
-          body.containerProfiles.map((cp) => ({
-            id: cp.id,
-            companyId: cp.companyId,
-            name: cp.name,
-            description: cp.description ?? null,
-            cpuMillicores: cp.cpuMillicores ?? 1000,
-            memoryMb: cp.memoryMb ?? 512,
-            diskMb: cp.diskMb ?? 1024,
-            timeoutSeconds: cp.timeoutSeconds ?? 3600,
-            gpuEnabled: cp.gpuEnabled ?? false,
-            networkPolicy: cp.networkPolicy ?? "isolated",
-            isDefault: cp.isDefault ?? false,
-            dockerImage: cp.dockerImage ?? null,
-            maxContainers: cp.maxContainers ?? 10,
-            credentialProxyEnabled: cp.credentialProxyEnabled ?? false,
-            networkMode: cp.networkMode ?? "isolated",
-          })),
-        );
-      }
-
-      // ── 8. Seed automation cursors ────────────────────────────────────────
+      // ── 7. Seed automation cursors ────────────────────────────────────────
       if (body.automationCursors) {
         stats.automationCursorsCreated = await upsertById(
           db,
@@ -647,15 +603,6 @@ export function e2eSeedRoutes(db: Db) {
       stats.stageInstances = await safeDelete(stageInstances, stageInstances.companyId);
       stats.workflowInstances = await safeDelete(workflowInstances, workflowInstances.companyId);
       stats.workflowTemplates = await safeDelete(workflowTemplates, workflowTemplates.companyId);
-
-      // Container profiles (clear agent FK first)
-      try {
-        await db
-          .update(agents)
-          .set({ containerProfileId: null })
-          .where(inArray(agents.companyId, seedCompanyIds));
-      } catch { /* ignore */ }
-      stats.containerProfiles = await safeDelete(containerProfiles, containerProfiles.companyId);
 
       // Projects (clear leadAgentId first)
       try {

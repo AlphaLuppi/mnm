@@ -39,10 +39,6 @@ export { projectMemberships } from "./project_memberships.js";
 export { automationCursors } from "./automation_cursors.js";
 export { chatChannels } from "./chat_channels.js";
 export { chatMessages } from "./chat_messages.js";
-export { containerProfiles } from "./container_profiles.js";
-export { containerInstances } from "./container_instances.js";
-export { containerProfilesRelations, containerInstancesRelations } from "./container_relations.js"; // cont-s05-export-profiles-relations, cont-s05-export-instances-relations
-export { credentialProxyRules } from "./credential_proxy_rules.js";
 export { auditEvents } from "./audit_events.js";
 export { ssoConfigurations } from "./sso_configurations.js";
 export { importJobs } from "./import_jobs.js";
@@ -56,7 +52,7 @@ export { compactionSnapshots } from "./compaction_snapshots.js";
 export { a2aPermissionRules } from "./a2a-permission-rules.js";
 // TRACE-01: Trace tables + TRACE-07: Lens tables + PIPE-03: Gold
 export { traces, traceObservations, traceLenses, traceLensResults, goldPrompts, type TracePhase, type TraceGold, type TraceGoldPhase } from "./traces.js";
-// POD-02: Per-User Pods
+// POD-02: Per-User Sandboxes (DB table name kept as user_pods)
 export { userPods } from "./user_pods.js";
 // DEPLOY-01: Artifact Deployments
 export { artifactDeployments } from "./artifact_deployments.js";

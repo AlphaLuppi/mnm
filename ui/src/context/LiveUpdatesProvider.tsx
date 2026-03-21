@@ -537,25 +537,7 @@ function handleLiveEvent(
     return;
   }
 
-  // Container lifecycle events → invalidate container queries
-  if (
-    event.type === "container.created" ||
-    event.type === "container.started" ||
-    event.type === "container.completed" ||
-    event.type === "container.failed" ||
-    event.type === "container.timeout" ||
-    event.type === "container.oom" ||
-    event.type === "container.stopped" ||
-    event.type === "container.resource_update"
-  ) {
-    queryClient.invalidateQueries({ queryKey: queryKeys.containers.list(expectedCompanyId) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.containers.health(expectedCompanyId) });
-    const containerId = readString(payload.containerId);
-    if (containerId) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.containers.detail(expectedCompanyId, containerId) });
-    }
-    return;
-  }
+  // Container lifecycle events removed (container system deprecated)
 
   // Drift monitor events → invalidate drift queries
   if (

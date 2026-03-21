@@ -201,15 +201,6 @@ export {
   type OrchestratorStageFilter,
 } from "./orchestrator.js";
 
-export {
-  createCredentialProxyRuleSchema,
-  updateCredentialProxyRuleSchema,
-  testCredentialProxyRuleSchema,
-  type CreateCredentialProxyRule,
-  type UpdateCredentialProxyRule,
-  type TestCredentialProxyRule,
-} from "./credential-proxy.js";
-
 // comp-s01-barrel-validators
 export {
   startCompactionWatcherSchema,
@@ -227,14 +218,6 @@ export {
   type ReinjectionInput,
   type ReinjectionHistoryFiltersInput,
 } from "./compaction.js";
-
-// cont-s03-barrel-validators
-export {
-  mountPathsSchema,
-  mountValidateSchema,
-  type MountPathsInput,
-  type MountValidateInput,
-} from "./mount-allowlist.js";
 
 // dual-s01-barrel-validators
 export {
