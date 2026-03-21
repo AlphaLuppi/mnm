@@ -50,6 +50,14 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { jiraImportRoutes } from "./routes/jira-import.js";
 // TRACE-03: Trace routes
 import { traceRoutes } from "./routes/traces.js";
+// POD-04: Pod routes
+import { podRoutes } from "./routes/pods.js";
+// POD-05: Pod exec (chat console)
+import { podExecRoutes } from "./routes/pod-exec.js";
+// DEPLOY-04: Deployment routes
+import { deploymentRoutes } from "./routes/deployments.js";
+// DEPLOY-03: Deployment proxy
+import { deploymentProxyMiddleware } from "./middleware/deployment-proxy.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -190,6 +198,12 @@ export async function createApp(
   api.use(jiraImportRoutes(db));
   // TRACE-03: Trace routes
   api.use(traceRoutes(db));
+  // POD-04: Pod routes
+  api.use(podRoutes(db));
+  // POD-05: Pod exec (chat console)
+  api.use(podExecRoutes(db));
+  // DEPLOY-04: Deployment routes
+  api.use(deploymentRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
@@ -199,6 +213,9 @@ export async function createApp(
     }),
   );
   app.use("/api", api);
+
+  // DEPLOY-03: Deployment preview proxy (mounted outside /api for clean URLs)
+  app.use(deploymentProxyMiddleware(db));
 
   // E2E seed endpoint — only active when MNM_E2E_SEED=true
   if (process.env.MNM_E2E_SEED === "true") {
