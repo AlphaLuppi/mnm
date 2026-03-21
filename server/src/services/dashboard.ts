@@ -8,7 +8,6 @@ import {
   issues,
   auditEvents,
   workflowInstances,
-  containerInstances,
   driftReports,
 } from "@mnm/db";
 import { notFound, badRequest } from "../errors.js";
@@ -293,23 +292,8 @@ export function dashboardService(db: Db) {
           .then((rows) => Number(rows[0]?.count ?? 0)),
       ]);
 
-      // Container instances by status
-      const containerRows = await db
-        .select({ status: containerInstances.status, count: sql<number>`count(*)` })
-        .from(containerInstances)
-        .where(eq(containerInstances.companyId, companyId))
-        .groupBy(containerInstances.status);
-
+      // Container counts (legacy container system removed, always zero)
       const containerCounts = { running: 0, stopped: 0, total: 0 };
-      for (const row of containerRows) {
-        const count = Number(row.count);
-        containerCounts.total += count;
-        if (row.status === "running") {
-          containerCounts.running += count;
-        } else if (row.status === "stopped" || row.status === "exited" || row.status === "destroyed") {
-          containerCounts.stopped += count;
-        }
-      }
 
       // Drift open alerts
       const openDriftAlerts = await db
@@ -575,17 +559,7 @@ export function dashboardService(db: Db) {
         }
 
         case "containers": {
-          const rows = await db
-            .select({ status: containerInstances.status, count: sql<number>`count(*)` })
-            .from(containerInstances)
-            .where(eq(containerInstances.companyId, companyId))
-            .groupBy(containerInstances.status);
-
-          for (const row of rows) {
-            const count = Number(row.count);
-            total += count;
-            items.push({ label: row.status, count });
-          }
+          // Legacy container system removed -- no data
           break;
         }
       }
