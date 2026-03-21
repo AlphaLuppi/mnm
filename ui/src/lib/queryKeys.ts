@@ -162,15 +162,6 @@ export const queryKeys = {
     jobDetail: (companyId: string, jobId: string) =>
       ["jiraImport", companyId, "detail", jobId] as const,
   },
-  // CONT-S06: container status UI
-  containers: {
-    list: (companyId: string, filters?: Record<string, unknown>) =>
-      ["containers", companyId, "list", filters] as const,
-    detail: (companyId: string, containerId: string) =>
-      ["containers", companyId, "detail", containerId] as const,
-    health: (companyId: string) =>
-      ["containers", companyId, "health"] as const,
-  },
   // TRACE-09: Trace Vision UI
   traces: {
     list: (companyId: string, filters?: Record<string, unknown>) =>
@@ -182,12 +173,12 @@ export const queryKeys = {
     byWorkflow: (companyId: string, workflowInstanceId: string) =>
       ["traces", companyId, "workflow", workflowInstanceId] as const,
   },
-  // POD-06: Per-User Pods UI
-  pods: {
+  // POD-06: Per-User Sandboxes UI (renamed from pods)
+  sandboxes: {
     my: (companyId: string) =>
-      ["pods", companyId, "my"] as const,
+      ["sandboxes", companyId, "my"] as const,
     list: (companyId: string) =>
-      ["pods", companyId, "list"] as const,
+      ["sandboxes", companyId, "list"] as const,
   },
   // DEPLOY-06: Artifact Deployments UI
   deployments: {

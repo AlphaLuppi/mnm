@@ -38,15 +38,6 @@ export { createChatWsManager, type ChatWsManager } from "./chat-ws-manager.js";
 export { hitlValidationService } from "./hitl-validation.js";
 export { driftMonitorService } from "./drift-monitor.js";
 export { getScopeProjectIds } from "./scope-filter.js";
-export { containerManagerService } from "./container-manager.js";
-export { credentialProxyService } from "./credential-proxy.js";
-export { credentialProxyRulesService } from "./credential-proxy-rules.js";
-// cont-s03-barrel-svc
-export { mountAllowlistService } from "./mount-allowlist.js";
-// cont-s04-network-isolation-service
-export { networkIsolationService } from "./network-isolation.js";
-// chat-s03-barrel-svc
-export { createContainerPipeManager, type ContainerPipeManager } from "./container-pipe.js";
 // comp-s01-barrel-svc
 export { compactionWatcherService } from "./compaction-watcher.js";
 // comp-s02-barrel-service

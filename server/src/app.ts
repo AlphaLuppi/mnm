@@ -35,8 +35,6 @@ import { projectMembershipRoutes } from "./routes/project-memberships.js";
 import { auditRoutes } from "./routes/audit.js";
 import { orchestratorRoutes } from "./routes/orchestrator.js";
 import { chatRoutes } from "./routes/chat.js";
-import { containerRoutes } from "./routes/containers.js";
-import { credentialProxyRulesRoutes } from "./routes/credential-proxy-rules.js";
 import { compactionRoutes } from "./routes/compaction.js";
 import { automationCursorRoutes } from "./routes/automation-cursors.js";
 import { a2aRoutes } from "./routes/a2a.js";
@@ -50,10 +48,10 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { jiraImportRoutes } from "./routes/jira-import.js";
 // TRACE-03: Trace routes
 import { traceRoutes } from "./routes/traces.js";
-// POD-04: Pod routes
-import { podRoutes } from "./routes/pods.js";
-// POD-05: Pod exec (chat console)
-import { podExecRoutes } from "./routes/pod-exec.js";
+// POD-04: Sandbox routes (renamed from pods)
+import { sandboxRoutes } from "./routes/sandboxes.js";
+// POD-05: Sandbox exec (chat console, renamed from pod-exec)
+import { sandboxExecRoutes } from "./routes/sandbox-exec.js";
 // DEPLOY-04: Deployment routes
 import { deploymentRoutes } from "./routes/deployments.js";
 // DEPLOY-03: Deployment proxy
@@ -183,8 +181,6 @@ export async function createApp(
   api.use(auditRoutes(db));
   api.use(orchestratorRoutes(db));
   api.use(chatRoutes(db));
-  api.use(containerRoutes(db));
-  api.use(credentialProxyRulesRoutes(db));
   api.use(compactionRoutes(db));
   api.use(automationCursorRoutes(db));
   api.use(a2aRoutes(db));
@@ -198,10 +194,10 @@ export async function createApp(
   api.use(jiraImportRoutes(db));
   // TRACE-03: Trace routes
   api.use(traceRoutes(db));
-  // POD-04: Pod routes
-  api.use(podRoutes(db));
-  // POD-05: Pod exec (chat console)
-  api.use(podExecRoutes(db));
+  // POD-04: Sandbox routes
+  api.use(sandboxRoutes(db));
+  // POD-05: Sandbox exec (chat console)
+  api.use(sandboxExecRoutes(db));
   // DEPLOY-04: Deployment routes
   api.use(deploymentRoutes(db));
   api.use(

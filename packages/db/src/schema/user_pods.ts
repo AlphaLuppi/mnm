@@ -1,4 +1,5 @@
-// POD-02: Per-User Pod schema
+// POD-02: Per-User Sandbox schema
+// Table stores user sandboxes (workspace containers) — kept as "user_pods" to avoid DB migration
 import { pgTable, uuid, text, timestamp, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { authUsers } from "./auth.js";

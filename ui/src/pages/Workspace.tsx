@@ -12,9 +12,9 @@ import {
   Moon,
   AlertCircle,
 } from "lucide-react";
-import type { PodStatus } from "@mnm/shared";
+import type { SandboxStatus } from "@mnm/shared";
 import { PodConsole } from "../components/workspace/PodConsole";
-import { podsApi } from "../api/pods";
+import { sandboxesApi } from "../api/sandboxes";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "../lib/timeAgo";
 
-function podStatusIcon(status: PodStatus) {
+function podStatusIcon(status: SandboxStatus) {
   switch (status) {
     case "running":
       return <CheckCircle2 className="h-4 w-4 text-green-500" />;
@@ -40,7 +40,7 @@ function podStatusIcon(status: PodStatus) {
   }
 }
 
-function podStatusColor(status: PodStatus): string {
+function podStatusColor(status: SandboxStatus): string {
   switch (status) {
     case "running":
     case "idle":
@@ -66,25 +66,25 @@ export function Workspace() {
   }, [setBreadcrumbs]);
 
   const podQuery = useQuery({
-    queryKey: queryKeys.pods.my(selectedCompanyId!),
-    queryFn: () => podsApi.getMyPod(selectedCompanyId!),
+    queryKey: queryKeys.sandboxes.my(selectedCompanyId!),
+    queryFn: () => sandboxesApi.getMyPod(selectedCompanyId!),
     enabled: !!selectedCompanyId,
     refetchInterval: 5000, // Poll every 5s for status updates
   });
 
   const provisionMutation = useMutation({
-    mutationFn: () => podsApi.provision(selectedCompanyId!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.pods.my(selectedCompanyId!) }),
+    mutationFn: () => sandboxesApi.provision(selectedCompanyId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.my(selectedCompanyId!) }),
   });
 
   const wakeMutation = useMutation({
-    mutationFn: () => podsApi.wake(selectedCompanyId!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.pods.my(selectedCompanyId!) }),
+    mutationFn: () => sandboxesApi.wake(selectedCompanyId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.my(selectedCompanyId!) }),
   });
 
   const hibernateMutation = useMutation({
-    mutationFn: () => podsApi.hibernate(selectedCompanyId!),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.pods.my(selectedCompanyId!) }),
+    mutationFn: () => sandboxesApi.hibernate(selectedCompanyId!),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.my(selectedCompanyId!) }),
   });
 
   const pod = podQuery.data?.pod;
