@@ -10,10 +10,12 @@ import {
   HardDrive,
   Loader2,
   RefreshCw,
+  Server,
 } from "lucide-react";
-import type { ContainerInfoFull, ContainerStatus } from "@mnm/shared";
+import type { ContainerInfoFull, ContainerStatus, UserPod } from "@mnm/shared";
 import { CONTAINER_STATUSES } from "@mnm/shared";
 import { containersApi } from "../api/containers";
+import { podsApi } from "../api/pods";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -35,6 +37,34 @@ import { timeAgo } from "../lib/timeAgo";
 function formatPercent(value: number | undefined | null): string {
   if (value == null) return "--";
   return `${value.toFixed(1)}%`;
+}
+
+function podStatusVariant(status: UserPod["status"]): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "running":
+      return "default";
+    case "idle":
+    case "provisioning":
+      return "secondary";
+    case "hibernated":
+      return "outline";
+    case "failed":
+    case "destroyed":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+}
+
+function claudeAuthVariant(status: UserPod["claudeAuthStatus"]): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "authenticated":
+      return "default";
+    case "expired":
+      return "destructive";
+    default:
+      return "outline";
+  }
 }
 
 function ResourceBar({
@@ -96,6 +126,18 @@ export function Containers() {
       }),
     enabled: !!selectedCompanyId,
   });
+
+  // POD-08: User pods list (admin)
+  const podsQuery = useQuery({
+    queryKey: queryKeys.pods.list(selectedCompanyId!),
+    queryFn: () => podsApi.listAll(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const pods = useMemo(
+    () => podsQuery.data?.pods ?? [],
+    [podsQuery.data],
+  );
 
   const containers = useMemo(
     () => containersQuery.data?.containers ?? [],
@@ -397,6 +439,118 @@ export function Containers() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* POD-08: User Pods section */}
+      {pods.length > 0 && (
+        <>
+          <div className="flex items-center gap-3 pt-4">
+            <Server className="h-5 w-5 text-muted-foreground" />
+            <h2 data-testid="pod-s08-title" className="text-lg font-semibold">
+              User Pods
+            </h2>
+            <Badge
+              data-testid="pod-s08-count"
+              variant="secondary"
+              className="text-xs"
+            >
+              {pods.length}
+            </Badge>
+          </div>
+
+          <div className="rounded-lg border bg-card overflow-x-auto">
+            <table
+              data-testid="pod-s08-table"
+              className="w-full text-sm"
+            >
+              <thead>
+                <tr
+                  data-testid="pod-s08-table-header"
+                  className="border-b text-left text-xs text-muted-foreground"
+                >
+                  <th className="px-4 py-3 font-medium">User</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Image</th>
+                  <th className="px-4 py-3 font-medium">CPU / RAM</th>
+                  <th className="px-4 py-3 font-medium">Claude Auth</th>
+                  <th className="px-4 py-3 font-medium">Last Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pods.map((pod) => (
+                  <tr
+                    key={pod.id}
+                    data-testid="pod-s08-table-row"
+                    className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                  >
+                    {/* User */}
+                    <td className="px-4 py-3">
+                      <span
+                        data-testid="pod-s08-user-name"
+                        className="font-medium text-foreground"
+                      >
+                        {pod.userName ?? pod.userId.slice(0, 8)}
+                      </span>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <Badge
+                        data-testid="pod-s08-status"
+                        variant={podStatusVariant(pod.status)}
+                        className="text-xs"
+                      >
+                        {pod.status}
+                      </Badge>
+                    </td>
+
+                    {/* Image */}
+                    <td className="px-4 py-3">
+                      <span
+                        data-testid="pod-s08-image"
+                        className="text-xs text-muted-foreground font-mono"
+                      >
+                        {pod.dockerImage}
+                      </span>
+                    </td>
+
+                    {/* CPU / RAM */}
+                    <td className="px-4 py-3">
+                      <span
+                        data-testid="pod-s08-resources"
+                        className="text-xs text-muted-foreground tabular-nums"
+                      >
+                        {pod.cpuMillicores}m / {pod.memoryMb}MB
+                      </span>
+                    </td>
+
+                    {/* Claude Auth */}
+                    <td className="px-4 py-3">
+                      <Badge
+                        data-testid="pod-s08-claude-auth"
+                        variant={claudeAuthVariant(pod.claudeAuthStatus)}
+                        className="text-xs"
+                      >
+                        {pod.claudeAuthStatus}
+                      </Badge>
+                    </td>
+
+                    {/* Last Active */}
+                    <td className="px-4 py-3">
+                      <span
+                        data-testid="pod-s08-last-active"
+                        className="text-xs text-muted-foreground"
+                        title={pod.lastActiveAt ?? undefined}
+                      >
+                        {pod.lastActiveAt ? timeAgo(pod.lastActiveAt) : "--"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Dialogs */}

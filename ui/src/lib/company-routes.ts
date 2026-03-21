@@ -22,6 +22,10 @@ const BOARD_ROUTE_ROOTS = new Set([
   "chat",
   "automation-cursors",
   "import",
+  "workspace",
+  "deployments",
+  "traces",
+  "settings",
 ]);
 
 const GLOBAL_ROUTE_ROOTS = new Set(["auth", "invite", "board-claim", "docs", "onboarding"]);
