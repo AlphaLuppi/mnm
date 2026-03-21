@@ -66,6 +66,17 @@ export {
   type PermissionKey,
 } from "./constants.js";
 
+// POD-01: Pod constants
+export {
+  POD_STATUSES,
+  POD_CLAUDE_AUTH_STATUSES,
+} from "./types/index.js";
+// DEPLOY-01: Deployment constants
+export {
+  DEPLOYMENT_STATUSES,
+  DEPLOYMENT_PROJECT_TYPES,
+} from "./types/index.js";
+
 export type {
   Company,
   Agent,
@@ -331,6 +342,16 @@ export type {
   McpConnectorTestResult,
   McpConnectorStats,
   McpConnectorFilters,
+  // POD-01: Per-User Pod types
+  PodStatus,
+  PodClaudeAuthStatus,
+  UserPod,
+  PodProvisionOptions,
+  // DEPLOY-01: Artifact Deployment types
+  DeploymentStatus,
+  DeploymentProjectType,
+  ArtifactDeployment,
+  DeploymentCreateOptions,
 } from "./types/index.js";
 
 export {

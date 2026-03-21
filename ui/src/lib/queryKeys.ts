@@ -182,6 +182,22 @@ export const queryKeys = {
     byWorkflow: (companyId: string, workflowInstanceId: string) =>
       ["traces", companyId, "workflow", workflowInstanceId] as const,
   },
+  // POD-06: Per-User Pods UI
+  pods: {
+    my: (companyId: string) =>
+      ["pods", companyId, "my"] as const,
+    list: (companyId: string) =>
+      ["pods", companyId, "list"] as const,
+  },
+  // DEPLOY-06: Artifact Deployments UI
+  deployments: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["deployments", companyId, "list", filters] as const,
+    detail: (companyId: string, deploymentId: string) =>
+      ["deployments", companyId, "detail", deploymentId] as const,
+    byIssue: (companyId: string, issueId: string) =>
+      ["deployments", companyId, "by-issue", issueId] as const,
+  },
   // TRACE-09: Lens analysis
   lenses: {
     list: (companyId: string) =>
