@@ -14,7 +14,6 @@ export { dashboardApi } from "./dashboard";
 export { heartbeatsApi } from "./heartbeats";
 export { sidebarBadgesApi } from "./sidebarBadges";
 export { workspaceContextApi } from "./workspaceContext";
-export { containersApi } from "./containers";
 export { chatApi } from "./chat";
 export { automationCursorsApi } from "./automation-cursors";
 export { ssoApi } from "./sso";

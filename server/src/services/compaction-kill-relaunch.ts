@@ -11,7 +11,7 @@
  */
 
 import type { Db } from "@mnm/db";
-import { compactionSnapshots, containerInstances } from "@mnm/db";
+import { compactionSnapshots } from "@mnm/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import type {
   CompactionSnapshot,
@@ -22,7 +22,6 @@ import type {
   LiveEventType,
   ReinjectionResult,
 } from "@mnm/shared";
-import { containerManagerService } from "./container-manager.js";
 import { orchestratorService } from "./orchestrator.js";
 import { auditService } from "./audit.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -32,7 +31,6 @@ import { compactionReinjectionService } from "./compaction-reinjection.js";
 
 // comp-s02-kill-relaunch-service
 export function compactionKillRelaunchService(db: Db) {
-  const containerManager = containerManagerService(db);
   const orchestrator = orchestratorService(db);
   const audit = auditService(db);
   // comp-s03-auto-reinject-flag
@@ -142,190 +140,15 @@ export function compactionKillRelaunchService(db: Db) {
       payload: { snapshotId, stageId: snapshot.stageId, agentId: snapshot.agentId },
     });
 
-    // comp-s02-container-stop
-    // 4. Stop current container for this agent
-    try {
-      const runningContainers = await db
-        .select()
-        .from(containerInstances)
-        .where(
-          and(
-            eq(containerInstances.companyId, companyId),
-            eq(containerInstances.agentId, snapshot.agentId),
-            inArray(containerInstances.status, ["running", "creating"]),
-          ),
-        );
+    // comp-s02-container-stop (legacy container system removed — no-op)
+    logger.info({ companyId, snapshotId }, "CompactionKillRelaunch: container stop skipped (legacy container system removed)");
 
-      for (const container of runningContainers) {
-        await containerManager.stopContainer(
-          container.id,
-          companyId,
-          actorId,
-          { reason: "compaction_kill_relaunch" },
-        );
-      }
-
-      // comp-s02-audit-container-stopped
-      audit.emit({
-        companyId,
-        actorId,
-        actorType: "system",
-        action: "compaction.container_stopped",
-        targetType: "stage",
-        targetId: snapshot.stageId,
-        metadata: { snapshotId, agentId: snapshot.agentId, stoppedContainers: runningContainers.length },
-        ipAddress: null,
-        userAgent: null,
-        severity: "info",
-      }).catch((err) => {
-        logger.warn({ err }, "CompactionKillRelaunch: failed to emit container_stopped audit");
-      });
-    } catch (err: any) {
-      logger.error({ err, snapshotId }, "CompactionKillRelaunch: failed to stop container");
-      await updateSnapshotStatus(snapshotId, "failed", { error: err.message, phase: "container_stop" });
-      return { success: false, snapshotId, reason: "container_stop_failed" };
-    }
-
-    // comp-s02-container-relaunch
-    // 5. Launch new container with recovery context
-    try {
-      // comp-s02-audit-relaunch-started
-      audit.emit({
-        companyId,
-        actorId,
-        actorType: "system",
-        action: "compaction.relaunch_started",
-        targetType: "stage",
-        targetId: snapshot.stageId,
-        metadata: { snapshotId, agentId: snapshot.agentId, stageOrder: snapshot.stageOrder },
-        ipAddress: null,
-        userAgent: null,
-        severity: "info",
-      }).catch((err) => {
-        logger.warn({ err }, "CompactionKillRelaunch: failed to emit relaunch_started audit");
-      });
-
-      // comp-s02-live-relaunch-started
-      publishLiveEvent({
-        companyId,
-        type: "compaction.relaunch_started" as LiveEventType,
-        payload: { snapshotId, stageId: snapshot.stageId, agentId: snapshot.agentId },
-      });
-
-      // comp-s02-recovery-env-vars
-      const recoveryEnvVars: Record<string, string> = {
-        MNM_COMPACTION_RECOVERY: "true",
-        MNM_SNAPSHOT_ID: snapshotId,
-        MNM_RECOVERY_STAGE_ORDER: String(snapshot.stageOrder),
-      };
-
-      const result = await containerManager.launchContainer(
-        snapshot.agentId,
-        companyId,
-        actorId,
-        { environmentVars: recoveryEnvVars },
-      );
-
-      // 6. Increment relaunch count
-      const newRelaunchCount = snapshot.relaunchCount + 1;
-      await db
-        .update(compactionSnapshots)
-        .set({
-          relaunchCount: newRelaunchCount,
-          status: "resolved",
-          resolvedAt: new Date(),
-          metadata: {
-            ...((snapshot.metadata ?? {}) as Record<string, unknown>),
-            lastRelaunchInstanceId: result.instanceId,
-            lastRelaunchAt: new Date().toISOString(),
-          },
-          updatedAt: new Date(),
-        })
-        .where(eq(compactionSnapshots.id, snapshotId));
-
-      // 7. Transition stage back to in_progress
-      try {
-        await orchestrator.transitionStage(
-          snapshot.stageId,
-          "resume",
-          { actorId: "compaction-kill-relaunch", actorType: "system", companyId },
-          { metadata: { reason: "compaction_relaunch", snapshotId, newInstanceId: result.instanceId } },
-        );
-      } catch (err) {
-        logger.warn({ err, snapshotId }, "CompactionKillRelaunch: failed to resume stage after relaunch");
-      }
-
-      // comp-s02-audit-relaunch-completed
-      audit.emit({
-        companyId,
-        actorId,
-        actorType: "system",
-        action: "compaction.relaunch_completed",
-        targetType: "stage",
-        targetId: snapshot.stageId,
-        metadata: {
-          snapshotId,
-          agentId: snapshot.agentId,
-          newInstanceId: result.instanceId,
-          relaunchCount: newRelaunchCount,
-        },
-        ipAddress: null,
-        userAgent: null,
-        severity: "info",
-      }).catch((err) => {
-        logger.warn({ err }, "CompactionKillRelaunch: failed to emit relaunch_completed audit");
-      });
-
-      // comp-s02-live-relaunch-completed
-      publishLiveEvent({
-        companyId,
-        type: "compaction.relaunch_completed" as LiveEventType,
-        payload: {
-          snapshotId,
-          stageId: snapshot.stageId,
-          agentId: snapshot.agentId,
-          newInstanceId: result.instanceId,
-          relaunchCount: newRelaunchCount,
-        },
-      });
-
-      logger.info(
-        { companyId, snapshotId, agentId: snapshot.agentId, newInstanceId: result.instanceId, relaunchCount: newRelaunchCount },
-        "CompactionKillRelaunch: relaunch completed successfully",
-      );
-
-      // comp-s03-auto-reinject-trigger
-      let reinjectionTriggered = false;
-      if (options?.autoReinject) {
-        try {
-          const reinjResult = await getReinjection().executeReinjection(
-            companyId,
-            snapshotId,
-            actorId,
-            { autoReinject: true },
-          );
-          reinjectionTriggered = reinjResult.success;
-          logger.info(
-            { companyId, snapshotId, reinjectionTriggered },
-            "CompactionKillRelaunch: auto-reinjection triggered",
-          );
-        } catch (err) {
-          logger.warn({ err, snapshotId }, "CompactionKillRelaunch: auto-reinjection failed");
-        }
-      }
-
-      return {
-        success: true,
-        snapshotId,
-        newInstanceId: result.instanceId,
-        relaunchCount: newRelaunchCount,
-        reinjectionTriggered,
-      };
-    } catch (err: any) {
-      logger.error({ err, snapshotId }, "CompactionKillRelaunch: failed to relaunch container");
-      await updateSnapshotStatus(snapshotId, "failed", { error: err.message, phase: "container_relaunch" });
-      return { success: false, snapshotId, reason: "relaunch_failed" };
-    }
+    // comp-s02-container-relaunch (legacy container system removed — stub)
+    // The old container manager is no longer available. Mark the snapshot as failed
+    // since we cannot relaunch without the legacy container system.
+    logger.warn({ companyId, snapshotId }, "CompactionKillRelaunch: relaunch skipped (legacy container system removed)");
+    await updateSnapshotStatus(snapshotId, "failed", { reason: "legacy_container_system_removed" });
+    return { success: false, snapshotId, reason: "relaunch_failed" };
   }
 
   // ========================================================

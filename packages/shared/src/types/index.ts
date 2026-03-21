@@ -173,56 +173,6 @@ export type {
   AuditSummaryStats,
   AuditSummary,
 } from "./audit.js";
-export {
-  CONTAINER_STATUSES,
-  CONTAINER_PROFILE_PRESETS,
-  CONTAINER_EVENT_TYPES,
-  // cont-s05-export-types
-  CONTAINER_NETWORK_MODES,
-  CONTAINER_HEALTH_CHECK_STATUSES,
-} from "./container.js";
-export type {
-  ContainerStatus,
-  ContainerProfilePreset,
-  ContainerResourceUsage,
-  ContainerLaunchOptions,
-  ContainerLaunchResult,
-  ContainerInfo,
-  ContainerStopOptions,
-  ContainerEventType,
-  // cont-s05-export-types
-  ContainerNetworkMode,
-  ContainerHealthCheckStatus,
-  ContainerProfileInfo,
-  ContainerInfoFull,
-  ContainerProfileUpdate,
-  // cont-s04-export-types
-  NetworkInfo,
-  NetworkCleanupResult,
-} from "./container.js";
-export type {
-  CredentialProxyRule,
-  CredentialProxyConfig,
-  CredentialProxySecretMapping,
-  CredentialProxyStatus,
-  CredentialProxyAccessEvent,
-  CreateCredentialProxyRuleInput,
-  UpdateCredentialProxyRuleInput,
-  CredentialProxyTestResult,
-} from "./credential-proxy.js";
-// cont-s03-barrel-types
-export {
-  MOUNT_VIOLATION_CODES,
-} from "./mount-allowlist.js";
-export type {
-  MountViolationCode,
-  MountViolation,
-  MountValidationResult,
-  MountValidationBatchResult,
-  MountAllowlistUpdatePayload,
-  MountValidateRequest,
-  MountValidateResponse,
-} from "./mount-allowlist.js";
 // COMP-S01: Compaction types
 // comp-s01-barrel-types
 export {
@@ -354,17 +304,25 @@ export type {
   GoldPromptScope,
   GoldPrompt,
 } from "./trace.js";
-// POD-01: Per-User Pod types
+// POD-01: Per-User Sandbox types (renamed from pod)
 export {
+  SANDBOX_STATUSES,
+  SANDBOX_CLAUDE_AUTH_STATUSES,
+  // Backward-compatible aliases
   POD_STATUSES,
   POD_CLAUDE_AUTH_STATUSES,
-} from "./pod.js";
+} from "./sandbox.js";
 export type {
+  SandboxStatus,
+  SandboxClaudeAuthStatus,
+  UserSandbox,
+  SandboxProvisionOptions,
+  // Backward-compatible aliases
   PodStatus,
   PodClaudeAuthStatus,
   UserPod,
   PodProvisionOptions,
-} from "./pod.js";
+} from "./sandbox.js";
 // DEPLOY-01: Artifact Deployment types
 export {
   DEPLOYMENT_STATUSES,

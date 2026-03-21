@@ -194,7 +194,7 @@ export function Sidebar() {
               <SidebarNavItem data-testid="trace-09-nav-traces" to="/traces" label="Traces" icon={Scan} />
             )}
             {canViewContainers && (
-              <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Containers" icon={Box} />
+              <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Sandboxes" icon={Box} />
             )}
             <SidebarNavItem data-testid="deploy-06-nav-deployments" to="/deployments" label="Deployments" icon={Globe} />
             {canViewSettings && (

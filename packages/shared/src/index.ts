@@ -66,8 +66,11 @@ export {
   type PermissionKey,
 } from "./constants.js";
 
-// POD-01: Pod constants
+// POD-01: Sandbox constants (renamed from pod)
 export {
+  SANDBOX_STATUSES,
+  SANDBOX_CLAUDE_AUTH_STATUSES,
+  // Backward-compatible aliases
   POD_STATUSES,
   POD_CLAUDE_AUTH_STATUSES,
 } from "./types/index.js";
@@ -223,41 +226,6 @@ export type {
   ChatServerPong,
   ChatServerChannelClosed,
   ChatServerPayload,
-  // CONT-S01: Container types
-  ContainerStatus,
-  ContainerProfilePreset,
-  ContainerResourceUsage,
-  ContainerLaunchOptions,
-  ContainerLaunchResult,
-  ContainerInfo,
-  ContainerStopOptions,
-  ContainerEventType,
-  // CONT-S05: Enriched container types
-  ContainerNetworkMode,
-  ContainerHealthCheckStatus,
-  ContainerProfileInfo,
-  ContainerInfoFull,
-  ContainerProfileUpdate,
-  // CONT-S04: Network isolation types
-  NetworkInfo,
-  NetworkCleanupResult,
-  // CONT-S02: Credential proxy types
-  CredentialProxyRule,
-  CredentialProxyConfig,
-  CredentialProxySecretMapping,
-  CredentialProxyStatus,
-  CredentialProxyAccessEvent,
-  CreateCredentialProxyRuleInput,
-  UpdateCredentialProxyRuleInput,
-  CredentialProxyTestResult,
-  // CONT-S03: Mount allowlist types
-  MountViolationCode,
-  MountViolation,
-  MountValidationResult,
-  MountValidationBatchResult,
-  MountAllowlistUpdatePayload,
-  MountValidateRequest,
-  MountValidateResponse,
   // CHAT-S03: Container pipe types
   ContainerPipeStatus,
   ChatPipeStatus,
@@ -342,7 +310,12 @@ export type {
   McpConnectorTestResult,
   McpConnectorStats,
   McpConnectorFilters,
-  // POD-01: Per-User Pod types
+  // POD-01: Per-User Sandbox types (renamed from pod)
+  SandboxStatus,
+  SandboxClaudeAuthStatus,
+  UserSandbox,
+  SandboxProvisionOptions,
+  // Backward-compatible aliases
   PodStatus,
   PodClaudeAuthStatus,
   UserPod,
@@ -365,15 +338,6 @@ export {
   // OBS-S03: Audit summary constants
   AUDIT_SUMMARY_PERIODS,
   AUDIT_SUMMARY_SOURCES,
-  // CONT-S01: Container constants
-  CONTAINER_STATUSES,
-  CONTAINER_PROFILE_PRESETS,
-  CONTAINER_EVENT_TYPES,
-  // CONT-S05: Enriched container constants
-  CONTAINER_NETWORK_MODES,
-  CONTAINER_HEALTH_CHECK_STATUSES,
-  // CONT-S03: Mount allowlist constants
-  MOUNT_VIOLATION_CODES,
   // COMP-S01: Compaction constants
   COMPACTION_STRATEGIES,
   COMPACTION_SNAPSHOT_STATUSES,
@@ -562,18 +526,6 @@ export {
   type OrchestratorCheckEnforcement,
   type OrchestratorWorkflowFilter,
   type OrchestratorStageFilter,
-  // CONT-S02: Credential proxy validators
-  createCredentialProxyRuleSchema,
-  updateCredentialProxyRuleSchema,
-  testCredentialProxyRuleSchema,
-  type CreateCredentialProxyRule,
-  type UpdateCredentialProxyRule,
-  type TestCredentialProxyRule,
-  // CONT-S03: Mount allowlist validators
-  mountPathsSchema,
-  mountValidateSchema,
-  type MountPathsInput,
-  type MountValidateInput,
   // COMP-S01: Compaction validators
   startCompactionWatcherSchema,
   compactionSnapshotFiltersSchema,
