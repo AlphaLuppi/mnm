@@ -26,6 +26,7 @@ import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } fr
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { bronzeTraceCapture } from "./bronze-trace-capture.js";
+import { executeSandboxRun } from "./sandbox-exec-run.js";
 import { enrichTrace as silverEnrichTrace } from "./silver-trace-enrichment.js";
 import { goldTraceEnrichment } from "./gold-trace-enrichment.js";
 
@@ -1335,7 +1336,8 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected MNM_API_KEY",
         );
       }
-      const adapterResult = await adapter.execute({
+      // Sandbox routing: try to execute in user's Docker container first
+      const execCtx = {
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
@@ -1344,7 +1346,14 @@ export function heartbeatService(db: Db) {
         onLog,
         onMeta: onAdapterMeta,
         authToken: authToken ?? undefined,
+      };
+      let adapterResult = await executeSandboxRun(db, execCtx, {
+        wakeupRequestId: run.wakeupRequestId,
       });
+      // If sandbox routing returned null, fall back to local adapter execution
+      if (!adapterResult) {
+        adapterResult = await adapter.execute(execCtx);
+      }
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,
         adapterResult,
