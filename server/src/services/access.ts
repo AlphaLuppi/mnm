@@ -9,7 +9,7 @@ import {
   permissions,
   tagAssignments,
 } from "@mnm/db";
-import type { PrincipalType, ResourceScope } from "@mnm/shared";
+import type { PrincipalType } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
@@ -170,31 +170,21 @@ export function accessService(db: Db) {
    * Core permission check:
    * 1. Check membership is active
    * 2. Check role has the required permission
-   * 3. If resourceTagIds provided and role doesn't bypass → check tag intersection
+   *
+   * Tag-based isolation is enforced at the QUERY level (TagScope middleware + tagFilterService),
+   * NOT in this function. This function only checks role-based permissions.
    */
   async function hasPermission(
     companyId: string,
     principalType: PrincipalType,
     principalId: string,
     permissionKey: string,
-    resourceScope?: ResourceScope,
   ): Promise<boolean> {
     const role = await resolveRole(companyId, principalType, principalId);
     if (!role) return false;
 
     // Check the permission exists in the role (+ inherited)
-    if (!role.permissionSlugs.has(permissionKey)) return false;
-
-    // If no resource scope → permission granted (platform-level action)
-    if (!resourceScope) return true;
-
-    // Resource scope exists but role bypasses tag filter → granted
-    if (role.bypassTagFilter) return true;
-
-    // Check tag intersection for resource-scoped permissions
-    // (resourceScope.projectIds → future use, for now tag-based filtering
-    //  is done at the query level via TagScope, not here)
-    return true;
+    return role.permissionSlugs.has(permissionKey);
   }
 
   /**
@@ -205,11 +195,10 @@ export function accessService(db: Db) {
     companyId: string,
     userId: string | null | undefined,
     permissionKey: string,
-    resourceScope?: ResourceScope,
   ): Promise<boolean> {
     if (!userId) return false;
     if (await isInstanceAdmin(userId)) return true;
-    return hasPermission(companyId, "user", userId, permissionKey, resourceScope);
+    return hasPermission(companyId, "user", userId, permissionKey);
   }
 
   /**
