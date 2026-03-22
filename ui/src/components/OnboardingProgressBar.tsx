@@ -1,4 +1,4 @@
-import { Building2, Bot, ListTodo, Users, Gauge, Rocket, Check } from "lucide-react";
+import { Building2, Shield, Tag, Users, Rocket, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 
 // onb-s01-progress-component
@@ -10,11 +10,10 @@ export interface OnboardingProgressBarProps {
 
 const STEP_CONFIG = [
   { label: "Company", icon: Building2 },
-  { label: "Agent", icon: Bot },
-  { label: "Task", icon: ListTodo },
+  { label: "Roles", icon: Shield },
+  { label: "Tags", icon: Tag },
   { label: "Invite", icon: Users },
-  { label: "Speed", icon: Gauge },
-  { label: "Launch", icon: Rocket },
+  { label: "Done", icon: Rocket },
 ];
 
 export function OnboardingProgressBar({

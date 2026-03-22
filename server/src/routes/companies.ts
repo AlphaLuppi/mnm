@@ -10,6 +10,7 @@ import {
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import { accessService, companyPortabilityService, companyService, emitAudit, logActivity } from "../services/index.js";
+import { bootstrapCompany } from "../services/cao.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function companyRoutes(db: Db) {
@@ -130,7 +131,12 @@ export function companyRoutes(db: Db) {
       throw forbidden("Instance admin required");
     }
     const company = await svc.create(req.body);
-    await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
+    const adminUserId = req.actor.userId ?? "local-board";
+    await access.ensureMembership(company.id, "user", adminUserId, "owner", "active");
+
+    // Bootstrap: seed permissions, create Admin role, create CAO agent
+    await bootstrapCompany(db, company.id, adminUserId);
+
     await logActivity(db, {
       companyId: company.id,
       actorType: "user",
