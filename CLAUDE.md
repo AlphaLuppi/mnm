@@ -7,10 +7,19 @@ Fork of Paperclip, transformed into a multi-tenant B2B platform (pivot mars 2026
 Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
 Language: French for planning documents.
 
+## Critical Rules
+
+- **NEVER use polling (setInterval, refetchInterval)** — ALL real-time updates MUST use SSE (Server-Sent Events) or WebSocket. The app has a live-events system (`/events/ws`). If data needs to refresh, subscribe to the relevant event channel.
+- **Single-tenant** — 1 instance = 1 company. `company_id` is auto-injected, never exposed in UI.
+- **Dynamic RBAC** — Roles and permissions are in DB (tables `roles`, `permissions`, `role_permissions`), NOT hardcoded. No `BUSINESS_ROLES`, `AGENT_ROLES`, or `PERMISSION_KEYS` constants.
+- **Tag-based isolation** — Tags control visibility. Users only see agents/issues/traces that share at least 1 tag with them. Enforced via `TagScope` middleware.
+- **Sandbox** — Each user has a personal Docker container. All agents run via `claude_local` adapter in the user's sandbox. No adapter choice needed.
+- **CAO** — Chief Agent Officer (adapter_type="system") is auto-created, has all tags, watchdog role.
+
 ## B2B Context (as of 2026-03)
 
 - **Multi-Tenant**: RLS PostgreSQL, per-company isolation, per-project scoping
-- **RBAC**: 4 business roles (admin/manager/contributor/viewer), 20 permission keys
+- **RBAC**: Dynamic roles + permissions in DB, tag-based visibility
 - **Orchestration**: Deterministic workflows with state machine (XState), HITL validation
 - **Observability**: Immutable audit trail, LLM summaries, k-anonymity dashboards
 - **Security**: Container isolation (Docker), credential proxy, mount allowlist
