@@ -43,7 +43,6 @@ export type A2AMessageFiltersInput = z.infer<typeof a2aMessageFiltersSchema>;
 // =============================================
 
 import { A2A_DEFAULT_POLICIES } from "../types/a2a.js";
-import { AGENT_ROLES } from "../constants.js";
 
 // a2a-s02-validator-create-rule
 export const createA2APermissionRuleSchema = z.object({

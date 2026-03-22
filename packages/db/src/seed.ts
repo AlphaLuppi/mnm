@@ -8,7 +8,6 @@ import {
   authUsers,
   instanceUserRoles,
   companyMemberships,
-  principalPermissionGrants,
 } from "./schema/index.js";
 
 const url = process.env.DATABASE_URL;
@@ -68,7 +67,6 @@ await db
     principalId: adminUserId,
     status: "active",
     membershipRole: "owner",
-    businessRole: "admin",
   })
   .onConflictDoNothing();
 
@@ -78,7 +76,6 @@ const [ceo] = await db
   .values({
     companyId: company.id,
     name: "CEO Agent",
-    role: "ceo",
     title: "Chief Executive Officer",
     status: "idle",
     adapterType: "process",
@@ -92,7 +89,6 @@ const [cto] = await db
   .values({
     companyId: company.id,
     name: "CTO Agent",
-    role: "cto",
     title: "Chief Technology Officer",
     status: "idle",
     reportsTo: ceo!.id,
@@ -107,7 +103,6 @@ const [engineer] = await db
   .values({
     companyId: company.id,
     name: "Engineer Agent",
-    role: "engineer",
     title: "Software Engineer",
     status: "idle",
     reportsTo: cto!.id,
@@ -122,7 +117,6 @@ const [qa] = await db
   .values({
     companyId: company.id,
     name: "QA Agent",
-    role: "qa",
     title: "Quality Assurance Engineer",
     status: "idle",
     reportsTo: cto!.id,

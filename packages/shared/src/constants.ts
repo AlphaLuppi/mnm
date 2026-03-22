@@ -33,36 +33,7 @@ export const AGENT_ADAPTER_TYPES = [
 ] as const;
 export type AgentAdapterType = (typeof AGENT_ADAPTER_TYPES)[number];
 
-export const AGENT_ROLES = [
-  "ceo",
-  "cto",
-  "cmo",
-  "cfo",
-  "engineer",
-  "designer",
-  "pm",
-  "qa",
-  "devops",
-  "researcher",
-  "general",
-  "ic",
-] as const;
-export type AgentRole = (typeof AGENT_ROLES)[number];
-
-export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
-  ceo: "CEO",
-  cto: "CTO",
-  cmo: "CMO",
-  cfo: "CFO",
-  engineer: "Engineer",
-  designer: "Designer",
-  pm: "PM",
-  qa: "QA",
-  devops: "DevOps",
-  researcher: "Researcher",
-  general: "General",
-  ic: "IC",
-};
+// AGENT_ROLES removed — agents use tags for organization now
 
 export const AGENT_ICON_NAMES = [
   "bot",
@@ -304,15 +275,7 @@ export type PrincipalType = (typeof PRINCIPAL_TYPES)[number];
 export const MEMBERSHIP_STATUSES = ["pending", "active", "suspended"] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 
-export const BUSINESS_ROLES = ["admin", "manager", "contributor", "viewer"] as const;
-export type BusinessRole = (typeof BUSINESS_ROLES)[number];
-
-export const BUSINESS_ROLE_LABELS: Record<BusinessRole, string> = {
-  admin: "Admin",
-  manager: "Manager",
-  contributor: "Contributor",
-  viewer: "Viewer",
-};
+// BUSINESS_ROLES removed — roles are dynamic in DB now
 
 export const INSTANCE_USER_ROLES = ["instance_admin"] as const;
 export type InstanceUserRole = (typeof INSTANCE_USER_ROLES)[number];
@@ -329,32 +292,4 @@ export type JoinRequestType = (typeof JOIN_REQUEST_TYPES)[number];
 export const JOIN_REQUEST_STATUSES = ["pending_approval", "approved", "rejected"] as const;
 export type JoinRequestStatus = (typeof JOIN_REQUEST_STATUSES)[number];
 
-export const PERMISSION_KEYS = [
-  // --- Existing (16) ---
-  "agents:create",
-  "users:invite",
-  "users:manage_permissions",
-  "tasks:assign",
-  "tasks:assign_scope",
-  "joins:approve",
-  "projects:create",
-  "projects:manage",
-  "projects:manage_members",
-  "workflows:create",
-  "workflows:enforce",
-  "agents:manage_containers",
-  "company:manage_settings",
-  "company:manage_sso",
-  "audit:read",
-  "audit:export",
-  // --- New (5) — RBAC-S02 ---
-  "agents:launch",
-  "stories:create",
-  "stories:edit",
-  "dashboard:view",
-  "chat:agent",
-  // TRACE: Trace permissions
-  "traces:read",
-  "traces:write",
-] as const;
-export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+// PERMISSION_KEYS removed — permissions are dynamic in DB now (table: permissions)

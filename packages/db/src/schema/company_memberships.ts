@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
+import { roles } from "./roles.js";
 
 export const companyMemberships = pgTable(
   "company_memberships",
@@ -10,8 +11,7 @@ export const companyMemberships = pgTable(
     principalId: text("principal_id").notNull(),
     status: text("status").notNull().default("active"),
     membershipRole: text("membership_role"),
-    businessRole: text("business_role").notNull().default("contributor"),
-    // onb-s02-invited-by-column
+    roleId: uuid("role_id").references(() => roles.id),
     invitedBy: text("invited_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
