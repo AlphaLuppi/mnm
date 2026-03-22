@@ -26,7 +26,8 @@ import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } fr
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { bronzeTraceCapture } from "./bronze-trace-capture.js";
-import { executeSandboxRun } from "./sandbox-exec-run.js";
+import { resolveRunActor } from "./run-actor-resolver.js";
+import { userPods } from "@mnm/db";
 import { enrichTrace as silverEnrichTrace } from "./silver-trace-enrichment.js";
 import { goldTraceEnrichment } from "./gold-trace-enrichment.js";
 
@@ -1336,8 +1337,24 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected MNM_API_KEY",
         );
       }
-      // Sandbox routing: try to execute in user's Docker container first
-      const execCtx = {
+      // Sandbox routing: resolve user's Docker container for execution
+      let dockerContainerId: string | undefined;
+      const actorUserId = await resolveRunActor(db, {
+        wakeupRequestId: run.wakeupRequestId,
+        contextSnapshot: context,
+      }, { createdByUserId: agent.createdByUserId ?? null });
+      if (actorUserId) {
+        const [sandbox] = await db
+          .select({ dockerContainerId: userPods.dockerContainerId, status: userPods.status })
+          .from(userPods)
+          .where(and(eq(userPods.userId, actorUserId), eq(userPods.companyId, agent.companyId)));
+        if (sandbox?.status === "running" && sandbox.dockerContainerId) {
+          dockerContainerId = sandbox.dockerContainerId;
+          logger.info({ runId, actorUserId, containerId: dockerContainerId }, "Routing agent run to user sandbox");
+        }
+      }
+
+      const adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
@@ -1346,14 +1363,8 @@ export function heartbeatService(db: Db) {
         onLog,
         onMeta: onAdapterMeta,
         authToken: authToken ?? undefined,
-      };
-      let adapterResult = await executeSandboxRun(db, execCtx, {
-        wakeupRequestId: run.wakeupRequestId,
+        dockerContainerId,
       });
-      // If sandbox routing returned null, fall back to local adapter execution
-      if (!adapterResult) {
-        adapterResult = await adapter.execute(execCtx);
-      }
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,
         adapterResult,
