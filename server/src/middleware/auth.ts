@@ -117,6 +117,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
         keyId: undefined,
         runId: runIdHeader || claims.run_id || undefined,
         source: "agent_jwt",
+        creatorUserId: agentRecord.createdByUserId ?? undefined,
       };
       next();
       return;
@@ -145,6 +146,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       keyId: key.id,
       runId: runIdHeader || undefined,
       source: "agent_key",
+      creatorUserId: agentRecord.createdByUserId ?? undefined,
     };
 
     next();
