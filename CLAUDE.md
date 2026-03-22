@@ -14,7 +14,10 @@ Language: French for planning documents.
 - **Dynamic RBAC** — Roles and permissions are in DB (tables `roles`, `permissions`, `role_permissions`), NOT hardcoded. No `BUSINESS_ROLES`, `AGENT_ROLES`, or `PERMISSION_KEYS` constants.
 - **Tag-based isolation** — Tags control visibility. Users only see agents/issues/traces that share at least 1 tag with them. Enforced via `TagScope` middleware.
 - **Sandbox** — Each user has a personal Docker container. All agents run via `claude_local` adapter in the user's sandbox. No adapter choice needed.
-- **CAO** — Chief Agent Officer (adapter_type="system") is auto-created, has all tags, watchdog role.
+- **CAO** — Chief Agent Officer (adapter_type="claude_local", metadata.isCAO=true) is auto-created, has all tags, Admin role. Runs in admin's sandbox.
+- **Agent permissions** — Agents inherit permissions from their creator (createdByUserId). An agent in Tom's sandbox has Tom's permissions.
+- **Simplified API** — Routes work with or without `/companies/:companyId/` prefix. Middleware rewrites `/api/issues` to `/api/companies/:companyId/issues` automatically.
+- **Docker exec** — `runChildProcess` in adapter-utils supports `dockerContainerId` option. When set, commands run via `docker exec` instead of local spawn. Env vars with localhost URLs are rewritten to `host.docker.internal`.
 
 ## B2B Context (as of 2026-03)
 
