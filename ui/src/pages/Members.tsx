@@ -84,15 +84,15 @@ export function Members() {
   const updateRoleMutation = useMutation({
     mutationFn: ({
       memberId,
-      businessRole,
+      roleId,
     }: {
       memberId: string;
-      businessRole: string;
+      roleId: string;
     }) =>
-      accessApi.updateMemberstring(
+      accessApi.updateMemberRole(
         selectedCompanyId!,
         memberId,
-        businessRole,
+        roleId,
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -264,7 +264,7 @@ export function Members() {
                   onRoleChange={(role) =>
                     updateRoleMutation.mutate({
                       memberId: member.id,
-                      businessRole: role,
+                      roleId: role,
                     })
                   }
                   onStatusChange={(status) =>
