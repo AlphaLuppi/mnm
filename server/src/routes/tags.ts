@@ -6,6 +6,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { accessService } from "../services/access.js";
 import { auditService } from "../services/audit.js";
 import { badRequest, notFound } from "../errors.js";
+import { onTagCreated } from "../services/cao.js";
 
 export function tagsRoutes(db: Db) {
   const router = Router();
@@ -74,27 +75,8 @@ export function tagsRoutes(db: Db) {
         })
         .returning();
 
-      // Auto-assign to CAO (system agent)
-      const [cao] = await db
-        .select({ id: agents.id })
-        .from(agents)
-        .where(and(
-          eq(agents.companyId, companyId),
-          eq(agents.adapterType, "system"),
-        ));
-
-      if (cao) {
-        await db
-          .insert(tagAssignments)
-          .values({
-            companyId,
-            targetType: "agent",
-            targetId: cao.id,
-            tagId: created.id,
-            assignedBy: "system",
-          })
-          .onConflictDoNothing();
-      }
+      // CAO-02: Auto-assign new tag to CAO agent
+      await onTagCreated(db, companyId, created.id);
 
       const actorId = req.actor.type === "board" ? (req.actor.userId ?? "system") : "system";
       await audit.emit({
