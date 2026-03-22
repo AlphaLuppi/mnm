@@ -25,7 +25,6 @@ const adapterConfigSchema = z.record(z.unknown()).superRefine((value, ctx) => {
 
 export const createAgentSchema = z.object({
   name: z.string().min(1),
-  role: z.string().optional().default("general"),
   title: z.string().optional().nullable(),
   icon: z.enum(AGENT_ICON_NAMES).optional().nullable(),
   reportsTo: z.string().uuid().optional().nullable(),
@@ -37,6 +36,8 @@ export const createAgentSchema = z.object({
   permissions: agentPermissionsSchema.optional(),
   metadata: z.record(z.unknown()).optional().nullable(),
   scopedToWorkspaceId: z.string().uuid().optional().nullable(),
+  // AGENT-01: Tags for visibility (at least 1 recommended, enforced by UI)
+  tagIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreateAgent = z.infer<typeof createAgentSchema>;
