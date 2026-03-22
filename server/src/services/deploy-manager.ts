@@ -3,7 +3,7 @@ import Docker from "dockerode";
 import crypto from "crypto";
 import { and, eq, lt, inArray, desc } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { artifactDeployments, authUsers, issues, agents } from "@mnm/db";
+import { artifactDeployments, authUsers, issues, agents, userPods } from "@mnm/db";
 import type { ArtifactDeployment, DeploymentStatus, DeploymentCreateOptions } from "@mnm/shared";
 import { notFound, conflict } from "../errors.js";
 import { logger } from "../middleware/logger.js";
@@ -127,6 +127,15 @@ export function deployManagerService(db: Db) {
         ? ["sh", "-c", `cd /app && (npm install --production 2>/dev/null || true) && (npm start || node index.js || node server.js || npx serve -s . -l ${port})`]
         : undefined; // nginx uses default CMD
 
+      // Resolve the source volume: sourcePath is inside the user's sandbox workspace volume
+      // We need to find which volume contains this path and mount it into the deploy container
+      const nginxRoot = projectType === "static" ? "/usr/share/nginx/html" : "/app";
+
+      // Find the sandbox that contains this sourcePath by looking at workspace volumes
+      const sandboxes = await db.select().from(userPods).where(eq(userPods.companyId, companyId));
+      const sandbox = sandboxes.find(s => s.workspaceVolume && s.status === "running");
+      const workspaceVolume = sandbox?.workspaceVolume ?? `mnm-sandbox-workspace-${sourcePath.split("/").pop() ?? "default"}`;
+
       const container = await docker.createContainer({
         Image: image,
         name: `mnm-deploy-${deploymentId.slice(0, 8)}`,
@@ -137,6 +146,9 @@ export function deployManagerService(db: Db) {
         },
         ExposedPorts: { [`${port}/tcp`]: {} },
         HostConfig: {
+          Binds: [
+            `${workspaceVolume}:${nginxRoot}:ro`,
+          ],
           PortBindings: {
             [`${projectType === "static" ? "80" : port}/tcp`]: [{ HostPort: `${port}` }],
           },
@@ -144,7 +156,7 @@ export function deployManagerService(db: Db) {
           NanoCpus: 500 * 1_000_000, // 500 millicores
           ReadonlyRootfs: false,
           CapDrop: ["ALL"],
-          CapAdd: ["NET_BIND_SERVICE"],
+          CapAdd: ["NET_BIND_SERVICE", "CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE"],
         },
         Cmd: cmd,
       });
