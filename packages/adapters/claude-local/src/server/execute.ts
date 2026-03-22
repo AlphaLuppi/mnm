@@ -277,9 +277,17 @@ export async function runClaudeLogin(input: {
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId } = ctx;
 
+  const defaultPromptTemplate = `You are agent {{agent.name}} (id: {{agent.id}}) on the MnM platform.
+{{#if context.issueTitle}}
+Your task: **{{context.issueTitle}}**
+
+{{context.issueDescription}}
+{{else}}
+Continue your MnM work. Check for assigned issues and tasks.
+{{/if}}`;
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your MnM work.",
+    defaultPromptTemplate,
   );
   const model = asString(config.model, "");
   const effort = asString(config.effort, "");
