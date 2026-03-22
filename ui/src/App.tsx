@@ -29,7 +29,7 @@ import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { NewWorkflow } from "./pages/NewWorkflow";
 import { WorkflowEditor } from "./pages/WorkflowEditor";
 import { Members } from "./pages/Members";
-import { AdminRoles } from "./pages/AdminRoles";
+import AdminRoles from "./pages/AdminRoles";
 import { AuditLog } from "./pages/AuditLog";
 import { Containers } from "./pages/Containers";
 import { Chat } from "./pages/Chat";

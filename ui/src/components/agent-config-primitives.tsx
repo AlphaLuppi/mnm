@@ -49,6 +49,13 @@ export const help: Record<string, string> = {
   budgetMonthlyCents: "Monthly spending limit in cents. 0 means no limit.",
 };
 
+// Stub: agent role labels (will be loaded from DB in Sprint 4)
+export const roleLabels: Record<string, string> = {
+  ceo: "CEO",
+  general: "General",
+  agent: "Agent",
+};
+
 export const adapterLabels: Record<string, string> = {
   claude_local: "Claude (local)",
   codex_local: "Codex (local)",

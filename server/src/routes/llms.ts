@@ -5,7 +5,7 @@ import { forbidden } from "../errors.js";
 import { listServerAdapters } from "../adapters/index.js";
 import { agentService } from "../services/agents.js";
 
-function hasCreatePermission(agent: { role: string; permissions: Record<string, unknown> | null | undefined }) {
+function hasCreatePermission(agent: { permissions: Record<string, unknown> | null | undefined }) {
   if (!agent.permissions || typeof agent.permissions !== "object") return false;
   return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
 }

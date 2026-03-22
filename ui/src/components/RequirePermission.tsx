@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { string } from "@mnm/shared";
 import { usePermissions } from "../hooks/usePermissions";
 import { ForbiddenPage } from "../pages/Forbidden";
 

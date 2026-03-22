@@ -1,5 +1,5 @@
-import type { AgentAdapterType, string, JoinRequest, string } from "@mnm/shared";
 import { api } from "./client";
+import type { JoinRequest, AgentAdapterType } from "@mnm/shared";
 
 type InviteSummary = {
   id: string;

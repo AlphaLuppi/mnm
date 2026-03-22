@@ -10,6 +10,9 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 
+// Stub: valid business roles for CSV validation (will be loaded dynamically in Sprint 4)
+const VALID_ROLES: string[] = ["admin", "manager", "contributor", "viewer"];
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

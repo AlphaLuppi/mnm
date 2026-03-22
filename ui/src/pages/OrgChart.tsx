@@ -10,7 +10,7 @@ import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentIcon } from "../components/AgentIconPicker";
 import { Network } from "lucide-react";
-import { AGENT_ROLE_LABELS, type Agent } from "@mnm/shared";
+import type { Agent } from "@mnm/shared";
 
 // Layout constants
 const CARD_W = 200;
@@ -421,7 +421,8 @@ export function OrgChart() {
   );
 }
 
-const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
+// Stub: role labels (will be loaded from DB in Sprint 4)
+const roleLabels: Record<string, string> = { ceo: "CEO", general: "General", agent: "Agent" };
 
 function roleLabel(role: string): string {
   return roleLabels[role] ?? role;

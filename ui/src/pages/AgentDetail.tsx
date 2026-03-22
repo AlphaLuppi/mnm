@@ -955,7 +955,7 @@ function ConfigSummary({
                       <span className={`absolute inline-flex h-full w-full rounded-full ${agentStatusDot[r.status] ?? agentStatusDotDefault}`} />
                     </span>
                     {r.name}
-                    <span className="text-muted-foreground text-xs">({roleLabels[r.role] ?? r.role})</span>
+                    <span className="text-muted-foreground text-xs">({roleLabels[r.role ?? "agent"] ?? r.role ?? "agent"})</span>
                   </Link>
                 ))}
               </div>

@@ -5,7 +5,8 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { agentsApi } from "../api/agents";
 import { queryKeys } from "../lib/queryKeys";
-import { AGENT_ROLES } from "@mnm/shared";
+// Stub: agent roles (will be loaded from DB in Sprint 4)
+const AGENT_ROLES = ["ceo", "general"] as const;
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -292,7 +293,7 @@ export function NewAgent() {
                 >
                   <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
                   {a.name}
-                  <span className="text-muted-foreground ml-auto">{roleLabels[a.role] ?? a.role}</span>
+                  <span className="text-muted-foreground ml-auto">{roleLabels[a.role ?? "agent"] ?? a.role ?? "agent"}</span>
                 </button>
               ))}
             </PopoverContent>
