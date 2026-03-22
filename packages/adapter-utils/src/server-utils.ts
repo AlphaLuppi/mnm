@@ -339,14 +339,16 @@ async function runInDocker(
   const dockerArgs: string[] = ["exec"];
   if (opts.stdin != null) dockerArgs.push("-i");
 
-  // Inject env vars
+  // Inject env vars (rewrite localhost URLs to host.docker.internal for container access)
   for (const [key, value] of Object.entries(opts.env)) {
     // Skip PATH and other system vars that exist inside the container
     if (key === "PATH" || key === "Path" || key === "HOME" || key === "USER" ||
         key === "SHELL" || key === "TERM" || key === "LANG" || key === "LC_ALL" ||
         key === "HOSTNAME" || key === "PWD" || key === "OLDPWD" ||
         key === "SHLVL" || key === "LOGNAME" || key === "_") continue;
-    dockerArgs.push("-e", `${key}=${value}`);
+    // Rewrite localhost/127.0.0.1 URLs to host.docker.internal so the container can reach the host
+    const rewritten = value.replace(/http:\/\/(127\.0\.0\.1|localhost)(:\d+)/g, "http://host.docker.internal$2");
+    dockerArgs.push("-e", `${key}=${rewritten}`);
   }
 
   // Working directory inside container
