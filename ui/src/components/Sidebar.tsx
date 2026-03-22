@@ -22,6 +22,7 @@ import {
   PenTool,
   Terminal,
   Globe,
+  Tag,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -179,6 +180,9 @@ export function Sidebar() {
             )}
             {canViewRoles && (
               <SidebarNavItem data-testid="rbac-s06-nav-roles" to="/admin/roles" label="Roles" icon={Shield} />
+            )}
+            {canViewRoles && (
+              <SidebarNavItem data-testid="rbac-s06-nav-tags" to="/admin/tags" label="Tags" icon={Tag} />
             )}
             <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
             {canViewCosts && (

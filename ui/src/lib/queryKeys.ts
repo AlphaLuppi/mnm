@@ -150,6 +150,17 @@ export const queryKeys = {
     detail: (companyId: string, configId: string) =>
       ["sso", companyId, "detail", configId] as const,
   },
+  roles: {
+    list: (companyId: string) => ["roles", companyId] as const,
+    detail: (companyId: string, roleId: string) =>
+      ["roles", companyId, "detail", roleId] as const,
+  },
+  tags: {
+    list: (companyId: string, includeArchived?: boolean) =>
+      ["tags", companyId, "list", includeArchived] as const,
+    detail: (companyId: string, tagId: string) =>
+      ["tags", companyId, "detail", tagId] as const,
+  },
   // ONB-S01: onboarding tracking
   onboarding: {
     status: (companyId: string) =>
