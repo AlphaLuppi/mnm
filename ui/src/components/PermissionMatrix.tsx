@@ -1,13 +1,12 @@
 import React from "react";
 import { Check, Minus } from "lucide-react";
-import type { BusinessRole, PermissionKey } from "@mnm/shared";
-import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS } from "@mnm/shared";
+import type { string, string } from "@mnm/shared";
 
 /** Permission categories with their labels and keys, in display order. */
 const PERMISSION_CATEGORIES: Array<{
   id: string;
   label: string;
-  keys: PermissionKey[];
+  keys: string[];
 }> = [
   {
     id: "agents",
@@ -89,9 +88,8 @@ interface PermissionMatrixProps {
 }
 
 export function PermissionMatrix({ presets }: PermissionMatrixProps) {
-  const roles = BUSINESS_ROLES;
 
-  function hasPermission(role: BusinessRole, key: PermissionKey): boolean {
+  function hasPermission(role: string, key: string): boolean {
     const perms = presets[role];
     if (!perms) return false;
     return perms.includes(key);
@@ -118,7 +116,6 @@ export function PermissionMatrix({ presets }: PermissionMatrixProps) {
                 data-testid={`rbac-s06-matrix-header-${role}`}
                 className="text-center px-4 py-2.5 font-medium text-muted-foreground w-[100px]"
               >
-                {BUSINESS_ROLE_LABELS[role]}
               </th>
             ))}
           </tr>

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, UserPlus, Search, MoreHorizontal } from "lucide-react";
-import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS, type BusinessRole } from "@mnm/shared";
 import { accessApi, type EnrichedMember } from "../api/access";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -88,9 +87,9 @@ export function Members() {
       businessRole,
     }: {
       memberId: string;
-      businessRole: BusinessRole;
+      businessRole: string;
     }) =>
-      accessApi.updateMemberBusinessRole(
+      accessApi.updateMemberstring(
         selectedCompanyId!,
         memberId,
         businessRole,
@@ -184,9 +183,7 @@ export function Members() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem data-testid="mu-s02-filter-role-all" value="all">All roles</SelectItem>
-            {BUSINESS_ROLES.map((role) => (
               <SelectItem key={role} data-testid={`mu-s02-filter-role-${role}`} value={role}>
-                {BUSINESS_ROLE_LABELS[role] ?? role}
               </SelectItem>
             ))}
           </SelectContent>
@@ -387,7 +384,7 @@ function MemberRow({
   onStatusChange,
 }: {
   member: EnrichedMember;
-  onRoleChange: (role: BusinessRole) => void;
+  onRoleChange: (role: string) => void;
   onStatusChange: (status: "active" | "suspended") => void;
 }) {
   const displayName = member.userName ?? member.principalId;
@@ -433,10 +430,10 @@ function MemberRow({
       {/* Role */}
       <td className="px-4 py-2.5 hidden sm:table-cell">
         <div className="flex items-center gap-2">
-          <RoleBadge role={member.businessRole as BusinessRole} />
+          <RoleBadge role={member.businessRole as string} />
           <Select
             value={member.businessRole}
-            onValueChange={(val) => onRoleChange(val as BusinessRole)}
+            onValueChange={(val) => onRoleChange(val as string)}
           >
             <SelectTrigger
               data-testid={`mu-s02-member-role-${member.id}`}
@@ -446,9 +443,7 @@ function MemberRow({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {BUSINESS_ROLES.map((role) => (
                 <SelectItem key={role} value={role}>
-                  {BUSINESS_ROLE_LABELS[role] ?? role}
                 </SelectItem>
               ))}
             </SelectContent>

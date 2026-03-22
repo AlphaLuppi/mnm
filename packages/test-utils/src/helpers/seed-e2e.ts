@@ -77,14 +77,12 @@ export async function seedE2eScenario(db: Db): Promise<E2eSeedResult> {
   // 6. Create agents with hierarchy
   const ceoAgent = await createTestAgent(db, company.id, {
     name: "E2E CEO Agent",
-    role: "ceo",
     title: "Chief Executive Officer",
     budgetMonthlyCents: 15000,
   });
 
   const engineerAgent = await createTestAgent(db, company.id, {
     name: "E2E Engineer Agent",
-    role: "engineer",
     title: "Software Engineer",
     reportsTo: ceoAgent.id,
     budgetMonthlyCents: 10000,
