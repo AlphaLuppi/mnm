@@ -156,6 +156,29 @@ export async function createApp(
   const api = Router();
   api.use(apiRateLimiter);
   api.use(boardMutationGuard());
+
+  // TENANT-02: Rewrite routes without /companies/:companyId/ prefix
+  // Agents and simplified API calls use /api/issues, /api/agents, etc.
+  // This middleware rewrites them to /api/companies/:companyId/... using the auto-injected companyId.
+  api.use((req, _res, next) => {
+    const companyId = req.params.companyId;
+    if (companyId && req.path.startsWith("/companies/")) {
+      // Already has companies prefix — pass through
+      next();
+      return;
+    }
+    // Skip paths that don't need rewriting
+    if (req.path.startsWith("/health") || req.path.startsWith("/auth/") ||
+        req.path.startsWith("/companies") || req.path === "/") {
+      next();
+      return;
+    }
+    // Rewrite: /agents/xxx → /companies/:companyId/agents/xxx
+    if (companyId) {
+      req.url = `/companies/${companyId}${req.path}${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`;
+    }
+    next();
+  });
   api.use(
     "/health",
     healthRoutes(db, {
