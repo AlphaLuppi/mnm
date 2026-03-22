@@ -25,7 +25,7 @@ export function buildTestCompanyMembership(
     principalId,
     status: "active" as const,
     membershipRole: "member" as const,
-    businessRole: "contributor" as const,
+    roleId: undefined,
     ...overrides,
   };
 }

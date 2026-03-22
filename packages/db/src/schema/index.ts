@@ -3,7 +3,7 @@ export { authUsers, authSessions, authAccounts, authVerifications } from "./auth
 export { instanceUserRoles } from "./instance_user_roles.js";
 export { agents } from "./agents.js";
 export { companyMemberships } from "./company_memberships.js";
-export { principalPermissionGrants } from "./principal_permission_grants.js";
+// principalPermissionGrants REMOVED — replaced by role_permissions
 export { invites } from "./invites.js";
 export { joinRequests } from "./join_requests.js";
 export { agentConfigRevisions } from "./agent_config_revisions.js";
@@ -56,3 +56,9 @@ export { traces, traceObservations, traceLenses, traceLensResults, goldPrompts, 
 export { userPods } from "./user_pods.js";
 // DEPLOY-01: Artifact Deployments
 export { artifactDeployments } from "./artifact_deployments.js";
+// ROLES+TAGS: Dynamic permissions & organizational tags
+export { permissions } from "./permissions.js";
+export { roles } from "./roles.js";
+export { rolePermissions } from "./role_permissions.js";
+export { tags } from "./tags.js";
+export { tagAssignments } from "./tag_assignments.js";

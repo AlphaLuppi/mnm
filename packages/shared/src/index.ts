@@ -5,8 +5,6 @@ export {
   AUTH_BASE_URL_MODES,
   AGENT_STATUSES,
   AGENT_ADAPTER_TYPES,
-  AGENT_ROLES,
-  AGENT_ROLE_LABELS,
   AGENT_ICON_NAMES,
   ISSUE_STATUSES,
   ISSUE_PRIORITIES,
@@ -25,21 +23,17 @@ export {
   LIVE_EVENT_TYPES,
   PRINCIPAL_TYPES,
   MEMBERSHIP_STATUSES,
-  BUSINESS_ROLES,
-  BUSINESS_ROLE_LABELS,
   INSTANCE_USER_ROLES,
   INVITE_TYPES,
   INVITE_JOIN_TYPES,
   JOIN_REQUEST_TYPES,
   JOIN_REQUEST_STATUSES,
-  PERMISSION_KEYS,
   type CompanyStatus,
   type DeploymentMode,
   type DeploymentExposure,
   type AuthBaseUrlMode,
   type AgentStatus,
   type AgentAdapterType,
-  type AgentRole,
   type AgentIconName,
   type IssueStatus,
   type IssuePriority,
@@ -57,13 +51,11 @@ export {
   type LiveEventType,
   type PrincipalType,
   type MembershipStatus,
-  type BusinessRole,
   type InstanceUserRole,
   type InviteType,
   type InviteJoinType,
   type JoinRequestType,
   type JoinRequestStatus,
-  type PermissionKey,
 } from "./constants.js";
 
 // POD-01: Sandbox constants (renamed from pod)
@@ -123,7 +115,6 @@ export type {
   ActivityEvent,
   SidebarBadges,
   CompanyMembership,
-  PrincipalPermissionGrant,
   Invite,
   JoinRequest,
   InstanceUserRoleGrant,
@@ -450,8 +441,6 @@ export {
   claimJoinRequestApiKeySchema,
   updateMemberPermissionsSchema,
   updateUserCompanyAccessSchema,
-  businessRoleSchema,
-  updateMemberBusinessRoleSchema,
   type CreateCostEvent,
   type UpdateBudget,
   type CreateAssetImageMetadata,
@@ -462,7 +451,6 @@ export {
   type ClaimJoinRequestApiKey,
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
-  type UpdateMemberBusinessRole,
   portabilityIncludeSchema,
   portabilitySecretRequirementSchema,
   portabilityCompanyManifestEntrySchema,
@@ -620,21 +608,7 @@ export {
   type InvokeMcpTool,
 } from "./validators/index.js";
 
-export {
-  ROLE_PERMISSION_PRESETS,
-  isPermissionInPreset,
-  getPresetPermissions,
-  getPresetsMatrix,
-} from "./rbac-presets.js";
-
-// onb-s02-barrel-shared
-export {
-  BUSINESS_ROLE_LEVELS,
-  canInviteRole,
-  isHierarchyValid,
-  getInvitableRoles,
-  getRoleLevel,
-} from "./role-hierarchy.js";
+// REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
 
 // onb-s03-barrel-shared
 export type {

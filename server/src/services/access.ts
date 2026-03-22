@@ -4,18 +4,12 @@ import {
   authUsers,
   companyMemberships,
   instanceUserRoles,
-  principalPermissionGrants,
 } from "@mnm/db";
-import type { BusinessRole, PermissionKey, PrincipalType, ResourceScope } from "@mnm/shared";
-import { BUSINESS_ROLES, isPermissionInPreset, getPresetPermissions } from "@mnm/shared";
+import type { PrincipalType, ResourceScope } from "@mnm/shared";
 import { scopeSchema } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
-type GrantInput = {
-  permissionKey: PermissionKey;
-  scope?: Record<string, unknown> | null;
-};
 
 function validateScope(scope: unknown): void {
   if (scope === undefined || scope === null) return;
@@ -56,68 +50,26 @@ export function accessService(db: Db) {
       .then((rows) => rows[0] ?? null);
   }
 
+  // TODO [PERM-01]: Rewrite with role-based permission resolution + tag intersection
+  // This is a STUB that allows all actions for active members.
+  // Sprint 2 will implement the full permission engine.
   async function hasPermission(
     companyId: string,
     principalType: PrincipalType,
     principalId: string,
-    permissionKey: PermissionKey,
+    permissionKey: string,
     resourceScope?: ResourceScope,
   ): Promise<boolean> {
     const membership = await getMembership(companyId, principalType, principalId);
     if (!membership || membership.status !== "active") return false;
-    const grant = await db
-      .select({
-        id: principalPermissionGrants.id,
-        scope: principalPermissionGrants.scope,
-      })
-      .from(principalPermissionGrants)
-      .where(
-        and(
-          eq(principalPermissionGrants.companyId, companyId),
-          eq(principalPermissionGrants.principalType, principalType),
-          eq(principalPermissionGrants.principalId, principalId),
-          eq(principalPermissionGrants.permissionKey, permissionKey),
-        ),
-      )
-      .then((rows) => rows[0] ?? null);
-    // If an explicit grant exists, evaluate it (with scope)
-    if (grant) {
-      // No resource scope requested — grant alone is sufficient
-      if (!resourceScope) return true;
-
-      // Grant has no scope (null or empty) — wildcard access
-      const grantScope = grant.scope as Record<string, unknown> | null | undefined;
-      if (!grantScope || Object.keys(grantScope).length === 0) return true;
-
-      // Check projectIds coverage
-      const requestedProjectIds = resourceScope.projectIds;
-      if (requestedProjectIds && requestedProjectIds.length > 0) {
-        const grantedProjectIds = Array.isArray(grantScope.projectIds)
-          ? new Set(grantScope.projectIds as string[])
-          : null;
-        // Grant has no projectIds restriction — wildcard for projects
-        if (!grantedProjectIds) return true;
-        // All requested projectIds must be covered by the grant
-        const allCovered = requestedProjectIds.every((id) => grantedProjectIds.has(id));
-        if (!allCovered) return false;
-      }
-
-      return true;
-    }
-
-    // No explicit grant — fallback to businessRole preset
-    const businessRole = membership.businessRole as BusinessRole | null;
-    if (!businessRole) return false;
-
-    // Preset grants company-wide access (no scope restriction).
-    // If the permission is in the preset, it covers any resourceScope.
-    return isPermissionInPreset(businessRole, permissionKey);
+    // STUB: allow all actions for active members until PERM-01 implements role-based checks
+    return true;
   }
 
   async function canUser(
     companyId: string,
     userId: string | null | undefined,
-    permissionKey: PermissionKey,
+    permissionKey: string,
     resourceScope?: ResourceScope,
   ): Promise<boolean> {
     if (!userId) return false;
@@ -135,7 +87,7 @@ export function accessService(db: Db) {
         principalId: companyMemberships.principalId,
         status: companyMemberships.status,
         membershipRole: companyMemberships.membershipRole,
-        businessRole: companyMemberships.businessRole,
+        roleId: companyMemberships.roleId,
         createdAt: companyMemberships.createdAt,
         updatedAt: companyMemberships.updatedAt,
         userName: authUsers.name,
@@ -176,17 +128,11 @@ export function accessService(db: Db) {
     return updated ?? member;
   }
 
-  async function setMemberPermissions(
+  async function updateMemberRole(
     companyId: string,
     memberId: string,
-    grants: GrantInput[],
-    grantedByUserId: string | null,
+    roleId: string,
   ) {
-    // Validate all scopes before touching the DB
-    for (const grant of grants) {
-      validateScope(grant.scope);
-    }
-
     const member = await db
       .select()
       .from(companyMemberships)
@@ -194,33 +140,13 @@ export function accessService(db: Db) {
       .then((rows) => rows[0] ?? null);
     if (!member) return null;
 
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(principalPermissionGrants)
-        .where(
-          and(
-            eq(principalPermissionGrants.companyId, companyId),
-            eq(principalPermissionGrants.principalType, member.principalType),
-            eq(principalPermissionGrants.principalId, member.principalId),
-          ),
-        );
-      if (grants.length > 0) {
-        await tx.insert(principalPermissionGrants).values(
-          grants.map((grant) => ({
-            companyId,
-            principalType: member.principalType,
-            principalId: member.principalId,
-            permissionKey: grant.permissionKey,
-            scope: grant.scope ?? null,
-            grantedByUserId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })),
-        );
-      }
-    });
-
-    return member;
+    const updated = await db
+      .update(companyMemberships)
+      .set({ roleId, updatedAt: new Date() })
+      .where(eq(companyMemberships.id, member.id))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+    return updated ?? member;
   }
 
   async function promoteInstanceAdmin(userId: string) {
@@ -288,7 +214,6 @@ export function accessService(db: Db) {
     principalId: string,
     membershipRole: string | null = "member",
     status: "pending" | "active" | "suspended" = "active",
-    businessRole: BusinessRole = "contributor",
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
     if (existing) {
@@ -312,153 +237,37 @@ export function accessService(db: Db) {
         principalId,
         status,
         membershipRole,
-        businessRole,
       })
       .returning()
       .then((rows) => rows[0]);
   }
 
-  async function updateMemberBusinessRole(
-    companyId: string,
-    memberId: string,
-    businessRole: BusinessRole,
-  ) {
-    const member = await db
-      .select()
-      .from(companyMemberships)
-      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.id, memberId)))
-      .then((rows) => rows[0] ?? null);
-    if (!member) return null;
-
-    const updated = await db
-      .update(companyMemberships)
-      .set({ businessRole, updatedAt: new Date() })
-      .where(eq(companyMemberships.id, member.id))
-      .returning()
-      .then((rows) => rows[0] ?? null);
-    return updated ?? member;
-  }
-
-  async function setPrincipalGrants(
-    companyId: string,
-    principalType: PrincipalType,
-    principalId: string,
-    grants: GrantInput[],
-    grantedByUserId: string | null,
-  ) {
-    // Validate all scopes before touching the DB
-    for (const grant of grants) {
-      validateScope(grant.scope);
-    }
-
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(principalPermissionGrants)
-        .where(
-          and(
-            eq(principalPermissionGrants.companyId, companyId),
-            eq(principalPermissionGrants.principalType, principalType),
-            eq(principalPermissionGrants.principalId, principalId),
-          ),
-        );
-      if (grants.length === 0) return;
-      await tx.insert(principalPermissionGrants).values(
-        grants.map((grant) => ({
-          companyId,
-          principalType,
-          principalId,
-          permissionKey: grant.permissionKey,
-          scope: grant.scope ?? null,
-          grantedByUserId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })),
-      );
-    });
-  }
-
+  // TODO [PERM-01]: getEffectivePermissions should load from roles + role_permissions tables
   async function getEffectivePermissions(
     companyId: string,
     principalType: PrincipalType,
     principalId: string,
   ): Promise<{
-    businessRole: BusinessRole | null;
-    presetPermissions: PermissionKey[];
-    explicitGrants: Array<{
-      permissionKey: PermissionKey;
-      scope: Record<string, unknown> | null;
-    }>;
-    effectivePermissions: PermissionKey[];
+    roleId: string | null;
+    effectivePermissions: string[];
   }> {
     const membership = await getMembership(companyId, principalType, principalId);
     if (!membership || membership.status !== "active") {
-      return {
-        businessRole: null,
-        presetPermissions: [],
-        explicitGrants: [],
-        effectivePermissions: [],
-      };
+      return { roleId: null, effectivePermissions: [] };
     }
-
-    const businessRole = membership.businessRole as BusinessRole | null;
-    const presetPerms = businessRole ? [...getPresetPermissions(businessRole)] : [];
-
-    const grants = await db
-      .select({
-        permissionKey: principalPermissionGrants.permissionKey,
-        scope: principalPermissionGrants.scope,
-      })
-      .from(principalPermissionGrants)
-      .where(
-        and(
-          eq(principalPermissionGrants.companyId, companyId),
-          eq(principalPermissionGrants.principalType, principalType),
-          eq(principalPermissionGrants.principalId, principalId),
-        ),
-      );
-
-    const explicitGrants = grants.map((g) => ({
-      permissionKey: g.permissionKey as PermissionKey,
-      scope: g.scope as Record<string, unknown> | null,
-    }));
-
-    // Effective permissions = union of preset + explicit grants
-    const effectiveSet = new Set<PermissionKey>(presetPerms);
-    for (const grant of explicitGrants) {
-      effectiveSet.add(grant.permissionKey);
-    }
-
+    // STUB: return roleId but no permission resolution until PERM-01
     return {
-      businessRole,
-      presetPermissions: presetPerms,
-      explicitGrants,
-      effectivePermissions: [...effectiveSet].sort(),
+      roleId: membership.roleId,
+      effectivePermissions: [],
     };
   }
 
-  // PROJ-S03: Check if user has global scope (no project restriction)
+  // TODO [PERM-01]: hasGlobalScope should check role.bypass_tag_filter
   async function hasGlobalScope(companyId: string, userId: string): Promise<boolean> {
     const membership = await getMembership(companyId, "user", userId);
     if (!membership || membership.status !== "active") return false;
-
-    // Admin and Manager businessRoles have global scope (company-wide preset permissions)
-    const businessRole = membership.businessRole as BusinessRole | null;
-    if (businessRole === "admin" || businessRole === "manager") {
-      return true;
-    }
-
-    // For other roles, check if any explicit grant has scope: null (global access)
-    const grants = await db
-      .select({ id: principalPermissionGrants.id, scope: principalPermissionGrants.scope })
-      .from(principalPermissionGrants)
-      .where(
-        and(
-          eq(principalPermissionGrants.companyId, companyId),
-          eq(principalPermissionGrants.principalType, "user"),
-          eq(principalPermissionGrants.principalId, userId),
-        ),
-      );
-    return grants.some((g) => g.scope === null);
+    // STUB: all active members have global scope until PERM-01
+    return true;
   }
 
   return {
@@ -468,15 +277,13 @@ export function accessService(db: Db) {
     getMembership,
     ensureMembership,
     listMembers,
-    setMemberPermissions,
-    updateMemberBusinessRole,
+    updateMemberRole,
     updateMemberStatus,
     getEffectivePermissions,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,
     setUserCompanyAccess,
-    setPrincipalGrants,
     hasGlobalScope,
   };
 }

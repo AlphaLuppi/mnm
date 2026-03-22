@@ -1,13 +1,11 @@
 import type {
   AgentAdapterType,
-  BusinessRole,
   InstanceUserRole,
   InviteJoinType,
   InviteType,
   JoinRequestStatus,
   JoinRequestType,
   MembershipStatus,
-  PermissionKey,
   PrincipalType,
 } from "../constants.js";
 
@@ -18,19 +16,7 @@ export interface CompanyMembership {
   principalId: string;
   status: MembershipStatus;
   membershipRole: string | null;
-  businessRole: BusinessRole;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface PrincipalPermissionGrant {
-  id: string;
-  companyId: string;
-  principalType: PrincipalType;
-  principalId: string;
-  permissionKey: PermissionKey;
-  scope: Record<string, unknown> | null;
-  grantedByUserId: string | null;
+  roleId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

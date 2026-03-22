@@ -1,11 +1,9 @@
 import { z } from "zod";
 import {
   AGENT_ADAPTER_TYPES,
-  BUSINESS_ROLES,
   INVITE_JOIN_TYPES,
   JOIN_REQUEST_STATUSES,
   JOIN_REQUEST_TYPES,
-  PERMISSION_KEYS,
 } from "../constants.js";
 
 export const scopeSchema = z.object({
@@ -69,7 +67,7 @@ export type ClaimJoinRequestApiKey = z.infer<typeof claimJoinRequestApiKeySchema
 export const updateMemberPermissionsSchema = z.object({
   grants: z.array(
     z.object({
-      permissionKey: z.enum(PERMISSION_KEYS),
+      permissionKey: z.string(),
       scope: scopeSchema.optional(),
     }),
   ),
@@ -83,10 +81,10 @@ export const updateUserCompanyAccessSchema = z.object({
 
 export type UpdateUserCompanyAccess = z.infer<typeof updateUserCompanyAccessSchema>;
 
-export const businessRoleSchema = z.enum(BUSINESS_ROLES);
+export const businessRoleSchema = z.string();
 
 export const updateMemberBusinessRoleSchema = z.object({
-  businessRole: z.enum(BUSINESS_ROLES),
+  roleId: z.string(),
 });
 
 export type UpdateMemberBusinessRole = z.infer<typeof updateMemberBusinessRoleSchema>;
