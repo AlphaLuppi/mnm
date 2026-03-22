@@ -1,17 +1,46 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Db } from "@mnm/db";
+import { companies } from "@mnm/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger.js";
 
+// Single-tenant cache: resolved once, reused forever
+let singleTenantCompanyId: string | null = null;
+
+/**
+ * Resolves the single company ID for single-tenant deployments.
+ * Cached after first call — only queries DB once.
+ */
+async function getSingleTenantCompanyId(db: Db): Promise<string | null> {
+  if (singleTenantCompanyId) return singleTenantCompanyId;
+  const rows = await db.select({ id: companies.id }).from(companies).limit(2);
+  if (rows.length === 1) {
+    singleTenantCompanyId = rows[0].id;
+    logger.info({ companyId: singleTenantCompanyId }, "Single-tenant mode: auto-resolved companyId");
+    return singleTenantCompanyId;
+  }
+  return null; // multi-tenant or no company yet
+}
+
 /**
  * Middleware that sets the PostgreSQL RLS tenant context.
- * Resolves companyId from req.params.companyId or req.actor.companyId/companyIds[0].
+ * Resolves companyId from (in order):
+ *   1. req.params.companyId (explicit route parameter)
+ *   2. req.actor.companyId (agent auth)
+ *   3. req.actor.companyIds[0] (board user)
+ *   4. Single company in DB (single-tenant auto-inject)
  * If no companyId resolved, RLS filters out ALL tenant rows (fail-closed).
  */
 export function tenantContextMiddleware(db: Db) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const companyId = resolveCompanyId(req);
+      let companyId = resolveCompanyId(req);
+
+      // Single-tenant fallback: if no companyId from request, auto-inject the only company
+      if (!companyId) {
+        companyId = await getSingleTenantCompanyId(db) ?? undefined;
+      }
+
       if (companyId) {
         if (!isValidUuid(companyId)) {
           logger.warn({ companyId, method: req.method, url: req.originalUrl }, "Invalid companyId format for RLS context");
@@ -19,7 +48,11 @@ export function tenantContextMiddleware(db: Db) {
           return;
         }
         await db.execute(sql`SELECT set_config('app.current_company_id', ${companyId}, true)`);
-        logger.debug({ companyId, method: req.method, url: req.originalUrl }, "RLS tenant context set");
+
+        // Inject companyId into req.params so routes without :companyId can still access it
+        if (!req.params.companyId) {
+          req.params.companyId = companyId;
+        }
       }
       next();
     } catch (err) {
@@ -43,6 +76,21 @@ export async function setTenantContext(db: Db, companyId: string): Promise<void>
  */
 export async function clearTenantContext(db: Db): Promise<void> {
   await db.execute(sql`SELECT set_config('app.current_company_id', '', true)`);
+}
+
+/**
+ * Returns the cached single-tenant company ID, or null.
+ * Useful for background jobs that need the companyId without a request.
+ */
+export function getCachedCompanyId(): string | null {
+  return singleTenantCompanyId;
+}
+
+/**
+ * Resets the single-tenant cache (for testing).
+ */
+export function resetTenantCache(): void {
+  singleTenantCompanyId = null;
 }
 
 function resolveCompanyId(req: Request): string | undefined {
