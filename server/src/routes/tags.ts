@@ -193,6 +193,33 @@ export function tagsRoutes(db: Db) {
     },
   );
 
+  // ── POST /companies/:companyId/tags/:tagId/unarchive ── Unarchive a tag
+  router.post(
+    "/companies/:companyId/tags/:tagId/unarchive",
+    requirePermission(db, "tags:manage"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const tagId = req.params.tagId as string;
+
+      const [updated] = await db
+        .update(tags)
+        .set({ archivedAt: null, updatedAt: new Date() })
+        .where(and(eq(tags.id, tagId), eq(tags.companyId, companyId)))
+        .returning();
+
+      if (!updated) throw notFound("Tag not found");
+
+      const actorId = req.actor.type === "board" ? (req.actor.userId ?? "system") : "system";
+      await audit.emit({
+        companyId, actorId, actorType: "user",
+        action: "tag.unarchived", targetType: "tag", targetId: tagId,
+        metadata: { name: updated.name },
+      }).catch(() => {});
+
+      res.json(updated);
+    },
+  );
+
   // ── DELETE /companies/:companyId/tags/:tagId ── Delete (only if 0 assignments)
   router.delete(
     "/companies/:companyId/tags/:tagId",

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, UserPlus, Search, MoreHorizontal } from "lucide-react";
 import { accessApi, type EnrichedMember } from "../api/access";
+import { rolesApi, type Role } from "../api/roles";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -80,6 +81,36 @@ export function Members() {
     queryFn: () => accessApi.listMembers(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  // Fetch dynamic roles list
+  const { data: roles } = useQuery({
+    queryKey: queryKeys.roles.list(selectedCompanyId!),
+    queryFn: () => rolesApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  // Build a roleId -> Role map for display
+  const roleMap = useMemo(() => {
+    const map = new Map<string, Role>();
+    if (roles) {
+      for (const role of roles) {
+        map.set(role.id, role);
+        // Also index by slug for backward compat with businessRole field
+        map.set(role.slug, role);
+      }
+    }
+    return map;
+  }, [roles]);
+
+  function getRoleName(member: EnrichedMember): string {
+    // Try to resolve via roleMap (by businessRole which may be a slug or id)
+    const role = roleMap.get(member.businessRole);
+    if (role) return role.name;
+    // Fallback: capitalize the businessRole string
+    return member.businessRole
+      ? member.businessRole.charAt(0).toUpperCase() + member.businessRole.slice(1)
+      : "Unknown";
+  }
 
   const updateRoleMutation = useMutation({
     mutationFn: ({
@@ -183,6 +214,11 @@ export function Members() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem data-testid="mu-s02-filter-role-all" value="all">All roles</SelectItem>
+            {(roles ?? []).map((role) => (
+              <SelectItem key={role.id} value={role.slug}>
+                {role.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -261,10 +297,12 @@ export function Members() {
                 <MemberRow
                   key={member.id}
                   member={member}
-                  onRoleChange={(role) =>
+                  roles={roles ?? []}
+                  getRoleName={getRoleName}
+                  onRoleChange={(roleId) =>
                     updateRoleMutation.mutate({
                       memberId: member.id,
-                      roleId: role,
+                      roleId,
                     })
                   }
                   onStatusChange={(status) =>
@@ -377,16 +415,21 @@ export function Members() {
 
 function MemberRow({
   member,
+  roles,
+  getRoleName,
   onRoleChange,
   onStatusChange,
 }: {
   member: EnrichedMember;
-  onRoleChange: (role: string) => void;
+  roles: Role[];
+  getRoleName: (member: EnrichedMember) => string;
+  onRoleChange: (roleId: string) => void;
   onStatusChange: (status: "active" | "suspended") => void;
 }) {
   const displayName = member.userName ?? member.principalId;
   const displayEmail = member.userEmail ?? null;
   const isSuspended = member.status === "suspended";
+  const roleName = getRoleName(member);
 
   return (
     <tr
@@ -430,16 +473,21 @@ function MemberRow({
           <RoleBadge role={member.businessRole as string} />
           <Select
             value={member.businessRole}
-            onValueChange={(val) => onRoleChange(val as string)}
+            onValueChange={(val) => onRoleChange(val)}
           >
             <SelectTrigger
               data-testid={`mu-s02-member-role-${member.id}`}
               size="sm"
               className="w-[120px] h-7 text-xs"
             >
-              <SelectValue />
+              <SelectValue>{roleName}</SelectValue>
             </SelectTrigger>
             <SelectContent>
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
