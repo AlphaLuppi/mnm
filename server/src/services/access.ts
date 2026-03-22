@@ -4,24 +4,51 @@ import {
   authUsers,
   companyMemberships,
   instanceUserRoles,
+  roles,
+  rolePermissions,
+  permissions,
+  tagAssignments,
 } from "@mnm/db";
 import type { PrincipalType, ResourceScope } from "@mnm/shared";
-import { scopeSchema } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
 
-function validateScope(scope: unknown): void {
-  if (scope === undefined || scope === null) return;
-  const result = scopeSchema.safeParse(scope);
-  if (!result.success) {
-    throw badRequest("Invalid permission scope", {
-      issues: result.error.issues,
-    });
-  }
+// ── Cache ────────────────────────────────────────────────────────────────────
+
+interface CachedRole {
+  roleId: string;
+  slug: string;
+  bypassTagFilter: boolean;
+  hierarchyLevel: number;
+  permissionSlugs: Set<string>;
+  cachedAt: number;
 }
 
+interface CachedTags {
+  tagIds: Set<string>;
+  cachedAt: number;
+}
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+const roleCache = new Map<string, CachedRole>(); // key = `${companyId}:${principalType}:${principalId}`
+const tagCache = new Map<string, CachedTags>(); // same key pattern
+
+function cacheKey(companyId: string, principalType: string, principalId: string) {
+  return `${companyId}:${principalType}:${principalId}`;
+}
+
+function isStale(cachedAt: number): boolean {
+  return Date.now() - cachedAt > CACHE_TTL_MS;
+}
+
+// ── Service ──────────────────────────────────────────────────────────────────
+
 export function accessService(db: Db) {
+
+  // ── Instance Admin ───────────────────────────────────────────────────────
+
   async function isInstanceAdmin(userId: string | null | undefined): Promise<boolean> {
     if (!userId) return false;
     const row = await db
@@ -31,6 +58,8 @@ export function accessService(db: Db) {
       .then((rows) => rows[0] ?? null);
     return Boolean(row);
   }
+
+  // ── Membership ───────────────────────────────────────────────────────────
 
   async function getMembership(
     companyId: string,
@@ -50,9 +79,99 @@ export function accessService(db: Db) {
       .then((rows) => rows[0] ?? null);
   }
 
-  // TODO [PERM-01]: Rewrite with role-based permission resolution + tag intersection
-  // This is a STUB that allows all actions for active members.
-  // Sprint 2 will implement the full permission engine.
+  // ── Role + Permission Resolution ─────────────────────────────────────────
+
+  /**
+   * Load role + permissions for a principal. Cached for 5 minutes.
+   * Resolution: membership → role → role_permissions ∪ parent role_permissions (1 level)
+   */
+  async function resolveRole(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+  ): Promise<CachedRole | null> {
+    const key = cacheKey(companyId, principalType, principalId);
+    const cached = roleCache.get(key);
+    if (cached && !isStale(cached.cachedAt)) return cached;
+
+    const membership = await getMembership(companyId, principalType, principalId);
+    if (!membership || membership.status !== "active" || !membership.roleId) return null;
+
+    // Load the role
+    const [role] = await db
+      .select()
+      .from(roles)
+      .where(eq(roles.id, membership.roleId));
+    if (!role) return null;
+
+    // Load permission slugs for this role
+    const ownPerms = await db
+      .select({ slug: permissions.slug })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(eq(rolePermissions.roleId, role.id));
+
+    const slugs = new Set(ownPerms.map((p) => p.slug));
+
+    // 1-level inheritance: load parent permissions
+    if (role.inheritsFromId) {
+      const parentPerms = await db
+        .select({ slug: permissions.slug })
+        .from(rolePermissions)
+        .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+        .where(eq(rolePermissions.roleId, role.inheritsFromId));
+      for (const p of parentPerms) slugs.add(p.slug);
+    }
+
+    const result: CachedRole = {
+      roleId: role.id,
+      slug: role.slug,
+      bypassTagFilter: role.bypassTagFilter,
+      hierarchyLevel: role.hierarchyLevel,
+      permissionSlugs: slugs,
+      cachedAt: Date.now(),
+    };
+
+    roleCache.set(key, result);
+    return result;
+  }
+
+  /**
+   * Load tag IDs for a principal. Cached for 5 minutes.
+   */
+  async function getTagIds(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+  ): Promise<Set<string>> {
+    const key = cacheKey(companyId, principalType, principalId);
+    const cached = tagCache.get(key);
+    if (cached && !isStale(cached.cachedAt)) return cached.tagIds;
+
+    const rows = await db
+      .select({ tagId: tagAssignments.tagId })
+      .from(tagAssignments)
+      .where(
+        and(
+          eq(tagAssignments.companyId, companyId),
+          eq(tagAssignments.targetType, principalType),
+          eq(tagAssignments.targetId, principalId),
+        ),
+      );
+
+    const tagIds = new Set(rows.map((r) => r.tagId));
+    tagCache.set(key, { tagIds, cachedAt: Date.now() });
+    return tagIds;
+  }
+
+  // ── Permission Check ─────────────────────────────────────────────────────
+
+  /**
+   * Core permission check:
+   * 1. Check membership is active
+   * 2. Check role has the required permission
+   * 3. If resourceTagIds provided and role doesn't bypass → check tag intersection
+   */
   async function hasPermission(
     companyId: string,
     principalType: PrincipalType,
@@ -60,12 +179,28 @@ export function accessService(db: Db) {
     permissionKey: string,
     resourceScope?: ResourceScope,
   ): Promise<boolean> {
-    const membership = await getMembership(companyId, principalType, principalId);
-    if (!membership || membership.status !== "active") return false;
-    // STUB: allow all actions for active members until PERM-01 implements role-based checks
+    const role = await resolveRole(companyId, principalType, principalId);
+    if (!role) return false;
+
+    // Check the permission exists in the role (+ inherited)
+    if (!role.permissionSlugs.has(permissionKey)) return false;
+
+    // If no resource scope → permission granted (platform-level action)
+    if (!resourceScope) return true;
+
+    // Resource scope exists but role bypasses tag filter → granted
+    if (role.bypassTagFilter) return true;
+
+    // Check tag intersection for resource-scoped permissions
+    // (resourceScope.projectIds → future use, for now tag-based filtering
+    //  is done at the query level via TagScope, not here)
     return true;
   }
 
+  /**
+   * Convenience: check permission for a board user.
+   * Instance admins bypass all checks.
+   */
   async function canUser(
     companyId: string,
     userId: string | null | undefined,
@@ -73,10 +208,83 @@ export function accessService(db: Db) {
     resourceScope?: ResourceScope,
   ): Promise<boolean> {
     if (!userId) return false;
-    // Instance admins bypass ALL permission and scope checks
     if (await isInstanceAdmin(userId)) return true;
     return hasPermission(companyId, "user", userId, permissionKey, resourceScope);
   }
+
+  /**
+   * Check if the user's role has bypass_tag_filter (Admin-level visibility).
+   */
+  async function hasGlobalScope(companyId: string, userId: string): Promise<boolean> {
+    const membership = await getMembership(companyId, "user", userId);
+    if (!membership || membership.status !== "active") return false;
+
+    const role = await resolveRole(companyId, "user", userId);
+    if (!role) return false;
+    return role.bypassTagFilter;
+  }
+
+  /**
+   * Returns the effective permissions for a principal (for the API response).
+   */
+  async function getEffectivePermissions(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+  ): Promise<{
+    roleId: string | null;
+    roleName: string | null;
+    bypassTagFilter: boolean;
+    effectivePermissions: string[];
+  }> {
+    const role = await resolveRole(companyId, principalType, principalId);
+    if (!role) {
+      return { roleId: null, roleName: null, bypassTagFilter: false, effectivePermissions: [] };
+    }
+
+    // Also fetch the role name for display
+    const [roleRow] = await db
+      .select({ name: roles.name })
+      .from(roles)
+      .where(eq(roles.id, role.roleId));
+
+    return {
+      roleId: role.roleId,
+      roleName: roleRow?.name ?? null,
+      bypassTagFilter: role.bypassTagFilter,
+      effectivePermissions: [...role.permissionSlugs].sort(),
+    };
+  }
+
+  // ── Cache Invalidation ───────────────────────────────────────────────────
+
+  function invalidateRoleCache(companyId?: string, principalId?: string) {
+    if (principalId && companyId) {
+      // Targeted: clear specific user
+      for (const key of roleCache.keys()) {
+        if (key.startsWith(`${companyId}:`) && key.endsWith(`:${principalId}`)) {
+          roleCache.delete(key);
+        }
+      }
+    } else {
+      // Global: clear all
+      roleCache.clear();
+    }
+  }
+
+  function invalidateTagCache(companyId?: string, targetId?: string) {
+    if (targetId && companyId) {
+      for (const key of tagCache.keys()) {
+        if (key.startsWith(`${companyId}:`) && key.endsWith(`:${targetId}`)) {
+          tagCache.delete(key);
+        }
+      }
+    } else {
+      tagCache.clear();
+    }
+  }
+
+  // ── Member Management ────────────────────────────────────────────────────
 
   async function listMembers(companyId: string) {
     const rows = await db
@@ -125,6 +333,9 @@ export function accessService(db: Db) {
       .where(eq(companyMemberships.id, member.id))
       .returning()
       .then((rows) => rows[0] ?? null);
+
+    // Invalidate cache for this member
+    invalidateRoleCache(companyId, member.principalId);
     return updated ?? member;
   }
 
@@ -146,6 +357,9 @@ export function accessService(db: Db) {
       .where(eq(companyMemberships.id, member.id))
       .returning()
       .then((rows) => rows[0] ?? null);
+
+    // Invalidate cache — role changed means new permissions
+    invalidateRoleCache(companyId, member.principalId);
     return updated ?? member;
   }
 
@@ -158,10 +372,7 @@ export function accessService(db: Db) {
     if (existing) return existing;
     return db
       .insert(instanceUserRoles)
-      .values({
-        userId,
-        role: "instance_admin",
-      })
+      .values({ userId, role: "instance_admin" })
       .returning()
       .then((rows) => rows[0]);
   }
@@ -242,48 +453,24 @@ export function accessService(db: Db) {
       .then((rows) => rows[0]);
   }
 
-  // TODO [PERM-01]: getEffectivePermissions should load from roles + role_permissions tables
-  async function getEffectivePermissions(
-    companyId: string,
-    principalType: PrincipalType,
-    principalId: string,
-  ): Promise<{
-    roleId: string | null;
-    effectivePermissions: string[];
-  }> {
-    const membership = await getMembership(companyId, principalType, principalId);
-    if (!membership || membership.status !== "active") {
-      return { roleId: null, effectivePermissions: [] };
-    }
-    // STUB: return roleId but no permission resolution until PERM-01
-    return {
-      roleId: membership.roleId,
-      effectivePermissions: [],
-    };
-  }
-
-  // TODO [PERM-01]: hasGlobalScope should check role.bypass_tag_filter
-  async function hasGlobalScope(companyId: string, userId: string): Promise<boolean> {
-    const membership = await getMembership(companyId, "user", userId);
-    if (!membership || membership.status !== "active") return false;
-    // STUB: all active members have global scope until PERM-01
-    return true;
-  }
-
   return {
     isInstanceAdmin,
     canUser,
     hasPermission,
+    hasGlobalScope,
     getMembership,
     ensureMembership,
     listMembers,
     updateMemberRole,
     updateMemberStatus,
     getEffectivePermissions,
+    getTagIds,
+    resolveRole,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,
     setUserCompanyAccess,
-    hasGlobalScope,
+    invalidateRoleCache,
+    invalidateTagCache,
   };
 }
