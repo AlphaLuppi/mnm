@@ -51,7 +51,7 @@ export function IssueDeploymentLinks({ issueId }: { issueId: string }) {
     queryKey: queryKeys.deployments.byIssue(selectedCompanyId!, issueId),
     queryFn: () => deploymentsApi.list(selectedCompanyId!, { issueId }),
     enabled: !!selectedCompanyId && !!issueId,
-    refetchInterval: 15000,
+    // No polling — updates come via SSE/WebSocket events
   });
 
   const deployments = deploymentsQuery.data?.deployments ?? [];
