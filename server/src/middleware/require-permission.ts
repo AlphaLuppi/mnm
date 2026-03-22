@@ -101,13 +101,12 @@ export function requirePermission(
         if (!agentId) {
           throw forbidden("Agent identity required");
         }
-        const allowed = await access.hasPermission(
-          companyId,
-          "agent",
-          agentId,
-          permissionKey,
-          resourceScope,
-        );
+        // Agents inherit permissions from their creator (the user whose sandbox they run in)
+        // First try agent's own permissions, then fall back to creator's permissions
+        let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey, resourceScope);
+        if (!allowed && req.actor.creatorUserId) {
+          allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey, resourceScope);
+        }
         if (!allowed) {
           logger.warn({
             event: "access.denied",
@@ -192,13 +191,11 @@ export async function assertCompanyPermission(
     if (!agentId) {
       throw forbidden("Agent identity required");
     }
-    const allowed = await access.hasPermission(
-      companyId,
-      "agent",
-      agentId,
-      permissionKey,
-      resourceScope,
-    );
+    // Agents inherit permissions from their creator
+    let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey, resourceScope);
+    if (!allowed && req.actor.creatorUserId) {
+      allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey, resourceScope);
+    }
     if (!allowed) {
       logger.warn({
         event: "access.denied",

@@ -13,6 +13,8 @@ declare global {
         keyId?: string;
         runId?: string;
         source?: "local_implicit" | "session" | "agent_key" | "agent_jwt" | "none";
+        /** For agent actors: the userId who created this agent (permissions inherit from creator) */
+        creatorUserId?: string;
       };
     }
   }
