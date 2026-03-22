@@ -14,7 +14,6 @@ export function buildTestAgent(companyId: string, overrides?: TestAgentOverrides
   return {
     companyId,
     name: `Test Agent ${agentCounter}`,
-    role: "engineer",
     title: `Test Agent Title ${agentCounter}`,
     status: "idle" as const,
     adapterType: "process" as const,

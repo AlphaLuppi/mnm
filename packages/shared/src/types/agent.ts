@@ -1,6 +1,5 @@
 import type {
   AgentAdapterType,
-  AgentRole,
   AgentStatus,
 } from "../constants.js";
 
@@ -13,7 +12,7 @@ export interface Agent {
   companyId: string;
   name: string;
   urlKey: string;
-  role: AgentRole;
+  role?: string;
   title: string | null;
   icon: string | null;
   status: AgentStatus;
