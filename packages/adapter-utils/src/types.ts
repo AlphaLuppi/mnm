@@ -81,6 +81,8 @@ export interface AdapterExecutionContext {
   onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
   onMeta?: (meta: AdapterInvocationMeta) => Promise<void>;
   authToken?: string;
+  /** When set, execute commands inside this Docker container via `docker exec` */
+  dockerContainerId?: string;
 }
 
 export interface AdapterModel {
