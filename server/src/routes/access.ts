@@ -2876,8 +2876,8 @@ export function accessRoutes(
       // In local_trusted mode, return all permissions
       if (isLocalImplicit(req)) {
         res.json({
-          businessRole: "admin" as const,
-          explicitGrants: [],
+          roleId: null,
+          effectivePermissions: [],
         });
         return;
       }

@@ -146,9 +146,9 @@ export const accessApi = {
   listMembers: (companyId: string) =>
     api.get<EnrichedMember[]>(`/companies/${companyId}/members`),
 
-  updateMemberstring: (companyId: string, memberId: string, businessRole: string) =>
-    api.patch<EnrichedMember>(`/companies/${companyId}/members/${memberId}/business-role`, {
-      businessRole,
+  updateMemberRole: (companyId: string, memberId: string, roleId: string) =>
+    api.patch<EnrichedMember>(`/companies/${companyId}/members/${memberId}/role`, {
+      roleId,
     }),
 
   updateMemberStatus: (companyId: string, memberId: string, status: "active" | "suspended") =>

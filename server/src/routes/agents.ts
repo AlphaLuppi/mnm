@@ -709,6 +709,7 @@ export function agentRoutes(db: Db) {
     const status = requiresApproval ? "pending_approval" : "idle";
     const agent = await svc.create(companyId, {
       ...normalizedHireInput,
+      createdByUserId: req.actor.type === "board" ? (req.actor.userId ?? null) : null,
       status,
       spentMonthlyCents: 0,
       lastHeartbeatAt: null,
@@ -843,6 +844,7 @@ export function agentRoutes(db: Db) {
     const agent = await svc.create(companyId, {
       ...req.body,
       adapterConfig: normalizedAdapterConfig,
+      createdByUserId: req.actor.type === "board" ? (req.actor.userId ?? null) : null,
       status: "idle",
       spentMonthlyCents: 0,
       lastHeartbeatAt: null,
