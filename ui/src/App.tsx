@@ -30,6 +30,7 @@ import { NewWorkflow } from "./pages/NewWorkflow";
 import { WorkflowEditor } from "./pages/WorkflowEditor";
 import { Members } from "./pages/Members";
 import AdminRoles from "./pages/AdminRoles";
+import { AdminTags } from "./pages/AdminTags";
 import { AuditLog } from "./pages/AuditLog";
 import { Containers } from "./pages/Containers";
 import { Chat } from "./pages/Chat";
@@ -117,6 +118,7 @@ function boardRoutes() {
       <Route path="companies" element={<Companies />} />
       <Route path="members" element={<RequirePermission permission="users:invite" showForbidden><Members /></RequirePermission>} />
       <Route path="admin/roles" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminRoles /></RequirePermission>} />
+      <Route path="admin/tags" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminTags /></RequirePermission>} />
       <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
       <Route path="org" element={<OrgChart />} />
@@ -252,6 +254,7 @@ export function App() {
           <Route path="projects/:projectId/drift" element={<UnprefixedBoardRedirect />} />
           <Route path="members" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/roles" element={<UnprefixedBoardRedirect />} />
+          <Route path="admin/tags" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/sso" element={<UnprefixedBoardRedirect />} />
           <Route path="company/settings" element={<UnprefixedBoardRedirect />} />
           <Route path="audit" element={<UnprefixedBoardRedirect />} />
