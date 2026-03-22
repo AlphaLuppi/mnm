@@ -111,9 +111,19 @@ export function sandboxManagerService(db: Db) {
     memoryMb: number,
   ): Promise<void> {
     try {
+      // Remove any stale container with the same name (from previous sessions)
+      const containerName = `mnm-sandbox-${userId.slice(0, 8)}`;
+      try {
+        const stale = docker.getContainer(containerName);
+        await stale.remove({ force: true });
+        logger.info(`Removed stale container ${containerName}`);
+      } catch {
+        // Container doesn't exist — normal case
+      }
+
       const container = await docker.createContainer({
         Image: image,
-        name: `mnm-sandbox-${userId.slice(0, 8)}`,
+        name: containerName,
         Labels: {
           "mnm.type": "user-sandbox",
           "mnm.userId": userId,

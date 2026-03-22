@@ -2,9 +2,11 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { onboardingService } from "../services/onboarding.js";
 import { cascadeService } from "../services/cascade.js";
+import { sandboxManagerService } from "../services/sandbox-manager.js";
 import { assertCompanyAccess } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { badRequest } from "../errors.js";
+import { logger } from "../middleware/logger.js";
 
 // onb-s01-route-marker
 // onb-s04-route-validation-marker
@@ -69,8 +71,21 @@ export function onboardingRoutes(db: Db) {
       action: "onboarding.completed",
       targetType: "company",
       targetId: companyId as string,
-      metadata: { steps_completed: 6 },
+      metadata: { steps_completed: 5 },
     });
+
+    // Auto-provision sandbox for the onboarding user
+    const userId = req.actor.type === "board" ? req.actor.userId : null;
+    if (userId) {
+      try {
+        const manager = sandboxManagerService(db);
+        await manager.provisionSandbox(userId, companyId as string);
+        logger.info({ userId, companyId }, "Auto-provisioned sandbox after onboarding");
+      } catch (err: any) {
+        // Don't block onboarding completion if sandbox provisioning fails
+        logger.warn({ err: err.message, userId, companyId }, "Auto-provision sandbox failed (non-blocking)");
+      }
+    }
 
     res.json(status);
   });
