@@ -108,7 +108,7 @@ export async function executeSandboxRun(
   const issueTitle = typeof context.issueTitle === "string" ? context.issueTitle : "";
   const issueDescription = typeof context.issueDescription === "string" ? context.issueDescription : "";
 
-  const claudeArgs: string[] = ["-p", "--output-format", "stream-json"];
+  const claudeArgs: string[] = ["-p", "--verbose", "--output-format", "stream-json"];
 
   // Add model if specified
   const model = typeof config.model === "string" && config.model ? config.model : null;
