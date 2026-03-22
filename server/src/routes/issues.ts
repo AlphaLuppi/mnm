@@ -86,7 +86,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return false;
   }
 
-  function canCreateAgentsLegacy(agent: { permissions: Record<string, unknown> | null | undefined; role: string }) {
+  function canCreateAgentsLegacy(agent: { permissions: Record<string, unknown> | null | undefined }) {
     if (Boolean(agent.permissions?.canCreateAgents)) return true;
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
     return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);

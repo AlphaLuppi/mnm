@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { projectMemberships, projects, authUsers, principalPermissionGrants } from "@mnm/db";
+import { projectMemberships, projects, authUsers } from "@mnm/db";
 import { conflict, notFound } from "../errors.js";
 
 const PROJECT_MEMBERSHIP_ROLES = ["owner", "manager", "contributor", "viewer"] as const;
@@ -38,44 +38,9 @@ export function projectMembershipService(db: Db) {
   }
 
   // --- PROJ-S02: Internal scope synchronization ---
-  async function syncUserProjectScope(companyId: string, userId: string): Promise<void> {
-    // 1. Get all project IDs the user is a member of
-    const memberRows = await db
-      .select({ projectId: projectMemberships.projectId })
-      .from(projectMemberships)
-      .where(
-        and(
-          eq(projectMemberships.companyId, companyId),
-          eq(projectMemberships.userId, userId),
-        ),
-      );
-    const currentProjectIds = memberRows.map((r) => r.projectId);
-
-    // 2. Find all grants for this user that have scope.projectIds
-    const grants = await db
-      .select({
-        id: principalPermissionGrants.id,
-        scope: principalPermissionGrants.scope,
-      })
-      .from(principalPermissionGrants)
-      .where(
-        and(
-          eq(principalPermissionGrants.companyId, companyId),
-          eq(principalPermissionGrants.principalType, "user"),
-          eq(principalPermissionGrants.principalId, userId),
-        ),
-      );
-
-    // 3. Update grants that have scope.projectIds defined
-    for (const grant of grants) {
-      const scope = grant.scope as Record<string, unknown> | null;
-      if (!scope || !("projectIds" in scope)) continue; // skip null scope or scope without projectIds
-      const updatedScope = { ...scope, projectIds: currentProjectIds };
-      await db
-        .update(principalPermissionGrants)
-        .set({ scope: updatedScope, updatedAt: new Date() })
-        .where(eq(principalPermissionGrants.id, grant.id));
-    }
+  // TODO [PERM-01]: Reimplement using tag_assignments instead of principalPermissionGrants
+  async function syncUserProjectScope(_companyId: string, _userId: string): Promise<void> {
+    // STUB: principalPermissionGrants table removed, scope sync via tags in Sprint 4
   }
 
   return {

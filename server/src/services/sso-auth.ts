@@ -395,7 +395,7 @@ export function ssoAuthService(db: Db) {
         principalType: "user",
         principalId: userId,
         status: "active",
-        businessRole: "contributor",
+        roleId: "contributor",
         createdAt: new Date(),
         updatedAt: new Date(),
       });

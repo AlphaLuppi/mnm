@@ -1,8 +1,14 @@
 import type { Db } from "@mnm/db";
 import { companyMemberships } from "@mnm/db";
 import { and, eq } from "drizzle-orm";
-import type { BusinessRole, ResourceScope } from "@mnm/shared";
-import { canInviteRole, getInvitableRoles, getRoleLevel } from "@mnm/shared";
+import type { ResourceScope } from "@mnm/shared";
+
+// Stub: roles are now dynamic (loaded from DB in Sprint 4)
+// These functions are kept as stubs for compilation
+type BusinessRole = string;
+function canInviteRole(_inviter: string, _target: string): boolean { return true; }
+function getInvitableRoles(_role: string): BusinessRole[] { return []; }
+function getRoleLevel(_role: string): number { return 0; }
 import { accessService } from "./access.js";
 
 // onb-s02-cascade-service
@@ -181,7 +187,7 @@ export function cascadeService(db: Db) {
       const invitedByVal: string | null = (row.invitedBy as string) ?? null;
       chain.push({
         userId: nextId,
-        businessRole: row.roleId as BusinessRole | null,
+        businessRole: row.businessRole as BusinessRole | null,
         invitedBy: invitedByVal,
       });
 
@@ -233,44 +239,9 @@ export function cascadeService(db: Db) {
     userId: string,
     businessRole: BusinessRole,
   ): Promise<ResourceScope | null> {
-    // Admin and Manager have global scope by default (preset)
-    if (businessRole === "admin" || businessRole === "manager") {
-      // Check if there are explicit grants that restrict scope
-      const effective = await access.getEffectivePermissions(companyId, "user", userId);
-      // If there are explicit grants with scope, use the narrowest scope
-      const scopedGrants = effective.explicitGrants.filter((g) => g.scope !== null);
-      if (scopedGrants.length === 0) return null; // global
-
-      // Merge all projectIds from scoped grants
-      const allProjectIds = new Set<string>();
-      for (const grant of scopedGrants) {
-        const projectIds = (grant.scope as Record<string, unknown>)?.projectIds;
-        if (Array.isArray(projectIds)) {
-          for (const pid of projectIds) {
-            if (typeof pid === "string") allProjectIds.add(pid);
-          }
-        }
-      }
-      if (allProjectIds.size === 0) return null;
-      return { projectIds: [...allProjectIds] };
-    }
-
-    // For contributor/viewer, check explicit grants
-    const effective = await access.getEffectivePermissions(companyId, "user", userId);
-    const scopedGrants = effective.explicitGrants.filter((g) => g.scope !== null);
-    if (scopedGrants.length === 0) return null;
-
-    const allProjectIds = new Set<string>();
-    for (const grant of scopedGrants) {
-      const projectIds = (grant.scope as Record<string, unknown>)?.projectIds;
-      if (Array.isArray(projectIds)) {
-        for (const pid of projectIds) {
-          if (typeof pid === "string") allProjectIds.add(pid);
-        }
-      }
-    }
-    if (allProjectIds.size === 0) return null;
-    return { projectIds: [...allProjectIds] };
+    // TODO [PERM-01]: getEffectiveScope should resolve from role_permissions + tags
+    // Currently all users have global scope until Sprint 4
+    return null;
   }
 
   return {

@@ -662,7 +662,6 @@ export function companyPortabilityService(db: Db) {
           slug,
           name: agent.name,
           path: agentPath,
-          "agent",
           title: agent.title ?? null,
           icon: agent.icon ?? null,
           capabilities: agent.capabilities ?? null,
@@ -911,7 +910,6 @@ export function companyPortabilityService(db: Db) {
         delete adapterConfig.instructionsFilePath;
         const patch = {
           name: planAgent.plannedName,
-          "agent",
           title: manifestAgent.title,
           icon: manifestAgent.icon,
           capabilities: manifestAgent.capabilities,
