@@ -636,6 +636,10 @@ if (config.databaseBackupEnabled) {
   }, backupIntervalMs);
 }
 
+// Validate permission slugs at startup (catches typos in route guards)
+import { validatePermissionSlugs } from "./services/permission-validator.js";
+validatePermissionSlugs();
+
 server.listen(listenPort, config.host, () => {
   logger.info(`Server listening on ${config.host}:${listenPort}`);
   if (process.env.MNM_OPEN_ON_LISTEN === "true") {
