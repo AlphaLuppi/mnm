@@ -31,7 +31,6 @@ import {
   ssoConfigurations,
   driftReports,
   driftItems,
-  principalPermissionGrants,
   traces,
   traceObservations,
   traceLenses,
@@ -321,14 +320,14 @@ export function e2eSeedRoutes(db: Db) {
               principalType: "user",
               principalId: user.userId,
               status: "active",
-              businessRole: user.businessRole,
+              businessRole: user.roleId,
             });
             membershipsCreated++;
-          } else if (existing.businessRole !== user.businessRole) {
+          } else if (existing.roleId !== user.roleId) {
             // Update businessRole if it changed
             await db
               .update(companyMemberships)
-              .set({ businessRole: user.businessRole, updatedAt: new Date() })
+              .set({ businessRole: user.roleId, updatedAt: new Date() })
               .where(eq(companyMemberships.id, existing.id));
           }
         }
@@ -354,7 +353,7 @@ export function e2eSeedRoutes(db: Db) {
           id: a.id,
           companyId: a.companyId,
           name: a.name,
-          role: a.role ?? "general",
+          
           title: a.title ?? null,
           icon: a.icon ?? null,
           status: a.status ?? "idle",
@@ -595,7 +594,6 @@ export function e2eSeedRoutes(db: Db) {
       stats.driftItems = await safeDelete(driftItems, driftItems.companyId);
       stats.driftReports = await safeDelete(driftReports, driftReports.companyId);
       stats.ssoConfigurations = await safeDelete(ssoConfigurations, ssoConfigurations.companyId);
-      stats.principalPermissionGrants = await safeDelete(principalPermissionGrants, principalPermissionGrants.companyId);
       stats.chatMessages = await safeDelete(chatMessages, chatMessages.companyId);
       stats.chatChannels = await safeDelete(chatChannels, chatChannels.companyId);
 

@@ -26,7 +26,6 @@ function createToken() {
 
 const CONFIG_REVISION_FIELDS = [
   "name",
-  "role",
   "title",
   "reportsTo",
   "capabilities",
@@ -86,7 +85,6 @@ function buildConfigSnapshot(
       : row.metadata ?? null;
   return {
     name: row.name,
-    role: row.role,
     title: row.title,
     reportsTo: row.reportsTo,
     capabilities: row.capabilities,
@@ -122,9 +120,6 @@ function configPatchFromSnapshot(snapshot: unknown): Partial<typeof agents.$infe
   if (typeof snapshot.name !== "string" || snapshot.name.length === 0) {
     throw unprocessable("Invalid revision snapshot: name");
   }
-  if (typeof snapshot.role !== "string" || snapshot.role.length === 0) {
-    throw unprocessable("Invalid revision snapshot: role");
-  }
   if (typeof snapshot.adapterType !== "string" || snapshot.adapterType.length === 0) {
     throw unprocessable("Invalid revision snapshot: adapterType");
   }
@@ -134,7 +129,6 @@ function configPatchFromSnapshot(snapshot: unknown): Partial<typeof agents.$infe
 
   return {
     name: snapshot.name,
-    role: snapshot.role,
     title: typeof snapshot.title === "string" || snapshot.title === null ? snapshot.title : null,
     reportsTo:
       typeof snapshot.reportsTo === "string" || snapshot.reportsTo === null ? snapshot.reportsTo : null,
@@ -192,7 +186,7 @@ export function agentService(db: Db) {
   function normalizeAgentRow(row: typeof agents.$inferSelect) {
     return withUrlKey({
       ...row,
-      permissions: normalizeAgentPermissions(row.permissions, row.role),
+      permissions: normalizeAgentPermissions(row.permissions),
     });
   }
 
@@ -288,8 +282,7 @@ export function agentService(db: Db) {
 
     const normalizedPatch = { ...data } as Partial<typeof agents.$inferInsert>;
     if (data.permissions !== undefined) {
-      const role = (data.role ?? existing.role) as string;
-      normalizedPatch.permissions = normalizeAgentPermissions(data.permissions, role);
+      normalizedPatch.permissions = normalizeAgentPermissions(data.permissions);
     }
 
     const shouldRecordRevision = Boolean(options?.recordRevision) && hasConfigPatchFields(normalizedPatch);
@@ -361,11 +354,10 @@ export function agentService(db: Db) {
         .where(eq(agents.companyId, companyId));
       const uniqueName = deduplicateAgentName(data.name, existingAgents);
 
-      const role = data.role ?? "general";
-      const normalizedPermissions = normalizeAgentPermissions(data.permissions, role);
+      const normalizedPermissions = normalizeAgentPermissions(data.permissions);
       const created = await db
         .insert(agents)
-        .values({ ...data, name: uniqueName, companyId, role, permissions: normalizedPermissions })
+        .values({ ...data, name: uniqueName, companyId, permissions: normalizedPermissions })
         .returning()
         .then((rows) => rows[0]);
 
@@ -465,7 +457,7 @@ export function agentService(db: Db) {
       const updated = await db
         .update(agents)
         .set({
-          permissions: normalizeAgentPermissions(permissions, existing.role),
+          permissions: normalizeAgentPermissions(permissions),
           updatedAt: new Date(),
         })
         .where(eq(agents.id, id))
@@ -592,7 +584,7 @@ export function agentService(db: Db) {
     },
 
     getChainOfCommand: async (agentId: string) => {
-      const chain: { id: string; name: string; role: string; title: string | null }[] = [];
+      const chain: { id: string; name: string; title: string | null }[] = [];
       const visited = new Set<string>([agentId]);
       const start = await getById(agentId);
       let currentId = start?.reportsTo ?? null;
@@ -600,7 +592,7 @@ export function agentService(db: Db) {
         visited.add(currentId);
         const mgr = await getById(currentId);
         if (!mgr) break;
-        chain.push({ id: mgr.id, name: mgr.name, role: mgr.role, title: mgr.title ?? null });
+        chain.push({ id: mgr.id, name: mgr.name, title: mgr.title ?? null });
         currentId = mgr.reportsTo ?? null;
       }
       return chain;

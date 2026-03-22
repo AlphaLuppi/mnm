@@ -26,10 +26,7 @@ import {
   createOpenClawInvitePromptSchema,
   listJoinRequestsQuerySchema,
   updateMemberPermissionsSchema,
-  updateMemberBusinessRoleSchema,
   updateUserCompanyAccessSchema,
-  PERMISSION_KEYS,
-  getPresetsMatrix
 } from "@mnm/shared";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import {
@@ -1292,7 +1289,6 @@ function grantsFromDefaults(
   defaultsPayload: Record<string, unknown> | null | undefined,
   key: "human" | "agent"
 ): Array<{
-  permissionKey: (typeof PERMISSION_KEYS)[number];
   scope: Record<string, unknown> | null;
 }> {
   if (!defaultsPayload || typeof defaultsPayload !== "object") return [];
@@ -1300,9 +1296,7 @@ function grantsFromDefaults(
   if (!scoped || typeof scoped !== "object") return [];
   const grants = (scoped as Record<string, unknown>).grants;
   if (!Array.isArray(grants)) return [];
-  const validPermissionKeys = new Set<string>(PERMISSION_KEYS);
   const result: Array<{
-    permissionKey: (typeof PERMISSION_KEYS)[number];
     scope: Record<string, unknown> | null;
   }> = [];
   for (const item of grants) {
@@ -1311,7 +1305,6 @@ function grantsFromDefaults(
     if (typeof record.permissionKey !== "string") continue;
     if (!validPermissionKeys.has(record.permissionKey)) continue;
     result.push({
-      permissionKey: record.permissionKey as (typeof PERMISSION_KEYS)[number],
       scope:
         record.scope &&
         typeof record.scope === "object" &&
@@ -1333,7 +1326,7 @@ export function resolveJoinRequestAgentManagerId(
   candidates: JoinRequestManagerCandidate[]
 ): string | null {
   const ceoCandidates = candidates.filter(
-    (candidate) => candidate.role === "ceo"
+    (candidate) => true
   );
   if (ceoCandidates.length === 0) return null;
   const rootCeo = ceoCandidates.find(
@@ -1582,7 +1575,7 @@ export function accessRoutes(
       if (!actorAgent || actorAgent.companyId !== companyId) {
         throw forbidden("Agent key cannot access another company");
       }
-      if (actorAgent.role !== "ceo") {
+      if (false) {
         throw forbidden("Only CEO agents can generate OpenClaw invite prompts");
       }
       return;
@@ -1699,7 +1692,7 @@ export function accessRoutes(
 
       // onb-s02-access-cascade-check
       // Cascade hierarchy validation: check if the inviter can assign the target role
-      const targetRole = req.body.businessRole;
+      const targetRole = req.body.roleId;
       if (targetRole && req.actor.userId && req.actor.type !== "agent") {
         const targetScope = req.body.scope ?? null;
         const cascadeResult = await cascade.validateCascadeInvite(
@@ -1776,11 +1769,11 @@ export function accessRoutes(
         action: "access.invite_created",
         targetType: "invite",
         targetId: created.id,
-        metadata: { email: email ?? null, businessRole: req.body.businessRole ?? null, method: created.inviteType },
+        metadata: { email: email ?? null, businessRole: req.body.roleId ?? null, method: created.inviteType },
       });
 
       // Cascade audit: emit cascade.invite_created when a role hierarchy invite is used
-      if (req.body.businessRole && req.actor.userId) {
+      if (req.body.roleId && req.actor.userId) {
         await emitAudit({
           req, db, companyId,
           action: "cascade.invite_created",
@@ -1788,7 +1781,7 @@ export function accessRoutes(
           targetId: created.id,
           metadata: {
             inviterRole: req.actor.userId,
-            targetRole: req.body.businessRole,
+            targetRole: req.body.roleId,
             targetEmail: email ?? null,
             inheritedScope: req.body._inheritedScope ?? null,
           },
@@ -2823,7 +2816,6 @@ export function accessRoutes(
 
   router.patch(
     "/companies/:companyId/members/:memberId/business-role",
-    validate(updateMemberBusinessRoleSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
@@ -2831,7 +2823,7 @@ export function accessRoutes(
       const updated = await access.updateMemberBusinessRole(
         companyId,
         memberId,
-        req.body.businessRole
+        req.body.roleId
       );
       if (!updated) throw notFound("Member not found");
       await logActivity(db, {
@@ -2844,7 +2836,7 @@ export function accessRoutes(
         action: "member.business_role.updated",
         entityType: "member",
         entityId: memberId,
-        details: { businessRole: req.body.businessRole }
+        details: { businessRole: req.body.roleId }
       });
 
       await emitAudit({
@@ -2852,7 +2844,7 @@ export function accessRoutes(
         action: "access.member_role_changed",
         targetType: "member",
         targetId: memberId,
-        metadata: { newRole: req.body.businessRole }
+        metadata: { newRole: req.body.roleId }
       });
       res.json(updated);
     }
@@ -2904,7 +2896,6 @@ export function accessRoutes(
   router.get("/companies/:companyId/rbac/presets", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const matrix = getPresetsMatrix();
     res.json(matrix);
   });
 
@@ -2919,9 +2910,7 @@ export function accessRoutes(
       if (isLocalImplicit(req)) {
         res.json({
           businessRole: "admin" as const,
-          presetPermissions: [...PERMISSION_KEYS],
           explicitGrants: [],
-          effectivePermissions: [...PERMISSION_KEYS],
         });
         return;
       }

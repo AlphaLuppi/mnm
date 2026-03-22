@@ -1,9 +1,8 @@
-import type { BusinessRole } from "@mnm/shared";
-import { BUSINESS_ROLE_LABELS } from "@mnm/shared";
+import type { string } from "@mnm/shared";
 import { RoleBadge } from "./RoleBadge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-const ROLE_DESCRIPTIONS: Record<BusinessRole, string> = {
+const ROLE_DESCRIPTIONS: Record<string, string> = {
   admin: "Full access to all features and settings",
   manager: "Day-to-day management, no system admin",
   contributor: "Daily productivity — launch agents, create stories",
@@ -11,7 +10,7 @@ const ROLE_DESCRIPTIONS: Record<BusinessRole, string> = {
 };
 
 interface RoleOverviewCardProps {
-  role: BusinessRole;
+  role: string;
   permissionCount: number;
   memberCount: number;
 }
