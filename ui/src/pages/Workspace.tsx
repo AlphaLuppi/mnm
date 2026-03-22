@@ -67,7 +67,7 @@ export function Workspace() {
 
   const podQuery = useQuery({
     queryKey: queryKeys.sandboxes.my(selectedCompanyId!),
-    queryFn: () => sandboxesApi.getMyPod(selectedCompanyId!),
+    queryFn: () => sandboxesApi.getMySandbox(selectedCompanyId!),
     enabled: !!selectedCompanyId,
     refetchInterval: 5000, // Poll every 5s for status updates
   });

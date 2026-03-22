@@ -1,4 +1,4 @@
-// POD-06: Sandbox API client (renamed from pods.ts)
+// POD-06: Sandbox API client
 import type { UserSandbox, SandboxProvisionOptions } from "@mnm/shared";
 import { api } from "./client";
 
@@ -6,12 +6,11 @@ export interface ExecResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
-  sessionId?: string | null;
-  interactive?: boolean;
+  authPending?: boolean;
 }
 
 export const sandboxesApi = {
-  getMyPod: (companyId: string) =>
+  getMySandbox: (companyId: string) =>
     api.get<{ pod: UserSandbox | null }>(
       `/companies/${companyId}/sandboxes/my`,
     ),
@@ -50,9 +49,9 @@ export const sandboxesApi = {
       { command },
     ),
 
-  sendInput: (companyId: string, sessionId: string, input: string) =>
-    api.post<ExecResult>(
-      `/companies/${companyId}/sandboxes/my/exec/input`,
-      { sessionId, input },
+  sendAuthCode: (companyId: string, code: string) =>
+    api.post<{ success: boolean; stdout: string; stderr: string }>(
+      `/companies/${companyId}/sandboxes/my/auth-code`,
+      { code },
     ),
 };
