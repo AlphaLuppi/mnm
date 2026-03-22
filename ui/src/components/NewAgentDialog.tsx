@@ -28,8 +28,8 @@ export function NewAgentDialog() {
     enabled: !!selectedCompanyId && newAgentOpen,
   });
 
-  // Find the CAO agent (adapter_type = "system")
-  const caoAgent = (agents ?? []).find((a) => a.adapterType === "system");
+  // Find the CAO agent (identified by metadata.isCAO or name "CAO")
+  const caoAgent = (agents ?? []).find((a) => a.name === "CAO");
 
   function handleAskCao() {
     closeNewAgent();

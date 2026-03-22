@@ -62,10 +62,11 @@ export function NewAgent() {
 
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
-  const [role, setRole] = useState("general");
   const [reportsTo, setReportsTo] = useState("");
-  const [configValues, setConfigValues] = useState<CreateConfigValues>(defaultCreateValues);
-  const [roleOpen, setRoleOpen] = useState(false);
+  const [configValues, setConfigValues] = useState<CreateConfigValues>({
+    ...defaultCreateValues,
+    adapterType: "claude_local", // All agents run in user's sandbox
+  });
   const [reportsToOpen, setReportsToOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -88,34 +89,12 @@ export function NewAgent() {
     enabled: Boolean(selectedCompanyId),
   });
 
-  const isFirstAgent = !agents || agents.length === 0;
-  const effectiveRole = isFirstAgent ? "ceo" : role;
-
   useEffect(() => {
     setBreadcrumbs([
       { label: "Agents", href: "/agents" },
       { label: "New Agent" },
     ]);
   }, [setBreadcrumbs]);
-
-  useEffect(() => {
-    if (isFirstAgent) {
-      if (!name) setName("CEO");
-      if (!title) setTitle("CEO");
-    }
-  }, [isFirstAgent]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const requested = presetAdapterType;
-    if (!requested) return;
-    if (!SUPPORTED_ADVANCED_ADAPTER_TYPES.has(requested as CreateConfigValues["adapterType"])) {
-      return;
-    }
-    setConfigValues((prev) => {
-      if (prev.adapterType === requested) return prev;
-      return createValuesForAdapterType(requested as CreateConfigValues["adapterType"]);
-    });
-  }, [presetAdapterType]);
 
   const createAgent = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
@@ -168,7 +147,6 @@ export function NewAgent() {
     }
     createAgent.mutate({
       name: name.trim(),
-      role: effectiveRole,
       ...(title.trim() ? { title: title.trim() } : {}),
       ...(reportsTo ? { reportsTo } : {}),
       adapterType: configValues.adapterType,
@@ -219,45 +197,12 @@ export function NewAgent() {
           />
         </div>
 
-        {/* Property chips: Role + Reports To */}
+        {/* Property chips: Reports To */}
         <div className="flex items-center gap-1.5 px-4 py-2 border-t border-border flex-wrap">
-          <Popover open={roleOpen} onOpenChange={setRoleOpen}>
-            <PopoverTrigger asChild>
-              <button
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors",
-                  isFirstAgent && "opacity-60 cursor-not-allowed"
-                )}
-                disabled={isFirstAgent}
-              >
-                <Shield className="h-3 w-3 text-muted-foreground" />
-                {roleLabels[effectiveRole] ?? effectiveRole}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-36 p-1" align="start">
-              {AGENT_ROLES.map((r) => (
-                <button
-                  key={r}
-                  className={cn(
-                    "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                    r === role && "bg-accent"
-                  )}
-                  onClick={() => { setRole(r); setRoleOpen(false); }}
-                >
-                  {roleLabels[r] ?? r}
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
-
           <Popover open={reportsToOpen} onOpenChange={setReportsToOpen}>
             <PopoverTrigger asChild>
               <button
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors",
-                  isFirstAgent && "opacity-60 cursor-not-allowed"
-                )}
-                disabled={isFirstAgent}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors"
               >
                 {currentReportsTo ? (
                   <>
@@ -267,7 +212,7 @@ export function NewAgent() {
                 ) : (
                   <>
                     <User className="h-3 w-3 text-muted-foreground" />
-                    {isFirstAgent ? "Reports to: N/A (CEO)" : "Reports to..."}
+                    Reports to...
                   </>
                 )}
               </button>
@@ -310,9 +255,6 @@ export function NewAgent() {
 
         {/* Footer */}
         <div className="border-t border-border px-4 py-3">
-          {isFirstAgent && (
-            <p className="text-xs text-muted-foreground mb-2">This will be the CEO</p>
-          )}
           {formError && (
             <p className="text-xs text-destructive mb-2">{formError}</p>
           )}
