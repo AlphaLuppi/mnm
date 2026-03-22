@@ -177,10 +177,6 @@ export function LaunchAgentDialog({
       }
 
       if (selectedAgentId === SENTINEL_GHOST && ghostWsAgent && workspaceId && projectId) {
-        const { AGENT_ROLES } = await import("@mnm/shared");
-        const validRoles = new Set(AGENT_ROLES);
-        const role = validRoles.has(ghostWsAgent.role as typeof AGENT_ROLES[number])
-          ? (ghostWsAgent.role as typeof AGENT_ROLES[number])
           : "general";
 
         const newAgent = await agentsApi.create(companyId, {

@@ -469,7 +469,7 @@ export function AgentDetail() {
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
             <p className="text-sm text-muted-foreground truncate">
-              {roleLabels[agent.role] ?? agent.role}
+              {roleLabels["agent"] ?? "agent"}
               {agent.title ? ` - ${agent.title}` : ""}
             </p>
             {scopedProject && (

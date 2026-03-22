@@ -123,7 +123,7 @@ export function agentRoutes(db: Db) {
     }
 
     if (actorAgent.id === targetAgent.id) return;
-    if (actorAgent.role === "ceo") return;
+    // TODO: role-based check removed — rely on permission grants
     const allowedByGrant = await access.hasPermission(
       targetAgent.companyId,
       "agent",
@@ -342,7 +342,7 @@ export function agentRoutes(db: Db) {
       id: agent.id,
       companyId: agent.companyId,
       name: agent.name,
-      role: agent.role,
+      role: "agent",
       title: agent.title,
       status: agent.status,
       reportsTo: agent.reportsTo,
@@ -393,7 +393,7 @@ export function agentRoutes(db: Db) {
     return {
       id: String(node.id),
       name: String(node.name),
-      role: String(node.role),
+      role: "agent",
       status: String(node.status),
       reports,
     };
@@ -738,7 +738,7 @@ export function agentRoutes(db: Db) {
         status: "pending",
         payload: {
           name: normalizedHireInput.name,
-          role: normalizedHireInput.role,
+          role: "agent",
           title: normalizedHireInput.title ?? null,
           icon: normalizedHireInput.icon ?? null,
           reportsTo: normalizedHireInput.reportsTo ?? null,
@@ -792,7 +792,7 @@ export function agentRoutes(db: Db) {
       entityId: agent.id,
       details: {
         name: agent.name,
-        role: agent.role,
+        role: "agent",
         requiresApproval,
         approvalId: approval?.id ?? null,
         issueIds: sourceIssueIds,
@@ -858,7 +858,7 @@ export function agentRoutes(db: Db) {
       action: "agent.created",
       entityType: "agent",
       entityId: agent.id,
-      details: { name: agent.name, role: agent.role },
+      details: { name: agent.name, role: "agent" },
     });
 
     await emitAudit({
@@ -888,7 +888,7 @@ export function agentRoutes(db: Db) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      if (actorAgent.role !== "ceo") {
+      if ("agent" !== "ceo") {
         res.status(403).json({ error: "Only CEO can manage permissions" });
         return;
       }

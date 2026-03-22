@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import yaml from "js-yaml";
 import type { Db } from "@mnm/db";
-import { AGENT_ROLES } from "@mnm/shared";
 import { projectService, agentService, publishLiveEvent } from "../services/index.js";
 import { analyzeWorkspace } from "../services/workspace-analyzer.js";
 import { startWorkspaceContextWatcher } from "../services/workspace-context-watcher.js";
@@ -310,20 +309,15 @@ export function workspaceContextRoutes(db: Db) {
     const discovered = await discoverWorkspaceAgents(workspacePath);
     const toImport = discovered.filter((a) => slugs.includes(a.slug));
 
-    const validRoles = new Set(AGENT_ROLES);
     const created = [];
     const newAssignments: Record<string, string> = {};
 
     for (const agent of toImport) {
-      const role = validRoles.has(agent.role as typeof AGENT_ROLES[number])
-        ? (agent.role as typeof AGENT_ROLES[number])
-        : "general";
       const safeCapabilities = stripNonLatin1(agent.capabilities);
       const safeIcon = stripNonLatin1(agent.icon);
       const newAgent = await agentSvc.create(project.companyId, {
         name: stripNonLatin1(agent.personaName) ?? agent.slug,
         title: stripNonLatin1(agent.title) ?? agent.slug,
-        role,
         capabilities: safeCapabilities,
         adapterType: "claude_local",
         adapterConfig: {},

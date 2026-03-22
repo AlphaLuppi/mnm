@@ -2,10 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import {
-  BUSINESS_ROLES,
-  BUSINESS_ROLE_LABELS,
-  type BusinessRole,
-  type PermissionKey,
+  type string,
+  type string,
 } from "@mnm/shared";
 import { accessApi, type EnrichedMember } from "../api/access";
 import { useCompany } from "../context/CompanyContext";
@@ -68,9 +66,9 @@ export function AdminRoles() {
       businessRole,
     }: {
       memberId: string;
-      businessRole: BusinessRole;
+      businessRole: string;
     }) =>
-      accessApi.updateMemberBusinessRole(
+      accessApi.updateMemberstring(
         selectedCompanyId!,
         memberId,
         businessRole,
@@ -84,7 +82,7 @@ export function AdminRoles() {
 
   // Compute member counts per role
   const memberCountsByRole = useMemo(() => {
-    const counts: Record<BusinessRole, number> = {
+    const counts: Record<string, number> = {
       admin: 0,
       manager: 0,
       contributor: 0,
@@ -92,7 +90,7 @@ export function AdminRoles() {
     };
     if (members) {
       for (const m of members) {
-        const role = m.businessRole as BusinessRole;
+        const role = m.businessRole as string;
         if (role in counts) {
           counts[role]++;
         }
@@ -103,14 +101,13 @@ export function AdminRoles() {
 
   // Compute permission counts per role from presets
   const permissionCountsByRole = useMemo(() => {
-    const counts: Record<BusinessRole, number> = {
+    const counts: Record<string, number> = {
       admin: 0,
       manager: 0,
       contributor: 0,
       viewer: 0,
     };
     if (presets) {
-      for (const role of BUSINESS_ROLES) {
         counts[role] = (presets[role] ?? []).length;
       }
     }
@@ -202,7 +199,6 @@ export function AdminRoles() {
             data-testid="rbac-s06-role-cards"
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4"
           >
-            {BUSINESS_ROLES.map((role) => (
               <RoleOverviewCard
                 key={role}
                 role={role}
@@ -244,9 +240,7 @@ export function AdminRoles() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All roles</SelectItem>
-                  {BUSINESS_ROLES.map((role) => (
                     <SelectItem key={role} value={role}>
-                      {BUSINESS_ROLE_LABELS[role] ?? role}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -330,7 +324,7 @@ function MemberRoleRow({
   onRoleChange,
 }: {
   member: EnrichedMember;
-  onRoleChange: (role: BusinessRole) => void;
+  onRoleChange: (role: string) => void;
 }) {
   const displayName = member.userName ?? member.principalId;
   const displayEmail = member.userEmail ?? "-";
@@ -356,12 +350,12 @@ function MemberRoleRow({
         data-testid={`rbac-s06-members-role-${member.id}`}
         className="px-4 py-2.5"
       >
-        <RoleBadge role={member.businessRole as BusinessRole} />
+        <RoleBadge role={member.businessRole as string} />
       </td>
       <td className="px-4 py-2.5">
         <Select
           value={member.businessRole}
-          onValueChange={(val) => onRoleChange(val as BusinessRole)}
+          onValueChange={(val) => onRoleChange(val as string)}
         >
           <SelectTrigger
             data-testid={`rbac-s06-members-change-role-${member.id}`}
@@ -371,9 +365,7 @@ function MemberRoleRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {BUSINESS_ROLES.map((role) => (
               <SelectItem key={role} value={role}>
-                {BUSINESS_ROLE_LABELS[role] ?? role}
               </SelectItem>
             ))}
           </SelectContent>

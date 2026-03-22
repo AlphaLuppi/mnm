@@ -1,4 +1,4 @@
-import type { AgentAdapterType, BusinessRole, JoinRequest, PermissionKey } from "@mnm/shared";
+import type { AgentAdapterType, string, JoinRequest, string } from "@mnm/shared";
 import { api } from "./client";
 
 type InviteSummary = {
@@ -146,7 +146,7 @@ export const accessApi = {
   listMembers: (companyId: string) =>
     api.get<EnrichedMember[]>(`/companies/${companyId}/members`),
 
-  updateMemberBusinessRole: (companyId: string, memberId: string, businessRole: BusinessRole) =>
+  updateMemberstring: (companyId: string, memberId: string, businessRole: string) =>
     api.patch<EnrichedMember>(`/companies/${companyId}/members/${memberId}/business-role`, {
       businessRole,
     }),
@@ -165,9 +165,9 @@ export const accessApi = {
   getMyPermissions: (companyId: string) =>
     api.get<{
       businessRole: string | null;
-      presetPermissions: PermissionKey[];
-      explicitGrants: Array<{ permissionKey: PermissionKey; scope: unknown }>;
-      effectivePermissions: PermissionKey[];
+      presetPermissions: string[];
+      explicitGrants: Array<{ permissionKey: string; scope: unknown }>;
+      effectivePermissions: string[];
     }>(`/companies/${companyId}/my-permissions`),
 
   getRbacPresets: (companyId: string) =>

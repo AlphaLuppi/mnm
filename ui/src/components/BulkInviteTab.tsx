@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, type DragEvent, type ChangeEvent } from "react";
 import { Upload, AlertCircle, CheckCircle2, XCircle, FileText } from "lucide-react";
-import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS, type BusinessRole } from "@mnm/shared";
 import { accessApi } from "../api/access";
 import { RoleBadge } from "./RoleBadge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ type BulkPhase = "idle" | "preview" | "sending" | "results";
 // ---------------------------------------------------------------------------
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_ROLES: readonly string[] = BUSINESS_ROLES;
 
 const ACCEPTED_TYPES = new Set([
   "text/csv",
@@ -84,7 +82,6 @@ function validateRows(parsed: { email: string; role: string }[]): CsvRow[] {
     } else if (!EMAIL_RE.test(row.email)) {
       validationError = "Invalid email format";
     } else if (!VALID_ROLES.includes(row.role)) {
-      validationError = `Invalid role. Must be one of: ${BUSINESS_ROLES.join(", ")}`;
     } else if (seenEmails.has(row.email)) {
       validationError = "Duplicate email in CSV";
     }
@@ -418,7 +415,7 @@ export function BulkInviteTab({ companyId, onComplete }: BulkInviteTabProps) {
                     className="px-3 py-1.5"
                   >
                     {VALID_ROLES.includes(row.role)
-                      ? <RoleBadge role={row.role as BusinessRole} />
+                      ? <RoleBadge role={row.role as string} />
                       : row.role || "contributor"}
                   </td>
                   <td className="px-3 py-1.5 text-center">
@@ -596,7 +593,7 @@ export function BulkInviteTab({ companyId, onComplete }: BulkInviteTabProps) {
                   className="px-3 py-1.5"
                 >
                   {VALID_ROLES.includes(row.role)
-                    ? <RoleBadge role={row.role as BusinessRole} />
+                    ? <RoleBadge role={row.role as string} />
                     : row.role || "contributor"}
                 </td>
                 <td className="px-3 py-1.5">

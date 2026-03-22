@@ -156,18 +156,9 @@ export function a2aBusService(db: Db) {
     }
 
     // a2a-s02-bus-integration — Permission check before sending
-    // Resolve sender and receiver roles from agents table
-    const [senderAgent] = await db
-      .select({ role: agents.role })
-      .from(agents)
-      .where(eq(agents.id, senderId));
-    const [receiverAgent] = await db
-      .select({ role: agents.role })
-      .from(agents)
-      .where(eq(agents.id, input.receiverId));
-
-    const senderRole = senderAgent?.role ?? "general";
-    const receiverRole = receiverAgent?.role ?? "general";
+    // Roles removed — pass "agent" as generic role for backward compat with a2a-permissions
+    const senderRole = "agent";
+    const receiverRole = "agent";
 
     const permResult = await permSvc.checkPermission(
       companyId,

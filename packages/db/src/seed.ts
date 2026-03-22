@@ -137,7 +137,6 @@ const adminPermissions = [
 
 for (const permissionKey of adminPermissions) {
   await db
-    .insert(principalPermissionGrants)
     .values({
       companyId: company.id,
       principalType: "user",

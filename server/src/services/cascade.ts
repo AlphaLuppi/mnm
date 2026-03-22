@@ -52,7 +52,7 @@ export function cascadeService(db: Db) {
       };
     }
 
-    const inviterRole = membership.businessRole as BusinessRole | null;
+    const inviterRole = membership.roleId as BusinessRole | null;
     if (!inviterRole) {
       return {
         valid: false,
@@ -163,7 +163,7 @@ export function cascadeService(db: Db) {
       const rows = await db
         .select({
           principalId: companyMemberships.principalId,
-          businessRole: companyMemberships.businessRole,
+          businessRole: companyMemberships.roleId,
           invitedBy: companyMemberships.invitedBy,
         })
         .from(companyMemberships)
@@ -181,7 +181,7 @@ export function cascadeService(db: Db) {
       const invitedByVal: string | null = (row.invitedBy as string) ?? null;
       chain.push({
         userId: nextId,
-        businessRole: row.businessRole as BusinessRole | null,
+        businessRole: row.roleId as BusinessRole | null,
         invitedBy: invitedByVal,
       });
 
@@ -202,7 +202,7 @@ export function cascadeService(db: Db) {
     userId: string,
   ): Promise<CascadeInfo> {
     const membership = await access.getMembership(companyId, "user", userId);
-    const businessRole = (membership?.businessRole as BusinessRole) ?? null;
+    const businessRole = (membership?.roleId as BusinessRole) ?? null;
 
     const invitableRoles = businessRole ? getInvitableRoles(businessRole) : [];
 

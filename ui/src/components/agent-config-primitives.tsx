@@ -15,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
-import { AGENT_ROLE_LABELS } from "@mnm/shared";
 
 /* ---- Help text for (?) tooltips ---- */
 export const help: Record<string, string> = {
@@ -60,7 +59,6 @@ export const adapterLabels: Record<string, string> = {
   http: "HTTP",
 };
 
-export const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
 /* ---- Primitive components ---- */
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { PermissionKey } from "@mnm/shared";
+import type { string } from "@mnm/shared";
 import { usePermissions } from "../hooks/usePermissions";
 import { ForbiddenPage } from "../pages/Forbidden";
 
@@ -15,7 +15,7 @@ export function RequirePermission({
   fallback,
   showForbidden = false,
 }: {
-  permission: PermissionKey;
+  permission: string;
   children: ReactNode;
   fallback?: ReactNode;
   showForbidden?: boolean;
