@@ -73,7 +73,7 @@ export function requirePermission(
 
       if (req.actor.type === "board") {
         const userId = req.actor.userId;
-        const allowed = await access.canUser(companyId, userId, permissionKey, resourceScope);
+        const allowed = await access.canUser(companyId, userId, permissionKey);
         if (!allowed) {
           const deniedEvent = resourceScope ? "access.scope_denied" : "access.denied";
           logger.warn({
@@ -103,9 +103,9 @@ export function requirePermission(
         }
         // Agents inherit permissions from their creator (the user whose sandbox they run in)
         // First try agent's own permissions, then fall back to creator's permissions
-        let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey, resourceScope);
+        let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey);
         if (!allowed && req.actor.creatorUserId) {
-          allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey, resourceScope);
+          allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey);
         }
         if (!allowed) {
           logger.warn({
@@ -165,7 +165,7 @@ export async function assertCompanyPermission(
   if (req.actor.type === "board") {
     const userId = req.actor.userId;
     if (req.actor.isInstanceAdmin) return;
-    const allowed = await access.canUser(companyId, userId, permissionKey, resourceScope);
+    const allowed = await access.canUser(companyId, userId, permissionKey);
     if (!allowed) {
       logger.warn({
         event: "access.denied",
@@ -192,9 +192,9 @@ export async function assertCompanyPermission(
       throw forbidden("Agent identity required");
     }
     // Agents inherit permissions from their creator
-    let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey, resourceScope);
+    let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey);
     if (!allowed && req.actor.creatorUserId) {
-      allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey, resourceScope);
+      allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey);
     }
     if (!allowed) {
       logger.warn({
