@@ -6,7 +6,7 @@ import { logger } from "../middleware/logger.js";
 
 const CAO_AGENT_NAME = "CAO";
 const CAO_AGENT_TITLE = "Chief Agent Officer";
-const CAO_ADAPTER_TYPE = "system";
+const CAO_ADAPTER_TYPE = "claude_local";
 const CAO_ROLE_SLUG = "admin";
 
 /**
@@ -30,14 +30,12 @@ const CAO_ROLE_SLUG = "admin";
  * Call this after company creation and after roles/permissions are seeded.
  */
 export async function ensureCao(db: Db, companyId: string, createdByUserId?: string): Promise<string> {
-  // Check if CAO already exists
-  const [existing] = await db
-    .select({ id: agents.id })
+  // Check if CAO already exists (identified by metadata.isCAO)
+  const allAgents = await db
+    .select({ id: agents.id, metadata: agents.metadata })
     .from(agents)
-    .where(and(
-      eq(agents.companyId, companyId),
-      eq(agents.adapterType, CAO_ADAPTER_TYPE),
-    ));
+    .where(eq(agents.companyId, companyId));
+  const existing = allAgents.find((a) => (a.metadata as Record<string, unknown>)?.isCAO === true);
 
   if (existing) {
     logger.debug({ companyId, caoId: existing.id }, "CAO already exists");
@@ -176,13 +174,12 @@ export async function bootstrapCompany(
  * Auto-assigns the tag to the CAO agent so it never loses visibility.
  */
 export async function onTagCreated(db: Db, companyId: string, tagId: string): Promise<void> {
-  const [cao] = await db
-    .select({ id: agents.id })
+  // Find CAO by metadata.isCAO
+  const allAgents = await db
+    .select({ id: agents.id, metadata: agents.metadata })
     .from(agents)
-    .where(and(
-      eq(agents.companyId, companyId),
-      eq(agents.adapterType, CAO_ADAPTER_TYPE),
-    ));
+    .where(eq(agents.companyId, companyId));
+  const cao = allAgents.find((a) => (a.metadata as Record<string, unknown>)?.isCAO === true);
 
   if (!cao) return; // No CAO yet (shouldn't happen after bootstrap)
 
