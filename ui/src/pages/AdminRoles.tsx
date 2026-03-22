@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Shield, Plus, Pencil, Trash2 } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { rolesApi, type Role, type CreateRoleInput, type UpdateRoleInput } from "../api/roles";
+import { api } from "../api/client";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -44,11 +45,15 @@ export default function AdminRoles() {
   const [editTarget, setEditTarget] = useState<Role | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Role | null>(null);
   const [formData, setFormData] = useState<RoleFormData>(emptyForm);
+  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Admin" }, { label: "Roles" }]);
     return () => setBreadcrumbs([]);
   }, [setBreadcrumbs]);
+
+  type Permission = { id: string; slug: string; description: string; category: string };
 
   const {
     data: roles,
@@ -59,6 +64,18 @@ export default function AdminRoles() {
     queryFn: () => rolesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  const { data: allPermissions } = useQuery({
+    queryKey: ["permissions", selectedCompanyId],
+    queryFn: () => api.get<Permission[]>(`/companies/${selectedCompanyId}/permissions`),
+    enabled: !!selectedCompanyId,
+  });
+
+  // Group permissions by category
+  const permsByCategory = (allPermissions ?? []).reduce<Record<string, Permission[]>>((acc, p) => {
+    (acc[p.category] ??= []).push(p);
+    return acc;
+  }, {});
 
   const createMutation = useMutation({
     mutationFn: (input: CreateRoleInput) =>
@@ -97,6 +114,8 @@ export default function AdminRoles() {
 
   function openCreate() {
     setFormData(emptyForm);
+    setSelectedPerms(new Set());
+    setExpandedCategories(new Set());
     setCreateOpen(true);
   }
 
@@ -107,6 +126,8 @@ export default function AdminRoles() {
       description: role.description ?? "",
       hierarchyLevel: String(role.hierarchyLevel),
     });
+    setSelectedPerms(new Set(role.permissions?.map((p) => p.slug) ?? []));
+    setExpandedCategories(new Set());
     setEditTarget(role);
   }
 
@@ -117,6 +138,7 @@ export default function AdminRoles() {
       slug: formData.slug.trim(),
       description: formData.description.trim() || undefined,
       hierarchyLevel: isNaN(level) ? 100 : level,
+      permissionSlugs: [...selectedPerms],
     });
   }
 
@@ -129,7 +151,39 @@ export default function AdminRoles() {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         hierarchyLevel: isNaN(level) ? 100 : level,
+        permissionSlugs: [...selectedPerms],
       },
+    });
+  }
+
+  function togglePerm(slug: string) {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }
+
+  function toggleCategory(category: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }
+
+  function toggleAllInCategory(category: string) {
+    const catPerms = permsByCategory[category] ?? [];
+    const allSelected = catPerms.every((p) => selectedPerms.has(p.slug));
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      for (const p of catPerms) {
+        if (allSelected) next.delete(p.slug);
+        else next.add(p.slug);
+      }
+      return next;
     });
   }
 
@@ -272,7 +326,7 @@ export default function AdminRoles() {
           if (!open) setFormData(emptyForm);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Role</DialogTitle>
             <DialogDescription>
@@ -333,6 +387,55 @@ export default function AdminRoles() {
               </p>
             </div>
           </div>
+          {/* Permission Grid */}
+          <div>
+            <Label>Permissions ({selectedPerms.size} selected)</Label>
+            <div className="border border-border rounded-md mt-1 max-h-[240px] overflow-y-auto">
+              {Object.entries(permsByCategory).map(([category, perms]) => (
+                <div key={category} className="border-b border-border last:border-b-0">
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/30"
+                    onClick={() => toggleCategory(category)}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {expandedCategories.has(category) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {category}
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                        {perms.filter((p) => selectedPerms.has(p.slug)).length}/{perms.length}
+                      </Badge>
+                    </span>
+                    <button
+                      type="button"
+                      className="text-[10px] text-primary hover:underline"
+                      onClick={(e) => { e.stopPropagation(); toggleAllInCategory(category); }}
+                    >
+                      {perms.every((p) => selectedPerms.has(p.slug)) ? "Deselect all" : "Select all"}
+                    </button>
+                  </button>
+                  {expandedCategories.has(category) && (
+                    <div className="px-3 pb-2 space-y-1">
+                      {perms.map((p) => (
+                        <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={selectedPerms.has(p.slug)}
+                            onChange={() => togglePerm(p.slug)}
+                            className="rounded border-border"
+                          />
+                          <code className="text-[11px]">{p.slug}</code>
+                          <span className="text-muted-foreground truncate">{p.description}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {Object.keys(permsByCategory).length === 0 && (
+                <p className="text-xs text-muted-foreground p-3">No permissions found. Complete onboarding first.</p>
+              )}
+            </div>
+          </div>
           {createMutation.error && (
             <p className="text-xs text-destructive">
               {createMutation.error instanceof Error
@@ -374,7 +477,7 @@ export default function AdminRoles() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Role</DialogTitle>
             <DialogDescription>
@@ -422,6 +525,52 @@ export default function AdminRoles() {
                   }))
                 }
               />
+            </div>
+          </div>
+          {/* Permission Grid */}
+          <div>
+            <Label>Permissions ({selectedPerms.size} selected)</Label>
+            <div className="border border-border rounded-md mt-1 max-h-[240px] overflow-y-auto">
+              {Object.entries(permsByCategory).map(([category, perms]) => (
+                <div key={category} className="border-b border-border last:border-b-0">
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/30"
+                    onClick={() => toggleCategory(category)}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {expandedCategories.has(category) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {category}
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                        {perms.filter((p) => selectedPerms.has(p.slug)).length}/{perms.length}
+                      </Badge>
+                    </span>
+                    <button
+                      type="button"
+                      className="text-[10px] text-primary hover:underline"
+                      onClick={(e) => { e.stopPropagation(); toggleAllInCategory(category); }}
+                    >
+                      {perms.every((p) => selectedPerms.has(p.slug)) ? "Deselect all" : "Select all"}
+                    </button>
+                  </button>
+                  {expandedCategories.has(category) && (
+                    <div className="px-3 pb-2 space-y-1">
+                      {perms.map((p) => (
+                        <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={selectedPerms.has(p.slug)}
+                            onChange={() => togglePerm(p.slug)}
+                            className="rounded border-border"
+                          />
+                          <code className="text-[11px]">{p.slug}</code>
+                          <span className="text-muted-foreground truncate">{p.description}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
           {updateMutation.error && (
