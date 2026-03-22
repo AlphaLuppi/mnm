@@ -7,6 +7,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Identity } from "./Identity";
 import { formatDate, agentUrl } from "../lib/utils";
 import { Separator } from "@/components/ui/separator";
+import type { Agent, AgentRuntimeState } from "@mnm/shared";
 
 interface AgentPropertiesProps {
   agent: Agent;
@@ -51,7 +52,7 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
           <StatusBadge status={agent.status} />
         </PropertyRow>
         <PropertyRow label="Role">
-          <span className="text-sm">{roleLabels[agent.role] ?? agent.role}</span>
+          <span className="text-sm">{agent.role ?? "agent"}</span>
         </PropertyRow>
         {agent.title && (
           <PropertyRow label="Title">

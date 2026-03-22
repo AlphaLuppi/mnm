@@ -20,7 +20,6 @@ import {
   companySecrets,
   joinRequests,
   invites,
-  principalPermissionGrants,
   companyMemberships,
 } from "@mnm/db";
 
@@ -113,7 +112,7 @@ export function companyService(db: Db) {
         await tx.delete(companySecrets).where(eq(companySecrets.companyId, id));
         await tx.delete(joinRequests).where(eq(joinRequests.companyId, id));
         await tx.delete(invites).where(eq(invites.companyId, id));
-        await tx.delete(principalPermissionGrants).where(eq(principalPermissionGrants.companyId, id));
+        // principalPermissionGrants table removed — permissions now via role_permissions
         await tx.delete(companyMemberships).where(eq(companyMemberships.companyId, id));
         await tx.delete(issues).where(eq(issues.companyId, id));
         await tx.delete(goals).where(eq(goals.companyId, id));

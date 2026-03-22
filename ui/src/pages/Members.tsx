@@ -183,9 +183,6 @@ export function Members() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem data-testid="mu-s02-filter-role-all" value="all">All roles</SelectItem>
-              <SelectItem key={role} data-testid={`mu-s02-filter-role-${role}`} value={role}>
-              </SelectItem>
-            ))}
           </SelectContent>
         </Select>
 
@@ -443,9 +440,6 @@ function MemberRow({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem key={role} value={role}>
-                </SelectItem>
-              ))}
             </SelectContent>
           </Select>
         </div>

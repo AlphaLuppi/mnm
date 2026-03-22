@@ -126,26 +126,7 @@ const [qa] = await db
   })
   .returning();
 
-// ── Permission grants for admin user ────────────────────────────────────────
-const adminPermissions = [
-  "company:manage",
-  "agents:manage",
-  "projects:manage",
-  "issues:manage",
-  "members:manage",
-];
-
-for (const permissionKey of adminPermissions) {
-  await db
-    .values({
-      companyId: company.id,
-      principalType: "user",
-      principalId: adminUserId,
-      permissionKey,
-      grantedByUserId: adminUserId,
-    })
-    .onConflictDoNothing();
-}
+// Permission grants removed — will be seeded via roles + role_permissions in Sprint 2 (PERM-05)
 
 // ── Goals ───────────────────────────────────────────────────────────────────
 const [goal] = await db

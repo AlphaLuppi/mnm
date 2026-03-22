@@ -14,6 +14,7 @@ interface RoleBadgeProps {
 }
 
 export function RoleBadge({ role, className }: RoleBadgeProps) {
+  const label = role.charAt(0).toUpperCase() + role.slice(1);
 
   return (
     <Badge

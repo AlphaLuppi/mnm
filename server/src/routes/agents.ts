@@ -60,7 +60,7 @@ export function agentRoutes(db: Db) {
   const secretsSvc = secretService(db);
   const strictSecretsMode = process.env.MNM_SECRETS_STRICT_MODE === "true";
 
-  function canCreateAgents(agent: { role: string; permissions: Record<string, unknown> | null | undefined }) {
+  function canCreateAgents(agent: { permissions: Record<string, unknown> | null | undefined }) {
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
     return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
   }
@@ -888,8 +888,11 @@ export function agentRoutes(db: Db) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      if ("agent" !== "ceo") {
-        res.status(403).json({ error: "Only CEO can manage permissions" });
+      // TODO [PERM-01]: Check permission grants instead of role
+      // For now, allow all agents with manage_permissions access
+      const hasPermGrant = await access.hasPermission(existing.companyId, "agent", actorAgent.id, "users:manage_permissions");
+      if (!hasPermGrant) {
+        res.status(403).json({ error: "Missing permission: users:manage_permissions" });
         return;
       }
     }

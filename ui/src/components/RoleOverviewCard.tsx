@@ -1,4 +1,3 @@
-import type { string } from "@mnm/shared";
 import { RoleBadge } from "./RoleBadge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 

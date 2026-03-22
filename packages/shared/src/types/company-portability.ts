@@ -22,7 +22,6 @@ export interface CompanyPortabilityAgentManifestEntry {
   slug: string;
   name: string;
   path: string;
-  role: string;
   title: string | null;
   icon: string | null;
   capabilities: string | null;

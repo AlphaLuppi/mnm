@@ -1,6 +1,5 @@
 import React from "react";
 import { Check, Minus } from "lucide-react";
-import type { string, string } from "@mnm/shared";
 
 /** Permission categories with their labels and keys, in display order. */
 const PERMISSION_CATEGORIES: Array<{
@@ -88,6 +87,7 @@ interface PermissionMatrixProps {
 }
 
 export function PermissionMatrix({ presets }: PermissionMatrixProps) {
+  const roles = Object.keys(presets);
 
   function hasPermission(role: string, key: string): boolean {
     const perms = presets[role];

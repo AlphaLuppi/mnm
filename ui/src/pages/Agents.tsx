@@ -19,6 +19,10 @@ import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Bot, Plus, List, GitBranch, SlidersHorizontal } from "lucide-react";
+import type { Agent } from "@mnm/shared";
+
+// Stub: role labels (will be loaded from DB in Sprint 4)
+const roleLabels: Record<string, string> = { ceo: "CEO", general: "General", agent: "Agent" };
 
 const adapterLabels: Record<string, string> = {
   claude_local: "Claude",

@@ -22,8 +22,10 @@ import type {
   OrchestratorEvent,
   WorkflowState,
   LiveEventType,
-  PermissionKey,
 } from "@mnm/shared";
+
+// PermissionKey is now just a plain string (dynamic roles in Sprint 4)
+type PermissionKey = string;
 
 // Mapping machine_state -> legacy status (backward compat)
 const STATE_TO_LEGACY_STATUS: Record<StageState, string> = {

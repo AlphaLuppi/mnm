@@ -177,12 +177,9 @@ export function LaunchAgentDialog({
       }
 
       if (selectedAgentId === SENTINEL_GHOST && ghostWsAgent && workspaceId && projectId) {
-          : "general";
-
         const newAgent = await agentsApi.create(companyId, {
           name: `${ghostWsAgent.personaName} (workspace)`,
           title: ghostWsAgent.title ?? null,
-          role,
           capabilities: ghostWsAgent.capabilities ?? null,
           adapterType: "claude_local",
           adapterConfig: {},

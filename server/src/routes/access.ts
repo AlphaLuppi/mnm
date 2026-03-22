@@ -1303,7 +1303,7 @@ function grantsFromDefaults(
     if (!item || typeof item !== "object") continue;
     const record = item as Record<string, unknown>;
     if (typeof record.permissionKey !== "string") continue;
-    if (!validPermissionKeys.has(record.permissionKey)) continue;
+    // TODO [PERM-01]: Validate permission keys against DB roles table
     result.push({
       scope:
         record.scope &&
@@ -1318,7 +1318,6 @@ function grantsFromDefaults(
 
 type JoinRequestManagerCandidate = {
   id: string;
-  role: string;
   reportsTo: string | null;
 };
 
@@ -2527,17 +2526,8 @@ export function accessRoutes(
           "member",
           "active"
         );
-        const grants = grantsFromDefaults(
-          invite.defaultsPayload as Record<string, unknown> | null,
-          "human"
-        );
-        await access.setPrincipalGrants(
-          companyId,
-          "user",
-          existing.requestingUserId,
-          grants,
-          req.actor.userId ?? null
-        );
+        // TODO [PERM-01]: Apply grants via role_permissions system
+        // setPrincipalGrants removed — grants are now managed through roles
       } else {
         const existingAgents = await agents.list(companyId);
         const managerId = resolveJoinRequestAgentManagerId(existingAgents);
@@ -2558,7 +2548,6 @@ export function accessRoutes(
 
         const created = await agents.create(companyId, {
           name: agentName,
-          role: "general",
           title: null,
           status: "idle",
           reportsTo: managerId,
@@ -2584,17 +2573,8 @@ export function accessRoutes(
           "member",
           "active"
         );
-        const grants = grantsFromDefaults(
-          invite.defaultsPayload as Record<string, unknown> | null,
-          "agent"
-        );
-        await access.setPrincipalGrants(
-          companyId,
-          "agent",
-          created.id,
-          grants,
-          req.actor.userId ?? null
-        );
+        // TODO [PERM-01]: Apply grants via role_permissions system
+        // setPrincipalGrants removed — grants are now managed through roles
       }
 
       const approved = await db
@@ -2794,23 +2774,9 @@ export function accessRoutes(
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
       await assertCompanyPermission(req, companyId, "users:manage_permissions");
-      const updated = await access.setMemberPermissions(
-        companyId,
-        memberId,
-        req.body.grants ?? [],
-        req.actor.userId ?? null
-      );
-      if (!updated) throw notFound("Member not found");
-
-      await emitAudit({
-        req, db, companyId,
-        action: "access.member_permissions_updated",
-        targetType: "permission",
-        targetId: memberId,
-        metadata: { permissionKey: "grants", granted: req.body.grants ?? [] },
-      });
-
-      res.json(updated);
+      // TODO [PERM-01]: setMemberPermissions removed — permissions managed via roles
+      // For now, return 501 Not Implemented
+      res.status(501).json({ error: "Permission grants are now managed through roles. Use PATCH .../business-role instead." });
     }
   );
 
@@ -2820,7 +2786,7 @@ export function accessRoutes(
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
       await assertCompanyPermission(req, companyId, "users:manage_permissions");
-      const updated = await access.updateMemberBusinessRole(
+      const updated = await access.updateMemberRole(
         companyId,
         memberId,
         req.body.roleId
@@ -2893,10 +2859,11 @@ export function accessRoutes(
   // --- RBAC Presets endpoints (RBAC-S02) ---
 
   // GET /companies/:companyId/rbac/presets — return the preset matrix
+  // TODO [PERM-01]: Load presets from roles + role_permissions tables
   router.get("/companies/:companyId/rbac/presets", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    res.json(matrix);
+    res.json({});
   });
 
   // GET /companies/:companyId/my-permissions — current user's effective permissions

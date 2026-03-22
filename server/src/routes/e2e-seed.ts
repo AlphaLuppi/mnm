@@ -108,7 +108,7 @@ export function e2eSeedRoutes(db: Db) {
           principalType: "user",
           principalId: userId,
           status: "active",
-          businessRole: "admin",
+          roleId: "admin",
         });
       }
     }
@@ -128,7 +128,7 @@ export function e2eSeedRoutes(db: Db) {
         users?: Array<{
           userId: string;
           email: string;
-          businessRole: string;
+          roleId: string;
           company: string;
         }>;
         companies?: Record<string, {
@@ -320,14 +320,14 @@ export function e2eSeedRoutes(db: Db) {
               principalType: "user",
               principalId: user.userId,
               status: "active",
-              businessRole: user.roleId,
+              roleId: user.roleId,
             });
             membershipsCreated++;
           } else if (existing.roleId !== user.roleId) {
-            // Update businessRole if it changed
+            // Update roleId if it changed
             await db
               .update(companyMemberships)
-              .set({ businessRole: user.roleId, updatedAt: new Date() })
+              .set({ roleId: user.roleId, updatedAt: new Date() })
               .where(eq(companyMemberships.id, existing.id));
           }
         }
