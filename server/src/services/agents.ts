@@ -10,6 +10,7 @@ import {
   agentWakeupRequests,
   heartbeatRunEvents,
   heartbeatRuns,
+  tagAssignments,
 } from "@mnm/db";
 import { isUuidLike, normalizeAgentUrlKey } from "@mnm/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
@@ -343,7 +344,10 @@ export function agentService(db: Db) {
 
     getById,
 
-    create: async (companyId: string, data: Omit<typeof agents.$inferInsert, "companyId">) => {
+    create: async (
+      companyId: string,
+      data: Omit<typeof agents.$inferInsert, "companyId"> & { tagIds?: string[] },
+    ) => {
       if (data.reportsTo) {
         await ensureManager(companyId, data.reportsTo);
       }
@@ -354,12 +358,27 @@ export function agentService(db: Db) {
         .where(eq(agents.companyId, companyId));
       const uniqueName = deduplicateAgentName(data.name, existingAgents);
 
-      const normalizedPermissions = normalizeAgentPermissions(data.permissions);
+      // Extract tagIds before inserting (not a DB column)
+      const { tagIds, ...insertData } = data;
+      const normalizedPermissions = normalizeAgentPermissions(insertData.permissions);
       const created = await db
         .insert(agents)
-        .values({ ...data, name: uniqueName, companyId, permissions: normalizedPermissions })
+        .values({ ...insertData, name: uniqueName, companyId, permissions: normalizedPermissions })
         .returning()
         .then((rows) => rows[0]);
+
+      // AGENT-01: Assign tags to the newly created agent
+      if (tagIds && tagIds.length > 0) {
+        await db.insert(tagAssignments).values(
+          tagIds.map((tagId) => ({
+            companyId,
+            targetType: "agent" as const,
+            targetId: created.id,
+            tagId,
+            assignedBy: created.createdByUserId ?? "system",
+          })),
+        ).onConflictDoNothing();
+      }
 
       return normalizeAgentRow(created);
     },
