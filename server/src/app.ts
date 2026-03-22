@@ -12,6 +12,7 @@ import { httpLogger, errorHandler, createRateLimiter, tenantContextMiddleware } 
 import { tagScopeMiddleware } from "./middleware/tag-scope.js";
 import { rolesRoutes } from "./routes/roles.js";
 import { permissionsRoutes } from "./routes/permissions.js";
+import { tagsRoutes } from "./routes/tags.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
@@ -207,6 +208,7 @@ export async function createApp(
   // ROLES+TAGS: Dynamic roles + permissions CRUD
   api.use(rolesRoutes(db));
   api.use(permissionsRoutes(db));
+  api.use(tagsRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
