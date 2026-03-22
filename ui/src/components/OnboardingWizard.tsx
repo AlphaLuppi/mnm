@@ -1,81 +1,98 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdapterEnvironmentTestResult } from "@mnm/shared";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { companiesApi } from "../api/companies";
-import { goalsApi } from "../api/goals";
-import { agentsApi } from "../api/agents";
-import { issuesApi } from "../api/issues";
+import { rolesApi, type Role, type CreateRoleInput } from "../api/roles";
+import { tagsApi, type Tag } from "../api/tags";
 import { queryKeys } from "../lib/queryKeys";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "../lib/utils";
-import { extractModelName, extractProviderIdWithFallback } from "../lib/model-utils";
-import { getUIAdapter } from "../adapters";
-import { defaultCreateValues } from "./agent-config-defaults";
-import {
-  DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
-  DEFAULT_CODEX_LOCAL_MODEL
-} from "@mnm/adapter-codex-local";
-import { DEFAULT_CURSOR_LOCAL_MODEL } from "@mnm/adapter-cursor-local";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
-import { ChoosePathButton } from "./PathInstructionsModal";
-import { HintIcon } from "./agent-config-primitives";
-import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import { OnboardingProgressBar } from "./OnboardingProgressBar";
-import { OnboardingInviteStep, type InviteEntry } from "./OnboardingInviteStep";
-import { OnboardingDualModeStep, type DualModePosition } from "./OnboardingDualModeStep";
 import { onboardingApi } from "../api/onboarding";
-import { automationCursorsApi } from "../api/automation-cursors";
 import { api } from "../api/client";
 import {
   Building2,
-  Bot,
-  Code,
-  ListTodo,
+  Shield,
+  Tag as TagIcon,
+  Users,
   Rocket,
   ArrowLeft,
   ArrowRight,
-  Terminal,
   Sparkles,
-  MousePointer2,
   Check,
   Loader2,
-  FolderOpen,
-  ChevronDown,
   X,
-  Users,
-  Gauge,
   Wifi,
-  WifiOff
+  WifiOff,
+  Plus,
+  UserPlus,
 } from "lucide-react";
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6;
-type AdapterType =
-  | "claude_local"
-  | "codex_local"
-  | "opencode_local"
-  | "pi_local"
-  | "cursor"
-  | "process"
-  | "http"
-  | "openclaw_gateway";
+type Step = 1 | 2 | 3 | 4 | 5;
 
-const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO agent for this company.
+// ---------------------------------------------------------------------------
+// Role presets
+// ---------------------------------------------------------------------------
+type RolePreset = "startup" | "structured" | "custom";
 
-Create a folder agents/ceo with an AGENTS.md instruction file defining the CEO persona, goals, and responsibilities.
+const PRESET_ROLES: Record<Exclude<RolePreset, "custom">, CreateRoleInput[]> = {
+  startup: [
+    { name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 10, permissionSlugs: ["issues.read", "issues.write", "agents.read", "projects.read", "projects.write"] },
+  ],
+  structured: [
+    { name: "Lead", slug: "lead", description: "Team lead with elevated access", hierarchyLevel: 5, permissionSlugs: ["issues.read", "issues.write", "issues.delete", "agents.read", "agents.write", "projects.read", "projects.write", "members.read"] },
+    { name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 10, permissionSlugs: ["issues.read", "issues.write", "agents.read", "projects.read", "projects.write"] },
+    { name: "Viewer", slug: "viewer", description: "Read-only access", hierarchyLevel: 20, permissionSlugs: ["issues.read", "agents.read", "projects.read"] },
+  ],
+};
 
-Then hire yourself a Founding Engineer agent to start building.`;
+// ---------------------------------------------------------------------------
+// Tag suggestions
+// ---------------------------------------------------------------------------
+const TAG_SUGGESTIONS: { category: string; tags: { name: string; color: string }[] }[] = [
+  {
+    category: "By team",
+    tags: [
+      { name: "Frontend", color: "#3b82f6" },
+      { name: "Backend", color: "#10b981" },
+      { name: "Design", color: "#f59e0b" },
+      { name: "QA", color: "#ef4444" },
+    ],
+  },
+  {
+    category: "By product",
+    tags: [
+      { name: "Product-A", color: "#8b5cf6" },
+      { name: "Product-B", color: "#ec4899" },
+    ],
+  },
+  {
+    category: "By function",
+    tags: [
+      { name: "Engineering", color: "#06b6d4" },
+      { name: "Marketing", color: "#f97316" },
+      { name: "Operations", color: "#6366f1" },
+    ],
+  },
+];
 
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+// ---------------------------------------------------------------------------
+// OnboardingWizard
+// ---------------------------------------------------------------------------
 export function OnboardingWizard() {
   const [searchParams] = useSearchParams();
   const { companyId: paramCompanyId } = useParams<{ companyId?: string }>();
-  const { selectedCompanyId, companies, setSelectedCompanyId } = useCompany();
+  const { companies, setSelectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -85,64 +102,40 @@ export function OnboardingWizard() {
   const [step, setStep] = useState<Step>(initialStep);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [modelOpen, setModelOpen] = useState(false);
-  const [modelSearch, setModelSearch] = useState("");
 
-  // Step 1
+  // Step 1 — Company
   const [companyName, setCompanyName] = useState("");
-  const [companyGoal, setCompanyGoal] = useState("");
+  const [companyDescription, setCompanyDescription] = useState("");
 
-  // Step 2
-  const [agentName, setAgentName] = useState("CEO");
-  const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
-  const [cwd, setCwd] = useState("");
-  const [model, setModel] = useState("");
-  const [command, setCommand] = useState("");
-  const [args, setArgs] = useState("");
-  const [url, setUrl] = useState("");
-  const [adapterEnvResult, setAdapterEnvResult] =
-    useState<AdapterEnvironmentTestResult | null>(null);
-  const [adapterEnvError, setAdapterEnvError] = useState<string | null>(null);
-  const [adapterEnvLoading, setAdapterEnvLoading] = useState(false);
-  const [forceUnsetAnthropicApiKey, setForceUnsetAnthropicApiKey] =
-    useState(false);
-  const [unsetAnthropicLoading, setUnsetAnthropicLoading] = useState(false);
+  // Step 2 — Roles
+  const [rolePreset, setRolePreset] = useState<RolePreset | null>(null);
+  const [createdRoles, setCreatedRoles] = useState<Role[]>([]);
+  const [customRoleName, setCustomRoleName] = useState("");
+  const [customRoles, setCustomRoles] = useState<CreateRoleInput[]>([]);
 
-  // Step 3
-  const [taskTitle, setTaskTitle] = useState("Create your CEO HEARTBEAT.md");
-  const [taskDescription, setTaskDescription] = useState(
-    DEFAULT_TASK_DESCRIPTION
-  );
+  // Step 3 — Tags
+  const [createdTags, setCreatedTags] = useState<Tag[]>([]);
+  const [customTagName, setCustomTagName] = useState("");
 
-  // Auto-grow textarea for task description
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const autoResizeTextarea = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-  }, []);
-
-  // Step 5 — dual-mode (onb-s04)
-  const [dualModePosition, setDualModePosition] = useState<DualModePosition>("assisted");
+  // Step 4 — Invite
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRoleId, setInviteRoleId] = useState("");
+  const [inviteTagIds, setInviteTagIds] = useState<string[]>([]);
+  const [invites, setInvites] = useState<{ email: string; roleId: string; tagIds: string[] }[]>([]);
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   // onb-s01-sync-state
   const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "offline">("synced");
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Created entity IDs — pre-populate from existing company when skipping step 1
+  // Created entity IDs
   const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(
-    existingCompanyId ?? null
+    existingCompanyId ?? null,
   );
-  const [createdCompanyPrefix, setCreatedCompanyPrefix] = useState<
-    string | null
-  >(null);
-  const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
-  const [createdIssueRef, setCreatedIssueRef] = useState<string | null>(null);
+  const [createdCompanyPrefix, setCreatedCompanyPrefix] = useState<string | null>(null);
 
-  // Sync step and company from URL params on mount.
-  // Keep this independent from company-list refreshes so Step 1 completion
-  // doesn't get reset after creating a company.
+  // Sync step and company from URL params on mount
   useEffect(() => {
     const cId = existingCompanyId ?? null;
     setStep(initialStep);
@@ -151,14 +144,14 @@ export function OnboardingWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingCompanyId, initialStep]);
 
-  // Backfill issue prefix for an existing company once companies are loaded.
+  // Backfill prefix for existing company
   useEffect(() => {
     if (!createdCompanyId || createdCompanyPrefix) return;
     const company = companies.find((c) => c.id === createdCompanyId);
     if (company) setCreatedCompanyPrefix(company.issuePrefix);
   }, [createdCompanyId, createdCompanyPrefix, companies]);
 
-  // onb-s01-server-sync — debounced sync to server
+  // onb-s01-server-sync
   const syncToServer = useCallback((companyId: string, currentStep: number) => {
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     syncTimeoutRef.current = setTimeout(async () => {
@@ -184,112 +177,26 @@ export function OnboardingWizard() {
     syncToServer(createdCompanyId, step);
   }, [step, createdCompanyId, syncToServer]);
 
-  // Resize textarea when step 3 is shown or description changes
-  useEffect(() => {
-    if (step === 3) autoResizeTextarea();
-  }, [step, taskDescription, autoResizeTextarea]);
-
-  const {
-    data: adapterModels,
-    error: adapterModelsError,
-    isLoading: adapterModelsLoading,
-    isFetching: adapterModelsFetching,
-  } = useQuery({
-    queryKey:
-      createdCompanyId
-        ? queryKeys.agents.adapterModels(createdCompanyId, adapterType)
-        : ["agents", "none", "adapter-models", adapterType],
-    queryFn: () => agentsApi.adapterModels(createdCompanyId!, adapterType),
-    enabled: Boolean(createdCompanyId) && step === 2
-  });
-  const isLocalAdapter =
-    adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "opencode_local" || adapterType === "cursor";
-  const effectiveAdapterCommand =
-    command.trim() ||
-    (adapterType === "codex_local"
-      ? "codex"
-      : adapterType === "cursor"
-        ? "agent"
-        : adapterType === "opencode_local"
-          ? "opencode"
-          : "claude");
-
-  useEffect(() => {
-    if (step !== 2) return;
-    setAdapterEnvResult(null);
-    setAdapterEnvError(null);
-  }, [step, adapterType, cwd, model, command, args, url]);
-
-  const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
-  const hasAnthropicApiKeyOverrideCheck =
-    adapterEnvResult?.checks.some(
-      (check) =>
-        check.code === "claude_anthropic_api_key_overrides_subscription"
-    ) ?? false;
-  const shouldSuggestUnsetAnthropicApiKey =
-    adapterType === "claude_local" &&
-    adapterEnvResult?.status === "fail" &&
-    hasAnthropicApiKeyOverrideCheck;
-  const filteredModels = useMemo(() => {
-    const query = modelSearch.trim().toLowerCase();
-    return (adapterModels ?? []).filter((entry) => {
-      if (!query) return true;
-      const provider = extractProviderIdWithFallback(entry.id, "");
-      return (
-        entry.id.toLowerCase().includes(query) ||
-        entry.label.toLowerCase().includes(query) ||
-        provider.toLowerCase().includes(query)
-      );
-    });
-  }, [adapterModels, modelSearch]);
-  const groupedModels = useMemo(() => {
-    if (adapterType !== "opencode_local") {
-      return [
-        {
-          provider: "models",
-          entries: [...filteredModels].sort((a, b) => a.id.localeCompare(b.id)),
-        },
-      ];
-    }
-    const groups = new Map<string, Array<{ id: string; label: string }>>();
-    for (const entry of filteredModels) {
-      const provider = extractProviderIdWithFallback(entry.id);
-      const bucket = groups.get(provider) ?? [];
-      bucket.push(entry);
-      groups.set(provider, bucket);
-    }
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([provider, entries]) => ({
-        provider,
-        entries: [...entries].sort((a, b) => a.id.localeCompare(b.id)),
-      }));
-  }, [filteredModels, adapterType]);
-
   function reset() {
     setStep(1);
     setLoading(false);
     setError(null);
     setCompanyName("");
-    setCompanyGoal("");
-    setAgentName("CEO");
-    setAdapterType("claude_local");
-    setCwd("");
-    setModel("");
-    setCommand("");
-    setArgs("");
-    setUrl("");
-    setAdapterEnvResult(null);
-    setAdapterEnvError(null);
-    setAdapterEnvLoading(false);
-    setForceUnsetAnthropicApiKey(false);
-    setUnsetAnthropicLoading(false);
-    setTaskTitle("Create your CEO HEARTBEAT.md");
-    setTaskDescription(DEFAULT_TASK_DESCRIPTION);
+    setCompanyDescription("");
+    setRolePreset(null);
+    setCreatedRoles([]);
+    setCustomRoleName("");
+    setCustomRoles([]);
+    setCreatedTags([]);
+    setCustomTagName("");
+    setInviteEmail("");
+    setInviteRoleId("");
+    setInviteTagIds([]);
+    setInvites([]);
+    setInviteSending(false);
+    setInviteSuccess(null);
     setCreatedCompanyId(null);
     setCreatedCompanyPrefix(null);
-    setCreatedAgentId(null);
-    setCreatedIssueRef(null);
   }
 
   function handleClose() {
@@ -297,90 +204,28 @@ export function OnboardingWizard() {
     navigate("/");
   }
 
-  function buildAdapterConfig(): Record<string, unknown> {
-    const adapter = getUIAdapter(adapterType);
-    const config = adapter.buildAdapterConfig({
-      ...defaultCreateValues,
-      adapterType,
-      cwd,
-      model:
-        adapterType === "codex_local"
-          ? model || DEFAULT_CODEX_LOCAL_MODEL
-          : adapterType === "cursor"
-            ? model || DEFAULT_CURSOR_LOCAL_MODEL
-          : model,
-      command,
-      args,
-      url,
-      dangerouslySkipPermissions: adapterType === "claude_local",
-      dangerouslyBypassSandbox:
-        adapterType === "codex_local"
-          ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
-          : defaultCreateValues.dangerouslyBypassSandbox
-    });
-    if (adapterType === "claude_local" && forceUnsetAnthropicApiKey) {
-      const env =
-        typeof config.env === "object" &&
-        config.env !== null &&
-        !Array.isArray(config.env)
-          ? { ...(config.env as Record<string, unknown>) }
-          : {};
-      env.ANTHROPIC_API_KEY = { type: "plain", value: "" };
-      config.env = env;
-    }
-    return config;
-  }
-
-  async function runAdapterEnvironmentTest(
-    adapterConfigOverride?: Record<string, unknown>
-  ): Promise<AdapterEnvironmentTestResult | null> {
-    if (!createdCompanyId) {
-      setAdapterEnvError(
-        "Create or select a company before testing adapter environment."
-      );
-      return null;
-    }
-    setAdapterEnvLoading(true);
-    setAdapterEnvError(null);
-    try {
-      const result = await agentsApi.testEnvironment(
-        createdCompanyId,
-        adapterType,
-        {
-          adapterConfig: adapterConfigOverride ?? buildAdapterConfig()
-        }
-      );
-      setAdapterEnvResult(result);
-      return result;
-    } catch (err) {
-      setAdapterEnvError(
-        err instanceof Error ? err.message : "Adapter environment test failed"
-      );
-      return null;
-    } finally {
-      setAdapterEnvLoading(false);
-    }
-  }
-
+  // -------------------------------------------------------------------------
+  // Step 1: Create Company (bootstrapCompany runs server-side automatically)
+  // -------------------------------------------------------------------------
   async function handleStep1Next() {
     setLoading(true);
     setError(null);
     try {
-      const company = await companiesApi.create({ name: companyName.trim() });
+      const company = await companiesApi.create({
+        name: companyName.trim(),
+        description: companyDescription.trim() || undefined,
+      });
       setCreatedCompanyId(company.id);
       setCreatedCompanyPrefix(company.issuePrefix);
       setSelectedCompanyId(company.id);
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
 
-      if (companyGoal.trim()) {
-        await goalsApi.create(company.id, {
-          title: companyGoal.trim(),
-          level: "company",
-          status: "active"
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.goals.list(company.id)
-        });
+      // Fetch the admin role created by bootstrapCompany so we can show it
+      try {
+        const roles = await rolesApi.list(company.id);
+        setCreatedRoles(roles);
+      } catch {
+        // Non-blocking: roles will be fetched in step 2
       }
 
       setStep(2);
@@ -391,221 +236,189 @@ export function OnboardingWizard() {
     }
   }
 
-  async function handleStep2Next() {
+  // -------------------------------------------------------------------------
+  // Step 2: Roles
+  // -------------------------------------------------------------------------
+  async function handleSelectPreset(preset: RolePreset) {
     if (!createdCompanyId) return;
-    setLoading(true);
+    setRolePreset(preset);
     setError(null);
+
+    if (preset === "custom") return;
+
+    setLoading(true);
     try {
-      if (adapterType === "opencode_local") {
-        const selectedModelId = model.trim();
-        if (!selectedModelId) {
-          setError("OpenCode requires an explicit model in provider/model format.");
-          return;
-        }
-        if (adapterModelsError) {
-          setError(
-            adapterModelsError instanceof Error
-              ? adapterModelsError.message
-              : "Failed to load OpenCode models.",
-          );
-          return;
-        }
-        if (adapterModelsLoading || adapterModelsFetching) {
-          setError("OpenCode models are still loading. Please wait and try again.");
-          return;
-        }
-        const discoveredModels = adapterModels ?? [];
-        if (!discoveredModels.some((entry) => entry.id === selectedModelId)) {
-          setError(
-            discoveredModels.length === 0
-              ? "No OpenCode models discovered. Run `opencode models` and authenticate providers."
-              : `Configured OpenCode model is unavailable: ${selectedModelId}`,
-          );
-          return;
-        }
+      const rolesToCreate = PRESET_ROLES[preset];
+      const created: Role[] = [];
+      for (const input of rolesToCreate) {
+        const role = await rolesApi.create(createdCompanyId, input);
+        created.push(role);
       }
-
-      if (isLocalAdapter) {
-        const result = adapterEnvResult ?? (await runAdapterEnvironmentTest());
-        if (!result) return;
-      }
-
-      const agent = await agentsApi.create(createdCompanyId, {
-        name: agentName.trim(),
-        role: "ceo",
-        adapterType,
-        adapterConfig: buildAdapterConfig(),
-        runtimeConfig: {
-          heartbeat: {
-            enabled: true,
-            intervalSec: 3600,
-            wakeOnDemand: true,
-            cooldownSec: 10,
-            maxConcurrentRuns: 1
-          }
-        }
-      });
-      setCreatedAgentId(agent.id);
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.agents.list(createdCompanyId)
-      });
-      setStep(3);
+      // Re-fetch all roles including the admin role from bootstrap
+      const allRoles = await rolesApi.list(createdCompanyId);
+      setCreatedRoles(allRoles);
+      queryClient.invalidateQueries({ queryKey: queryKeys.roles.list(createdCompanyId) });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create agent");
+      setError(err instanceof Error ? err.message : "Failed to create roles");
+      setRolePreset(null);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleUnsetAnthropicApiKey() {
-    if (!createdCompanyId || unsetAnthropicLoading) return;
-    setUnsetAnthropicLoading(true);
-    setError(null);
-    setAdapterEnvError(null);
-    setForceUnsetAnthropicApiKey(true);
-
-    const configWithUnset = (() => {
-      const config = buildAdapterConfig();
-      const env =
-        typeof config.env === "object" &&
-        config.env !== null &&
-        !Array.isArray(config.env)
-          ? { ...(config.env as Record<string, unknown>) }
-          : {};
-      env.ANTHROPIC_API_KEY = { type: "plain", value: "" };
-      config.env = env;
-      return config;
-    })();
-
-    try {
-      if (createdAgentId) {
-        await agentsApi.update(
-          createdAgentId,
-          { adapterConfig: configWithUnset },
-          createdCompanyId
-        );
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.agents.list(createdCompanyId)
-        });
-      }
-
-      const result = await runAdapterEnvironmentTest(configWithUnset);
-      if (result?.status === "fail") {
-        setError(
-          "Retried with ANTHROPIC_API_KEY unset in adapter config, but the environment test is still failing."
-        );
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to unset ANTHROPIC_API_KEY and retry."
-      );
-    } finally {
-      setUnsetAnthropicLoading(false);
-    }
-  }
-
-  async function handleStep3Next() {
-    if (!createdCompanyId || !createdAgentId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const issue = await issuesApi.create(createdCompanyId, {
-        title: taskTitle.trim(),
-        ...(taskDescription.trim()
-          ? { description: taskDescription.trim() }
-          : {}),
-        assigneeAgentId: createdAgentId,
-        status: "todo"
-      });
-      setCreatedIssueRef(issue.identifier ?? issue.id);
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.issues.list(createdCompanyId)
-      });
-      setStep(4);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create task");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // onb-s01-invite-handler
-  async function handleInviteSend(entries: InviteEntry[]) {
-    if (!createdCompanyId) return;
-    for (const inv of entries) {
-      await api.post(`/companies/${createdCompanyId}/invites`, {
-        allowedJoinTypes: "human",
-        email: inv.email,
-        businessRole: inv.role,
-      });
-    }
-  }
-
-  function handleInviteSkip() {
-    setStep(5);
-  }
-
-  function handleInviteComplete() {
-    setStep(5);
-  }
-
-  // onb-s04-dual-mode-handler
-  async function handleDualModeNext() {
-    if (!createdCompanyId) {
-      setStep(6);
+  function handleAddCustomRole() {
+    const name = customRoleName.trim();
+    if (!name) return;
+    if (customRoles.some((r) => r.slug === slugify(name))) {
+      setError("A role with this name already exists");
       return;
     }
-    setLoading(true);
+    setCustomRoles((prev) => [
+      ...prev,
+      {
+        name,
+        slug: slugify(name),
+        description: "",
+        hierarchyLevel: 10 + prev.length,
+      },
+    ]);
+    setCustomRoleName("");
+    setError(null);
+  }
+
+  function handleRemoveCustomRole(slug: string) {
+    setCustomRoles((prev) => prev.filter((r) => r.slug !== slug));
+  }
+
+  async function handleStep2Next() {
+    if (!createdCompanyId) return;
+
+    // For custom preset, create the roles now
+    if (rolePreset === "custom" && customRoles.length > 0) {
+      setLoading(true);
+      setError(null);
+      try {
+        for (const input of customRoles) {
+          await rolesApi.create(createdCompanyId, input);
+        }
+        const allRoles = await rolesApi.list(createdCompanyId);
+        setCreatedRoles(allRoles);
+        queryClient.invalidateQueries({ queryKey: queryKeys.roles.list(createdCompanyId) });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create roles");
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    setStep(3);
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 3: Tags
+  // -------------------------------------------------------------------------
+  async function handleAddTag(name: string, color: string) {
+    if (!createdCompanyId) return;
+    const slug = slugify(name);
+    if (createdTags.some((t) => t.slug === slug)) {
+      setError(`Tag "${name}" already exists`);
+      return;
+    }
     setError(null);
     try {
-      await automationCursorsApi.set(createdCompanyId, {
-        level: "company",
-        position: dualModePosition,
-        ceiling: "auto",
-      });
+      const tag = await tagsApi.create(createdCompanyId, { name, slug, color });
+      setCreatedTags((prev) => [...prev, tag]);
+      queryClient.invalidateQueries({ queryKey: queryKeys.tags.list(createdCompanyId) });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create tag");
+    }
+  }
+
+  async function handleAddCustomTag() {
+    const name = customTagName.trim();
+    if (!name) return;
+    await handleAddTag(name, "#64748b");
+    setCustomTagName("");
+  }
+
+  async function handleRemoveTag(tagId: string) {
+    if (!createdCompanyId) return;
+    try {
+      await tagsApi.delete(createdCompanyId, tagId);
+      setCreatedTags((prev) => prev.filter((t) => t.id !== tagId));
+      queryClient.invalidateQueries({ queryKey: queryKeys.tags.list(createdCompanyId) });
     } catch {
-      // Non-blocking — dual-mode config is best-effort during onboarding
+      // Non-blocking
     }
-    setLoading(false);
-    setStep(6);
   }
 
-  function handleDualModeSkip() {
-    // Default to "assisted" when skipping
-    setDualModePosition("assisted");
-    if (createdCompanyId) {
-      automationCursorsApi.set(createdCompanyId, {
-        level: "company",
-        position: "assisted",
-        ceiling: "auto",
-      }).catch(() => {});
+  // -------------------------------------------------------------------------
+  // Step 4: Invite
+  // -------------------------------------------------------------------------
+  function handleAddInvite() {
+    const email = inviteEmail.trim();
+    if (!email) {
+      setError("Please enter an email address");
+      return;
     }
-    setStep(6);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (invites.some((inv) => inv.email === email)) {
+      setError("This email is already in the list");
+      return;
+    }
+    setInvites((prev) => [...prev, { email, roleId: inviteRoleId, tagIds: [...inviteTagIds] }]);
+    setInviteEmail("");
+    setInviteTagIds([]);
+    setError(null);
   }
 
-  async function handleLaunch() {
-    if (!createdAgentId) return;
+  function handleRemoveInvite(index: number) {
+    setInvites((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSendInvites() {
+    if (!createdCompanyId || invites.length === 0) return;
+    setInviteSending(true);
+    setError(null);
+    try {
+      for (const inv of invites) {
+        await api.post(`/companies/${createdCompanyId}/invites`, {
+          allowedJoinTypes: "human",
+          email: inv.email,
+        });
+      }
+      setInviteSuccess(`Successfully sent ${invites.length} invitation(s)`);
+      setInvites([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send invitations");
+    } finally {
+      setInviteSending(false);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 5: Complete
+  // -------------------------------------------------------------------------
+  async function handleComplete() {
     setLoading(true);
     setError(null);
 
-    // onb-s01-completion — mark onboarding as complete on server
     if (createdCompanyId) {
       try {
         await onboardingApi.complete(createdCompanyId);
       } catch {
-        // non-blocking — onboarding completion tracking is best-effort
+        // non-blocking
       }
     }
 
     setLoading(false);
     reset();
     await queryClient.refetchQueries({ queryKey: queryKeys.companies.all });
-    if (createdCompanyPrefix && createdIssueRef) {
-      navigate(`/${createdCompanyPrefix}/issues/${createdIssueRef}`);
-      return;
-    }
     if (createdCompanyPrefix) {
       navigate(`/${createdCompanyPrefix}/dashboard`);
       return;
@@ -613,6 +426,9 @@ export function OnboardingWizard() {
     navigate("/dashboard");
   }
 
+  // -------------------------------------------------------------------------
+  // Keyboard navigation
+  // -------------------------------------------------------------------------
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleClose();
@@ -625,786 +441,702 @@ export function OnboardingWizard() {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       if (step === 1 && companyName.trim()) handleStep1Next();
-      else if (step === 2 && agentName.trim()) handleStep2Next();
-      else if (step === 3 && taskTitle.trim()) handleStep3Next();
-      else if (step === 4) handleInviteSkip();
-      else if (step === 5) handleDualModeNext();
-      else if (step === 6) handleLaunch();
+      else if (step === 2 && rolePreset) handleStep2Next();
+      else if (step === 3) setStep(4);
+      else if (step === 4) setStep(5);
+      else if (step === 5) handleComplete();
     }
   }
+
+  // Helpers for invite step
+  const nonSystemRoles = createdRoles.filter((r) => !r.isSystem);
+  const defaultRoleId = nonSystemRoles[0]?.id ?? createdRoles[0]?.id ?? "";
+
+  // Set default role on step 4 mount
+  useEffect(() => {
+    if (step === 4 && !inviteRoleId && defaultRoleId) {
+      setInviteRoleId(defaultRoleId);
+    }
+  }, [step, inviteRoleId, defaultRoleId]);
 
   return (
     <div className="fixed inset-0 z-50 bg-background">
       <div data-testid="onb-s01-wizard" className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
-          {/* Close button */}
-          <button
-            onClick={handleClose}
-            className="absolute top-4 left-4 z-10 rounded-sm p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
-          >
-            <X className="h-5 w-5" />
-            <span className="sr-only">Close</span>
-          </button>
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 left-4 z-10 rounded-sm p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
+        >
+          <X className="h-5 w-5" />
+          <span className="sr-only">Close</span>
+        </button>
 
-          {/* onb-s01-sync-status indicator */}
-          <div
-            data-testid="onb-s01-sync-status"
-            className="absolute top-4 right-4 z-10 flex items-center gap-1 text-xs text-muted-foreground/60"
-          >
-            {syncStatus === "synced" && <Wifi className="h-3 w-3 text-green-500" />}
-            {syncStatus === "syncing" && <Loader2 className="h-3 w-3 animate-spin" />}
-            {syncStatus === "offline" && <WifiOff className="h-3 w-3 text-orange-500" />}
-          </div>
+        {/* Sync status */}
+        <div
+          data-testid="onb-s01-sync-status"
+          className="absolute top-4 right-4 z-10 flex items-center gap-1 text-xs text-muted-foreground/60"
+        >
+          {syncStatus === "synced" && <Wifi className="h-3 w-3 text-green-500" />}
+          {syncStatus === "syncing" && <Loader2 className="h-3 w-3 animate-spin" />}
+          {syncStatus === "offline" && <WifiOff className="h-3 w-3 text-orange-500" />}
+        </div>
 
-          {/* Left half — form */}
-          <div className="w-full md:w-1/2 flex flex-col overflow-y-auto">
-            <div className="w-full max-w-md mx-auto my-auto px-8 py-12 shrink-0">
-              {/* Progress indicators — onb-s01-progress */}
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Get Started</span>
-                  <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
-                    Step {step} of 6
-                  </span>
-                </div>
-                <OnboardingProgressBar currentStep={step} totalSteps={6} />
+        {/* Left half — form */}
+        <div className="w-full md:w-1/2 flex flex-col overflow-y-auto">
+          <div className="w-full max-w-md mx-auto my-auto px-8 py-12 shrink-0">
+            {/* Progress */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Get Started</span>
+                <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
+                  Step {step} of 5
+                </span>
               </div>
+              <OnboardingProgressBar currentStep={step} totalSteps={5} />
+            </div>
 
-              {/* Step content */}
-              {step === 1 && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-muted/50 p-2">
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Name your company</h3>
-                      <p className="text-xs text-muted-foreground">
-                        This is the organization your agents will work for.
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Company name
-                    </label>
-                    <input
-                      className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="Acme Corp"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Mission / goal (optional)
-                    </label>
-                    <textarea
-                      className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[60px]"
-                      placeholder="What is this company trying to achieve?"
-                      value={companyGoal}
-                      onChange={(e) => setCompanyGoal(e.target.value)}
-                    />
-                  </div>
+            {/* ============================================================ */}
+            {/* STEP 1: Company Info */}
+            {/* ============================================================ */}
+            {step === 1 && (
+              <div className="space-y-5">
+                <StepHeader
+                  icon={Building2}
+                  title="Name your company"
+                  description="This is the organization your agents will work for."
+                />
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Company name
+                  </label>
+                  <input
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                    placeholder="Acme Corp"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    autoFocus
+                  />
                 </div>
-              )}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[60px]"
+                    placeholder="What does this company do?"
+                    value={companyDescription}
+                    onChange={(e) => setCompanyDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
-              {step === 2 && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-muted/50 p-2">
-                      <Bot className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Create your first agent</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Choose how this agent will run tasks.
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Agent name
-                    </label>
-                    <input
-                      className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="CEO"
-                      value={agentName}
-                      onChange={(e) => setAgentName(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
+            {/* ============================================================ */}
+            {/* STEP 2: Roles */}
+            {/* ============================================================ */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <StepHeader
+                  icon={Shield}
+                  title="Set up roles"
+                  description="Define who can do what. An Admin role was automatically created."
+                />
 
-                  {/* Adapter type radio cards */}
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-2 block">
-                      Adapter type
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {
-                          value: "claude_local" as const,
-                          label: "Claude Code",
-                          icon: Sparkles,
-                          desc: "Local Claude agent",
-                          recommended: true
-                        },
-                        {
-                          value: "codex_local" as const,
-                          label: "Codex",
-                          icon: Code,
-                          desc: "Local Codex agent",
-                          recommended: true
-                        },
-                        {
-                          value: "opencode_local" as const,
-                          label: "OpenCode",
-                          icon: OpenCodeLogoIcon,
-                          desc: "Local multi-provider agent"
-                        },
-                        {
-                          value: "pi_local" as const,
-                          label: "Pi",
-                          icon: Terminal,
-                          desc: "Local Pi agent"
-                        },
-                        {
-                          value: "openclaw_gateway" as const,
-                          label: "OpenClaw Gateway",
-                          icon: Bot,
-                          desc: "Invoke OpenClaw via gateway protocol",
-                          comingSoon: true,
-                          disabledLabel: "Configure OpenClaw within the App"
-                        },
-                        {
-                          value: "cursor" as const,
-                          label: "Cursor",
-                          icon: MousePointer2,
-                          desc: "Local Cursor agent"
-                        }
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          disabled={!!opt.comingSoon}
-                          className={cn(
-                            "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
-                            opt.comingSoon
-                              ? "border-border opacity-40 cursor-not-allowed"
-                              : adapterType === opt.value
-                                ? "border-foreground bg-accent"
-                                : "border-border hover:bg-accent/50"
-                          )}
-                          onClick={() => {
-                            if (opt.comingSoon) return;
-                            const nextType = opt.value as AdapterType;
-                            setAdapterType(nextType);
-                            if (nextType === "codex_local" && !model) {
-                              setModel(DEFAULT_CODEX_LOCAL_MODEL);
-                            } else if (nextType === "cursor" && !model) {
-                              setModel(DEFAULT_CURSOR_LOCAL_MODEL);
-                            }
-                            if (nextType === "opencode_local") {
-                              if (!model.includes("/")) {
-                                setModel("");
-                              }
-                              return;
-                            }
-                            setModel("");
-                          }}
-                        >
-                          {opt.recommended && (
-                            <span className="absolute -top-1.5 right-1.5 bg-green-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
-                              Recommended
-                            </span>
-                          )}
-                          <opt.icon className="h-4 w-4" />
-                          <span className="font-medium">{opt.label}</span>
-                          <span className="text-muted-foreground text-[10px]">
-                            {opt.comingSoon
-                              ? (opt as { disabledLabel?: string }).disabledLabel ??
-                                "Coming soon"
-                              : opt.desc}
+                {/* Admin role badge */}
+                <div className="flex items-center gap-2 text-sm">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Admin</span>
+                  <Badge variant="secondary" className="text-[10px]">System</Badge>
+                  <span className="text-xs text-muted-foreground">All permissions</span>
+                </div>
+
+                {/* Preset cards */}
+                {!rolePreset && (
+                  <div className="grid gap-3">
+                    {[
+                      {
+                        key: "startup" as const,
+                        title: "Startup",
+                        desc: "Admin + Member (2 roles)",
+                        detail: "Simple setup for small teams",
+                      },
+                      {
+                        key: "structured" as const,
+                        title: "Structured Team",
+                        desc: "Admin + Lead + Member + Viewer (4 roles)",
+                        detail: "Clear hierarchy with read-only access",
+                      },
+                      {
+                        key: "custom" as const,
+                        title: "Custom",
+                        desc: "Define your own roles",
+                        detail: "Full control over role names and hierarchy",
+                      },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        disabled={loading}
+                        className={cn(
+                          "text-left rounded-md border border-border p-4 transition-colors hover:bg-accent/50",
+                          loading && "opacity-50 cursor-not-allowed",
+                        )}
+                        onClick={() => handleSelectPreset(opt.key)}
+                      >
+                        <p className="text-sm font-medium">{opt.title}</p>
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                        <p className="text-[11px] text-muted-foreground/70 mt-1">{opt.detail}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Preset selected — summary */}
+                {rolePreset && rolePreset !== "custom" && createdRoles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Created {createdRoles.length} role(s):
+                    </p>
+                    <div className="border border-border divide-y divide-border rounded-md">
+                      {createdRoles.map((role) => (
+                        <div key={role.id} className="flex items-center justify-between px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm font-medium">{role.name}</span>
+                            {role.isSystem && (
+                              <Badge variant="secondary" className="text-[10px]">System</Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {role.permissions.length} permission(s)
                           </span>
-                        </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { setRolePreset(null); }}
+                    >
+                      Choose a different preset
+                    </button>
+                  </div>
+                )}
+
+                {/* Custom role builder */}
+                {rolePreset === "custom" && (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                        placeholder="Role name (e.g. Developer)"
+                        value={customRoleName}
+                        onChange={(e) => setCustomRoleName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomRole();
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddCustomRole}
+                        disabled={!customRoleName.trim()}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                    {customRoles.length > 0 && (
+                      <div className="border border-border divide-y divide-border rounded-md">
+                        {customRoles.map((role) => (
+                          <div key={role.slug} className="flex items-center justify-between px-3 py-2">
+                            <span className="text-sm font-medium">{role.name}</span>
+                            <button
+                              onClick={() => handleRemoveCustomRole(role.slug)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { setRolePreset(null); setCustomRoles([]); }}
+                    >
+                      Choose a different preset
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ============================================================ */}
+            {/* STEP 3: Tags */}
+            {/* ============================================================ */}
+            {step === 3 && (
+              <div className="space-y-5">
+                <StepHeader
+                  icon={TagIcon}
+                  title="Organize with tags"
+                  description="Tags control visibility. Team members see only what's tagged for them."
+                />
+
+                {/* Suggested tags by category */}
+                {TAG_SUGGESTIONS.map((category) => (
+                  <div key={category.category}>
+                    <p className="text-xs text-muted-foreground mb-2">{category.category}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {category.tags.map((tag) => {
+                        const isCreated = createdTags.some((t) => t.slug === slugify(tag.name));
+                        return (
+                          <button
+                            key={tag.name}
+                            disabled={isCreated}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                              isCreated
+                                ? "opacity-50 cursor-not-allowed border-border bg-muted"
+                                : "border-border hover:bg-accent/50 cursor-pointer",
+                            )}
+                            onClick={() => handleAddTag(tag.name, tag.color)}
+                          >
+                            {isCreated ? (
+                              <Check className="h-3 w-3" />
+                            ) : (
+                              <Plus className="h-3 w-3" />
+                            )}
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Custom tag input */}
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                    placeholder="Custom tag name"
+                    value={customTagName}
+                    onChange={(e) => setCustomTagName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomTag();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddCustomTag}
+                    disabled={!customTagName.trim()}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+
+                {/* Created tags */}
+                {createdTags.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Created tags ({createdTags.length}):
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {createdTags.map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="outline"
+                          className="gap-1 pr-1"
+                          style={{ borderColor: tag.color ?? undefined }}
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: tag.color ?? "#64748b" }}
+                          />
+                          {tag.name}
+                          <button
+                            onClick={() => handleRemoveTag(tag.id)}
+                            className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            )}
 
-                  {/* Conditional adapter fields */}
-                  {(adapterType === "claude_local" ||
-                    adapterType === "codex_local" ||
-                    adapterType === "opencode_local" ||
-                    adapterType === "pi_local" ||
-                    adapterType === "cursor") && (
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="text-xs text-muted-foreground">
-                            Working directory
-                          </label>
-                          <HintIcon text="MnM works best if you create a new folder for your agents to keep their memories and stay organized. Create a new folder and put the path here." />
-                        </div>
-                        <div className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
-                          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <input
-                            className="w-full bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/50"
-                            placeholder="/path/to/project"
-                            value={cwd}
-                            onChange={(e) => setCwd(e.target.value)}
-                          />
-                          <ChoosePathButton />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Model
-                        </label>
-                        <Popover
-                          open={modelOpen}
-                          onOpenChange={(next) => {
-                            setModelOpen(next);
-                            if (!next) setModelSearch("");
-                          }}
-                        >
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
-                              <span
-                                className={cn(
-                                  !model && "text-muted-foreground"
-                                )}
-                              >
-                                {selectedModel
-                                  ? selectedModel.label
-                                  : model ||
-                                    (adapterType === "opencode_local"
-                                      ? "Select model (required)"
-                                      : "Default")}
-                              </span>
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-[var(--radix-popover-trigger-width)] p-1"
-                            align="start"
-                          >
-                            <input
-                              className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-                              placeholder="Search models..."
-                              value={modelSearch}
-                              onChange={(e) => setModelSearch(e.target.value)}
-                              autoFocus
-                            />
-                            {adapterType !== "opencode_local" && (
-                              <button
-                                className={cn(
-                                  "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
-                                  !model && "bg-accent"
-                                )}
-                                onClick={() => {
-                                  setModel("");
-                                  setModelOpen(false);
-                                }}
-                              >
-                                  Default
-                                </button>
-                            )}
-                            <div className="max-h-[240px] overflow-y-auto">
-                              {groupedModels.map((group) => (
-                                <div key={group.provider} className="mb-1 last:mb-0">
-                                  {adapterType === "opencode_local" && (
-                                    <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                      {group.provider} ({group.entries.length})
-                                    </div>
-                                  )}
-                                  {group.entries.map((m) => (
-                                    <button
-                                      key={m.id}
-                                      className={cn(
-                                        "flex items-center w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
-                                        m.id === model && "bg-accent"
-                                      )}
-                                      onClick={() => {
-                                        setModel(m.id);
-                                        setModelOpen(false);
-                                      }}
-                                    >
-                                      <span className="block w-full text-left truncate" title={m.id}>
-                                        {adapterType === "opencode_local" ? extractModelName(m.id) : m.label}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                            {filteredModels.length === 0 && (
-                              <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                                No models discovered.
-                              </p>
-                            )}
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                  )}
+            {/* ============================================================ */}
+            {/* STEP 4: Invite Members */}
+            {/* ============================================================ */}
+            {step === 4 && (
+              <div className="space-y-5">
+                <StepHeader
+                  icon={Users}
+                  title="Invite your team"
+                  description="Bring your team members on board. You can also do this later from Settings."
+                />
 
-                  {isLocalAdapter && (
-                    <div className="space-y-2 rounded-md border border-border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-medium">
-                            Adapter environment check
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            Runs a live probe that asks the adapter CLI to
-                            respond with hello.
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2.5 text-xs"
-                          disabled={adapterEnvLoading}
-                          onClick={() => void runAdapterEnvironmentTest()}
-                        >
-                          {adapterEnvLoading ? "Testing..." : "Test now"}
-                        </Button>
-                      </div>
-
-                      {adapterEnvError && (
-                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive">
-                          {adapterEnvError}
-                        </div>
-                      )}
-
-                      {adapterEnvResult && (
-                        <AdapterEnvironmentResult result={adapterEnvResult} />
-                      )}
-
-                      {shouldSuggestUnsetAnthropicApiKey && (
-                        <div className="rounded-md border border-amber-300/60 bg-amber-50/40 px-2.5 py-2 space-y-2">
-                          <p className="text-[11px] text-amber-900/90 leading-relaxed">
-                            Claude failed while <span className="font-mono">ANTHROPIC_API_KEY</span> is set.
-                            You can clear it in this CEO adapter config and retry the probe.
-                          </p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2.5 text-xs"
-                            disabled={adapterEnvLoading || unsetAnthropicLoading}
-                            onClick={() => void handleUnsetAnthropicApiKey()}
-                          >
-                            {unsetAnthropicLoading ? "Retrying..." : "Unset ANTHROPIC_API_KEY"}
-                          </Button>
-                        </div>
-                      )}
-
-                      <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-[11px] space-y-1.5">
-                        <p className="font-medium">Manual debug</p>
-                        <p className="text-muted-foreground font-mono break-all">
-                          {adapterType === "cursor"
-                            ? `${effectiveAdapterCommand} -p --mode ask --output-format json \"Respond with hello.\"`
-                            : adapterType === "codex_local"
-                            ? `${effectiveAdapterCommand} exec --json -`
-                            : adapterType === "opencode_local"
-                              ? `${effectiveAdapterCommand} run --format json "Respond with hello."`
-                            : `${effectiveAdapterCommand} --print - --output-format stream-json --verbose`}
-                        </p>
-                        <p className="text-muted-foreground">
-                          Prompt:{" "}
-                          <span className="font-mono">Respond with hello.</span>
-                        </p>
-                        {adapterType === "cursor" || adapterType === "codex_local" || adapterType === "opencode_local" ? (
-                          <p className="text-muted-foreground">
-                            If auth fails, set{" "}
-                            <span className="font-mono">
-                              {adapterType === "cursor" ? "CURSOR_API_KEY" : "OPENAI_API_KEY"}
-                            </span>{" "}
-                            in
-                            env or run{" "}
-                            <span className="font-mono">
-                              {adapterType === "cursor"
-                                ? "agent login"
-                                : adapterType === "codex_local"
-                                  ? "codex login"
-                                  : "opencode auth login"}
-                            </span>.
-                          </p>
-                        ) : (
-                          <p className="text-muted-foreground">
-                            If login is required, run{" "}
-                            <span className="font-mono">claude login</span> and
-                            retry.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {adapterType === "process" && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Command
-                        </label>
-                        <input
-                          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                          placeholder="e.g. node, python"
-                          value={command}
-                          onChange={(e) => setCommand(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Args (comma-separated)
-                        </label>
-                        <input
-                          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                          placeholder="e.g. script.js, --flag"
-                          value={args}
-                          onChange={(e) => setArgs(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {(adapterType === "http" || adapterType === "openclaw_gateway") && (
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        {adapterType === "openclaw_gateway" ? "Gateway URL" : "Webhook URL"}
+                {/* Email + Role + Tags input */}
+                <div className="space-y-3">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                        Email
                       </label>
                       <input
-                        className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                        placeholder={adapterType === "openclaw_gateway" ? "ws://127.0.0.1:18789" : "https://..."}
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
+                        data-testid="onb-invite-email"
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="colleague@company.com"
+                        className="w-full px-3 py-2 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddInvite();
+                          }
+                        }}
                       />
                     </div>
-                  )}
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-muted/50 p-2">
-                      <ListTodo className="h-5 w-5 text-muted-foreground" />
+                    <div className="w-32">
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                        Role
+                      </label>
+                      <select
+                        data-testid="onb-invite-role"
+                        value={inviteRoleId}
+                        onChange={(e) => setInviteRoleId(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        {createdRoles.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddInvite}
+                      className="h-[38px]"
+                    >
+                      <UserPlus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+
+                  {/* Tag multi-select */}
+                  {createdTags.length > 0 && (
                     <div>
-                      <h3 className="font-medium">Give it something to do</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Give your agent a small task to start with — a bug fix,
-                        a research question, writing a script.
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Task title
-                    </label>
-                    <input
-                      className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="e.g. Research competitor pricing"
-                      value={taskTitle}
-                      onChange={(e) => setTaskTitle(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Description (optional)
-                    </label>
-                    <textarea
-                      ref={textareaRef}
-                      className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[120px] max-h-[300px] overflow-y-auto"
-                      placeholder="Add more detail about what the agent should do..."
-                      value={taskDescription}
-                      onChange={(e) => setTaskDescription(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* onb-s01-invite-step */}
-              {step === 4 && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-muted/50 p-2">
-                      <Users className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Invite your team</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Bring your team members on board. They'll receive an
-                        email invitation to join your company.
-                      </p>
-                    </div>
-                  </div>
-                  <OnboardingInviteStep
-                    onSendInvitations={async (invites) => {
-                      await handleInviteSend(invites);
-                      handleInviteComplete();
-                    }}
-                    onSkip={handleInviteSkip}
-                    loading={loading}
-                  />
-                </div>
-              )}
-
-              {/* onb-s04-dual-mode-step */}
-              {step === 5 && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-muted/50 p-2">
-                      <Gauge className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Set agent speed</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Choose how much autonomy your agents have. You can
-                        change this later per project or agent.
-                      </p>
-                    </div>
-                  </div>
-                  <OnboardingDualModeStep
-                    selectedPosition={dualModePosition}
-                    onSelect={setDualModePosition}
-                    onSkip={handleDualModeSkip}
-                    loading={loading}
-                  />
-                </div>
-              )}
-
-              {step === 6 && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="bg-muted/50 p-2">
-                      <Rocket className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Ready to launch</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Everything is set up. Your assigned task already woke
-                        the agent, so you can jump straight to the issue.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="border border-border divide-y divide-border">
-                    <div className="flex items-center gap-3 px-3 py-2.5">
-                      <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {companyName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Company</p>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                        Tags (optional)
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {createdTags.map((tag) => {
+                          const isSelected = inviteTagIds.includes(tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-colors",
+                                isSelected
+                                  ? "bg-primary/10 border-primary text-primary"
+                                  : "border-border hover:bg-accent/50",
+                              )}
+                              onClick={() =>
+                                setInviteTagIds((prev) =>
+                                  isSelected
+                                    ? prev.filter((id) => id !== tag.id)
+                                    : [...prev, tag.id],
+                                )
+                              }
+                            >
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: tag.color ?? "#64748b" }}
+                              />
+                              {tag.name}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
-                    <div className="flex items-center gap-3 px-3 py-2.5">
-                      <Bot className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {agentName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {getUIAdapter(adapterType).label}
-                        </p>
-                      </div>
-                      <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    </div>
-                    <div className="flex items-center gap-3 px-3 py-2.5">
-                      <ListTodo className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {taskTitle}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Task</p>
-                      </div>
-                      <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    </div>
-                    <div
-                      data-testid="onb-s04-speed-summary"
-                      className="flex items-center gap-3 px-3 py-2.5"
-                    >
-                      <Gauge className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate capitalize">
-                          {dualModePosition === "assisted"
-                            ? "Assisted Mode"
-                            : dualModePosition === "manual"
-                              ? "Manual Control"
-                              : "Full Automation"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Agent Speed</p>
-                      </div>
-                      <Check className="h-4 w-4 text-green-500 shrink-0" />
-                    </div>
+                  )}
+                </div>
+
+                {/* Invite list */}
+                <div
+                  className={cn(
+                    "space-y-2 min-h-[48px]",
+                    invites.length === 0 &&
+                      "flex items-center justify-center text-sm text-muted-foreground",
+                  )}
+                >
+                  {invites.length === 0 ? (
+                    <span>No invitations added yet</span>
+                  ) : (
+                    invites.map((inv, i) => {
+                      const role = createdRoles.find((r) => r.id === inv.roleId);
+                      return (
+                        <div
+                          key={inv.email}
+                          className="flex items-center justify-between px-3 py-2 bg-muted/50 rounded-md text-sm"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium truncate">{inv.email}</span>
+                            {role && (
+                              <Badge variant="secondary" className="text-[10px] shrink-0">
+                                {role.name}
+                              </Badge>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleRemoveInvite(i)}
+                            className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Error / Success */}
+                {inviteSuccess && (
+                  <div className="text-sm text-green-600 bg-green-50 dark:bg-green-950/30 px-3 py-2 rounded-md">
+                    {inviteSuccess}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Error */}
-              {error && (
-                <div className="mt-3">
-                  <p className="text-xs text-destructive">{error}</p>
-                </div>
-              )}
-
-              {/* Footer navigation — onb-s01-nav */}
-              <div className="flex items-center justify-between mt-8">
-                <div>
-                  {step > 1 && step > initialStep && step !== 4 && (
+                {/* Send / Skip buttons */}
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep(5)}
+                    disabled={inviteSending}
+                  >
+                    Skip for now
+                  </Button>
+                  {invites.length > 0 && (
                     <Button
-                      data-testid="onb-s01-back"
-                      variant="ghost"
                       size="sm"
-                      onClick={() => setStep((step - 1) as Step)}
-                      disabled={loading}
+                      onClick={async () => {
+                        await handleSendInvites();
+                        setStep(5);
+                      }}
+                      disabled={inviteSending}
                     >
-                      <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                      Back
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {step === 1 && (
-                    <Button
-                      data-testid="onb-s01-next"
-                      size="sm"
-                      disabled={!companyName.trim() || loading}
-                      onClick={handleStep1Next}
-                    >
-                      {loading ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      {inviteSending ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                       ) : (
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                        <UserPlus className="w-4 h-4 mr-1" />
                       )}
-                      {loading ? "Creating..." : "Next"}
-                    </Button>
-                  )}
-                  {step === 2 && (
-                    <Button
-                      data-testid="onb-s01-next"
-                      size="sm"
-                      disabled={
-                        !agentName.trim() || loading || adapterEnvLoading
-                      }
-                      onClick={handleStep2Next}
-                    >
-                      {loading ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                      )}
-                      {loading ? "Creating..." : "Next"}
-                    </Button>
-                  )}
-                  {step === 3 && (
-                    <Button
-                      data-testid="onb-s01-next"
-                      size="sm"
-                      disabled={!taskTitle.trim() || loading}
-                      onClick={handleStep3Next}
-                    >
-                      {loading ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                      )}
-                      {loading ? "Creating..." : "Next"}
-                    </Button>
-                  )}
-                  {/* Step 4 (Invite) buttons are inside OnboardingInviteStep */}
-                  {step === 5 && (
-                    <Button
-                      data-testid="onb-s04-next"
-                      size="sm"
-                      disabled={loading}
-                      onClick={handleDualModeNext}
-                    >
-                      {loading ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                      )}
-                      {loading ? "Saving..." : "Next"}
-                    </Button>
-                  )}
-                  {step === 6 && (
-                    <Button data-testid="onb-s01-complete" size="sm" disabled={loading} onClick={handleLaunch}>
-                      {loading ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                      )}
-                      {loading ? "Opening..." : "Open Issue"}
+                      Send {invites.length} Invitation{invites.length !== 1 ? "s" : ""} & Continue
                     </Button>
                   )}
                 </div>
               </div>
+            )}
+
+            {/* ============================================================ */}
+            {/* STEP 5: Done / Summary */}
+            {/* ============================================================ */}
+            {step === 5 && (
+              <div className="space-y-5">
+                <StepHeader
+                  icon={Rocket}
+                  title="You're all set!"
+                  description="Here's a summary of your setup. You can change everything later from Settings."
+                />
+
+                {/* Summary */}
+                <div className="border border-border divide-y divide-border rounded-md">
+                  <SummaryRow
+                    icon={Building2}
+                    label="Company"
+                    value={companyName}
+                  />
+                  <SummaryRow
+                    icon={Shield}
+                    label="Roles"
+                    value={`${createdRoles.length} role(s)`}
+                  />
+                  <SummaryRow
+                    icon={TagIcon}
+                    label="Tags"
+                    value={
+                      createdTags.length > 0
+                        ? `${createdTags.length} tag(s)`
+                        : "None yet"
+                    }
+                  />
+                  <SummaryRow
+                    icon={Users}
+                    label="Invitations"
+                    value={inviteSuccess ?? "None sent"}
+                  />
+                </div>
+
+                <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                  Your sandbox will be provisioned automatically when you create your first agent.
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="mt-3">
+                <p className="text-xs text-destructive">{error}</p>
+              </div>
+            )}
+
+            {/* Footer navigation */}
+            <div className="flex items-center justify-between mt-8">
+              <div>
+                {step > 1 && step > initialStep && step !== 4 && (
+                  <Button
+                    data-testid="onb-s01-back"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep((step - 1) as Step)}
+                    disabled={loading}
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                    Back
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {step === 1 && (
+                  <Button
+                    data-testid="onb-s01-next"
+                    size="sm"
+                    disabled={!companyName.trim() || loading}
+                    onClick={handleStep1Next}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    {loading ? "Creating..." : "Next"}
+                  </Button>
+                )}
+                {step === 2 && (
+                  <Button
+                    data-testid="onb-s01-next"
+                    size="sm"
+                    disabled={
+                      !rolePreset ||
+                      loading ||
+                      (rolePreset === "custom" && customRoles.length === 0)
+                    }
+                    onClick={handleStep2Next}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    {loading ? "Creating..." : "Next"}
+                  </Button>
+                )}
+                {step === 3 && (
+                  <Button
+                    data-testid="onb-s01-next"
+                    size="sm"
+                    onClick={() => setStep(4)}
+                  >
+                    <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                    {createdTags.length === 0 ? "Skip" : "Next"}
+                  </Button>
+                )}
+                {/* Step 4 has its own buttons */}
+                {step === 5 && (
+                  <Button
+                    data-testid="onb-s01-complete"
+                    size="sm"
+                    disabled={loading}
+                    onClick={handleComplete}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Rocket className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    {loading ? "Finishing..." : "Go to Dashboard"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Right half — ASCII art (hidden on mobile) */}
-          <div className="hidden md:block w-1/2 overflow-hidden">
-            <AsciiArtAnimation />
-          </div>
+        {/* Right half — ASCII art (hidden on mobile) */}
+        <div className="hidden md:block w-1/2 overflow-hidden">
+          <AsciiArtAnimation />
         </div>
       </div>
+    </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 
-function AdapterEnvironmentResult({
-  result
+function StepHeader({
+  icon: Icon,
+  title,
+  description,
 }: {
-  result: AdapterEnvironmentTestResult;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
 }) {
-  const statusLabel =
-    result.status === "pass"
-      ? "Passed"
-      : result.status === "warn"
-        ? "Warnings"
-        : "Failed";
-  const statusClass =
-    result.status === "pass"
-      ? "text-green-700 dark:text-green-300 border-green-300 dark:border-green-500/40 bg-green-50 dark:bg-green-500/10"
-      : result.status === "warn"
-        ? "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10"
-        : "text-red-700 dark:text-red-300 border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10";
-
   return (
-    <div className={`rounded-md border px-2.5 py-2 text-[11px] ${statusClass}`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium">{statusLabel}</span>
-        <span className="opacity-80">
-          {new Date(result.testedAt).toLocaleTimeString()}
-        </span>
+    <div className="flex items-center gap-3 mb-1">
+      <div className="bg-muted/50 p-2">
+        <Icon className="h-5 w-5 text-muted-foreground" />
       </div>
-      <div className="mt-1.5 space-y-1">
-        {result.checks.map((check, idx) => (
-          <div
-            key={`${check.code}-${idx}`}
-            className="leading-relaxed break-words"
-          >
-            <span className="font-medium uppercase tracking-wide opacity-80">
-              {check.level}
-            </span>
-            <span className="mx-1 opacity-60">·</span>
-            <span>{check.message}</span>
-            {check.detail && (
-              <span className="block opacity-75 break-all">
-                ({check.detail})
-              </span>
-            )}
-            {check.hint && (
-              <span className="block opacity-90 break-words">
-                Hint: {check.hint}
-              </span>
-            )}
-          </div>
-        ))}
+      <div>
+        <h3 className="font-medium">{title}</h3>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
+    </div>
+  );
+}
+
+function SummaryRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </div>
+      <Check className="h-4 w-4 text-green-500 shrink-0" />
     </div>
   );
 }
