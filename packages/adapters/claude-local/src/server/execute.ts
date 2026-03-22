@@ -71,6 +71,7 @@ interface ClaudeExecutionInput {
   config: Record<string, unknown>;
   context: Record<string, unknown>;
   authToken?: string;
+  dockerContainerId?: string;
 }
 
 interface ClaudeRuntimeConfig {
@@ -127,8 +128,13 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   const configuredCwd = asString(config.cwd, "");
   const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
-  await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+  const isDocker = Boolean(input.dockerContainerId);
+  const cwd = isDocker
+    ? "/home/agent" // Always use container home dir
+    : (effectiveWorkspaceCwd || configuredCwd || process.cwd());
+  if (!isDocker) {
+    await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+  }
 
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =
@@ -206,7 +212,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
 
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
-  await ensureCommandResolvable(command, cwd, runtimeEnv);
+  if (!isDocker) {
+    await ensureCommandResolvable(command, cwd, runtimeEnv);
+  }
 
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
@@ -267,7 +275,7 @@ export async function runClaudeLogin(input: {
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId } = ctx;
 
   const promptTemplate = asString(
     config.promptTemplate,
@@ -292,6 +300,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     config,
     context,
     authToken,
+    dockerContainerId,
   });
   const {
     command,
@@ -305,16 +314,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     extraArgs,
   } = runtimeConfig;
   const billingType = resolveClaudeBillingType(env);
-  const skillsDir = await buildSkillsDir();
-
-  // When instructionsFilePath is configured, create a combined temp file that
-  // includes both the file content and the path directive, so we only need
-  // --append-system-prompt-file (Claude CLI forbids using both flags together).
-  let effectiveInstructionsFilePath = instructionsFilePath;
-  if (instructionsFilePath) {
+  // Skip local skills dir + instructions file when running in Docker
+  const skillsDir = dockerContainerId ? null : await buildSkillsDir();
+  let effectiveInstructionsFilePath = "";
+  if (!dockerContainerId && instructionsFilePath) {
     const instructionsContent = await fs.readFile(instructionsFilePath, "utf-8");
     const pathDirective = `\nThe above agent instructions were loaded from ${instructionsFilePath}. Resolve any relative file references from ${instructionsFileDir}.`;
-    const combinedPath = path.join(skillsDir, "agent-instructions.md");
+    const combinedPath = path.join(skillsDir!, "agent-instructions.md");
     await fs.writeFile(combinedPath, instructionsContent + pathDirective, "utf-8");
     effectiveInstructionsFilePath = combinedPath;
   }
@@ -353,7 +359,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (effectiveInstructionsFilePath) {
       args.push("--append-system-prompt-file", effectiveInstructionsFilePath);
     }
-    args.push("--add-dir", skillsDir);
+    if (skillsDir) args.push("--add-dir", skillsDir);
     if (extraArgs.length > 0) args.push(...extraArgs);
     return args;
   };
@@ -396,6 +402,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       timeoutSec,
       graceSec,
       onLog,
+      dockerContainerId,
     });
 
     const parsedStream = parseClaudeStreamJson(proc.stdout);
@@ -520,6 +527,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     return toAdapterResult(initial, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
   } finally {
-    fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
+    if (skillsDir) fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
   }
 }

@@ -214,8 +214,15 @@ export async function runChildProcess(
     onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
     onLogError?: (err: unknown, runId: string, message: string) => void;
     stdin?: string;
+    /** When set, execute via `docker exec` inside this container instead of local spawn */
+    dockerContainerId?: string;
   },
 ): Promise<RunProcessResult> {
+  // Route through Docker container if dockerContainerId is provided
+  if (opts.dockerContainerId) {
+    return runInDocker(runId, command, args, opts as typeof opts & { dockerContainerId: string });
+  }
+
   const onLogError = opts.onLogError ?? ((err, id, msg) => console.warn({ err, runId: id }, msg));
 
   return new Promise<RunProcessResult>((resolve, reject) => {
@@ -295,6 +302,123 @@ export async function runChildProcess(
     // On Windows, grandchildren inherit pipe handles and can prevent "close" from ever firing
     // even after the main process exits. Listen for "exit" and start a drain timer so we
     // resolve after at most PIPE_DRAIN_TIMEOUT_MS regardless of inherited handles.
+    const PIPE_DRAIN_TIMEOUT_MS = 5_000;
+    child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+      exitInfo = { code, signal };
+      drainTimer = setTimeout(() => finalize(code, signal), PIPE_DRAIN_TIMEOUT_MS);
+    });
+
+    child.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
+      finalize(exitInfo?.code ?? code, exitInfo?.signal ?? signal);
+    });
+  });
+}
+
+/**
+ * Execute a command inside a Docker container via `docker exec`.
+ * Uses `spawn("docker", ["exec", ...])` so it works on all platforms.
+ */
+async function runInDocker(
+  runId: string,
+  command: string,
+  args: string[],
+  opts: {
+    dockerContainerId: string;
+    cwd: string;
+    env: Record<string, string>;
+    timeoutSec: number;
+    graceSec: number;
+    onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
+    onLogError?: (err: unknown, runId: string, message: string) => void;
+    stdin?: string;
+  },
+): Promise<RunProcessResult> {
+  const onLogError = opts.onLogError ?? ((err, id, msg) => console.warn({ err, runId: id }, msg));
+
+  // Build docker exec args: -i for stdin, env vars, workdir, container, command
+  const dockerArgs: string[] = ["exec"];
+  if (opts.stdin != null) dockerArgs.push("-i");
+
+  // Inject env vars
+  for (const [key, value] of Object.entries(opts.env)) {
+    // Skip PATH and other system vars that exist inside the container
+    if (key === "PATH" || key === "Path" || key === "HOME" || key === "USER" ||
+        key === "SHELL" || key === "TERM" || key === "LANG" || key === "LC_ALL" ||
+        key === "HOSTNAME" || key === "PWD" || key === "OLDPWD" ||
+        key === "SHLVL" || key === "LOGNAME" || key === "_") continue;
+    dockerArgs.push("-e", `${key}=${value}`);
+  }
+
+  // Working directory inside container
+  dockerArgs.push("-w", "/home/agent");
+
+  // Container ID + command
+  dockerArgs.push(opts.dockerContainerId, command, ...args);
+
+  return new Promise<RunProcessResult>((resolve, reject) => {
+    const child = spawn("docker", dockerArgs, {
+      cwd: process.cwd(), // docker CLI runs on host
+      shell: false,
+      stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
+    }) as ChildProcessWithEvents;
+
+    if (opts.stdin != null && child.stdin) {
+      child.stdin.write(opts.stdin);
+      child.stdin.end();
+    }
+
+    runningProcesses.set(runId, { child, graceSec: opts.graceSec });
+
+    let timedOut = false;
+    let stdout = "";
+    let stderr = "";
+    let logChain: Promise<void> = Promise.resolve();
+
+    const timeout =
+      opts.timeoutSec > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            child.kill("SIGTERM");
+            setTimeout(() => {
+              if (!child.killed) child.kill("SIGKILL");
+            }, Math.max(1, opts.graceSec) * 1000);
+          }, opts.timeoutSec * 1000)
+        : null;
+
+    child.stdout?.on("data", (chunk: unknown) => {
+      const text = String(chunk);
+      stdout = appendWithCap(stdout, text);
+      logChain = logChain
+        .then(() => opts.onLog("stdout", text))
+        .catch((err) => onLogError(err, runId, "failed to append stdout log chunk"));
+    });
+
+    child.stderr?.on("data", (chunk: unknown) => {
+      const text = String(chunk);
+      stderr = appendWithCap(stderr, text);
+      logChain = logChain
+        .then(() => opts.onLog("stderr", text))
+        .catch((err) => onLogError(err, runId, "failed to append stderr log chunk"));
+    });
+
+    child.on("error", (err: Error) => {
+      if (timeout) clearTimeout(timeout);
+      runningProcesses.delete(runId);
+      reject(new Error(`Docker exec failed for container ${opts.dockerContainerId}: ${err.message}`));
+    });
+
+    let exitInfo: { code: number | null; signal: NodeJS.Signals | null } | null = null;
+    let drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const finalize = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (drainTimer) { clearTimeout(drainTimer); drainTimer = null; }
+      if (timeout) clearTimeout(timeout);
+      runningProcesses.delete(runId);
+      void logChain.finally(() => {
+        resolve({ exitCode: code, signal, timedOut, stdout, stderr });
+      });
+    };
+
     const PIPE_DRAIN_TIMEOUT_MS = 5_000;
     child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
       exitInfo = { code, signal };
