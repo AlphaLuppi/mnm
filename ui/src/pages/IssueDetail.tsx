@@ -742,7 +742,7 @@ export function IssueDetail() {
       </div>
 
       {/* DEPLOY-08: Deployment links for this issue */}
-      {issueId && <IssueDeploymentLinks issueId={issueId} />}
+      {issue?.id && <IssueDeploymentLinks issueId={issue.id} />}
 
       <Separator />
 
