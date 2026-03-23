@@ -211,4 +211,8 @@ export const queryKeys = {
     costEstimate: (companyId: string, traceId: string) =>
       ["lenses", companyId, "cost-estimate", traceId] as const,
   },
+  goldPrompts: {
+    list: (companyId: string) =>
+      ["gold-prompts", companyId, "list"] as const,
+  },
 };
