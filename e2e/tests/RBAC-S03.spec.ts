@@ -26,9 +26,13 @@
  *
  * All tests are file-content based -- no server, database, or runtime required.
  */
+// SKIPPED: BUSINESS_ROLES constants were removed — roles are now dynamic in DB (roles table).
+// This entire test file references removed artifacts (BUSINESS_ROLES, businessRoleSchema, etc.)
 import { test, expect } from "@playwright/test";
 import { readFile, access as fsAccess, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
+
+test.skip(true, "RBAC-S03 is obsolete — hardcoded BUSINESS_ROLES replaced by dynamic roles in DB");
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const CONSTANTS = resolve(ROOT, "packages/shared/src/constants.ts");

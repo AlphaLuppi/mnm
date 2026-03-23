@@ -14,9 +14,13 @@
  * 35 test cases — all file-content based
  */
 
+// SKIPPED: role-hierarchy.ts was removed — roles are now dynamic in DB (roles table + hierarchyLevel column).
+// Cascade hierarchy is now implicit via role hierarchy levels, not a hardcoded file.
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+
+test.skip(true, "ONB-S02 is obsolete — hardcoded role hierarchy replaced by dynamic roles in DB");
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
