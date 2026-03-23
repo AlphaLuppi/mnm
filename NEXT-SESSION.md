@@ -1,6 +1,6 @@
 # Next Session — Roles + Tags + Enterprise
 
-> **Last session** : 2026-03-23 | **Context** : Roles+Tags enterprise system ~97% done (131/132 SP)
+> **Last session** : 2026-03-23 | **Context** : Roles+Tags enterprise system 100% done (132/132 SP)
 > **Start here** : Read this file, then CLAUDE.md, then the status report
 
 ---
@@ -12,6 +12,7 @@ Everything from previous sessions PLUS:
 - **Tag selector** in agent creation AND edit (inline add/remove)
 - **Task Pool UI** — "All Issues" / "Pool" tabs, "Take" self-assign
 - **CAO Watchdog** — monitors agent run failures/timeouts, auto-comments on issues
+- **Interactive @CAO** — @mention in comments wakes CAO with full context + reply
 - **E2E tests** for tag isolation (ISO-04: 8 tests)
 - **bootstrapCompany() transactional** + CAO gets membership row
 - **Company rail hidden** in single-tenant mode
@@ -23,13 +24,7 @@ Everything from previous sessions PLUS:
 
 ## Remaining Work
 
-### P1 — 1 Story Left
-
-1. **CAO-04** (5 SP) — Interactive @cao (chat integration)
-   - Users can @mention the CAO in issue comments
-   - CAO receives the message, runs a prompt, and replies
-   - Needs: mention detection in comment creation, wakeup trigger, reply routing
-   - Key files: `server/src/routes/issues.ts` (comment creation), `server/src/services/cao-watchdog.ts` (existing CAO event subscription), `server/src/services/heartbeat.ts` (wakeup)
+### All P1 Stories DONE
 
 ### P2 — Tech Debt
 
@@ -68,6 +63,6 @@ Everything from previous sessions PLUS:
 
 ## Reports
 
-- `_bmad-output/planning-artifacts/STATUS-roles-tags-2026-03-23.md` — Full status (131/132 SP)
+- `_bmad-output/planning-artifacts/STATUS-roles-tags-2026-03-23.md` — Full status (132/132 SP)
 - `_bmad-output/planning-artifacts/REVIEW-CODE-roles-tags-2026-03-23.md` — 9 findings (7 fixed)
 - `_bmad-output/planning-artifacts/REVIEW-ARCHITECT-roles-tags-2026-03-23.md` — 11 findings (9 fixed)
