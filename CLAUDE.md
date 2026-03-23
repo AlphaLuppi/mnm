@@ -33,7 +33,6 @@ Language: French for planning documents.
 | Item | Type | Description |
 |------|------|-------------|
 | **REAL-RUN** | Trace | Lancer un vrai agent run avec tool calls riches pour avoir des traces variées |
-| BOARD-RENAME | Tech debt | Rename "board" actor type to "user" across codebase (8 SP) |
 | SANDBOX-AUTH | Tech debt | Auto-persist claude credentials across container recreation (3 SP) |
 | PRESET-SLUGS | Tech debt | Hardcoded permission slugs in OnboardingWizard → fetch from API (2 SP) |
 
