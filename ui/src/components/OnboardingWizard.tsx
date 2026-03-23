@@ -38,59 +38,20 @@ type Step = 1 | 2 | 3 | 4 | 5;
 // ---------------------------------------------------------------------------
 type RolePreset = "startup" | "structured" | "custom";
 
-const PRESET_ROLES: Record<Exclude<RolePreset, "custom">, CreateRoleInput[]> = {
-  startup: [
-    {
-      name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 50,
-      permissionSlugs: [
-        "agents:launch", "agents:create", "agents:configure",
-        "issues:create", "issues:assign",
-        "projects:create",
-        "stories:create", "stories:edit",
-        "traces:read",
-        "chat:agent",
-        "dashboard:view",
-      ],
-    },
-  ],
-  structured: [
-    {
-      name: "Lead", slug: "lead", description: "Team lead with elevated access", hierarchyLevel: 20,
-      permissionSlugs: [
-        "agents:create", "agents:launch", "agents:configure", "agents:delete",
-        "issues:create", "issues:assign", "issues:delete",
-        "projects:create", "projects:manage", "projects:manage_members",
-        "users:invite",
-        "workflows:create", "workflows:enforce",
-        "stories:create", "stories:edit",
-        "traces:read", "traces:write",
-        "audit:read",
-        "chat:agent", "chat:channel",
-        "dashboard:view",
-      ],
-    },
-    {
-      name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 50,
-      permissionSlugs: [
-        "agents:launch", "agents:create", "agents:configure",
-        "issues:create", "issues:assign",
-        "projects:create",
-        "stories:create", "stories:edit",
-        "traces:read",
-        "chat:agent",
-        "dashboard:view",
-      ],
-    },
-    {
-      name: "Viewer", slug: "viewer", description: "Read-only access", hierarchyLevel: 80,
-      permissionSlugs: [
-        "traces:read",
-        "audit:read",
-        "dashboard:view",
-      ],
-    },
-  ],
+// Role presets are fetched from the server (single source of truth)
+// Fallback to empty if API unavailable
+const FALLBACK_PRESETS: Record<Exclude<RolePreset, "custom">, CreateRoleInput[]> = {
+  startup: [],
+  structured: [],
 };
+
+async function fetchRolePresets(): Promise<Record<Exclude<RolePreset, "custom">, CreateRoleInput[]>> {
+  try {
+    return await api.get<Record<Exclude<RolePreset, "custom">, CreateRoleInput[]>>("/onboarding/role-presets");
+  } catch {
+    return FALLBACK_PRESETS;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Tag suggestions
@@ -291,7 +252,8 @@ export function OnboardingWizard() {
 
     setLoading(true);
     try {
-      const rolesToCreate = PRESET_ROLES[preset];
+      const presets = await fetchRolePresets();
+      const rolesToCreate = presets[preset];
       const created: Role[] = [];
       for (const input of rolesToCreate) {
         const role = await rolesApi.create(createdCompanyId, input);
