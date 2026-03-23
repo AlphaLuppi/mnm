@@ -14,124 +14,39 @@ Language: French for planning documents.
 - **Dynamic RBAC** — Roles and permissions are in DB (tables `roles`, `permissions`, `role_permissions`), NOT hardcoded. No `BUSINESS_ROLES`, `AGENT_ROLES`, or `PERMISSION_KEYS` constants.
 - **Tag-based isolation** — Tags control visibility. Users only see agents/issues/traces that share at least 1 tag with them. Enforced via `TagScope` middleware.
 - **Sandbox** — Each user has a personal Docker container. All agents run via `claude_local` adapter in the user's sandbox. No adapter choice needed.
-- **CAO** — Chief Agent Officer (adapter_type="claude_local", metadata.isCAO=true) is auto-created, has all tags, Admin role. Runs in admin's sandbox.
+- **CAO** — Chief Agent Officer (adapter_type="claude_local", metadata.isCAO=true) is auto-created, has all tags, Admin role. Runs in admin's sandbox. Watchdog mode auto-comments on failures. Interactive via @cao mentions.
 - **Agent permissions** — Agents inherit permissions from their creator (createdByUserId). An agent in Tom's sandbox has Tom's permissions.
 - **Simplified API** — Routes work with or without `/companies/:companyId/` prefix. Middleware rewrites `/api/issues` to `/api/companies/:companyId/issues` automatically.
 - **Docker exec** — `runChildProcess` in adapter-utils supports `dockerContainerId` option. When set, commands run via `docker exec` instead of local spawn. Env vars with localhost URLs are rewritten to `host.docker.internal`.
 
-## B2B Context (as of 2026-03)
+## What's Implemented
 
-- **Multi-Tenant**: RLS PostgreSQL, per-company isolation, per-project scoping
-- **RBAC**: Dynamic roles + permissions in DB, tag-based visibility
-- **Orchestration**: Deterministic workflows with state machine (XState), HITL validation
-- **Observability**: Immutable audit trail, LLM summaries, k-anonymity dashboards
-- **Security**: Container isolation (Docker), credential proxy, mount allowlist
-- **69 B2B stories + 35 Roles/Tags stories implemented** (all P1 complete, 132/132 SP)
-- **CAO System**: Watchdog (auto-comments on failures) + Interactive (@cao mentions)
-- **Task Pool**: Pool tab on issues, "Take" self-assign
-- **Trace Vision**: Bronze→Silver→Gold trace pipeline (PIPE-01 to PIPE-07 done, BACKFILL fixed)
+- **69 B2B stories** (TECH/RBAC/MU/ORCH/PROJ/OBS/CHAT/CONT/A2A/COMP/DUAL/SSO/DASH/ONB/DRIFT)
+- **35 Roles/Tags stories** (all P1 complete, 132/132 SP) — see `_bmad-output/planning-artifacts/sprint-planning-roles-tags-2026-03-22.md`
+- **Trace Pipeline**: Bronze→Silver→Gold (PIPE-01 to PIPE-07 done, BACKFILL fixed)
+- **CAO System**: Auto-creation, watchdog (auto-comments on failures), interactive (@cao mentions)
+- **Task Pool**: Pool tab on issues, "Take" self-assign, assigneeTagId support
+- **Tag management**: Tag selector in agent creation + edit, tag isolation on all list endpoints
 
-## CURRENT STATE — Bronze→Silver→Gold Pipeline (2026-03-18)
+## What Remains
 
-### What's DONE (verified with Chrome screenshots)
+| Item | Type | Description |
+|------|------|-------------|
+| **REAL-RUN** | Trace | Lancer un vrai agent run avec tool calls riches pour avoir des traces variées |
+| **PIPE-08** | Trace | Workflow-level gold (agréger traces multi-agent) |
+| BOARD-RENAME | Tech debt | Rename "board" actor type to "user" across codebase (8 SP) |
+| SANDBOX-AUTH | Tech debt | Auto-persist claude credentials across container recreation (3 SP) |
+| PRESET-SLUGS | Tech debt | Hardcoded permission slugs in OnboardingWizard → fetch from API (2 SP) |
 
-| Step | Status | What |
-|------|--------|------|
-| PIPE-01 | DONE | Bronze capture in heartbeat.ts:onLog — 2530+ real observations from real agent runs |
-| PIPE-02 | DONE | Silver enrichment — deterministic phase detection (COMPREHENSION/IMPLEMENTATION/VERIFICATION...) |
-| PIPE-03 | DONE | Gold schema — traces.gold JSONB + gold_prompts table + CRUD API + default prompt seeded |
-| PIPE-04 | DONE | Gold engine — deterministic fallback + `claude -p --model haiku` fallback (no API key needed) |
-| PIPE-05 | DONE | UI Gold timeline — TraceDetail with Gold→Silver→Bronze drill-down |
-| PIPE-06 | DONE | Gold in RunDetail — agent run panel shows trace gold phases |
-| OBS-01 | DONE | Bronze fix — parse assistant.message.content[] blocks (tool_use/thinking/text) |
-| OBS-02 | DONE | TraceDataProvider — iterative tree building, nodeMap O(1), cost aggregation |
-| OBS-03 | DONE | SelectionProvider + ViewPreferencesProvider (shared state) |
-| OBS-04 | DONE | Resizable split layout (react-resizable-panels) |
-| OBS-05 | DONE | Tree view — virtualized, phase groups, icons, heatmap, click-to-select |
-| OBS-06 | DONE | Timeline Gantt upgrade — provider-backed, sync with tree selection |
-| OBS-07 | DONE | Detail panel — IO tab (Formatted/JSON/Raw toggle) |
-| OBS-08 | DONE | Detail panel — Gold tab (verdict, annotation, scores, AC status) |
-| OBS-09 | DONE | Gold Haiku E2E — WORKS! 20+ traces enriched by claude-haiku-via-cli |
-| OBS-10 | DONE | Agent Graph View — CSS flow nodes with arrows, scores, annotations |
-| OBS-11 | DONE | Live Streaming — WebSocket in TraceDetail for running traces |
-| OBS-12 | DONE | QC Chrome — screenshot verified: gold banner + tree + graph + detail panel |
+### Architecture Decisions (Trace Pipeline)
 
-### What REMAINS — Next Session TODO
-
-| Step | Description | Priority |
-|------|-------------|----------|
-| **REAL-RUN** | Lancer un VRAI agent run avec tool calls riches (Read, Edit, Bash) pour avoir des traces variées | P0 |
-| PIPE-08 | Workflow-level gold (agréger traces multi-agent) | P1 |
-| ~~BACKFILL~~ | ~~Gold backfill timeout~~ — **DONE** (batch processing with 5-trace batches + 2s delay) | ~~P1~~ |
-| ~~PIPE-07~~ | ~~UI Gold prompts management~~ — **DONE** (Gold Prompts section in TraceSettings page) | ~~P1~~ |
-| **LANGFUSE** | Décision stratégique: garder MnM trace UI vs intégrer Langfuse pour LangGraph (Gabriel). Conclusion: garder MnM pour adapters process-based, ajouter Langfuse bridge quand LangGraph arrive. | P2 |
-
-### OBS-09 Gold Haiku E2E Verification (2026-03-18)
-
-**Findings:**
-- `claude` CLI IS available inside Docker at `/usr/local/bin/claude`
-- `claude -p --model haiku` is called successfully (not a network/auth issue)
-- However, the Haiku response is not always valid JSON — `parseGoldResponse()` fails
-- The gold engine correctly falls back to `deterministic-fallback` when JSON is unparseable
-- All 5 completed traces in DB show `modelUsed: "deterministic-fallback"`
-- **Root cause**: The prompt asks for JSON-only response, but Haiku sometimes wraps it in markdown or adds explanation text. The regex extractor handles ```json blocks but some edge cases slip through.
-- **Fix needed**: Add more robust JSON extraction (try multiple patterns) or add `--output-format json` to the claude -p call, or retry once on parse failure.
-
-### How to Resume
-
-1. Read THIS FILE
-2. Read `_bmad-output/planning-artifacts/tech-spec-bronze-silver-gold-2026-03-18.md` for full tech spec v2
-3. Read the 3 review reports in `_bmad-output/planning-artifacts/REVIEW-*.md` for known issues
-4. Check memory files for user feedback/vision (especially `feedback_gold_hierarchical_auto.md`)
-5. Start with REFACTOR-UI or REAL-RUN depending on priorities
-
-### Critical Architecture Decisions
-
-**Bronze→Silver→Gold vision (user-confirmed):**
-- **Gold** = DEFAULT view the user sees. Intelligent timeline, phases scored, annotated, contextualized
-- **Silver** = expand for more detail. Still retravaillé, not raw. Grouped observations with summaries
-- **Bronze** = expand further for raw JSON blocks. Debug only.
+- **Gold** = DEFAULT view. Intelligent timeline, phases scored, annotated, contextualized
+- **Silver** = expand for detail. Grouped observations with summaries
+- **Bronze** = raw JSON blocks. Debug only.
 - Gold is AUTO-GENERATED at trace completion (not manual click)
 - Gold prompt is HIERARCHICAL: global → workflow → agent → issue context
 - Traces are a MIDDLEWARE on top of all adapters (heartbeat.ts:onLog), NOT inside adapters
-- For LLM enrichment (silver naming + gold analysis): use `claude -p --model haiku` which reuses existing Claude Code auth. Works in Docker too since admin is logged in as MnM user.
-
-**UI direction (user feedback):**
-- Current accordion/dropdown UI is NOT acceptable
-- Need Langfuse-style timeline: horizontal bars, sequential/parallel visibility, proportional durations
-- Look at https://langfuse.com for inspiration
-- The timeline should show multi-agent workflows as parallel lanes
-
-### Key Files for Trace Pipeline
-
-```
-server/src/services/bronze-trace-capture.ts    — Bronze capture middleware (hooks into onLog)
-server/src/services/silver-trace-enrichment.ts — Silver phase detection (deterministic)
-server/src/services/gold-trace-enrichment.ts   — Gold enrichment (claude -p Haiku + fallback)
-server/src/services/trace-service.ts           — Trace CRUD + aggregation
-server/src/services/lens-analysis.ts           — Legacy lens analysis (may be replaced by gold)
-server/src/services/heartbeat.ts               — WHERE bronze hooks in (onLog callback ~line 1257)
-server/src/routes/traces.ts                    — API routes for traces, lenses, gold prompts
-packages/db/src/schema/traces.ts               — DB schema (traces, observations, lenses, gold_prompts)
-packages/db/src/migrations/0045_trace_vision.sql      — Initial trace tables
-packages/db/src/migrations/0046_trace_vision_fixes.sql — RLS + schema alignment fixes
-packages/db/src/migrations/0047_gold_prompts.sql       — Gold prompts table + traces.gold column
-ui/src/pages/Traces.tsx                        — Trace list page
-ui/src/pages/TraceDetail.tsx                   — Trace detail (Gold→Silver→Bronze drill-down) + live streaming (OBS-11)
-ui/src/components/traces/GoldVerdictBanner.tsx  — Gold verdict banner component
-ui/src/components/traces/GoldPhaseCard.tsx      — Gold phase card component
-ui/src/components/traces/TraceGraphView.tsx     — OBS-10: CSS-based agent workflow graph (phase flow nodes)
-```
-
-## Key Documents
-
-- `_bmad-output/planning-artifacts/tech-spec-bronze-silver-gold-2026-03-18.md` — Tech spec v2 (Gold=default, hierarchical prompts, 9 stories)
-- `_bmad-output/planning-artifacts/REVIEW-ARCHITECT-trace-pipeline.md` — Architecture review (6/10, RLS fix applied)
-- `_bmad-output/planning-artifacts/REVIEW-ADVERSARIAL-trace-pipeline.md` — Adversarial review (4 critical, all fixed)
-- `_bmad-output/planning-artifacts/REVIEW-QA-trace-pipeline.md` — QA review (60+ AC enriched)
-- `_bmad-output/planning-artifacts/epics-b2b.md` — 16 Epics, ~69 Stories (all done)
-- `_bmad-output/planning-artifacts/epics-scale-trace.md` — TRACE Epics (13 stories)
-- `_bmad-output/planning-artifacts/UI-UX-AUDIT-REPORT.md` — UI audit (7.2/10)
+- For LLM enrichment: `claude -p --model haiku` which reuses existing Claude Code auth
 
 ## Repository Structure
 
@@ -140,7 +55,7 @@ ui/src/components/traces/TraceGraphView.tsx     — OBS-10: CSS-based agent work
 - `packages/db/src/` — Drizzle ORM schema, migrations (50+ tables, multi-tenant)
 - `packages/shared/` — Shared types (B2B domain models)
 - `packages/adapters/` — Agent adapters (claude-local, cursor-local, etc.)
-- `e2e/` — Playwright E2E tests (59 pass in Docker authenticated mode)
+- `e2e/` — Playwright E2E tests (60+ tests in Docker authenticated mode)
 - `_bmad/` — BMAD framework. Do NOT modify.
 - `_bmad-output/` — Planning artifacts, brainstorming, reviews, stories
 
@@ -160,25 +75,11 @@ bun run test:e2e    # Run Playwright E2E tests
 docker compose build server                    # Rebuild with latest code
 docker compose up -d --wait                    # Start server + DB + Redis
 # Server on http://127.0.0.1:3100 (authenticated mode, 48 RLS tables)
-# 59 E2E tests pass against Docker
 ```
 
-## E2E Test System
+## Planning Documents
 
-### Running
-```bash
-# Docker (recommended): 59 tests, auth + RBAC
-docker compose build && docker compose up -d --wait
-bun run test:e2e
-
-# Local dev: 50 tests, auth skipped
-bun run dev
-bun run test:e2e
-```
-
-### Writing New E2E Tests
-1. Use seed data from `e2e/fixtures/seed-data.ts`
-2. Real browser interactions (not file-content checks)
-3. Cover RBAC enforcement (4 roles)
-4. `data-testid` attributes for selectors
-5. Video capture automatic (playwright.config.ts)
+- `_bmad-output/planning-artifacts/sprint-planning-roles-tags-2026-03-22.md` — Sprint tracking (135 SP, all done)
+- `_bmad-output/planning-artifacts/epics-b2b.md` — 16 Epics, ~69 Stories (all done)
+- `_bmad-output/planning-artifacts/epics-scale-trace.md` — SCALE + TRACE Epics (20 stories)
+- `_bmad-output/planning-artifacts/tech-spec-bronze-silver-gold-2026-03-18.md` — Trace pipeline tech spec
