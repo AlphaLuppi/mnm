@@ -212,6 +212,20 @@ export async function bootstrapCompany(
     // 5. Create the CAO agent
     const caoAgentId = await ensureCao(tx as unknown as Db, companyId, adminUserId);
 
+    // 6. Create a company_memberships row for the CAO (Admin role, consistency)
+    if (resolvedAdminRoleId) {
+      await tx
+        .insert(companyMemberships)
+        .values({
+          companyId,
+          principalType: "agent",
+          principalId: caoAgentId,
+          roleId: resolvedAdminRoleId,
+          membershipRole: "member",
+        })
+        .onConflictDoNothing();
+    }
+
     logger.info({
       companyId,
       adminRoleId: resolvedAdminRoleId,

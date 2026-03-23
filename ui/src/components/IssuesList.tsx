@@ -145,6 +145,8 @@ interface IssuesListProps {
   initialSearch?: string;
   onSearchChange?: (search: string) => void;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
+  poolMode?: boolean;
+  onTakeIssue?: (id: string) => void;
 }
 
 export function IssuesList({
@@ -159,6 +161,8 @@ export function IssuesList({
   initialSearch,
   onSearchChange,
   onUpdateIssue,
+  poolMode,
+  onTakeIssue,
 }: IssuesListProps) {
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
@@ -732,6 +736,15 @@ export function IssuesList({
                         </PopoverContent>
                       </Popover>
                     </div>
+                    {poolMode && onTakeIssue && (
+                      <button
+                        className="hidden sm:inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTakeIssue(issue.id); }}
+                      >
+                        <User className="h-3 w-3" />
+                        Take
+                      </button>
+                    )}
                     <span className="text-xs text-muted-foreground hidden sm:inline">
                       {formatDate(issue.createdAt)}
                     </span>
