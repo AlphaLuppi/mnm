@@ -1,5 +1,9 @@
 // POD-03: Per-User Sandbox lifecycle management (renamed from pod-manager.ts)
 import Docker from "dockerode";
+import { execSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { userPods, authUsers } from "@mnm/db";
@@ -7,6 +11,31 @@ import type { SandboxStatus, UserSandbox } from "@mnm/shared";
 import { notFound, conflict } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { getDockerClient } from "./docker-client.js";
+
+/**
+ * SANDBOX-AUTH: Copy Claude credentials from host to container.
+ * Copies the admin's ~/.claude directory so the container can use claude CLI
+ * without manual authentication.
+ */
+async function copyClaudeCredentials(containerId: string): Promise<void> {
+  const hostClaudeDir = join(homedir(), ".claude");
+  if (!existsSync(hostClaudeDir)) {
+    throw new Error("No ~/.claude directory found on host — claude credentials not available");
+  }
+
+  // docker cp copies the directory contents into the container
+  // Target: /home/agent/.claude/ (the agent user's home)
+  execSync(`docker cp "${hostClaudeDir}/." "${containerId}:/home/agent/.claude/"`, {
+    timeout: 10_000,
+  });
+
+  // Fix ownership (container runs as agent user, docker cp may set root)
+  execSync(`docker exec "${containerId}" chown -R agent:agent /home/agent/.claude`, {
+    timeout: 5_000,
+  });
+
+  logger.info({ containerId: containerId.slice(0, 12) }, "Claude credentials copied to sandbox");
+}
 
 const DEFAULT_SANDBOX_IMAGE = "mnm-agent:latest";
 const MAX_SANDBOXES_PER_COMPANY = 25;
@@ -149,16 +178,26 @@ export function sandboxManagerService(db: Db) {
 
       await container.start();
 
+      // SANDBOX-AUTH: Auto-copy Claude credentials from host to container
+      let claudeAuthStatus = "unknown";
+      try {
+        await copyClaudeCredentials(container.id);
+        claudeAuthStatus = "authenticated";
+      } catch (authErr) {
+        logger.warn({ err: authErr, sandboxId }, "Could not copy Claude credentials to sandbox (manual auth may be needed)");
+      }
+
       await db.update(userPods)
         .set({
           dockerContainerId: container.id,
           status: "running",
+          claudeAuthStatus,
           lastActiveAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(userPods.id, sandboxId));
 
-      logger.info(`Sandbox ${sandboxId} started: container ${container.id.slice(0, 12)}`);
+      logger.info(`Sandbox ${sandboxId} started: container ${container.id.slice(0, 12)}, auth=${claudeAuthStatus}`);
     } catch (err: any) {
       await db.update(userPods)
         .set({

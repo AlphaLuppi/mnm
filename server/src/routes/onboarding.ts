@@ -127,5 +127,62 @@ export function onboardingRoutes(db: Db) {
     res.json(info);
   });
 
+  // GET /api/onboarding/role-presets — returns predefined role presets for onboarding step 2
+  router.get("/onboarding/role-presets", async (_req, res) => {
+    res.json({
+      startup: [
+        {
+          name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 50,
+          permissionSlugs: [
+            "agents:launch", "agents:create", "agents:configure",
+            "issues:create", "issues:assign",
+            "projects:create",
+            "stories:create", "stories:edit",
+            "traces:read",
+            "chat:agent",
+            "dashboard:view",
+          ],
+        },
+      ],
+      structured: [
+        {
+          name: "Lead", slug: "lead", description: "Team lead with elevated access", hierarchyLevel: 20,
+          permissionSlugs: [
+            "agents:create", "agents:launch", "agents:configure", "agents:delete",
+            "issues:create", "issues:assign", "issues:delete",
+            "projects:create", "projects:manage", "projects:manage_members",
+            "users:invite",
+            "workflows:create", "workflows:enforce",
+            "stories:create", "stories:edit",
+            "traces:read", "traces:write",
+            "audit:read",
+            "chat:agent", "chat:channel",
+            "dashboard:view",
+          ],
+        },
+        {
+          name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 50,
+          permissionSlugs: [
+            "agents:launch", "agents:create", "agents:configure",
+            "issues:create", "issues:assign",
+            "projects:create",
+            "stories:create", "stories:edit",
+            "traces:read",
+            "chat:agent",
+            "dashboard:view",
+          ],
+        },
+        {
+          name: "Viewer", slug: "viewer", description: "Read-only access", hierarchyLevel: 80,
+          permissionSlugs: [
+            "traces:read",
+            "audit:read",
+            "dashboard:view",
+          ],
+        },
+      ],
+    });
+  });
+
   return router;
 }
