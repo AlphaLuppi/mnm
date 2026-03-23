@@ -1124,6 +1124,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
             wakeCommentId: comment.id,
             wakeReason: "issue_comment_mentioned",
             source: "comment.mention",
+            // CAO-04: Include issue + comment context so the agent can respond
+            issueTitle: currentIssue.title,
+            issueDescription: currentIssue.description,
+            mentionCommentBody: comment.body,
           },
         });
       }
