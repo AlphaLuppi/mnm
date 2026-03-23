@@ -39,8 +39,8 @@ Everything from previous sessions PLUS:
 ### Trace Pipeline (from CLAUDE.md)
 
 - **REAL-RUN** — Launch real agent run with rich tool calls for varied traces
-- **BACKFILL** — Gold backfill timeout after 20 traces (batch + retry)
-- **PIPE-07** — UI Gold prompts management (settings page)
+- ~~BACKFILL~~ — **DONE** (batch processing: 5-trace batches + 2s delay)
+- ~~PIPE-07~~ — **DONE** (Gold Prompts section in TraceSettings page, full CRUD)
 - **PIPE-08** — Workflow-level gold (aggregate multi-agent traces)
 
 ---
