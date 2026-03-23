@@ -23,7 +23,7 @@ Language: French for planning documents.
 
 - **69 B2B stories** (TECH/RBAC/MU/ORCH/PROJ/OBS/CHAT/CONT/A2A/COMP/DUAL/SSO/DASH/ONB/DRIFT)
 - **35 Roles/Tags stories** (all P1 complete, 132/132 SP) — see `_bmad-output/planning-artifacts/sprint-planning-roles-tags-2026-03-22.md`
-- **Trace Pipeline**: Bronze→Silver→Gold (PIPE-01 to PIPE-07 done, BACKFILL fixed)
+- **Trace Pipeline**: Bronze→Silver→Gold (PIPE-01 to PIPE-08 done, BACKFILL fixed, workflow-level gold)
 - **CAO System**: Auto-creation, watchdog (auto-comments on failures), interactive (@cao mentions)
 - **Task Pool**: Pool tab on issues, "Take" self-assign, assigneeTagId support
 - **Tag management**: Tag selector in agent creation + edit, tag isolation on all list endpoints
@@ -33,7 +33,6 @@ Language: French for planning documents.
 | Item | Type | Description |
 |------|------|-------------|
 | **REAL-RUN** | Trace | Lancer un vrai agent run avec tool calls riches pour avoir des traces variées |
-| **PIPE-08** | Trace | Workflow-level gold (agréger traces multi-agent) |
 | BOARD-RENAME | Tech debt | Rename "board" actor type to "user" across codebase (8 SP) |
 | SANDBOX-AUTH | Tech debt | Auto-persist claude credentials across container recreation (3 SP) |
 | PRESET-SLUGS | Tech debt | Hardcoded permission slugs in OnboardingWizard → fetch from API (2 SP) |
