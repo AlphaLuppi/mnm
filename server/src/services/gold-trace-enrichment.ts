@@ -704,7 +704,10 @@ export function goldTraceEnrichment(db: Db) {
      * Backfill: enrich all completed traces that have silver phases but no gold.
      * Returns the count of traces enriched.
      */
-    backfillGoldEnrichment: async (): Promise<number> => {
+    backfillGoldEnrichment: async (opts?: { batchSize?: number; delayMs?: number }): Promise<number> => {
+      const BATCH_SIZE = opts?.batchSize ?? 5;
+      const DELAY_MS = opts?.delayMs ?? 2000;
+
       logger.info("Gold backfill: starting — finding traces with silver but no gold");
 
       const tracesToEnrich = await db
@@ -718,19 +721,43 @@ export function goldTraceEnrichment(db: Db) {
           ),
         );
 
-      logger.info({ count: tracesToEnrich.length }, "Gold backfill: found traces to enrich");
+      logger.info({ count: tracesToEnrich.length, batchSize: BATCH_SIZE }, "Gold backfill: found traces to enrich");
 
       let enriched = 0;
-      for (const trace of tracesToEnrich) {
-        try {
-          await goldTraceEnrichment(db).enrichTraceGold(trace.id, trace.companyId);
-          enriched++;
-        } catch (err) {
-          logger.warn({ err, traceId: trace.id }, "Gold backfill failed for trace");
+      let failed = 0;
+
+      for (let i = 0; i < tracesToEnrich.length; i += BATCH_SIZE) {
+        const batch = tracesToEnrich.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(tracesToEnrich.length / BATCH_SIZE);
+
+        logger.info({ batch: batchNum, totalBatches, size: batch.length }, "Gold backfill: processing batch");
+
+        const results = await Promise.allSettled(
+          batch.map((trace) =>
+            goldTraceEnrichment(db).enrichTraceGold(trace.id, trace.companyId),
+          ),
+        );
+
+        for (let j = 0; j < results.length; j++) {
+          if (results[j].status === "fulfilled") {
+            enriched++;
+          } else {
+            failed++;
+            logger.warn(
+              { err: (results[j] as PromiseRejectedResult).reason, traceId: batch[j].id },
+              "Gold backfill failed for trace",
+            );
+          }
+        }
+
+        // Delay between batches to avoid overwhelming claude CLI
+        if (i + BATCH_SIZE < tracesToEnrich.length) {
+          await new Promise((r) => setTimeout(r, DELAY_MS));
         }
       }
 
-      logger.info({ total: tracesToEnrich.length, enriched }, "Gold backfill complete");
+      logger.info({ total: tracesToEnrich.length, enriched, failed }, "Gold backfill complete");
       return enriched;
     },
   };

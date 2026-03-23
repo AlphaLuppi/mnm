@@ -15,6 +15,11 @@ import {
   type CreateLensInput,
   type UpdateLensInput,
 } from "../api/lenses";
+import {
+  goldPromptsApi,
+  type GoldPrompt,
+  type GoldPromptScope,
+} from "../api/gold-prompts";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -257,6 +262,9 @@ export function TraceSettings() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Gold Prompts Section ── */}
+      <GoldPromptsSection companyId={selectedCompanyId!} />
+
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <DialogContent>
@@ -397,6 +405,208 @@ function LensCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Gold Prompts Section ─────────────────────────────────────────────────
+
+const SCOPE_LABELS: Record<GoldPromptScope, string> = {
+  global: "Global",
+  workflow: "Workflow",
+  agent: "Agent",
+  issue: "Issue",
+};
+
+function GoldPromptsSection({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState<GoldPrompt | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<GoldPrompt | null>(null);
+  const [form, setForm] = useState({ scope: "global" as GoldPromptScope, prompt: "", isActive: true });
+
+  const { data: prompts, isLoading } = useQuery({
+    queryKey: queryKeys.goldPrompts.list(companyId),
+    queryFn: () => goldPromptsApi.list(companyId),
+    enabled: !!companyId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => goldPromptsApi.create(companyId, { scope: form.scope, prompt: form.prompt, isActive: form.isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.goldPrompts.list(companyId) });
+      setCreateOpen(false);
+      setForm({ scope: "global", prompt: "", isActive: true });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () => editingPrompt ? goldPromptsApi.update(companyId, editingPrompt.id, { prompt: form.prompt, isActive: form.isActive }) : Promise.resolve(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.goldPrompts.list(companyId) });
+      setEditingPrompt(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => goldPromptsApi.delete(companyId, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.goldPrompts.list(companyId) });
+      setDeleteTarget(null);
+    },
+  });
+
+  if (isLoading) return null;
+
+  return (
+    <div className="space-y-3 border-t border-border pt-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Gold Prompts
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            System prompts for automatic gold enrichment. Applied hierarchically: global → workflow → agent → issue.
+          </p>
+        </div>
+        <Button size="sm" onClick={() => { setForm({ scope: "global", prompt: "", isActive: true }); setCreateOpen(true); }}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          New Prompt
+        </Button>
+      </div>
+
+      {(prompts ?? []).length === 0 ? (
+        <EmptyState
+          icon={Sparkles}
+          message="No gold prompts configured. A default prompt is used for enrichment."
+        />
+      ) : (
+        <div className="space-y-2">
+          {(prompts ?? []).map((gp) => (
+            <div key={gp.id} className="rounded-md border border-border bg-card px-4 py-3 flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">
+                    {SCOPE_LABELS[gp.scope]}
+                  </Badge>
+                  {!gp.isActive && (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                      Inactive
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-3 whitespace-pre-wrap">
+                  {gp.prompt}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button variant="ghost" size="icon-sm" onClick={() => {
+                  setForm({ scope: gp.scope, prompt: gp.prompt, isActive: gp.isActive });
+                  setEditingPrompt(gp);
+                }}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon-sm" onClick={() => setDeleteTarget(gp)}>
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create gold prompt dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Create Gold Prompt</DialogTitle></DialogHeader>
+          <GoldPromptForm form={form} onChange={setForm} showScope />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={() => createMutation.mutate()} disabled={!form.prompt.trim() || createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit gold prompt dialog */}
+      <Dialog open={!!editingPrompt} onOpenChange={(open) => { if (!open) setEditingPrompt(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Gold Prompt</DialogTitle></DialogHeader>
+          <GoldPromptForm form={form} onChange={setForm} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingPrompt(null)}>Cancel</Button>
+            <Button onClick={() => updateMutation.mutate()} disabled={!form.prompt.trim() || updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete gold prompt dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Delete Gold Prompt</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Delete this {SCOPE_LABELS[deleteTarget?.scope ?? "global"]} gold prompt? This cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function GoldPromptForm({
+  form,
+  onChange,
+  showScope = false,
+}: {
+  form: { scope: GoldPromptScope; prompt: string; isActive: boolean };
+  onChange: (f: typeof form) => void;
+  showScope?: boolean;
+}) {
+  return (
+    <div className="space-y-4 py-2">
+      {showScope && (
+        <div className="space-y-2">
+          <Label>Scope</Label>
+          <div className="flex gap-2">
+            {(["global", "workflow", "agent", "issue"] as GoldPromptScope[]).map((s) => (
+              <Button
+                key={s}
+                variant={form.scope === s ? "default" : "outline"}
+                size="sm"
+                onClick={() => onChange({ ...form, scope: s })}
+              >
+                {SCOPE_LABELS[s]}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label>Prompt</Label>
+        <Textarea
+          placeholder="Analyze this trace and provide..."
+          value={form.prompt}
+          onChange={(e) => onChange({ ...form, prompt: e.target.value })}
+          rows={6}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={form.isActive}
+          onCheckedChange={(checked) => onChange({ ...form, isActive: checked })}
+        />
+        <Label className="text-sm">Active</Label>
+      </div>
     </div>
   );
 }
