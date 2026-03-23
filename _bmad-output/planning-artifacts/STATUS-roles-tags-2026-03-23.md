@@ -1,33 +1,38 @@
 # Status Report — Roles + Tags + Enterprise System
-> **Date** : 2026-03-23 | **Total commits** : ~25 | **0 TS errors**
+> **Date** : 2026-03-23 (updated batch 2) | **Total commits** : ~33 | **0 TS errors**
 
-## Completed (108/132 SP + bonus fixes)
+## Completed (131/132 SP + bonus fixes)
 
 ### Sprint 1 — Schema + Tenant (25/25 SP) DONE
 - [x] SCHEMA-01..05 : 5 nouvelles tables, nuke legacy, migration SQL
 - [x] TENANT-01 : Auto-inject companyId middleware
 - [x] TENANT-02 : Route rewriting (agents can call /api/issues directly)
+- [x] TENANT-03 : Company rail hidden in single-tenant mode *(batch 2)*
 
 ### Sprint 2 — Permission Engine (24/24 SP) DONE
 - [x] PERM-01..05 : hasPermission rewrite, TagScope, cache, validation, seed
 - [x] API-01 : Roles CRUD
 - [x] API-04 : Permissions + Member Role CRUD
 
-### Sprint 3 — Tags + Isolation (23/28 SP) DONE
+### Sprint 3 — Tags + Isolation (28/28 SP) DONE
 - [x] API-02 : Tags CRUD
 - [x] API-03 : Tag Assignments
 - [x] ISO-01..03 : Tag filtering service (agents, issues, traces)
-- [ ] ISO-04 : Tests E2E isolation (deferred — needs running server + seed)
+- [x] ISO-04 : E2E tests for tag isolation (8 tests: setup, isolation, cleanup) *(batch 2)*
 
-### Sprint 4 — Agents + UI (27/27 SP) DONE
+### Sprint 4 — Agents + UI (30/30 SP) DONE
 - [x] AGENT-01..04 : Agent tags, sandbox routing, resolveRunActor
 - [x] UI-01..03 : Admin pages (Roles, Tags, Members)
+- [x] AGENT-TAGS-UI : Tag selector in agent creation + edit dialog *(batch 2)*
 
-### Sprint 5 — CAO (5/15 SP) PARTIAL
-- [x] CAO-01 : Agent auto-creation + bootstrap
+### Sprint 5 — CAO (10/15 SP) PARTIAL
+- [x] CAO-01 : Agent auto-creation + bootstrap (transactional, with membership row)
 - [x] CAO-02 : Auto-tagging hook
-- [ ] CAO-03 : Watchdog mode (deferred — needs event hooks)
+- [x] CAO-03 : Watchdog mode — monitors run failures, auto-comments on issues *(batch 2)*
 - [ ] CAO-04 : Interactive @cao (deferred — needs chat integration)
+
+### Sprint 6 — Task Pool (5/5 SP) DONE *(batch 2)*
+- [x] UI-05 : Task Pool UI (All Issues / Pool tabs, "Take" self-assign, pool filter backend)
 
 ### Bonus Fixes (not in original sprints)
 - [x] Onboarding wizard rewrite (5 steps, roles+tags presets)
@@ -44,28 +49,35 @@
 - [x] Permission editor in AdminRoles (checkbox grid)
 - [x] Permission presets in onboarding (Startup/Structured)
 
-## Remaining Work
+### Security & Architecture Fixes *(batch 2)*
+- [x] P0: Tag filtering enforced on GET /agents (tagFilterService)
+- [x] P0: bootstrapCompany() wrapped in db.transaction()
+- [x] P0: PATCH/DELETE role adds companyId in WHERE (defense-in-depth)
+- [x] P0: UUID validation on issueId in run-actor-resolver
+- [x] P0: CAO stale comment fixed (claude_local, not system)
+- [x] N+1 queries fixed in roles + tags list endpoints
+- [x] Tags list endpoint: assertCompanyAccess guard added
+- [x] CAO membership row created in bootstrapCompany
+- [x] Stale E2E tests skipped (RBAC-S03, ONB-S02, PROJ-S02 Group 1)
+- [x] assigneeTagId added to shared Issue type
+- [x] "me" substitution in PATCH /issues/:id for self-assign
 
-### P0 — Blocking / Critical
-| Story | Description | Effort |
-|-------|-------------|--------|
-| **TENANT-03** | Remove company selector UI (sidebar) | 2 SP |
-| **ISO-04** | E2E tests for tag isolation | 5 SP |
+## Remaining Work
 
 ### P1 — Important
 | Story | Description | Effort |
 |-------|-------------|--------|
-| **UI-04** | Onboarding wizard — tag step needs polish | 3 SP |
-| **UI-05** | Task Pool UI (assign issue by tag, pool view) | 5 SP |
-| **CAO-03** | Watchdog mode (event hooks, anomaly detection) | 5 SP |
 | **CAO-04** | Interactive @cao (chat integration) | 5 SP |
-| **AGENT-TAGS-UI** | Agent creation dialog — tag selector | 3 SP |
 
-### P2 — Nice to Have
+### P2 — Nice to Have / Tech Debt
 | Story | Description | Effort |
 |-------|-------------|--------|
+| **UI-04** | Onboarding wizard — tag step polish (already functional) | 3 SP |
+| **membershipRole** | Remove legacy membershipRole writes in access.ts | 3 SP |
+| **CAO-CACHE** | Cache CAO ID lookup (avoid JSONB scan) — partially done in watchdog | 2 SP |
+| **CACHE-REDIS** | In-process permission cache → document single-instance or use Redis | 3 SP |
+| **PRESET-SLUGS** | Hardcoded permission slugs in OnboardingWizard → fetch from API | 2 SP |
 | **BOARD-RENAME** | Rename "board" actor type to "user" | 8 SP |
-| **CEO-CLEANUP** | Remove remaining CEO references in codebase | 3 SP |
 | **AGENT-INSTRUCTIONS** | Agent instructions file support in Docker | 3 SP |
 | **SANDBOX-AUTH-PERSIST** | Auto-copy claude credentials to new containers | 3 SP |
 
@@ -73,3 +85,16 @@
 1. Agent runs still show stderr "Using fallback workspace" from heartbeat (cosmetic, non-blocking)
 2. Claude auth in container needs manual setup after container recreation
 3. Some old UI components still reference legacy role patterns (stub'd, not broken)
+
+## Session 2 Commits (2026-03-23, batch 2)
+
+| Commit | Description |
+|--------|-------------|
+| ea11717 | fix: 5 P0 security findings — tag isolation, transaction, defense-in-depth |
+| 4d92b85 | feat: TENANT-03 + AGENT-TAGS-UI + N+1 queries |
+| 7b095f3 | feat: tag management in agent edit |
+| e655ea4 | feat: UI-05 Task Pool + arch fixes |
+| b7c1488 | fix: skip stale E2E tests |
+| f247739 | docs: NEXT-SESSION.md updated |
+| 201f670 | test: ISO-04 — E2E tests tag isolation |
+| 2aa0c38 | feat: CAO-03 — Watchdog mode |
