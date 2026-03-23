@@ -103,7 +103,10 @@ export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, cl
     : entityLink(event.entityType, event.entityId, name);
 
   const actor = event.actorType === "agent" ? agentMap.get(event.actorId) : null;
-  const actorName = actor?.name ?? (event.actorType === "system" ? "System" : event.actorType === "user" ? "Board" : event.actorId || "Unknown");
+  const eventAny = event as unknown as Record<string, unknown>;
+  const actorName = actor?.name
+    ?? (eventAny.actorName as string | undefined)
+    ?? (event.actorType === "system" ? "System" : event.actorType === "user" ? (eventAny.actorEmail as string | undefined) ?? "User" : event.actorId || "Unknown");
 
   const inner = (
     <div className="flex gap-3">
