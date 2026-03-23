@@ -281,9 +281,11 @@ export function agentService(db: Db) {
       }
     }
 
-    const normalizedPatch = { ...data } as Partial<typeof agents.$inferInsert>;
-    if (data.permissions !== undefined) {
-      normalizedPatch.permissions = normalizeAgentPermissions(data.permissions);
+    // Extract tagIds before patching (not a DB column)
+    const { tagIds, ...restData } = data as Partial<typeof agents.$inferInsert> & { tagIds?: string[] };
+    const normalizedPatch = { ...restData } as Partial<typeof agents.$inferInsert>;
+    if (restData.permissions !== undefined) {
+      normalizedPatch.permissions = normalizeAgentPermissions(restData.permissions);
     }
 
     const shouldRecordRevision = Boolean(options?.recordRevision) && hasConfigPatchFields(normalizedPatch);
@@ -296,6 +298,30 @@ export function agentService(db: Db) {
       .returning()
       .then((rows) => rows[0] ?? null);
     const normalizedUpdated = updated ? normalizeAgentRow(updated) : null;
+
+    // Sync tag assignments if tagIds provided
+    if (tagIds !== undefined && normalizedUpdated) {
+      // Remove existing tag assignments for this agent
+      await db.delete(tagAssignments).where(
+        and(
+          eq(tagAssignments.companyId, existing.companyId),
+          eq(tagAssignments.targetType, "agent"),
+          eq(tagAssignments.targetId, id),
+        ),
+      );
+      // Insert new ones
+      if (tagIds.length > 0) {
+        await db.insert(tagAssignments).values(
+          tagIds.map((tagId) => ({
+            companyId: existing.companyId,
+            targetType: "agent" as const,
+            targetId: id,
+            tagId,
+            assignedBy: existing.createdByUserId ?? "system",
+          })),
+        ).onConflictDoNothing();
+      }
+    }
 
     if (normalizedUpdated && shouldRecordRevision && beforeConfig) {
       const afterConfig = buildConfigSnapshot(normalizedUpdated);
