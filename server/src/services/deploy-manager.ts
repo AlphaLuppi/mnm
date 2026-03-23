@@ -127,14 +127,26 @@ export function deployManagerService(db: Db) {
         ? ["sh", "-c", `cd /app && (npm install --production 2>/dev/null || true) && (npm start || node index.js || node server.js || npx serve -s . -l ${port})`]
         : undefined; // nginx uses default CMD
 
-      // Resolve the source volume: sourcePath is inside the user's sandbox workspace volume
-      // We need to find which volume contains this path and mount it into the deploy container
+      // Resolve the source volume from the user's sandbox
       const nginxRoot = projectType === "static" ? "/usr/share/nginx/html" : "/app";
 
-      // Find the sandbox that contains this sourcePath by looking at workspace volumes
+      // Find the sandbox to determine which Docker volume contains the source files
       const sandboxes = await db.select().from(userPods).where(eq(userPods.companyId, companyId));
-      const sandbox = sandboxes.find(s => s.workspaceVolume && s.status === "running");
-      const workspaceVolume = sandbox?.workspaceVolume ?? `mnm-sandbox-workspace-${sourcePath.split("/").pop() ?? "default"}`;
+      const sandbox = sandboxes.find(s => s.status === "running");
+
+      // sourcePath is a path INSIDE the container (/home/agent or /workspace)
+      // Map it to the correct Docker volume:
+      //   /home/agent/... → volumeName (home volume)
+      //   /workspace/...  → workspaceVolume
+      const isHomePath = sourcePath.startsWith("/home");
+      const sourceVolume = isHomePath
+        ? (sandbox?.volumeName ?? "mnm-sandbox-home-default")
+        : (sandbox?.workspaceVolume ?? "mnm-sandbox-workspace-default");
+
+      // Calculate the subdirectory within the volume to mount
+      // e.g., sourcePath="/home/agent/mysite" → mount the volume, nginx serves from root
+      // For now we mount the entire volume; agent should put files in the root of their cwd
+
 
       const container = await docker.createContainer({
         Image: image,
@@ -147,7 +159,7 @@ export function deployManagerService(db: Db) {
         ExposedPorts: { [`${port}/tcp`]: {} },
         HostConfig: {
           Binds: [
-            `${workspaceVolume}:${nginxRoot}:ro`,
+            `${sourceVolume}:${nginxRoot}:ro`,
           ],
           PortBindings: {
             [`${projectType === "static" ? "80" : port}/tcp`]: [{ HostPort: `${port}` }],
