@@ -1,7 +1,28 @@
-import { pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, index, jsonb } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { projects } from "./projects.js";
 import { workflowTemplates } from "./workflow_templates.js";
+
+// PIPE-08: Workflow-level gold aggregation type
+export interface WorkflowGoldStage {
+  stageInstanceId: string;
+  stageOrder: number;
+  agentId: string | null;
+  agentName: string | null;
+  traceId: string | null;
+  verdict: "success" | "partial" | "failure" | "neutral";
+  relevanceAvg: number;
+  annotation: string;
+}
+
+export interface WorkflowGold {
+  generatedAt: string;
+  stageCount: number;
+  stages: WorkflowGoldStage[];
+  verdict: "success" | "partial" | "failure";
+  verdictReason: string;
+  summary: string;
+}
 
 export const workflowInstances = pgTable(
   "workflow_instances",
@@ -25,6 +46,8 @@ export const workflowInstances = pgTable(
     terminatedAt: timestamp("terminated_at", { withTimezone: true }),
     lastActorId: text("last_actor_id"),
     lastActorType: text("last_actor_type"),
+    // PIPE-08: Workflow-level gold enrichment (aggregated from per-trace gold)
+    gold: jsonb("gold").$type<WorkflowGold>(),
   },
   (table) => ({
     companyStatusIdx: index("workflow_instances_company_status_idx").on(table.companyId, table.status),

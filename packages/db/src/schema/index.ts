@@ -32,7 +32,7 @@ export { activityLog } from "./activity_log.js";
 export { companySecrets } from "./company_secrets.js";
 export { companySecretVersions } from "./company_secret_versions.js";
 export { workflowTemplates, type WorkflowStageTemplateDef } from "./workflow_templates.js";
-export { workflowInstances } from "./workflow_instances.js";
+export { workflowInstances, type WorkflowGold, type WorkflowGoldStage } from "./workflow_instances.js";
 export { stageInstances } from "./stage_instances.js";
 export { inboxDismissals } from "./inbox_dismissals.js";
 export { projectMemberships } from "./project_memberships.js";

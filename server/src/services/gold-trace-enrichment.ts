@@ -24,7 +24,8 @@ import {
   issues,
   stageInstances,
 } from "@mnm/db";
-import type { TraceGold, TraceGoldPhase, TracePhase } from "@mnm/db";
+import type { TraceGold, TraceGoldPhase, TracePhase, WorkflowGold } from "@mnm/db";
+import { agents } from "@mnm/db";
 import { eq, sql, and, asc, isNull, isNotNull } from "drizzle-orm";
 import { logger } from "../middleware/logger.js";
 
@@ -759,6 +760,125 @@ export function goldTraceEnrichment(db: Db) {
 
       logger.info({ total: tracesToEnrich.length, enriched, failed }, "Gold backfill complete");
       return enriched;
+    },
+
+    /**
+     * PIPE-08: Enrich a workflow instance with aggregated gold from all its stage traces.
+     * Aggregates per-trace gold verdicts into a workflow-level summary.
+     */
+    enrichWorkflowGold: async (workflowInstanceId: string, companyId: string): Promise<WorkflowGold> => {
+      // Load workflow + stages
+      const [workflow] = await db
+        .select()
+        .from(workflowInstances)
+        .where(and(eq(workflowInstances.id, workflowInstanceId), eq(workflowInstances.companyId, companyId)));
+
+      if (!workflow) throw new Error(`Workflow instance ${workflowInstanceId} not found`);
+
+      const stages = await db
+        .select()
+        .from(stageInstances)
+        .where(eq(stageInstances.workflowInstanceId, workflowInstanceId))
+        .orderBy(asc(stageInstances.stageOrder));
+
+      // Load traces for this workflow (one per stage typically)
+      const workflowTraces = await db
+        .select()
+        .from(traces)
+        .where(and(
+          eq(traces.workflowInstanceId, workflowInstanceId),
+          eq(traces.companyId, companyId),
+        ));
+
+      // Build a map: stageInstanceId → trace(s)
+      const traceByStage = new Map<string, typeof workflowTraces[0]>();
+      for (const t of workflowTraces) {
+        if (t.stageInstanceId) {
+          // Keep the latest completed trace per stage
+          const existing = traceByStage.get(t.stageInstanceId);
+          if (!existing || (t.status === "completed" && existing.status !== "completed")) {
+            traceByStage.set(t.stageInstanceId, t);
+          }
+        }
+      }
+
+      // Load agent names for display
+      const agentIds = [...new Set(stages.map((s) => s.agentId).filter(Boolean))] as string[];
+      const agentRows = agentIds.length > 0
+        ? await db.select({ id: agents.id, name: agents.name }).from(agents).where(sql`${agents.id} IN (${sql.join(agentIds.map((id) => sql`${id}`), sql`, `)})`)
+        : [];
+      const agentNameMap = new Map(agentRows.map((a) => [a.id, a.name]));
+
+      // Aggregate per-stage gold
+      const goldStages: WorkflowGold["stages"] = [];
+      let successCount = 0;
+      let failureCount = 0;
+
+      for (const stage of stages) {
+        const trace = traceByStage.get(stage.id);
+        const gold = trace?.gold as TraceGold | null | undefined;
+
+        let stageVerdict: "success" | "partial" | "failure" | "neutral" = "neutral";
+        let relevanceAvg = 0;
+        let annotation = "No trace data";
+
+        if (gold) {
+          stageVerdict = gold.verdict;
+          relevanceAvg = gold.phases.length > 0
+            ? Math.round(gold.phases.reduce((sum, p) => sum + p.relevanceScore, 0) / gold.phases.length)
+            : 0;
+          annotation = gold.verdictReason;
+        } else if (trace) {
+          stageVerdict = trace.status === "completed" ? "success" : trace.status === "failed" ? "failure" : "neutral";
+          annotation = `Trace ${trace.status} (no gold analysis)`;
+        }
+
+        if (stageVerdict === "success") successCount++;
+        if (stageVerdict === "failure") failureCount++;
+
+        goldStages.push({
+          stageInstanceId: stage.id,
+          stageOrder: stage.stageOrder,
+          agentId: stage.agentId,
+          agentName: stage.agentId ? (agentNameMap.get(stage.agentId) ?? null) : null,
+          traceId: trace?.id ?? null,
+          verdict: stageVerdict,
+          relevanceAvg,
+          annotation,
+        });
+      }
+
+      // Overall verdict
+      let verdict: WorkflowGold["verdict"] = "partial";
+      if (failureCount === 0 && successCount === stages.length) verdict = "success";
+      else if (failureCount > 0 && failureCount === stages.length) verdict = "failure";
+
+      const verdictReason = `${successCount}/${stages.length} stages succeeded` +
+        (failureCount > 0 ? `, ${failureCount} failed` : "");
+
+      const summary = `Workflow "${workflow.name}" ${verdict}: ${verdictReason}.`;
+
+      const workflowGold: WorkflowGold = {
+        generatedAt: new Date().toISOString(),
+        stageCount: stages.length,
+        stages: goldStages,
+        verdict,
+        verdictReason,
+        summary,
+      };
+
+      // Store on workflow instance
+      await db
+        .update(workflowInstances)
+        .set({ gold: workflowGold, updatedAt: new Date() })
+        .where(eq(workflowInstances.id, workflowInstanceId));
+
+      logger.info(
+        { workflowInstanceId, verdict, stageCount: stages.length },
+        "Workflow gold enrichment complete",
+      );
+
+      return workflowGold;
     },
   };
 }
