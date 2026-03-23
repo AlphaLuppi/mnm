@@ -1,7 +1,7 @@
 # Status Report — Roles + Tags + Enterprise System
 > **Date** : 2026-03-23 (updated batch 2) | **Total commits** : ~33 | **0 TS errors**
 
-## Completed (131/132 SP + bonus fixes)
+## Completed (132/132 SP + bonus fixes)
 
 ### Sprint 1 — Schema + Tenant (25/25 SP) DONE
 - [x] SCHEMA-01..05 : 5 nouvelles tables, nuke legacy, migration SQL
@@ -25,11 +25,11 @@
 - [x] UI-01..03 : Admin pages (Roles, Tags, Members)
 - [x] AGENT-TAGS-UI : Tag selector in agent creation + edit dialog *(batch 2)*
 
-### Sprint 5 — CAO (10/15 SP) PARTIAL
+### Sprint 5 — CAO (15/15 SP) DONE
 - [x] CAO-01 : Agent auto-creation + bootstrap (transactional, with membership row)
 - [x] CAO-02 : Auto-tagging hook
 - [x] CAO-03 : Watchdog mode — monitors run failures, auto-comments on issues *(batch 2)*
-- [ ] CAO-04 : Interactive @cao (deferred — needs chat integration)
+- [x] CAO-04 : Interactive @cao — mention wakeup + context injection *(batch 2)*
 
 ### Sprint 6 — Task Pool (5/5 SP) DONE *(batch 2)*
 - [x] UI-05 : Task Pool UI (All Issues / Pool tabs, "Take" self-assign, pool filter backend)
@@ -64,11 +64,6 @@
 
 ## Remaining Work
 
-### P1 — Important
-| Story | Description | Effort |
-|-------|-------------|--------|
-| **CAO-04** | Interactive @cao (chat integration) | 5 SP |
-
 ### P2 — Nice to Have / Tech Debt
 | Story | Description | Effort |
 |-------|-------------|--------|
@@ -98,3 +93,4 @@
 | f247739 | docs: NEXT-SESSION.md updated |
 | 201f670 | test: ISO-04 — E2E tests tag isolation |
 | 2aa0c38 | feat: CAO-03 — Watchdog mode |
+| 41bb68c | feat: CAO-04 — Interactive @cao via mentions |
