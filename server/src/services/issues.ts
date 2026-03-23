@@ -51,12 +51,14 @@ export interface IssueFilters {
   status?: string;
   assigneeAgentId?: string;
   assigneeUserId?: string;
+  assigneeTagId?: string;
   touchedByUserId?: string;
   unreadForUserId?: string;
   projectId?: string;
   allowedProjectIds?: string[] | null; // PROJ-S03: scope-based filtering
   labelId?: string;
   q?: string;
+  pool?: boolean; // UI-05: only issues without direct assignee
 }
 
 type IssueRow = typeof issues.$inferSelect;
@@ -452,6 +454,14 @@ export function issueService(db: Db) {
       }
       if (filters?.assigneeUserId) {
         conditions.push(eq(issues.assigneeUserId, filters.assigneeUserId));
+      }
+      if (filters?.assigneeTagId) {
+        conditions.push(eq(issues.assigneeTagId, filters.assigneeTagId));
+      }
+      // UI-05: Pool filter — issues without direct assignee (agent or user)
+      if (filters?.pool) {
+        conditions.push(sql`${issues.assigneeAgentId} IS NULL`);
+        conditions.push(sql`${issues.assigneeUserId} IS NULL`);
       }
       if (touchedByUserId) {
         conditions.push(touchedByUserCondition(companyId, touchedByUserId));

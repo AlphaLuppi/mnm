@@ -7,6 +7,7 @@ import { accessService } from "../services/access.js";
 import { auditService } from "../services/audit.js";
 import { badRequest, notFound } from "../errors.js";
 import { onTagCreated } from "../services/cao.js";
+import { assertCompanyAccess } from "./authz.js";
 
 export function tagsRoutes(db: Db) {
   const router = Router();
@@ -22,6 +23,7 @@ export function tagsRoutes(db: Db) {
     "/companies/:companyId/tags",
     async (req, res) => {
       const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
       const includeArchived = req.query.includeArchived === "true";
 
       const conditions = [eq(tags.companyId, companyId)];

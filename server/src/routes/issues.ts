@@ -240,16 +240,22 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
 
+    // Task Pool filter: pool=true → only issues without direct assignee
+    const pool = req.query.pool === "true";
+    const assigneeTagId = req.query.assigneeTagId as string | undefined;
+
     const result = await svc.list(companyId, {
       status: req.query.status as string | undefined,
       assigneeAgentId: req.query.assigneeAgentId as string | undefined,
       assigneeUserId,
+      assigneeTagId,
       touchedByUserId,
       unreadForUserId,
       projectId: req.query.projectId as string | undefined,
       allowedProjectIds: scopeProjectIds, // PROJ-S03: scope filter
       labelId: req.query.labelId as string | undefined,
       q: req.query.q as string | undefined,
+      pool,
     });
     res.json(result);
   });
@@ -534,6 +540,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     assertCompanyAccess(req, existing.companyId);
     await assertCompanyPermission(db, req, existing.companyId, "stories:edit");
+
+    // UI-05: "me" substitution for self-assign (Task Pool "Take" action)
+    if (req.body.assigneeUserId === "me" && req.actor.type === "board" && req.actor.userId) {
+      req.body.assigneeUserId = req.actor.userId;
+    }
+
     const assigneeWillChange =
       (req.body.assigneeAgentId !== undefined && req.body.assigneeAgentId !== existing.assigneeAgentId) ||
       (req.body.assigneeUserId !== undefined && req.body.assigneeUserId !== existing.assigneeUserId);
