@@ -15,6 +15,9 @@ import { badRequest } from "../errors.js";
 type MembershipRow = typeof companyMemberships.$inferSelect;
 
 // ── Cache ────────────────────────────────────────────────────────────────────
+// NOTE: In-process Map caches. Works for single-instance deployment only.
+// For multi-instance (horizontal scaling), replace with Redis or shared cache.
+// MnM is currently single-tenant/single-instance — this is fine for now.
 
 interface CachedRole {
   roleId: string;
@@ -412,15 +415,15 @@ export function accessService(db: Db) {
     companyId: string,
     principalType: PrincipalType,
     principalId: string,
-    membershipRole: string | null = "member",
+    _membershipRole: string | null = "member", // Legacy param — ignored, always "member". Roles are in the `roles` table now.
     status: "pending" | "active" | "suspended" = "active",
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
     if (existing) {
-      if (existing.status !== status || existing.membershipRole !== membershipRole) {
+      if (existing.status !== status) {
         const updated = await db
           .update(companyMemberships)
-          .set({ status, membershipRole, updatedAt: new Date() })
+          .set({ status, updatedAt: new Date() })
           .where(eq(companyMemberships.id, existing.id))
           .returning()
           .then((rows) => rows[0] ?? null);
@@ -436,7 +439,7 @@ export function accessService(db: Db) {
         principalType,
         principalId,
         status,
-        membershipRole,
+        membershipRole: "member",
       })
       .returning()
       .then((rows) => rows[0]);
