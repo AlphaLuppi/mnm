@@ -50,4 +50,8 @@ export const tagsApi = {
 
   delete: (companyId: string, tagId: string) =>
     api.delete<void>(`/companies/${companyId}/tags/${tagId}`),
+
+  /** Get tags assigned to a specific agent */
+  listForAgent: (companyId: string, agentId: string) =>
+    api.get<Tag[]>(`/companies/${companyId}/agents/${agentId}/tags`),
 };
