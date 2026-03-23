@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { activityLog, heartbeatRuns, issues } from "@mnm/db";
+import { activityLog, heartbeatRuns, issues, authUsers } from "@mnm/db";
 
 export interface ActivityFilters {
   companyId: string;
@@ -26,13 +26,20 @@ export function activityService(db: Db) {
       }
 
       return db
-        .select({ activityLog })
+        .select({ activityLog, actorName: authUsers.name, actorEmail: authUsers.email })
         .from(activityLog)
         .leftJoin(
           issues,
           and(
             eq(activityLog.entityType, sql`'issue'`),
             eq(activityLog.entityId, issueIdAsText),
+          ),
+        )
+        .leftJoin(
+          authUsers,
+          and(
+            eq(activityLog.actorType, sql`'user'`),
+            eq(activityLog.actorId, authUsers.id),
           ),
         )
         .where(
@@ -45,20 +52,36 @@ export function activityService(db: Db) {
           ),
         )
         .orderBy(desc(activityLog.createdAt))
-        .then((rows) => rows.map((r) => r.activityLog));
+        .then((rows) => rows.map((r) => ({
+          ...r.activityLog,
+          actorName: r.actorName ?? null,
+          actorEmail: r.actorEmail ?? null,
+        })));
     },
 
     forIssue: (issueId: string) =>
       db
-        .select()
+        .select({ activityLog, actorName: authUsers.name, actorEmail: authUsers.email })
         .from(activityLog)
+        .leftJoin(
+          authUsers,
+          and(
+            eq(activityLog.actorType, sql`'user'`),
+            eq(activityLog.actorId, authUsers.id),
+          ),
+        )
         .where(
           and(
             eq(activityLog.entityType, "issue"),
             eq(activityLog.entityId, issueId),
           ),
         )
-        .orderBy(desc(activityLog.createdAt)),
+        .orderBy(desc(activityLog.createdAt))
+        .then((rows) => rows.map((r) => ({
+          ...r.activityLog,
+          actorName: r.actorName ?? null,
+          actorEmail: r.actorEmail ?? null,
+        }))),
 
     runsForIssue: (companyId: string, issueId: string) =>
       db
