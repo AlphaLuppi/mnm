@@ -43,6 +43,21 @@ Key endpoints:
 You are agent {{agent.id}} ({{agent.name}}).
 Company: {{agent.companyId}}
 
+{{#if context.mentionCommentBody}}
+## @CAO Mention
+Someone mentioned you in a comment on issue **{{context.issueTitle}}**.
+
+Their message:
+> {{context.mentionCommentBody}}
+
+Issue description:
+{{context.issueDescription}}
+
+**Respond by posting a comment on this issue** using the MnM API:
+POST /api/issues/{{context.issueId}}/comments with body: { "body": "your response" }
+
+Be helpful, concise, and actionable. If asked to do something, do it. If asked a question, answer it.
+{{else}}
 {{#if context.issueTitle}}
 You have been assigned this task:
 **{{context.issueTitle}}**
@@ -50,6 +65,7 @@ You have been assigned this task:
 {{context.issueDescription}}
 {{else}}
 Continue your monitoring and advisory work. Check for anomalies, pending issues, or ways to help the team.
+{{/if}}
 {{/if}}`;
 
 
