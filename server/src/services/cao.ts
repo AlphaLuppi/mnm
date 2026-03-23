@@ -64,7 +64,7 @@ Continue your monitoring and advisory work. Check for anomalies, pending issues,
  * - Has the Admin role (bypass_tag_filter, all permissions)
  * - Receives every new tag automatically (sees everything)
  * - Is is_system (cannot be deleted)
- * - Uses adapter_type "system" (runs in-process, not in a sandbox)
+ * - Uses adapter_type "claude_local" (runs in admin's Docker sandbox)
  */
 
 /**
@@ -153,74 +153,76 @@ export async function bootstrapCompany(
   companyId: string,
   adminUserId: string,
 ): Promise<{ adminRoleId: string; caoAgentId: string }> {
-  // 1. Seed standard permissions
-  await seedPermissions(db, companyId);
+  return db.transaction(async (tx) => {
+    // 1. Seed standard permissions
+    await seedPermissions(tx as unknown as Db, companyId);
 
-  // 2. Create the Admin role (is_system, bypass_tag_filter, all permissions)
-  const [adminRole] = await db
-    .insert(roles)
-    .values({
-      companyId,
-      name: "Admin",
-      slug: CAO_ROLE_SLUG,
-      description: "Full access to all features and all tags",
-      hierarchyLevel: 0,
-      bypassTagFilter: true,
-      isSystem: true,
-    })
-    .onConflictDoNothing()
-    .returning();
+    // 2. Create the Admin role (is_system, bypass_tag_filter, all permissions)
+    const [adminRole] = await tx
+      .insert(roles)
+      .values({
+        companyId,
+        name: "Admin",
+        slug: CAO_ROLE_SLUG,
+        description: "Full access to all features and all tags",
+        hierarchyLevel: 0,
+        bypassTagFilter: true,
+        isSystem: true,
+      })
+      .onConflictDoNothing()
+      .returning();
 
-  const adminRoleId = adminRole?.id;
+    const adminRoleId = adminRole?.id;
 
-  // If role already existed (onConflictDoNothing), fetch it
-  let resolvedAdminRoleId = adminRoleId;
-  if (!resolvedAdminRoleId) {
-    const [existing] = await db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(and(eq(roles.companyId, companyId), eq(roles.slug, CAO_ROLE_SLUG)));
-    resolvedAdminRoleId = existing?.id;
-  }
-
-  // 3. Assign all permissions to the admin role
-  if (resolvedAdminRoleId) {
-    const allPerms = await db
-      .select({ id: permissions.id })
-      .from(permissions)
-      .where(eq(permissions.companyId, companyId));
-
-    if (allPerms.length > 0) {
-      await db
-        .insert(rolePermissions)
-        .values(allPerms.map((p) => ({ roleId: resolvedAdminRoleId!, permissionId: p.id })))
-        .onConflictDoNothing();
+    // If role already existed (onConflictDoNothing), fetch it
+    let resolvedAdminRoleId = adminRoleId;
+    if (!resolvedAdminRoleId) {
+      const [existing] = await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(and(eq(roles.companyId, companyId), eq(roles.slug, CAO_ROLE_SLUG)));
+      resolvedAdminRoleId = existing?.id;
     }
 
-    // 4. Assign the admin role to the creating user
-    await db
-      .update(companyMemberships)
-      .set({ roleId: resolvedAdminRoleId })
-      .where(and(
-        eq(companyMemberships.companyId, companyId),
-        eq(companyMemberships.principalType, "user"),
-        eq(companyMemberships.principalId, adminUserId),
-      ));
-  }
+    // 3. Assign all permissions to the admin role
+    if (resolvedAdminRoleId) {
+      const allPerms = await tx
+        .select({ id: permissions.id })
+        .from(permissions)
+        .where(eq(permissions.companyId, companyId));
 
-  // 5. Create the CAO agent
-  const caoAgentId = await ensureCao(db, companyId, adminUserId);
+      if (allPerms.length > 0) {
+        await tx
+          .insert(rolePermissions)
+          .values(allPerms.map((p) => ({ roleId: resolvedAdminRoleId!, permissionId: p.id })))
+          .onConflictDoNothing();
+      }
 
-  logger.info({
-    companyId,
-    adminRoleId: resolvedAdminRoleId,
-    caoAgentId,
-  }, "Company bootstrap complete");
+      // 4. Assign the admin role to the creating user
+      await tx
+        .update(companyMemberships)
+        .set({ roleId: resolvedAdminRoleId })
+        .where(and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.principalId, adminUserId),
+        ));
+    }
 
-  return {
-    adminRoleId: resolvedAdminRoleId ?? "",
-    caoAgentId,
-  };
+    // 5. Create the CAO agent
+    const caoAgentId = await ensureCao(tx as unknown as Db, companyId, adminUserId);
+
+    logger.info({
+      companyId,
+      adminRoleId: resolvedAdminRoleId,
+      caoAgentId,
+    }, "Company bootstrap complete");
+
+    return {
+      adminRoleId: resolvedAdminRoleId ?? "",
+      caoAgentId,
+    };
+  });
 }
 
 /**

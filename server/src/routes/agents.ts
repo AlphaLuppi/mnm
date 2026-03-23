@@ -28,6 +28,7 @@ import {
   logActivity,
   secretService,
 } from "../services/index.js";
+import { tagFilterService } from "../services/tag-filter.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
@@ -457,7 +458,16 @@ export function agentRoutes(db: Db) {
     assertCompanyAccess(req, companyId);
     const workspaceId = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
     const includeScoped = req.query.includeScoped === "true";
-    const result = await svc.list(companyId, { workspaceId, includeScoped });
+    let result = await svc.list(companyId, { workspaceId, includeScoped });
+
+    // Tag-based isolation: filter agents by user's tag scope
+    if (req.tagScope && !req.tagScope.bypassTagFilter) {
+      const tagFilter = tagFilterService(db);
+      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, req.tagScope);
+      const visibleIds = new Set(visibleAgents.map((a) => a.id));
+      result = result.filter((a) => visibleIds.has(a.id));
+    }
+
     const canReadConfigs = await actorCanReadConfigurationsForCompany(req, companyId);
     if (canReadConfigs || req.actor.type === "board") {
       res.json(result);
