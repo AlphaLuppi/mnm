@@ -61,12 +61,15 @@ import {
   Settings,
   Layers,
   Rocket,
+  Tag,
+  Check,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@mnm/shared";
 import { agentRouteRef } from "../lib/utils";
 import { projectsApi } from "../api/projects";
+import { tagsApi } from "../api/tags";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -1195,12 +1198,34 @@ function ConfigurationTab({
     enabled: Boolean(companyId),
   });
 
+  const { data: companyTags } = useQuery({
+    queryKey: queryKeys.tags.list(companyId!, false),
+    queryFn: () => tagsApi.list(companyId!),
+    enabled: Boolean(companyId),
+  });
+
+  const { data: agentTags } = useQuery({
+    queryKey: queryKeys.tags.forAgent(companyId!, agent.id),
+    queryFn: () => tagsApi.listForAgent(companyId!, agent.id),
+    enabled: Boolean(companyId),
+  });
+
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[] | null>(null);
+
+  // Initialize selectedTagIds from fetched agent tags
+  const resolvedTagIds = selectedTagIds ?? (agentTags?.map((t) => t.id) ?? []);
+
   const updateAgent = useMutation({
     mutationFn: (data: Record<string, unknown>) => agentsApi.update(agent.id, data, companyId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(agent.id) });
+      if (companyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.tags.forAgent(companyId, agent.id) });
+      }
+      setSelectedTagIds(null);
     },
   });
 
@@ -1222,6 +1247,76 @@ function ConfigurationTab({
         hideInlineSave
         sectionLayout="cards"
       />
+
+      {/* Tags */}
+      <div>
+        <h3 className="text-sm font-medium mb-3">Tags</h3>
+        <div className="border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {resolvedTagIds.length === 0 && (
+              <span className="text-xs text-muted-foreground">No tags assigned</span>
+            )}
+            {resolvedTagIds.map((tagId) => {
+              const tag = (companyTags ?? []).find((t) => t.id === tagId);
+              if (!tag) return null;
+              return (
+                <span
+                  key={tagId}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs"
+                >
+                  {tag.color && (
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                  )}
+                  {tag.name}
+                  <button
+                    className="ml-0.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      const next = resolvedTagIds.filter((id) => id !== tagId);
+                      setSelectedTagIds(next);
+                      updateAgent.mutate({ tagIds: next });
+                    }}
+                  >
+                    &times;
+                  </button>
+                </span>
+              );
+            })}
+            <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
+              <PopoverTrigger asChild>
+                <button className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                  <Tag className="h-3 w-3" />
+                  Add tag
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-1" align="start">
+                {(companyTags ?? []).filter((t) => !resolvedTagIds.includes(t.id)).length === 0 ? (
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">All tags assigned</p>
+                ) : (
+                  (companyTags ?? [])
+                    .filter((t) => !resolvedTagIds.includes(t.id))
+                    .map((tag) => (
+                      <button
+                        key={tag.id}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                        onClick={() => {
+                          const next = [...resolvedTagIds, tag.id];
+                          setSelectedTagIds(next);
+                          setTagsOpen(false);
+                          updateAgent.mutate({ tagIds: next });
+                        }}
+                      >
+                        {tag.color && (
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                        )}
+                        <span className="truncate">{tag.name}</span>
+                      </button>
+                    ))
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      </div>
 
       <div>
         <h3 className="text-sm font-medium mb-3">Permissions</h3>
