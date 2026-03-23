@@ -9,6 +9,7 @@ import {
 import { validate } from "../middleware/validate.js";
 import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { emitAudit, workflowService, logActivity } from "../services/index.js";
+import { goldTraceEnrichment } from "../services/gold-trace-enrichment.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { getScopeProjectIds } from "../services/scope-filter.js";
 import { forbidden } from "../errors.js";
@@ -223,6 +224,45 @@ export function workflowRoutes(db: Db) {
     });
 
     res.json({ deleted: true });
+  });
+
+  // ─── PIPE-08: Workflow Gold ─────────────────────────────────────────────
+
+  router.get("/companies/:companyId/workflows/:instanceId/gold", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const instance = await svc.getInstance(req.params.instanceId as string);
+    if (!instance || instance.companyId !== companyId) {
+      res.status(404).json({ error: "Workflow instance not found" });
+      return;
+    }
+
+    // Return cached gold if available
+    if (instance.gold) {
+      res.json(instance.gold);
+      return;
+    }
+
+    // Generate on-demand
+    const gold = await goldTraceEnrichment(db).enrichWorkflowGold(instance.id, companyId);
+    res.json(gold);
+  });
+
+  router.post("/companies/:companyId/workflows/:instanceId/enrich", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    await assertCompanyPermission(db, req, companyId, "traces:write");
+
+    const instance = await svc.getInstance(req.params.instanceId as string);
+    if (!instance || instance.companyId !== companyId) {
+      res.status(404).json({ error: "Workflow instance not found" });
+      return;
+    }
+
+    // Force re-enrichment
+    const gold = await goldTraceEnrichment(db).enrichWorkflowGold(instance.id, companyId);
+    res.json(gold);
   });
 
   return router;
