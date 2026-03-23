@@ -28,6 +28,7 @@ import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
 import { heartbeatService, subscribeDashboardRefreshEvents } from "./services/index.js";
+import { startCaoWatchdog } from "./services/cao-watchdog.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -551,6 +552,9 @@ const { wss: chatWss } = setupChatWebSocketServer(server, db as any, {
 
 // DASH-S03: Initialize dashboard refresh emitter (debounced live event relay)
 subscribeDashboardRefreshEvents();
+
+// CAO-03: Start the CAO watchdog (monitors agent run anomalies, auto-comments)
+startCaoWatchdog(db as any);
 
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);
