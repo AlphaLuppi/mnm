@@ -26,8 +26,10 @@ Language: French for planning documents.
 - **Orchestration**: Deterministic workflows with state machine (XState), HITL validation
 - **Observability**: Immutable audit trail, LLM summaries, k-anonymity dashboards
 - **Security**: Container isolation (Docker), credential proxy, mount allowlist
-- **69 B2B stories implemented** (TECH/RBAC/MU/ORCH/PROJ/OBS/CHAT/CONT/A2A/COMP/DUAL/SSO/DASH/ONB/DRIFT)
-- **Trace Vision**: Bronze→Silver→Gold trace pipeline (PIPE-01 to PIPE-06 done)
+- **69 B2B stories + 35 Roles/Tags stories implemented** (all P1 complete, 132/132 SP)
+- **CAO System**: Watchdog (auto-comments on failures) + Interactive (@cao mentions)
+- **Task Pool**: Pool tab on issues, "Take" self-assign
+- **Trace Vision**: Bronze→Silver→Gold trace pipeline (PIPE-01 to PIPE-07 done, BACKFILL fixed)
 
 ## CURRENT STATE — Bronze→Silver→Gold Pipeline (2026-03-18)
 
@@ -59,9 +61,9 @@ Language: French for planning documents.
 | Step | Description | Priority |
 |------|-------------|----------|
 | **REAL-RUN** | Lancer un VRAI agent run avec tool calls riches (Read, Edit, Bash) pour avoir des traces variées | P0 |
-| **BACKFILL** | Le gold backfill timeout après 20 traces (156 total). Besoin de batch + retry logic. | P1 |
-| PIPE-07 | UI Gold prompts management (settings page pour configurer prompts par scope) | P1 |
 | PIPE-08 | Workflow-level gold (agréger traces multi-agent) | P1 |
+| ~~BACKFILL~~ | ~~Gold backfill timeout~~ — **DONE** (batch processing with 5-trace batches + 2s delay) | ~~P1~~ |
+| ~~PIPE-07~~ | ~~UI Gold prompts management~~ — **DONE** (Gold Prompts section in TraceSettings page) | ~~P1~~ |
 | **LANGFUSE** | Décision stratégique: garder MnM trace UI vs intégrer Langfuse pour LangGraph (Gabriel). Conclusion: garder MnM pour adapters process-based, ajouter Langfuse bridge quand LangGraph arrive. | P2 |
 
 ### OBS-09 Gold Haiku E2E Verification (2026-03-18)

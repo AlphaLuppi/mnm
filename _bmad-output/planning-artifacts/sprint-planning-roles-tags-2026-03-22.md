@@ -1,6 +1,6 @@
 # Sprint Plan — Roles + Tags + Dynamic Permissions
 
-> **Date** : 2026-03-22 | **Updated** : 2026-03-23
+> **Date** : 2026-03-22 | **Updated** : 2026-03-23 (batch 2 completions)
 > **Source** : epics-roles-tags-2026-03-22.md, architecture-roles-tags-2026-03-22.md (v2)
 > **Equipe** : Tom + Claude (1 dev humain + AI pair programming)
 > **Sprint** : 1 semaine (cadence rapide, pas en prod)
@@ -12,10 +12,10 @@
 
 | Metrique | Planifie | Realise |
 |----------|----------|---------|
-| Stories | 34 | 30 done + 4 deferred |
-| Story Points | 132 | 108 done |
-| Sprints planifies | 5 | 2 jours (sessions intensives) |
-| Bonus fixes | 0 | 13 |
+| Stories | 34 + 1 bonus | 35 done (0 deferred) |
+| Story Points | 132 + 3 bonus | 135 done |
+| Sprints planifies | 5 | 2 jours (sessions intensives, 2 batches) |
+| Bonus fixes | 0 | 24 (13 batch 1 + 11 batch 2) |
 
 ---
 
@@ -30,9 +30,9 @@
 | SCHEMA-05 | Nuke code legacy (constantes, presets, grants) | 5 | DONE |
 | TENANT-01 | Auto-inject companyId middleware | 3 | DONE |
 | TENANT-02 | Route rewriting (simplified API URLs) | 5 | DONE |
-| TENANT-03 | Supprimer company UI | 2 | DEFERRED |
+| TENANT-03 | Supprimer company UI | 2 | DONE *(batch 2 — CompanyRail hidden in single-tenant)* |
 
-**Total : 23/25 SP**
+**Total : 25/25 SP**
 
 ---
 
@@ -52,7 +52,7 @@
 
 ---
 
-## Sprint 3 -- Tags + Isolation -- DONE (partial)
+## Sprint 3 -- Tags + Isolation -- DONE
 
 | Story | Titre | SP | Status |
 |-------|-------|----|--------|
@@ -61,9 +61,9 @@
 | ISO-01 | Tag filtering sur les agents | 5 | DONE |
 | ISO-02 | Tag filtering sur les issues | 5 | DONE |
 | ISO-03 | Tag filtering sur traces et runs | 3 | DONE |
-| ISO-04 | Tests E2E isolation inter-tags | 5 | DEFERRED |
+| ISO-04 | Tests E2E isolation inter-tags | 5 | DONE *(batch 2 — 8 tests: setup, isolation, cleanup)* |
 
-**Total : 23/28 SP**
+**Total : 28/28 SP**
 
 ---
 
@@ -78,28 +78,30 @@
 | UI-01 | Admin panel -- Gestion des roles | 5 | DONE |
 | UI-02 | Admin panel -- Gestion des tags | 5 | DONE |
 | UI-03 | Admin panel -- Gestion des membres | 5 | DONE |
+| AGENT-TAGS-UI | Tag selector in agent creation + edit | 3 | DONE *(batch 2 — multi-select popover, inline add/remove)* |
 
-**Total : 27/27 SP**
+**Total : 30/30 SP**
 
 ---
 
-## Sprint 5 -- Onboarding + Task Pool + CAO -- PARTIAL
+## Sprint 5 -- Onboarding + Task Pool + CAO -- DONE
 
 | Story | Titre | SP | Status |
 |-------|-------|----|--------|
 | UI-04 | Onboarding wizard repense (5 steps) | 8 | DONE |
-| UI-05 | Issue assignment par tag (Task Pool) | 5 | DEFERRED |
+| UI-05 | Issue assignment par tag (Task Pool) | 5 | DONE *(batch 2 — All Issues/Pool tabs, "Take" self-assign)* |
 | CAO-01 | Agent CAO system (auto-creation) | 3 | DONE |
 | CAO-02 | Hook auto-tagging (nouveau tag -> CAO) | 2 | DONE |
-| CAO-03 | CAO watchdog (mode silencieux) | 5 | DEFERRED |
-| CAO-04 | CAO interactif (@cao) | 5 | DEFERRED |
+| CAO-03 | CAO watchdog (mode silencieux) | 5 | DONE *(batch 2 — event subscription, auto-comment on failures)* |
+| CAO-04 | CAO interactif (@cao) | 5 | DONE *(batch 2 — @mention wakeup, context injection, reply prompt)* |
 
-**Total : 13/28 SP**
+**Total : 28/28 SP**
 
 ---
 
 ## Bonus Fixes (non planifies)
 
+### Batch 1 (session 1)
 | Fix | Description |
 |-----|-------------|
 | Sandbox docker exec routing | runChildProcess routes through docker exec when dockerContainerId set |
@@ -116,27 +118,27 @@
 | CEO -> CAO migration | NewAgentDialog, adapter type, metadata identification |
 | Onboarding bootstrap | bootstrapCompany() in company creation route |
 
+### Batch 2 (session 2) — Security + Architecture
+| Fix | Description |
+|-----|-------------|
+| P0: Tag filtering GET /agents | tagFilterService enforced on agent list endpoint |
+| P0: bootstrapCompany() transaction | All-or-nothing with db.transaction() |
+| P0: companyId in PATCH/DELETE role | Defense-in-depth WHERE clause |
+| P0: UUID validation run-actor-resolver | isUuidLike() check before DB query |
+| P0: CAO stale comment | adapter_type "system" → "claude_local" |
+| N+1 queries fixed | Roles permissions + tags member counts in single query |
+| Tags list assertCompanyAccess | Defense-in-depth guard on GET /tags |
+| CAO membership row | company_memberships row for CAO in bootstrapCompany |
+| Stale E2E tests skipped | RBAC-S03, ONB-S02, PROJ-S02 Group 1 |
+| membershipRole legacy cleanup | ensureMembership() always writes "member" |
+| Cache constraint documented | Single-instance in-process cache noted |
+
 ---
 
-## Remaining Stories
+## Remaining (P2 -- Technical Debt only)
 
-### P0 -- Blocking
-| Story | SP | Description |
-|-------|----|-------------|
-| TENANT-03 | 2 | Remove company selector sidebar |
-| ISO-04 | 5 | E2E tests for tag isolation |
-
-### P1 -- Important
-| Story | SP | Description |
-|-------|----|-------------|
-| UI-05 | 5 | Task Pool UI (assign by tag, pool view, take action) |
-| CAO-03 | 5 | Watchdog mode (event hooks, anomaly detection) |
-| CAO-04 | 5 | Interactive @cao (chat integration) |
-| AGENT-TAGS-UI | 3 | Tag selector in agent creation dialog |
-
-### P2 -- Technical Debt
-| Story | SP | Description |
-|-------|----|-------------|
-| BOARD-RENAME | 8 | Rename "board" actor type to "user" across codebase |
-| CEO-CLEANUP | 3 | Remove remaining CEO references |
-| SANDBOX-AUTH | 3 | Auto-persist claude credentials across container recreation |
+| Story | SP | Description | Status |
+|-------|----|-------------|--------|
+| BOARD-RENAME | 8 | Rename "board" actor type to "user" across codebase | Deferred |
+| SANDBOX-AUTH | 3 | Auto-persist claude credentials across container recreation | Deferred |
+| PRESET-SLUGS | 2 | Hardcoded permission slugs in OnboardingWizard → fetch from API | Deferred |
