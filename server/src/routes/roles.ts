@@ -25,17 +25,31 @@ export function rolesRoutes(db: Db) {
         .where(eq(roles.companyId, companyId))
         .orderBy(roles.hierarchyLevel);
 
-      // Load permissions for each role
-      const result = await Promise.all(
-        allRoles.map(async (role) => {
-          const perms = await db
-            .select({ slug: permissions.slug, id: permissions.id })
+      // Load all permissions for all roles in one query, then group in-memory
+      const roleIds = allRoles.map((r) => r.id);
+      const allPerms = roleIds.length > 0
+        ? await db
+            .select({
+              roleId: rolePermissions.roleId,
+              slug: permissions.slug,
+              id: permissions.id,
+            })
             .from(rolePermissions)
             .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-            .where(eq(rolePermissions.roleId, role.id));
-          return { ...role, permissions: perms };
-        }),
-      );
+            .where(inArray(rolePermissions.roleId, roleIds))
+        : [];
+
+      const permsByRole = new Map<string, { slug: string; id: string }[]>();
+      for (const p of allPerms) {
+        const arr = permsByRole.get(p.roleId) ?? [];
+        arr.push({ slug: p.slug, id: p.id });
+        permsByRole.set(p.roleId, arr);
+      }
+
+      const result = allRoles.map((role) => ({
+        ...role,
+        permissions: permsByRole.get(role.id) ?? [],
+      }));
 
       res.json(result);
     },

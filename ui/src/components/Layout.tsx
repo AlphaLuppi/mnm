@@ -31,6 +31,7 @@ export function Layout() {
   const { openNewIssue } = useDialog();
   const { togglePanelVisible } = usePanel();
   const { companies, loading: companiesLoading, selectedCompanyId, setSelectedCompanyId } = useCompany();
+  const showCompanyRail = companies.length > 1;
   const { theme, toggleTheme } = useTheme();
   const { companyPrefix } = useParams<{ companyPrefix: string }>();
   const navigate = useNavigate();
@@ -201,7 +202,7 @@ export function Layout() {
           )}
         >
           <div className="flex flex-1 min-h-0 overflow-hidden">
-            <CompanyRail />
+            {showCompanyRail && <CompanyRail />}
             <Sidebar />
           </div>
           <div className="border-t border-r border-border px-3 py-2 bg-background">
@@ -229,7 +230,7 @@ export function Layout() {
       ) : (
         <div data-testid="mu-s04-sidebar-container" className="flex flex-col shrink-0 h-full">
           <div className="flex flex-1 min-h-0">
-            <CompanyRail />
+            {showCompanyRail && <CompanyRail />}
             <div
               className={cn(
                 "overflow-hidden transition-[width] duration-100 ease-out",

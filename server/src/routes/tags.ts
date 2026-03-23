@@ -35,19 +35,27 @@ export function tagsRoutes(db: Db) {
         .where(and(...conditions))
         .orderBy(tags.name);
 
-      // Count members per tag
-      const result = await Promise.all(
-        allTags.map(async (tag) => {
-          const [count] = await db
-            .select({ count: sql<number>`count(*)::int` })
+      // Count members per tag in a single query
+      const tagIds = allTags.map((t) => t.id);
+      const counts = tagIds.length > 0
+        ? await db
+            .select({
+              tagId: tagAssignments.tagId,
+              count: sql<number>`count(*)::int`,
+            })
             .from(tagAssignments)
             .where(and(
               eq(tagAssignments.companyId, companyId),
-              eq(tagAssignments.tagId, tag.id),
-            ));
-          return { ...tag, memberCount: count?.count ?? 0 };
-        }),
-      );
+              inArray(tagAssignments.tagId, tagIds),
+            ))
+            .groupBy(tagAssignments.tagId)
+        : [];
+
+      const countByTag = new Map(counts.map((c) => [c.tagId, c.count]));
+      const result = allTags.map((tag) => ({
+        ...tag,
+        memberCount: countByTag.get(tag.id) ?? 0,
+      }));
 
       res.json(result);
     },

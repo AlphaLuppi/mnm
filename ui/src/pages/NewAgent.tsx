@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { agentsApi } from "../api/agents";
+import { tagsApi } from "../api/tags";
 import { queryKeys } from "../lib/queryKeys";
 // Stub: agent roles (will be loaded from DB in Sprint 4)
 const AGENT_ROLES = ["ceo", "general"] as const;
@@ -13,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Shield, User } from "lucide-react";
+import { Shield, User, Tag, Check } from "lucide-react";
 import { cn, agentUrl } from "../lib/utils";
 import { roleLabels } from "../components/agent-config-primitives";
 import { AgentConfigForm, type CreateConfigValues } from "../components/AgentConfigForm";
@@ -68,7 +69,15 @@ export function NewAgent() {
     adapterType: "claude_local", // All agents run in user's sandbox
   });
   const [reportsToOpen, setReportsToOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const { data: companyTags } = useQuery({
+    queryKey: queryKeys.tags.list(selectedCompanyId!, false),
+    queryFn: () => tagsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -149,6 +158,7 @@ export function NewAgent() {
       name: name.trim(),
       ...(title.trim() ? { title: title.trim() } : {}),
       ...(reportsTo ? { reportsTo } : {}),
+      ...(selectedTagIds.length > 0 ? { tagIds: selectedTagIds } : {}),
       adapterType: configValues.adapterType,
       adapterConfig: buildAdapterConfig(),
       runtimeConfig: {
@@ -241,6 +251,52 @@ export function NewAgent() {
                   <span className="text-muted-foreground ml-auto">{roleLabels[a.role ?? "agent"] ?? a.role ?? "agent"}</span>
                 </button>
               ))}
+            </PopoverContent>
+          </Popover>
+
+          {/* Tag selector */}
+          <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors"
+              >
+                <Tag className="h-3 w-3 text-muted-foreground" />
+                {selectedTagIds.length > 0
+                  ? `${selectedTagIds.length} tag${selectedTagIds.length > 1 ? "s" : ""}`
+                  : "Tags..."}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1" align="start">
+              {(companyTags ?? []).length === 0 ? (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">No tags available</p>
+              ) : (
+                (companyTags ?? []).map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                        isSelected && "bg-accent"
+                      )}
+                      onClick={() => {
+                        setSelectedTagIds((prev) =>
+                          isSelected ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]
+                        );
+                      }}
+                    >
+                      {tag.color && (
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                      )}
+                      <span className="truncate">{tag.name}</span>
+                      {isSelected && <Check className="h-3 w-3 ml-auto text-foreground shrink-0" />}
+                    </button>
+                  );
+                })
+              )}
             </PopoverContent>
           </Popover>
         </div>
