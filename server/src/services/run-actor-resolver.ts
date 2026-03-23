@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { agentWakeupRequests, issues } from "@mnm/db";
+import { isUuidLike } from "@mnm/shared";
 
 /**
  * Resolves the "triggering user" for a heartbeat run.
@@ -41,7 +42,8 @@ export async function resolveRunActor(
     ? (run.contextSnapshot as Record<string, unknown>)
     : {};
 
-  const issueId = typeof context.issueId === "string" ? context.issueId : null;
+  const rawIssueId = typeof context.issueId === "string" ? context.issueId : null;
+  const issueId = rawIssueId && isUuidLike(rawIssueId) ? rawIssueId : null;
   if (issueId) {
     const [issue] = await db
       .select({

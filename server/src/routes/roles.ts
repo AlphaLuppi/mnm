@@ -182,7 +182,7 @@ export function rolesRoutes(db: Db) {
       const [updated] = await db
         .update(roles)
         .set(updates)
-        .where(eq(roles.id, roleId))
+        .where(and(eq(roles.id, roleId), eq(roles.companyId, companyId)))
         .returning();
 
       // Update permissions if provided
@@ -243,7 +243,7 @@ export function rolesRoutes(db: Db) {
       if (existing.isSystem) throw forbidden("Cannot delete a system role");
 
       // Delete role (role_permissions cascade automatically)
-      await db.delete(roles).where(eq(roles.id, roleId));
+      await db.delete(roles).where(and(eq(roles.id, roleId), eq(roles.companyId, companyId)));
 
       // Audit
       await audit.emit({
