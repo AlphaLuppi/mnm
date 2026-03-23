@@ -33,8 +33,8 @@ Language: French for planning documents.
 | Item | Type | Description |
 |------|------|-------------|
 | **REAL-RUN** | Trace | Lancer un vrai agent run avec tool calls riches pour avoir des traces variées |
-| SANDBOX-AUTH | Tech debt | Auto-persist claude credentials across container recreation (3 SP) |
-| PRESET-SLUGS | Tech debt | Hardcoded permission slugs in OnboardingWizard → fetch from API (2 SP) |
+
+All P1, P2, and tech debt items are complete. Only REAL-RUN remains (requires running server + agent execution).
 
 ### Architecture Decisions (Trace Pipeline)
 
