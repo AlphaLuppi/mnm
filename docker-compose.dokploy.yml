@@ -1,0 +1,43 @@
+services:
+  server:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${CI_REGISTRY_IMAGE:-mnm}/server:${APP_VERSION:-latest}
+    expose:
+      - ${PORT:-3100}
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - PORT=${PORT:-3100}
+      - SERVE_UI=true
+      - MNM_DEPLOYMENT_MODE=authenticated
+      - MNM_DEPLOYMENT_EXPOSURE=private
+      - MNM_PUBLIC_URL=${MNM_PUBLIC_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${MNM_PUBLIC_URL}
+      - MNM_AGENT_JWT_SECRET=${MNM_AGENT_JWT_SECRET}
+      - MNM_MIGRATION_AUTO_APPLY=true
+      - MNM_ALLOWED_HOSTNAMES=${MNM_ALLOWED_HOSTNAMES:-localhost}
+      - MNM_E2E_SEED=false
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mnm-server.rule=Host(`${MNM_DOMAIN:-mnm.localhost}`)"
+      - "traefik.http.routers.mnm-server.entrypoints=websecure"
+      - "traefik.http.routers.mnm-server.tls.certResolver=letsencrypt"
+      - "traefik.http.services.mnm-server.loadbalancer.server.port=${PORT:-3100}"
+    volumes:
+      - mnm-data:/mnm
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dokploy-network
+
+volumes:
+  mnm-data:
+
+networks:
+  dokploy-network:
+    external: true
