@@ -163,6 +163,9 @@ export const accessApi = {
       allowedJoinTypes: "human" as const,
     }),
 
+  revokeInvite: (inviteId: string) =>
+    api.post<{ id: string }>(`/invites/${inviteId}/revoke`, {}),
+
   getMyPermissions: (companyId: string) =>
     api.get<{
       businessRole: string | null;

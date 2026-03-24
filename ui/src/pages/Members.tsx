@@ -149,6 +149,15 @@ export function Members() {
     },
   });
 
+  const revokeMutation = useMutation({
+    mutationFn: (inviteId: string) => accessApi.revokeInvite(inviteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.access.members(selectedCompanyId!),
+      });
+    },
+  });
+
   const inviteMutation = useMutation({
     mutationFn: (email: string) =>
       accessApi.createEmailInvite(selectedCompanyId!, email),
@@ -316,6 +325,7 @@ export function Members() {
                       status,
                     })
                   }
+                  onRevoke={member.status === "pending" ? () => revokeMutation.mutate(member.id) : undefined}
                 />
               ))}
             </tbody>
@@ -439,15 +449,18 @@ function MemberRow({
   getRoleName,
   onRoleChange,
   onStatusChange,
+  onRevoke,
 }: {
   member: EnrichedMember;
   roles: Role[];
   getRoleName: (member: EnrichedMember) => string;
   onRoleChange: (roleId: string) => void;
   onStatusChange: (status: "active" | "suspended") => void;
+  onRevoke?: () => void;
 }) {
-  const displayName = member.userName ?? member.principalId;
-  const displayEmail = member.userEmail ?? null;
+  const isPending = member.status === "pending";
+  const displayName = member.userName ?? member.userEmail ?? member.principalId;
+  const displayEmail = member.userName ? (member.userEmail ?? null) : null;
   const isSuspended = member.status === "suspended";
   const roleName = getRoleName(member);
 
@@ -489,8 +502,9 @@ function MemberRow({
 
       {/* Role */}
       <td className="px-4 py-2.5 hidden sm:table-cell">
-        <div className="flex items-center gap-2">
-          <RoleBadge role={(member.roleId ?? member.businessRole ?? "unknown") as string} />
+        {isPending ? (
+          <span className="text-xs text-muted-foreground italic">Invite pending</span>
+        ) : (
           <Select
             value={member.roleId ?? member.businessRole ?? ""}
             onValueChange={(val) => onRoleChange(val)}
@@ -510,7 +524,7 @@ function MemberRow({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        )}
       </td>
 
       {/* Status */}
@@ -543,7 +557,23 @@ function MemberRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {member.status === "active" ? (
+            {isPending ? (
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const url = `${window.location.origin}/invite/${member.id}`;
+                    navigator.clipboard.writeText(url);
+                  }}
+                >
+                  Copy invite link
+                </DropdownMenuItem>
+                {onRevoke && (
+                  <DropdownMenuItem onClick={onRevoke} className="text-destructive">
+                    Revoke invite
+                  </DropdownMenuItem>
+                )}
+              </>
+            ) : member.status === "active" ? (
               <DropdownMenuItem
                 data-testid={`mu-s02-action-suspend-${member.id}`}
                 onClick={() => onStatusChange("suspended")}
