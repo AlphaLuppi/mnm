@@ -53,22 +53,8 @@ import { RequirePermission } from "./components/RequirePermission";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 
-function BootstrapPendingPage() {
-  return (
-    <div className="mx-auto max-w-xl py-10">
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Instance setup required</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          No instance admin exists yet. Run this command in your MnM environment to generate
-          the first admin invite URL:
-        </p>
-        <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
-{`pnpm mnm auth bootstrap-ceo`}
-        </pre>
-      </div>
-    </div>
-  );
-}
+// SANDBOX-AUTH-AUTOBOOTSTRAP: no more CLI bootstrap page
+// First user signup auto-promotes to instance_admin via Better Auth databaseHooks
 
 function CloudAccessGate() {
   const location = useLocation();
@@ -98,8 +84,10 @@ function CloudAccessGate() {
     );
   }
 
+  // SANDBOX-AUTH-AUTOBOOTSTRAP: bootstrap_pending → redirect to signup (first user auto-promoted)
   if (isAuthenticatedMode && healthQuery.data?.bootstrapStatus === "bootstrap_pending") {
-    return <BootstrapPendingPage />;
+    const next = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/auth?next=${next}`} replace />;
   }
 
   if (isAuthenticatedMode && !sessionQuery.data) {
