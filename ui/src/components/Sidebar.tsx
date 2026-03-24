@@ -165,7 +165,6 @@ export function Sidebar() {
             {canViewCursors && (
               <SidebarNavItem data-testid="dual-s02-nav-cursors" to="/automation-cursors" label="Cursors" icon={SlidersHorizontal} />
             )}
-            <SidebarNavItem data-testid="pod-06-nav-workspace" to="/workspace" label="My Workspace" icon={Terminal} />
           </SidebarSection>
         )}
 

@@ -1337,20 +1337,26 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected MNM_API_KEY",
         );
       }
-      // Sandbox routing: resolve user's Docker container for execution
+      // Sandbox routing: resolve user's Docker container + Claude OAuth token for execution
       let dockerContainerId: string | undefined;
+      let claudeOauthToken: string | undefined;
       const actorUserId = await resolveRunActor(db, {
         wakeupRequestId: run.wakeupRequestId,
         contextSnapshot: context,
       }, { createdByUserId: agent.createdByUserId ?? null });
       if (actorUserId) {
         const [sandbox] = await db
-          .select({ dockerContainerId: userPods.dockerContainerId, status: userPods.status })
+          .select({
+            dockerContainerId: userPods.dockerContainerId,
+            status: userPods.status,
+            claudeOauthToken: userPods.claudeOauthToken,
+          })
           .from(userPods)
           .where(and(eq(userPods.userId, actorUserId), eq(userPods.companyId, agent.companyId)));
         if (sandbox?.status === "running" && sandbox.dockerContainerId) {
           dockerContainerId = sandbox.dockerContainerId;
-          logger.info({ runId, actorUserId, containerId: dockerContainerId }, "Routing agent run to user sandbox");
+          claudeOauthToken = sandbox.claudeOauthToken ?? undefined;
+          logger.info({ runId, actorUserId, containerId: dockerContainerId, hasOauthToken: !!claudeOauthToken }, "Routing agent run to user sandbox");
         }
       }
 
@@ -1364,6 +1370,7 @@ export function heartbeatService(db: Db) {
         onMeta: onAdapterMeta,
         authToken: authToken ?? undefined,
         dockerContainerId,
+        claudeOauthToken,
       });
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,

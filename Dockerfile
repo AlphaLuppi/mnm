@@ -51,6 +51,10 @@ COPY --from=build /app /app
 # tsx is needed at runtime because workspace packages (e.g. @mnm/db) export .ts files
 RUN npm install --global tsx @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 
+# Docker CLI (for docker exec into sandbox containers via /var/run/docker.sock)
+RUN curl -fsSL https://download.docker.com/linux/static/stable/$(uname -m)/docker-27.5.1.tgz \
+  | tar xz --strip-components=1 -C /usr/local/bin docker/docker
+
 # Non-root user so Claude Code accepts --dangerously-skip-permissions
 RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/* \
   && groupadd -r mnm && useradd -r -g mnm -d /mnm -s /bin/bash mnm \

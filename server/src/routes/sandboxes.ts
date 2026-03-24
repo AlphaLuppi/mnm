@@ -115,6 +115,51 @@ export function sandboxRoutes(db: Db) {
     },
   );
 
+  // PUT /companies/:companyId/sandboxes/my/claude-token — save Claude OAuth token
+  router.put(
+    "/companies/:companyId/sandboxes/my/claude-token",
+    requirePermission(db, "agents:launch"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+      const actor = getActorInfo(req);
+
+      const parsed = z.object({ token: z.string().min(10).max(500) }).safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Invalid token format" });
+        return;
+      }
+
+      await manager.setClaudeToken(actor.actorId, companyId as string, parsed.data.token);
+
+      await emitAudit({
+        req,
+        db,
+        companyId: companyId as string,
+        action: "sandbox.claude_token_set",
+        targetType: "user_pod",
+        targetId: actor.actorId,
+        metadata: {},
+      });
+
+      res.json({ status: "authenticated" });
+    },
+  );
+
+  // DELETE /companies/:companyId/sandboxes/my/claude-token — remove Claude OAuth token
+  router.delete(
+    "/companies/:companyId/sandboxes/my/claude-token",
+    requirePermission(db, "agents:launch"),
+    async (req, res) => {
+      const { companyId } = req.params;
+      assertCompanyAccess(req, companyId as string);
+      const actor = getActorInfo(req);
+
+      await manager.clearClaudeToken(actor.actorId, companyId as string);
+      res.json({ status: "cleared" });
+    },
+  );
+
   // GET /companies/:companyId/sandboxes — list all sandboxes (admin)
   router.get(
     "/companies/:companyId/sandboxes",

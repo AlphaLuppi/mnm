@@ -21,8 +21,12 @@ The core security model is **defense in depth**:
 
 ## 1. CREDENTIAL PERSISTENCE
 
-### Current State
-The claude OAuth token is stored in `/home/agent/.bash_profile` inside the `mnm-sandbox-home-{userId}` named volume. This survives `docker stop`/`docker start` and even `docker rm` + `docker create` (the volume persists).
+### Current State (UPDATED 2026-03-24)
+
+**IMPLEMENTED**: Token is now stored in `user_pods.claude_oauth_token` (DB column, migration 0051). On each agent run, the heartbeat fetches the token from DB and injects it as `CLAUDE_CODE_OAUTH_TOKEN` env var via `docker exec`. No credentials are stored on the sandbox filesystem. The old approach (copying `.credentials.json` from host via `copyClaudeCredentials`) has been removed. Users provide their token via `claude setup-token` (generates a 1-year independent token) through the onboarding wizard or Settings > Claude tab.
+
+### Previous State (DEPRECATED)
+The claude OAuth token was stored in `/home/agent/.bash_profile` inside the `mnm-sandbox-home-{userId}` named volume. This survives `docker stop`/`docker start` and even `docker rm` + `docker create` (the volume persists).
 
 ### Requirements
 - Token survives container restart, hibernation/wake cycle, container recreation
