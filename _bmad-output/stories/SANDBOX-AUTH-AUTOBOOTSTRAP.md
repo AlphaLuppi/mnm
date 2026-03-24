@@ -4,7 +4,7 @@ title: Auto-bootstrap first admin on fresh instance
 type: tech
 priority: P1
 story_points: 3
-status: not_started
+status: done
 ---
 
 # SANDBOX-AUTH-AUTOBOOTSTRAP: Auto-bootstrap first admin on fresh instance

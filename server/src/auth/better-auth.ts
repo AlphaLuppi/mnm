@@ -9,7 +9,9 @@ import {
   authSessions,
   authUsers,
   authVerifications,
+  instanceUserRoles,
 } from "@mnm/db";
+import { eq, count } from "drizzle-orm";
 import type { Config } from "../config.js";
 
 export type BetterAuthSessionUser = {
@@ -106,6 +108,30 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
     },
     ...(isHttpOnly ? { advanced: { useSecureCookies: false } } : {}),
     ...(isE2eMode ? { rateLimit: { enabled: false } } : {}),
+    // SANDBOX-AUTH-AUTOBOOTSTRAP: first user signup → auto instance_admin
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user: { id: string }) => {
+            try {
+              const adminCount = await db
+                .select({ n: count() })
+                .from(instanceUserRoles)
+                .where(eq(instanceUserRoles.role, "instance_admin"))
+                .then((rows) => Number(rows[0]?.n ?? 0));
+              if (adminCount === 0) {
+                await db
+                  .insert(instanceUserRoles)
+                  .values({ userId: user.id, role: "instance_admin" })
+                  .onConflictDoNothing();
+              }
+            } catch {
+              // Non-blocking — worst case, user uses CLI bootstrap as fallback
+            }
+          },
+        },
+      },
+    },
   };
 
   if (!baseUrl) {
