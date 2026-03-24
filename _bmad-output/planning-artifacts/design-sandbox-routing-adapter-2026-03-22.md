@@ -119,6 +119,8 @@ async function resolveExecutingUserId(
 
 ### Decision 3: HOW to replace spawn with docker exec
 
+> **UPDATE 2026-03-24 (SANDBOX-AUTH implemented):** Credential injection is now resolved. The `claude_oauth_token` is stored in `user_pods` (DB), fetched by the heartbeat at run start, and injected as `CLAUDE_CODE_OAUTH_TOKEN` env var via `docker exec`. The old `copyClaudeCredentials` function (which copied `.credentials.json` from host into the container) has been removed — OAuth access tokens expire in ~5h and get invalidated when the host CLI refreshes, making file-based copy unreliable. Users generate a 1-year token via `claude setup-token` and provide it through the UI (onboarding wizard or Settings > Claude tab).
+
 The claude adapter's `runChildProcess` call looks like:
 ```
 spawn("claude", ["--print", "-", "--output-format", "stream-json", ...], {

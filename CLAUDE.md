@@ -34,7 +34,15 @@ Language: French for planning documents.
 |------|------|-------------|
 | **REAL-RUN** | Trace | Lancer un vrai agent run avec tool calls riches pour avoir des traces variées |
 
-All P1, P2, and tech debt items are complete. Only REAL-RUN remains (requires running server + agent execution).
+All P1, P2, and tech debt items are complete (including SANDBOX-AUTH and PRESET-SLUGS). Only REAL-RUN remains (requires running server + agent execution).
+
+### Architecture Decisions (Sandbox Auth)
+
+- **Token injection via env var** — `claude setup-token` generates a 1-year independent token, stored in `user_pods.claude_oauth_token` (DB column, migration 0051)
+- **Per-run injection** — Heartbeat fetches token from DB, passes `CLAUDE_CODE_OAUTH_TOKEN` as env var via `docker exec`. No credentials stored on sandbox filesystem.
+- **No more credential copy** — `copyClaudeCredentials` (host `.credentials.json` copy) is removed. OAuth access tokens expire in ~5h and get invalidated on host CLI refresh, so DB-stored setup-token is the only reliable approach.
+- **UI flows** — Onboarding wizard step 5 "Connect Claude" (skippable) + Settings "Claude" tab for connection status / update / disconnect
+- **Workspace page deprecated** — Removed from sidebar and router. Auth is now handled entirely through token setup, not console-based `claude login`.
 
 ### Architecture Decisions (Trace Pipeline)
 

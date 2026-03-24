@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Moon, Sun } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
+import { UserMenu } from "./UserMenu";
 import { Sidebar } from "./Sidebar";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { BreadcrumbBar } from "./BreadcrumbBar";
@@ -31,7 +32,8 @@ export function Layout() {
   const { openNewIssue } = useDialog();
   const { togglePanelVisible } = usePanel();
   const { companies, loading: companiesLoading, selectedCompanyId, setSelectedCompanyId } = useCompany();
-  const showCompanyRail = companies.length > 1;
+  // MVP: hide company rail — single-tenant, no multi-company switching
+  const showCompanyRail = false;
   const { theme, toggleTheme } = useTheme();
   const { companyPrefix } = useParams<{ companyPrefix: string }>();
   const navigate = useNavigate();
@@ -224,6 +226,7 @@ export function Layout() {
               >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
+              {!showCompanyRail && <UserMenu />}
             </div>
           </div>
         </div>
@@ -259,6 +262,7 @@ export function Layout() {
               >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
+              {!showCompanyRail && <UserMenu />}
             </div>
           </div>
         </div>
