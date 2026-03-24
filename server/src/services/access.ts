@@ -2,7 +2,6 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
   authUsers,
-  agents,
   companyMemberships,
   instanceUserRoles,
   roles,
@@ -291,7 +290,7 @@ export function accessService(db: Db) {
         roleId: companyMemberships.roleId,
         createdAt: companyMemberships.createdAt,
         updatedAt: companyMemberships.updatedAt,
-        userName: sql<string | null>`COALESCE(${authUsers.name}, ${agents.name})`.as("user_name"),
+        userName: authUsers.name,
         userEmail: authUsers.email,
         userImage: authUsers.image,
       })
@@ -303,14 +302,7 @@ export function accessService(db: Db) {
           eq(companyMemberships.principalId, authUsers.id),
         ),
       )
-      .leftJoin(
-        agents,
-        and(
-          eq(companyMemberships.principalType, "agent"),
-          sql`CASE WHEN ${companyMemberships.principalId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${companyMemberships.principalId}::uuid = ${agents.id} ELSE false END`,
-        ),
-      )
-      .where(eq(companyMemberships.companyId, companyId))
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.principalType, "user")))
       .orderBy(sql`${companyMemberships.createdAt} desc`);
     return rows;
   }
