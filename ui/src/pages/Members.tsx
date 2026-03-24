@@ -103,13 +103,14 @@ export function Members() {
   }, [roles]);
 
   function getRoleName(member: EnrichedMember): string {
-    // Try to resolve via roleMap (by businessRole which may be a slug or id)
-    const role = roleMap.get(member.businessRole);
-    if (role) return role.name;
-    // Fallback: capitalize the businessRole string
-    return member.businessRole
-      ? member.businessRole.charAt(0).toUpperCase() + member.businessRole.slice(1)
-      : "Unknown";
+    // Try to resolve via roleMap (by roleId or businessRole slug)
+    const roleKey = member.roleId ?? member.businessRole;
+    if (roleKey) {
+      const role = roleMap.get(roleKey);
+      if (role) return role.name;
+      return roleKey.charAt(0).toUpperCase() + roleKey.slice(1);
+    }
+    return "Unknown";
   }
 
   const updateRoleMutation = useMutation({
@@ -162,7 +163,7 @@ export function Members() {
   const filteredMembers = useMemo(() => {
     if (!members) return [];
     return members.filter((m) => {
-      if (roleFilter !== "all" && m.businessRole !== roleFilter) return false;
+      if (roleFilter !== "all" && (m.roleId ?? m.businessRole) !== roleFilter) return false;
       if (statusFilter !== "all" && m.status !== statusFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -470,9 +471,9 @@ function MemberRow({
       {/* Role */}
       <td className="px-4 py-2.5 hidden sm:table-cell">
         <div className="flex items-center gap-2">
-          <RoleBadge role={member.businessRole as string} />
+          <RoleBadge role={(member.roleId ?? member.businessRole ?? "unknown") as string} />
           <Select
-            value={member.businessRole}
+            value={member.roleId ?? member.businessRole ?? ""}
             onValueChange={(val) => onRoleChange(val)}
           >
             <SelectTrigger
