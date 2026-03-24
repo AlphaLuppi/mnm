@@ -1,4 +1,13 @@
 services:
+  # Agent sandbox image — built first, used by server to create user containers
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+    image: mnm-agent:latest
+    deploy:
+      replicas: 0  # Never run — just build the image
+
   server:
     env_file:
       - .env
@@ -6,6 +15,9 @@ services:
       context: .
       dockerfile: Dockerfile
     image: ${CI_REGISTRY_IMAGE:-mnm}/server:${APP_VERSION:-latest}
+    depends_on:
+      agent:
+        condition: service_started
     expose:
       - ${PORT:-3100}
     environment:
