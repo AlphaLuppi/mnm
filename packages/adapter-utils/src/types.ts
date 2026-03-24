@@ -83,6 +83,8 @@ export interface AdapterExecutionContext {
   authToken?: string;
   /** When set, execute commands inside this Docker container via `docker exec` */
   dockerContainerId?: string;
+  /** Claude OAuth token (from setup-token) — injected as CLAUDE_CODE_OAUTH_TOKEN env var */
+  claudeOauthToken?: string;
 }
 
 export interface AdapterModel {

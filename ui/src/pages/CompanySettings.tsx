@@ -8,7 +8,10 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Settings, Check, Sun, Moon, Monitor } from "lucide-react";
+import { Settings, Check, Sun, Moon, Monitor, Key } from "lucide-react";
+import { ClaudeTokenSetup } from "../components/ClaudeTokenSetup";
+import { sandboxesApi } from "../api/sandboxes";
+import { useQuery } from "@tanstack/react-query";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -81,6 +84,13 @@ export function CompanySettings() {
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
+
+  // Sandbox query (for Claude auth status)
+  const sandboxQuery = useQuery({
+    queryKey: ["sandbox", selectedCompanyId],
+    queryFn: () => sandboxesApi.getMySandbox(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
 
   // General settings local state
   const [companyName, setCompanyName] = useState("");
@@ -259,6 +269,7 @@ export function CompanySettings() {
           <TabsTrigger value="agents">Agents</TabsTrigger>
           <TabsTrigger value="invites">Invites</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="claude">Claude</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
 
@@ -575,6 +586,22 @@ export function CompanySettings() {
                   <span>20px</span>
                 </div>
               </Field>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ──── Claude Tab ──── */}
+        <TabsContent value="claude" className="space-y-6">
+          <div className="space-y-4">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Claude Connection
+            </div>
+            <div className="rounded-md border border-border px-4 py-4">
+              <ClaudeTokenSetup
+                companyId={selectedCompanyId!}
+                authStatus={sandboxQuery?.data?.pod?.claudeAuthStatus}
+                onSuccess={() => sandboxQuery.refetch()}
+              />
             </div>
           </div>
         </TabsContent>

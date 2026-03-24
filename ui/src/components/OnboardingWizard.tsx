@@ -29,9 +29,11 @@ import {
   WifiOff,
   Plus,
   UserPlus,
+  Key,
 } from "lucide-react";
+import { ClaudeTokenSetup } from "./ClaudeTokenSetup";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 // ---------------------------------------------------------------------------
 // Role presets
@@ -120,6 +122,9 @@ export function OnboardingWizard() {
   // Step 3 — Tags
   const [createdTags, setCreatedTags] = useState<Tag[]>([]);
   const [customTagName, setCustomTagName] = useState("");
+
+  // Step 5 — Claude token
+  const [claudeTokenDone, setClaudeTokenDone] = useState(false);
 
   // Step 4 — Invite
   const [inviteEmail, setInviteEmail] = useState("");
@@ -449,7 +454,8 @@ export function OnboardingWizard() {
       else if (step === 2 && rolePreset) handleStep2Next();
       else if (step === 3) setStep(4);
       else if (step === 4) setStep(5);
-      else if (step === 5) handleComplete();
+      else if (step === 5) setStep(6);
+      else if (step === 6) handleComplete();
     }
   }
 
@@ -495,10 +501,10 @@ export function OnboardingWizard() {
                 <Sparkles className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Get Started</span>
                 <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
-                  Step {step} of 5
+                  Step {step} of 6
                 </span>
               </div>
-              <OnboardingProgressBar currentStep={step} totalSteps={5} />
+              <OnboardingProgressBar currentStep={step} totalSteps={6} />
             </div>
 
             {/* ============================================================ */}
@@ -957,9 +963,28 @@ export function OnboardingWizard() {
             )}
 
             {/* ============================================================ */}
-            {/* STEP 5: Done / Summary */}
+            {/* STEP 5: Connect Claude */}
             {/* ============================================================ */}
-            {step === 5 && (
+            {step === 5 && createdCompanyId && (
+              <div className="space-y-5">
+                <StepHeader
+                  icon={Key}
+                  title="Connect Claude"
+                  description="Link your Claude Pro or Max subscription so agents can run on your account."
+                />
+
+                <ClaudeTokenSetup
+                  companyId={createdCompanyId}
+                  compact
+                  onSuccess={() => setClaudeTokenDone(true)}
+                />
+              </div>
+            )}
+
+            {/* ============================================================ */}
+            {/* STEP 6: Done / Summary */}
+            {/* ============================================================ */}
+            {step === 6 && (
               <div className="space-y-5">
                 <StepHeader
                   icon={Rocket}
@@ -992,6 +1017,11 @@ export function OnboardingWizard() {
                     icon={Users}
                     label="Invitations"
                     value={inviteSuccess ?? "None sent"}
+                  />
+                  <SummaryRow
+                    icon={Key}
+                    label="Claude"
+                    value={claudeTokenDone ? "Connected" : "Not configured (can set up later in Settings)"}
                   />
                 </div>
 
@@ -1069,8 +1099,18 @@ export function OnboardingWizard() {
                     {createdTags.length === 0 ? "Skip" : "Next"}
                   </Button>
                 )}
-                {/* Step 4 has its own buttons */}
                 {step === 5 && (
+                  <Button
+                    data-testid="onb-s01-next"
+                    size="sm"
+                    onClick={() => setStep(6)}
+                  >
+                    <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                    {claudeTokenDone ? "Next" : "Skip for now"}
+                  </Button>
+                )}
+                {/* Step 4 has its own buttons */}
+                {step === 6 && (
                   <Button
                     data-testid="onb-s01-complete"
                     size="sm"

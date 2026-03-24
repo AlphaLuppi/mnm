@@ -72,6 +72,7 @@ interface ClaudeExecutionInput {
   context: Record<string, unknown>;
   authToken?: string;
   dockerContainerId?: string;
+  claudeOauthToken?: string;
 }
 
 interface ClaudeRuntimeConfig {
@@ -211,6 +212,11 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     env.MNM_API_KEY = authToken;
   }
 
+  // SANDBOX-AUTH: inject Claude OAuth token for Anthropic auth (from user's setup-token)
+  if (input.claudeOauthToken) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = input.claudeOauthToken;
+  }
+
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   if (!isDocker) {
     await ensureCommandResolvable(command, cwd, runtimeEnv);
@@ -275,7 +281,7 @@ export async function runClaudeLogin(input: {
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId } = ctx;
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId, claudeOauthToken } = ctx;
 
   const defaultPromptTemplate = `You are agent {{agent.name}} (id: {{agent.id}}) on the MnM platform.
 {{#if context.issueTitle}}
@@ -309,6 +315,7 @@ Continue your MnM work. Check for assigned issues and tasks.
     context,
     authToken,
     dockerContainerId,
+    claudeOauthToken,
   });
   const {
     command,

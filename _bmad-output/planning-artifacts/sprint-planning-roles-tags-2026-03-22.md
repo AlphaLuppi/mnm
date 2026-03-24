@@ -140,5 +140,5 @@
 | Story | SP | Description | Status |
 |-------|----|-------------|--------|
 | BOARD-RENAME | 8 | Rename "board" actor type to "user" across codebase | Deferred |
-| SANDBOX-AUTH | 3 | Auto-persist claude credentials across container recreation | Deferred |
+| SANDBOX-AUTH | 3 | Claude token injection via DB + docker exec env var (replaces credential file copy) | **DONE** |
 | PRESET-SLUGS | 2 | Hardcoded permission slugs in OnboardingWizard → fetch from API | Deferred |

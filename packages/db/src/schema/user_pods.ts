@@ -19,6 +19,7 @@ export const userPods = pgTable(
     memoryMb: integer("memory_mb").notNull().default(1024),
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
     claudeAuthStatus: text("claude_auth_status").notNull().default("unknown"),
+    claudeOauthToken: text("claude_oauth_token"),
     error: text("error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

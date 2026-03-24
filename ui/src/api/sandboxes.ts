@@ -54,4 +54,17 @@ export const sandboxesApi = {
       `/companies/${companyId}/sandboxes/my/auth-code`,
       { code },
     ),
+
+  /** SANDBOX-AUTH: Save Claude setup-token (1 year, from `claude setup-token`) */
+  setClaudeToken: (companyId: string, token: string) =>
+    api.put<{ status: string }>(
+      `/companies/${companyId}/sandboxes/my/claude-token`,
+      { token },
+    ),
+
+  /** SANDBOX-AUTH: Revoke stored Claude token */
+  clearClaudeToken: (companyId: string) =>
+    api.delete<{ status: string }>(
+      `/companies/${companyId}/sandboxes/my/claude-token`,
+    ),
 };

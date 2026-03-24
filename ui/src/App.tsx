@@ -42,8 +42,8 @@ import { TraceDetail } from "./pages/TraceDetail";
 import { TraceTimelineDemo } from "./pages/TraceTimelineDemo";
 import { TraceSettings } from "./pages/TraceSettings";
 import { WorkflowTraces } from "./pages/WorkflowTraces";
-// POD-06: Workspace page
-import { Workspace } from "./pages/Workspace";
+// POD-06: Workspace page (deprecated — auth moved to Settings > Claude)
+// import { Workspace } from "./pages/Workspace";
 // DEPLOY-06: Deployments page
 import { Deployments } from "./pages/Deployments";
 import { AuthPage } from "./pages/Auth";
@@ -164,7 +164,7 @@ function boardRoutes() {
       <Route path="activity" element={<RequirePermission permission="audit:read" showForbidden><Activity /></RequirePermission>} />
       <Route path="audit" element={<RequirePermission permission="audit:read" showForbidden><AuditLog /></RequirePermission>} />
       <Route path="containers" element={<RequirePermission permission="agents:manage_containers" showForbidden><Containers /></RequirePermission>} />
-      <Route path="workspace" element={<RequirePermission permission="agents:launch" showForbidden><Workspace /></RequirePermission>} />
+      {/* workspace route removed — auth via Settings > Claude */}
       <Route path="deployments" element={<RequirePermission permission="agents:launch" showForbidden><Deployments /></RequirePermission>} />
       <Route path="chat" element={<RequirePermission permission="chat:agent" showForbidden><Chat /></RequirePermission>} />
       <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
