@@ -50,6 +50,8 @@ export function AuthPage() {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
       await queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+      // SANDBOX-AUTH-AUTOBOOTSTRAP: refresh health so bootstrapStatus updates after first signup
+      await queryClient.invalidateQueries({ queryKey: queryKeys.health });
       navigate(nextPath, { replace: true });
     },
     onError: (err) => {
