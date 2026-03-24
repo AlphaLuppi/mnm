@@ -537,7 +537,7 @@ const runtimeApiHost =
     : runtimeListenHost;
 process.env.MNM_LISTEN_HOST = runtimeListenHost;
 process.env.MNM_LISTEN_PORT = String(listenPort);
-process.env.MNM_API_URL = `http://${runtimeApiHost}:${listenPort}`;
+process.env.MNM_API_URL = process.env.MNM_PUBLIC_URL || `http://${runtimeApiHost}:${listenPort}`;
 
 const liveEventsWss = setupLiveEventsWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
