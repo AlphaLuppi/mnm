@@ -307,7 +307,7 @@ export function accessService(db: Db) {
         agents,
         and(
           eq(companyMemberships.principalType, "agent"),
-          sql`${companyMemberships.principalId}::uuid = ${agents.id}`,
+          sql`CASE WHEN ${companyMemberships.principalId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${companyMemberships.principalId}::uuid = ${agents.id} ELSE false END`,
         ),
       )
       .where(eq(companyMemberships.companyId, companyId))
