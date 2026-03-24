@@ -307,7 +307,7 @@ export function accessService(db: Db) {
         agents,
         and(
           eq(companyMemberships.principalType, "agent"),
-          eq(companyMemberships.principalId, agents.id),
+          sql`${companyMemberships.principalId}::uuid = ${agents.id}`,
         ),
       )
       .where(eq(companyMemberships.companyId, companyId))
