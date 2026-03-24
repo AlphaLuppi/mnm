@@ -82,7 +82,8 @@ export type EnrichedMember = {
   principalId: string;
   status: string;
   membershipRole: string | null;
-  businessRole: string;
+  businessRole?: string | null;
+  roleId?: string | null;
   createdAt: string;
   updatedAt: string;
   userName: string | null;
