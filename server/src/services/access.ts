@@ -4,11 +4,13 @@ import {
   authUsers,
   companyMemberships,
   instanceUserRoles,
+  invites,
   roles,
   rolePermissions,
   permissions,
   tagAssignments,
 } from "@mnm/db";
+import { isNull, gt } from "drizzle-orm";
 import type { PrincipalType } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 
@@ -279,7 +281,8 @@ export function accessService(db: Db) {
   // ── Member Management ────────────────────────────────────────────────────
 
   async function listMembers(companyId: string) {
-    const rows = await db
+    // Active human members
+    const members = await db
       .select({
         id: companyMemberships.id,
         companyId: companyMemberships.companyId,
@@ -304,7 +307,41 @@ export function accessService(db: Db) {
       )
       .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.principalType, "user")))
       .orderBy(sql`${companyMemberships.createdAt} desc`);
-    return rows;
+
+    // Pending invites (not accepted, not revoked, not expired)
+    const now = new Date();
+    const pendingInvites = await db
+      .select({
+        id: invites.id,
+        targetEmail: invites.targetEmail,
+        createdAt: invites.createdAt,
+        expiresAt: invites.expiresAt,
+      })
+      .from(invites)
+      .where(and(
+        eq(invites.companyId, companyId),
+        isNull(invites.acceptedAt),
+        isNull(invites.revokedAt),
+        gt(invites.expiresAt, now),
+      ));
+
+    // Merge: pending invites as "pending" members
+    const pendingRows = pendingInvites.map((inv) => ({
+      id: inv.id,
+      companyId,
+      principalType: "user" as const,
+      principalId: inv.id,
+      status: "pending",
+      membershipRole: null,
+      roleId: null,
+      createdAt: inv.createdAt,
+      updatedAt: inv.createdAt,
+      userName: null,
+      userEmail: inv.targetEmail,
+      userImage: null,
+    }));
+
+    return [...members, ...pendingRows];
   }
 
   async function updateMemberStatus(

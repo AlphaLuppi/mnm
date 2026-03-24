@@ -66,6 +66,7 @@ export function Members() {
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Members" }]);
@@ -151,9 +152,12 @@ export function Members() {
   const inviteMutation = useMutation({
     mutationFn: (email: string) =>
       accessApi.createEmailInvite(selectedCompanyId!, email),
-    onSuccess: () => {
-      setInviteOpen(false);
+    onSuccess: (data) => {
       setInviteEmail("");
+      const url = data.inviteUrl
+        ? `${window.location.origin}${data.inviteUrl}`
+        : null;
+      setInviteUrl(url);
       queryClient.invalidateQueries({
         queryKey: queryKeys.access.members(selectedCompanyId!),
       });
@@ -332,7 +336,7 @@ export function Members() {
       {/* Invite Dialog */}
       <Dialog open={inviteOpen} onOpenChange={(open) => {
         setInviteOpen(open);
-        if (!open) setInviteEmail("");
+        if (!open) { setInviteEmail(""); setInviteUrl(null); }
       }}>
         <DialogContent data-testid="mu-s02-invite-dialog" className="sm:max-w-lg">
           <DialogHeader>
@@ -372,6 +376,21 @@ export function Members() {
                       ? inviteMutation.error.message
                       : "Failed to send invitation"}
                   </p>
+                )}
+                {inviteUrl && (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Invite created! Share this link:</p>
+                    <div className="flex items-center gap-2">
+                      <Input value={inviteUrl} readOnly className="text-xs font-mono" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { navigator.clipboard.writeText(inviteUrl); }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
               <DialogFooter className="mt-4">
