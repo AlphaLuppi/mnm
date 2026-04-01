@@ -30,6 +30,8 @@ import {
   Plus,
   UserPlus,
   Key,
+  Container,
+  Monitor,
 } from "lucide-react";
 import { ClaudeTokenSetup } from "./ClaudeTokenSetup";
 
@@ -123,7 +125,9 @@ export function OnboardingWizard() {
   const [createdTags, setCreatedTags] = useState<Tag[]>([]);
   const [customTagName, setCustomTagName] = useState("");
 
-  // Step 5 — Claude token
+  // Step 5 — Agent mode (sandbox vs local)
+  type AgentMode = "sandbox" | "local" | null;
+  const [agentMode, setAgentMode] = useState<AgentMode>(null);
   const [claudeTokenDone, setClaudeTokenDone] = useState(false);
 
   // Step 4 — Invite
@@ -420,7 +424,9 @@ export function OnboardingWizard() {
 
     if (createdCompanyId) {
       try {
-        await onboardingApi.complete(createdCompanyId);
+        await onboardingApi.complete(createdCompanyId, {
+          agentMode: agentMode ?? "local",
+        });
       } catch {
         // non-blocking
       }
@@ -963,21 +969,95 @@ export function OnboardingWizard() {
             )}
 
             {/* ============================================================ */}
-            {/* STEP 5: Connect Claude */}
+            {/* STEP 5: Agent Execution Mode */}
             {/* ============================================================ */}
             {step === 5 && createdCompanyId && (
               <div className="space-y-5">
                 <StepHeader
                   icon={Key}
-                  title="Connect Claude"
-                  description="Link your Claude Pro or Max subscription so agents can run on your account."
+                  title="How should agents run?"
+                  description="Choose how Claude agents execute tasks. You can change this later in Settings."
                 />
 
-                <ClaudeTokenSetup
-                  companyId={createdCompanyId}
-                  compact
-                  onSuccess={() => setClaudeTokenDone(true)}
-                />
+                {/* Mode selection cards */}
+                {!agentMode && (
+                  <div className="grid gap-3">
+                    <button
+                      className="text-left rounded-md border border-border p-4 transition-colors hover:bg-accent/50"
+                      onClick={() => setAgentMode("local")}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Monitor className="h-4 w-4 text-primary" />
+                        <p className="text-sm font-medium">Claude Local</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Use the Claude CLI already installed on your machine. No Docker required.
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/70 mt-1">
+                        Recommended for local development. Uses your existing Claude login.
+                      </p>
+                    </button>
+                    <button
+                      className="text-left rounded-md border border-border p-4 transition-colors hover:bg-accent/50"
+                      onClick={() => setAgentMode("sandbox")}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Container className="h-4 w-4 text-primary" />
+                        <p className="text-sm font-medium">Docker Sandbox</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Each user gets an isolated Docker container. Requires Docker Desktop + setup token.
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/70 mt-1">
+                        Recommended for teams and production. Full isolation per user.
+                      </p>
+                    </button>
+                  </div>
+                )}
+
+                {/* Local mode selected */}
+                {agentMode === "local" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <Monitor className="w-5 h-5 text-emerald-500 shrink-0" />
+                      <div>
+                        <p className="font-medium text-emerald-600 dark:text-emerald-400">Claude Local mode</p>
+                        <p className="text-sm text-muted-foreground">
+                          Agents will run directly on your machine using your Claude CLI session.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setAgentMode(null)}
+                    >
+                      Choose a different mode
+                    </button>
+                  </div>
+                )}
+
+                {/* Sandbox mode selected — show token setup */}
+                {agentMode === "sandbox" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+                      <Container className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <p className="text-sm text-muted-foreground">
+                        Docker Sandbox mode — connect your Claude subscription:
+                      </p>
+                    </div>
+                    <ClaudeTokenSetup
+                      companyId={createdCompanyId}
+                      compact
+                      onSuccess={() => setClaudeTokenDone(true)}
+                    />
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { setAgentMode(null); setClaudeTokenDone(false); }}
+                    >
+                      Choose a different mode
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1020,14 +1100,27 @@ export function OnboardingWizard() {
                   />
                   <SummaryRow
                     icon={Key}
-                    label="Claude"
-                    value={claudeTokenDone ? "Connected" : "Not configured (can set up later in Settings)"}
+                    label="Agent mode"
+                    value={
+                      agentMode === "local"
+                        ? "Claude Local (host machine)"
+                        : claudeTokenDone
+                          ? "Docker Sandbox (token connected)"
+                          : "Docker Sandbox (token not set — configure later in Settings)"
+                    }
                   />
                 </div>
 
-                <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-                  Your sandbox will be provisioned automatically when you create your first agent.
-                </div>
+                {agentMode === "sandbox" && (
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                    Your sandbox will be provisioned automatically when you create your first agent.
+                  </div>
+                )}
+                {agentMode === "local" && (
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                    Agents will run locally using your Claude CLI. Make sure <code className="font-mono bg-muted px-1 rounded">claude</code> is available in your PATH.
+                  </div>
+                )}
               </div>
             )}
 
@@ -1103,10 +1196,11 @@ export function OnboardingWizard() {
                   <Button
                     data-testid="onb-s01-next"
                     size="sm"
+                    disabled={!agentMode}
                     onClick={() => setStep(6)}
                   >
                     <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                    {claudeTokenDone ? "Next" : "Skip for now"}
+                    {agentMode === "sandbox" && !claudeTokenDone ? "Skip token & Continue" : "Next"}
                   </Button>
                 )}
                 {/* Step 4 has its own buttons */}
