@@ -30,10 +30,10 @@ export const onboardingApi = {
     ),
 
   // onb-s01-api-complete
-  complete: (companyId: string) =>
+  complete: (companyId: string, data?: { agentMode?: "sandbox" | "local" }) =>
     api.post<OnboardingStatus>(
       `/companies/${companyId}/onboarding/complete`,
-      {},
+      data ?? {},
     ),
 
   // onb-s01-api-reset

@@ -62,6 +62,7 @@ export function onboardingRoutes(db: Db) {
     const { companyId } = req.params;
     assertCompanyAccess(req, companyId as string);
 
+    const agentMode = req.body?.agentMode === "sandbox" ? "sandbox" : "local";
     const status = await svc.completeOnboarding(companyId as string);
 
     await emitAudit({
@@ -71,20 +72,24 @@ export function onboardingRoutes(db: Db) {
       action: "onboarding.completed",
       targetType: "company",
       targetId: companyId as string,
-      metadata: { steps_completed: 5 },
+      metadata: { steps_completed: 5, agentMode },
     });
 
-    // Auto-provision sandbox for the onboarding user
-    const userId = req.actor.type === "board" ? req.actor.userId : null;
-    if (userId) {
-      try {
-        const manager = sandboxManagerService(db);
-        await manager.provisionSandbox(userId, companyId as string);
-        logger.info({ userId, companyId }, "Auto-provisioned sandbox after onboarding");
-      } catch (err: any) {
-        // Don't block onboarding completion if sandbox provisioning fails
-        logger.warn({ err: err.message, userId, companyId }, "Auto-provision sandbox failed (non-blocking)");
+    // Auto-provision sandbox only if user chose sandbox mode
+    if (agentMode === "sandbox") {
+      const userId = req.actor.type === "board" ? req.actor.userId : null;
+      if (userId) {
+        try {
+          const manager = sandboxManagerService(db);
+          await manager.provisionSandbox(userId, companyId as string);
+          logger.info({ userId, companyId }, "Auto-provisioned sandbox after onboarding");
+        } catch (err: any) {
+          // Don't block onboarding completion if sandbox provisioning fails
+          logger.warn({ err: err.message, userId, companyId }, "Auto-provision sandbox failed (non-blocking)");
+        }
       }
+    } else {
+      logger.info({ companyId, agentMode }, "Skipping sandbox provisioning — local agent mode selected");
     }
 
     res.json(status);
