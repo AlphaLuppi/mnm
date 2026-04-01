@@ -1112,11 +1112,22 @@ export function heartbeatService(db: Db) {
           .select({
             assigneeAgentId: issues.assigneeAgentId,
             assigneeAdapterOverrides: issues.assigneeAdapterOverrides,
+            title: issues.title,
+            description: issues.description,
           })
           .from(issues)
           .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
           .then((rows) => rows[0] ?? null)
       : null;
+    // Enrich context with issue title/description for adapter prompt templates
+    if (issueAssigneeConfig) {
+      if (issueAssigneeConfig.title && !readNonEmptyString(context.issueTitle)) {
+        context.issueTitle = issueAssigneeConfig.title;
+      }
+      if (issueAssigneeConfig.description && !readNonEmptyString(context.issueDescription)) {
+        context.issueDescription = issueAssigneeConfig.description;
+      }
+    }
     const issueAssigneeOverrides =
       issueAssigneeConfig && issueAssigneeConfig.assigneeAgentId === agent.id
         ? parseIssueAssigneeAdapterOverrides(
@@ -1185,6 +1196,8 @@ export function heartbeatService(db: Db) {
     let handle: RunLogHandle | null = null;
     let stdoutExcerpt = "";
     let stderrExcerpt = "";
+    let bronzeTraceId: string | undefined;
+    const bronze = bronzeTraceCapture(db);
 
     try {
       const startedAt = run.startedAt ?? new Date();
@@ -1234,8 +1247,6 @@ export function heartbeatService(db: Db) {
       });
 
       // ── Bronze Trace Capture: start trace for this run ──────────────
-      const bronze = bronzeTraceCapture(db);
-      let bronzeTraceId: string | undefined;
       try {
         bronzeTraceId = await bronze.startCapture({
           runId,
@@ -1448,19 +1459,38 @@ export function heartbeatService(db: Db) {
 
       // ── Bronze Trace: complete the trace ──────────────────────────
       if (bronzeTraceId) {
+        const traceOutcome = outcome === "succeeded" ? "completed" : "failed";
         try {
-          await bronze.completeCapture(
-            runId,
-            outcome === "succeeded" ? "completed" : "failed",
-          );
-        } catch (err) {
-          logger.warn({ err, runId }, "Bronze trace capture failed to complete");
+          await bronze.completeCapture(runId, traceOutcome);
+        } catch (captureErr) {
+          logger.warn({ err: captureErr, runId }, "Bronze completeCapture failed");
+        }
+
+        // Safety net: if completeCapture silently skipped (e.g. activeRuns Map miss after hot-reload),
+        // force the status update directly via DB with RLS tenant context
+        try {
+          await db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT set_config('app.current_company_id', ${run.companyId}, true)`);
+            await tx.execute(sql`
+              UPDATE traces SET
+                status = ${traceOutcome},
+                completed_at = COALESCE(completed_at, NOW()),
+                total_duration_ms = COALESCE(total_duration_ms, CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 AS integer)),
+                total_tokens_in = COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0),
+                total_tokens_out = COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0),
+                total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0)::text,
+                updated_at = NOW()
+              WHERE id = ${bronzeTraceId} AND status = 'running'
+            `);
+          });
+        } catch (safetyErr) {
+          logger.warn({ err: safetyErr, runId, bronzeTraceId }, "Trace status safety-net update failed");
         }
 
         // ── Silver → Gold Trace Pipeline (fire-and-forget) ──
-        // Silver (deterministic phases) then Gold (LLM analysis) — chained so gold sees silver phases
-        silverEnrichTrace(db, bronzeTraceId, run.companyId)
-          .then(() => goldTraceEnrichment(db).enrichTraceGold(bronzeTraceId, run.companyId))
+        const traceId = bronzeTraceId;
+        silverEnrichTrace(db, traceId, run.companyId)
+          .then(() => goldTraceEnrichment(db).enrichTraceGold(traceId, run.companyId))
           .catch((err) => {
             logger.warn({ err, runId }, "Silver→Gold trace enrichment pipeline failed");
           });
@@ -1534,6 +1564,24 @@ export function heartbeatService(db: Db) {
         finishedAt: new Date(),
         error: message,
       });
+
+      // Complete bronze trace on error path too
+      if (bronzeTraceId) {
+        try {
+          await bronze.completeCapture(runId, "failed");
+        } catch { /* ignore */ }
+        try {
+          await db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT set_config('app.current_company_id', ${run.companyId}, true)`);
+            await tx.execute(sql`
+              UPDATE traces SET status = 'failed', completed_at = COALESCE(completed_at, NOW()),
+                total_duration_ms = COALESCE(total_duration_ms, CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 AS integer)),
+                updated_at = NOW()
+              WHERE id = ${bronzeTraceId} AND status = 'running'
+            `);
+          });
+        } catch { /* ignore */ }
+      }
 
       if (failedRun) {
         await appendRunEvent(failedRun, seq++, {
