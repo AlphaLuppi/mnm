@@ -140,7 +140,6 @@ function boardRoutes() {
       <Route path="workflows" element={<RequirePermission permission="workflows:create" showForbidden><Workflows /></RequirePermission>} />
       <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><NewWorkflow /></RequirePermission>} />
       <Route path="workflows/:workflowId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowDetail /></RequirePermission>} />
-      <Route path="workflow-editor/new" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
       <Route path="workflow-editor/:templateId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
       <Route path="goals" element={<RequirePermission permission="projects:create" showForbidden><Goals /></RequirePermission>} />
       <Route path="goals/:goalId" element={<RequirePermission permission="projects:create" showForbidden><GoalDetail /></RequirePermission>} />
@@ -255,7 +254,6 @@ export function App() {
           <Route path="workflows" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows/new" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows/:workflowId" element={<UnprefixedBoardRedirect />} />
-          <Route path="workflow-editor/new" element={<UnprefixedBoardRedirect />} />
           <Route path="workflow-editor/:templateId" element={<UnprefixedBoardRedirect />} />
           <Route path="goals" element={<UnprefixedBoardRedirect />} />
           <Route path="goals/:goalId" element={<UnprefixedBoardRedirect />} />
