@@ -62,3 +62,5 @@ export { roles } from "./roles.js";
 export { rolePermissions } from "./role_permissions.js";
 export { tags } from "./tags.js";
 export { tagAssignments } from "./tag_assignments.js";
+// CONFIG-LAYERS: Shareable versioned configuration bundles
+export { configLayers } from "./config_layers.js";

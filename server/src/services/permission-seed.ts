@@ -59,6 +59,16 @@ const SEED_PERMISSIONS: Array<{ slug: string; description: string; category: str
 
   // Sandbox
   { slug: "sandbox:manage", description: "Gérer les sandboxes", category: "sandbox" },
+
+  // Config Layers
+  { slug: "config_layers:create", description: "Créer des config layers", category: "config" },
+  { slug: "config_layers:edit", description: "Modifier des config layers", category: "config" },
+  { slug: "config_layers:delete", description: "Supprimer des config layers", category: "config" },
+  { slug: "config_layers:read", description: "Voir les config layers", category: "config" },
+  { slug: "config_layers:manage", description: "Gérer les config layers company/enforced", category: "config" },
+  { slug: "config_layers:promote", description: "Approuver/rejeter les promotions de layers", category: "config" },
+  { slug: "config_layers:attach", description: "Attacher des layers aux agents", category: "config" },
+  { slug: "mcp:connect", description: "Connecter des credentials MCP", category: "config" },
 ];
 
 /**
