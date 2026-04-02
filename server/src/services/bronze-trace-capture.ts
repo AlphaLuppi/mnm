@@ -272,7 +272,7 @@ export function bronzeTraceCapture(db: Db) {
             total_duration_ms = CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 AS integer),
             total_tokens_in = COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0),
             total_tokens_out = COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${state.traceId}), 0),
-            total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = ${state.traceId}), 0)::text,
+            total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = ${state.traceId}), 0),
             updated_at = NOW()
           WHERE id = ${state.traceId}
         `);

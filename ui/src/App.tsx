@@ -109,7 +109,7 @@ function boardRoutes() {
       <Route path="admin/roles" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminRoles /></RequirePermission>} />
       <Route path="admin/tags" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminTags /></RequirePermission>} />
       <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
-      <Route path="admin/config-layers" element={<RequirePermission permission="agents:manage_layers" showForbidden><ConfigLayersPage /></RequirePermission>} />
+      <Route path="admin/config-layers" element={<RequirePermission permission="config_layers:read" showForbidden><ConfigLayersPage /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />

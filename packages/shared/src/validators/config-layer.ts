@@ -191,7 +191,7 @@ export type CreateConfigLayerFile = z.infer<typeof createConfigLayerFileSchema>;
 
 export const attachConfigLayerSchema = z.object({
   layerId: z.string().uuid(),
-  priority: z.number().int().min(0).max(498),
+  priority: z.number().int().min(0).max(498).optional().default(0),
 });
 
 export type AttachConfigLayer = z.infer<typeof attachConfigLayerSchema>;
