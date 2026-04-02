@@ -92,7 +92,7 @@ function sameRunLock(checkoutRunId: string | null, actorRunId: string | null) {
   return checkoutRunId == null;
 }
 
-const TERMINAL_HEARTBEAT_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled", "timed_out"]);
+const TERMINAL_HEARTBEAT_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled", "timed_out", "interrupted"]);
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");

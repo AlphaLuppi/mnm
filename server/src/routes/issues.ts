@@ -723,6 +723,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
               wakeCommentId: comment.id,
               wakeReason: "issue_comment_mentioned",
               source: "comment.mention",
+              issueTitle: issue.title,
+              issueDescription: issue.description,
+              mentionCommentBody: commentBody,
             },
           });
         }
