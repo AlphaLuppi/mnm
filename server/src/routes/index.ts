@@ -37,3 +37,5 @@ export { jiraImportRoutes } from "./jira-import.js";
 export { traceRoutes } from "./traces.js";
 // CONFIG-LAYERS: Config layer routes
 export { configLayerRoutes } from "./config-layers.js";
+// CONFIG-LAYERS: MCP OAuth + credentials
+export { mcpOauthRoutes } from "./mcp-oauth.js";
