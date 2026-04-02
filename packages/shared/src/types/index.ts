@@ -353,3 +353,25 @@ export type {
   SsoOidcConfig,
   SsoMetadataSyncResult,
 } from "./sso.js";
+
+// config-layer-barrel-types
+export type {
+  ConfigLayerItemType,
+  ConfigLayerScope,
+  ConfigLayerVisibility,
+  ConfigLayerSourceType,
+  McpCredentialProvider,
+  McpCredentialStatus,
+  ConfigLayer,
+  ConfigLayerItem,
+  ConfigLayerFile,
+  ConfigLayerDetail,
+  AgentConfigLayerAttachment,
+  ConfigLayerRevision,
+  ConflictSeverity,
+  ConfigLayerConflict,
+  ConflictCheckResult,
+  MergedConfigItem,
+  MergePreviewResult,
+  UserMcpCredential,
+} from "./config-layer.js";
