@@ -15,10 +15,20 @@ const STATUS_CONFIG: Record<
     dotClass: "bg-green-500",
     icon: Link2,
   },
+  pending: {
+    label: "Pending",
+    dotClass: "bg-amber-500",
+    icon: RefreshCw,
+  },
   expired: {
     label: "Expired",
     dotClass: "bg-amber-500",
     icon: RefreshCw,
+  },
+  revoked: {
+    label: "Revoked",
+    dotClass: "bg-red-500",
+    icon: Link2Off,
   },
   error: {
     label: "Error",
@@ -53,7 +63,7 @@ export function McpOAuthConnectButton({
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === "oauth_success" && event.data?.itemId === itemId) {
         queryClient.invalidateQueries({
-          queryKey: queryKeys.configLayers.credential(companyId, itemId),
+          queryKey: queryKeys.configLayers.credentials(companyId),
         });
         popupRef.current?.close();
         popupRef.current = null;
@@ -91,7 +101,7 @@ export function McpOAuthConnectButton({
         pollRef.current = null;
         // Refresh credential status after popup closes
         queryClient.invalidateQueries({
-          queryKey: queryKeys.configLayers.credential(companyId, itemId),
+          queryKey: queryKeys.configLayers.credentials(companyId),
         });
       }
     }, 500);

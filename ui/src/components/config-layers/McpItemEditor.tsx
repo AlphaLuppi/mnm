@@ -69,85 +69,81 @@ export function McpItemEditor({ item, onSave, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Name</Label>
+    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+      <div className="space-y-1.5">
+        <Label>Name</Label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-mcp-server"
           required
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
         />
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Transport</Label>
+      <div className="space-y-1.5">
+        <Label>Transport</Label>
         <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
-          <SelectTrigger className="bg-gray-900 border-gray-600 text-gray-200">
+          <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-gray-900 border-gray-700">
-            <SelectItem value="http" className="text-gray-200">HTTP</SelectItem>
-            <SelectItem value="sse" className="text-gray-200">SSE</SelectItem>
-            <SelectItem value="stdio" className="text-gray-200">stdio</SelectItem>
+          <SelectContent>
+            <SelectItem value="http">HTTP</SelectItem>
+            <SelectItem value="sse">SSE</SelectItem>
+            <SelectItem value="stdio">stdio</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {transport !== "stdio" && (
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">URL</Label>
+        <div className="space-y-1.5">
+          <Label>URL</Label>
           <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com/mcp"
-            className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
           />
         </div>
       )}
 
       {transport === "stdio" && (
         <>
-          <div className="space-y-1">
-            <Label className="text-gray-300 text-sm">Command</Label>
+          <div className="space-y-1.5">
+            <Label>Command</Label>
             <Input
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               placeholder="npx"
-              className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
             />
           </div>
-          <div className="space-y-1">
-            <Label className="text-gray-300 text-sm">Args (space-separated)</Label>
+          <div className="space-y-1.5">
+            <Label>Args (space-separated)</Label>
             <Input
               value={args}
               onChange={(e) => setArgs(e.target.value)}
               placeholder="-y @modelcontextprotocol/server-filesystem /tmp"
-              className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
             />
           </div>
         </>
       )}
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">
-          Environment Variables <span className="text-gray-500 font-normal">(KEY=value per line)</span>
+      <div className="space-y-1.5">
+        <Label>
+          Environment Variables <span className="text-muted-foreground font-normal">(KEY=value per line)</span>
         </Label>
         <Textarea
           value={envText}
           onChange={(e) => setEnvText(e.target.value)}
           placeholder={"API_KEY=your-key\nBASE_URL=https://api.example.com"}
           rows={4}
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500 font-mono text-sm"
+          className="font-mono text-sm"
         />
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button type="submit" size="sm">
           {item ? "Update" : "Add"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onCancel} className="text-gray-400 hover:text-gray-200">
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
       </div>

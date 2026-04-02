@@ -11,6 +11,53 @@ import type {
 } from "@mnm/shared";
 import { api } from "./client";
 
+// Re-export types for consumers
+export type { ConfigLayer, ConfigLayerDetail, ConfigLayerItem, ConfigLayerFile, ConfigLayerRevision, AgentConfigLayerAttachment, ConflictCheckResult, MergePreviewResult, UserMcpCredential };
+
+// Local convenience types used by page/component consumers
+export type LayerScope = "company" | "shared" | "private";
+export interface CreateLayerInput {
+  name: string;
+  scope: LayerScope;
+  description?: string;
+  icon?: string;
+  enforced?: boolean;
+  visibility?: "public" | "team" | "private";
+}
+
+export type ConflictType = "enforced_conflict" | "priority_conflict" | "override_conflict";
+export interface ConflictItem {
+  itemType: string;
+  name: string;
+  severity: ConflictType;
+  existingLayerId: string;
+  existingLayerName: string;
+  existingPriority: number;
+  candidatePriority: number;
+}
+
+export type McpCredentialStatus = "pending" | "connected" | "expired" | "revoked" | "error" | "disconnected";
+
+export interface MergePreviewItem {
+  id: string;
+  itemId: string;
+  itemType: string;
+  name: string;
+  configJson: Record<string, unknown>;
+  priority: number;
+  layerId: string;
+  layerName: string;
+}
+
+export interface MergePreviewLayerSource {
+  layerId: string;
+  layerName: string;
+  priority: number;
+  scope: string;
+  enforced: boolean;
+  itemCount: number;
+}
+
 export const configLayersApi = {
   // Layer CRUD
   list: (companyId: string, opts?: { scope?: string; includeArchived?: boolean }) => {
@@ -52,10 +99,10 @@ export const configLayersApi = {
   checkConflicts: (companyId: string, agentId: string, input: { layerId: string; priority?: number }) =>
     api.post<ConflictCheckResult>(`/companies/${companyId}/agents/${agentId}/config-layers/check`, input),
   mergePreview: (companyId: string, agentId: string) =>
-    api.get<MergePreviewResult>(`/companies/${companyId}/agents/${agentId}/config-layers/preview`),
+    api.get<{ items: MergePreviewItem[]; layerSources: MergePreviewLayerSource[] }>(`/companies/${companyId}/agents/${agentId}/config-layers/preview`),
 
   // Promotion
-  promote: (layerId: string) => api.post<ConfigLayer>(`/config-layers/${layerId}/promote`),
+  promote: (layerId: string) => api.post<ConfigLayer>(`/config-layers/${layerId}/promote`, {}),
   approvePromotion: (layerId: string, input: { expectedContentHash: string }) =>
     api.post<ConfigLayer>(`/config-layers/${layerId}/promotion/approve`, input),
   rejectPromotion: (layerId: string, input: { reason: string }) =>

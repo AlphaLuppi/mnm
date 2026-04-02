@@ -58,20 +58,20 @@ export function SettingItemEditor({ item, onSave, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Key</Label>
+    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+      <div className="space-y-1.5">
+        <Label>Key</Label>
         <Select value={selectedKey} onValueChange={setSelectedKey}>
-          <SelectTrigger className="bg-gray-900 border-gray-600 text-gray-200">
+          <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-gray-900 border-gray-700">
+          <SelectContent>
             {SETTING_KEYS.map((k) => (
-              <SelectItem key={k} value={k} className="text-gray-200 font-mono text-sm">
+              <SelectItem key={k} value={k} className="font-mono text-sm">
                 {k}
               </SelectItem>
             ))}
-            <SelectItem value={CUSTOM_SENTINEL} className="text-gray-400 italic">
+            <SelectItem value={CUSTOM_SENTINEL} className="italic text-muted-foreground">
               Custom key...
             </SelectItem>
           </SelectContent>
@@ -79,22 +79,22 @@ export function SettingItemEditor({ item, onSave, onCancel }: Props) {
       </div>
 
       {selectedKey === CUSTOM_SENTINEL && (
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Custom Key</Label>
+        <div className="space-y-1.5">
+          <Label>Custom Key</Label>
           <Input
             value={customKey}
             onChange={(e) => setCustomKey(e.target.value)}
             placeholder="my.custom.setting"
             required
-            className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500 font-mono text-sm"
+            className="font-mono text-sm"
           />
         </div>
       )}
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">
+      <div className="space-y-1.5">
+        <Label>
           Value{" "}
-          <span className="text-gray-500 font-normal">
+          <span className="text-muted-foreground font-normal">
             (JSON or plain string — e.g. <code className="font-mono text-xs">true</code>,{" "}
             <code className="font-mono text-xs">30</code>,{" "}
             <code className="font-mono text-xs">"claude-3-5-haiku"</code>)
@@ -105,15 +105,15 @@ export function SettingItemEditor({ item, onSave, onCancel }: Props) {
           onChange={(e) => setValueText(e.target.value)}
           placeholder={"true"}
           required
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500 font-mono"
+          className="font-mono"
         />
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button type="submit" size="sm">
           {item ? "Update" : "Add"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onCancel} className="text-gray-400 hover:text-gray-200">
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
       </div>
