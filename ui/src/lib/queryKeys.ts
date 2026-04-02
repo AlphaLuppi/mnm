@@ -215,4 +215,19 @@ export const queryKeys = {
     list: (companyId: string) =>
       ["gold-prompts", companyId, "list"] as const,
   },
+  // CONFIG-LAYERS
+  configLayers: {
+    list: (companyId: string, scope?: string) =>
+      ["config-layers", companyId, "list", scope] as const,
+    detail: (layerId: string) =>
+      ["config-layers", "detail", layerId] as const,
+    revisions: (layerId: string) =>
+      ["config-layers", "revisions", layerId] as const,
+    forAgent: (companyId: string, agentId: string) =>
+      ["config-layers", companyId, "agent", agentId] as const,
+    mergePreview: (companyId: string, agentId: string) =>
+      ["config-layers", companyId, "agent", agentId, "preview"] as const,
+    credentials: (companyId: string) =>
+      ["config-layers", companyId, "credentials"] as const,
+  },
 };
