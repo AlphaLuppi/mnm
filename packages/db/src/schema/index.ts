@@ -62,3 +62,12 @@ export { roles } from "./roles.js";
 export { rolePermissions } from "./role_permissions.js";
 export { tags } from "./tags.js";
 export { tagAssignments } from "./tag_assignments.js";
+// CONFIG-LAYERS: Config layers system
+export { configLayers } from "./config_layers.js";
+export { configLayerItems } from "./config_layer_items.js";
+export { configLayerFiles } from "./config_layer_files.js";
+export { agentConfigLayers } from "./agent_config_layers.js";
+export { workflowTemplateStageLayers } from "./workflow_template_stage_layers.js";
+export { workflowStageConfigLayers } from "./workflow_stage_config_layers.js";
+export { userMcpCredentials } from "./user_mcp_credentials.js";
+export { configLayerRevisions } from "./config_layer_revisions.js";
