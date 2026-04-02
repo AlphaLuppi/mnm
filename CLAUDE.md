@@ -27,14 +27,27 @@ Language: French for planning documents.
 - **CAO System**: Auto-creation, watchdog (auto-comments on failures), interactive (@cao mentions)
 - **Task Pool**: Pool tab on issues, "Take" self-assign, assigneeTagId support
 - **Tag management**: Tag selector in agent creation + edit, tag isolation on all list endpoints
+- **Config Layers System**: 8 DB tables, 22+ API routes, 6 backend services, 10+ frontend components
+  - Layer CRUD with scope (company/shared/private), visibility (public/team/private), enforced mode
+  - Item types: MCP Servers, Skills, Hooks, Settings — each with dedicated editor
+  - Priority-based merge: Company enforced (999) > Base layer (500) > Additional (0-498)
+  - Conflict detection with advisory locks at attachment time
+  - OAuth2 PKCE flow for MCP credentials (AES-256-GCM encrypted)
+  - Runtime merge engine integrated in heartbeat (dual-path with legacy fallback)
+  - Tag-based visibility + ownership checks on all routes
+  - Revision history with snapshots on every change
+  - Frontend: Admin page (/admin/config-layers), Agent "Layers" tab, merge preview panel
 
 ## What Remains
 
 | Item | Type | Description |
 |------|------|-------------|
 | **REAL-RUN** | Trace | Lancer un vrai agent run avec tool calls riches pour avoir des traces variées |
+| **Supply chain analysis** | Config Layers | LLM sandbox for external URL/git sources (skeleton exists, not implemented) |
+| **Workflow stage layer attachment** | Config Layers | DB tables exist, routes not yet implemented |
+| **OAuth token refresh** | Config Layers | Background job skeleton exists, actual refresh not implemented |
 
-All P1, P2, and tech debt items are complete (including SANDBOX-AUTH and PRESET-SLUGS). Only REAL-RUN remains (requires running server + agent execution).
+All P1, P2, and tech debt items are complete (including SANDBOX-AUTH, PRESET-SLUGS, and CONFIG-LAYERS). REAL-RUN requires running server + agent execution.
 
 ### Architecture Decisions (Sandbox Auth)
 
@@ -54,6 +67,17 @@ All P1, P2, and tech debt items are complete (including SANDBOX-AUTH and PRESET-
 - Traces are a MIDDLEWARE on top of all adapters (heartbeat.ts:onLog), NOT inside adapters
 - For LLM enrichment: `claude -p --model haiku` which reuses existing Claude Code auth
 
+### Architecture Decisions (Config Layers)
+
+- **Tout-en-layers** — adapterConfig JSONB replaced by structured config layers. All agent config (model, cwd, env, MCP, skills, hooks) lives in layers.
+- **Priority merge** — Company enforced (999, virtual) > Agent base layer (500) > Additional layers (0-498). DISTINCT ON + ORDER BY priority DESC.
+- **Base layer auto-creation** — Migration 0054 creates a base layer per agent from existing adapterConfig. New agents get base layer at creation.
+- **Dual-path heartbeat** — If agent has base_layer_id, resolveConfigForRun() merges layers. Otherwise legacy adapterConfig path. Zero-downtime migration.
+- **Advisory locks** — pg_advisory_xact_lock serializes concurrent layer attachments to prevent TOCTOU race conditions.
+- **Config layer revisions** — Every mutation creates a revision with after_snapshot + changed_keys. No before_snapshot (derivable from previous revision).
+- **Tag-based layer visibility** — private=creator only, team=shared tags, public=all users, company=all. Derived from creator's tags (same pattern as agents).
+- **OAuth popup** — window.open() + postMessage pattern keeps user in context. No redirect flow.
+
 ## Repository Structure
 
 - `server/src/` — Express backend (routes/, services/, middleware/, realtime/, auth/)
@@ -64,6 +88,11 @@ All P1, P2, and tech debt items are complete (including SANDBOX-AUTH and PRESET-
 - `e2e/` — Playwright E2E tests (60+ tests in Docker authenticated mode)
 - `_bmad/` — BMAD framework. Do NOT modify.
 - `_bmad-output/` — Planning artifacts, brainstorming, reviews, stories
+- `server/src/services/config-layer*.ts` — Config layer services (CRUD, conflict, runtime)
+- `server/src/services/mcp-credential.ts` — MCP credential storage with AES-256-GCM
+- `server/src/services/mcp-oauth.ts` — OAuth2 PKCE flow
+- `server/src/routes/config-layers.ts` — All config layer API routes
+- `ui/src/components/config-layers/` — Layer editors, agent tab, merge preview
 
 ## Dev Commands
 
