@@ -52,6 +52,8 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { jiraImportRoutes } from "./routes/jira-import.js";
 // TRACE-03: Trace routes
 import { traceRoutes } from "./routes/traces.js";
+// CONFIG-LAYERS: MCP OAuth + credentials
+import { mcpOauthRoutes } from "./routes/mcp-oauth.js";
 // POD-04: Sandbox routes (renamed from pods)
 import { sandboxRoutes } from "./routes/sandboxes.js";
 // POD-05: Sandbox exec (chat console, renamed from pod-exec)
@@ -224,6 +226,8 @@ export async function createApp(
   api.use(jiraImportRoutes(db));
   // TRACE-03: Trace routes
   api.use(traceRoutes(db));
+  // CONFIG-LAYERS: MCP OAuth + credentials
+  api.use(mcpOauthRoutes(db));
   // POD-04: Sandbox routes
   api.use(sandboxRoutes(db));
   // POD-05: Sandbox exec (chat console)
