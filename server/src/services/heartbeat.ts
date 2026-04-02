@@ -31,6 +31,7 @@ import { resolveRunActor } from "./run-actor-resolver.js";
 import { userPods } from "@mnm/db";
 import { enrichTrace as silverEnrichTrace } from "./silver-trace-enrichment.js";
 import { goldTraceEnrichment } from "./gold-trace-enrichment.js";
+import { configLayerRuntimeService } from "./config-layer-runtime.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -1339,10 +1340,31 @@ export function heartbeatService(db: Db) {
         await onLog("stderr", `[mnm] ${warning}\n`);
       }
 
-      const config = parseObject(agent.adapterConfig);
-      const mergedConfig = issueAssigneeOverrides?.adapterConfig
-        ? { ...config, ...issueAssigneeOverrides.adapterConfig }
-        : config;
+      // CONFIG-LAYERS: Dual-path — use layers if agent has base_layer_id, else legacy adapterConfig
+      let mergedConfig: Record<string, unknown>;
+      if ((agent as any).baseLayerId) {
+        const clRuntime = configLayerRuntimeService(db);
+        const layerConfig = await clRuntime.resolveConfigForRun(
+          agent.companyId,
+          agent.id,
+          agent.createdByUserId ?? "system",
+        );
+        const baseConfig: Record<string, unknown> = { ...layerConfig.settings };
+        if (layerConfig.mcpServers.length > 0) {
+          baseConfig.mcpServers = clRuntime.generateMcpJson(layerConfig);
+        }
+        mergedConfig = issueAssigneeOverrides?.adapterConfig
+          ? { ...baseConfig, ...issueAssigneeOverrides.adapterConfig }
+          : baseConfig;
+        for (const warning of layerConfig.warnings) {
+          await onLog("stderr", `[mnm] config-layer warning: ${warning}\n`);
+        }
+      } else {
+        const config = parseObject(agent.adapterConfig);
+        mergedConfig = issueAssigneeOverrides?.adapterConfig
+          ? { ...config, ...issueAssigneeOverrides.adapterConfig }
+          : config;
+      }
       const { config: resolvedConfig, secretKeys } = await secretsSvc.resolveAdapterConfigForRuntime(
         agent.companyId,
         mergedConfig,
