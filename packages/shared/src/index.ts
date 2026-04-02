@@ -316,6 +316,25 @@ export type {
   DeploymentProjectType,
   ArtifactDeployment,
   DeploymentCreateOptions,
+  // config-layer-barrel-shared
+  ConfigLayerItemType,
+  ConfigLayerScope,
+  ConfigLayerVisibility,
+  ConfigLayerSourceType,
+  McpCredentialProvider,
+  McpCredentialStatus,
+  ConfigLayer,
+  ConfigLayerItem,
+  ConfigLayerFile,
+  ConfigLayerDetail,
+  AgentConfigLayerAttachment,
+  ConfigLayerRevision,
+  ConflictSeverity,
+  ConfigLayerConflict,
+  ConflictCheckResult,
+  MergedConfigItem,
+  MergePreviewResult,
+  UserMcpCredential,
 } from "./types/index.js";
 
 export {
@@ -356,6 +375,20 @@ export {
   DASHBOARD_BREAKDOWN_CATEGORIES,
   K_ANONYMITY_THRESHOLD,
 } from "./types/index.js";
+
+// config-layer constants (re-exported from validators for convenience)
+export {
+  CONFIG_LAYER_ITEM_TYPES,
+  CONFIG_LAYER_SCOPES,
+  CONFIG_LAYER_VISIBILITIES,
+  CONFIG_LAYER_SOURCE_TYPES,
+  CONFIG_LAYER_CHANGE_SOURCES,
+  MCP_CREDENTIAL_PROVIDERS,
+  MCP_CREDENTIAL_STATUSES,
+  HOOK_EVENTS,
+  HOOK_TYPES,
+  SETTING_KEYS,
+} from "./validators/index.js";
 
 export {
   createCompanySchema,
@@ -606,6 +639,31 @@ export {
   type CreateMcpConnector,
   type UpdateMcpConnector,
   type InvokeMcpTool,
+  // config-layer validators
+  mcpItemConfigSchema,
+  skillItemConfigSchema,
+  hookItemConfigSchema,
+  settingItemConfigSchema,
+  createConfigLayerSchema,
+  updateConfigLayerSchema,
+  createConfigLayerItemSchema,
+  updateConfigLayerItemSchema,
+  createConfigLayerFileSchema,
+  attachConfigLayerSchema,
+  approvePromotionSchema,
+  rejectPromotionSchema,
+  type McpItemConfig,
+  type SkillItemConfig,
+  type HookItemConfig,
+  type SettingItemConfig,
+  type CreateConfigLayer,
+  type UpdateConfigLayer,
+  type CreateConfigLayerItem,
+  type UpdateConfigLayerItem,
+  type CreateConfigLayerFile,
+  type AttachConfigLayer,
+  type ApprovePromotion,
+  type RejectPromotion,
 } from "./validators/index.js";
 
 // REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
