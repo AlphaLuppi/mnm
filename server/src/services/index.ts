@@ -75,3 +75,7 @@ export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js"
 // CONFIG-LAYERS: Config layer services
 export { configLayerService } from "./config-layer.js";
 export { configLayerConflictService } from "./config-layer-conflict.js";
+// CONFIG-LAYERS: Runtime merge engine + MCP credentials + OAuth
+export { configLayerRuntimeService, type ResolvedConfig } from "./config-layer-runtime.js";
+export { mcpCredentialService } from "./mcp-credential.js";
+export { mcpOauthService } from "./mcp-oauth.js";
