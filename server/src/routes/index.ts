@@ -35,3 +35,5 @@ export { onboardingRoutes } from "./onboarding.js";
 export { jiraImportRoutes } from "./jira-import.js";
 // TRACE-03: Trace routes
 export { traceRoutes } from "./traces.js";
+// CONFIG-LAYERS: Config layer routes
+export { configLayerRoutes } from "./config-layers.js";
