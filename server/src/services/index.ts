@@ -72,3 +72,6 @@ export { lensAnalysisService } from "./lens-analysis.js";
 export { traceEmitter } from "./trace-emitter.js";
 export { createJiraClient } from "./jira-client.js";
 export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js";
+// CONFIG-LAYERS: Config layer services
+export { configLayerService } from "./config-layer.js";
+export { configLayerConflictService } from "./config-layer-conflict.js";
