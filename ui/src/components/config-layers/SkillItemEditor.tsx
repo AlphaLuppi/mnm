@@ -42,43 +42,40 @@ export function SkillItemEditor({ item, onSave, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Skill Name</Label>
+    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+      <div className="space-y-1.5">
+        <Label>Skill Name</Label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-skill"
           required
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
         />
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Description</Label>
+      <div className="space-y-1.5">
+        <Label>Description</Label>
         <Input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What this skill does..."
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
         />
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">
-          Allowed Tools <span className="text-gray-500 font-normal">(comma-separated)</span>
+      <div className="space-y-1.5">
+        <Label>
+          Allowed Tools <span className="text-muted-foreground font-normal">(comma-separated)</span>
         </Label>
         <Input
           value={allowedTools}
           onChange={(e) => setAllowedTools(e.target.value)}
           placeholder="Bash, Read, Write"
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
         />
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">
-          Content <span className="text-gray-500 font-normal">(Markdown)</span>
+      <div className="space-y-1.5">
+        <Label>
+          Content <span className="text-muted-foreground font-normal">(Markdown)</span>
         </Label>
         <Textarea
           value={content}
@@ -86,15 +83,15 @@ export function SkillItemEditor({ item, onSave, onCancel }: Props) {
           placeholder={"# My Skill\n\nWhen the user asks you to...\n\n## Steps\n1. ..."}
           rows={10}
           required
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500 font-mono text-sm"
+          className="font-mono text-sm"
         />
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button type="submit" size="sm">
           {item ? "Update" : "Add"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onCancel} className="text-gray-400 hover:text-gray-200">
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
       </div>

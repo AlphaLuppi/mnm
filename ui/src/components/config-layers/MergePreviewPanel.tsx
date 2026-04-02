@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Layers, Cpu, Wrench, Webhook, Settings2 } from "lucide-react";
-import { configLayersApi, type MergePreviewItem } from "../../api/config-layers";
+import { configLayersApi, type MergePreviewItem, type MergePreviewLayerSource } from "../../api/config-layers";
 import { queryKeys } from "../../lib/queryKeys";
 import { cn } from "../../lib/utils";
 

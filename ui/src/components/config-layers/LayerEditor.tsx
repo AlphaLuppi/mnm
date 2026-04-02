@@ -41,7 +41,7 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-32 text-gray-500">
+      <div className="flex items-center justify-center h-32 text-muted-foreground">
         Loading layer...
       </div>
     );
@@ -49,7 +49,7 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
 
   if (!layer) {
     return (
-      <div className="flex items-center justify-center h-32 text-gray-500">
+      <div className="flex items-center justify-center h-32 text-muted-foreground">
         Layer not found.
       </div>
     );
@@ -59,39 +59,39 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
     layer.items.filter((it) => it.itemType === type).length;
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 rounded-lg border border-gray-700">
+    <div className="flex flex-col h-full border border-border rounded-lg bg-card">
       {/* Header */}
-      <div className="flex items-start gap-3 px-4 pt-4 pb-3 border-b border-gray-700">
+      <div className="flex items-start gap-3 px-4 pt-4 pb-3 border-b border-border">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-gray-100 font-semibold text-base truncate">
+            <h2 className="text-foreground font-semibold text-base truncate">
               {layer.name}
             </h2>
-            <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs shrink-0">
+            <Badge variant="outline" className="text-xs shrink-0">
               <Globe className="h-3 w-3 mr-1" />
               {SCOPE_LABELS[layer.scope] ?? layer.scope}
             </Badge>
             {layer.enforced && (
-              <Badge className="bg-orange-900 border-orange-700 text-orange-300 text-xs shrink-0">
+              <Badge variant="destructive" className="text-xs shrink-0">
                 <Lock className="h-3 w-3 mr-1" />
                 Enforced
               </Badge>
             )}
             {readOnly && (
-              <Badge variant="secondary" className="bg-gray-700 text-gray-400 text-xs shrink-0">
+              <Badge variant="secondary" className="text-xs shrink-0">
                 Read-only
               </Badge>
             )}
           </div>
           {layer.description && (
-            <p className="text-gray-500 text-sm mt-0.5 truncate">{layer.description}</p>
+            <p className="text-muted-foreground text-sm mt-0.5 truncate">{layer.description}</p>
           )}
         </div>
         {onClose && (
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-gray-400 hover:text-gray-200 shrink-0"
+            className="h-7 w-7 shrink-0"
             onClick={onClose}
           >
             <X className="h-4 w-4" />
@@ -100,7 +100,7 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-0 border-b border-gray-700 px-4">
+      <div className="flex gap-0 border-b border-border px-4">
         {TABS.map((tab) => {
           const count = countByType(tab.id);
           return (
@@ -110,8 +110,8 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
               className={cn(
                 "px-3 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 -mb-px",
                 activeTab === tab.id
-                  ? "border-blue-500 text-blue-400"
-                  : "border-transparent text-gray-400 hover:text-gray-200",
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -120,8 +120,8 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
                   className={cn(
                     "text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center",
                     activeTab === tab.id
-                      ? "bg-blue-900 text-blue-300"
-                      : "bg-gray-700 text-gray-400",
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
                   {count}
