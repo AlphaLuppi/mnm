@@ -14,6 +14,7 @@ import {
   projectWorkspaces,
   stageInstances,
   activityLog,
+  traces,
 } from "@mnm/db";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
@@ -979,6 +980,34 @@ export function heartbeatService(db: Db) {
     if (reaped.length > 0) {
       logger.warn({ reapedCount: reaped.length, runIds: reaped }, "reaped orphaned heartbeat runs");
     }
+
+    // Reap orphaned traces: traces still "running" whose heartbeat_run has a terminal status.
+    // This catches traces left behind by server restarts or hot-reloads where the in-memory
+    // bronzeTraceCapture activeRuns map was lost.
+    try {
+      const orphanedTraces = await db.execute(sql`
+        UPDATE traces t SET
+          status = CASE WHEN r.status = 'succeeded' THEN 'completed' ELSE 'failed' END,
+          completed_at = COALESCE(t.completed_at, r.finished_at, NOW()),
+          total_duration_ms = COALESCE(t.total_duration_ms, CAST(EXTRACT(EPOCH FROM (COALESCE(r.finished_at, NOW()) - t.started_at)) * 1000 AS integer)),
+          total_tokens_in = COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = t.id), 0),
+          total_tokens_out = COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = t.id), 0),
+          total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = t.id), 0)::text,
+          updated_at = NOW()
+        FROM heartbeat_runs r
+        WHERE t.heartbeat_run_id = r.id
+          AND t.status = 'running'
+          AND r.status IN ('succeeded', 'failed', 'cancelled', 'timed_out', 'interrupted')
+        RETURNING t.id
+      `);
+      const reapedTraceCount = orphanedTraces.length ?? 0;
+      if (reapedTraceCount > 0) {
+        logger.warn({ reapedTraceCount }, "reaped orphaned traces whose runs had already completed");
+      }
+    } catch (err) {
+      logger.warn({ err }, "failed to reap orphaned traces");
+    }
+
     return { reaped: reaped.length, runIds: reaped };
   }
 
