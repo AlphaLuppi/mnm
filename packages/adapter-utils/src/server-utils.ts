@@ -86,8 +86,42 @@ export function resolvePathValue(obj: Record<string, unknown>, dottedPath: strin
   }
 }
 
+/**
+ * Resolve a dotted path in `data` and return whether it is "truthy" for
+ * conditional blocks.  Empty strings, null, undefined → false.
+ */
+function isPathTruthy(data: Record<string, unknown>, dottedPath: string): boolean {
+  const v = resolvePathValue(data, dottedPath);
+  return v !== "";
+}
+
+/**
+ * Process `{{#if path}}…{{else}}…{{/if}}` blocks (supports nesting).
+ *
+ * Strategy: resolve innermost blocks first, repeat until none remain.
+ * A block is "innermost" when its body contains no nested `{{#if`.
+ */
+function processConditionals(template: string, data: Record<string, unknown>): string {
+  let result = template;
+  let prev = "";
+  while (result !== prev) {
+    prev = result;
+    result = result.replace(
+      /\{\{#if\s+([a-zA-Z0-9_.-]+)\s*\}\}((?:(?!\{\{#if\s)[\s\S])*?)\{\{\/if\}\}/g,
+      (_, path: string, body: string) => {
+        const parts = body.split(/\{\{else\}\}/);
+        return isPathTruthy(data, path) ? parts[0] : (parts[1] ?? "");
+      },
+    );
+  }
+  return result;
+}
+
 export function renderTemplate(template: string, data: Record<string, unknown>) {
-  return template.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, path) => resolvePathValue(data, path));
+  // 1. Evaluate conditional blocks
+  const resolved = processConditionals(template, data);
+  // 2. Substitute simple {{variable}} placeholders
+  return resolved.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, path) => resolvePathValue(data, path));
 }
 
 export function redactEnvForLogs(env: Record<string, string>): Record<string, string> {

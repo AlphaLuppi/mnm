@@ -46,6 +46,68 @@ async function resolveMnMSkillsDir(): Promise<string | null> {
  * the repo's `skills/` directory, so `--add-dir` makes Claude Code discover
  * them as proper registered skills.
  */
+/**
+ * Build a structured execution-context block that is always appended to the
+ * rendered prompt.  This guarantees the agent knows its identity, the assigned
+ * issue, and how to communicate back — even when the custom promptTemplate does
+ * not reference any {{context.*}} variables.
+ */
+function buildExecutionContextBlock(
+  agent: { id: string; name: string; companyId: string },
+  context: Record<string, unknown>,
+): string {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const issueId = str(context.issueId);
+  const issueTitle = str(context.issueTitle);
+  const issueDescription = str(context.issueDescription);
+  const mentionCommentBody = str(context.mentionCommentBody);
+  const wakeReason = str(context.wakeReason);
+
+  // Only emit the block when there is meaningful execution context.
+  if (!issueId && !issueTitle && !wakeReason) return "";
+
+  const lines: string[] = [
+    "",
+    "",
+    "---",
+    "## MnM Execution Context",
+    "",
+    `**Agent:** ${agent.name} (${agent.id})`,
+    `**Company:** ${agent.companyId}`,
+  ];
+
+  if (wakeReason) lines.push(`**Wake reason:** ${wakeReason}`);
+
+  if (issueId || issueTitle) {
+    lines.push("", "### Assigned Issue");
+    if (issueId) lines.push(`- **Issue ID:** ${issueId}`);
+    if (issueTitle) lines.push(`- **Title:** ${issueTitle}`);
+    if (issueDescription) {
+      lines.push("", "**Description:**", issueDescription);
+    }
+  }
+
+  if (mentionCommentBody) {
+    lines.push("", "### Mention", "Someone mentioned you:", `> ${mentionCommentBody}`);
+  }
+
+  if (issueId) {
+    lines.push(
+      "",
+      "### Instructions",
+      "**You MUST work on this assigned issue immediately.** Do not wait for further input.",
+      "Follow your workflow to analyze, implement, and complete this issue.",
+      "Use the MnM API environment variables (`$MNM_API_URL`, `$MNM_API_KEY`, `$MNM_AGENT_ID`) to interact with the platform.",
+      "",
+      "### How to Respond",
+      "Post progress comments and status updates on this issue via the MnM API:",
+      `\`POST $MNM_API_URL/api/issues/${issueId}/comments\` with body \`{ "body": "your message" }\``,
+    );
+  }
+
+  return lines.join("\n");
+}
+
 async function buildSkillsDir(): Promise<string> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mnm-skills-"));
   const target = path.join(tmp, ".claude", "skills");
@@ -361,7 +423,7 @@ Continue your MnM work. Check for assigned issues and tasks.
     agent,
     run: { id: runId, source: "on_demand" },
     context,
-  });
+  }) + buildExecutionContextBlock(agent, context);
 
   const buildClaudeArgs = (resumeSessionId: string | null) => {
     const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
