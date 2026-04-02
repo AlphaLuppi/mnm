@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
   boolean,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 
@@ -76,7 +77,7 @@ export const traces = pgTable(
     totalDurationMs: integer("total_duration_ms"),
     totalTokensIn: integer("total_tokens_in").notNull().default(0),
     totalTokensOut: integer("total_tokens_out").notNull().default(0),
-    totalCostUsd: text("total_cost_usd").notNull().default("0"),
+    totalCostUsd: numeric("total_cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     tags: jsonb("tags").$type<string[]>(),
     phases: jsonb("phases").$type<TracePhase[]>(),

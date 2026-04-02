@@ -6,6 +6,9 @@ import {
   configLayerItems,
   configLayerFiles,
   configLayerRevisions,
+  agentConfigLayers,
+  agents,
+  authUsers,
 } from "@mnm/db";
 import { notFound, badRequest, conflict } from "../errors.js";
 import { auditService } from "./audit.js";
@@ -110,6 +113,11 @@ export function configLayerService(db: Db) {
     userId: string,
     input: CreateConfigLayer,
   ) {
+    // Auto-derive visibility from scope if not explicitly set
+    // DB CHECK constraints: private->private, shared->team|public, company->public
+    const resolvedVisibility = input.visibility
+      ?? (input.scope === "private" ? "private" : input.scope === "company" ? "public" : "public");
+
     return db.transaction(async (tx) => {
       const [layer] = await tx
         .insert(configLayers)
@@ -120,7 +128,7 @@ export function configLayerService(db: Db) {
           icon: input.icon ?? null,
           scope: input.scope,
           enforced: input.enforced ?? false,
-          visibility: input.visibility ?? "public",
+          visibility: resolvedVisibility,
           createdByUserId: userId,
         })
         .returning();
@@ -215,11 +223,72 @@ export function configLayerService(db: Db) {
       conditions.push(eq(configLayers.scope, opts.scope));
     }
 
-    return db
+    const rows = await db
       .select()
       .from(configLayers)
       .where(and(...conditions))
       .orderBy(asc(configLayers.name));
+
+    if (rows.length === 0) return [];
+
+    const layerIds = rows.map((r) => r.id);
+
+    // Item breakdown per layer (count by type)
+    const itemBreakdowns = await db
+      .select({
+        layerId: configLayerItems.layerId,
+        itemType: configLayerItems.itemType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(configLayerItems)
+      .where(sql`${configLayerItems.layerId} IN (${sql.join(layerIds.map(id => sql`${id}::uuid`), sql`, `)})`)
+      .groupBy(configLayerItems.layerId, configLayerItems.itemType);
+
+    const breakdownMap = new Map<string, Record<string, number>>();
+    for (const r of itemBreakdowns) {
+      if (!breakdownMap.has(r.layerId)) breakdownMap.set(r.layerId, {});
+      breakdownMap.get(r.layerId)![r.itemType] = r.count;
+    }
+
+    // Agents using each layer (names, not just count)
+    const agentLinks = await db
+      .select({
+        layerId: agentConfigLayers.layerId,
+        agentId: agents.id,
+        agentName: agents.name,
+      })
+      .from(agentConfigLayers)
+      .innerJoin(agents, eq(agents.id, agentConfigLayers.agentId))
+      .where(sql`${agentConfigLayers.layerId} IN (${sql.join(layerIds.map(id => sql`${id}::uuid`), sql`, `)})`);
+
+    const agentMap = new Map<string, Array<{ id: string; name: string }>>();
+    for (const r of agentLinks) {
+      if (!agentMap.has(r.layerId)) agentMap.set(r.layerId, []);
+      agentMap.get(r.layerId)!.push({ id: r.agentId, name: r.agentName });
+    }
+
+    // Creator names
+    const creatorIds = [...new Set(rows.map((r) => r.createdByUserId))];
+    const creators = creatorIds.length > 0
+      ? await db
+          .select({ id: authUsers.id, name: authUsers.name })
+          .from(authUsers)
+          .where(sql`${authUsers.id} IN (${sql.join(creatorIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+
+    const creatorMap = new Map(creators.map((r) => [r.id, r.name]));
+
+    return rows.map((layer) => {
+      const breakdown = breakdownMap.get(layer.id) ?? {};
+      const totalItems = Object.values(breakdown).reduce((a, b) => a + b, 0);
+      return {
+        ...layer,
+        itemCount: totalItems,
+        itemBreakdown: breakdown,
+        agents: agentMap.get(layer.id) ?? [],
+        createdByUserName: creatorMap.get(layer.createdByUserId) ?? layer.createdByUserId,
+      };
+    });
   }
 
   async function updateLayer(

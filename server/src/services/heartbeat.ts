@@ -993,7 +993,7 @@ export function heartbeatService(db: Db) {
           total_duration_ms = COALESCE(t.total_duration_ms, CAST(EXTRACT(EPOCH FROM (COALESCE(r.finished_at, NOW()) - t.started_at)) * 1000 AS integer)),
           total_tokens_in = COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = t.id), 0),
           total_tokens_out = COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = t.id), 0),
-          total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = t.id), 0)::text,
+          total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = t.id), 0),
           updated_at = NOW()
         FROM heartbeat_runs r
         WHERE t.heartbeat_run_id = r.id
@@ -1529,7 +1529,7 @@ export function heartbeatService(db: Db) {
                 total_duration_ms = COALESCE(total_duration_ms, CAST(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 AS integer)),
                 total_tokens_in = COALESCE((SELECT SUM(input_tokens) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0),
                 total_tokens_out = COALESCE((SELECT SUM(output_tokens) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0),
-                total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0)::text,
+                total_cost_usd = COALESCE((SELECT SUM(CAST(cost_usd AS numeric)) FROM trace_observations WHERE trace_id = ${bronzeTraceId}), 0),
                 updated_at = NOW()
               WHERE id = ${bronzeTraceId} AND status = 'running'
             `);
