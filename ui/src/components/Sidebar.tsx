@@ -23,6 +23,7 @@ import {
   Terminal,
   Globe,
   Tag,
+  Layers,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -183,6 +184,7 @@ export function Sidebar() {
             {canViewRoles && (
               <SidebarNavItem data-testid="rbac-s06-nav-tags" to="/admin/tags" label="Tags" icon={Tag} />
             )}
+            <SidebarNavItem to="/admin/config-layers" label="Config Layers" icon={Layers} />
             <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
             {canViewCosts && (
               <SidebarNavItem data-testid="rbac-s05-nav-costs" to="/costs" label="Costs" icon={DollarSign} />

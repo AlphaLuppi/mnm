@@ -56,15 +56,46 @@ function ScopeFilterButton({
   );
 }
 
+interface EnrichedLayer extends ConfigLayer {
+  itemCount?: number;
+  itemBreakdown?: Record<string, number>;
+  agents?: Array<{ id: string; name: string }>;
+  createdByUserName?: string;
+}
+
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  mcp: "MCP",
+  skill: "Skill",
+  hook: "Hook",
+  setting: "Setting",
+};
+
+function ItemBreakdownBadges({ breakdown }: { breakdown?: Record<string, number> }) {
+  if (!breakdown) return null;
+  const entries = Object.entries(breakdown).filter(([, v]) => v > 0);
+  if (entries.length === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {entries.map(([type, count]) => (
+        <span key={type} className="inline-flex items-center rounded px-1 py-0.5 text-[10px] bg-muted text-muted-foreground">
+          {count} {ITEM_TYPE_LABELS[type] ?? type}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function LayerRow({
   layer,
   onClick,
   onArchive,
 }: {
-  layer: ConfigLayer;
+  layer: EnrichedLayer;
   onClick: () => void;
   onArchive: () => void;
 }) {
+  const agentNames = (layer.agents ?? []).map((a) => a.name);
+
   return (
     <div
       className="flex items-center gap-3 border-b border-border last:border-0 px-4 py-3 hover:bg-muted/40 cursor-pointer"
@@ -80,7 +111,7 @@ function LayerRow({
               enforced
             </span>
           )}
-          {layer.pendingReview && (
+          {layer.promotionStatus === "proposed" && (
             <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
               pending review
             </span>
@@ -96,10 +127,23 @@ function LayerRow({
             )}
           >
             {layer.scope}
+            {layer.scope === "shared" && layer.visibility === "team" && " (team)"}
           </span>
+          <ItemBreakdownBadges breakdown={layer.itemBreakdown} />
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {layer.items.length} item{layer.items.length !== 1 ? "s" : ""}
+          {layer.scope === "private" ? "Owner: " : "By "}
+          {layer.createdByUserName ?? layer.createdByUserId}
+          {agentNames.length > 0 && (
+            <>
+              {" · Used by "}
+              {agentNames.length <= 3
+                ? agentNames.join(", ")
+                : `${agentNames.slice(0, 2).join(", ")} +${agentNames.length - 2}`}
+            </>
+          )}
+          {agentNames.length === 0 && layer.itemCount === 0 && " · Empty"}
+          {agentNames.length === 0 && (layer.itemCount ?? 0) > 0 && " · Not attached to any agent"}
         </p>
       </div>
       <Button
@@ -138,7 +182,7 @@ export function ConfigLayersPage() {
 
   const { data: layers, isLoading, error } = useQuery({
     queryKey: queryKeys.configLayers.list(selectedCompanyId!, scopeFilter),
-    queryFn: () => configLayersApi.list(selectedCompanyId!, scopeFilter),
+    queryFn: () => configLayersApi.list(selectedCompanyId!, { scope: scopeFilter }) as Promise<EnrichedLayer[]>,
     enabled: !!selectedCompanyId,
   });
 
@@ -160,7 +204,7 @@ export function ConfigLayersPage() {
 
   const archiveMutation = useMutation({
     mutationFn: (layerId: string) =>
-      configLayersApi.archive(selectedCompanyId!, layerId),
+      configLayersApi.archive(layerId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.configLayers.list(selectedCompanyId!, scopeFilter),

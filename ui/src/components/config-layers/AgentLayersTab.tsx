@@ -42,14 +42,19 @@ function LayerCard({
   isBase,
   onDetach,
   onEdit,
+  isDetaching,
 }: {
   layer: ConfigLayer;
   isBase: boolean;
   onDetach?: () => void;
   onEdit?: () => void;
+  isDetaching?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 border border-border rounded-lg px-3 py-2.5">
+    <div className={cn(
+      "flex items-center gap-2 border border-border rounded-lg px-3 py-2.5 transition-opacity",
+      isDetaching && "opacity-40 pointer-events-none",
+    )}>
       <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -85,9 +90,10 @@ function LayerCard({
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-destructive"
             onClick={onDetach}
+            disabled={isDetaching}
             title="Detach layer"
           >
-            <Unlink className="h-3.5 w-3.5" />
+            {isDetaching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
           </Button>
         )}
       </div>
@@ -152,11 +158,29 @@ export function AgentLayersTab({
   const detachMutation = useMutation({
     mutationFn: (layerId: string) =>
       configLayersApi.detachFromAgent(companyId, agentId, layerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onMutate: async (layerId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.configLayers.forAgent(companyId, agentId) });
+      // Snapshot previous value
+      const previous = queryClient.getQueryData(queryKeys.configLayers.forAgent(companyId, agentId));
+      // Optimistically remove the layer
+      queryClient.setQueryData(
+        queryKeys.configLayers.forAgent(companyId, agentId),
+        (old: any[] | undefined) => (old ?? []).filter((a: any) => (a.layerId ?? a.layer?.id) !== layerId),
+      );
+      return { previous };
+    },
+    onError: (_err, _layerId, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.configLayers.forAgent(companyId, agentId), context.previous);
+      }
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
         queryKey: queryKeys.configLayers.forAgent(companyId, agentId),
       });
-      queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: queryKeys.configLayers.mergePreview(companyId, agentId),
       });
     },
@@ -230,6 +254,7 @@ export function AgentLayersTab({
                   key={layer.id}
                   layer={layer}
                   isBase={false}
+                  isDetaching={detachMutation.isPending && detachMutation.variables === layer.id}
                   onDetach={() => detachMutation.mutate(layer.id)}
                   onEdit={() => setEditLayerId(layer.id)}
                 />
