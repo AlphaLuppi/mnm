@@ -70,6 +70,7 @@ import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type
 import { agentRouteRef } from "../lib/utils";
 import { projectsApi } from "../api/projects";
 import { tagsApi } from "../api/tags";
+import { AgentLayersTab } from "../components/config-layers/AgentLayersTab";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -185,11 +186,12 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "overview" | "configure" | "runs";
+type AgentDetailView = "overview" | "configure" | "runs" | "layers";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configure";
   if (value === "runs") return value;
+  if (value === "layers") return value;
   return "overview";
 }
 
@@ -432,6 +434,8 @@ export function AgentDetail() {
         crumbs.push({ label: "Configure" });
       } else if (activeView === "runs") {
         crumbs.push({ label: "Runs" });
+      } else if (activeView === "layers") {
+        crumbs.push({ label: "Layers" });
       }
     }
     setBreadcrumbs(crumbs);
@@ -655,6 +659,39 @@ export function AgentDetail() {
         </div>
       )}
 
+      {/* Tab navigation */}
+      {!urlRunId && (
+        <div className="flex items-center gap-0.5 border-b border-border -mb-2">
+          {(
+            [
+              { view: "overview" as const, label: "Overview" },
+              { view: "configure" as const, label: "Configure" },
+              { view: "runs" as const, label: "Runs" },
+              { view: "layers" as const, label: "Layers" },
+            ] as { view: AgentDetailView; label: string }[]
+          ).map(({ view, label }) => (
+            <button
+              key={view}
+              onClick={() =>
+                navigate(
+                  view === "overview"
+                    ? `/agents/${canonicalAgentRef}`
+                    : `/agents/${canonicalAgentRef}/${view}`,
+                )
+              }
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+                activeView === view
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* View content */}
       {activeView === "overview" && (
         <AgentOverview
@@ -690,6 +727,14 @@ export function AgentDetail() {
           agentRouteId={canonicalAgentRef}
           selectedRunId={urlRunId ?? null}
           adapterType={agent.adapterType}
+        />
+      )}
+
+      {activeView === "layers" && resolvedCompanyId && (
+        <AgentLayersTab
+          companyId={resolvedCompanyId}
+          agentId={agent.id}
+          baseLayerId={(agent as { baseLayerId?: string | null }).baseLayerId ?? null}
         />
       )}
     </div>
