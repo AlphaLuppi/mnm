@@ -1,6 +1,6 @@
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { tagAssignments, agents, issues, traces } from "@mnm/db";
+import { tagAssignments, agents, issues, traces, configLayers } from "@mnm/db";
 import type { TagScope } from "../middleware/tag-scope.js";
 
 /**
@@ -157,11 +157,43 @@ export function tagFilterService(db: Db) {
     return isAgentVisible(companyId, agentId, scope);
   }
 
+  /**
+   * List config layers visible to the given TagScope.
+   * Visibility rules:
+   * - bypass_tag_filter → all non-archived layers for the company
+   * - company scope OR public visibility → visible to all
+   * - private visibility → only visible to creator
+   * - team visibility → visible to creator; shared-tag check deferred to route handler
+   */
+  async function listConfigLayersFiltered(companyId: string, scope: TagScope) {
+    if (scope.bypassTagFilter) {
+      return db.select().from(configLayers).where(
+        and(eq(configLayers.companyId, companyId), isNull(configLayers.archivedAt)),
+      );
+    }
+
+    const allLayers = await db.select().from(configLayers).where(
+      and(eq(configLayers.companyId, companyId), isNull(configLayers.archivedAt)),
+    );
+
+    return allLayers.filter((layer) => {
+      if (layer.scope === "company") return true;
+      if (layer.visibility === "public") return true;
+      if (layer.visibility === "private") return layer.createdByUserId === scope.userId;
+      if (layer.visibility === "team") {
+        if (layer.createdByUserId === scope.userId) return true;
+        return true; // Team visibility allows shared-tag users — full check in route handler
+      }
+      return false;
+    });
+  }
+
   return {
     listAgentsFiltered,
     isAgentVisible,
     listIssuesFiltered,
     listTracesFiltered,
     isTraceVisible,
+    listConfigLayersFiltered,
   };
 }
