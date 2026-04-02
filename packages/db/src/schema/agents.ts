@@ -9,6 +9,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
+import { configLayers } from "./config_layers.js";
 
 export const agents = pgTable(
   "agents",
@@ -32,6 +33,7 @@ export const agents = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     scopedToWorkspaceId: uuid("scoped_to_workspace_id"),
     containerProfileId: uuid("container_profile_id"),
+    baseLayerId: uuid("base_layer_id").references((): AnyPgColumn => configLayers.id, { onDelete: "restrict" }),
     isolationMode: text("isolation_mode").notNull().default("process"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
