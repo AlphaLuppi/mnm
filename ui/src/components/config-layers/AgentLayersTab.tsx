@@ -6,6 +6,7 @@ import {
   type ConfigLayer,
   type ConflictCheckResult,
 } from "../../api/config-layers";
+import type { AgentConfigLayerAttachment } from "@mnm/shared";
 import { queryKeys } from "../../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,30 +65,27 @@ function LayerCard({
               enforced
             </span>
           )}
-          {layer.pendingReview && (
-            <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
-              review
-            </span>
-          )}
           <ScopeBadge scope={layer.scope} />
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {layer.items.length} item{layer.items.length !== 1 ? "s" : ""}
-        </p>
+        {layer.description && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {layer.description}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         {onEdit && (
-          <Button variant="ghost" size="icon-xs" onClick={onEdit} title="Edit layer">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Edit layer">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         )}
         {onDetach && !isBase && (
           <Button
             variant="ghost"
-            size="icon-xs"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
             onClick={onDetach}
             title="Detach layer"
-            className="text-muted-foreground hover:text-destructive"
           >
             <Unlink className="h-3.5 w-3.5" />
           </Button>
@@ -109,16 +107,16 @@ export function AgentLayersTab({
   const queryClient = useQueryClient();
 
   const [attachDialogOpen, setAttachDialogOpen] = useState(false);
-  const [editLayer, setEditLayer] = useState<ConfigLayer | null>(null);
+  const [editLayerId, setEditLayerId] = useState<string | null>(null);
   const [pendingAttach, setPendingAttach] = useState<{
     layer: ConfigLayer;
     result: ConflictCheckResult;
   } | null>(null);
 
   // Layers attached to this agent
-  const { data: attachedLayers, isLoading: loadingAttached } = useQuery({
+  const { data: attachments, isLoading: loadingAttached } = useQuery({
     queryKey: queryKeys.configLayers.forAgent(companyId, agentId),
-    queryFn: () => configLayersApi.listForAgent(companyId, agentId),
+    queryFn: () => configLayersApi.listAgentLayers(companyId, agentId),
     enabled: !!companyId && !!agentId,
   });
 
@@ -129,14 +127,16 @@ export function AgentLayersTab({
     enabled: attachDialogOpen && !!companyId,
   });
 
-  const attachedIds = new Set((attachedLayers ?? []).map((l) => l.id));
+  // Extract ConfigLayer from attachments
+  const attachedLayers = (attachments ?? []).map((a: AgentConfigLayerAttachment) => a.layer);
+  const attachedIds = new Set(attachedLayers.map((l) => l.id));
   const availableLayers = (allLayers ?? []).filter(
-    (l) => !attachedIds.has(l.id) && !l.archivedAt,
+    (l) => !attachedIds.has(l.id),
   );
 
   const attachMutation = useMutation({
     mutationFn: (layerId: string) =>
-      configLayersApi.attachToAgent(companyId, agentId, layerId),
+      configLayersApi.attachToAgent(companyId, agentId, { layerId }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.configLayers.forAgent(companyId, agentId),
@@ -165,7 +165,7 @@ export function AgentLayersTab({
   async function handleLayerSelect(layer: ConfigLayer) {
     // Run conflict check first
     try {
-      const result = await configLayersApi.checkConflicts(companyId, agentId, layer.id);
+      const result = await configLayersApi.checkConflicts(companyId, agentId, { layerId: layer.id });
       if (result.conflicts.length > 0) {
         setPendingAttach({ layer, result });
         setAttachDialogOpen(false);
@@ -177,26 +177,26 @@ export function AgentLayersTab({
     }
   }
 
-  const baseLayer = (attachedLayers ?? []).find((l) => l.id === baseLayerId);
-  const additionalLayers = (attachedLayers ?? []).filter((l) => l.id !== baseLayerId);
+  const baseLayer = attachedLayers.find((l) => l.id === baseLayerId);
+  const additionalLayers = attachedLayers.filter((l) => l.id !== baseLayerId);
 
   return (
     <div className="flex gap-6">
-      {/* Left panel — 2/3 */}
-      <div className="flex-[2] min-w-0 space-y-5">
+      {/* Left panel -- 2/3 */}
+      <div className="flex-[2] min-w-0 space-y-6">
         {/* Base layer */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Base Layer</h3>
+          <h3 className="text-sm font-medium text-foreground">Base Layer</h3>
           {loadingAttached ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading…
+              Loading...
             </div>
           ) : baseLayer ? (
             <LayerCard
               layer={baseLayer}
               isBase
-              onEdit={() => setEditLayer(baseLayer)}
+              onEdit={() => setEditLayerId(baseLayer.id)}
             />
           ) : (
             <p className="text-sm text-muted-foreground py-3">
@@ -208,7 +208,7 @@ export function AgentLayersTab({
         {/* Additional layers */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Additional Layers</h3>
+            <h3 className="text-sm font-medium text-foreground">Additional Layers</h3>
             <Button
               variant="outline"
               size="sm"
@@ -231,7 +231,7 @@ export function AgentLayersTab({
                   layer={layer}
                   isBase={false}
                   onDetach={() => detachMutation.mutate(layer.id)}
-                  onEdit={() => setEditLayer(layer)}
+                  onEdit={() => setEditLayerId(layer.id)}
                 />
               ))}
             </div>
@@ -239,7 +239,7 @@ export function AgentLayersTab({
         </div>
       </div>
 
-      {/* Right panel — 1/3 */}
+      {/* Right panel -- 1/3 */}
       <div className="flex-1 min-w-0 border-l border-border pl-6">
         <MergePreviewPanel companyId={companyId} agentId={agentId} />
       </div>
@@ -253,7 +253,7 @@ export function AgentLayersTab({
           {loadingAll ? (
             <div className="flex items-center gap-2 py-8 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Loading layers…</span>
+              <span className="text-sm">Loading layers...</span>
             </div>
           ) : availableLayers.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
@@ -273,14 +273,13 @@ export function AgentLayersTab({
                     {layer.enforced && (
                       <Badge variant="destructive" className="text-[10px]">enforced</Badge>
                     )}
-                    {layer.pendingReview && (
-                      <Badge variant="outline" className="text-[10px]">review</Badge>
-                    )}
                     <ScopeBadge scope={layer.scope} />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {layer.items.length} item{layer.items.length !== 1 ? "s" : ""}
-                  </p>
+                  {layer.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {layer.description}
+                    </p>
+                  )}
                 </button>
               ))}
             </div>
@@ -298,12 +297,15 @@ export function AgentLayersTab({
       )}
 
       {/* Layer editor dialog */}
-      {editLayer && (
-        <LayerEditor
-          companyId={companyId}
-          layerId={editLayer.id}
-          onClose={() => setEditLayer(null)}
-        />
+      {editLayerId && (
+        <Dialog open onOpenChange={(open) => { if (!open) setEditLayerId(null); }}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <LayerEditor
+              layerId={editLayerId}
+              onClose={() => setEditLayerId(null)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

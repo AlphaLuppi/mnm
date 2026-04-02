@@ -56,28 +56,27 @@ export function HookItemEditor({ item, onSave, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">Name</Label>
+    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+      <div className="space-y-1.5">
+        <Label>Name</Label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-hook"
           required
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Event</Label>
+        <div className="space-y-1.5">
+          <Label>Event</Label>
           <Select value={event} onValueChange={(v) => setEvent(v as HookEvent)}>
-            <SelectTrigger className="bg-gray-900 border-gray-600 text-gray-200">
+            <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-gray-900 border-gray-700 max-h-60 overflow-y-auto">
+            <SelectContent className="max-h-60 overflow-y-auto">
               {HOOK_EVENTS.map((ev) => (
-                <SelectItem key={ev} value={ev} className="text-gray-200">
+                <SelectItem key={ev} value={ev}>
                   {ev}
                 </SelectItem>
               ))}
@@ -85,15 +84,15 @@ export function HookItemEditor({ item, onSave, onCancel }: Props) {
           </Select>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Hook Type</Label>
+        <div className="space-y-1.5">
+          <Label>Hook Type</Label>
           <Select value={hookType} onValueChange={(v) => setHookType(v as HookType)}>
-            <SelectTrigger className="bg-gray-900 border-gray-600 text-gray-200">
+            <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-gray-900 border-gray-700">
+            <SelectContent>
               {HOOK_TYPES.map((t) => (
-                <SelectItem key={t} value={t} className="text-gray-200">
+                <SelectItem key={t} value={t}>
                   {t}
                 </SelectItem>
               ))}
@@ -102,75 +101,72 @@ export function HookItemEditor({ item, onSave, onCancel }: Props) {
         </div>
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-gray-300 text-sm">
-          Matcher Regex <span className="text-gray-500 font-normal">(optional)</span>
+      <div className="space-y-1.5">
+        <Label>
+          Matcher Regex <span className="text-muted-foreground font-normal">(optional)</span>
         </Label>
         <Input
           value={matcher}
           onChange={(e) => setMatcher(e.target.value)}
           placeholder="Bash|Write|Edit"
-          className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500 font-mono text-sm"
+          className="font-mono text-sm"
         />
       </div>
 
       {hookType === "command" && (
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Command</Label>
+        <div className="space-y-1.5">
+          <Label>Command</Label>
           <Input
             value={command}
             onChange={(e) => setCommand(e.target.value)}
             placeholder="/usr/local/bin/my-hook.sh"
             required
-            className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500 font-mono text-sm"
+            className="font-mono text-sm"
           />
         </div>
       )}
 
       {hookType === "http" && (
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">URL</Label>
+        <div className="space-y-1.5">
+          <Label>URL</Label>
           <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://hooks.example.com/claude"
             required
-            className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
           />
         </div>
       )}
 
       {(hookType === "prompt" || hookType === "agent") && (
-        <div className="space-y-1">
-          <Label className="text-gray-300 text-sm">Prompt</Label>
+        <div className="space-y-1.5">
+          <Label>Prompt</Label>
           <Textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="You are a hook. Analyze the tool call and..."
             rows={4}
             required
-            className="bg-gray-900 border-gray-600 text-gray-200 placeholder:text-gray-500"
           />
         </div>
       )}
 
-      <div className="space-y-1 w-32">
-        <Label className="text-gray-300 text-sm">Timeout (seconds)</Label>
+      <div className="space-y-1.5 w-32">
+        <Label>Timeout (seconds)</Label>
         <Input
           type="number"
           value={timeout}
           onChange={(e) => setTimeout_(e.target.value)}
           min={1}
           max={300}
-          className="bg-gray-900 border-gray-600 text-gray-200"
         />
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button type="submit" size="sm">
           {item ? "Update" : "Add"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onCancel} className="text-gray-400 hover:text-gray-200">
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
       </div>

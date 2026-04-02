@@ -7,11 +7,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { type ConflictCheckResult, type ConflictItem, type ConflictType } from "../../api/config-layers";
+import type { ConflictCheckResult, ConfigLayerConflict, ConflictSeverity } from "@mnm/shared";
 import { cn } from "../../lib/utils";
 
 const CONFLICT_CONFIG: Record<
-  ConflictType,
+  ConflictSeverity,
   { label: string; bgClass: string; textClass: string; borderClass: string; Icon: typeof AlertTriangle }
 > = {
   enforced_conflict: {
@@ -37,8 +37,8 @@ const CONFLICT_CONFIG: Record<
   },
 };
 
-function ConflictRow({ conflict }: { conflict: ConflictItem }) {
-  const config = CONFLICT_CONFIG[conflict.conflictType];
+function ConflictRow({ conflict }: { conflict: ConfigLayerConflict }) {
+  const config = CONFLICT_CONFIG[conflict.severity];
   const { Icon } = config;
 
   return (
@@ -54,8 +54,8 @@ function ConflictRow({ conflict }: { conflict: ConflictItem }) {
         <span className="text-xs text-muted-foreground">({conflict.itemType})</span>
       </div>
       <p className={cn("text-xs pl-5", config.textClass, "opacity-80")}>
-        Existing: <strong>{conflict.existingLayerName}</strong> &rarr; New:{" "}
-        <strong>{conflict.newLayerName}</strong>
+        Existing: <strong>{conflict.existingLayerName}</strong> (P{conflict.existingPriority})
+        &rarr; Candidate (P{conflict.candidatePriority})
       </p>
     </div>
   );
@@ -70,15 +70,15 @@ export function ConflictResolutionDialog({
   onProceed: () => void;
   onCancel: () => void;
 }) {
-  const hasEnforced = result.hasEnforcedConflicts;
-  const title = hasEnforced ? "Cannot Attach Layer" : "Conflicts Detected";
+  const canAttach = result.canAttach;
+  const title = !canAttach ? "Cannot Attach Layer" : "Conflicts Detected";
 
-  const grouped = result.conflicts.reduce<Record<ConflictType, ConflictItem[]>>(
+  const grouped = result.conflicts.reduce<Record<ConflictSeverity, ConfigLayerConflict[]>>(
     (acc, c) => {
-      (acc[c.conflictType] ??= []).push(c);
+      (acc[c.severity] ??= []).push(c);
       return acc;
     },
-    {} as Record<ConflictType, ConflictItem[]>,
+    {} as Record<ConflictSeverity, ConfigLayerConflict[]>,
   );
 
   return (
@@ -86,7 +86,7 @@ export function ConflictResolutionDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {hasEnforced ? (
+            {!canAttach ? (
               <XCircle className="h-5 w-5 text-destructive" />
             ) : (
               <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -96,20 +96,20 @@ export function ConflictResolutionDialog({
         </DialogHeader>
 
         <div className="space-y-2 max-h-[360px] overflow-y-auto py-1">
-          {hasEnforced && (
+          {!canAttach && (
             <p className="text-sm text-muted-foreground">
               This layer cannot be attached because it conflicts with an enforced layer. Remove
               the enforced layer first, or contact an admin.
             </p>
           )}
-          {!hasEnforced && (
+          {canAttach && (
             <p className="text-sm text-muted-foreground">
               Attaching this layer will cause the following conflicts. You can proceed, but some
               items may be overridden based on priority.
             </p>
           )}
 
-          {(["enforced_conflict", "priority_conflict", "override_conflict"] as ConflictType[]).map(
+          {(["enforced_conflict", "priority_conflict", "override_conflict"] as ConflictSeverity[]).map(
             (type) => {
               const conflicts = grouped[type];
               if (!conflicts || conflicts.length === 0) return null;
@@ -128,7 +128,7 @@ export function ConflictResolutionDialog({
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          {!hasEnforced && (
+          {canAttach && (
             <Button variant="default" onClick={onProceed}>
               Attach Anyway
             </Button>
