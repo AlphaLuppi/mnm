@@ -450,10 +450,18 @@ export function issueService(db: Db) {
         conditions.push(statuses.length === 1 ? eq(issues.status, statuses[0]) : inArray(issues.status, statuses));
       }
       if (filters?.assigneeAgentId) {
-        conditions.push(eq(issues.assigneeAgentId, filters.assigneeAgentId));
+        if (filters.assigneeAgentId === "none") {
+          conditions.push(sql`${issues.assigneeAgentId} IS NULL`);
+        } else {
+          conditions.push(eq(issues.assigneeAgentId, filters.assigneeAgentId));
+        }
       }
       if (filters?.assigneeUserId) {
-        conditions.push(eq(issues.assigneeUserId, filters.assigneeUserId));
+        if (filters.assigneeUserId === "none") {
+          conditions.push(sql`${issues.assigneeUserId} IS NULL`);
+        } else {
+          conditions.push(eq(issues.assigneeUserId, filters.assigneeUserId));
+        }
       }
       if (filters?.assigneeTagId) {
         conditions.push(eq(issues.assigneeTagId, filters.assigneeTagId));
