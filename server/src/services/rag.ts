@@ -1,6 +1,7 @@
 import { eq, and, sql, inArray } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { documents, documentChunks, chatContextLinks, artifacts } from "@mnm/db";
+import { embedText } from "./embedding.js";
 import { logger } from "../middleware/logger.js";
 
 export function ragService(db: Db) {
@@ -117,7 +118,19 @@ export function ragService(db: Db) {
             continue;
           }
 
-          // If has chunks, use first few chunks as context (stub: no embedding search yet)
+          // Try vector search if embeddings are available
+          const queryEmbedding = await embedText(queryText);
+          if (queryEmbedding) {
+            const results = await this.searchChunks(companyId, [doc.id], queryEmbedding, { topK: 5, threshold: 0.7 });
+            if (results.length > 0) {
+              contextParts.push(
+                `--- Document: ${doc.title} (${results.length} relevant chunks) ---\n${results.map((r) => r.content).join("\n\n")}`,
+              );
+              continue;
+            }
+          }
+
+          // Fallback: first 5 chunks (no embeddings available or no results above threshold)
           const chunks = await db
             .select()
             .from(documentChunks)
