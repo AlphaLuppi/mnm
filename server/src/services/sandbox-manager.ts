@@ -360,7 +360,19 @@ export function sandboxManagerService(db: Db) {
       .returning({ id: userPods.id });
 
     if (!updated) {
-      throw notFound("No sandbox found for this user");
+      // Auto-provision sandbox if it doesn't exist yet (e.g. during onboarding token setup)
+      await provisionSandbox(userId, companyId);
+      const [retried] = await db.update(userPods)
+        .set({
+          claudeOauthToken: token,
+          claudeAuthStatus: "authenticated",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(userPods.userId, userId), eq(userPods.companyId, companyId)))
+        .returning({ id: userPods.id });
+      if (!retried) {
+        throw notFound("Failed to provision sandbox for this user");
+      }
     }
   }
 
