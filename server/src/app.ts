@@ -39,6 +39,9 @@ import { projectMembershipRoutes } from "./routes/project-memberships.js";
 import { auditRoutes } from "./routes/audit.js";
 import { orchestratorRoutes } from "./routes/orchestrator.js";
 import { chatRoutes } from "./routes/chat.js";
+// CHAT-SHARING: Share links, fork, and context links
+import { chatSharingRoutes } from "./routes/chat-sharing.js";
+import { chatContextLinkRoutes } from "./routes/chat-context-links.js";
 import { compactionRoutes } from "./routes/compaction.js";
 import { automationCursorRoutes } from "./routes/automation-cursors.js";
 import { a2aRoutes } from "./routes/a2a.js";
@@ -64,6 +67,12 @@ import { deploymentRoutes } from "./routes/deployments.js";
 import { deploymentProxyMiddleware } from "./middleware/deployment-proxy.js";
 // CONFIG-LAYERS: Config layer routes
 import { configLayerRoutes } from "./routes/config-layers.js";
+// CHAT-ARTIFACTS: Artifact CRUD + versioning
+import { artifactRoutes } from "./routes/artifacts.js";
+// DOCUMENTS: Document upload, ingestion, and RAG
+import { documentRoutes } from "./routes/documents.js";
+// FOLDERS: Folder management routes
+import { folderRoutes } from "./routes/folders.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -213,6 +222,9 @@ export async function createApp(
   api.use(auditRoutes(db));
   api.use(orchestratorRoutes(db));
   api.use(chatRoutes(db));
+  // CHAT-SHARING: Share links, fork, and context links
+  api.use(chatSharingRoutes(db));
+  api.use(chatContextLinkRoutes(db));
   api.use(compactionRoutes(db));
   api.use(automationCursorRoutes(db));
   api.use(a2aRoutes(db));
@@ -240,6 +252,12 @@ export async function createApp(
   api.use(tagsRoutes(db));
   // CONFIG-LAYERS: Config layer routes
   api.use(configLayerRoutes(db));
+  // CHAT-ARTIFACTS: Artifact CRUD + versioning
+  api.use(artifactRoutes(db));
+  // DOCUMENTS: Document upload, ingestion, and RAG
+  api.use(documentRoutes(db, opts.storageService));
+  // FOLDERS: Folder management
+  api.use(folderRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
