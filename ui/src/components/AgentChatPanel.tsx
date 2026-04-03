@@ -39,6 +39,7 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const chatPanelRef = useRef<ImperativePanelHandle>(null);
+  const artifactPanelRef = useRef<ImperativePanelHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -174,18 +175,25 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
 
   // Force resize when artifact panel opens/closes
   useEffect(() => {
-    if (selectedArtifactId && chatPanelRef.current) {
-      chatPanelRef.current.resize(60);
-    } else if (!selectedArtifactId && chatPanelRef.current) {
-      chatPanelRef.current.resize(100);
-    }
+    // Small delay to ensure panels are mounted
+    const timer = setTimeout(() => {
+      if (selectedArtifactId) {
+        chatPanelRef.current?.resize(60);
+        artifactPanelRef.current?.resize(40);
+        artifactPanelRef.current?.expand();
+      } else {
+        chatPanelRef.current?.resize(100);
+        artifactPanelRef.current?.collapse();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
   }, [selectedArtifactId]);
 
   const isChannelOpen = channel.status === "open";
   const displayName = channel.name || agentName || "Chat";
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full" key={selectedArtifactId ? "with-artifact" : "no-artifact"}>
+    <ResizablePanelGroup direction="horizontal" className="h-full">
       <ResizablePanel ref={chatPanelRef} defaultSize={100} minSize={30}>
       {/* Main chat area */}
       <div
@@ -369,19 +377,25 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
       </div>
       </ResizablePanel>
 
-      {/* Artifact side panel — resizable, only when an artifact is selected */}
-      {selectedArtifactId && selectedCompanyId && (
-        <>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={40} minSize={25} maxSize={65}>
-            <ArtifactPanel
-              companyId={selectedCompanyId}
-              artifactId={selectedArtifactId}
-              onClose={() => setSelectedArtifactId(null)}
-            />
-          </ResizablePanel>
-        </>
-      )}
+      {/* Artifact side panel — always rendered, collapsed when no artifact */}
+      <ResizableHandle withHandle className={selectedArtifactId ? "" : "hidden"} />
+      <ResizablePanel
+        ref={artifactPanelRef}
+        defaultSize={selectedArtifactId ? 40 : 0}
+        minSize={selectedArtifactId ? 20 : 0}
+        maxSize={65}
+        collapsible
+        collapsedSize={0}
+        className={selectedArtifactId ? "" : "hidden"}
+      >
+        {selectedArtifactId && selectedCompanyId && (
+          <ArtifactPanel
+            companyId={selectedCompanyId}
+            artifactId={selectedArtifactId}
+            onClose={() => setSelectedArtifactId(null)}
+          />
+        )}
+      </ResizablePanel>
     </ResizablePanelGroup>
   );
 }
