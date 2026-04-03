@@ -8,7 +8,13 @@ DROP INDEX IF EXISTS "folders_company_visibility_idx";
 ALTER TABLE "folders" DROP COLUMN IF EXISTS "visibility";
 
 --> statement-breakpoint
-ALTER TABLE "folders" ADD COLUMN "instructions" text;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'folders' AND column_name = 'instructions') THEN
+    ALTER TABLE "folders" ADD COLUMN "instructions" text;
+  END IF;
+END
+$$;
 
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "folder_shares" (
@@ -23,16 +29,22 @@ CREATE TABLE IF NOT EXISTS "folder_shares" (
 );
 
 --> statement-breakpoint
-CREATE INDEX "folder_shares_folder_idx" ON "folder_shares"("folder_id");
+CREATE INDEX IF NOT EXISTS "folder_shares_folder_idx" ON "folder_shares"("folder_id");
 
 --> statement-breakpoint
-CREATE INDEX "folder_shares_user_idx" ON "folder_shares"("shared_with_user_id", "company_id");
+CREATE INDEX IF NOT EXISTS "folder_shares_user_idx" ON "folder_shares"("shared_with_user_id", "company_id");
 
 --> statement-breakpoint
-ALTER TABLE "documents" ADD COLUMN "owned_by_folder_id" uuid REFERENCES "folders"("id") ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'owned_by_folder_id') THEN
+    ALTER TABLE "documents" ADD COLUMN "owned_by_folder_id" uuid REFERENCES "folders"("id") ON DELETE SET NULL;
+  END IF;
+END
+$$;
 
 --> statement-breakpoint
-CREATE INDEX "documents_owned_folder_idx" ON "documents"("owned_by_folder_id");
+CREATE INDEX IF NOT EXISTS "documents_owned_folder_idx" ON "documents"("owned_by_folder_id");
 
 --> statement-breakpoint
 DELETE FROM "role_permissions" WHERE "permission_id" IN (
