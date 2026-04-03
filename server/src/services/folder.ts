@@ -59,6 +59,7 @@ export function folderService(db: Db) {
 
     /**
      * Get a folder by ID with visibility check.
+     * - Admin (bypassTagFilter) sees all folders
      * - Owner always sees it
      * - Private folders are only visible to the owner
      * - Team/public folders check tag overlap (team) or are always visible (public)
@@ -67,6 +68,7 @@ export function folderService(db: Db) {
       companyId: string,
       folderId: string,
       requestingUserId: string,
+      opts?: { isAdmin?: boolean },
     ) {
       const [folder] = await db
         .select()
@@ -76,6 +78,12 @@ export function folderService(db: Db) {
         );
 
       if (!folder) return null;
+
+      // Admin bypass: skip visibility checks
+      if (opts?.isAdmin) {
+        const itemCount = await this.getItemCount(folderId);
+        return { ...folder, itemCount };
+      }
 
       // Owner always sees their folder
       if (folder.ownerUserId === requestingUserId) {
@@ -136,36 +144,41 @@ export function folderService(db: Db) {
     /**
      * List folders visible to the requesting user.
      * Shows: owned folders + shared/public folders visible via tag overlap.
+     * Admin (isAdmin) sees all folders in the company.
      */
     async list(
       companyId: string,
       requestingUserId: string,
-      opts?: { visibility?: string; limit?: number; offset?: number },
+      opts?: { visibility?: string; limit?: number; offset?: number; isAdmin?: boolean },
     ) {
       const limit = opts?.limit ?? 50;
       const offset = opts?.offset ?? 0;
 
-      // Build visibility conditions:
-      // - Owner sees all their folders
-      // - Public folders are visible to everyone
-      // - Team folders are visible if tag overlap exists between owner and requester
-      const visibilityCondition = sql`(
-        ${folders.ownerUserId} = ${requestingUserId}
-        OR ${folders.visibility} = 'public'
-        OR (${folders.visibility} = 'team' AND EXISTS (
-          SELECT 1 FROM tag_assignments ta1
-          JOIN tag_assignments ta2 ON ta1.tag_id = ta2.tag_id
-          WHERE ta1.target_type = 'user' AND ta1.target_id = ${folders.ownerUserId}
-            AND ta2.target_type = 'user' AND ta2.target_id = ${requestingUserId}
-            AND ta1.company_id = ${companyId}
-            AND ta2.company_id = ${companyId}
-        ))
-      )`;
-
       const conditions: SQL[] = [
         eq(folders.companyId, companyId),
-        visibilityCondition,
       ];
+
+      // Admin bypass: skip visibility filtering
+      if (!opts?.isAdmin) {
+        // Build visibility conditions:
+        // - Owner sees all their folders
+        // - Public folders are visible to everyone
+        // - Team folders are visible if tag overlap exists between owner and requester
+        const visibilityCondition = sql`(
+          ${folders.ownerUserId} = ${requestingUserId}
+          OR ${folders.visibility} = 'public'
+          OR (${folders.visibility} = 'team' AND EXISTS (
+            SELECT 1 FROM tag_assignments ta1
+            JOIN tag_assignments ta2 ON ta1.tag_id = ta2.tag_id
+            WHERE ta1.target_type = 'user' AND ta1.target_id = ${folders.ownerUserId}
+              AND ta2.target_type = 'user' AND ta2.target_id = ${requestingUserId}
+              AND ta1.company_id = ${companyId}
+              AND ta2.company_id = ${companyId}
+          ))
+        )`;
+
+        conditions.push(visibilityCondition);
+      }
 
       if (opts?.visibility) {
         conditions.push(eq(folders.visibility, opts.visibility));
