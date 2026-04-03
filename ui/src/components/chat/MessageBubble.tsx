@@ -26,6 +26,7 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
 
   // System messages — centered pill
   if (isSystem) {
+    const isError = !!(meta?.error);
     return (
       <div
         data-testid="chat-s04-message"
@@ -33,12 +34,20 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
       >
         <div
           data-testid="chat-s04-message-system"
-          className="text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1 text-center max-w-[80%]"
+          className={cn(
+            "text-xs rounded-full px-3 py-1 text-center max-w-[80%]",
+            isError
+              ? "text-destructive bg-destructive/10 border border-destructive/20"
+              : "text-muted-foreground bg-muted/50",
+          )}
         >
           <span data-testid="chat-s04-message-content">{message.content}</span>
           <span
             data-testid="chat-s04-message-time"
-            className="ml-2 text-[10px] text-muted-foreground/60"
+            className={cn(
+              "ml-2 text-[10px]",
+              isError ? "text-destructive/60" : "text-muted-foreground/60",
+            )}
           >
             {formatTime(message.createdAt)}
           </span>
