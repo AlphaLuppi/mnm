@@ -283,6 +283,116 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
 
   // ─── Agent LLM Response ─────────────────────────────────────────────────
 
+  /**
+   * Helper: handle artifact created via tool_use — persist reference message,
+   * add to folder, broadcast WS events.
+   */
+  async function handleToolArtifactCreated(
+    artifact: Record<string, unknown>,
+    channelId: string,
+    companyId: string,
+    agentId: string,
+    folderId: string | null,
+  ) {
+    try {
+      const artId = artifact.id as string;
+      const artTitle = artifact.title as string;
+      const artType = (artifact.artifactType as string) || "markdown";
+
+      // Persist an artifact_reference message
+      const artRefMsg = await svc.createMessage(
+        channelId,
+        companyId,
+        agentId,
+        "agent",
+        `Artifact: ${artTitle}`,
+        {
+          type: "artifact_reference",
+          artifactId: artId,
+          title: artTitle,
+          artifactType: artType,
+        },
+        { messageType: "artifact_reference" },
+      );
+
+      // Broadcast the artifact_reference message via WS
+      const artRefServerMsg: ChatServerMessage = {
+        type: "chat_message",
+        id: artRefMsg.id,
+        channelId,
+        senderId: agentId,
+        senderType: "agent",
+        content: `Artifact: ${artTitle}`,
+        metadata: {
+          type: "artifact_reference",
+          artifactId: artId,
+          title: artTitle,
+          artifactType: artType,
+        },
+        createdAt: artRefMsg.createdAt.toISOString(),
+      };
+      broadcastLocal(channelId, artRefServerMsg);
+      await publishToRedis(channelId, artRefServerMsg);
+
+      // Auto-save artifact to chat's folder if one is attached
+      if (folderId) {
+        try {
+          await db.insert(folderItems).values({
+            folderId,
+            companyId,
+            itemType: "artifact",
+            artifactId: artId,
+            addedByUserId: agentId,
+          });
+        } catch (folderErr) {
+          logger.warn(
+            { err: folderErr, folderId, artifactId: artId },
+            "Failed to auto-add artifact to folder",
+          );
+        }
+      }
+
+      // Broadcast artifact_created
+      const artifactCreatedPayload: ChatServerPayload = {
+        type: "artifact_created",
+        artifactId: artId,
+        title: artTitle,
+        artifactType: artType,
+        channelId,
+        createdBy: agentId,
+      };
+      broadcastLocal(channelId, artifactCreatedPayload);
+      await publishToRedis(channelId, artifactCreatedPayload);
+    } catch (artErr) {
+      logger.warn(
+        { err: artErr, artifactId: artifact.id, channelId },
+        "Failed to handle tool-created artifact",
+      );
+    }
+  }
+
+  /**
+   * Helper: handle artifact updated via tool_use — broadcast WS event.
+   */
+  async function handleToolArtifactUpdated(
+    artifact: Record<string, unknown>,
+    channelId: string,
+    agentId: string,
+  ) {
+    const currentVersion = artifact.currentVersion as
+      | Record<string, unknown>
+      | undefined;
+    const updatedPayload: ChatServerPayload = {
+      type: "artifact_updated",
+      artifactId: artifact.id as string,
+      versionNumber: (currentVersion?.versionNumber as number) ?? 0,
+      channelId,
+      updatedBy: agentId,
+    };
+    broadcastLocal(channelId, updatedPayload);
+    await publishToRedis(channelId, updatedPayload);
+  }
+
   async function generateAgentResponse(
     channelId: string,
     companyId: string,
@@ -301,30 +411,61 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
     try {
       const completion = chatCompletionService(db);
 
+      // Get channel info early so callbacks can use it
+      const [channel] = await db
+        .select({ agentId: chatChannels.agentId, folderId: chatChannels.folderId })
+        .from(chatChannels)
+        .where(eq(chatChannels.id, channelId));
+
+      if (!channel) return;
+
       // Stream partial responses via chat_message_delta
       let lastChunkTime = 0;
       const THROTTLE_MS = 80; // Throttle delta broadcasts to avoid WS flooding
 
-      const onChunk = (partialText: string) => {
-        const now = Date.now();
-        if (now - lastChunkTime < THROTTLE_MS) return;
-        lastChunkTime = now;
+      // Track artifacts created via tool_use (vs block-based parsing)
+      let usedToolArtifacts = false;
 
-        broadcastLocal(channelId, {
-          type: "chat_message_delta" as const,
-          channelId,
-          senderId: "agent",
-          senderType: "agent" as const,
-          content: partialText,
-          isStreaming: true,
-        });
-      };
-
-      const responseText = await completion.generateResponseStreaming(
+      const responseText = await completion.generateResponseWithTools(
         companyId,
         channelId,
         userMessage,
-        onChunk,
+        {
+          onChunk: (partialText: string) => {
+            const now = Date.now();
+            if (now - lastChunkTime < THROTTLE_MS) return;
+            lastChunkTime = now;
+
+            broadcastLocal(channelId, {
+              type: "chat_message_delta" as const,
+              channelId,
+              senderId: "agent",
+              senderType: "agent" as const,
+              content: partialText,
+              isStreaming: true,
+            });
+          },
+          onToolUse: (name: string, input: Record<string, unknown>) => {
+            logger.info(
+              { name, input: JSON.stringify(input).slice(0, 100) },
+              "Agent using tool",
+            );
+          },
+          onArtifactCreated: async (artifact: Record<string, unknown>) => {
+            usedToolArtifacts = true;
+            await handleToolArtifactCreated(
+              artifact,
+              channelId,
+              companyId,
+              channel.agentId,
+              channel.folderId,
+            );
+          },
+          onArtifactUpdated: async (artifact: Record<string, unknown>) => {
+            usedToolArtifacts = true;
+            await handleToolArtifactUpdated(artifact, channelId, channel.agentId);
+          },
+        },
       );
 
       // Stop typing
@@ -337,16 +478,21 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
       broadcastLocal(channelId, typingStop);
       await publishToRedis(channelId, typingStop);
 
-      // Get agent ID and folder from channel
-      const [channel] = await db
-        .select({ agentId: chatChannels.agentId, folderId: chatChannels.folderId })
-        .from(chatChannels)
-        .where(eq(chatChannels.id, channelId));
+      // If tool_use path handled artifacts, skip block-based parsing.
+      // Otherwise, fall back to parseArtifacts for CLI path.
+      let cleanText: string;
+      let blockArtifacts: ParsedArtifact[];
 
-      if (!channel) return;
-
-      // Parse artifact blocks from the response
-      const { text: cleanText, artifacts } = parseArtifacts(responseText);
+      if (usedToolArtifacts) {
+        // Artifacts were already handled via tool callbacks — no block parsing
+        cleanText = responseText;
+        blockArtifacts = [];
+      } else {
+        // Fallback: parse ```artifact blocks (CLI / non-API paths)
+        const parsed = parseArtifacts(responseText);
+        cleanText = parsed.text;
+        blockArtifacts = parsed.artifacts;
+      }
 
       // Persist the text part as chat message
       const agentMessage = await svc.createMessage(
@@ -372,10 +518,10 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
       broadcastLocal(channelId, agentServerMessage);
       await publishToRedis(channelId, agentServerMessage);
 
-      // Create artifact entities for each extracted artifact
-      if (artifacts.length > 0) {
+      // Create artifact entities for block-parsed artifacts (fallback path only)
+      if (blockArtifacts.length > 0) {
         const artifactSvc = artifactService(db);
-        for (const art of artifacts) {
+        for (const art of blockArtifacts) {
           try {
             const artifact = await artifactSvc.create(companyId, {
               title: art.title,
