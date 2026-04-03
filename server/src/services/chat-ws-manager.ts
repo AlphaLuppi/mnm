@@ -7,7 +7,10 @@ import type {
 } from "@mnm/shared";
 import type { RedisState } from "../redis.js";
 import { logger as parentLogger } from "../middleware/logger.js";
+import { chatChannels } from "@mnm/db";
+import { eq } from "drizzle-orm";
 import { chatService } from "./chat.js";
+import { chatCompletionService } from "./chat-completion.js";
 import { slashCommandResolver } from "./slash-command-resolver.js";
 import { agentMentionHandler } from "./agent-mention-handler.js";
 
@@ -239,6 +242,121 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
     }
   }
 
+  // ─── Agent LLM Response ─────────────────────────────────────────────────
+
+  async function generateAgentResponse(
+    channelId: string,
+    companyId: string,
+    userMessage: string,
+  ) {
+    // Send typing indicator
+    const typingStart = {
+      type: "typing_indicator" as const,
+      senderId: "agent",
+      senderType: "agent" as const,
+      isTyping: true,
+    };
+    broadcastLocal(channelId, typingStart);
+    await publishToRedis(channelId, typingStart);
+
+    try {
+      const completion = chatCompletionService(db);
+      const responseText = await completion.generateResponse(
+        companyId,
+        channelId,
+        userMessage,
+      );
+
+      // Stop typing
+      const typingStop = {
+        type: "typing_indicator" as const,
+        senderId: "agent",
+        senderType: "agent" as const,
+        isTyping: false,
+      };
+      broadcastLocal(channelId, typingStop);
+      await publishToRedis(channelId, typingStop);
+
+      // Get agent ID from channel
+      const [channel] = await db
+        .select({ agentId: chatChannels.agentId })
+        .from(chatChannels)
+        .where(eq(chatChannels.id, channelId));
+
+      if (!channel) return;
+
+      // Persist agent message
+      const agentMessage = await svc.createMessage(
+        channelId,
+        companyId,
+        channel.agentId,
+        "agent",
+        responseText,
+      );
+
+      // Broadcast agent message to all clients
+      const agentServerMessage: ChatServerMessage = {
+        type: "chat_message",
+        id: agentMessage.id,
+        channelId,
+        senderId: channel.agentId,
+        senderType: "agent",
+        content: responseText,
+        createdAt: agentMessage.createdAt.toISOString(),
+      };
+
+      addToBuffer(channelId, agentServerMessage);
+      broadcastLocal(channelId, agentServerMessage);
+      await publishToRedis(channelId, agentServerMessage);
+    } catch (err) {
+      // Stop typing on error
+      const typingStop = {
+        type: "typing_indicator" as const,
+        senderId: "agent",
+        senderType: "agent" as const,
+        isTyping: false,
+      };
+      broadcastLocal(channelId, typingStop);
+      await publishToRedis(channelId, typingStop);
+
+      logger.error({ err, channelId }, "Agent response generation failed");
+
+      // Get agent ID to send error as agent message
+      const [channel] = await db
+        .select({ agentId: chatChannels.agentId })
+        .from(chatChannels)
+        .where(eq(chatChannels.id, channelId));
+
+      if (!channel) return;
+
+      // Persist error as a system-type message from the agent
+      const errorMessage = await svc.createMessage(
+        channelId,
+        companyId,
+        channel.agentId,
+        "agent",
+        "Sorry, I was unable to generate a response. Please try again.",
+        { error: true },
+        { messageType: "system" },
+      );
+
+      const errorServerMessage: ChatServerMessage = {
+        type: "chat_message",
+        id: errorMessage.id,
+        channelId,
+        senderId: channel.agentId,
+        senderType: "agent",
+        content: errorMessage.content,
+        metadata: { error: true },
+        createdAt: errorMessage.createdAt.toISOString(),
+      };
+
+      addToBuffer(channelId, errorServerMessage);
+      broadcastLocal(channelId, errorServerMessage);
+      await publishToRedis(channelId, errorServerMessage);
+    }
+  }
+
   // Initialize Redis if available
   initRedis();
 
@@ -404,6 +522,15 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
 
           // Publish to Redis for cross-instance distribution
           await publishToRedis(channelId, serverMessage);
+
+          // Trigger LLM response for user messages (async, don't block WS handler)
+          if (actorType === "user") {
+            generateAgentResponse(channelId, companyId, payload.content).catch(
+              (err) => {
+                logger.error({ err, channelId }, "Failed to generate agent response");
+              },
+            );
+          }
 
           return;
         }
