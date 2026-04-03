@@ -188,11 +188,12 @@ export function chatService(db: Db) {
         .returning();
 
       // CHAT-S02: update lastMessageAt on the channel (race-safe with GREATEST)
+      const msgCreatedAt = message!.createdAt instanceof Date ? message!.createdAt.toISOString() : message!.createdAt;
       await db
         .update(chatChannels)
         .set({
-          lastMessageAt: sql`GREATEST(COALESCE(${chatChannels.lastMessageAt}, '1970-01-01'::timestamptz), ${message!.createdAt})`,
-          updatedAt: message!.createdAt,
+          lastMessageAt: sql`GREATEST(COALESCE(${chatChannels.lastMessageAt}, '1970-01-01'::timestamptz), ${msgCreatedAt}::timestamptz)`,
+          updatedAt: new Date(),
         })
         .where(eq(chatChannels.id, channelId));
 
