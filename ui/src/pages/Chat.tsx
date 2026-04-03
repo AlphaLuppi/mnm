@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MessageSquare, Loader2, Plus } from "lucide-react";
 import { chatApi, type ChatChannel } from "../api/chat";
+import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -15,6 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "../lib/timeAgo";
 
@@ -22,8 +32,11 @@ import { timeAgo } from "../lib/timeAgo";
 export function Chat() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<{ agentId: string; name: string }>({ agentId: "", name: "" });
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Chat" }]);
@@ -39,6 +52,25 @@ export function Chat() {
         sortBy: "lastMessageAt",
       }),
     enabled: !!selectedCompanyId,
+  });
+
+  const agentsQuery = useQuery({
+    queryKey: queryKeys.agents.list(selectedCompanyId!),
+    queryFn: () => agentsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId && createOpen,
+  });
+
+  const createChannelMutation = useMutation({
+    mutationFn: (input: { agentId: string; name?: string }) =>
+      chatApi.createChannel(selectedCompanyId!, input),
+    onSuccess: (newChannel) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.channels(selectedCompanyId!),
+      });
+      setCreateOpen(false);
+      setCreateForm({ agentId: "", name: "" });
+      setSelectedChannel(newChannel);
+    },
   });
 
   const channels = useMemo(
@@ -94,6 +126,10 @@ export function Chat() {
             {channelsQuery.isFetching && (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
             )}
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New Chat
+            </Button>
           </div>
         </div>
 
@@ -193,6 +229,69 @@ export function Chat() {
           onClose={() => setSelectedChannel(null)}
         />
       )}
+
+      {/* New Chat dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Chat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Agent</Label>
+              <Select
+                value={createForm.agentId}
+                onValueChange={(v) => setCreateForm((f) => ({ ...f, agentId: v }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select an agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agentsQuery.isLoading && (
+                    <SelectItem value="__loading" disabled>
+                      Loading agents...
+                    </SelectItem>
+                  )}
+                  {(agentsQuery.data ?? [])
+                    .filter((a) => a.status !== "terminated")
+                    .map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="chat-name">Name (optional)</Label>
+              <Input
+                id="chat-name"
+                placeholder="e.g. Debug session"
+                value={createForm.name}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, name: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                createChannelMutation.mutate({
+                  agentId: createForm.agentId,
+                  name: createForm.name || undefined,
+                })
+              }
+              disabled={!createForm.agentId || createChannelMutation.isPending}
+            >
+              {createChannelMutation.isPending ? "Starting..." : "Start Chat"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
