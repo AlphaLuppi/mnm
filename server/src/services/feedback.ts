@@ -232,7 +232,7 @@ export function feedbackService(db: Db) {
     ];
     if (filters?.agentId) {
       reasonConditions.push(
-        sql`${feedbackVotes.targetId} in (select id from issue_comments where author_agent_id = ${filters.agentId})`,
+        sql`${feedbackVotes.targetId}::uuid in (select id from issue_comments where author_agent_id = ${filters.agentId})`,
       );
     }
     if (filters?.projectId) {
