@@ -221,6 +221,11 @@ export function OnboardingWizard() {
   // Step 1: Create Company (bootstrapCompany runs server-side automatically)
   // -------------------------------------------------------------------------
   async function handleStep1Next() {
+    // If company already created (user navigated back), just advance
+    if (createdCompanyId) {
+      setStep(2);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -359,12 +364,13 @@ export function OnboardingWizard() {
 
   async function handleRemoveTag(tagId: string) {
     if (!createdCompanyId) return;
+    // Optimistic: remove from UI immediately
+    setCreatedTags((prev) => prev.filter((t) => t.id !== tagId));
     try {
       await tagsApi.delete(createdCompanyId, tagId);
-      setCreatedTags((prev) => prev.filter((t) => t.id !== tagId));
       queryClient.invalidateQueries({ queryKey: queryKeys.tags.list(createdCompanyId) });
     } catch {
-      // Non-blocking
+      // API delete failed (likely permission timing during onboarding) — UI already updated
     }
   }
 

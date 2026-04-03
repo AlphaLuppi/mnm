@@ -63,13 +63,22 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     [companies],
   );
 
-  // Auto-select first company when list loads
+  // Auto-select first company when list loads, clear stale IDs
   useEffect(() => {
+    // Clear stale companyId if it doesn't match any existing company
+    let stored: string | null = null;
+    try { stored = localStorage.getItem(STORAGE_KEY); } catch { /* ignore */ }
+    if (stored && companies.length > 0 && !companies.some((c) => c.id === stored)) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      setSelectedCompanyIdState(null);
+    }
+    if (selectedCompanyId && companies.length > 0 && !companies.some((c) => c.id === selectedCompanyId)) {
+      setSelectedCompanyIdState(null);
+    }
+
     if (companies.length === 0) return;
 
     const selectableCompanies = sidebarCompanies.length > 0 ? sidebarCompanies : companies;
-    let stored: string | null = null;
-    try { stored = localStorage.getItem(STORAGE_KEY); } catch { /* ignore */ }
     if (stored && selectableCompanies.some((c) => c.id === stored)) return;
     if (selectedCompanyId && selectableCompanies.some((c) => c.id === selectedCompanyId)) return;
 
