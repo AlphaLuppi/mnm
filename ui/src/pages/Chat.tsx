@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, Loader2, Plus, Hash } from "lucide-react";
+import { MessageSquare, Loader2, Plus, Bot } from "lucide-react";
 import { chatApi, type ChatChannel } from "../api/chat";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
@@ -125,103 +125,102 @@ export function Chat() {
     );
   }
 
+  // When a channel is selected, show full-page chat. Otherwise show channel list.
   return (
-    <div className="flex h-full" data-testid="chat-s04-page">
-      {/* ── Left sidebar: channel list ── */}
-      <div className="w-64 shrink-0 flex flex-col border-r border-border bg-muted/30 h-full">
-        {/* Sidebar header */}
-        <div className="flex items-center justify-between px-3 h-12 shrink-0 border-b border-border">
+    <div className="h-full" data-testid="chat-s04-page">
+      {selectedChannel ? (
+        /* ── Full-page chat ── */
+        <AgentChatPanel
+          channel={selectedChannel}
+          agentName={resolveAgentName(selectedChannel.agentId)}
+          onBack={() => setSelectedChannel(null)}
+        />
+      ) : (
+        /* ── Channel list (full page when no chat selected) ── */
+        <div className="max-w-2xl mx-auto py-6 px-4 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="h-5 w-5 text-muted-foreground" />
+              <h1 data-testid="chat-s04-title" className="text-lg font-semibold">
+                Chat
+              </h1>
+              {openCount > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {openCount} open
+                </Badge>
+              )}
+              {channelsQuery.isFetching && (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            <Button onClick={() => setCreateOpen(true)} size="sm">
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New Chat
+            </Button>
+          </div>
+
+          {/* Filter */}
           <div className="flex items-center gap-2">
-            <h1 data-testid="chat-s04-title" className="text-sm font-semibold">
-              Chat
-            </h1>
-            {openCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                {openCount}
-              </Badge>
-            )}
-            {channelsQuery.isFetching && (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+            {statusFilter && statusFilter !== "all" && (
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setStatusFilter("")}>
+                Clear
+              </Button>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setCreateOpen(true)}
-            aria-label="New chat"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
 
-        {/* Filter bar */}
-        <div className="px-2 py-2 shrink-0">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full h-7 text-xs">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Channel list (scrollable) */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
+          {/* Channel list */}
           {channels.length === 0 ? (
-            <div
-              data-testid="chat-s04-empty-channels"
-              className="flex flex-col items-center justify-center py-12 text-center px-2"
-            >
-              <div className="bg-muted/50 rounded-full p-3 mb-3">
-                <MessageSquare className="h-6 w-6 text-muted-foreground/50" />
+            <div data-testid="chat-s04-empty-channels" className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="bg-muted/50 rounded-full p-6 mb-5">
+                <MessageSquare className="h-12 w-12 text-muted-foreground/40" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {statusFilter && statusFilter !== "all"
-                  ? `No ${statusFilter} channels.`
-                  : "No channels yet."}
+              <h2 className="text-lg font-medium mb-1">No conversations yet</h2>
+              <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                Start a conversation with one of your agents.
               </p>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Chat
+              </Button>
             </div>
           ) : (
-            <div data-testid="chat-s04-channel-list" className="space-y-0.5">
+            <div data-testid="chat-s04-channel-list" className="border border-border rounded-lg overflow-hidden divide-y divide-border">
               {channels.map((channel) => {
-                const isSelected = selectedChannel?.id === channel.id;
                 const displayName = resolveChannelDisplayName(channel);
-                const agentName = resolveAgentName(channel.agentId);
-
+                const agentDisplayName = resolveAgentName(channel.agentId);
                 return (
                   <button
                     key={channel.id}
                     type="button"
                     data-testid="chat-s04-channel-item"
-                    className={cn(
-                      "w-full text-left rounded-lg px-3 py-2.5 transition-colors",
-                      isSelected
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent/50 text-foreground",
-                    )}
+                    className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors flex items-center gap-3"
                     onClick={() => setSelectedChannel(channel)}
                   >
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span
-                        data-testid="chat-s04-channel-name"
-                        className="text-sm font-medium truncate"
-                      >
-                        {displayName}
-                      </span>
+                    <div className="bg-muted rounded-full p-2 shrink-0">
+                      <Bot className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <div className="flex items-center justify-between pl-5.5 text-[11px] text-muted-foreground">
-                      <span data-testid="chat-s04-channel-agent" className="truncate">
-                        {agentName}
-                      </span>
-                      <span data-testid="chat-s04-channel-last-msg" className="shrink-0 ml-2">
-                        {channel.lastMessageAt
-                          ? timeAgo(channel.lastMessageAt)
-                          : ""}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{displayName}</span>
+                        <Badge variant={channel.status === "open" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                          {channel.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {agentDisplayName}
+                        {channel.lastMessageAt && ` · ${timeAgo(channel.lastMessageAt)}`}
+                      </p>
                     </div>
                   </button>
                 );
@@ -229,33 +228,7 @@ export function Chat() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* ── Main area: chat or empty state ── */}
-      <div className="flex-1 min-w-0 h-full">
-        {selectedChannel ? (
-          <AgentChatPanel
-            channel={selectedChannel}
-            agentName={resolveAgentName(selectedChannel.agentId)}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="bg-muted/50 rounded-full p-6 mb-5">
-              <MessageSquare className="h-12 w-12 text-muted-foreground/40" />
-            </div>
-            <h2 className="text-lg font-medium text-foreground mb-1">
-              Welcome to Chat
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-sm mb-6">
-              Select a conversation from the sidebar or start a new one to chat with your agents.
-            </p>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Chat
-            </Button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* New Chat dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
