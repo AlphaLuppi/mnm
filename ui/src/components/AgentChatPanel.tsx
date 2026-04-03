@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from "react";
-import { ArrowDown, Bot, MessageSquare, Send } from "lucide-react";
+import { ArrowDown, ArrowLeft, Bot, MessageSquare, Send } from "lucide-react";
 import type { ChatChannel } from "../api/chat";
 import { useAgentChat } from "../hooks/useAgentChat";
 import { useCompany } from "../context/CompanyContext";
@@ -21,9 +21,10 @@ export interface AgentChatPanelProps {
     forkedFromName?: string | null;
   };
   agentName?: string;
+  onBack?: () => void;
 }
 
-export function AgentChatPanel({ channel, agentName }: AgentChatPanelProps) {
+export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelProps) {
   const { selectedCompanyId } = useCompany();
   const [inputValue, setInputValue] = useState("");
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -167,6 +168,11 @@ export function AgentChatPanel({ channel, agentName }: AgentChatPanelProps) {
           className="flex items-center justify-between border-b border-border px-4 py-2.5 shrink-0"
         >
           <div className="flex items-center gap-2.5 min-w-0">
+            {onBack && (
+              <Button variant="ghost" size="icon-sm" onClick={onBack} className="shrink-0 -ml-1">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             <Bot className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-sm font-semibold truncate">
               {displayName}
