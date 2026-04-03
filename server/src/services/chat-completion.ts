@@ -20,6 +20,26 @@ import { artifactService } from "./artifact.js";
 const execFileAsync = promisify(execFile);
 const logger = parentLogger.child({ module: "chat-completion" });
 
+// ─── Error Types ──────────────────────────────────────────────────────────
+
+export type ChatCompletionErrorCode =
+  | "NOT_LOGGED_IN"
+  | "TIMEOUT"
+  | "NO_BACKEND"
+  | "API_ERROR"
+  | "CLI_ERROR";
+
+export class ChatCompletionError extends Error {
+  constructor(
+    message: string,
+    public code: ChatCompletionErrorCode,
+    public userMessage: string,
+  ) {
+    super(message);
+    this.name = "ChatCompletionError";
+  }
+}
+
 // ─── Config ────────────────────────────────────────────────────────────────
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -322,9 +342,10 @@ export function chatCompletionService(db: Db) {
       companyId: string,
       channelId: string,
       userMessage: string,
+      oauthToken?: string | null,
     ): Promise<string> {
       const { systemPrompt, messages } = await prepareContext(companyId, channelId, userMessage);
-      return await callLlm(systemPrompt, messages);
+      return await callLlm(systemPrompt, messages, oauthToken);
     },
 
     /**
@@ -337,6 +358,7 @@ export function chatCompletionService(db: Db) {
       channelId: string,
       userMessage: string,
       onChunk: (partialText: string) => void,
+      oauthToken?: string | null,
     ): Promise<string> {
       const { systemPrompt, messages } = await prepareContext(companyId, channelId, userMessage);
 
@@ -351,7 +373,7 @@ export function chatCompletionService(db: Db) {
       }
 
       // Fallback: non-streaming (call callLlm which tries all strategies)
-      const result = await callLlm(systemPrompt, messages);
+      const result = await callLlm(systemPrompt, messages, oauthToken);
       onChunk(result);
       return result;
     },
@@ -366,6 +388,7 @@ export function chatCompletionService(db: Db) {
       channelId: string,
       userMessage: string,
       toolContext: ToolUseCallbacks,
+      oauthToken?: string | null,
     ): Promise<string> {
       // Only use tool_use path when Anthropic API key is available
       if (!ANTHROPIC_API_KEY) {
@@ -375,6 +398,7 @@ export function chatCompletionService(db: Db) {
           channelId,
           userMessage,
           toolContext.onChunk ?? (() => {}),
+          oauthToken,
         );
       }
 
@@ -616,6 +640,7 @@ function buildMessages(
 async function callLlm(
   systemPrompt: string,
   messages: HistoryMessage[],
+  oauthToken?: string | null,
 ): Promise<string> {
   // Strategy 1: Direct Anthropic API
   if (ANTHROPIC_API_KEY) {
@@ -638,14 +663,20 @@ async function callLlm(
   }
 
   // Strategy 3: claude -p CLI fallback
+  // ChatCompletionError (e.g. NOT_LOGGED_IN) propagates up
   try {
-    const result = await callClaudeCli(systemPrompt, messages);
+    const result = await callClaudeCli(systemPrompt, messages, oauthToken);
     if (result) return result;
   } catch (err) {
+    if (err instanceof ChatCompletionError) throw err;
     logger.warn({ err }, "claude CLI call failed");
   }
 
-  return "I'm sorry, I couldn't generate a response. Please check that an LLM backend is configured (ANTHROPIC_API_KEY, MNM_LLM_SUMMARY_ENDPOINT, or claude CLI).";
+  throw new ChatCompletionError(
+    "All LLM backends failed or returned empty",
+    "NO_BACKEND",
+    "Aucun backend LLM disponible. Configurez ANTHROPIC_API_KEY ou connectez Claude CLI dans Paramètres.",
+  );
 }
 
 async function callAnthropicApi(
@@ -801,6 +832,7 @@ async function callAnthropicApiStreaming(
 async function callClaudeCli(
   systemPrompt: string,
   messages: HistoryMessage[],
+  oauthToken?: string | null,
 ): Promise<string | null> {
   // Build a single prompt combining system + conversation history
   // claude -p takes a single prompt string as argument
@@ -810,6 +842,14 @@ async function callClaudeCli(
 
   const combinedPrompt = `${systemPrompt}\n\n---\n\n${conversationText}\n\nRespond as the assistant. Be concise and helpful.`;
 
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    CLAUDE_CODE_ENABLE_TELEMETRY: "0",
+  };
+  if (oauthToken) {
+    env.CLAUDE_CODE_OAUTH_TOKEN = oauthToken;
+  }
+
   try {
     const { stdout } = await execFileAsync(
       "claude",
@@ -817,15 +857,47 @@ async function callClaudeCli(
       {
         timeout: 90_000,
         maxBuffer: 1024 * 1024,
-        env: { ...process.env, CLAUDE_CODE_ENABLE_TELEMETRY: "0" },
+        env,
       },
     );
+
+    // Detect auth errors in stdout
+    if (stdout?.includes("Not logged in") || stdout?.includes("Please run /login")) {
+      throw new ChatCompletionError(
+        "Claude CLI not authenticated",
+        "NOT_LOGGED_IN",
+        "L'agent n'est pas connecté à Claude. Configurez votre token dans Paramètres > Claude.",
+      );
+    }
 
     if (!stdout?.trim()) return null;
 
     logger.debug("claude CLI call succeeded");
     return stdout.trim();
   } catch (err) {
+    // Re-throw typed errors
+    if (err instanceof ChatCompletionError) throw err;
+
+    const errObj = err as { stdout?: string; killed?: boolean; signal?: string; code?: string | number };
+
+    // Detect auth error from failed command stdout
+    if (errObj.stdout?.includes("Not logged in") || errObj.stdout?.includes("Please run /login")) {
+      throw new ChatCompletionError(
+        "Claude CLI not authenticated",
+        "NOT_LOGGED_IN",
+        "L'agent n'est pas connecté à Claude. Configurez votre token dans Paramètres > Claude.",
+      );
+    }
+
+    // Detect timeout
+    if (errObj.killed || errObj.signal === "SIGTERM") {
+      throw new ChatCompletionError(
+        "Claude CLI timed out after 90s",
+        "TIMEOUT",
+        "La réponse a expiré (timeout). Réessayez ou vérifiez la charge du serveur.",
+      );
+    }
+
     logger.warn({ err }, "claude -p CLI call failed");
     return null;
   }
