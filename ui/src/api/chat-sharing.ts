@@ -31,7 +31,7 @@ export const chatSharingApi = {
   },
 
   getContextLinks(companyId: string, channelId: string) {
-    return api.get<ChatContextLink[]>(`/companies/${companyId}/chat/channels/${channelId}/context`);
+    return api.get<{ links: ChatContextLink[] }>(`/companies/${companyId}/chat/channels/${channelId}/context`);
   },
 
   removeContextLink(companyId: string, channelId: string, linkId: string) {
