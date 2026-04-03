@@ -6,6 +6,7 @@ import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
+import { useParams, useNavigate } from "../lib/router";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentChatPanel } from "../components/AgentChatPanel";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +35,9 @@ export function Chat() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
+  const { channelId } = useParams<{ channelId?: string }>();
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [selectedChannel, setSelectedChannel] = useState<ChatChannel | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<{ agentId: string; name: string }>({ agentId: "", name: "" });
 
@@ -98,7 +100,7 @@ export function Chat() {
       });
       setCreateOpen(false);
       setCreateForm({ agentId: "", name: "" });
-      setSelectedChannel(newChannel);
+      navigate(`/chat/${newChannel.id}`);
     },
   });
 
@@ -106,6 +108,21 @@ export function Chat() {
     () => channelsQuery.data?.channels ?? [],
     [channelsQuery.data],
   );
+
+  // Fetch individual channel when channelId is in URL (supports F5 refresh)
+  const channelDetailQuery = useQuery({
+    queryKey: queryKeys.chat.detail(selectedCompanyId!, channelId!),
+    queryFn: () => chatApi.getChannel(selectedCompanyId!, channelId!),
+    enabled: !!selectedCompanyId && !!channelId,
+  });
+
+  // Resolve selected channel: prefer from already-loaded list, fallback to detail query
+  const selectedChannel: ChatChannel | null = useMemo(() => {
+    if (!channelId) return null;
+    const fromList = channels.find((c) => c.id === channelId);
+    if (fromList) return fromList;
+    return channelDetailQuery.data ?? null;
+  }, [channelId, channels, channelDetailQuery.data]);
 
   const openCount = useMemo(
     () => channels.filter((c) => c.status === "open").length,
@@ -125,6 +142,15 @@ export function Chat() {
 
   // Loading state
   if (channelsQuery.isLoading && !channelsQuery.data) {
+    return (
+      <div data-testid="chat-s04-loading">
+        <PageSkeleton />
+      </div>
+    );
+  }
+
+  // Channel detail loading (URL has channelId but data not yet resolved)
+  if (channelId && !selectedChannel && channelDetailQuery.isLoading) {
     return (
       <div data-testid="chat-s04-loading">
         <PageSkeleton />
@@ -152,7 +178,7 @@ export function Chat() {
         <AgentChatPanel
           channel={selectedChannel}
           agentName={resolveAgentName(selectedChannel.agentId)}
-          onBack={() => setSelectedChannel(null)}
+          onBack={() => navigate("/chat")}
         />
       ) : (
         /* ── Channel list (full page when no chat selected) ── */
@@ -224,7 +250,7 @@ export function Chat() {
                     type="button"
                     data-testid="chat-s04-channel-item"
                     className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors flex items-center gap-3"
-                    onClick={() => setSelectedChannel(channel)}
+                    onClick={() => navigate(`/chat/${channel.id}`)}
                   >
                     <div className="bg-muted rounded-full p-2 shrink-0">
                       <Bot className="h-4 w-4 text-muted-foreground" />
