@@ -37,6 +37,12 @@ Language: French for planning documents.
   - Tag-based visibility + ownership checks on all routes
   - Revision history with snapshots on every change
   - Frontend: Admin page (/admin/config-layers), Agent "Layers" tab, merge preview panel
+- **Collaborative Chat**: Real-time 1-1 chat with AI agents, artifact system, document upload + RAG, folders, sharing/forking, slash commands, @mentions, streaming, tool_use
+  - 8 new DB tables + 2 ALTER (migration 0055), pgvector for RAG
+  - Chat completion: Anthropic API (streaming + tool_use) or claude CLI fallback
+  - Artifacts: versioned, first-class, preview in side panel (HTML iframe), create/read/edit via tools
+  - Folders: tag-based visibility (private/public + direct tags), auto-save artifacts
+  - 13 new permissions, ownership checks, company isolation, tag-based filtering
 
 ## What Remains
 
@@ -46,8 +52,10 @@ Language: French for planning documents.
 | **Supply chain analysis** | Config Layers | LLM sandbox for external URL/git sources (skeleton exists, not implemented) |
 | **Workflow stage layer attachment** | Config Layers | DB tables exist, routes not yet implemented |
 | **OAuth token refresh** | Config Layers | Background job skeleton exists, actual refresh not implemented |
+| **Chat Phase 2** | Chat | Workflow chat steps, human-in-the-loop validation, chat-to-ticket |
+| **Streaming for CLI** | Chat | Stream responses when using claude -p (currently non-streaming fallback) |
 
-All P1, P2, and tech debt items are complete (including SANDBOX-AUTH, PRESET-SLUGS, and CONFIG-LAYERS). REAL-RUN requires running server + agent execution.
+All P1, P2, and tech debt items are complete (including SANDBOX-AUTH, PRESET-SLUGS, CONFIG-LAYERS, and CHAT Phase 1). REAL-RUN requires running server + agent execution.
 
 ### Architecture Decisions (Sandbox Auth)
 
@@ -93,6 +101,13 @@ All P1, P2, and tech debt items are complete (including SANDBOX-AUTH, PRESET-SLU
 - `server/src/services/mcp-oauth.ts` — OAuth2 PKCE flow
 - `server/src/routes/config-layers.ts` — All config layer API routes
 - `ui/src/components/config-layers/` — Layer editors, agent tab, merge preview
+- `server/src/services/chat*.ts` — Chat services (completion, sharing, context links, WS manager)
+- `server/src/services/artifact.ts` — Artifact CRUD + versioning
+- `server/src/services/document*.ts` — Document upload + ingestion pipeline
+- `server/src/services/rag.ts` — RAG retrieval (pgvector cosine similarity)
+- `server/src/services/embedding.ts` — Embedding provider (OpenAI)
+- `ui/src/components/chat/` — Chat UI (message bubbles, artifact panel, slash commands, mentions)
+- `ui/src/components/folders/` — Folder UI (cards, picker, item list)
 
 ## Dev Commands
 
@@ -118,3 +133,4 @@ docker compose up -d --wait                    # Start server + DB + Redis
 - `_bmad-output/planning-artifacts/epics-b2b.md` — 16 Epics, ~69 Stories (all done)
 - `_bmad-output/planning-artifacts/epics-scale-trace.md` — SCALE + TRACE Epics (20 stories)
 - `_bmad-output/planning-artifacts/tech-spec-bronze-silver-gold-2026-03-18.md` — Trace pipeline tech spec
+- `_bmad-output/planning-artifacts/epic-collaborative-chat.md` — CHAT epic (18 stories, ~80 SP, all done)

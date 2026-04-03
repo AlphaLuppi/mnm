@@ -1,5 +1,8 @@
 # Chat Collaboratif + Documents + Folders — Design Spec
 
+> **Status:** Phase 1 IMPLEMENTED (2026-04-03). All features in this spec are built and deployed.
+> See `_bmad-output/planning-artifacts/epic-collaborative-chat.md` for story tracking.
+
 > **Pour les workers agentiques :** REQUIRED SUB-SKILL: Utiliser superpowers:subagent-driven-development (recommandé) ou superpowers:executing-plans pour implémenter ce plan tâche par tâche.
 
 **Goal:** Transformer le chat 1-1 existant (user ↔ agent) en plateforme de collaboration avec gestion documentaire, artefacts structurés, Folders réutilisables, et partage entre membres.
