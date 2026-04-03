@@ -375,8 +375,9 @@ export type {
   ArtifactVersion,
 } from "./artifacts.js";
 export type {
-  FolderVisibility,
   FolderItemType,
+  FolderSharePermission,
+  FolderShare,
   Folder,
   FolderItem,
 } from "./folders.js";

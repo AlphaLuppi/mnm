@@ -46,6 +46,7 @@ export { artifacts } from "./artifacts.js";
 export { artifactVersions } from "./artifact_versions.js";
 export { folders } from "./folders.js";
 export { folderItems } from "./folder_items.js";
+export { folderShares } from "./folder_shares.js";
 export { chatShares } from "./chat_shares.js";
 export { chatContextLinks } from "./chat_context_links.js";
 export { auditEvents } from "./audit_events.js";

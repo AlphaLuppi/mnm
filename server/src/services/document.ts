@@ -20,6 +20,7 @@ export function documentService(db: Db) {
         mimeType: string;
         byteSize?: number;
         createdByUserId?: string;
+        ownedByFolderId?: string;
       },
     ) {
       const [doc] = await db
@@ -31,6 +32,7 @@ export function documentService(db: Db) {
           mimeType: opts.mimeType,
           byteSize: opts.byteSize ?? null,
           createdByUserId: opts.createdByUserId ?? null,
+          ownedByFolderId: opts.ownedByFolderId ?? null,
           ingestionStatus: "pending",
         })
         .returning();

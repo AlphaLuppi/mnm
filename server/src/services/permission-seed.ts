@@ -74,7 +74,8 @@ const SEED_PERMISSIONS: Array<{ slug: string; description: string; category: str
   { slug: "folders:read", description: "Voir les folders", category: "folders" },
   { slug: "folders:edit", description: "Modifier ses folders", category: "folders" },
   { slug: "folders:delete", description: "Supprimer ses folders", category: "folders" },
-  { slug: "folders:share", description: "Partager des folders", category: "folders" },
+  { slug: "folders:share_users", description: "Partager un folder à des utilisateurs", category: "folders" },
+  { slug: "folders:share_tags", description: "Assigner des tags à un folder", category: "folders" },
 
   // Sandbox
   { slug: "sandbox:manage", description: "Gérer les sandboxes", category: "sandbox" },

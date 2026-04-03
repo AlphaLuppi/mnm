@@ -1,6 +1,16 @@
-export type FolderVisibility = "private" | "public";
-
 export type FolderItemType = "artifact" | "document" | "channel";
+
+export type FolderSharePermission = "viewer" | "editor";
+
+export interface FolderShare {
+  id: string;
+  folderId: string;
+  companyId: string;
+  sharedWithUserId: string;
+  permission: FolderSharePermission;
+  sharedByUserId: string;
+  createdAt: string;
+}
 
 export interface FolderItem {
   id: string;
@@ -21,9 +31,10 @@ export interface Folder {
   name: string;
   description: string | null;
   icon: string | null;
-  visibility: FolderVisibility;
+  instructions: string | null;
   ownerUserId: string | null;
   createdAt: string;
   updatedAt: string;
   itemCount?: number;
+  canEdit?: boolean;
 }

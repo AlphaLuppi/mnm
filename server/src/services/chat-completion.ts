@@ -12,7 +12,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { Db } from "@mnm/db";
-import { chatMessages, agents, chatChannels, artifacts } from "@mnm/db";
+import { chatMessages, agents, chatChannels, artifacts, folders } from "@mnm/db";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { logger as parentLogger } from "../middleware/logger.js";
 import { artifactService } from "./artifact.js";
@@ -173,8 +173,18 @@ export function chatCompletionService(db: Db) {
     // Reverse to chronological order
     historyRows.reverse();
 
-    // 4. Build system prompt and messages
-    const systemPrompt = buildSystemPrompt(agent, useTools);
+    // 4. Fetch folder instructions if channel is in a folder
+    let folderInstructions: string | null = null;
+    if (channel.folderId) {
+      const [folder] = await db
+        .select({ instructions: folders.instructions })
+        .from(folders)
+        .where(eq(folders.id, channel.folderId));
+      folderInstructions = folder?.instructions ?? null;
+    }
+
+    // 5. Build system prompt and messages
+    const systemPrompt = buildSystemPrompt(agent, useTools, folderInstructions);
     const messages = buildMessages(historyRows, userMessage);
 
     return { systemPrompt, messages };
@@ -543,12 +553,22 @@ Respond in the same language as the user (French if they write in French, Englis
 function buildSystemPrompt(
   agent: typeof agents.$inferSelect | undefined,
   useTools = false,
+  folderInstructions?: string | null,
 ): string {
   const featuresPrompt = useTools ? CHAT_FEATURES_PROMPT_TOOLS : CHAT_FEATURES_PROMPT_BLOCKS;
 
-  if (!agent) return "You are a helpful AI assistant. Respond concisely and helpfully.\n\n" + featuresPrompt;
-
   const parts: string[] = [];
+
+  // Folder instructions first (highest priority context)
+  if (folderInstructions) {
+    parts.push(`[Folder instructions — these instructions apply to this conversation]\n${folderInstructions}`);
+  }
+
+  if (!agent) {
+    parts.push("You are a helpful AI assistant. Respond concisely and helpfully.");
+    parts.push(featuresPrompt);
+    return parts.join("\n\n");
+  }
 
   if (agent.name) parts.push(`You are ${agent.name}.`);
   if (agent.title) parts.push(agent.title);
