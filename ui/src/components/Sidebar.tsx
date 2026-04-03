@@ -24,6 +24,7 @@ import {
   Globe,
   Tag,
   Layers,
+  FolderOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -69,6 +70,7 @@ export function Sidebar() {
   const canViewSettings = hasPermission("company:manage_settings");
   const canViewContainers = hasPermission("agents:manage_containers");
   const canViewChat = hasPermission("chat:agent");
+  const canViewFolders = hasPermission("folders:read");
   const canViewCursors = hasPermission("workflows:enforce");
   const canViewSso = hasPermission("company:manage_sso");
   const canViewImport = hasPermission("projects:manage");
@@ -162,6 +164,9 @@ export function Sidebar() {
             )}
             {canViewChat && (
               <SidebarNavItem data-testid="chat-s04-nav-chat" to="/chat" label="Chat" icon={MessageSquare} />
+            )}
+            {canViewFolders && (
+              <SidebarNavItem data-testid="folders-nav" to="/folders" label="Folders" icon={FolderOpen} />
             )}
             {canViewCursors && (
               <SidebarNavItem data-testid="dual-s02-nav-cursors" to="/automation-cursors" label="Cursors" icon={SlidersHorizontal} />
