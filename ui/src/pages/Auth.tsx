@@ -146,16 +146,17 @@ export function AuthPage() {
 
           <div className="mt-5 text-sm text-muted-foreground">
             {mode === "sign_in" ? "Need an account?" : "Already have an account?"}{" "}
-            <button
+            <Button
               type="button"
-              className="font-medium text-foreground underline underline-offset-2 cursor-pointer"
+              variant="link"
+              className="h-auto p-0 text-sm font-medium text-foreground underline underline-offset-2"
               onClick={() => {
                 setError(null);
                 setMode(mode === "sign_in" ? "sign_up" : "sign_in");
               }}
             >
               {mode === "sign_in" ? "Create one" : "Sign in"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
