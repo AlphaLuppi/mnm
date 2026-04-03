@@ -3,7 +3,13 @@
 -- 0. EXTENSIONS
 -- ===============================================================
 
-CREATE EXTENSION IF NOT EXISTS vector;--> statement-breakpoint
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS vector;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pgvector extension not available — RAG vector search disabled, chunk text fallback will be used';
+END
+$$;--> statement-breakpoint
 
 -- ===============================================================
 -- 1. NEW TABLES
@@ -39,13 +45,24 @@ CREATE TABLE "document_chunks" (
   "chunk_index" integer NOT NULL,
   "content" text NOT NULL,
   "token_count" integer,
-  "embedding" vector(1536),
   "metadata" jsonb,
   "created_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
 CREATE INDEX "document_chunks_document_idx" ON "document_chunks"("document_id", "chunk_index");--> statement-breakpoint
 CREATE INDEX "document_chunks_company_idx" ON "document_chunks"("company_id");--> statement-breakpoint
-CREATE INDEX "document_chunks_embedding_idx" ON "document_chunks" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
+
+-- Add vector column + HNSW index only if pgvector is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+    ALTER TABLE "document_chunks" ADD COLUMN "embedding" vector(1536);
+    CREATE INDEX "document_chunks_embedding_idx" ON "document_chunks" USING hnsw ("embedding" vector_cosine_ops);
+  ELSE
+    ALTER TABLE "document_chunks" ADD COLUMN "embedding" text;
+    RAISE NOTICE 'Using text column for embedding (pgvector not available)';
+  END IF;
+END
+$$;--> statement-breakpoint
 
 CREATE TABLE "artifacts" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
