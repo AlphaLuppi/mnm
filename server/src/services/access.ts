@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
   authUsers,
@@ -8,11 +8,13 @@ import {
   roles,
   rolePermissions,
   permissions,
+  tags,
   tagAssignments,
 } from "@mnm/db";
 import { isNull, gt } from "drizzle-orm";
 import type { PrincipalType } from "@mnm/shared";
 import { badRequest } from "../errors.js";
+import { logger } from "../middleware/logger.js";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
 
@@ -454,22 +456,28 @@ export function accessService(db: Db) {
     principalId: string,
     _membershipRole: string | null = "member", // Legacy param — ignored, always "member". Roles are in the `roles` table now.
     status: "pending" | "active" | "suspended" = "active",
+    roleId?: string | null,
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
     if (existing) {
-      if (existing.status !== status) {
+      const updates: Record<string, unknown> = {};
+      if (existing.status !== status) updates.status = status;
+      if (roleId && !existing.roleId) updates.roleId = roleId;
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date();
         const updated = await db
           .update(companyMemberships)
-          .set({ status, updatedAt: new Date() })
+          .set(updates)
           .where(eq(companyMemberships.id, existing.id))
           .returning()
           .then((rows) => rows[0] ?? null);
+        if (roleId) invalidateRoleCache(companyId, principalId);
         return updated ?? existing;
       }
       return existing;
     }
 
-    return db
+    const row = await db
       .insert(companyMemberships)
       .values({
         companyId,
@@ -477,9 +485,123 @@ export function accessService(db: Db) {
         principalId,
         status,
         membershipRole: "member",
+        ...(roleId ? { roleId } : {}),
       })
       .returning()
       .then((rows) => rows[0]);
+    if (roleId) invalidateRoleCache(companyId, principalId);
+    return row;
+  }
+
+  /**
+   * Find the lowest-hierarchy-level role for a company (the most restricted / default role).
+   */
+  async function getDefaultRoleId(companyId: string): Promise<string | null> {
+    const [lowest] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(eq(roles.companyId, companyId), eq(roles.bypassTagFilter, false)))
+      .orderBy(asc(roles.hierarchyLevel))
+      .limit(1);
+    return lowest?.id ?? null;
+  }
+
+  /**
+   * Auto-assign a default tag to a user when they join a company.
+   * If no tags exist in the company, creates a personal tag for the user.
+   */
+  async function assignDefaultTagOnJoin(
+    companyId: string,
+    userId: string,
+    userName: string | null,
+    assignedBy: string,
+  ): Promise<void> {
+    // Check if user already has tags
+    const existingTags = await getTagIds(companyId, "user", userId);
+    if (existingTags.size > 0) return;
+
+    // Wrap in transaction to prevent race condition where concurrent joins
+    // create duplicate personal tags
+    await db.transaction(async (tx) => {
+      // Look for an existing default/general tag
+      const allTags = await tx
+        .select({ id: tags.id, slug: tags.slug })
+        .from(tags)
+        .where(and(eq(tags.companyId, companyId), isNull(tags.archivedAt)));
+
+      // Prefer a tag with slug "default" or "general" or "everyone"
+      const defaultTag = allTags.find((t) =>
+        ["default", "general", "everyone", "all"].includes(t.slug),
+      );
+
+      if (defaultTag) {
+        await tx
+          .insert(tagAssignments)
+          .values({
+            companyId,
+            targetType: "user",
+            targetId: userId,
+            tagId: defaultTag.id,
+            assignedBy,
+          })
+          .onConflictDoNothing();
+        invalidateTagCache(companyId, userId);
+        return;
+      }
+
+      // No default tag — create a personal tag for the user
+      const baseName = userName || userId.slice(0, 8);
+      const slug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "user";
+
+      // Ensure slug uniqueness
+      const existingSlugs = new Set(allTags.map((t) => t.slug));
+      let finalSlug = slug;
+      let counter = 1;
+      while (existingSlugs.has(finalSlug)) {
+        finalSlug = `${slug}-${counter}`;
+        counter++;
+      }
+
+      // Use onConflictDoNothing to handle concurrent inserts of the same slug
+      const [createdTag] = await tx
+        .insert(tags)
+        .values({
+          companyId,
+          name: baseName,
+          slug: finalSlug,
+          description: `Personal tag for ${baseName}`,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      // If conflict occurred, re-query to get the existing tag
+      const tagId = createdTag?.id ?? (await tx
+        .select({ id: tags.id })
+        .from(tags)
+        .where(and(eq(tags.companyId, companyId), eq(tags.slug, finalSlug)))
+        .then((rows) => rows[0]?.id ?? null));
+
+      if (tagId) {
+        await tx
+          .insert(tagAssignments)
+          .values({
+            companyId,
+            targetType: "user",
+            targetId: userId,
+            tagId,
+            assignedBy,
+          })
+          .onConflictDoNothing();
+        invalidateTagCache(companyId, userId);
+
+        if (createdTag) {
+          logger.info(
+            { companyId, userId, tagId, tagSlug: finalSlug },
+            "Created personal tag for new user on join",
+          );
+        }
+      }
+    });
   }
 
   return {
@@ -489,6 +611,8 @@ export function accessService(db: Db) {
     hasGlobalScope,
     getMembership,
     ensureMembership,
+    getDefaultRoleId,
+    assignDefaultTagOnJoin,
     listMembers,
     updateMemberRole,
     updateMemberStatus,

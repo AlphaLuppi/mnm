@@ -6,13 +6,15 @@ import {
   lt,
   gt,
   isNull,
+  inArray,
   sql,
   count as drizzleCount,
   type SQL,
 } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { chatChannels, chatMessages } from "@mnm/db";
+import { chatChannels, chatMessages, tagAssignments } from "@mnm/db";
 import { publishLiveEvent } from "./live-events.js";
+import type { TagScope } from "../middleware/tag-scope.js";
 
 export function chatService(db: Db) {
   return {
@@ -75,8 +77,36 @@ export function chatService(db: Db) {
         limit?: number;
         offset?: number;
         sortBy?: "createdAt" | "lastMessageAt";
+        tagScope?: TagScope;
       },
     ) {
+      const scope = filters?.tagScope;
+
+      // Tag isolation: no tags and no bypass → only own channels
+      if (scope && !scope.bypassTagFilter && scope.tagIds.size === 0) {
+        // User has no tags — only see channels they created
+        const conditions: SQL[] = [
+          eq(chatChannels.companyId, companyId),
+          eq(chatChannels.createdBy, scope.userId),
+        ];
+        if (filters?.status) conditions.push(eq(chatChannels.status, filters.status));
+        if (filters?.agentId) conditions.push(eq(chatChannels.agentId, filters.agentId));
+        if (filters?.projectId) conditions.push(eq(chatChannels.projectId, filters.projectId));
+
+        const limit = filters?.limit ?? 50;
+        const offset = filters?.offset ?? 0;
+        const orderByClause =
+          filters?.sortBy === "lastMessageAt"
+            ? sql`${chatChannels.lastMessageAt} DESC NULLS LAST`
+            : desc(chatChannels.createdAt);
+
+        const [channels, totalResult] = await Promise.all([
+          db.select().from(chatChannels).where(and(...conditions)).orderBy(orderByClause).limit(limit).offset(offset),
+          db.select({ count: drizzleCount() }).from(chatChannels).where(and(...conditions)),
+        ]);
+        return { channels, total: Number(totalResult[0]?.count ?? 0) };
+      }
+
       const conditions: SQL[] = [eq(chatChannels.companyId, companyId)];
       if (filters?.status) {
         conditions.push(eq(chatChannels.status, filters.status));
@@ -87,6 +117,30 @@ export function chatService(db: Db) {
       // CHAT-S02: filter by projectId
       if (filters?.projectId) {
         conditions.push(eq(chatChannels.projectId, filters.projectId));
+      }
+
+      // Tag isolation: filter channels by agent tag intersection OR ownership
+      if (scope && !scope.bypassTagFilter) {
+        // Get visible agent IDs via tag intersection
+        const visibleAgentRows = await db
+          .selectDistinct({ agentId: tagAssignments.targetId })
+          .from(tagAssignments)
+          .where(and(
+            eq(tagAssignments.companyId, companyId),
+            eq(tagAssignments.targetType, "agent"),
+            inArray(tagAssignments.tagId, [...scope.tagIds]),
+          ));
+        const visibleAgentIds = visibleAgentRows.map((r) => r.agentId);
+
+        if (visibleAgentIds.length === 0) {
+          // No visible agents — only own channels
+          conditions.push(eq(chatChannels.createdBy, scope.userId));
+        } else {
+          // Channels where agent is visible OR user created them
+          conditions.push(
+            sql`(${chatChannels.agentId}::text IN (${sql.join(visibleAgentIds.map(id => sql`${id}`), sql`, `)}) OR ${chatChannels.createdBy} = ${scope.userId})`,
+          );
+        }
       }
 
       const limit = filters?.limit ?? 50;
@@ -293,6 +347,34 @@ export function chatService(db: Db) {
           ),
         );
       return Number(result[0]?.count ?? 0);
+    },
+
+    /**
+     * Check if a channel is visible to the given TagScope.
+     * Visible if: admin bypass, user created the channel, or agent shares a tag with user.
+     */
+    async isChannelVisible(
+      channel: { agentId: string; companyId: string; createdBy: string | null },
+      scope: TagScope,
+    ): Promise<boolean> {
+      if (scope.bypassTagFilter) return true;
+      // Ownership check: user always sees their own channels
+      if (channel.createdBy === scope.userId) return true;
+      if (scope.tagIds.size === 0) return false;
+
+      // Check if the channel's agent shares at least 1 tag with the user
+      const [match] = await db
+        .select({ id: tagAssignments.id })
+        .from(tagAssignments)
+        .where(and(
+          eq(tagAssignments.companyId, channel.companyId),
+          eq(tagAssignments.targetType, "agent"),
+          eq(tagAssignments.targetId, channel.agentId),
+          inArray(tagAssignments.tagId, [...scope.tagIds]),
+        ))
+        .limit(1);
+
+      return !!match;
     },
 
     // CHAT-S02: get a single message by id

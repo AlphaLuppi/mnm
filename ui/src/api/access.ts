@@ -14,6 +14,7 @@ type InviteSummary = {
   skillIndexPath?: string;
   skillIndexUrl?: string;
   inviteMessage?: string | null;
+  targetEmail?: string | null;
 };
 
 type AcceptInviteInput =

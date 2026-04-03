@@ -17,7 +17,8 @@ import {
   companies,
   companyMemberships,
   invites,
-  joinRequests
+  joinRequests,
+  roles
 } from "@mnm/db";
 import {
   acceptInviteSchema,
@@ -787,7 +788,8 @@ function toInviteSummaryResponse(
     skillIndexUrl: baseUrl
       ? `${baseUrl}/api/skills/index`
       : "/api/skills/index",
-    inviteMessage
+    inviteMessage,
+    targetEmail: invite.targetEmail ?? null
   };
 }
 
@@ -1734,12 +1736,20 @@ export function accessRoutes(
       // onb-s02-invited-by
       const inviterUserId = req.actor.userId ?? null;
 
+      // Store roleId in defaultsPayload so it's available at acceptance time
+      const inviteDefaults: Record<string, unknown> = {
+        ...(req.body.defaultsPayload ?? {}),
+      };
+      if (req.body.roleId) {
+        inviteDefaults.roleId = req.body.roleId;
+      }
+
       const { token, created, normalizedAgentMessage } =
         await createCompanyInviteForCompany({
           req,
           companyId,
           allowedJoinTypes: req.body.allowedJoinTypes,
-          defaultsPayload: req.body.defaultsPayload ?? null,
+          defaultsPayload: Object.keys(inviteDefaults).length > 0 ? inviteDefaults : null,
           agentMessage: req.body.agentMessage ?? null,
           targetEmail: email ?? null,
         });
@@ -2244,6 +2254,92 @@ export function accessRoutes(
         throw conflict("Join request not found");
       }
 
+      // Auto-approve human join requests when the invite targets a specific email
+      // and the accepting user's email matches. The admin already explicitly invited
+      // this person, so no additional approval step is needed.
+      // Skip auto-approve for the synthetic local email to prevent privilege escalation.
+      let autoApproved = false;
+      if (
+        !inviteAlreadyAccepted &&
+        requestType === "human" &&
+        invite.targetEmail &&
+        actorEmail &&
+        actorEmail !== "local@mnm.local" &&
+        invite.targetEmail.toLowerCase() === actorEmail.toLowerCase() &&
+        created.status === "pending_approval"
+      ) {
+        const userId = req.actor.userId ?? "local-board";
+
+        // Resolve role from invite's defaultsPayload, validate it belongs to this company
+        const invitePayload = invite.defaultsPayload as Record<string, unknown> | null;
+        const inviteRoleId = typeof invitePayload?.roleId === "string" ? invitePayload.roleId : null;
+        let validatedRoleId: string | null = null;
+        if (inviteRoleId) {
+          const [roleRow] = await db
+            .select({ id: roles.id })
+            .from(roles)
+            .where(and(eq(roles.id, inviteRoleId), eq(roles.companyId, companyId)))
+            .limit(1);
+          validatedRoleId = roleRow?.id ?? null;
+        }
+        const effectiveRoleId = validatedRoleId || await access.getDefaultRoleId(companyId);
+
+        await access.ensureMembership(
+          companyId,
+          "user",
+          userId,
+          "member",
+          "active",
+          effectiveRoleId,
+        );
+
+        // Fetch user name for tag creation
+        const userRow = await db
+          .select({ name: authUsers.name })
+          .from(authUsers)
+          .where(eq(authUsers.id, userId))
+          .then((rows) => rows[0] ?? null);
+
+        // Auto-assign a default tag so the user isn't invisible
+        await access.assignDefaultTagOnJoin(
+          companyId,
+          userId,
+          userRow?.name ?? actorEmail,
+          invite.invitedByUserId ?? "system",
+        );
+        await db
+          .update(joinRequests)
+          .set({
+            status: "approved",
+            approvedByUserId: invite.invitedByUserId ?? "system",
+            approvedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(joinRequests.id, created.id));
+        // Mutate local reference so the response reflects approved status
+        (created as Record<string, unknown>).status = "approved";
+        (created as Record<string, unknown>).approvedAt = new Date();
+        autoApproved = true;
+
+        await logActivity(db, {
+          companyId,
+          actorType: "user",
+          actorId: "system",
+          action: "join.auto_approved",
+          entityType: "join_request",
+          entityId: created.id,
+          details: { requestType, reason: "email_match" }
+        });
+
+        await emitAudit({
+          req, db, companyId,
+          action: "access.join_request_approved",
+          targetType: "member",
+          targetId: created.id,
+          metadata: { requestType, autoApproved: true, approvedBy: "system" },
+        });
+      }
+
       if (
         inviteAlreadyAccepted &&
         requestType === "agent" &&
@@ -2394,6 +2490,7 @@ export function accessRoutes(
       }
       res.status(202).json({
         ...response,
+        ...(autoApproved ? { autoApproved: true } : {}),
         ...(joinDefaults.diagnostics.length > 0
           ? { diagnostics: joinDefaults.diagnostics }
           : {})
@@ -2515,6 +2612,22 @@ export function accessRoutes(
         .then((rows) => rows[0] ?? null);
       if (!invite) throw notFound("Invite not found");
 
+      // Extract roleId from invite's defaultsPayload (stored at invite creation)
+      const invitePayload = invite.defaultsPayload as Record<string, unknown> | null;
+      const inviteRoleId = typeof invitePayload?.roleId === "string" ? invitePayload.roleId : null;
+      // Validate roleId belongs to this company to prevent cross-tenant role injection
+      let validatedInviteRoleId: string | null = null;
+      if (inviteRoleId) {
+        const [roleRow] = await db
+          .select({ id: roles.id })
+          .from(roles)
+          .where(and(eq(roles.id, inviteRoleId), eq(roles.companyId, companyId)))
+          .limit(1);
+        validatedInviteRoleId = roleRow?.id ?? null;
+      }
+      // Fall back to company's lowest-hierarchy role if none specified or invalid
+      const effectiveRoleId = validatedInviteRoleId || await access.getDefaultRoleId(companyId);
+
       let createdAgentId: string | null = existing.createdAgentId ?? null;
       if (existing.requestType === "human") {
         if (!existing.requestingUserId)
@@ -2524,10 +2637,24 @@ export function accessRoutes(
           "user",
           existing.requestingUserId,
           "member",
-          "active"
+          "active",
+          effectiveRoleId,
         );
-        // TODO [PERM-01]: Apply grants via role_permissions system
-        // setPrincipalGrants removed — grants are now managed through roles
+
+        // Fetch user name for tag creation
+        const userRow = await db
+          .select({ name: authUsers.name })
+          .from(authUsers)
+          .where(eq(authUsers.id, existing.requestingUserId))
+          .then((rows) => rows[0] ?? null);
+
+        // Auto-assign a default tag so the user isn't invisible
+        await access.assignDefaultTagOnJoin(
+          companyId,
+          existing.requestingUserId,
+          userRow?.name ?? existing.requestEmailSnapshot ?? null,
+          req.actor.userId ?? "system",
+        );
       } else {
         const existingAgents = await agents.list(companyId);
         const managerId = resolveJoinRequestAgentManagerId(existingAgents);
@@ -2571,10 +2698,9 @@ export function accessRoutes(
           "agent",
           created.id,
           "member",
-          "active"
+          "active",
+          effectiveRoleId,
         );
-        // TODO [PERM-01]: Apply grants via role_permissions system
-        // setPrincipalGrants removed — grants are now managed through roles
       }
 
       const approved = await db

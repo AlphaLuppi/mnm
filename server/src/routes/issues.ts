@@ -29,6 +29,7 @@ import { requirePermission, assertCompanyPermission } from "../middleware/requir
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
 import { getScopeProjectIds } from "../services/scope-filter.js";
+import { tagFilterService } from "../services/tag-filter.js";
 
 const MAX_ATTACHMENT_BYTES = Number(process.env.MNM_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_CONTENT_TYPES = new Set([
@@ -48,6 +49,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   const projectsSvc = projectService(db);
   const goalsSvc = goalService(db);
   const issueApprovalsSvc = issueApprovalService(db);
+  const tagFilter = tagFilterService(db);
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1 },
@@ -244,7 +246,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const pool = req.query.pool === "true";
     const assigneeTagId = req.query.assigneeTagId as string | undefined;
 
-    const result = await svc.list(companyId, {
+    let result = await svc.list(companyId, {
       status: req.query.status as string | undefined,
       assigneeAgentId: req.query.assigneeAgentId as string | undefined,
       assigneeUserId,
@@ -257,6 +259,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
       q: req.query.q as string | undefined,
       pool,
     });
+
+    // Tag-based isolation: filter issues by user's tag scope
+    if (req.tagScope && !req.tagScope.bypassTagFilter) {
+      const scope = req.tagScope;
+      // Pre-compute visible agent IDs to avoid N+1 queries
+      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, scope);
+      const visibleAgentIds = new Set(visibleAgents.map((a) => a.id));
+
+      result = result.filter((issue) => {
+        // User created or is directly assigned → always visible
+        if (issue.assigneeUserId === scope.userId) return true;
+        if (issue.createdByUserId === scope.userId) return true;
+        // assigneeTagId is in user's tags
+        if (issue.assigneeTagId && scope.tagIds.has(issue.assigneeTagId)) return true;
+        // Assigned agent is visible to user
+        if (issue.assigneeAgentId && visibleAgentIds.has(issue.assigneeAgentId)) return true;
+        // No tags + no ownership = not visible
+        return false;
+      });
+    }
+
     res.json(result);
   });
 
@@ -360,6 +383,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       }
     }
 
+    // Tag-based isolation: check if user can see this issue
+    if (req.tagScope && !req.tagScope.bypassTagFilter) {
+      const visible = await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope);
+      if (!visible) {
+        res.status(404).json({ error: "Issue not found" });
+        return;
+      }
+    }
+
     const [ancestors, project, goal, mentionedProjectIds] = await Promise.all([
       svc.getAncestors(issue.id),
       issue.projectId ? projectsSvc.getById(issue.projectId) : null,
@@ -380,6 +412,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     if (req.actor.type !== "board") {
       res.status(403).json({ error: "Board authentication required" });
       return;
@@ -412,6 +448,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     const approvals = await issueApprovalsSvc.listApprovalsForIssue(id);
     res.json(approvals);
   });
@@ -420,6 +460,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -452,6 +496,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const approvalId = req.params.approvalId as string;
     const issue = await svc.getById(id);
     if (!issue) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
@@ -539,6 +587,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(existing.companyId, existing, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, existing.companyId, "stories:edit");
 
     // UI-05: "me" substitution for self-assign (Task Pool "Take" action)
@@ -749,6 +801,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(existing.companyId, existing, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, existing.companyId, "stories:create");
     const attachments = await svc.listAttachments(id);
 
@@ -798,6 +854,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, issue.companyId, "tasks:assign");
 
     if (req.actor.type === "agent" && req.actor.agentId !== req.body.agentId) {
@@ -862,6 +922,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(existing.companyId, existing, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
     const actorRunId = requireAgentRunId(req, res);
     if (req.actor.type === "agent" && !actorRunId) return;
@@ -907,6 +971,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     const comments = await svc.listComments(id);
     res.json(comments);
   });
@@ -920,6 +988,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     const comment = await svc.getComment(commentId);
     if (!comment || comment.issueId !== id) {
       res.status(404).json({ error: "Comment not found" });
@@ -936,6 +1008,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
     if (!(await assertAgentRunCheckoutOwnership(req, res, issue))) return;
 
     const actor = getActorInfo(req);
