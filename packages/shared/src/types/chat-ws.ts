@@ -39,20 +39,20 @@ export interface ChatClientSlashCommand {
   type: "slash_command";
   command: string;
   args: string[];
-  channelId: string;
+  channelId?: string;
 }
 
 export interface ChatClientMentionAgent {
   type: "mention_agent";
   agentId: string;
   content: string;
-  channelId: string;
+  channelId?: string;
 }
 
 export interface ChatClientUploadComplete {
   type: "upload_complete";
   documentId: string;
-  channelId: string;
+  channelId?: string;
 }
 
 export type ChatClientPayload =
