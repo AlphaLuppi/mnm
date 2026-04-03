@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Tag, Trash2 } from "lucide-react";
+import { UserPlus, Tag, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { foldersApi } from "../../api/folders";
+import { accessApi, type EnrichedMember } from "../../api/access";
 import { tagsApi } from "../../api/tags";
 import { queryKeys } from "../../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "../../lib/utils";
 import type { FolderShare } from "@mnm/shared";
 
 interface FolderShareManagerProps {
@@ -28,6 +37,24 @@ interface FolderShareManagerProps {
   canEdit: boolean;
 }
 
+function memberDisplayName(m: EnrichedMember): string {
+  if (m.userName) return m.userName;
+  if (m.userEmail) return m.userEmail;
+  return m.principalId.slice(0, 12);
+}
+
+function memberInitials(m: EnrichedMember): string {
+  if (m.userName) {
+    return m.userName
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }
+  return (m.userEmail ?? m.principalId).slice(0, 2).toUpperCase();
+}
+
 export function FolderShareManager({
   companyId,
   folderId,
@@ -36,9 +63,16 @@ export function FolderShareManager({
   canEdit,
 }: FolderShareManagerProps) {
   const queryClient = useQueryClient();
-  const [newUserId, setNewUserId] = useState("");
+  const [userPickerOpen, setUserPickerOpen] = useState(false);
   const [newPermission, setNewPermission] = useState("viewer");
   const [tagsOpen, setTagsOpen] = useState(false);
+
+  // Fetch company members for autocomplete
+  const { data: members } = useQuery({
+    queryKey: queryKeys.access.members(companyId),
+    queryFn: () => accessApi.listMembers(companyId),
+    enabled: canEdit,
+  });
 
   const { data: companyTags } = useQuery({
     queryKey: queryKeys.tags.list(companyId, false),
@@ -46,21 +80,38 @@ export function FolderShareManager({
     enabled: canEdit,
   });
 
+  // Members already shared with — exclude from picker
+  const sharedUserIds = new Set(shares.map((s) => s.sharedWithUserId));
+
+  const availableMembers = useMemo(
+    () =>
+      (members ?? []).filter(
+        (m) => m.status === "active" && !sharedUserIds.has(m.principalId),
+      ),
+    [members, sharedUserIds],
+  );
+
+  // Build a lookup map for display names from members
+  const memberMap = useMemo(() => {
+    const map = new Map<string, EnrichedMember>();
+    for (const m of members ?? []) {
+      map.set(m.principalId, m);
+    }
+    return map;
+  }, [members]);
+
   const invalidateFolder = () =>
     queryClient.invalidateQueries({
       queryKey: queryKeys.folders.detail(companyId, folderId),
     });
 
   const addShareMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (userId: string) =>
       foldersApi.addShare(companyId, folderId, {
-        userId: newUserId,
+        userId,
         permission: newPermission,
       }),
-    onSuccess: () => {
-      invalidateFolder();
-      setNewUserId("");
-    },
+    onSuccess: invalidateFolder,
   });
 
   const removeShareMutation = useMutation({
@@ -103,60 +154,151 @@ export function FolderShareManager({
 
       {/* User shares */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground">
-          Users
-        </h4>
+        <h4 className="text-xs font-medium text-muted-foreground">Users</h4>
+
         {shares.length === 0 && (
           <p className="text-xs text-muted-foreground">No user shares</p>
         )}
-        {shares.map((share) => (
-          <div key={share.id} className="flex items-center gap-2 text-sm">
-            <span className="flex-1 truncate text-xs">
-              {share.sharedWithUserId}
-            </span>
-            {canEdit ? (
-              <>
-                <Select
-                  value={share.permission}
-                  onValueChange={(v) =>
-                    updateShareMutation.mutate({
-                      shareId: share.id,
-                      permission: v,
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-24 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                    <SelectItem value="editor">Editor</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => removeShareMutation.mutate(share.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                {share.permission}
-              </span>
-            )}
-          </div>
-        ))}
 
+        {shares.map((share) => {
+          const member = memberMap.get(share.sharedWithUserId);
+          const displayName = member
+            ? memberDisplayName(member)
+            : share.sharedWithUserId.slice(0, 12);
+          const email = member?.userEmail ?? null;
+
+          return (
+            <div key={share.id} className="flex items-center gap-2">
+              {/* Avatar */}
+              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                {member?.userImage ? (
+                  <img
+                    src={member.userImage}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {member ? memberInitials(member) : "??"}
+                  </span>
+                )}
+              </div>
+
+              {/* Name + email */}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{displayName}</p>
+                {email && (
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {email}
+                  </p>
+                )}
+              </div>
+
+              {/* Permission + remove */}
+              {canEdit ? (
+                <>
+                  <Select
+                    value={share.permission}
+                    onValueChange={(v) =>
+                      updateShareMutation.mutate({
+                        shareId: share.id,
+                        permission: v,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-24 h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => removeShareMutation.mutate(share.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground capitalize">
+                  {share.permission}
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add user combobox */}
         {canEdit && (
           <div className="flex items-center gap-2">
-            <Input
-              placeholder="User ID"
-              value={newUserId}
-              onChange={(e) => setNewUserId(e.target.value)}
-              className="h-8 text-xs flex-1"
-            />
+            <Popover open={userPickerOpen} onOpenChange={setUserPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 justify-between text-xs font-normal h-8"
+                >
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Add user...
+                  </span>
+                  <ChevronsUpDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search users..." className="h-8 text-xs" />
+                  <CommandList>
+                    <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                      No users found.
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {availableMembers.map((member) => (
+                        <CommandItem
+                          key={member.principalId}
+                          value={`${member.userName ?? ""} ${member.userEmail ?? ""} ${member.principalId}`}
+                          onSelect={() => {
+                            setUserPickerOpen(false);
+                            addShareMutation.mutate(member.principalId);
+                          }}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          {/* Avatar */}
+                          <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                            {member.userImage ? (
+                              <img
+                                src={member.userImage}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[9px] font-medium text-muted-foreground">
+                                {memberInitials(member)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">
+                              {memberDisplayName(member)}
+                            </p>
+                            {member.userEmail && member.userName && (
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {member.userEmail}
+                              </p>
+                            )}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
             <Select value={newPermission} onValueChange={setNewPermission}>
               <SelectTrigger className="w-24 h-8 text-xs">
                 <SelectValue />
@@ -166,14 +308,6 @@ export function FolderShareManager({
                 <SelectItem value="editor">Editor</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => addShareMutation.mutate()}
-              disabled={!newUserId.trim() || addShareMutation.isPending}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-            </Button>
           </div>
         )}
       </div>
