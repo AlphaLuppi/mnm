@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Folder as FolderIcon,
   Lock,
-  Users,
+  Globe,
   Pencil,
   Trash2,
   ArrowLeft,
@@ -12,11 +12,13 @@ import {
   Code2,
   MessageSquare,
   Check,
+  Tag,
 } from "lucide-react";
 import { useParams, useNavigate } from "../lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { foldersApi } from "../api/folders";
+import { tagsApi } from "../api/tags";
 import { documentsApi } from "../api/documents";
 import { artifactsApi } from "../api/artifacts";
 import { chatApi } from "../api/chat";
@@ -33,12 +35,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "../lib/utils";
 import type { FolderVisibility, FolderItemType } from "@mnm/shared";
 
 const VISIBILITY_OPTIONS: { value: FolderVisibility; label: string }[] = [
   { value: "private", label: "Private" },
-  { value: "team", label: "Team" },
   { value: "public", label: "Public" },
 ];
 
@@ -60,6 +66,7 @@ export function FolderDetail() {
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [addItemType, setAddItemType] = useState<FolderItemType>("document");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
 
   const {
     data: folder,
@@ -163,6 +170,35 @@ export function FolderDetail() {
     },
   });
 
+  // Tag management
+  const { data: companyTags } = useQuery({
+    queryKey: queryKeys.tags.list(selectedCompanyId!, false),
+    queryFn: () => tagsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const folderTagIds: string[] = (folder as any)?.tags?.map((t: any) => t.id) ?? [];
+
+  const addTagMutation = useMutation({
+    mutationFn: (tagId: string) =>
+      foldersApi.addTag(selectedCompanyId!, folderId!, tagId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.folders.detail(selectedCompanyId!, folderId!),
+      });
+    },
+  });
+
+  const removeTagMutation = useMutation({
+    mutationFn: (tagId: string) =>
+      foldersApi.removeTag(selectedCompanyId!, folderId!, tagId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.folders.detail(selectedCompanyId!, folderId!),
+      });
+    },
+  });
+
   if (isLoading) return <PageSkeleton variant="detail" />;
   if (error || !folder) {
     return (
@@ -202,16 +238,14 @@ export function FolderDetail() {
               {folder.visibility === "private" ? (
                 <Lock className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <Users className="h-4 w-4 text-blue-500" />
+                <Globe className="h-4 w-4 text-blue-500" />
               )}
               <span
                 className={cn(
                   "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                  folder.visibility === "public" &&
-                    "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
-                  folder.visibility === "team" &&
-                    "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
-                  folder.visibility === "private" && "bg-muted text-muted-foreground",
+                  folder.visibility === "public"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                    : "bg-muted text-muted-foreground",
                 )}
               >
                 {folder.visibility}
@@ -269,6 +303,85 @@ export function FolderDetail() {
           removing={removingItemId}
         />
       </div>
+
+      {/* Tags section (only for public folders) */}
+      {folder.visibility === "public" && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-medium">Tags</h2>
+          <div className="border border-border rounded-lg p-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              {folderTagIds.length === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  No tags assigned — visible to everyone in the company
+                </span>
+              )}
+              {folderTagIds.map((tagId: string) => {
+                const tag = (companyTags ?? []).find((t) => t.id === tagId);
+                if (!tag) return null;
+                return (
+                  <span
+                    key={tagId}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs"
+                  >
+                    {tag.color && (
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                    )}
+                    {tag.name}
+                    <button
+                      className="ml-0.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => removeTagMutation.mutate(tagId)}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })}
+              <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
+                <PopoverTrigger asChild>
+                  <button className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
+                    <Tag className="h-3 w-3" />
+                    Add tag
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-1" align="start">
+                  {(companyTags ?? []).filter((t) => !folderTagIds.includes(t.id)).length === 0 ? (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">All tags assigned</p>
+                  ) : (
+                    (companyTags ?? [])
+                      .filter((t) => !folderTagIds.includes(t.id))
+                      .map((tag) => (
+                        <button
+                          key={tag.id}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                          onClick={() => {
+                            setTagsOpen(false);
+                            addTagMutation.mutate(tag.id);
+                          }}
+                        >
+                          {tag.color && (
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                          )}
+                          <span className="truncate">{tag.name}</span>
+                        </button>
+                      ))
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+            {folderTagIds.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Only users sharing at least one of these tags can see this folder.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

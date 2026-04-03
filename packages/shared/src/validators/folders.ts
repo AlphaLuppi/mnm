@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const FOLDER_VISIBILITIES = ["private", "team", "public"] as const;
+export const FOLDER_VISIBILITIES = ["private", "public"] as const;
 export const FOLDER_ITEM_TYPES = ["artifact", "document", "channel"] as const;
 
 export const createFolderSchema = z.object({

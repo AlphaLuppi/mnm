@@ -28,7 +28,7 @@ export function folderService(db: Db) {
         name: string;
         description?: string | null;
         icon?: string | null;
-        visibility?: "private" | "team" | "public";
+        visibility?: "private" | "public";
       },
       ownerUserId: string,
     ) {
@@ -62,7 +62,8 @@ export function folderService(db: Db) {
      * - Admin (bypassTagFilter) sees all folders
      * - Owner always sees it
      * - Private folders are only visible to the owner
-     * - Team/public folders check tag overlap (team) or are always visible (public)
+     * - Public folders with no tags are visible to everyone
+     * - Public folders with tags are visible only if user shares at least 1 tag
      */
     async getById(
       companyId: string,
@@ -94,40 +95,44 @@ export function folderService(db: Db) {
       // Private folders are invisible to non-owners
       if (folder.visibility === "private") return null;
 
-      // Public folders are visible to everyone in the company
-      if (folder.visibility === "public") {
+      // Public folders: check if folder has tags assigned
+      // If folder has tags -> user must share at least 1 tag with the folder
+      // If folder has no tags -> visible to everyone
+      const folderTags = await db
+        .select({ tagId: tagAssignments.tagId })
+        .from(tagAssignments)
+        .where(
+          and(
+            eq(tagAssignments.companyId, companyId),
+            eq(tagAssignments.targetType, "folder"),
+            sql`${tagAssignments.targetId} = ${folderId}`,
+          ),
+        );
+
+      if (folderTags.length === 0) {
+        // No tags -> public to all
         const itemCount = await this.getItemCount(folderId);
         return { ...folder, itemCount };
       }
 
-      // Team folders: check tag overlap between owner and requester
-      if (folder.visibility === "team" && folder.ownerUserId) {
-        const [tagOverlap] = await db
-          .select({ id: tagAssignments.id })
-          .from(tagAssignments)
-          .innerJoin(
-            sql`tag_assignments AS ta2`,
-            sql`${tagAssignments.tagId} = ta2.tag_id`,
-          )
-          .where(
-            and(
-              eq(tagAssignments.companyId, companyId),
-              eq(tagAssignments.targetType, "user"),
-              sql`${tagAssignments.targetId} = ${folder.ownerUserId}`,
-              sql`ta2.target_type = 'user'`,
-              sql`ta2.target_id = ${requestingUserId}`,
-              sql`ta2.company_id = ${companyId}`,
-            ),
-          )
-          .limit(1);
+      // Has tags -> check if user shares at least 1 tag
+      const userTags = await db
+        .select({ tagId: tagAssignments.tagId })
+        .from(tagAssignments)
+        .where(
+          and(
+            eq(tagAssignments.companyId, companyId),
+            eq(tagAssignments.targetType, "user"),
+            eq(tagAssignments.targetId, requestingUserId),
+          ),
+        );
 
-        if (!tagOverlap) return null;
+      const userTagSet = new Set(userTags.map((t) => t.tagId));
+      const hasOverlap = folderTags.some((t) => userTagSet.has(t.tagId));
+      if (!hasOverlap) return null;
 
-        const itemCount = await this.getItemCount(folderId);
-        return { ...folder, itemCount };
-      }
-
-      return null;
+      const itemCount = await this.getItemCount(folderId);
+      return { ...folder, itemCount };
     },
 
     /**
@@ -162,18 +167,20 @@ export function folderService(db: Db) {
       if (!opts?.isAdmin) {
         // Build visibility conditions:
         // - Owner sees all their folders
-        // - Public folders are visible to everyone
-        // - Team folders are visible if tag overlap exists between owner and requester
+        // - Public folders with no tags are visible to everyone
+        // - Public folders with tags are visible only if user shares at least 1 tag
         const visibilityCondition = sql`(
           ${folders.ownerUserId} = ${requestingUserId}
-          OR ${folders.visibility} = 'public'
-          OR (${folders.visibility} = 'team' AND EXISTS (
-            SELECT 1 FROM tag_assignments ta1
-            JOIN tag_assignments ta2 ON ta1.tag_id = ta2.tag_id
-            WHERE ta1.target_type = 'user' AND ta1.target_id = ${folders.ownerUserId}
-              AND ta2.target_type = 'user' AND ta2.target_id = ${requestingUserId}
-              AND ta1.company_id = ${companyId}
-              AND ta2.company_id = ${companyId}
+          OR (${folders.visibility} = 'public' AND NOT EXISTS (
+            SELECT 1 FROM tag_assignments
+            WHERE target_type = 'folder' AND target_id = ${folders.id}::text
+              AND company_id = ${companyId}
+          ))
+          OR (${folders.visibility} = 'public' AND EXISTS (
+            SELECT 1 FROM tag_assignments fa
+            JOIN tag_assignments ua ON fa.tag_id = ua.tag_id
+            WHERE fa.target_type = 'folder' AND fa.target_id = ${folders.id}::text AND fa.company_id = ${companyId}
+              AND ua.target_type = 'user' AND ua.target_id = ${requestingUserId} AND ua.company_id = ${companyId}
           ))
         )`;
 
@@ -216,7 +223,7 @@ export function folderService(db: Db) {
         name?: string;
         description?: string | null;
         icon?: string | null;
-        visibility?: "private" | "team" | "public";
+        visibility?: "private" | "public";
       },
       requestingUserId: string,
     ) {
