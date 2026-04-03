@@ -11,6 +11,7 @@ import { chatChannels } from "@mnm/db";
 import { eq } from "drizzle-orm";
 import { chatService } from "./chat.js";
 import { chatCompletionService } from "./chat-completion.js";
+import { artifactService } from "./artifact.js";
 import { slashCommandResolver } from "./slash-command-resolver.js";
 import { agentMentionHandler } from "./agent-mention-handler.js";
 
@@ -38,6 +39,44 @@ interface RateLimitEntry {
   count: number;
   resetAt: number;
 }
+
+// ─── Artifact Parsing ─────────────────────────────────────────────────────
+
+interface ParsedArtifact {
+  title: string;
+  type: string;
+  language?: string;
+  content: string;
+}
+
+function parseArtifacts(text: string): { text: string; artifacts: ParsedArtifact[] } {
+  const artifacts: ParsedArtifact[] = [];
+
+  // Match ```artifact ... ``` blocks
+  const artifactRegex = /```artifact\n---\n([\s\S]*?)\n---\n([\s\S]*?)```/g;
+
+  let cleanText = text;
+  let match;
+
+  while ((match = artifactRegex.exec(text)) !== null) {
+    const frontmatter = match[1];
+    const content = match[2].trim();
+
+    // Parse frontmatter (simple YAML-like)
+    const title = frontmatter.match(/title:\s*"?([^"\n]+)"?/)?.[1]?.trim() || "Untitled";
+    const type = frontmatter.match(/type:\s*(\S+)/)?.[1] || "markdown";
+    const language = frontmatter.match(/language:\s*(\S+)/)?.[1];
+
+    artifacts.push({ title, type, language, content });
+
+    // Remove artifact block from text, replace with a reference
+    cleanText = cleanText.replace(match[0], `[Artifact: ${title}]`);
+  }
+
+  return { text: cleanText.trim(), artifacts };
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────
 
 const WS_OPEN = 1;
 const RATE_LIMIT_MAX = 10;
@@ -285,13 +324,16 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
 
       if (!channel) return;
 
-      // Persist agent message
+      // Parse artifact blocks from the response
+      const { text: cleanText, artifacts } = parseArtifacts(responseText);
+
+      // Persist the text part as chat message
       const agentMessage = await svc.createMessage(
         channelId,
         companyId,
         channel.agentId,
         "agent",
-        responseText,
+        cleanText,
       );
 
       // Broadcast agent message to all clients
@@ -301,13 +343,60 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
         channelId,
         senderId: channel.agentId,
         senderType: "agent",
-        content: responseText,
+        content: cleanText,
         createdAt: agentMessage.createdAt.toISOString(),
       };
 
       addToBuffer(channelId, agentServerMessage);
       broadcastLocal(channelId, agentServerMessage);
       await publishToRedis(channelId, agentServerMessage);
+
+      // Create artifact entities for each extracted artifact
+      if (artifacts.length > 0) {
+        const artifactSvc = artifactService(db);
+        for (const art of artifacts) {
+          try {
+            const artifact = await artifactSvc.create(companyId, {
+              title: art.title,
+              artifactType: art.type || "markdown",
+              language: art.language,
+              content: art.content,
+              sourceChannelId: channelId,
+              sourceMessageId: agentMessage.id,
+            }, { agentId: channel.agentId });
+
+            // Persist an artifact_reference message
+            await svc.createMessage(
+              channelId,
+              companyId,
+              channel.agentId,
+              "agent",
+              `Artifact: ${art.title}`,
+              {
+                type: "artifact_reference",
+                artifactId: artifact.id,
+                title: art.title,
+                artifactType: art.type || "markdown",
+              },
+              { messageType: "artifact_reference" },
+            );
+
+            // Broadcast artifact_created
+            const artifactCreatedPayload: ChatServerPayload = {
+              type: "artifact_created",
+              artifactId: artifact.id,
+              title: art.title,
+              artifactType: art.type || "markdown",
+              channelId,
+              createdBy: channel.agentId,
+            };
+            broadcastLocal(channelId, artifactCreatedPayload);
+            await publishToRedis(channelId, artifactCreatedPayload);
+          } catch (artErr) {
+            logger.warn({ err: artErr, title: art.title, channelId }, "Failed to create artifact from response");
+          }
+        }
+      }
     } catch (err) {
       // Stop typing on error
       const typingStop = {
