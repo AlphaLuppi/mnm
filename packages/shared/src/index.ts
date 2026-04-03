@@ -335,6 +335,22 @@ export type {
   MergedConfigItem,
   MergePreviewResult,
   UserMcpCredential,
+  // CHAT-ARTIFACTS: Artifact types
+  ArtifactType,
+  Artifact,
+  ArtifactVersion,
+  // CHAT-COLLAB: Document, folder, sharing types
+  IngestionStatus,
+  Document,
+  DocumentChunk,
+  FolderVisibility,
+  FolderItemType,
+  Folder,
+  FolderItem,
+  SharePermission,
+  ContextLinkType,
+  ChatShare,
+  ChatContextLink,
 } from "./types/index.js";
 
 export {
@@ -639,6 +655,12 @@ export {
   type CreateMcpConnector,
   type UpdateMcpConnector,
   type InvokeMcpTool,
+  // CHAT-ARTIFACTS: Artifact validators
+  ARTIFACT_TYPES,
+  createArtifactSchema,
+  updateArtifactSchema,
+  type CreateArtifact,
+  type UpdateArtifact,
   // config-layer validators
   mcpItemConfigSchema,
   skillItemConfigSchema,
@@ -664,6 +686,22 @@ export {
   type AttachConfigLayer,
   type ApprovePromotion,
   type RejectPromotion,
+  // FOLDERS: Folder validators
+  FOLDER_VISIBILITIES,
+  FOLDER_ITEM_TYPES,
+  createFolderSchema,
+  updateFolderSchema,
+  addFolderItemSchema,
+  type CreateFolder,
+  type UpdateFolder,
+  type AddFolderItem,
+  // CHAT-SHARING: Share + context link validators
+  SHARE_PERMISSIONS,
+  CONTEXT_LINK_TYPES,
+  createShareSchema,
+  addContextLinkSchema,
+  type CreateShare,
+  type AddContextLink,
 } from "./validators/index.js";
 
 // REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
