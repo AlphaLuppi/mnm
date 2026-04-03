@@ -7,7 +7,7 @@ import type {
 } from "@mnm/shared";
 import type { RedisState } from "../redis.js";
 import { logger as parentLogger } from "../middleware/logger.js";
-import { chatChannels } from "@mnm/db";
+import { chatChannels, folderItems } from "@mnm/db";
 import { eq } from "drizzle-orm";
 import { chatService } from "./chat.js";
 import { chatCompletionService } from "./chat-completion.js";
@@ -337,9 +337,9 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
       broadcastLocal(channelId, typingStop);
       await publishToRedis(channelId, typingStop);
 
-      // Get agent ID from channel
+      // Get agent ID and folder from channel
       const [channel] = await db
-        .select({ agentId: chatChannels.agentId })
+        .select({ agentId: chatChannels.agentId, folderId: chatChannels.folderId })
         .from(chatChannels)
         .where(eq(chatChannels.id, channelId));
 
@@ -420,6 +420,21 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
             };
             broadcastLocal(channelId, artRefServerMsg);
             await publishToRedis(channelId, artRefServerMsg);
+
+            // Auto-save artifact to chat's folder if one is attached
+            if (channel.folderId) {
+              try {
+                await db.insert(folderItems).values({
+                  folderId: channel.folderId,
+                  companyId,
+                  itemType: "artifact",
+                  artifactId: artifact.id,
+                  addedByUserId: channel.agentId,
+                });
+              } catch (folderErr) {
+                logger.warn({ err: folderErr, folderId: channel.folderId, artifactId: artifact.id }, "Failed to auto-add artifact to folder");
+              }
+            }
 
             // Broadcast artifact_created
             const artifactCreatedPayload: ChatServerPayload = {
