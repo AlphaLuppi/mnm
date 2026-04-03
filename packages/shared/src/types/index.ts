@@ -363,7 +363,6 @@ export type {
   SsoMetadataSyncResult,
 } from "./sso.js";
 
-<<<<<<< HEAD
 // Collaborative chat types
 export type {
   IngestionStatus,
