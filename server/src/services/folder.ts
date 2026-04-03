@@ -10,6 +10,7 @@ import type { Db } from "@mnm/db";
 import {
   folders,
   folderItems,
+  folderShares,
   artifacts,
   documents,
   chatChannels,
@@ -20,7 +21,7 @@ import { publishLiveEvent } from "./live-events.js";
 export function folderService(db: Db) {
   return {
     /**
-     * Create a new folder.
+     * Create a new folder. Always private — visibility is derived from shares/tags.
      */
     async create(
       companyId: string,
@@ -28,7 +29,6 @@ export function folderService(db: Db) {
         name: string;
         description?: string | null;
         icon?: string | null;
-        visibility?: "private" | "public";
       },
       ownerUserId: string,
     ) {
@@ -39,7 +39,6 @@ export function folderService(db: Db) {
           name: input.name,
           description: input.description ?? null,
           icon: input.icon ?? null,
-          visibility: input.visibility ?? "private",
           ownerUserId,
         })
         .returning();
@@ -58,12 +57,8 @@ export function folderService(db: Db) {
     },
 
     /**
-     * Get a folder by ID with visibility check.
-     * - Admin (bypassTagFilter) sees all folders
-     * - Owner always sees it
-     * - Private folders are only visible to the owner
-     * - Public folders with no tags are visible to everyone
-     * - Public folders with tags are visible only if user shares at least 1 tag
+     * Get a folder by ID with derived visibility check.
+     * Visibility: owner | admin | folder_shares | tag overlap
      */
     async getById(
       companyId: string,
@@ -80,59 +75,50 @@ export function folderService(db: Db) {
 
       if (!folder) return null;
 
-      // Admin bypass: skip visibility checks
-      if (opts?.isAdmin) {
-        const itemCount = await this.getItemCount(folderId);
-        return { ...folder, itemCount };
-      }
-
-      // Owner always sees their folder
-      if (folder.ownerUserId === requestingUserId) {
-        const itemCount = await this.getItemCount(folderId);
-        return { ...folder, itemCount };
-      }
-
-      // Private folders are invisible to non-owners
-      if (folder.visibility === "private") return null;
-
-      // Public folders: check if folder has tags assigned
-      // If folder has tags -> user must share at least 1 tag with the folder
-      // If folder has no tags -> visible to everyone
-      const folderTags = await db
-        .select({ tagId: tagAssignments.tagId })
-        .from(tagAssignments)
-        .where(
-          and(
-            eq(tagAssignments.companyId, companyId),
-            eq(tagAssignments.targetType, "folder"),
-            sql`${tagAssignments.targetId} = ${folderId}`,
-          ),
-        );
-
-      if (folderTags.length === 0) {
-        // No tags -> public to all
-        const itemCount = await this.getItemCount(folderId);
-        return { ...folder, itemCount };
-      }
-
-      // Has tags -> check if user shares at least 1 tag
-      const userTags = await db
-        .select({ tagId: tagAssignments.tagId })
-        .from(tagAssignments)
-        .where(
-          and(
-            eq(tagAssignments.companyId, companyId),
-            eq(tagAssignments.targetType, "user"),
-            eq(tagAssignments.targetId, requestingUserId),
-          ),
-        );
-
-      const userTagSet = new Set(userTags.map((t) => t.tagId));
-      const hasOverlap = folderTags.some((t) => userTagSet.has(t.tagId));
-      if (!hasOverlap) return null;
-
       const itemCount = await this.getItemCount(folderId);
-      return { ...folder, itemCount };
+
+      // Admin bypass
+      if (opts?.isAdmin) {
+        return { ...folder, itemCount, canEdit: true };
+      }
+
+      // Owner always sees + can edit
+      if (folder.ownerUserId === requestingUserId) {
+        return { ...folder, itemCount, canEdit: true };
+      }
+
+      // Check folder_shares
+      const [share] = await db
+        .select({ permission: folderShares.permission })
+        .from(folderShares)
+        .where(
+          and(
+            eq(folderShares.folderId, folderId),
+            eq(folderShares.companyId, companyId),
+            eq(folderShares.sharedWithUserId, requestingUserId),
+          ),
+        );
+
+      if (share) {
+        return { ...folder, itemCount, canEdit: share.permission === "editor" };
+      }
+
+      // Check tag overlap
+      const tagOverlap = await db.execute(sql`
+        SELECT 1 FROM tag_assignments fa
+        JOIN tag_assignments ua ON fa.tag_id = ua.tag_id
+        WHERE fa.target_type = 'folder' AND fa.target_id = ${folderId}::text
+          AND fa.company_id = ${companyId}
+          AND ua.target_type = 'user' AND ua.target_id = ${requestingUserId}
+          AND ua.company_id = ${companyId}
+        LIMIT 1
+      `);
+
+      if (tagOverlap.rows.length > 0) {
+        return { ...folder, itemCount, canEdit: false };
+      }
+
+      return null;
     },
 
     /**
@@ -148,13 +134,12 @@ export function folderService(db: Db) {
 
     /**
      * List folders visible to the requesting user.
-     * Shows: owned folders + shared/public folders visible via tag overlap.
-     * Admin (isAdmin) sees all folders in the company.
+     * Derived visibility: owner + folder_shares + tag overlap. Admin sees all.
      */
     async list(
       companyId: string,
       requestingUserId: string,
-      opts?: { visibility?: string; limit?: number; offset?: number; isAdmin?: boolean },
+      opts?: { limit?: number; offset?: number; isAdmin?: boolean },
     ) {
       const limit = opts?.limit ?? 50;
       const offset = opts?.offset ?? 0;
@@ -163,32 +148,25 @@ export function folderService(db: Db) {
         eq(folders.companyId, companyId),
       ];
 
-      // Admin bypass: skip visibility filtering
       if (!opts?.isAdmin) {
-        // Build visibility conditions:
-        // - Owner sees all their folders
-        // - Public folders with no tags are visible to everyone
-        // - Public folders with tags are visible only if user shares at least 1 tag
         const visibilityCondition = sql`(
           ${folders.ownerUserId} = ${requestingUserId}
-          OR (${folders.visibility} = 'public' AND NOT EXISTS (
-            SELECT 1 FROM tag_assignments
-            WHERE target_type = 'folder' AND target_id = ${folders.id}::text
+          OR EXISTS (
+            SELECT 1 FROM folder_shares
+            WHERE folder_id = ${folders.id} AND shared_with_user_id = ${requestingUserId}
               AND company_id = ${companyId}
-          ))
-          OR (${folders.visibility} = 'public' AND EXISTS (
+          )
+          OR EXISTS (
             SELECT 1 FROM tag_assignments fa
             JOIN tag_assignments ua ON fa.tag_id = ua.tag_id
-            WHERE fa.target_type = 'folder' AND fa.target_id = ${folders.id}::text AND fa.company_id = ${companyId}
-              AND ua.target_type = 'user' AND ua.target_id = ${requestingUserId} AND ua.company_id = ${companyId}
-          ))
+            WHERE fa.target_type = 'folder' AND fa.target_id = ${folders.id}::text
+              AND fa.company_id = ${companyId}
+              AND ua.target_type = 'user' AND ua.target_id = ${requestingUserId}
+              AND ua.company_id = ${companyId}
+          )
         )`;
 
         conditions.push(visibilityCondition);
-      }
-
-      if (opts?.visibility) {
-        conditions.push(eq(folders.visibility, opts.visibility));
       }
 
       const whereClause = and(...conditions);
@@ -214,7 +192,7 @@ export function folderService(db: Db) {
     },
 
     /**
-     * Update a folder. Only the owner can update.
+     * Update a folder. Owner, admin, or editors (from folder_shares) can update.
      */
     async update(
       companyId: string,
@@ -223,11 +201,11 @@ export function folderService(db: Db) {
         name?: string;
         description?: string | null;
         icon?: string | null;
-        visibility?: "private" | "public";
+        instructions?: string | null;
       },
       requestingUserId: string,
+      opts?: { isAdmin?: boolean },
     ) {
-      // Fetch the folder to check ownership
       const [existing] = await db
         .select()
         .from(folders)
@@ -237,7 +215,24 @@ export function folderService(db: Db) {
 
       if (!existing) return null;
 
-      if (existing.ownerUserId !== requestingUserId) {
+      // Check edit permission: owner, admin, or editor share
+      let canEdit = opts?.isAdmin || existing.ownerUserId === requestingUserId;
+
+      if (!canEdit) {
+        const [share] = await db
+          .select({ permission: folderShares.permission })
+          .from(folderShares)
+          .where(
+            and(
+              eq(folderShares.folderId, folderId),
+              eq(folderShares.companyId, companyId),
+              eq(folderShares.sharedWithUserId, requestingUserId),
+            ),
+          );
+        canEdit = share?.permission === "editor";
+      }
+
+      if (!canEdit) {
         return { error: "forbidden" as const };
       }
 
@@ -246,7 +241,7 @@ export function folderService(db: Db) {
       if (input.name !== undefined) updates.name = input.name;
       if (input.description !== undefined) updates.description = input.description;
       if (input.icon !== undefined) updates.icon = input.icon;
-      if (input.visibility !== undefined) updates.visibility = input.visibility;
+      if (input.instructions !== undefined) updates.instructions = input.instructions;
 
       const [updated] = await db
         .update(folders)
@@ -269,13 +264,59 @@ export function folderService(db: Db) {
     },
 
     /**
+     * Get a preview of what will be affected by deleting a folder.
+     */
+    async getDeletionPreview(companyId: string, folderId: string) {
+      const [nativeDocs, importedItems, channels] = await Promise.all([
+        db
+          .select({ id: documents.id, title: documents.title, mimeType: documents.mimeType })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.companyId, companyId),
+              eq(documents.ownedByFolderId, folderId),
+              sql`${documents.deletedAt} IS NULL`,
+            ),
+          ),
+        db
+          .select({
+            id: folderItems.id,
+            itemType: folderItems.itemType,
+            displayName: folderItems.displayName,
+            artifactId: folderItems.artifactId,
+            documentId: folderItems.documentId,
+            channelId: folderItems.channelId,
+          })
+          .from(folderItems)
+          .where(
+            and(
+              eq(folderItems.folderId, folderId),
+              eq(folderItems.companyId, companyId),
+            ),
+          ),
+        db
+          .select({ id: chatChannels.id, name: chatChannels.name })
+          .from(chatChannels)
+          .where(
+            and(
+              eq(chatChannels.companyId, companyId),
+              eq(chatChannels.folderId, folderId),
+            ),
+          ),
+      ]);
+
+      return { nativeDocuments: nativeDocs, importedItems, channels };
+    },
+
+    /**
      * Delete a folder. Only the owner can delete.
-     * CASCADE deletes folder_items but NOT the underlying artifacts/documents/channels.
+     * Handles native documents: preserve selected ones, soft-delete the rest.
      */
     async delete(
       companyId: string,
       folderId: string,
       requestingUserId: string,
+      preserveDocumentIds?: string[],
     ) {
       const [existing] = await db
         .select()
@@ -290,6 +331,37 @@ export function folderService(db: Db) {
         return { error: "forbidden" as const };
       }
 
+      // Handle native documents
+      const preserveSet = new Set(preserveDocumentIds ?? []);
+
+      const nativeDocs = await db
+        .select({ id: documents.id })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.companyId, companyId),
+            eq(documents.ownedByFolderId, folderId),
+            sql`${documents.deletedAt} IS NULL`,
+          ),
+        );
+
+      for (const doc of nativeDocs) {
+        if (preserveSet.has(doc.id)) {
+          // Preserve: detach from folder
+          await db
+            .update(documents)
+            .set({ ownedByFolderId: null })
+            .where(eq(documents.id, doc.id));
+        } else {
+          // Soft-delete
+          await db
+            .update(documents)
+            .set({ deletedAt: new Date() })
+            .where(eq(documents.id, doc.id));
+        }
+      }
+
+      // Delete folder (CASCADE handles folder_items + folder_shares, SET NULL on chatChannels.folderId)
       await db
         .delete(folders)
         .where(
@@ -307,7 +379,6 @@ export function folderService(db: Db) {
 
     /**
      * Add an item to a folder.
-     * Validates folder access and that the referenced entity exists.
      */
     async addItem(
       companyId: string,
@@ -411,7 +482,6 @@ export function folderService(db: Db) {
         .returning();
 
       if (deleted) {
-        // Touch the folder's updatedAt
         await db
           .update(folders)
           .set({ updatedAt: new Date() })
