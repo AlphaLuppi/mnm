@@ -4,7 +4,7 @@ export const chatClientMessageSchema = z.object({
   type: z.literal("chat_message"),
   content: z.string().min(1).max(4096),
   metadata: z.record(z.unknown()).optional(),
-  clientMessageId: z.string().uuid().optional(),
+  clientMessageId: z.string().optional(),
 });
 
 const chatClientTypingSchema = z.object({
@@ -20,11 +20,34 @@ const chatClientPingSchema = z.object({
   type: z.literal("ping"),
 });
 
+const chatClientSlashCommandSchema = z.object({
+  type: z.literal("slash_command"),
+  command: z.string().min(1),
+  args: z.array(z.string()).optional().default([]),
+  channelId: z.string().optional(),
+});
+
+const chatClientMentionAgentSchema = z.object({
+  type: z.literal("mention_agent"),
+  agentId: z.string(),
+  content: z.string(),
+  channelId: z.string().optional(),
+});
+
+const chatClientUploadCompleteSchema = z.object({
+  type: z.literal("upload_complete"),
+  documentId: z.string(),
+  channelId: z.string().optional(),
+});
+
 export const chatClientPayloadSchema = z.discriminatedUnion("type", [
   chatClientMessageSchema,
   chatClientTypingSchema,
   chatClientSyncSchema,
   chatClientPingSchema,
+  chatClientSlashCommandSchema,
+  chatClientMentionAgentSchema,
+  chatClientUploadCompleteSchema,
 ]);
 
 export const createChannelSchema = z.object({
