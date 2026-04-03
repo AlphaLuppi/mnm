@@ -35,6 +35,9 @@ import { ConfigLayersPage } from "./pages/config-layers/ConfigLayersPage";
 import { AuditLog } from "./pages/AuditLog";
 import { Containers } from "./pages/Containers";
 import { Chat } from "./pages/Chat";
+import { Folders } from "./pages/Folders";
+import { FolderDetail } from "./pages/FolderDetail";
+import { SharedChat } from "./pages/SharedChat";
 import { AutomationCursors } from "./pages/AutomationCursors";
 import { SsoConfig } from "./pages/SsoConfig";
 import { JiraImport } from "./pages/JiraImport";
@@ -156,6 +159,9 @@ function boardRoutes() {
       {/* workspace route removed — auth via Settings > Claude */}
       <Route path="deployments" element={<RequirePermission permission="agents:launch" showForbidden><Deployments /></RequirePermission>} />
       <Route path="chat" element={<RequirePermission permission="chat:agent" showForbidden><Chat /></RequirePermission>} />
+      <Route path="folders" element={<RequirePermission permission="folders:read" showForbidden><Folders /></RequirePermission>} />
+      <Route path="folders/:folderId" element={<RequirePermission permission="folders:read" showForbidden><FolderDetail /></RequirePermission>} />
+      <Route path="shared/chat/:token" element={<SharedChat />} />
       <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
       <Route path="import/jira" element={<RequirePermission permission="projects:manage" showForbidden><JiraImport /></RequirePermission>} />
       <Route path="traces" element={<RequirePermission permission="audit:read" showForbidden><Traces /></RequirePermission>} />
@@ -254,6 +260,9 @@ export function App() {
           <Route path="approvals/all" element={<UnprefixedBoardRedirect />} />
           <Route path="approvals/:approvalId" element={<UnprefixedBoardRedirect />} />
           <Route path="chat" element={<UnprefixedBoardRedirect />} />
+          <Route path="folders" element={<UnprefixedBoardRedirect />} />
+          <Route path="folders/:folderId" element={<UnprefixedBoardRedirect />} />
+          <Route path="shared/chat/:token" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows/new" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows/:workflowId" element={<UnprefixedBoardRedirect />} />
