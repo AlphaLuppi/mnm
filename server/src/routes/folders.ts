@@ -43,6 +43,7 @@ export function folderRoutes(db: Db): Router {
       assertCompanyAccess(req, companyId);
 
       const actor = getActorInfo(req);
+      const isAdmin = req.tagScope?.bypassTagFilter ?? false;
       const visibility = (req.query.visibility as string) || undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
       const offset = req.query.offset ? Number(req.query.offset) : undefined;
@@ -51,6 +52,7 @@ export function folderRoutes(db: Db): Router {
         visibility,
         limit,
         offset,
+        isAdmin,
       });
 
       res.json(result);
@@ -66,10 +68,12 @@ export function folderRoutes(db: Db): Router {
       assertCompanyAccess(req, companyId);
 
       const actor = getActorInfo(req);
+      const isAdmin = req.tagScope?.bypassTagFilter ?? false;
       const folder = await svc.getById(
         companyId,
         req.params.id as string,
         actor.actorId,
+        { isAdmin },
       );
 
       if (!folder) {
@@ -157,12 +161,14 @@ export function folderRoutes(db: Db): Router {
       }
 
       const actor = getActorInfo(req);
+      const isAdmin = req.tagScope?.bypassTagFilter ?? false;
 
       // Check folder exists and user has access
       const folder = await svc.getById(
         companyId,
         req.params.id as string,
         actor.actorId,
+        { isAdmin },
       );
       if (!folder) {
         throw notFound("Folder not found");
@@ -192,12 +198,14 @@ export function folderRoutes(db: Db): Router {
       assertCompanyAccess(req, companyId);
 
       const actor = getActorInfo(req);
+      const isAdmin = req.tagScope?.bypassTagFilter ?? false;
 
       // Check folder exists and user has access
       const folder = await svc.getById(
         companyId,
         req.params.id as string,
         actor.actorId,
+        { isAdmin },
       );
       if (!folder) {
         throw notFound("Folder not found");

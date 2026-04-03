@@ -82,9 +82,10 @@ export function chatSharingRoutes(db: Db) {
     },
   );
 
-  // GET /api/companies/:companyId/shared/chat/:token — Access shared chat (just needs auth)
+  // GET /api/companies/:companyId/shared/chat/:token — Access shared chat
   router.get(
     "/companies/:companyId/shared/chat/:token",
+    requirePermission(db, "chat:agent"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

@@ -7,7 +7,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { documentService } from "../services/document.js";
 import { assetService } from "../services/assets.js";
-import { badRequest, notFound } from "../errors.js";
+import { badRequest, forbidden, notFound } from "../errors.js";
 import { publishLiveEvent } from "../services/live-events.js";
 import { logger } from "../middleware/logger.js";
 import type { StorageService } from "../storage/types.js";
@@ -200,6 +200,20 @@ export function documentRoutes(db: Db, storage: StorageService) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+
+      // Ownership check: only the creator (or admin) can delete
+      const existing = await docSvc.getById(companyId, req.params.id as string);
+      if (!existing) {
+        throw notFound("Document not found");
+      }
+
+      const actor = getActorInfo(req);
+      if (existing.createdByUserId && existing.createdByUserId !== actor.actorId) {
+        // Allow admin bypass via tagScope
+        if (!req.tagScope?.bypassTagFilter) {
+          throw forbidden("Only the creator can delete this document");
+        }
+      }
 
       const doc = await docSvc.softDelete(companyId, req.params.id as string);
       if (!doc) {
