@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, MessageSquare, Send, X } from "lucide-react";
-import type { ChatPipeStatus } from "@mnm/shared";
-import { chatApi, type ChatChannel } from "../api/chat";
+import { ArrowDown, Bot, MessageSquare, Send } from "lucide-react";
+import type { ChatChannel } from "../api/chat";
 import { useAgentChat } from "../hooks/useAgentChat";
 import { useCompany } from "../context/CompanyContext";
-import { queryKeys } from "../lib/queryKeys";
 import { MessageBubble } from "./chat/MessageBubble";
 import { TypingIndicator } from "./chat/TypingIndicator";
 import { ConnectionStatus } from "./chat/ConnectionStatus";
-import { PipeStatusIndicator } from "./chat/PipeStatusIndicator";
 import { ArtifactPanel } from "./chat/ArtifactPanel";
 import { DocumentDropZone } from "./chat/DocumentDropZone";
 import { ContextLinkBar } from "./chat/ContextLinkBar";
@@ -24,10 +20,10 @@ export interface AgentChatPanelProps {
     forkedFromChannelId?: string | null;
     forkedFromName?: string | null;
   };
-  onClose: () => void;
+  agentName?: string;
 }
 
-export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
+export function AgentChatPanel({ channel, agentName }: AgentChatPanelProps) {
   const { selectedCompanyId } = useCompany();
   const [inputValue, setInputValue] = useState("");
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -52,15 +48,6 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
     enabled: channel.status === "open",
   });
 
-  // Pipe status query
-  const pipeQuery = useQuery({
-    queryKey: queryKeys.chat.pipeStatus(selectedCompanyId!, channel.id),
-    queryFn: () => chatApi.getPipeStatus(selectedCompanyId!, channel.id),
-    enabled: !!selectedCompanyId && channel.status === "open",
-  });
-
-  const pipeStatus: ChatPipeStatus | null = pipeQuery.data ?? null;
-
   // chat-s04-auto-scroll
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -78,7 +65,7 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const threshold = 100; // pixels from bottom
+    const threshold = 100;
     const atBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
       threshold;
@@ -96,13 +83,12 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      // Let autocomplete handle arrow keys, enter, tab, escape when visible
       if (showSlash || showMention) {
         if (["ArrowUp", "ArrowDown", "Tab", "Escape"].includes(e.key)) {
-          return; // handled by autocomplete's global keydown listener
+          return;
         }
         if (e.key === "Enter" && !e.shiftKey) {
-          return; // handled by autocomplete's global keydown listener
+          return;
         }
       }
       if (e.key === "Enter" && !e.shiftKey) {
@@ -118,9 +104,8 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
     const val = e.target.value;
     setInputValue(val);
 
-    // Slash command: "/" at start of input
     if (val.startsWith("/")) {
-      const query = val.slice(1); // everything after "/"
+      const query = val.slice(1);
       setSlashQuery(query);
       setShowSlash(true);
       setShowMention(false);
@@ -128,14 +113,11 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
       setShowSlash(false);
     }
 
-    // @mention: detect "@" followed by text (find last "@" not preceded by space-less text)
     const lastAtIdx = val.lastIndexOf("@");
     if (lastAtIdx >= 0 && !val.startsWith("/")) {
       const beforeAt = val.charAt(lastAtIdx - 1);
-      // "@" should be at start or after a space
       if (lastAtIdx === 0 || beforeAt === " ") {
         const afterAt = val.slice(lastAtIdx + 1);
-        // No spaces in the mention query (single word)
         if (!afterAt.includes(" ")) {
           setMentionQuery(afterAt);
           setShowMention(true);
@@ -154,13 +136,13 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
     setShowSlash(false);
   }, []);
 
-  const handleMentionSelect = useCallback((agentName: string) => {
+  const handleMentionSelect = useCallback((mentionedAgentName: string) => {
     setInputValue((prev) => {
       const lastAtIdx = prev.lastIndexOf("@");
       if (lastAtIdx >= 0) {
-        return prev.slice(0, lastAtIdx) + `@${agentName} `;
+        return prev.slice(0, lastAtIdx) + `@${mentionedAgentName} `;
       }
-      return prev + `@${agentName} `;
+      return prev + `@${mentionedAgentName} `;
     });
     setShowMention(false);
   }, []);
@@ -170,36 +152,26 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
   }, []);
 
   const isChannelOpen = channel.status === "open";
+  const displayName = channel.name || agentName || "Chat";
 
   return (
     <div className="flex h-full">
-      {/* Main chat area */}
+      {/* Main chat area — full width */}
       <div
         data-testid="chat-s04-panel"
-        className="flex h-full w-80 flex-col border-l border-border bg-background"
+        className="flex h-full flex-1 min-w-0 flex-col bg-background"
       >
         {/* Header */}
         <div
           data-testid="chat-s04-panel-header"
-          className="flex items-center justify-between border-b border-border px-3 py-2"
+          className="flex items-center justify-between border-b border-border px-4 py-2.5 shrink-0"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-sm font-medium truncate">
-              {channel.name ?? "Chat"}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Bot className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-sm font-semibold truncate">
+              {displayName}
             </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
             <ConnectionStatus state={connectionState} />
-            <Button
-              data-testid="chat-s04-panel-close"
-              variant="ghost"
-              size="icon-sm"
-              onClick={onClose}
-              aria-label="Close chat panel"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
@@ -210,11 +182,6 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
             forkedFromChannelId={channel.forkedFromChannelId}
           />
         )}
-
-        {/* Pipe status bar */}
-        <div className="border-b border-border px-3 py-1">
-          <PipeStatusIndicator pipeStatus={pipeStatus} />
-        </div>
 
         {/* Context link bar */}
         {selectedCompanyId && (
@@ -233,7 +200,7 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
           <div
             data-testid="chat-s04-messages"
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto py-2"
+            className="flex-1 overflow-y-auto py-4"
             onScroll={handleScroll}
           >
             {isLoadingHistory ? (
@@ -243,17 +210,17 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
             ) : messages.length === 0 ? (
               <div
                 data-testid="chat-s04-empty-messages"
-                className="flex flex-col items-center justify-center py-12 text-center px-4"
+                className="flex flex-col items-center justify-center py-20 text-center px-4"
               >
-                <div className="bg-muted/50 rounded-full p-4 mb-3">
-                  <MessageSquare className="h-8 w-8 text-muted-foreground/50" />
+                <div className="bg-muted/50 rounded-full p-5 mb-4">
+                  <MessageSquare className="h-10 w-10 text-muted-foreground/40" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   No messages yet. Start the conversation!
                 </p>
               </div>
             ) : (
-              <>
+              <div className="max-w-3xl mx-auto">
                 {messages.map((msg) => (
                   <MessageBubble
                     key={msg.id}
@@ -261,7 +228,7 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
                     onArtifactClick={handleArtifactClick}
                   />
                 ))}
-              </>
+              </div>
             )}
 
             <TypingIndicator
@@ -292,7 +259,7 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
         {/* Input area */}
         <div
           data-testid="chat-s04-input-area"
-          className="border-t border-border p-3 relative"
+          className="border-t border-border p-4 shrink-0 relative"
         >
           {/* Slash command autocomplete */}
           <SlashCommandAutocomplete
@@ -314,7 +281,7 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
           )}
 
           {isChannelOpen ? (
-            <div className="flex gap-2">
+            <div className="max-w-3xl mx-auto flex gap-2">
               <textarea
                 data-testid="chat-s04-input"
                 value={inputValue}
@@ -322,13 +289,14 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
                 onKeyDown={handleKeyDown}
                 placeholder="Type a message... (/ for commands, @ to mention)"
                 rows={1}
-                className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex-1 resize-none rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:bg-background transition-colors"
                 disabled={connectionState === "disconnected"}
               />
               <Button
                 data-testid="chat-s04-send-btn"
                 variant="default"
                 size="icon"
+                className="rounded-xl h-10 w-10 shrink-0"
                 onClick={handleSend}
                 disabled={
                   !inputValue.trim() ||
@@ -347,7 +315,7 @@ export function AgentChatPanel({ channel, onClose }: AgentChatPanelProps) {
         </div>
       </div>
 
-      {/* Artifact side panel */}
+      {/* Artifact side panel — only when an artifact is selected */}
       {selectedArtifactId && selectedCompanyId && (
         <ArtifactPanel
           companyId={selectedCompanyId}
