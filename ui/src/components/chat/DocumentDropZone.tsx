@@ -76,7 +76,7 @@ export function DocumentDropZone({
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="relative flex-1 min-h-0 flex flex-col"
+      className="relative flex-1 min-h-0 flex flex-col overflow-hidden"
     >
       {children}
       {isDragging && (
