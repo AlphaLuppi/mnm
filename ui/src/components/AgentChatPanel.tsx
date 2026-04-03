@@ -196,12 +196,11 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const displayName = channel.name || agentName || "Chat";
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <div className="flex-1 min-w-0">
+    <div className="flex h-full overflow-hidden" style={{ contain: "strict" }}>
       {/* Main chat area */}
       <div
         data-testid="chat-s04-panel"
-        className="flex h-full flex-col bg-background"
+        className="flex-1 min-w-0 flex h-full flex-col bg-background overflow-hidden"
       >
         {/* Header */}
         <div
@@ -377,7 +376,6 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
             </div>
           )}
         </div>
-      </div>
       </div>
 
       {/* Artifact side panel with drag handle */}
