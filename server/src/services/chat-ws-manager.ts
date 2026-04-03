@@ -387,7 +387,7 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
             }, { agentId: channel.agentId });
 
             // Persist an artifact_reference message
-            await svc.createMessage(
+            const artRefMsg = await svc.createMessage(
               channelId,
               companyId,
               channel.agentId,
@@ -401,6 +401,25 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
               },
               { messageType: "artifact_reference" },
             );
+
+            // Broadcast the artifact_reference message via WS so client sees it immediately
+            const artRefServerMsg: ChatServerMessage = {
+              type: "chat_message",
+              id: artRefMsg.id,
+              channelId,
+              senderId: channel.agentId,
+              senderType: "agent",
+              content: `Artifact: ${art.title}`,
+              metadata: {
+                type: "artifact_reference",
+                artifactId: artifact.id,
+                title: art.title,
+                artifactType: art.type || "markdown",
+              },
+              createdAt: artRefMsg.createdAt.toISOString(),
+            };
+            broadcastLocal(channelId, artRefServerMsg);
+            await publishToRedis(channelId, artRefServerMsg);
 
             // Broadcast artifact_created
             const artifactCreatedPayload: ChatServerPayload = {
