@@ -305,7 +305,7 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
         {/* Input area */}
         <div
           data-testid="chat-s04-input-area"
-          className="border-t border-border p-4 shrink-0 relative"
+          className="border-t border-border p-4 shrink-0 relative bg-background"
         >
           {/* Slash command autocomplete */}
           <SlashCommandAutocomplete
