@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useParams, useNavigate } from "../lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -10,6 +11,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { FolderSidebar } from "../components/folders/FolderSidebar";
 import { AgentChatPanel } from "../components/AgentChatPanel";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { Button } from "@/components/ui/button";
 
 export function FolderWorkspace() {
   const { folderId, channelId } = useParams<{
@@ -19,6 +21,34 @@ export function FolderWorkspace() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
+
+  const [sidebarWidth, setSidebarWidth] = useState(288);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const isDragging = useRef(false);
+
+  // Drag-to-resize handler (same pattern as artifact panel)
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDragging.current = true;
+      const startX = e.clientX;
+      const startWidth = sidebarWidth;
+      const onMove = (ev: MouseEvent) => {
+        if (!isDragging.current) return;
+        const delta = ev.clientX - startX;
+        const newWidth = Math.max(200, Math.min(500, startWidth + delta));
+        setSidebarWidth(newWidth);
+      };
+      const onUp = () => {
+        isDragging.current = false;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [sidebarWidth],
+  );
 
   // Remove parent padding for full-bleed layout
   useEffect(() => {
@@ -90,14 +120,41 @@ export function FolderWorkspace() {
 
   return (
     <div className="absolute inset-0 flex overflow-hidden">
-      {/* Left: Folder sidebar */}
-      <div className="w-72 shrink-0">
-        <FolderSidebar
-          companyId={selectedCompanyId!}
-          folder={folderQuery.data}
-          onBack={() => navigate(`/folders/${folderId}`)}
-        />
-      </div>
+      {/* Left: Folder sidebar (resizable + collapsible) */}
+      {!sidebarCollapsed && (
+        <>
+          <div
+            className="shrink-0 h-full overflow-hidden"
+            style={{ width: sidebarWidth }}
+          >
+            <FolderSidebar
+              companyId={selectedCompanyId!}
+              folder={folderQuery.data}
+              onBack={() => navigate(`/folders/${folderId}`)}
+              onCollapse={() => setSidebarCollapsed(true)}
+            />
+          </div>
+          {/* Resize handle */}
+          <div
+            className="w-1 shrink-0 bg-border hover:bg-primary/30 cursor-col-resize transition-colors"
+            onMouseDown={handleDragStart}
+          />
+        </>
+      )}
+
+      {/* Collapse toggle (shown when sidebar is hidden) */}
+      {sidebarCollapsed && (
+        <div className="shrink-0 flex items-start pt-2 pl-1 border-r border-border bg-background">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Show folder sidebar"
+            onClick={() => setSidebarCollapsed(false)}
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Center + Right: Chat with artifact panel */}
       <div className="flex-1 relative">

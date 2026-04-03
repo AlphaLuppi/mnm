@@ -4,6 +4,8 @@ interface SidebarContextValue {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  sidebarCollapsed: boolean;
+  toggleSidebarCollapsed: () => void;
   isMobile: boolean;
 }
 
@@ -14,6 +16,7 @@ const MOBILE_BREAKPOINT = 768;
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= MOBILE_BREAKPOINT);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
@@ -26,9 +29,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
+  const toggleSidebarCollapsed = useCallback(() => setSidebarCollapsed((v) => !v), []);
 
   return (
-    <SidebarContext.Provider value={{ sidebarOpen, setSidebarOpen, toggleSidebar, isMobile }}>
+    <SidebarContext.Provider value={{ sidebarOpen, setSidebarOpen, toggleSidebar, sidebarCollapsed, toggleSidebarCollapsed, isMobile }}>
       {children}
     </SidebarContext.Provider>
   );
