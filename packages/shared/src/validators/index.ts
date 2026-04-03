@@ -306,6 +306,39 @@ export {
   type SsoOidcConfigInput,
 } from "./sso.js";
 
+// Collaborative chat validators
+export {
+  uploadDocumentSchema,
+  summarizeDocumentSchema,
+  type UploadDocument,
+  type SummarizeDocument,
+} from "./documents.js";
+export {
+  ARTIFACT_TYPES,
+  createArtifactSchema,
+  updateArtifactSchema,
+  type CreateArtifact,
+  type UpdateArtifact,
+} from "./artifacts.js";
+export {
+  FOLDER_VISIBILITIES,
+  FOLDER_ITEM_TYPES,
+  createFolderSchema,
+  updateFolderSchema,
+  addFolderItemSchema,
+  type CreateFolder,
+  type UpdateFolder,
+  type AddFolderItem,
+} from "./folders.js";
+export {
+  SHARE_PERMISSIONS,
+  CONTEXT_LINK_TYPES,
+  createShareSchema,
+  addContextLinkSchema,
+  type CreateShare,
+  type AddContextLink,
+} from "./chat-sharing.js";
+
 // config-layer-barrel-validators
 export {
   CONFIG_LAYER_ITEM_TYPES,
