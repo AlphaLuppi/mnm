@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type UIEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Moon, Sun } from "lucide-react";
+import { BookOpen, Moon, Sun, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
 import { UserMenu } from "./UserMenu";
@@ -28,7 +28,7 @@ import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 
 export function Layout() {
-  const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar, sidebarCollapsed, toggleSidebarCollapsed, isMobile } = useSidebar();
   const { openNewIssue } = useDialog();
   const { togglePanelVisible } = usePanel();
   const { companies, loading: companiesLoading, selectedCompanyId, setSelectedCompanyId } = useCompany();
@@ -231,14 +231,27 @@ export function Layout() {
             <div
               className={cn(
                 "overflow-hidden transition-[width] duration-100 ease-out",
-                sidebarOpen ? "w-60" : "w-0"
+                sidebarOpen
+                  ? sidebarCollapsed ? "w-14" : "w-60"
+                  : "w-0"
               )}
             >
               <Sidebar />
             </div>
           </div>
-          <div className="border-t border-r border-border px-3 py-2">
-            <div className="flex items-center gap-1">
+          <div className={cn("border-t border-r border-border py-2", sidebarCollapsed ? "px-1" : "px-3")}>
+            <div className={cn("flex items-center", sidebarCollapsed ? "flex-col gap-1" : "gap-1")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground shrink-0"
+                onClick={toggleSidebarCollapsed}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -250,7 +263,7 @@ export function Layout() {
               >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              {!showCompanyRail && <UserMenu />}
+              {!showCompanyRail && !sidebarCollapsed && <UserMenu />}
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowLeft,
+  PanelLeftClose,
 } from "lucide-react";
 import { foldersApi, type FolderDetail } from "../../api/folders";
 import { queryKeys } from "../../lib/queryKeys";
@@ -16,9 +17,10 @@ interface FolderSidebarProps {
   companyId: string;
   folder: FolderDetail;
   onBack: () => void;
+  onCollapse?: () => void;
 }
 
-export function FolderSidebar({ companyId, folder, onBack }: FolderSidebarProps) {
+export function FolderSidebar({ companyId, folder, onBack, onCollapse }: FolderSidebarProps) {
   const queryClient = useQueryClient();
   const [instructions, setInstructions] = useState(folder.instructions ?? "");
   const [expandedSections, setExpandedSections] = useState<
@@ -78,14 +80,26 @@ export function FolderSidebar({ companyId, folder, onBack }: FolderSidebarProps)
     <div className="h-full flex flex-col border-r border-border bg-background overflow-y-auto">
       {/* Header */}
       <div className="p-3 border-b border-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1 mb-2"
-          onClick={onBack}
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </Button>
+        <div className="flex items-center justify-between mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1"
+            onClick={onBack}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </Button>
+          {onCollapse && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              title="Hide sidebar"
+              onClick={onCollapse}
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {folder.icon ? (
             <span className="text-lg">{folder.icon}</span>
@@ -137,7 +151,7 @@ export function FolderSidebar({ companyId, folder, onBack }: FolderSidebarProps)
           ) : (
             <ChevronRight className="h-3 w-3" />
           )}
-          Documents & Items ({folder.items.length})
+          Documents & Artifacts ({folder.items.filter((i) => i.itemType !== "channel").length})
         </button>
         {expandedSections.documents && (
           <div className="px-3 pb-3 space-y-2">
@@ -165,7 +179,7 @@ export function FolderSidebar({ companyId, folder, onBack }: FolderSidebarProps)
               </div>
             )}
             <FolderItemList
-              items={folder.items}
+              items={folder.items.filter((i) => i.itemType !== "channel")}
               onRemove={(itemId) => removeItemMutation.mutate(itemId)}
             />
           </div>

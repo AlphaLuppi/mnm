@@ -785,10 +785,10 @@ export function OnboardingWizard() {
                           />
                           {tag.name}
                           <button
-                            onClick={() => handleRemoveTag(tag.id)}
-                            className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag.id); }}
+                            className="ml-1 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-3.5 w-3.5" />
                           </button>
                         </Badge>
                       ))}

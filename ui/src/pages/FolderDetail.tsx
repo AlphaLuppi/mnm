@@ -18,7 +18,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { foldersApi } from "../api/folders";
 import { documentsApi } from "../api/documents";
 import { artifactsApi } from "../api/artifacts";
-import { chatApi } from "../api/chat";
+
 import { queryKeys } from "../lib/queryKeys";
 import { FolderItemList } from "../components/folders/FolderItemList";
 import { FolderShareManager } from "../components/folders/FolderShareManager";
@@ -170,12 +170,6 @@ export function FolderDetail() {
     enabled: !!selectedCompanyId && addItemOpen && addItemType === "artifact",
   });
 
-  const channelsQuery = useQuery({
-    queryKey: queryKeys.chat.channels(selectedCompanyId!),
-    queryFn: () => chatApi.listChannels(selectedCompanyId!),
-    enabled: !!selectedCompanyId && addItemOpen && addItemType === "channel",
-  });
-
   const addItemMutation = useMutation({
     mutationFn: (input: {
       itemType: FolderItemType;
@@ -192,7 +186,9 @@ export function FolderDetail() {
     },
   });
 
-  // Get conversations in this folder
+  // Split items: documents/artifacts vs channels (conversations)
+  const nonChannelItems =
+    folder?.items.filter((item) => item.itemType !== "channel") ?? [];
   const folderChannels =
     folder?.items.filter((item) => item.itemType === "channel") ?? [];
 
@@ -313,16 +309,14 @@ export function FolderDetail() {
         </div>
       )}
 
-      {/* Items */}
+      {/* Items (documents + artifacts only, no channels) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">
-            Items{" "}
-            {folder.items && (
-              <span className="text-muted-foreground">
-                ({folder.items.length})
-              </span>
-            )}
+            Documents & Artifacts{" "}
+            <span className="text-muted-foreground">
+              ({nonChannelItems.length})
+            </span>
           </h2>
           {canEdit && (
             <Button
@@ -340,7 +334,7 @@ export function FolderDetail() {
           )}
         </div>
         <FolderItemList
-          items={folder.items ?? []}
+          items={nonChannelItems}
           onRemove={(itemId) => removeItemMutation.mutate(itemId)}
           removing={removingItemId}
         />
@@ -466,11 +460,6 @@ export function FolderDetail() {
                       label: "Artifact",
                       icon: Code2,
                     },
-                    {
-                      value: "channel" as const,
-                      label: "Chat Link",
-                      icon: MessageSquare,
-                    },
                   ] as const
                 ).map((opt) => (
                   <button
@@ -566,43 +555,6 @@ export function FolderDetail() {
                   </>
                 )}
 
-                {addItemType === "channel" && (
-                  <>
-                    {channelsQuery.isLoading && (
-                      <p className="text-xs text-muted-foreground p-3">
-                        Loading channels...
-                      </p>
-                    )}
-                    {(channelsQuery.data?.channels ?? []).length === 0 &&
-                      !channelsQuery.isLoading && (
-                        <p className="text-xs text-muted-foreground p-3">
-                          No channels found.
-                        </p>
-                      )}
-                    {(channelsQuery.data?.channels ?? []).map((channel) => (
-                      <button
-                        key={channel.id}
-                        type="button"
-                        onClick={() => setSelectedItemId(channel.id)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center justify-between",
-                          selectedItemId === channel.id && "bg-primary/5",
-                        )}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">
-                            {channel.name ??
-                              `Channel ${channel.id.slice(0, 8)}`}
-                          </span>
-                        </div>
-                        {selectedItemId === channel.id && (
-                          <Check className="h-4 w-4 text-primary shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </>
-                )}
               </div>
             </div>
           </div>
