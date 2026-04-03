@@ -43,6 +43,20 @@ export function Chat() {
     setBreadcrumbs([{ label: "Chat" }]);
   }, [setBreadcrumbs]);
 
+  // Remove parent <main> padding and overflow for full-bleed chat layout
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+    const prevPadding = main.style.padding;
+    const prevOverflow = main.style.overflow;
+    main.style.padding = "0";
+    main.style.overflow = "hidden";
+    return () => {
+      main.style.padding = prevPadding;
+      main.style.overflow = prevOverflow;
+    };
+  }, []);
+
   const channelsQuery = useQuery({
     queryKey: queryKeys.chat.channels(selectedCompanyId!, {
       status: statusFilter || undefined,
@@ -127,7 +141,7 @@ export function Chat() {
 
   // When a channel is selected, show full-page chat. Otherwise show channel list.
   return (
-    <div className="h-[calc(100vh-3rem)] -m-4 md:-m-6 overflow-hidden" data-testid="chat-s04-page">
+    <div className="h-full overflow-hidden" data-testid="chat-s04-page">
       {selectedChannel ? (
         /* ── Full-page chat ── */
         <AgentChatPanel
