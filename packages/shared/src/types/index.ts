@@ -363,6 +363,7 @@ export type {
   SsoMetadataSyncResult,
 } from "./sso.js";
 
+<<<<<<< HEAD
 // Collaborative chat types
 export type {
   IngestionStatus,
@@ -387,6 +388,43 @@ export type {
   ChatShare,
   ChatContextLink,
 } from "./chat-sharing.js";
+// ROUTINES: Recurring tasks
+export {
+  ROUTINE_STATUSES,
+  ROUTINE_CONCURRENCY_POLICIES,
+  ROUTINE_CATCH_UP_POLICIES,
+  ROUTINE_VARIABLE_TYPES,
+  ROUTINE_TRIGGER_KINDS,
+  ROUTINE_TRIGGER_SIGNING_MODES,
+  ROUTINE_RUN_SOURCES,
+  ROUTINE_RUN_STATUSES,
+} from "./routine.js";
+export type {
+  RoutineStatus,
+  RoutineConcurrencyPolicy,
+  RoutineCatchUpPolicy,
+  RoutineVariableType,
+  RoutineTriggerKind,
+  RoutineTriggerSigningMode,
+  RoutineRunSource,
+  RoutineRunStatus,
+  RoutineVariable,
+  Routine,
+  RoutineTrigger,
+  RoutineRun,
+  RoutineListItem,
+  RoutineDetail,
+} from "./routine.js";
+// FEEDBACK: Vote on agent output quality
+export { FEEDBACK_VOTE_VALUES, FEEDBACK_TARGET_TYPES } from "./feedback.js";
+export type {
+  FeedbackVoteValue,
+  FeedbackTargetType,
+  FeedbackVote,
+  FeedbackVoteSummary,
+  FeedbackAgentStats,
+  FeedbackSummary,
+} from "./feedback.js";
 
 // config-layer-barrel-types
 export type {

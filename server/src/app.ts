@@ -73,6 +73,10 @@ import { artifactRoutes } from "./routes/artifacts.js";
 import { documentRoutes } from "./routes/documents.js";
 // FOLDERS: Folder management routes
 import { folderRoutes } from "./routes/folders.js";
+// FEEDBACK: Feedback vote routes
+import { feedbackRoutes } from "./routes/feedback.js";
+// ROUTINES: Routine routes
+import { routineRoutes } from "./routes/routines.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -258,6 +262,10 @@ export async function createApp(
   api.use(documentRoutes(db, opts.storageService));
   // FOLDERS: Folder management + workspace upload
   api.use(folderRoutes(db, opts.storageService));
+  // FEEDBACK: Feedback vote routes
+  api.use(feedbackRoutes(db));
+  // ROUTINES: Routine routes
+  api.use(routineRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

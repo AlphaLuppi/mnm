@@ -769,6 +769,8 @@ export function IssueDetail() {
             linkedRuns={timelineRuns}
             issueStatus={issue.status}
             agentMap={agentMap}
+            companyId={selectedCompanyId ?? undefined}
+            issueId={issueId}
             draftKey={`mnm:issue-comment-draft:${issue.id}`}
             enableReassign
             reassignOptions={commentReassignOptions}

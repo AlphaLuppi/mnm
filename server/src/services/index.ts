@@ -72,6 +72,8 @@ export { lensAnalysisService } from "./lens-analysis.js";
 export { traceEmitter } from "./trace-emitter.js";
 export { createJiraClient } from "./jira-client.js";
 export { mapJiraIssueToMnm, mapJiraProjectToMnm } from "./jira-field-mapping.js";
+// FEEDBACK: Feedback service
+export { feedbackService } from "./feedback.js";
 // CONFIG-LAYERS: Config layer services
 export { configLayerService } from "./config-layer.js";
 export { configLayerConflictService } from "./config-layer-conflict.js";
@@ -83,3 +85,5 @@ export { mcpOauthService } from "./mcp-oauth.js";
 export { documentService } from "./document.js";
 export { createIngestionQueue, createIngestionWorker } from "./document-ingestion.js";
 export { ragService } from "./rag.js";
+// ROUTINES: Routine service
+export { routineService } from "./routines.js";

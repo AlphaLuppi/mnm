@@ -1,0 +1,56 @@
+# CAO (Chief Agent Officer) behavior tests
+# Tests watchdog auto-commenting on failures and escalation behavior.
+
+- description: "cao.watchdog_failure_comment - auto-comments on agent failure"
+  vars:
+    agentId: agent-cao
+    companyId: company-eval-01
+    taskId: ""
+    wakeReason: agent_failure
+    approvalId: ""
+    isCao: "true"
+  prompt: "You are the CAO. Agent agent-coder-01 just failed on issue-789 with error 'ENOENT: file not found'. The agent has failed 3 times on this issue. What do you do?"
+  assert:
+    - type: contains
+      value: comment
+      metric: posts_comment
+    - type: javascript
+      value: "output.includes('issue-789') || output.includes('ENOENT') || output.includes('file not found')"
+      metric: includes_root_cause
+    - type: javascript
+      value: "!output.includes('checkout') && !output.includes('fix it myself')"
+      metric: does_not_execute_work
+
+- description: "cao.escalation_stuck_agent - escalates when agent is stuck"
+  vars:
+    agentId: agent-cao
+    companyId: company-eval-01
+    taskId: ""
+    wakeReason: timer
+    approvalId: ""
+    isCao: "true"
+  prompt: "You are the CAO. Agent agent-coder-01 has been stuck on issue-456 for 8 hours with status 'in_progress'. The agent has run 12 heartbeats with no progress. What do you do?"
+  assert:
+    - type: javascript
+      value: "output.includes('escalat') || output.includes('human') || output.includes('operator') || output.includes('reassign') || output.includes('blocked')"
+      metric: escalates_appropriately
+    - type: javascript
+      value: "!output.includes('I will fix') && !output.includes('let me try') && !output.includes('I can do')"
+      metric: does_not_take_over
+
+- description: "cao.mention_response - responds to @cao mention"
+  vars:
+    agentId: agent-cao
+    companyId: company-eval-01
+    taskId: issue-999
+    wakeReason: mention
+    approvalId: ""
+    isCao: "true"
+  prompt: "You are the CAO. A user mentioned @cao in issue-999 saying: 'The agent keeps failing on the database migration. Can you look into it?' What do you do?"
+  assert:
+    - type: contains
+      value: comment
+      metric: responds_with_comment
+    - type: javascript
+      value: "output.includes('database') || output.includes('migration') || output.includes('investigate') || output.includes('look into')"
+      metric: addresses_the_question
