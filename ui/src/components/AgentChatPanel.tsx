@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from "react";
 import { ArrowDown, ArrowLeft, Bot, MessageSquare, Paperclip, Send } from "lucide-react";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import type { ImperativePanelHandle } from "react-resizable-panels";
+// Resizable split uses simple CSS resize instead of react-resizable-panels
 import type { ChatChannel } from "../api/chat";
 import { documentsApi } from "../api/documents";
 import { useAgentChat } from "../hooks/useAgentChat";
@@ -38,8 +37,8 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const [showMention, setShowMention] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const chatPanelRef = useRef<ImperativePanelHandle>(null);
-  const artifactPanelRef = useRef<ImperativePanelHandle>(null);
+  const [artifactWidth, setArtifactWidth] = useState(500);
+  const isDragging = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -173,28 +172,32 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
     }
   }, [selectedCompanyId, channel.id, sendMessage]);
 
-  // Force resize when artifact panel opens/closes
-  useEffect(() => {
-    // Small delay to ensure panels are mounted
-    const timer = setTimeout(() => {
-      if (selectedArtifactId) {
-        chatPanelRef.current?.resize(60);
-        artifactPanelRef.current?.resize(40);
-        artifactPanelRef.current?.expand();
-      } else {
-        chatPanelRef.current?.resize(100);
-        artifactPanelRef.current?.collapse();
-      }
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [selectedArtifactId]);
+  // Drag handle for artifact panel resize
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const startX = e.clientX;
+    const startWidth = artifactWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = startX - ev.clientX;
+      setArtifactWidth(Math.max(250, Math.min(900, startWidth + delta)));
+    };
+    const onUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [artifactWidth]);
 
   const isChannelOpen = channel.status === "open";
   const displayName = channel.name || agentName || "Chat";
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel ref={chatPanelRef} defaultSize={100} minSize={30}>
+    <div className="flex h-full overflow-hidden">
+      <div className="flex-1 min-w-0">
       {/* Main chat area */}
       <div
         data-testid="chat-s04-panel"
@@ -375,27 +378,24 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
           )}
         </div>
       </div>
-      </ResizablePanel>
+      </div>
 
-      {/* Artifact side panel — always rendered, collapsed when no artifact */}
-      <ResizableHandle withHandle className={selectedArtifactId ? "" : "hidden"} />
-      <ResizablePanel
-        ref={artifactPanelRef}
-        defaultSize={selectedArtifactId ? 40 : 0}
-        minSize={selectedArtifactId ? 20 : 0}
-        maxSize={65}
-        collapsible
-        collapsedSize={0}
-        className={selectedArtifactId ? "" : "hidden"}
-      >
-        {selectedArtifactId && selectedCompanyId && (
-          <ArtifactPanel
-            companyId={selectedCompanyId}
-            artifactId={selectedArtifactId}
-            onClose={() => setSelectedArtifactId(null)}
+      {/* Artifact side panel with drag handle */}
+      {selectedArtifactId && selectedCompanyId && (
+        <>
+          <div
+            className="w-1 shrink-0 bg-border hover:bg-primary/30 cursor-col-resize transition-colors"
+            onMouseDown={handleDragStart}
           />
-        )}
-      </ResizablePanel>
-    </ResizablePanelGroup>
+          <div className="shrink-0 h-full overflow-hidden" style={{ width: artifactWidth }}>
+            <ArtifactPanel
+              companyId={selectedCompanyId}
+              artifactId={selectedArtifactId}
+              onClose={() => setSelectedArtifactId(null)}
+            />
+          </div>
+        </>
+      )}
+    </div>
   );
 }
