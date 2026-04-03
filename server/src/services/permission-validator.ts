@@ -43,6 +43,10 @@ const ROUTE_GUARD_SLUGS = new Set([
   "chat:agent",
   "chat:channel",
   "sandbox:manage",
+  "folders:create",
+  "folders:read",
+  "folders:edit",
+  "folders:delete",
 ]);
 
 /**
