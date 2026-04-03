@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Copy, Paperclip } from "lucide-react";
 import { Identity } from "./Identity";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
+import { FeedbackVoteButtons } from "./FeedbackVoteButtons";
 import { MarkdownBody } from "./MarkdownBody";
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { StatusBadge } from "./StatusBadge";
@@ -44,6 +45,9 @@ interface CommentThreadProps {
   reassignOptions?: InlineEntityOption[];
   currentAssigneeValue?: string;
   mentions?: MentionOption[];
+  /** For feedback vote buttons on agent comments */
+  companyId?: string;
+  issueId?: string;
 }
 
 const CLOSED_STATUSES = new Set(["done", "cancelled"]);
@@ -119,10 +123,14 @@ const TimelineList = memo(function TimelineList({
   timeline,
   agentMap,
   highlightCommentId,
+  companyId,
+  issueId,
 }: {
   timeline: TimelineItem[];
   agentMap?: Map<string, Agent>;
   highlightCommentId?: string | null;
+  companyId?: string;
+  issueId?: string;
 }) {
   if (timeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No comments or runs yet.</p>;
@@ -190,6 +198,17 @@ const TimelineList = memo(function TimelineList({
               </span>
             </div>
             <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
+            {companyId && issueId && comment.authorAgentId && (
+              <div className="mt-1.5">
+                <FeedbackVoteButtons
+                  companyId={companyId}
+                  issueId={issueId}
+                  targetType="issue_comment"
+                  targetId={comment.id}
+                  authorAgentId={comment.authorAgentId}
+                />
+              </div>
+            )}
             {comment.runId && (
               <div className="mt-2 pt-2 border-t border-border/60">
                 {comment.runAgentId ? (
@@ -227,6 +246,8 @@ export function CommentThread({
   reassignOptions = [],
   currentAssigneeValue = "",
   mentions: providedMentions,
+  companyId,
+  issueId,
 }: CommentThreadProps) {
   const [body, setBody] = useState("");
   const [reopen, setReopen] = useState(true);
@@ -351,7 +372,7 @@ export function CommentThread({
     <div className="space-y-4">
       <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
 
-      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} companyId={companyId} issueId={issueId} />
 
       {liveRunSlot}
 

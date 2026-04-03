@@ -28,6 +28,8 @@ export interface ConfigLayer {
   enforced: boolean;
   visibility: ConfigLayerVisibility;
   createdByUserId: string | null;
+  promotionStatus: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,0 +1,32 @@
+# MnM Agent Evals - Phase 0: Promptfoo Bootstrap
+#
+# Tests narrow heartbeat + CAO behaviors across models with deterministic assertions.
+# Test cases organized by category in tests/*.yaml files.
+#
+# Usage:
+#   cd evals/promptfoo && promptfoo eval
+#   promptfoo view
+#
+# Requires OPENROUTER_API_KEY or individual provider keys.
+
+description: "MnM heartbeat + CAO behavior evals"
+
+prompts:
+  - file://prompts/heartbeat-system.txt
+
+providers:
+  - id: openrouter:anthropic/claude-sonnet-4-20250514
+    label: claude-sonnet-4
+  - id: openrouter:anthropic/claude-haiku-4-5-20251001
+    label: claude-haiku-4.5
+  - id: openrouter:openai/gpt-4.1
+    label: gpt-4.1
+  - id: openrouter:google/gemini-2.5-pro
+    label: gemini-2.5-pro
+
+defaultTest:
+  options:
+    transformVars: "{ ...vars, apiUrl: 'http://localhost:18080', runId: 'run-eval-001' }"
+
+tests:
+  - file://tests/*.yaml

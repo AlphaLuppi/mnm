@@ -39,3 +39,7 @@ export { traceRoutes } from "./traces.js";
 export { configLayerRoutes } from "./config-layers.js";
 // CONFIG-LAYERS: MCP OAuth + credentials
 export { mcpOauthRoutes } from "./mcp-oauth.js";
+// FEEDBACK: Feedback vote routes
+export { feedbackRoutes } from "./feedback.js";
+// ROUTINES: Routine routes
+export { routineRoutes } from "./routines.js";

@@ -25,6 +25,7 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 type Props = {
+  companyId?: string;
   layerId: string;
   readOnly?: boolean;
   onClose?: () => void;

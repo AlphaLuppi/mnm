@@ -709,6 +709,74 @@ export {
   type AddContextLink,
 } from "./validators/index.js";
 
+// ROUTINES: types
+export {
+  ROUTINE_STATUSES,
+  ROUTINE_CONCURRENCY_POLICIES,
+  ROUTINE_CATCH_UP_POLICIES,
+  ROUTINE_VARIABLE_TYPES,
+  ROUTINE_TRIGGER_KINDS,
+  ROUTINE_TRIGGER_SIGNING_MODES,
+  ROUTINE_RUN_SOURCES,
+  ROUTINE_RUN_STATUSES,
+} from "./types/index.js";
+export type {
+  RoutineStatus,
+  RoutineConcurrencyPolicy,
+  RoutineCatchUpPolicy,
+  RoutineVariableType,
+  RoutineTriggerKind,
+  RoutineTriggerSigningMode,
+  RoutineRunSource,
+  RoutineRunStatus,
+  RoutineVariable,
+  Routine,
+  RoutineTrigger,
+  RoutineRun,
+  RoutineListItem,
+  RoutineDetail,
+} from "./types/index.js";
+
+// ROUTINES: validators
+export {
+  createRoutineSchema,
+  updateRoutineSchema,
+  createRoutineTriggerSchema,
+  updateRoutineTriggerSchema,
+  runRoutineSchema,
+  extractRoutineVariableNames,
+  syncRoutineVariablesWithTemplate,
+  interpolateRoutineTemplate,
+  resolveRoutineVariableValues,
+  type CreateRoutine,
+  type UpdateRoutine,
+  type CreateRoutineTrigger,
+  type UpdateRoutineTrigger,
+  type RunRoutine,
+} from "./validators/routine.js";
+
+// FEEDBACK: types
+export {
+  FEEDBACK_VOTE_VALUES,
+  FEEDBACK_TARGET_TYPES,
+} from "./types/index.js";
+export type {
+  FeedbackVoteValue,
+  FeedbackTargetType,
+  FeedbackVote,
+  FeedbackVoteSummary,
+  FeedbackAgentStats,
+  FeedbackSummary,
+} from "./types/index.js";
+
+// FEEDBACK: validators
+export {
+  castFeedbackVoteSchema,
+  feedbackSummaryFiltersSchema,
+  type CastFeedbackVote,
+  type FeedbackSummaryFilters,
+} from "./validators/feedback.js";
+
 // REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
 
 // onb-s03-barrel-shared

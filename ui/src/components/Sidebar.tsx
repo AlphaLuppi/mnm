@@ -25,6 +25,8 @@ import {
   Tag,
   Layers,
   FolderOpen,
+  MessageSquareHeart,
+  CalendarClock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -159,6 +161,7 @@ export function Sidebar() {
             {canViewWorkflows && (
               <SidebarNavItem data-testid="orch-s05-nav-editor" to="/workflow-editor/new" label="Workflow Editor" icon={PenTool} />
             )}
+            <SidebarNavItem to="/routines" label="Routines" icon={CalendarClock} />
             {canViewGoals && (
               <SidebarNavItem data-testid="rbac-s05-nav-goals" to="/goals" label="Goals" icon={Target} />
             )}
@@ -190,6 +193,7 @@ export function Sidebar() {
               <SidebarNavItem data-testid="rbac-s06-nav-tags" to="/admin/tags" label="Tags" icon={Tag} />
             )}
             <SidebarNavItem to="/admin/config-layers" label="Config Layers" icon={Layers} />
+            <SidebarNavItem to="/feedback" label="Feedback" icon={MessageSquareHeart} />
             <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
             {canViewCosts && (
               <SidebarNavItem data-testid="rbac-s05-nav-costs" to="/costs" label="Costs" icon={DollarSign} />

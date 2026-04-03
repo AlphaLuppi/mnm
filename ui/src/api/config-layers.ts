@@ -68,8 +68,8 @@ export const configLayersApi = {
     return api.get<ConfigLayer[]>(`/companies/${companyId}/config-layers${qs ? `?${qs}` : ""}`);
   },
   get: (layerId: string) => api.get<ConfigLayerDetail>(`/config-layers/${layerId}`),
-  create: (companyId: string, input: Record<string, unknown>) =>
-    api.post<ConfigLayer>(`/companies/${companyId}/config-layers`, input),
+  create: (companyId: string, input: CreateLayerInput) =>
+    api.post<ConfigLayer>(`/companies/${companyId}/config-layers`, input as unknown as Record<string, unknown>),
   update: (layerId: string, input: Record<string, unknown>) =>
     api.patch<ConfigLayer>(`/config-layers/${layerId}`, input),
   archive: (layerId: string) => api.delete<ConfigLayer>(`/config-layers/${layerId}`),

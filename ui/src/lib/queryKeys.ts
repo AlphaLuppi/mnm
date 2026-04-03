@@ -215,6 +215,22 @@ export const queryKeys = {
     list: (companyId: string) =>
       ["gold-prompts", companyId, "list"] as const,
   },
+  // ROUTINES
+  routines: {
+    list: (companyId: string) =>
+      ["routines", companyId, "list"] as const,
+    detail: (companyId: string, routineId: string) =>
+      ["routines", companyId, "detail", routineId] as const,
+    runs: (companyId: string, routineId: string) =>
+      ["routines", companyId, "runs", routineId] as const,
+  },
+  // FEEDBACK
+  feedback: {
+    votes: (companyId: string, issueId: string) =>
+      ["feedback", companyId, "votes", issueId] as const,
+    summary: (companyId: string, filters?: Record<string, unknown>) =>
+      ["feedback", companyId, "summary", filters] as const,
+  },
   // CONFIG-LAYERS
   configLayers: {
     list: (companyId: string, scope?: string) =>

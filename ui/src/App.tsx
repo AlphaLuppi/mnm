@@ -51,6 +51,11 @@ import { WorkflowTraces } from "./pages/WorkflowTraces";
 // import { Workspace } from "./pages/Workspace";
 // DEPLOY-06: Deployments page
 import { Deployments } from "./pages/Deployments";
+// Routines
+import { Routines } from "./pages/Routines";
+import { RoutineDetail } from "./pages/RoutineDetail";
+// Feedback dashboard
+import { FeedbackDashboard } from "./pages/FeedbackDashboard";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -172,6 +177,9 @@ function boardRoutes() {
       <Route path="traces/:traceId" element={<RequirePermission permission="audit:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="settings/trace-lenses" element={<RequirePermission permission="audit:read" showForbidden><TraceSettings /></RequirePermission>} />
       <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="audit:read" showForbidden><WorkflowTraces /></RequirePermission>} />
+      <Route path="routines" element={<Routines />} />
+      <Route path="routines/:id" element={<RoutineDetail />} />
+      <Route path="feedback" element={<FeedbackDashboard />} />
       <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
@@ -281,6 +289,9 @@ export function App() {
           <Route path="traces" element={<UnprefixedBoardRedirect />} />
           <Route path="traces/:traceId" element={<UnprefixedBoardRedirect />} />
           <Route path="settings/trace-lenses" element={<UnprefixedBoardRedirect />} />
+          <Route path="routines" element={<UnprefixedBoardRedirect />} />
+          <Route path="routines/:id" element={<UnprefixedBoardRedirect />} />
+          <Route path="feedback" element={<UnprefixedBoardRedirect />} />
           <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
           <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>
