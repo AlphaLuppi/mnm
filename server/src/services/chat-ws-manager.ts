@@ -7,10 +7,10 @@ import type {
 } from "@mnm/shared";
 import type { RedisState } from "../redis.js";
 import { logger as parentLogger } from "../middleware/logger.js";
-import { chatChannels, folderItems } from "@mnm/db";
-import { eq } from "drizzle-orm";
+import { chatChannels, folderItems, userPods } from "@mnm/db";
+import { eq, and } from "drizzle-orm";
 import { chatService } from "./chat.js";
-import { chatCompletionService } from "./chat-completion.js";
+import { chatCompletionService, ChatCompletionError } from "./chat-completion.js";
 import { artifactService } from "./artifact.js";
 import { slashCommandResolver } from "./slash-command-resolver.js";
 import { agentMentionHandler } from "./agent-mention-handler.js";
@@ -397,6 +397,7 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
     channelId: string,
     companyId: string,
     userMessage: string,
+    userId: string,
   ) {
     // Send typing indicator
     const typingStart = {
@@ -418,6 +419,13 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
         .where(eq(chatChannels.id, channelId));
 
       if (!channel) return;
+
+      // Look up user's OAuth token for CLI fallback
+      const [podRow] = await db
+        .select({ claudeOauthToken: userPods.claudeOauthToken })
+        .from(userPods)
+        .where(and(eq(userPods.userId, userId), eq(userPods.companyId, companyId)));
+      const oauthToken = podRow?.claudeOauthToken ?? null;
 
       // Stream partial responses via chat_message_delta
       let lastChunkTime = 0;
@@ -466,6 +474,7 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
             await handleToolArtifactUpdated(artifact, channelId, channel.agentId);
           },
         },
+        oauthToken,
       );
 
       // Stop typing
@@ -609,7 +618,17 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
       broadcastLocal(channelId, typingStop);
       await publishToRedis(channelId, typingStop);
 
-      logger.error({ err, channelId }, "Agent response generation failed");
+      // Build user-facing error message
+      let errorContent = "Désolé, je n'ai pas pu générer de réponse. Réessayez.";
+      let errorCode: string | undefined;
+
+      if (err instanceof ChatCompletionError) {
+        errorContent = err.userMessage;
+        errorCode = err.code;
+        logger.warn({ err: err.message, code: err.code, channelId }, "Chat completion error");
+      } else {
+        logger.error({ err, channelId }, "Agent response generation failed");
+      }
 
       // Get agent ID to send error as agent message
       const [channel] = await db
@@ -625,8 +644,8 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
         companyId,
         channel.agentId,
         "agent",
-        "Sorry, I was unable to generate a response. Please try again.",
-        { error: true },
+        errorContent,
+        { error: true, errorCode },
         { messageType: "system" },
       );
 
@@ -817,7 +836,7 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
           logger.info({ actorType, actorId, channelId }, "Message received, checking if LLM response needed");
           if (actorType === "user") {
             logger.info({ channelId, content: payload.content.slice(0, 50) }, "Triggering LLM response");
-            generateAgentResponse(channelId, companyId, payload.content).catch(
+            generateAgentResponse(channelId, companyId, payload.content, actorId).catch(
               (err) => {
                 logger.error({ err, channelId }, "Failed to generate agent response");
               },
