@@ -256,8 +256,8 @@ export async function createApp(
   api.use(artifactRoutes(db));
   // DOCUMENTS: Document upload, ingestion, and RAG
   api.use(documentRoutes(db, opts.storageService));
-  // FOLDERS: Folder management
-  api.use(folderRoutes(db));
+  // FOLDERS: Folder management + workspace upload
+  api.use(folderRoutes(db, opts.storageService));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
