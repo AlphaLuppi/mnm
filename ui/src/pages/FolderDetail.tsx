@@ -7,11 +7,19 @@ import {
   Pencil,
   Trash2,
   ArrowLeft,
+  Plus,
+  FileText,
+  Code2,
+  MessageSquare,
+  Check,
 } from "lucide-react";
 import { useParams, useNavigate } from "../lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { foldersApi } from "../api/folders";
+import { documentsApi } from "../api/documents";
+import { artifactsApi } from "../api/artifacts";
+import { chatApi } from "../api/chat";
 import { queryKeys } from "../lib/queryKeys";
 import { FolderItemList } from "../components/folders/FolderItemList";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -26,7 +34,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "../lib/utils";
-import type { FolderVisibility } from "@mnm/shared";
+import type { FolderVisibility, FolderItemType } from "@mnm/shared";
 
 const VISIBILITY_OPTIONS: { value: FolderVisibility; label: string }[] = [
   { value: "private", label: "Private" },
@@ -49,6 +57,9 @@ export function FolderDetail() {
     visibility: FolderVisibility;
   }>({ name: "", description: "", visibility: "private" });
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addItemType, setAddItemType] = useState<FolderItemType>("document");
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const {
     data: folder,
@@ -119,6 +130,36 @@ export function FolderDetail() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.folders.detail(selectedCompanyId!, folderId!),
       });
+    },
+  });
+
+  const documentsQuery = useQuery({
+    queryKey: queryKeys.documents.list(selectedCompanyId!),
+    queryFn: () => documentsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId && addItemOpen && addItemType === "document",
+  });
+
+  const artifactsQuery = useQuery({
+    queryKey: queryKeys.artifacts.list(selectedCompanyId!),
+    queryFn: () => artifactsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId && addItemOpen && addItemType === "artifact",
+  });
+
+  const channelsQuery = useQuery({
+    queryKey: queryKeys.chat.channels(selectedCompanyId!),
+    queryFn: () => chatApi.listChannels(selectedCompanyId!),
+    enabled: !!selectedCompanyId && addItemOpen && addItemType === "channel",
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: (input: { itemType: FolderItemType; artifactId?: string; documentId?: string; channelId?: string }) =>
+      foldersApi.addItem(selectedCompanyId!, folderId!, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.folders.detail(selectedCompanyId!, folderId!),
+      });
+      setAddItemOpen(false);
+      setSelectedItemId(null);
     },
   });
 
@@ -209,6 +250,18 @@ export function FolderDetail() {
               <span className="text-muted-foreground">({folder.items.length})</span>
             )}
           </h2>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setAddItemType("document");
+              setSelectedItemId(null);
+              setAddItemOpen(true);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Add Item
+          </Button>
         </div>
         <FolderItemList
           items={folder.items ?? []}
@@ -306,6 +359,154 @@ export function FolderDetail() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Item dialog */}
+      <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Item</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Item type selector */}
+            <div className="space-y-1.5">
+              <Label>Type</Label>
+              <div className="flex gap-2">
+                {([
+                  { value: "document" as const, label: "Document", icon: FileText },
+                  { value: "artifact" as const, label: "Artifact", icon: Code2 },
+                  { value: "channel" as const, label: "Chat Link", icon: MessageSquare },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setAddItemType(opt.value);
+                      setSelectedItemId(null);
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 rounded-md border py-1.5 text-xs font-medium transition-colors",
+                      addItemType === opt.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:bg-muted/50",
+                    )}
+                  >
+                    <opt.icon className="h-3.5 w-3.5" />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Item list */}
+            <div className="space-y-1.5">
+              <Label>Select an item</Label>
+              <div className="max-h-60 overflow-auto rounded-md border divide-y">
+                {addItemType === "document" && (
+                  <>
+                    {documentsQuery.isLoading && (
+                      <p className="text-xs text-muted-foreground p-3">Loading documents...</p>
+                    )}
+                    {(documentsQuery.data?.documents ?? []).length === 0 && !documentsQuery.isLoading && (
+                      <p className="text-xs text-muted-foreground p-3">No documents found.</p>
+                    )}
+                    {(documentsQuery.data?.documents ?? []).map((doc) => (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        onClick={() => setSelectedItemId(doc.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center justify-between",
+                          selectedItemId === doc.id && "bg-primary/5",
+                        )}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{doc.title}</span>
+                        </div>
+                        {selectedItemId === doc.id && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {addItemType === "artifact" && (
+                  <>
+                    {artifactsQuery.isLoading && (
+                      <p className="text-xs text-muted-foreground p-3">Loading artifacts...</p>
+                    )}
+                    {(artifactsQuery.data?.artifacts ?? []).length === 0 && !artifactsQuery.isLoading && (
+                      <p className="text-xs text-muted-foreground p-3">No artifacts found.</p>
+                    )}
+                    {(artifactsQuery.data?.artifacts ?? []).map((artifact) => (
+                      <button
+                        key={artifact.id}
+                        type="button"
+                        onClick={() => setSelectedItemId(artifact.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center justify-between",
+                          selectedItemId === artifact.id && "bg-primary/5",
+                        )}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Code2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{artifact.title}</span>
+                        </div>
+                        {selectedItemId === artifact.id && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {addItemType === "channel" && (
+                  <>
+                    {channelsQuery.isLoading && (
+                      <p className="text-xs text-muted-foreground p-3">Loading channels...</p>
+                    )}
+                    {(channelsQuery.data?.channels ?? []).length === 0 && !channelsQuery.isLoading && (
+                      <p className="text-xs text-muted-foreground p-3">No channels found.</p>
+                    )}
+                    {(channelsQuery.data?.channels ?? []).map((channel) => (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => setSelectedItemId(channel.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center justify-between",
+                          selectedItemId === channel.id && "bg-primary/5",
+                        )}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{channel.name ?? `Channel ${channel.id.slice(0, 8)}`}</span>
+                        </div>
+                        {selectedItemId === channel.id && <Check className="h-4 w-4 text-primary shrink-0" />}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddItemOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedItemId) return;
+                addItemMutation.mutate({
+                  itemType: addItemType,
+                  ...(addItemType === "document" && { documentId: selectedItemId }),
+                  ...(addItemType === "artifact" && { artifactId: selectedItemId }),
+                  ...(addItemType === "channel" && { channelId: selectedItemId }),
+                });
+              }}
+              disabled={!selectedItemId || addItemMutation.isPending}
+            >
+              {addItemMutation.isPending ? "Adding..." : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>
