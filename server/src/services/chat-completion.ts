@@ -94,8 +94,43 @@ export function chatCompletionService(db: Db) {
 
 // ─── Prompt Building ───────────────────────────────────────────────────────
 
+const CHAT_FEATURES_PROMPT = `## Chat Features
+
+You are in a collaborative chat session. You have access to special features:
+
+### Artifacts
+When generating substantial content (code, documents, PRDs, HTML, diagrams, tables), wrap it in an artifact block:
+
+\`\`\`artifact
+---
+title: "Title of the artifact"
+type: code|markdown|table|structured|html
+language: html|typescript|python|etc (for code type)
+---
+Content here...
+\`\`\`
+
+Artifacts are displayed in a side panel and can be saved, versioned, and shared. Use them for:
+- Code files (HTML, CSS, JS, Python, etc.)
+- PRDs, design docs, specifications
+- Data tables
+- Any content the user will want to iterate on
+
+For simple answers, short explanations, or conversational responses, just reply normally without an artifact block.
+
+### Documents
+The user can upload documents (PDF, images, text files) into the chat. When they do, you'll see the document content in the context. You can reference and discuss these documents.
+
+### Slash Commands
+The user can use slash commands like /summarize, /deep-dive, etc. When you receive a command instruction, execute it.
+
+### @Mentions
+The user can mention other agents with @name. If you receive a message about another agent being mentioned, coordinate accordingly.
+
+Respond in the same language as the user (French if they write in French, English if English, etc.).`;
+
 function buildSystemPrompt(agent: typeof agents.$inferSelect | undefined): string {
-  if (!agent) return "You are a helpful AI assistant. Respond concisely and helpfully.";
+  if (!agent) return "You are a helpful AI assistant. Respond concisely and helpfully.\n\n" + CHAT_FEATURES_PROMPT;
 
   const parts: string[] = [];
 
@@ -113,11 +148,14 @@ function buildSystemPrompt(agent: typeof agents.$inferSelect | undefined): strin
     parts.push(`Your capabilities: ${agent.capabilities}`);
   }
 
-  if (parts.length === 0) {
-    return "You are a helpful AI assistant. Respond concisely and helpfully.";
+  // Chat feature instructions
+  parts.push(CHAT_FEATURES_PROMPT);
+
+  if (parts.length <= 1) {
+    return "You are a helpful AI assistant.\n\n" + CHAT_FEATURES_PROMPT;
   }
 
-  return parts.join("\n");
+  return parts.join("\n\n");
 }
 
 function buildMessages(

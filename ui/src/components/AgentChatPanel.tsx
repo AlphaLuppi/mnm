@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from "react";
-import { ArrowDown, ArrowLeft, Bot, MessageSquare, Send } from "lucide-react";
+import { ArrowDown, ArrowLeft, Bot, MessageSquare, Paperclip, Send } from "lucide-react";
 import type { ChatChannel } from "../api/chat";
+import { documentsApi } from "../api/documents";
 import { useAgentChat } from "../hooks/useAgentChat";
 import { useCompany } from "../context/CompanyContext";
 import { MessageBubble } from "./chat/MessageBubble";
@@ -35,6 +36,7 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const [showMention, setShowMention] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     messages,
@@ -151,6 +153,21 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const handleArtifactClick = useCallback((artifactId: string) => {
     setSelectedArtifactId(artifactId);
   }, []);
+
+  const handleFileSelect = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCompanyId) return;
+    try {
+      await documentsApi.upload(selectedCompanyId, file, { channelId: channel.id });
+      sendMessage(`[Uploaded: ${file.name}]`);
+    } catch (err) {
+      console.error("File upload failed:", err);
+    }
+    // Reset input so the same file can be re-uploaded
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [selectedCompanyId, channel.id, sendMessage]);
 
   const isChannelOpen = channel.status === "open";
   const displayName = channel.name || agentName || "Chat";
@@ -288,6 +305,23 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
 
           {isChannelOpen ? (
             <div className="max-w-3xl mx-auto flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload file"
+                disabled={connectionState === "disconnected"}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileSelect}
+                accept="*/*"
+              />
               <textarea
                 data-testid="chat-s04-input"
                 value={inputValue}
