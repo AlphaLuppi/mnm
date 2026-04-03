@@ -24,21 +24,21 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
   const isSystem = message.messageType === "system";
   const meta = message.metadata as Record<string, unknown> | null;
 
-  // System messages — centered, muted
+  // System messages — centered pill
   if (isSystem) {
     return (
       <div
         data-testid="chat-s04-message"
-        className="flex justify-center px-4 py-1"
+        className="flex justify-center px-4 py-1.5"
       >
         <div
           data-testid="chat-s04-message-system"
-          className="rounded-md bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground italic max-w-[80%] text-center"
+          className="text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1 text-center max-w-[80%]"
         >
           <span data-testid="chat-s04-message-content">{message.content}</span>
           <span
             data-testid="chat-s04-message-time"
-            className="ml-2 text-[10px] opacity-60"
+            className="ml-2 text-[10px] text-muted-foreground/60"
           >
             {formatTime(message.createdAt)}
           </span>
@@ -56,17 +56,19 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
       <div
         data-testid="chat-s04-message"
         className={cn(
-          "flex gap-2 px-4 py-1",
+          "flex gap-2.5 px-4 py-1.5",
           isUser ? "flex-row-reverse" : "flex-row",
         )}
       >
         <div
           className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white",
-            isUser ? "bg-blue-600" : "bg-violet-600",
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium",
+            isUser
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
           )}
         >
-          {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+          {isUser ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
         </div>
         <button
           type="button"
@@ -74,7 +76,7 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
           onClick={() => artifactId && onArtifactClick?.(artifactId)}
         >
           <div className="flex items-center gap-2 mb-1">
-            <Box className="h-3.5 w-3.5 text-violet-500" />
+            <Box className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-sm font-medium truncate">{artifactTitle}</span>
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {artifactType}
@@ -99,21 +101,23 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
       <div
         data-testid="chat-s04-message"
         className={cn(
-          "flex gap-2 px-4 py-1",
+          "flex gap-2.5 px-4 py-1.5",
           isUser ? "flex-row-reverse" : "flex-row",
         )}
       >
         <div
           className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white",
-            isUser ? "bg-blue-600" : "bg-violet-600",
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium",
+            isUser
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
           )}
         >
-          {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+          {isUser ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
         </div>
         <div className="max-w-[75%] rounded-lg border border-border bg-background px-3 py-2">
           <div className="flex items-center gap-2 mb-1">
-            <FileText className="h-3.5 w-3.5 text-blue-500" />
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-sm font-medium truncate">{docTitle}</span>
             <DocumentStatusBadge status={ingestionStatus} />
           </div>
@@ -128,20 +132,20 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
     );
   }
 
-  // Skill invocation — system-style with command
+  // Skill invocation — centered system-style
   if (meta?.type === "skill_invocation") {
     const commandName = (meta.commandName as string) || "command";
     return (
       <div
         data-testid="chat-s04-message"
-        className="flex justify-center px-4 py-1"
+        className="flex justify-center px-4 py-1.5"
       >
-        <div className="rounded-md bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground max-w-[80%] flex items-center gap-1.5">
+        <div className="text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1 flex items-center gap-1.5 max-w-[80%]">
           <Terminal className="h-3 w-3" />
           <span>
             Invoked <strong>{commandName}</strong>
           </span>
-          <span className="text-[10px] opacity-60 ml-1">
+          <span className="text-[10px] text-muted-foreground/60 ml-1">
             {formatTime(message.createdAt)}
           </span>
         </div>
@@ -149,20 +153,20 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
     );
   }
 
-  // Agent delegation — subtle delegation indicator
+  // Agent delegation — centered indicator using theme colors
   if (meta?.type === "agent_delegation") {
     const targetAgent = (meta.targetAgentName as string) || "agent";
     return (
       <div
         data-testid="chat-s04-message"
-        className="flex justify-center px-4 py-1"
+        className="flex justify-center px-4 py-1.5"
       >
-        <div className="rounded-md bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900 px-3 py-1.5 text-xs text-violet-700 dark:text-violet-300 max-w-[80%] flex items-center gap-1.5">
+        <div className="text-xs text-muted-foreground bg-muted/50 border border-border rounded-full px-3 py-1 flex items-center gap-1.5 max-w-[80%]">
           <ArrowRight className="h-3 w-3" />
           <span>
             Delegated to <strong>@{targetAgent}</strong>
           </span>
-          <span className="text-[10px] opacity-60 ml-1">
+          <span className="text-[10px] text-muted-foreground/60 ml-1">
             {formatTime(message.createdAt)}
           </span>
         </div>
@@ -170,55 +174,63 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
     );
   }
 
-  // User messages — right aligned, blue
-  // Agent messages — left aligned, gray
+  // ── Regular messages ──
+  // User messages — right aligned, primary color
+  // Agent messages — left aligned, muted background
   return (
     <div
       data-testid="chat-s04-message"
       className={cn(
-        "flex gap-2 px-4 py-1",
+        "flex gap-2.5 px-4 py-1.5",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
     >
-      {/* Avatar */}
+      {/* Small initials avatar */}
       <div
         className={cn(
-          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white",
-          isUser ? "bg-blue-600" : "bg-violet-600",
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium",
+          isUser
+            ? "bg-primary/10 text-primary"
+            : "bg-muted text-muted-foreground",
         )}
       >
         {isUser ? (
-          <User className="h-3.5 w-3.5" />
+          <User className="h-3 w-3" />
         ) : (
-          <Bot className="h-3.5 w-3.5" />
+          <Bot className="h-3 w-3" />
         )}
       </div>
 
       {/* Bubble */}
-      <div
-        data-testid={isUser ? "chat-s04-message-user" : "chat-s04-message-agent"}
-        className={cn(
-          "max-w-[75%] rounded-2xl px-3 py-2 text-sm",
-          isUser
-            ? "bg-blue-600 text-white rounded-br-sm"
-            : "bg-muted text-foreground rounded-bl-sm",
+      <div className={cn("max-w-[75%] flex flex-col", isUser ? "items-end" : "items-start")}>
+        {/* Sender name (agent messages only) */}
+        {!isUser && (
+          <span className="text-xs text-muted-foreground mb-0.5 ml-1">
+            Agent
+          </span>
         )}
-      >
-        <div data-testid="chat-s04-message-sender" className="sr-only">
-          {isUser ? "You" : "Agent"}
-        </div>
-        <p
-          data-testid="chat-s04-message-content"
-          className="whitespace-pre-wrap break-words"
+        <div
+          data-testid={isUser ? "chat-s04-message-user" : "chat-s04-message-agent"}
+          className={cn(
+            "rounded-2xl px-4 py-2.5 text-sm",
+            isUser
+              ? "bg-primary text-primary-foreground rounded-br-sm"
+              : "bg-muted text-foreground rounded-bl-sm",
+          )}
         >
-          {message.content}
-        </p>
+          <div data-testid="chat-s04-message-sender" className="sr-only">
+            {isUser ? "You" : "Agent"}
+          </div>
+          <p
+            data-testid="chat-s04-message-content"
+            className="whitespace-pre-wrap break-words"
+          >
+            {message.content}
+          </p>
+        </div>
         <span
           data-testid="chat-s04-message-time"
-          className={cn(
-            "mt-0.5 block text-[10px]",
-            isUser ? "text-blue-200" : "text-muted-foreground",
-          )}
+          className="text-[10px] text-muted-foreground mt-0.5 mx-1"
         >
           {formatTime(message.createdAt)}
         </span>
