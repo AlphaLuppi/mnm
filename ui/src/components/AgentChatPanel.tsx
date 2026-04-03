@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from "react";
 import { ArrowDown, ArrowLeft, Bot, MessageSquare, Paperclip, Send } from "lucide-react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import type { ChatChannel } from "../api/chat";
 import { documentsApi } from "../api/documents";
 import { useAgentChat } from "../hooks/useAgentChat";
@@ -173,11 +174,12 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const displayName = channel.name || agentName || "Chat";
 
   return (
-    <div className="flex h-full">
-      {/* Main chat area — full width */}
+    <ResizablePanelGroup direction="horizontal" className="h-full">
+      <ResizablePanel defaultSize={selectedArtifactId ? 60 : 100} minSize={35}>
+      {/* Main chat area */}
       <div
         data-testid="chat-s04-panel"
-        className="flex h-full flex-1 min-w-0 flex-col bg-background"
+        className="flex h-full flex-col bg-background"
       >
         {/* Header */}
         <div
@@ -354,15 +356,21 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
           )}
         </div>
       </div>
+      </ResizablePanel>
 
-      {/* Artifact side panel — only when an artifact is selected */}
+      {/* Artifact side panel — resizable, only when an artifact is selected */}
       {selectedArtifactId && selectedCompanyId && (
-        <ArtifactPanel
-          companyId={selectedCompanyId}
-          artifactId={selectedArtifactId}
-          onClose={() => setSelectedArtifactId(null)}
-        />
+        <>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={40} minSize={25} maxSize={65}>
+            <ArtifactPanel
+              companyId={selectedCompanyId}
+              artifactId={selectedArtifactId}
+              onClose={() => setSelectedArtifactId(null)}
+            />
+          </ResizablePanel>
+        </>
       )}
-    </div>
+    </ResizablePanelGroup>
   );
 }
