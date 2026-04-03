@@ -7,7 +7,7 @@ import { projectService, agentService, publishLiveEvent } from "../services/inde
 import { analyzeWorkspace } from "../services/workspace-analyzer.js";
 import { startWorkspaceContextWatcher } from "../services/workspace-context-watcher.js";
 import { checkDrift } from "../services/drift.js";
-import { assertCompanyAccess } from "./authz.js";
+import { assertCompanyAccess, assertProjectAccess } from "./authz.js";
 import { badRequest } from "../errors.js";
 
 
@@ -223,6 +223,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
 
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) {
@@ -247,6 +248,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
 
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.json({ workflows: [] }); return; }
@@ -279,6 +281,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
 
     const workspacePath = await resolveWorkspacePath(id);
     if (!workspacePath) { res.json({ agents: [] }); return; }
@@ -293,6 +296,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
 
     const slugs: string[] = Array.isArray(req.body.slugs) ? req.body.slugs : [];
     if (slugs.length === 0) { res.status(400).json({ error: "No agent slugs provided" }); return; }
@@ -363,6 +367,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
     const meta = project.primaryWorkspace?.metadata as Record<string, unknown> | null | undefined;
     const assignments = (meta?.bmadAssignments as Record<string, string> | undefined) ?? {};
     res.json({ assignments, workspaceId: project.primaryWorkspace?.id ?? null });
@@ -374,6 +379,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
     const workspaceId = project.primaryWorkspace?.id;
     if (!workspaceId) { res.status(404).json({ error: "No primary workspace configured" }); return; }
     const assignments = req.body.assignments;
@@ -398,6 +404,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
     const name = req.query.name;
     if (typeof name !== "string" || !name || name.includes("..") || name.includes("/") || name.includes("\\")) {
       throw badRequest("Invalid command name");
@@ -418,6 +425,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
 
     const { sourceDoc, targetDoc } = req.body as { sourceDoc?: string; targetDoc?: string };
     if (!sourceDoc || !targetDoc) { res.status(400).json({ error: "Missing sourceDoc or targetDoc" }); return; }
@@ -444,6 +452,7 @@ export function workspaceContextRoutes(db: Db) {
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, id);
 
     const filePath = req.query.path;
     if (typeof filePath !== "string" || filePath.length === 0) throw badRequest("Missing required query parameter: path");

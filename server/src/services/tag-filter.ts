@@ -43,7 +43,18 @@ export function tagFilterService(db: Db) {
       )
       .where(eq(agents.companyId, companyId));
 
-    return rows.map((r) => r.agents);
+    // CAO has ALL tags so it appears for any user with >=1 tag.
+    // Hide it from non-admin users (bypassTagFilter is false here).
+    // Require BOTH metadata.isCAO AND adapter_type="claude_local" to prevent
+    // metadata spoofing — a user-created agent with just metadata.isCAO=true
+    // should NOT be hidden from view.
+    return rows
+      .map((r) => r.agents)
+      .filter((a) => {
+        const meta = a.metadata as Record<string, unknown> | null;
+        const isCao = meta?.isCAO === true && a.adapterType === "claude_local";
+        return !isCao;
+      });
   }
 
   /**
@@ -91,18 +102,22 @@ export function tagFilterService(db: Db) {
     }
 
     if (scope.tagIds.size === 0) {
-      // No tags → only see direct assignments
+      // No tags → only see direct assignments OR issues created by user
       return db.select().from(issues).where(
-        and(eq(issues.companyId, companyId), eq(issues.assigneeUserId, scope.userId)),
+        and(
+          eq(issues.companyId, companyId),
+          sql`(${issues.assigneeUserId} = ${scope.userId} OR ${issues.createdByUserId} = ${scope.userId})`,
+        ),
       );
     }
 
-    // Visible: assignee_tag_id in user tags OR assignee_user_id = user
+    // Visible: assignee_tag_id in user tags OR assignee_user_id = user OR createdByUserId = user
     const conditions: SQL[] = [
       eq(issues.companyId, companyId),
       sql`(
         ${issues.assigneeTagId} IN (${sql.join([...scope.tagIds].map(id => sql`${id}::uuid`), sql`, `)})
         OR ${issues.assigneeUserId} = ${scope.userId}
+        OR ${issues.createdByUserId} = ${scope.userId}
       )`,
     ];
 
@@ -114,6 +129,39 @@ export function tagFilterService(db: Db) {
     }
 
     return db.select().from(issues).where(and(...conditions));
+  }
+
+  /**
+   * Check if a single issue is visible to the given TagScope.
+   * Visible if:
+   * - bypass_tag_filter (admin)
+   * - assigneeUserId = user (directly assigned)
+   * - createdByUserId = user (user created it)
+   * - assigneeTagId is in user's tags
+   * - the assigned agent shares at least 1 tag with the user
+   */
+  async function isIssueVisible(
+    companyId: string,
+    issue: { assigneeUserId: string | null; createdByUserId: string | null; assigneeAgentId: string | null; assigneeTagId: string | null },
+    scope: TagScope,
+  ): Promise<boolean> {
+    if (scope.bypassTagFilter) return true;
+
+    // Ownership: user created or is directly assigned
+    if (issue.assigneeUserId === scope.userId) return true;
+    if (issue.createdByUserId === scope.userId) return true;
+
+    if (scope.tagIds.size === 0) return false;
+
+    // Tag-based: assigneeTagId is in user's tags
+    if (issue.assigneeTagId && scope.tagIds.has(issue.assigneeTagId)) return true;
+
+    // Agent-based: assigned agent shares a tag with the user
+    if (issue.assigneeAgentId) {
+      return isAgentVisible(companyId, issue.assigneeAgentId, scope);
+    }
+
+    return false;
   }
 
   /**
@@ -163,7 +211,7 @@ export function tagFilterService(db: Db) {
    * - bypass_tag_filter → all non-archived layers for the company
    * - company scope OR public visibility → visible to all
    * - private visibility → only visible to creator
-   * - team visibility → visible to creator; shared-tag check deferred to route handler
+   * - team visibility → visible if creator shares at least 1 tag with requesting user
    */
   async function listConfigLayersFiltered(companyId: string, scope: TagScope) {
     if (scope.bypassTagFilter) {
@@ -176,13 +224,42 @@ export function tagFilterService(db: Db) {
       and(eq(configLayers.companyId, companyId), isNull(configLayers.archivedAt)),
     );
 
+    // For team visibility, check tag intersection between requesting user and layer creator.
+    // Batch-fetch creator tags to avoid N+1 queries.
+    const teamLayers = allLayers.filter(
+      (l) => l.visibility === "team" && l.createdByUserId !== scope.userId,
+    );
+    const creatorIds = [...new Set(teamLayers.map((l) => l.createdByUserId).filter(Boolean))] as string[];
+
+    const creatorTagMap = new Map<string, Set<string>>();
+    if (creatorIds.length > 0 && scope.tagIds.size > 0) {
+      const creatorTagRows = await db
+        .select({ targetId: tagAssignments.targetId, tagId: tagAssignments.tagId })
+        .from(tagAssignments)
+        .where(and(
+          eq(tagAssignments.companyId, companyId),
+          eq(tagAssignments.targetType, "user"),
+          inArray(tagAssignments.targetId, creatorIds),
+        ));
+      for (const row of creatorTagRows) {
+        let s = creatorTagMap.get(row.targetId);
+        if (!s) { s = new Set(); creatorTagMap.set(row.targetId, s); }
+        s.add(row.tagId);
+      }
+    }
+
     return allLayers.filter((layer) => {
       if (layer.scope === "company") return true;
       if (layer.visibility === "public") return true;
       if (layer.visibility === "private") return layer.createdByUserId === scope.userId;
       if (layer.visibility === "team") {
         if (layer.createdByUserId === scope.userId) return true;
-        return true; // Team visibility allows shared-tag users — full check in route handler
+        const creatorTags = creatorTagMap.get(layer.createdByUserId ?? "");
+        if (!creatorTags) return false;
+        for (const tagId of creatorTags) {
+          if (scope.tagIds.has(tagId)) return true;
+        }
+        return false;
       }
       return false;
     });
@@ -191,6 +268,7 @@ export function tagFilterService(db: Db) {
   return {
     listAgentsFiltered,
     isAgentVisible,
+    isIssueVisible,
     listIssuesFiltered,
     listTracesFiltered,
     isTraceVisible,
