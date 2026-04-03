@@ -114,7 +114,7 @@ export function folderService(db: Db) {
         LIMIT 1
       `);
 
-      if (tagOverlap.rows.length > 0) {
+      if ((tagOverlap as unknown[]).length > 0) {
         return { ...folder, itemCount, canEdit: false };
       }
 

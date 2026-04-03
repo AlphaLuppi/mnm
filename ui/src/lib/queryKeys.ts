@@ -243,6 +243,8 @@ export const queryKeys = {
   folders: {
     list: (companyId: string) => ["folders", companyId] as const,
     detail: (companyId: string, id: string) => ["folders", companyId, id] as const,
+    shares: (companyId: string, id: string) => ["folders", companyId, id, "shares"] as const,
+    deletionPreview: (companyId: string, id: string) => ["folders", companyId, id, "deletion-preview"] as const,
   },
   chatSharing: {
     shares: (companyId: string, channelId: string) => ["chatShares", companyId, channelId] as const,
