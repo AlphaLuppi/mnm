@@ -770,7 +770,7 @@ export function IssueDetail() {
             issueStatus={issue.status}
             agentMap={agentMap}
             companyId={selectedCompanyId ?? undefined}
-            issueId={issueId}
+            issueId={issue.id}
             draftKey={`mnm:issue-comment-draft:${issue.id}`}
             enableReassign
             reassignOptions={commentReassignOptions}
