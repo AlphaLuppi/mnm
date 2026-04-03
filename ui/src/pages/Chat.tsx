@@ -47,13 +47,18 @@ export function Chat() {
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (!main) return;
-    const prevPadding = main.style.padding;
-    const prevOverflow = main.style.overflow;
+    const prev = {
+      padding: main.style.padding,
+      overflow: main.style.overflow,
+      position: main.style.position,
+    };
     main.style.padding = "0";
     main.style.overflow = "hidden";
+    main.style.position = "relative";
     return () => {
-      main.style.padding = prevPadding;
-      main.style.overflow = prevOverflow;
+      main.style.padding = prev.padding;
+      main.style.overflow = prev.overflow;
+      main.style.position = prev.position;
     };
   }, []);
 
@@ -141,7 +146,7 @@ export function Chat() {
 
   // When a channel is selected, show full-page chat. Otherwise show channel list.
   return (
-    <div className="h-full overflow-hidden" data-testid="chat-s04-page">
+    <div className="absolute inset-0 overflow-hidden" data-testid="chat-s04-page">
       {selectedChannel ? (
         /* ── Full-page chat ── */
         <AgentChatPanel
