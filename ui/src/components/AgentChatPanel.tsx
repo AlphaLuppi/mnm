@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from "react";
 import { ArrowDown, ArrowLeft, Bot, MessageSquare, Paperclip, Send } from "lucide-react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import type { ChatChannel } from "../api/chat";
 import { documentsApi } from "../api/documents";
 import { useAgentChat } from "../hooks/useAgentChat";
@@ -37,6 +38,7 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const [showMention, setShowMention] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const chatPanelRef = useRef<ImperativePanelHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -170,12 +172,21 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
     }
   }, [selectedCompanyId, channel.id, sendMessage]);
 
+  // Force resize when artifact panel opens/closes
+  useEffect(() => {
+    if (selectedArtifactId && chatPanelRef.current) {
+      chatPanelRef.current.resize(60);
+    } else if (!selectedArtifactId && chatPanelRef.current) {
+      chatPanelRef.current.resize(100);
+    }
+  }, [selectedArtifactId]);
+
   const isChannelOpen = channel.status === "open";
   const displayName = channel.name || agentName || "Chat";
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full" key={selectedArtifactId ? "with-artifact" : "no-artifact"}>
-      <ResizablePanel defaultSize={selectedArtifactId ? 60 : 100} minSize={30}>
+      <ResizablePanel ref={chatPanelRef} defaultSize={100} minSize={30}>
       {/* Main chat area */}
       <div
         data-testid="chat-s04-panel"
