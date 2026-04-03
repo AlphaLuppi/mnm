@@ -171,6 +171,15 @@ export interface ChatServerCommandResult {
   channelId: string;
 }
 
+export interface ChatServerMessageDelta {
+  type: "chat_message_delta";
+  channelId: string;
+  senderId: string;
+  senderType: ChatSenderType;
+  content: string;
+  isStreaming: boolean;
+}
+
 export type ChatServerPayload =
   | ChatServerMessage
   | ChatServerAck
@@ -184,7 +193,8 @@ export type ChatServerPayload =
   | ChatServerDocumentStatus
   | ChatServerAgentDelegating
   | ChatServerContextAdded
-  | ChatServerCommandResult;
+  | ChatServerCommandResult
+  | ChatServerMessageDelta;
 
 // ---- CHAT-S03: Container pipe types ----
 
