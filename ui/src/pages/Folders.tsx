@@ -24,7 +24,6 @@ import type { FolderVisibility } from "@mnm/shared";
 
 const VISIBILITY_OPTIONS: { value: FolderVisibility; label: string }[] = [
   { value: "private", label: "Private" },
-  { value: "team", label: "Team" },
   { value: "public", label: "Public" },
 ];
 
