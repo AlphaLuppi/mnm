@@ -174,8 +174,8 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
   const displayName = channel.name || agentName || "Chat";
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={selectedArtifactId ? 60 : 100} minSize={35}>
+    <ResizablePanelGroup direction="horizontal" className="h-full" key={selectedArtifactId ? "with-artifact" : "no-artifact"}>
+      <ResizablePanel defaultSize={selectedArtifactId ? 60 : 100} minSize={30}>
       {/* Main chat area */}
       <div
         data-testid="chat-s04-panel"
