@@ -1,69 +1,9 @@
-import { useState } from "react";
-import { Bot, User, Box, FileText, Terminal, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, User, Box, FileText, Terminal, ArrowRight } from "lucide-react";
 import type { ChatMessage } from "../../api/chat";
 import type { IngestionStatus } from "@mnm/shared";
 import { cn } from "../../lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DocumentStatusBadge } from "./DocumentStatusBadge";
-
-const MAX_COLLAPSED_HEIGHT = 400;
-
-function MessageContent({ isUser, content }: { isUser: boolean; content: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const isLong = content.length > 2000;
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl px-4 py-2.5 text-sm relative",
-        isUser
-          ? "bg-primary text-primary-foreground rounded-br-sm"
-          : "bg-muted text-foreground rounded-bl-sm",
-      )}
-    >
-      <div
-        className={cn(
-          "overflow-hidden whitespace-pre-wrap break-words",
-          isLong && !expanded && "max-h-[400px]",
-        )}
-      >
-        {content}
-      </div>
-      {isLong && !expanded && (
-        <div className={cn(
-          "absolute bottom-0 left-0 right-0 h-16 rounded-b-2xl flex items-end justify-center pb-2",
-          isUser
-            ? "bg-gradient-to-t from-primary to-transparent"
-            : "bg-gradient-to-t from-muted to-transparent",
-        )}>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-6 text-[10px] px-2 rounded-full shadow-sm"
-            onClick={() => setExpanded(true)}
-          >
-            <ChevronDown className="h-3 w-3 mr-0.5" />
-            Show more
-          </Button>
-        </div>
-      )}
-      {isLong && expanded && (
-        <div className="flex justify-center mt-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-6 text-[10px] px-2 rounded-full"
-            onClick={() => setExpanded(false)}
-          >
-            <ChevronUp className="h-3 w-3 mr-0.5" />
-            Show less
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // chat-s04-message-bubble
 export interface MessageBubbleProps {
@@ -294,10 +234,16 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
             Agent
           </span>
         )}
-        <MessageContent
-          isUser={isUser}
-          content={message.content}
-        />
+        <div
+          className={cn(
+            "rounded-2xl px-4 py-2.5 text-sm",
+            isUser
+              ? "bg-primary text-primary-foreground rounded-br-sm"
+              : "bg-muted text-foreground rounded-bl-sm",
+          )}
+        >
+          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        </div>
         <span
           data-testid="chat-s04-message-time"
           className="text-[10px] text-muted-foreground mt-0.5 mx-1"
