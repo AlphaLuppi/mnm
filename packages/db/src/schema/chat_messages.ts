@@ -18,6 +18,9 @@ export const chatMessages = pgTable(
     replyToId: uuid("reply_to_id").references((): AnyPgColumn => chatMessages.id, { onDelete: "set null" }),
     editedAt: timestamp("edited_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // Collaborative chat columns (FKs in SQL migration to avoid circular deps)
+    artifactId: uuid("artifact_id"),
+    documentId: uuid("document_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

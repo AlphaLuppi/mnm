@@ -267,6 +267,19 @@ export const LIVE_EVENT_TYPES = [
   "trace.observation_created",
   "trace.observation_completed",
   "trace.completed",
+  // Collaborative chat live events
+  "document.uploaded",
+  "document.ingestion_complete",
+  "document.ingestion_error",
+  "artifact.created",
+  "artifact.updated",
+  "artifact.deleted",
+  "folder.created",
+  "folder.updated",
+  "folder.deleted",
+  "chat.shared",
+  "chat.forked",
+  "chat.context_linked",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

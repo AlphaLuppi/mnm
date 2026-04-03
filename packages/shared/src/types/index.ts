@@ -203,6 +203,9 @@ export type {
   ChatClientTyping,
   ChatClientSync,
   ChatClientPing,
+  ChatClientSlashCommand,
+  ChatClientMentionAgent,
+  ChatClientUploadComplete,
   ChatClientPayload,
   ChatServerMessage,
   ChatServerAck,
@@ -211,6 +214,12 @@ export type {
   ChatServerError,
   ChatServerPong,
   ChatServerChannelClosed,
+  ChatServerArtifactCreated,
+  ChatServerArtifactUpdated,
+  ChatServerDocumentStatus,
+  ChatServerAgentDelegating,
+  ChatServerContextAdded,
+  ChatServerCommandResult,
   ChatServerPayload,
   // chat-s03-barrel-types
   ContainerPipeStatus,
@@ -353,6 +362,30 @@ export type {
   SsoOidcConfig,
   SsoMetadataSyncResult,
 } from "./sso.js";
+
+// Collaborative chat types
+export type {
+  IngestionStatus,
+  Document,
+  DocumentChunk,
+} from "./documents.js";
+export type {
+  ArtifactType,
+  Artifact,
+  ArtifactVersion,
+} from "./artifacts.js";
+export type {
+  FolderVisibility,
+  FolderItemType,
+  Folder,
+  FolderItem,
+} from "./folders.js";
+export type {
+  SharePermission,
+  ContextLinkType,
+  ChatShare,
+  ChatContextLink,
+} from "./chat-sharing.js";
 
 // config-layer-barrel-types
 export type {

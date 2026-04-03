@@ -39,6 +39,15 @@ export { projectMemberships } from "./project_memberships.js";
 export { automationCursors } from "./automation_cursors.js";
 export { chatChannels } from "./chat_channels.js";
 export { chatMessages } from "./chat_messages.js";
+// Collaborative chat tables
+export { documents } from "./documents.js";
+export { documentChunks } from "./document_chunks.js";
+export { artifacts } from "./artifacts.js";
+export { artifactVersions } from "./artifact_versions.js";
+export { folders } from "./folders.js";
+export { folderItems } from "./folder_items.js";
+export { chatShares } from "./chat_shares.js";
+export { chatContextLinks } from "./chat_context_links.js";
 export { auditEvents } from "./audit_events.js";
 export { ssoConfigurations } from "./sso_configurations.js";
 export { importJobs } from "./import_jobs.js";

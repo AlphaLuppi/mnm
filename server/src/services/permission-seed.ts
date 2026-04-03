@@ -56,6 +56,25 @@ const SEED_PERMISSIONS: Array<{ slug: string; description: string; category: str
   // Chat
   { slug: "chat:agent", description: "Discuter avec les agents", category: "chat" },
   { slug: "chat:channel", description: "Créer des channels", category: "chat" },
+  { slug: "chat:share", description: "Partager un chat", category: "chat" },
+  { slug: "chat:fork", description: "Fork un chat partagé", category: "chat" },
+
+  // Documents
+  { slug: "documents:upload", description: "Upload des documents", category: "documents" },
+  { slug: "documents:read", description: "Voir les documents", category: "documents" },
+  { slug: "documents:delete", description: "Supprimer des documents", category: "documents" },
+
+  // Artifacts
+  { slug: "artifacts:read", description: "Voir les artefacts", category: "artifacts" },
+  { slug: "artifacts:edit", description: "Éditer des artefacts", category: "artifacts" },
+  { slug: "artifacts:delete", description: "Supprimer des artefacts", category: "artifacts" },
+
+  // Folders
+  { slug: "folders:create", description: "Créer des folders", category: "folders" },
+  { slug: "folders:read", description: "Voir les folders", category: "folders" },
+  { slug: "folders:edit", description: "Modifier ses folders", category: "folders" },
+  { slug: "folders:delete", description: "Supprimer ses folders", category: "folders" },
+  { slug: "folders:share", description: "Partager des folders", category: "folders" },
 
   // Sandbox
   { slug: "sandbox:manage", description: "Gérer les sandboxes", category: "sandbox" },
