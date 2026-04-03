@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, Loader2, Plus } from "lucide-react";
+import { MessageSquare, Loader2, Plus, Hash } from "lucide-react";
 import { chatApi, type ChatChannel } from "../api/chat";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "../lib/timeAgo";
+import { cn } from "../lib/utils";
 
 // chat-s04-page
 export function Chat() {
@@ -54,11 +55,20 @@ export function Chat() {
     enabled: !!selectedCompanyId,
   });
 
+  // Always fetch agents for name resolution in channel sidebar
   const agentsQuery = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
     queryFn: () => agentsApi.list(selectedCompanyId!),
-    enabled: !!selectedCompanyId && createOpen,
+    enabled: !!selectedCompanyId,
   });
+
+  const agentNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const agent of agentsQuery.data ?? []) {
+      map.set(agent.id, agent.name);
+    }
+    return map;
+  }, [agentsQuery.data]);
 
   const createChannelMutation = useMutation({
     mutationFn: (input: { agentId: string; name?: string }) =>
@@ -83,6 +93,17 @@ export function Chat() {
     [channels],
   );
 
+  function resolveChannelDisplayName(channel: ChatChannel): string {
+    if (channel.name) return channel.name;
+    const agentName = agentNameMap.get(channel.agentId);
+    if (agentName) return agentName;
+    return "Chat";
+  }
+
+  function resolveAgentName(agentId: string): string {
+    return agentNameMap.get(agentId) ?? "Agent";
+  }
+
   // Loading state
   if (channelsQuery.isLoading && !channelsQuery.data) {
     return (
@@ -97,7 +118,7 @@ export function Chat() {
     return (
       <div
         data-testid="chat-s04-error"
-        className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 p-6 text-sm text-red-700 dark:text-red-300"
+        className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-sm text-destructive"
       >
         Failed to load chat channels. Please try again.
       </div>
@@ -106,37 +127,37 @@ export function Chat() {
 
   return (
     <div className="flex h-full" data-testid="chat-s04-page">
-      {/* Channel list */}
-      <div className="flex-1 space-y-4 overflow-auto p-0">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <MessageSquare className="h-5 w-5 text-muted-foreground" />
-            <h1 data-testid="chat-s04-title" className="text-lg font-semibold">
+      {/* ── Left sidebar: channel list ── */}
+      <div className="w-64 shrink-0 flex flex-col border-r border-border bg-muted/30 h-full">
+        {/* Sidebar header */}
+        <div className="flex items-center justify-between px-3 h-12 shrink-0 border-b border-border">
+          <div className="flex items-center gap-2">
+            <h1 data-testid="chat-s04-title" className="text-sm font-semibold">
               Chat
             </h1>
             {openCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {openCount} open
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {openCount}
               </Badge>
             )}
-          </div>
-
-          <div className="flex items-center gap-2">
             {channelsQuery.isFetching && (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
             )}
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              New Chat
-            </Button>
           </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setCreateOpen(true)}
+            aria-label="New chat"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center gap-2">
+        <div className="px-2 py-2 shrink-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] h-8 text-xs">
+            <SelectTrigger className="w-full h-7 text-xs">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -145,90 +166,96 @@ export function Chat() {
               <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>
           </Select>
-
-          {statusFilter && statusFilter !== "all" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs px-2"
-              onClick={() => setStatusFilter("")}
-            >
-              Clear
-            </Button>
-          )}
         </div>
 
-        {/* Empty state */}
-        {channels.length === 0 && (
-          <div
-            data-testid="chat-s04-empty-channels"
-            className="flex flex-col items-center justify-center py-20 text-center"
-          >
-            <div className="bg-muted/50 rounded-full p-5 mb-5">
-              <MessageSquare className="h-10 w-10 text-muted-foreground/50" />
+        {/* Channel list (scrollable) */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
+          {channels.length === 0 ? (
+            <div
+              data-testid="chat-s04-empty-channels"
+              className="flex flex-col items-center justify-center py-12 text-center px-2"
+            >
+              <div className="bg-muted/50 rounded-full p-3 mb-3">
+                <MessageSquare className="h-6 w-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {statusFilter && statusFilter !== "all"
+                  ? `No ${statusFilter} channels.`
+                  : "No channels yet."}
+              </p>
             </div>
-            <h3 className="text-sm font-medium mb-1">No chat channels</h3>
-            <p className="text-xs text-muted-foreground max-w-sm">
-              {statusFilter && statusFilter !== "all"
-                ? `No channels with status "${statusFilter}". Try clearing the filter.`
-                : "Chat channels will appear here when agents are started. Use the Agents page to launch an agent with chat enabled."}
-            </p>
-          </div>
-        )}
+          ) : (
+            <div data-testid="chat-s04-channel-list" className="space-y-0.5">
+              {channels.map((channel) => {
+                const isSelected = selectedChannel?.id === channel.id;
+                const displayName = resolveChannelDisplayName(channel);
+                const agentName = resolveAgentName(channel.agentId);
 
-        {/* Channel list */}
-        {channels.length > 0 && (
-          <div data-testid="chat-s04-channel-list" className="space-y-1">
-            {channels.map((channel) => (
-              <button
-                key={channel.id}
-                type="button"
-                data-testid="chat-s04-channel-item"
-                className={`w-full text-left rounded-lg border px-4 py-3 transition-colors hover:bg-muted/50 ${
-                  selectedChannel?.id === channel.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border"
-                }`}
-                onClick={() => setSelectedChannel(channel)}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    data-testid="chat-s04-channel-name"
-                    className="text-sm font-medium truncate"
+                return (
+                  <button
+                    key={channel.id}
+                    type="button"
+                    data-testid="chat-s04-channel-item"
+                    className={cn(
+                      "w-full text-left rounded-lg px-3 py-2.5 transition-colors",
+                      isSelected
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50 text-foreground",
+                    )}
+                    onClick={() => setSelectedChannel(channel)}
                   >
-                    {channel.name ?? `Channel ${channel.id.slice(0, 8)}`}
-                  </span>
-                  <Badge
-                    data-testid="chat-s04-channel-status"
-                    variant={channel.status === "open" ? "default" : "secondary"}
-                    className="text-[10px] px-1.5 py-0"
-                  >
-                    {channel.status}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span data-testid="chat-s04-channel-agent" className="truncate">
-                    Agent: {channel.agentId.slice(0, 8)}
-                  </span>
-                  <span data-testid="chat-s04-channel-last-msg">
-                    {channel.lastMessageAt
-                      ? timeAgo(channel.lastMessageAt)
-                      : "No messages"}
-                  </span>
-                </div>
-              </button>
-            ))}
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span
+                        data-testid="chat-s04-channel-name"
+                        className="text-sm font-medium truncate"
+                      >
+                        {displayName}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pl-5.5 text-[11px] text-muted-foreground">
+                      <span data-testid="chat-s04-channel-agent" className="truncate">
+                        {agentName}
+                      </span>
+                      <span data-testid="chat-s04-channel-last-msg" className="shrink-0 ml-2">
+                        {channel.lastMessageAt
+                          ? timeAgo(channel.lastMessageAt)
+                          : ""}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Main area: chat or empty state ── */}
+      <div className="flex-1 min-w-0 h-full">
+        {selectedChannel ? (
+          <AgentChatPanel
+            channel={selectedChannel}
+            agentName={resolveAgentName(selectedChannel.agentId)}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <div className="bg-muted/50 rounded-full p-6 mb-5">
+              <MessageSquare className="h-12 w-12 text-muted-foreground/40" />
+            </div>
+            <h2 className="text-lg font-medium text-foreground mb-1">
+              Welcome to Chat
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-sm mb-6">
+              Select a conversation from the sidebar or start a new one to chat with your agents.
+            </p>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Chat
+            </Button>
           </div>
         )}
       </div>
-
-      {/* Chat panel */}
-      {selectedChannel && (
-        <AgentChatPanel
-          channel={selectedChannel}
-          onClose={() => setSelectedChannel(null)}
-        />
-      )}
 
       {/* New Chat dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
