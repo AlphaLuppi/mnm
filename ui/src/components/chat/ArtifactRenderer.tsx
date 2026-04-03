@@ -32,12 +32,12 @@ export function ArtifactRenderer({
       // If language is HTML and not forced to show code, render as iframe preview
       if (language?.toLowerCase() === "html" && !showCode) {
         return (
-          <div className={cn("relative", className)}>
+          <div className={cn("relative flex-1 min-h-0", className)}>
             <iframe
               srcDoc={content}
               sandbox="allow-scripts allow-same-origin"
-              className="w-full border-0 rounded-lg bg-white"
-              style={{ minHeight: "300px", height: "100%" }}
+              className="w-full h-full border-0 rounded-lg bg-white absolute inset-0"
+              style={{ minHeight: "300px" }}
               title="HTML Preview"
             />
           </div>
@@ -101,13 +101,15 @@ export function ArtifactRenderer({
 
     case "html":
       return (
-        <iframe
-          srcDoc={content}
-          sandbox="allow-scripts allow-same-origin"
-          className={cn("w-full border-0 rounded-lg bg-white", className)}
-          style={{ minHeight: "300px", height: "100%" }}
-          title="HTML Preview"
-        />
+        <div className={cn("relative flex-1 min-h-0", className)}>
+          <iframe
+            srcDoc={content}
+            sandbox="allow-scripts allow-same-origin"
+            className="w-full h-full border-0 rounded-lg bg-white absolute inset-0"
+            style={{ minHeight: "300px" }}
+            title="HTML Preview"
+          />
+        </div>
       );
 
     case "diagram":
