@@ -79,3 +79,7 @@ export { configLayerConflictService } from "./config-layer-conflict.js";
 export { configLayerRuntimeService, type ResolvedConfig } from "./config-layer-runtime.js";
 export { mcpCredentialService } from "./mcp-credential.js";
 export { mcpOauthService } from "./mcp-oauth.js";
+// DOCUMENTS: Document service, ingestion, RAG
+export { documentService } from "./document.js";
+export { createIngestionQueue, createIngestionWorker } from "./document-ingestion.js";
+export { ragService } from "./rag.js";
