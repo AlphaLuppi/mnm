@@ -9,8 +9,8 @@
  */
 
 import type { Db } from "@mnm/db";
-import { agents } from "@mnm/db";
-import { and, eq } from "drizzle-orm";
+import { agents, tagAssignments } from "@mnm/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { tagFilterService } from "./tag-filter.js";
 import { a2aBusService } from "./a2a-bus.js";
 import { logger as parentLogger } from "../middleware/logger.js";
@@ -44,10 +44,38 @@ export function agentMentionHandler(db: Db) {
       }
 
       // 2. Check tag-based visibility (user must share at least 1 tag with agent)
-      // We use a bypass scope check here; the user's tags were already validated
-      // at the WS connection level, but we double-check agent visibility.
-      // Note: We don't have the full TagScope here, so we do a lightweight check
-      // by verifying the agent exists and belongs to the company (RLS covers isolation).
+      const userTags = await db
+        .select({ tagId: tagAssignments.tagId })
+        .from(tagAssignments)
+        .where(
+          and(
+            eq(tagAssignments.companyId, companyId),
+            eq(tagAssignments.targetType, "user"),
+            eq(tagAssignments.targetId, senderUserId),
+          ),
+        );
+
+      const agentTags = await db
+        .select({ tagId: tagAssignments.tagId })
+        .from(tagAssignments)
+        .where(
+          and(
+            eq(tagAssignments.companyId, companyId),
+            eq(tagAssignments.targetType, "agent"),
+            eq(tagAssignments.targetId, agent.id),
+          ),
+        );
+
+      if (agentTags.length > 0) {
+        const userTagSet = new Set(userTags.map((t) => t.tagId));
+        const hasOverlap = agentTags.some((t) => userTagSet.has(t.tagId));
+        if (!hasOverlap) {
+          return {
+            success: false,
+            error: `Agent "${agent.name}" is not accessible`,
+          };
+        }
+      }
 
       // 3. Route message via A2A bus
       try {

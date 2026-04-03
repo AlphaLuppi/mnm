@@ -28,7 +28,10 @@ export function chatContextLinkService(db: Db) {
         const doc = await db
           .select({ id: documents.id })
           .from(documents)
-          .where(eq(documents.id, input.documentId))
+          .where(and(
+            eq(documents.id, input.documentId),
+            eq(documents.companyId, companyId),
+          ))
           .then((rows) => rows[0] ?? null);
         if (!doc) {
           throw new Error("Referenced document not found");
@@ -39,7 +42,10 @@ export function chatContextLinkService(db: Db) {
         const art = await db
           .select({ id: artifacts.id })
           .from(artifacts)
-          .where(eq(artifacts.id, input.artifactId))
+          .where(and(
+            eq(artifacts.id, input.artifactId),
+            eq(artifacts.companyId, companyId),
+          ))
           .then((rows) => rows[0] ?? null);
         if (!art) {
           throw new Error("Referenced artifact not found");
@@ -50,7 +56,10 @@ export function chatContextLinkService(db: Db) {
         const fld = await db
           .select({ id: folders.id })
           .from(folders)
-          .where(eq(folders.id, input.folderId))
+          .where(and(
+            eq(folders.id, input.folderId),
+            eq(folders.companyId, companyId),
+          ))
           .then((rows) => rows[0] ?? null);
         if (!fld) {
           throw new Error("Referenced folder not found");
@@ -61,7 +70,10 @@ export function chatContextLinkService(db: Db) {
         const ch = await db
           .select({ id: chatChannels.id })
           .from(chatChannels)
-          .where(eq(chatChannels.id, input.linkedChannelId))
+          .where(and(
+            eq(chatChannels.id, input.linkedChannelId),
+            eq(chatChannels.companyId, companyId),
+          ))
           .then((rows) => rows[0] ?? null);
         if (!ch) {
           throw new Error("Referenced channel not found");
