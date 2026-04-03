@@ -321,14 +321,18 @@ export {
   type UpdateArtifact,
 } from "./artifacts.js";
 export {
-  FOLDER_VISIBILITIES,
   FOLDER_ITEM_TYPES,
+  FOLDER_SHARE_PERMISSIONS,
   createFolderSchema,
   updateFolderSchema,
   addFolderItemSchema,
+  createFolderShareSchema,
+  updateFolderShareSchema,
   type CreateFolder,
   type UpdateFolder,
   type AddFolderItem,
+  type CreateFolderShare,
+  type UpdateFolderShare,
 } from "./folders.js";
 export {
   SHARE_PERMISSIONS,
