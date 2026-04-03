@@ -300,10 +300,31 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
 
     try {
       const completion = chatCompletionService(db);
-      const responseText = await completion.generateResponse(
+
+      // Stream partial responses via chat_message_delta
+      let lastChunkTime = 0;
+      const THROTTLE_MS = 80; // Throttle delta broadcasts to avoid WS flooding
+
+      const onChunk = (partialText: string) => {
+        const now = Date.now();
+        if (now - lastChunkTime < THROTTLE_MS) return;
+        lastChunkTime = now;
+
+        broadcastLocal(channelId, {
+          type: "chat_message_delta" as const,
+          channelId,
+          senderId: "agent",
+          senderType: "agent" as const,
+          content: partialText,
+          isStreaming: true,
+        });
+      };
+
+      const responseText = await completion.generateResponseStreaming(
         companyId,
         channelId,
         userMessage,
+        onChunk,
       );
 
       // Stop typing

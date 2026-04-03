@@ -174,6 +174,31 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
     );
   }
 
+  // ── Streaming message — blinking cursor ──
+  const isStreamingMessage = !!(meta?.isStreaming);
+
+  if (isStreamingMessage) {
+    return (
+      <div
+        data-testid="chat-s04-message"
+        className="flex gap-2.5 px-4 py-1.5 flex-row"
+      >
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium bg-muted text-muted-foreground">
+          <Bot className="h-3 w-3" />
+        </div>
+        <div className="max-w-[75%] flex flex-col items-start">
+          <span className="text-xs text-muted-foreground mb-0.5 ml-1">Agent</span>
+          <div className="bg-muted text-foreground rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm">
+            <p className="whitespace-pre-wrap break-words inline">
+              {message.content}
+            </p>
+            <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-middle rounded-sm" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Regular messages ──
   // User messages — right aligned, primary color
   // Agent messages — left aligned, muted background

@@ -38,6 +38,51 @@ interface HistoryMessage {
 // ─── Service ───────────────────────────────────────────────────────────────
 
 export function chatCompletionService(db: Db) {
+  /**
+   * Shared helper: fetch channel, agent, history, build prompt & messages.
+   */
+  async function prepareContext(companyId: string, channelId: string, userMessage: string) {
+    // 1. Get channel info
+    const [channel] = await db
+      .select()
+      .from(chatChannels)
+      .where(eq(chatChannels.id, channelId));
+
+    if (!channel) throw new Error(`Channel ${channelId} not found`);
+
+    // 2. Get agent info (for system prompt / name)
+    const [agent] = await db
+      .select()
+      .from(agents)
+      .where(eq(agents.id, channel.agentId));
+
+    // 3. Get recent chat history (last N messages)
+    const historyRows = await db
+      .select({
+        content: chatMessages.content,
+        senderType: chatMessages.senderType,
+        messageType: chatMessages.messageType,
+      })
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.channelId, channelId),
+          isNull(chatMessages.deletedAt),
+        ),
+      )
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(HISTORY_LIMIT);
+
+    // Reverse to chronological order
+    historyRows.reverse();
+
+    // 4. Build system prompt and messages
+    const systemPrompt = buildSystemPrompt(agent);
+    const messages = buildMessages(historyRows, userMessage);
+
+    return { systemPrompt, messages };
+  }
+
   return {
     /**
      * Generate a response for a user message in a chat channel.
@@ -48,46 +93,37 @@ export function chatCompletionService(db: Db) {
       channelId: string,
       userMessage: string,
     ): Promise<string> {
-      // 1. Get channel info
-      const [channel] = await db
-        .select()
-        .from(chatChannels)
-        .where(eq(chatChannels.id, channelId));
-
-      if (!channel) throw new Error(`Channel ${channelId} not found`);
-
-      // 2. Get agent info (for system prompt / name)
-      const [agent] = await db
-        .select()
-        .from(agents)
-        .where(eq(agents.id, channel.agentId));
-
-      // 3. Get recent chat history (last N messages)
-      const historyRows = await db
-        .select({
-          content: chatMessages.content,
-          senderType: chatMessages.senderType,
-          messageType: chatMessages.messageType,
-        })
-        .from(chatMessages)
-        .where(
-          and(
-            eq(chatMessages.channelId, channelId),
-            isNull(chatMessages.deletedAt),
-          ),
-        )
-        .orderBy(desc(chatMessages.createdAt))
-        .limit(HISTORY_LIMIT);
-
-      // Reverse to chronological order
-      historyRows.reverse();
-
-      // 4. Build system prompt and messages
-      const systemPrompt = buildSystemPrompt(agent);
-      const messages = buildMessages(historyRows, userMessage);
-
-      // 5. Call LLM with priority fallback
+      const { systemPrompt, messages } = await prepareContext(companyId, channelId, userMessage);
       return await callLlm(systemPrompt, messages);
+    },
+
+    /**
+     * Generate a streaming response for a user message.
+     * Calls onChunk with the accumulated text as it arrives.
+     * Falls back to non-streaming if Anthropic API is unavailable.
+     */
+    async generateResponseStreaming(
+      companyId: string,
+      channelId: string,
+      userMessage: string,
+      onChunk: (partialText: string) => void,
+    ): Promise<string> {
+      const { systemPrompt, messages } = await prepareContext(companyId, channelId, userMessage);
+
+      // Only Anthropic direct API supports streaming
+      if (ANTHROPIC_API_KEY) {
+        try {
+          const result = await callAnthropicApiStreaming(systemPrompt, messages, ANTHROPIC_API_KEY, onChunk);
+          if (result) return result;
+        } catch (err) {
+          logger.warn({ err }, "Anthropic streaming failed, falling back to non-streaming");
+        }
+      }
+
+      // Fallback: non-streaming (call callLlm which tries all strategies)
+      const result = await callLlm(systemPrompt, messages);
+      onChunk(result);
+      return result;
     },
   };
 }
@@ -282,6 +318,84 @@ async function callLlmEndpoint(
   };
 
   return data?.content?.[0]?.text ?? null;
+}
+
+async function callAnthropicApiStreaming(
+  systemPrompt: string,
+  messages: HistoryMessage[],
+  apiKey: string,
+  onChunk: (partialText: string) => void,
+): Promise<string | null> {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: CHAT_MODEL,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages,
+      stream: true,
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  if (!response.ok || !response.body) {
+    const errText = await response.text().catch(() => "unknown");
+    throw new Error(`Anthropic streaming error: ${response.status} ${errText}`);
+  }
+
+  let fullText = "";
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  // Use getReader() for Node.js ReadableStream compatibility
+  const streamReader = (response.body as ReadableStream<Uint8Array>).getReader();
+
+  try {
+    while (true) {
+      const { done, value } = await streamReader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+
+        try {
+          const event = JSON.parse(data) as {
+            type: string;
+            delta?: { type: string; text?: string };
+          };
+
+          if (
+            event.type === "content_block_delta" &&
+            event.delta?.type === "text_delta" &&
+            event.delta.text
+          ) {
+            fullText += event.delta.text;
+            onChunk(fullText);
+          }
+        } catch {
+          // Skip unparseable SSE events
+        }
+      }
+    }
+  } finally {
+    streamReader.releaseLock();
+  }
+
+  if (!fullText) return null;
+
+  logger.debug({ length: fullText.length }, "Anthropic streaming call succeeded");
+  return fullText;
 }
 
 async function callClaudeCli(
