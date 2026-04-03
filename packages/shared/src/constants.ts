@@ -280,6 +280,13 @@ export const LIVE_EVENT_TYPES = [
   "chat.shared",
   "chat.forked",
   "chat.context_linked",
+  // FEEDBACK: Vote events
+  "feedback.updated",
+  // ROUTINES: Routine live events
+  "routine.created",
+  "routine.updated",
+  "routine.run_created",
+  "routine.run_completed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
