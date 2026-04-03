@@ -524,7 +524,9 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
           await publishToRedis(channelId, serverMessage);
 
           // Trigger LLM response for user messages (async, don't block WS handler)
+          logger.info({ actorType, actorId, channelId }, "Message received, checking if LLM response needed");
           if (actorType === "user") {
+            logger.info({ channelId, content: payload.content.slice(0, 50) }, "Triggering LLM response");
             generateAgentResponse(channelId, companyId, payload.content).catch(
               (err) => {
                 logger.error({ err, channelId }, "Failed to generate agent response");
