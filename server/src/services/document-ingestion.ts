@@ -4,6 +4,7 @@ import type { Db } from "@mnm/db";
 import { documents, documentChunks, assets } from "@mnm/db";
 import { documentService } from "./document.js";
 import { publishLiveEvent } from "./live-events.js";
+import { embedText } from "./embedding.js";
 import { logger } from "../middleware/logger.js";
 
 export function createIngestionQueue(redisConnection: ConnectionOptions) {
@@ -181,11 +182,23 @@ export function createIngestionWorker(db: Db, redisConnection: ConnectionOptions
             const chunkContent = chunks[i]!;
             const chunkTokenCount = estimateTokens(chunkContent);
 
-            // Embedding generation is a stub for now
-            logger.info(
-              { documentId, chunkIndex: i, chunkTokenCount },
-              "Embedding provider not configured; storing chunk with null embedding",
-            );
+            // Generate embedding (returns null if no provider configured — RAG degrades gracefully)
+            let embedding: number[] | null = null;
+            try {
+              embedding = await embedText(chunkContent);
+            } catch (err) {
+              logger.warn(
+                { err, documentId, chunkIndex: i },
+                "Embedding generation failed for chunk; storing with null embedding",
+              );
+            }
+
+            if (!embedding) {
+              logger.info(
+                { documentId, chunkIndex: i, chunkTokenCount },
+                "No embedding generated; storing chunk with null embedding",
+              );
+            }
 
             await db.insert(documentChunks).values({
               documentId,
@@ -193,7 +206,7 @@ export function createIngestionWorker(db: Db, redisConnection: ConnectionOptions
               chunkIndex: i,
               content: chunkContent,
               tokenCount: chunkTokenCount,
-              embedding: null,
+              embedding,
               metadata: { sourceDocumentId: documentId },
             });
           }
