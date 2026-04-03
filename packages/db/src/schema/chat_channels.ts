@@ -1,8 +1,9 @@
-import { pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, pgTable, uuid, text, timestamp, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { agents } from "./agents.js";
 import { heartbeatRuns } from "./heartbeat_runs.js";
 import { projects } from "./projects.js";
+import { folders } from "./folders.js";
 
 export const chatChannels = pgTable(
   "chat_channels",
@@ -19,6 +20,10 @@ export const chatChannels = pgTable(
     description: text("description"),
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
+    // Collaborative chat columns
+    folderId: uuid("folder_id").references(() => folders.id, { onDelete: "set null" }),
+    forkedFromChannelId: uuid("forked_from_channel_id").references((): AnyPgColumn => chatChannels.id, { onDelete: "set null" }),
+    forkPointMessageId: uuid("fork_point_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
