@@ -230,4 +230,23 @@ export const queryKeys = {
     credentials: (companyId: string) =>
       ["config-layers", companyId, "credentials"] as const,
   },
+  documents: {
+    list: (companyId: string) => ["documents", companyId] as const,
+    detail: (companyId: string, id: string) => ["documents", companyId, id] as const,
+    chunks: (companyId: string, id: string) => ["documents", companyId, id, "chunks"] as const,
+  },
+  artifacts: {
+    list: (companyId: string, channelId?: string) => ["artifacts", companyId, { channelId }] as const,
+    detail: (companyId: string, id: string) => ["artifacts", companyId, id] as const,
+    versions: (companyId: string, id: string) => ["artifacts", companyId, id, "versions"] as const,
+  },
+  folders: {
+    list: (companyId: string) => ["folders", companyId] as const,
+    detail: (companyId: string, id: string) => ["folders", companyId, id] as const,
+  },
+  chatSharing: {
+    shares: (companyId: string, channelId: string) => ["chatShares", companyId, channelId] as const,
+    shared: (companyId: string, token: string) => ["sharedChat", companyId, token] as const,
+    contextLinks: (companyId: string, channelId: string) => ["contextLinks", companyId, channelId] as const,
+  },
 };
