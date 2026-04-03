@@ -224,7 +224,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
     },
   );
 
-  // POST /api/companies/:companyId/documents/:id/summarize — trigger summarization (stub)
+  // POST /api/companies/:companyId/documents/:id/summarize — trigger summarization
   router.post(
     "/companies/:companyId/documents/:id/summarize",
     requirePermission(db, "documents:read"),
@@ -237,7 +237,50 @@ export function documentRoutes(db: Db, storage: StorageService) {
         throw notFound("Document not found");
       }
 
-      res.status(501).json({ error: "Summarization requires LLM integration (not yet implemented)" });
+      const textToSummarize = (doc as any).extractedText as string | null;
+      if (!textToSummarize) {
+        res.status(400).json({ error: "Document text not yet extracted. Wait for ingestion to complete." });
+        return;
+      }
+
+      // Use claude -p --model haiku (same pattern as trace pipeline LLM enrichment)
+      try {
+        const { execFile } = await import("node:child_process");
+        const { promisify } = await import("node:util");
+        const execFileAsync = promisify(execFile);
+
+        const prompt = `Summarize the following document concisely. Include key points, structure, and important data.\n\n${textToSummarize.slice(0, 50000)}`;
+
+        const { stdout } = await execFileAsync(
+          "claude",
+          ["-p", prompt, "--output-format", "text", "--model", "haiku", "--max-tokens", "2000"],
+          {
+            timeout: 30_000,
+            maxBuffer: 1024 * 1024,
+            env: { ...process.env, CLAUDE_CODE_ENABLE_TELEMETRY: "0" },
+          },
+        );
+
+        const summary = stdout?.trim();
+        if (summary) {
+          await docSvc.updateIngestionStatus(doc.id, (doc as any).ingestionStatus ?? "ready", { summary });
+          res.json({ summary });
+          return;
+        }
+
+        // Empty response — fall through to fallback
+        throw new Error("Empty LLM response");
+      } catch (err: any) {
+        logger.warn({ err, documentId: doc.id }, "LLM summarization failed; using text truncation fallback");
+
+        // Fallback: return first 2000 chars as summary
+        const fallbackSummary =
+          textToSummarize.slice(0, 2000) +
+          (textToSummarize.length > 2000 ? "\n\n[Truncated — full text available in document]" : "");
+
+        await docSvc.updateIngestionStatus(doc.id, (doc as any).ingestionStatus ?? "ready", { summary: fallbackSummary });
+        res.json({ summary: fallbackSummary });
+      }
     },
   );
 

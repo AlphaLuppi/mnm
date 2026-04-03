@@ -44,29 +44,43 @@ export function slashCommandResolver(db: Db) {
     summarize: async () => ({
       success: true,
       content:
-        "[System] Summarize the current conversation context and linked documents.",
+        "Please provide a comprehensive summary of the current conversation and all linked documents. Format the output as a structured markdown artifact.",
     }),
 
-    "summarize-doc": async (args) => ({
-      success: true,
-      content: `[System] Summarize the document: ${args.join(" ").trim() || "(no document specified)"}`,
-    }),
+    "summarize-doc": async (args) => {
+      const docRef = args.join(" ").trim();
+      if (!docRef) {
+        return { success: false, error: "Usage: /summarize-doc <document name or id>" };
+      }
+      return {
+        success: true,
+        content: `Please provide a detailed summary of the document "${docRef}". Include key sections, main points, and any important data. Format as a structured markdown artifact.`,
+      };
+    },
 
-    "deep-dive": async (args) => ({
-      success: true,
-      content: `[System] RAG mode activated for: ${args.join(" ").trim() || "(current documents)"}`,
-    }),
+    "deep-dive": async (args) => {
+      const docRef = args.join(" ").trim();
+      return {
+        success: true,
+        content: `RAG mode activated for ${docRef || "all linked documents"}. Future messages will include relevant document excerpts as context. The agent will ground its responses in the document content.`,
+      };
+    },
 
     export: async () => ({
       success: true,
-      content:
-        "[System] Export requested. The current artifact will be prepared for download.",
+      content: "Preparing the current artifact for download.",
     }),
 
-    save: async (args) => ({
-      success: true,
-      content: `[System] Save to folder: ${args.join(" ").trim() || "(select a folder)"}`,
-    }),
+    save: async (args) => {
+      const folderRef = args.join(" ").trim();
+      if (!folderRef) {
+        return { success: false, error: "Usage: /save <folder name>" };
+      }
+      return {
+        success: true,
+        content: `Saving the most recent artifact to folder "${folderRef}".`,
+      };
+    },
   };
 
   return {
