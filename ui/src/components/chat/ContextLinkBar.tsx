@@ -48,11 +48,12 @@ export function ContextLinkBar({
 }: ContextLinkBarProps) {
   const queryClient = useQueryClient();
 
-  const { data: links = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: queryKeys.chatSharing.contextLinks(companyId, channelId),
     queryFn: () => chatSharingApi.getContextLinks(companyId, channelId),
     enabled: !!companyId && !!channelId,
   });
+  const links: ChatContextLink[] = data?.links ?? [];
 
   const removeMutation = useMutation({
     mutationFn: (linkId: string) =>
