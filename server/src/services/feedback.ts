@@ -165,7 +165,7 @@ export function feedbackService(db: Db) {
           down: sql<number>`count(*) filter (where ${feedbackVotes.vote} = 'down')`.as("down"),
         })
         .from(feedbackVotes)
-        .innerJoin(issueComments, eq(feedbackVotes.targetId, issueComments.id))
+        .innerJoin(issueComments, sql`${feedbackVotes.targetId}::uuid = ${issueComments.id}`)
         .where(and(...baseConditions));
     } else {
       totalsQuery = db
@@ -204,7 +204,7 @@ export function feedbackService(db: Db) {
         downVotes: sql<number>`count(*) filter (where ${feedbackVotes.vote} = 'down')`.as("down_votes"),
       })
       .from(feedbackVotes)
-      .innerJoin(issueComments, eq(feedbackVotes.targetId, issueComments.id))
+      .innerJoin(issueComments, sql`${feedbackVotes.targetId}::uuid = ${issueComments.id}`)
       .innerJoin(agents, eq(issueComments.authorAgentId, agents.id))
       .where(and(...byAgentConditions))
       .groupBy(issueComments.authorAgentId, agents.name)
