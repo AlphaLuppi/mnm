@@ -37,7 +37,7 @@ export function ArtifactRenderer({
               srcDoc={content}
               sandbox="allow-scripts allow-same-origin"
               className="w-full border-0 rounded-lg bg-white"
-              style={{ minHeight: "400px" }}
+              style={{ minHeight: "300px", height: "100%" }}
               title="HTML Preview"
             />
           </div>
@@ -105,7 +105,7 @@ export function ArtifactRenderer({
           srcDoc={content}
           sandbox="allow-scripts allow-same-origin"
           className={cn("w-full border-0 rounded-lg bg-white", className)}
-          style={{ minHeight: "400px" }}
+          style={{ minHeight: "300px", height: "100%" }}
           title="HTML Preview"
         />
       );

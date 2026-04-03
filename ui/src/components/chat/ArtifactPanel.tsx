@@ -117,7 +117,7 @@ export function ArtifactPanel({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full border-l border-border w-80">
+      <div className="flex flex-col h-full border-l border-border w-full">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <span className="text-sm text-muted-foreground">Loading...</span>
           <Button variant="ghost" size="icon-sm" onClick={onClose}>
@@ -130,7 +130,7 @@ export function ArtifactPanel({
 
   if (!artifact) {
     return (
-      <div className="flex flex-col h-full border-l border-border w-80">
+      <div className="flex flex-col h-full border-l border-border w-full">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <span className="text-sm text-muted-foreground">
             Artifact not found
@@ -144,7 +144,7 @@ export function ArtifactPanel({
   }
 
   return (
-    <div className="flex flex-col h-full border-l border-border w-80">
+    <div className="flex flex-col h-full border-l border-border w-full">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2 gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -253,7 +253,7 @@ export function ArtifactPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3">
         {editing ? (
           <textarea
             value={editContent}
