@@ -8,6 +8,8 @@ import type {
 import type { RedisState } from "../redis.js";
 import { logger as parentLogger } from "../middleware/logger.js";
 import { chatService } from "./chat.js";
+import { slashCommandResolver } from "./slash-command-resolver.js";
+import { agentMentionHandler } from "./agent-mention-handler.js";
 
 const logger = parentLogger.child({ module: "chat-ws-manager" });
 
@@ -403,6 +405,90 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
           // Publish to Redis for cross-instance distribution
           await publishToRedis(channelId, serverMessage);
 
+          return;
+        }
+
+        case "slash_command": {
+          const resolver = slashCommandResolver(db);
+          const result = await resolver.resolve(
+            payload.command,
+            payload.args ?? [],
+            { companyId, channelId, userId: actorId },
+          );
+
+          // Send command_result back to the sender
+          sendTo(socket, {
+            type: "command_result",
+            command: payload.command,
+            success: result.success,
+            error: result.error,
+            channelId,
+          });
+
+          // If command produced content, persist and broadcast as a system message
+          if (result.content) {
+            const dbMsg = await svc.createMessage(
+              channelId,
+              companyId,
+              actorId,
+              "user",
+              result.content,
+              { slashCommand: payload.command },
+              { messageType: "system" },
+            );
+
+            const systemMessage: ChatServerMessage = {
+              type: "chat_message",
+              id: dbMsg.id,
+              channelId,
+              senderId: actorId,
+              senderType: "user",
+              senderName: actorName,
+              content: result.content,
+              metadata: { slashCommand: payload.command },
+              createdAt: dbMsg.createdAt.toISOString(),
+            };
+
+            addToBuffer(channelId, systemMessage);
+            broadcastLocal(channelId, systemMessage);
+            await publishToRedis(channelId, systemMessage);
+          }
+
+          return;
+        }
+
+        case "mention_agent": {
+          const handler = agentMentionHandler(db);
+          const result = await handler.handleMention(
+            companyId,
+            channelId,
+            payload.agentId,
+            payload.content,
+            actorId,
+          );
+
+          if (!result.success) {
+            sendTo(socket, {
+              type: "error",
+              code: "INVALID_MESSAGE",
+              message: result.error ?? "Failed to mention agent",
+            });
+          }
+          // On success, the A2A bus handler will post the response back to the channel
+          return;
+        }
+
+        case "upload_complete": {
+          // Broadcast document_status to all channel participants
+          const docStatus: ChatServerPayload = {
+            type: "document_status",
+            documentId: payload.documentId,
+            status: "uploaded",
+            channelId,
+          };
+
+          broadcastLocal(channelId, docStatus);
+          await publishToRedis(channelId, docStatus);
           return;
         }
       }
