@@ -250,6 +250,7 @@ export function tagsRoutes(db: Db) {
   router.get("/companies/:companyId/users/:userId/tags", async (req, res) => {
     const companyId = req.params.companyId as string;
     const userId = req.params.userId as string;
+    assertCompanyAccess(req, companyId);
 
     const assignments = await db
       .select({ tag: tags })

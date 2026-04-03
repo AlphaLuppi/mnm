@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
+import { requireTagScope } from "../middleware/tag-scope.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { chatService } from "../services/chat.js";
 import { createChannelSchema, updateMessageSchema, pipeAttachSchema } from "../validators/chat-ws.js";
@@ -19,10 +20,22 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       const body = createChannelSchema.safeParse(req.body);
       if (!body.success) {
         throw badRequest("Invalid request body", body.error.issues);
+      }
+
+      // Tag isolation: verify the user can see the target agent
+      if (!tagScope.bypassTagFilter) {
+        const agentVisible = await svc.isChannelVisible(
+          { agentId: body.data.agentId, companyId, createdBy: null },
+          tagScope,
+        );
+        if (!agentVisible) {
+          throw notFound("Agent not found");
+        }
       }
 
       // CHAT-S02: pass createdBy from actor info
@@ -48,6 +61,7 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       const status = (req.query.status as string) || undefined;
       const agentId = (req.query.agentId as string) || undefined;
@@ -64,6 +78,7 @@ export function chatRoutes(db: Db) {
         limit,
         offset,
         sortBy: sortBy === "lastMessageAt" ? "lastMessageAt" : "createdAt",
+        tagScope,
       });
 
       res.json(result);
@@ -77,9 +92,16 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       const channel = await svc.getChannel(req.params.channelId as string);
       if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      // Tag isolation: verify the user can see this channel
+      const visible = await svc.isChannelVisible(channel, tagScope);
+      if (!visible) {
         throw notFound("Channel not found");
       }
 
@@ -96,10 +118,17 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       // Verify channel belongs to this company
       const channel = await svc.getChannel(req.params.channelId as string);
       if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      // Tag isolation: verify the user can see this channel
+      const visible = await svc.isChannelVisible(channel, tagScope);
+      if (!visible) {
         throw notFound("Channel not found");
       }
 
@@ -119,9 +148,16 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       const channel = await svc.getChannel(req.params.channelId as string);
       if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      // Tag isolation: verify the user can see this channel
+      const visible = await svc.isChannelVisible(channel, tagScope);
+      if (!visible) {
         throw notFound("Channel not found");
       }
 
@@ -151,6 +187,7 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       const body = updateMessageSchema.safeParse(req.body);
       if (!body.success) {
@@ -160,6 +197,12 @@ export function chatRoutes(db: Db) {
       // Verify channel belongs to this company
       const channel = await svc.getChannel(req.params.channelId as string);
       if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      // Tag isolation: verify the user can see this channel
+      const visible = await svc.isChannelVisible(channel, tagScope);
+      if (!visible) {
         throw notFound("Channel not found");
       }
 
@@ -223,10 +266,17 @@ export function chatRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
 
       // Verify channel belongs to this company
       const channel = await svc.getChannel(req.params.channelId as string);
       if (!channel || channel.companyId !== companyId) {
+        throw notFound("Channel not found");
+      }
+
+      // Tag isolation: verify the user can see this channel
+      const visible = await svc.isChannelVisible(channel, tagScope);
+      if (!visible) {
         throw notFound("Channel not found");
       }
 

@@ -59,7 +59,20 @@ export function agentRoutes(db: Db) {
   const heartbeat = heartbeatService(db);
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
+  const tagFilter = tagFilterService(db);
   const strictSecretsMode = process.env.MNM_SECRETS_STRICT_MODE === "true";
+
+  /**
+   * Assert that the current user can see an agent based on tag isolation.
+   * Returns false (agent not visible) or true (visible / no tag scope).
+   * Agent actors accessing themselves always pass.
+   */
+  async function assertAgentTagVisible(req: Request, agentId: string, companyId: string): Promise<boolean> {
+    // Agent actors accessing themselves always pass
+    if (req.actor.type === "agent" && req.actor.agentId === agentId) return true;
+    if (!req.tagScope || req.tagScope.bypassTagFilter) return true;
+    return tagFilter.isAgentVisible(companyId, agentId, req.tagScope);
+  }
 
   function canCreateAgents(agent: { permissions: Record<string, unknown> | null | undefined }) {
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
@@ -462,7 +475,6 @@ export function agentRoutes(db: Db) {
 
     // Tag-based isolation: filter agents by user's tag scope
     if (req.tagScope && !req.tagScope.bypassTagFilter) {
-      const tagFilter = tagFilterService(db);
       const visibleAgents = await tagFilter.listAgentsFiltered(companyId, req.tagScope);
       const visibleIds = new Set(visibleAgents.map((a) => a.id));
       result = result.filter((a) => visibleIds.has(a.id));
@@ -480,6 +492,32 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const tree = await svc.orgForCompany(companyId);
+
+    // Tag-based isolation: filter org tree to only include visible agents
+    if (req.tagScope && !req.tagScope.bypassTagFilter) {
+      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, req.tagScope);
+      const visibleIds = new Set(visibleAgents.map(a => a.id));
+
+      function filterOrgTree(nodes: Record<string, unknown>[]): Record<string, unknown>[] {
+        return nodes
+          .map((node) => {
+            const reports = Array.isArray(node.reports)
+              ? filterOrgTree(node.reports as Record<string, unknown>[])
+              : [];
+            if (visibleIds.has(String(node.id)) || reports.length > 0) {
+              return { ...node, reports };
+            }
+            return null;
+          })
+          .filter(Boolean) as Record<string, unknown>[];
+      }
+
+      const filteredTree = filterOrgTree(tree as Record<string, unknown>[]);
+      const leanTree = filteredTree.map((node) => toLeanOrgNode(node));
+      res.json(leanTree);
+      return;
+    }
+
     const leanTree = tree.map((node) => toLeanOrgNode(node as Record<string, unknown>));
     res.json(leanTree);
   });
@@ -513,6 +551,11 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    // Tag-based isolation
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     if (req.actor.type === "agent" && req.actor.agentId !== id) {
       const canRead = await actorCanReadConfigurationsForCompany(req, agent.companyId);
       if (!canRead) {
@@ -532,6 +575,10 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     await assertCanReadConfigurations(req, agent.companyId);
     res.json(redactAgentConfiguration(agent));
   });
@@ -540,6 +587,10 @@ export function agentRoutes(db: Db) {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -553,6 +604,10 @@ export function agentRoutes(db: Db) {
     const revisionId = req.params.revisionId as string;
     const agent = await svc.getById(id);
     if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -570,6 +625,10 @@ export function agentRoutes(db: Db) {
     const revisionId = req.params.revisionId as string;
     const existing = await svc.getById(id);
     if (!existing) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -617,6 +676,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const state = await heartbeat.getRuntimeState(id);
@@ -632,6 +695,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const sessions = await heartbeat.listTaskSessions(id);
@@ -652,6 +719,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
 
     const taskKey =
@@ -892,6 +963,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, existing.companyId, "users:manage_permissions");
 
     if (req.actor.type === "agent") {
@@ -943,6 +1018,10 @@ export function agentRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -1028,6 +1107,10 @@ export function agentRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -1125,6 +1208,7 @@ export function agentRoutes(db: Db) {
     const existing = await svc.getById(id);
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.pause(id);
     if (!agent) {
@@ -1152,6 +1236,7 @@ export function agentRoutes(db: Db) {
     const existing = await svc.getById(id);
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.resume(id);
     if (!agent) {
@@ -1177,6 +1262,7 @@ export function agentRoutes(db: Db) {
     const existing = await svc.getById(id);
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
     const agent = await svc.terminate(id);
     if (!agent) {
@@ -1204,6 +1290,7 @@ export function agentRoutes(db: Db) {
     const existing = await svc.getById(id);
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     await assertCompanyPermission(db, req, existing.companyId, "agents:create");
     const agent = await svc.remove(id);
     if (!agent) {
@@ -1235,6 +1322,10 @@ export function agentRoutes(db: Db) {
   router.get("/agents/:id/keys", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     const keys = await svc.listKeys(id);
     res.json(keys);
   });
@@ -1245,6 +1336,7 @@ export function agentRoutes(db: Db) {
     const agentForPermCheck = await svc.getById(id);
     if (!agentForPermCheck) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, agentForPermCheck.companyId);
+    if (!(await assertAgentTagVisible(req, id, agentForPermCheck.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     await assertCompanyPermission(db, req, agentForPermCheck.companyId, "agents:create");
     const key = await svc.createApiKey(id, req.body.name);
 
@@ -1274,6 +1366,11 @@ export function agentRoutes(db: Db) {
 
   router.delete("/agents/:id/keys/:keyId", async (req, res) => {
     assertBoard(req);
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+    assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
     const keyId = req.params.keyId as string;
     const revoked = await svc.revokeKey(keyId);
     if (!revoked) {
@@ -1291,6 +1388,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
 
     if (req.actor.type === "agent" && req.actor.agentId !== id) {
       res.status(403).json({ error: "Agent can only invoke itself" });
@@ -1348,6 +1449,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
 
     if (req.actor.type === "agent" && req.actor.agentId !== id) {
       res.status(403).json({ error: "Agent can only invoke itself" });
@@ -1398,6 +1503,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
+    if (!(await assertAgentTagVisible(req, id, agent.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
     await assertCompanyPermission(db, req, agent.companyId, "agents:create");
     if (agent.adapterType !== "claude_local") {
       res.status(400).json({ error: "Login is only supported for claude_local agents" });
@@ -1435,7 +1544,12 @@ export function agentRoutes(db: Db) {
     const agentId = req.query.agentId as string | undefined;
     const limitParam = req.query.limit as string | undefined;
     const limit = limitParam ? Math.max(1, Math.min(1000, parseInt(limitParam, 10) || 200)) : undefined;
-    const runs = await heartbeat.list(companyId, agentId, limit);
+    let runs = await heartbeat.list(companyId, agentId, limit);
+    if (req.tagScope && !req.tagScope.bypassTagFilter) {
+      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, req.tagScope);
+      const visibleIds = new Set(visibleAgents.map(a => a.id));
+      runs = runs.filter(r => visibleIds.has(r.agentId));
+    }
     res.json(runs);
   });
 
@@ -1460,7 +1574,14 @@ export function agentRoutes(db: Db) {
       issueId: sql<string | null>`${heartbeatRuns.contextSnapshot} ->> 'issueId'`.as("issueId"),
     };
 
-    const liveRuns = await db
+    // Build visible agent set for tag filtering (once, reused below)
+    let visibleIds: Set<string> | null = null;
+    if (req.tagScope && !req.tagScope.bypassTagFilter) {
+      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, req.tagScope);
+      visibleIds = new Set(visibleAgents.map(a => a.id));
+    }
+
+    let liveRuns = await db
       .select(columns)
       .from(heartbeatRuns)
       .innerJoin(agentsTable, eq(heartbeatRuns.agentId, agentsTable.id))
@@ -1472,9 +1593,11 @@ export function agentRoutes(db: Db) {
       )
       .orderBy(desc(heartbeatRuns.createdAt));
 
+    if (visibleIds) liveRuns = liveRuns.filter(r => visibleIds!.has(r.agentId));
+
     if (minCount > 0 && liveRuns.length < minCount) {
       const activeIds = liveRuns.map((r) => r.id);
-      const recentRuns = await db
+      let recentRuns = await db
         .select(columns)
         .from(heartbeatRuns)
         .innerJoin(agentsTable, eq(heartbeatRuns.agentId, agentsTable.id))
@@ -1487,6 +1610,8 @@ export function agentRoutes(db: Db) {
         )
         .orderBy(desc(heartbeatRuns.createdAt))
         .limit(minCount - liveRuns.length);
+
+      if (visibleIds) recentRuns = recentRuns.filter(r => visibleIds!.has(r.agentId));
 
       res.json([...liveRuns, ...recentRuns]);
       return;
@@ -1501,6 +1626,7 @@ export function agentRoutes(db: Db) {
     const run = await heartbeat.cancelRun(runId);
 
     if (run) {
+      assertCompanyAccess(req, run.companyId);
       await logActivity(db, {
         companyId: run.companyId,
         actorType: "user",
@@ -1563,6 +1689,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
 
     const liveRuns = await db
       .select({
@@ -1601,6 +1731,10 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
 
     let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
     if (run && run.status !== "queued" && run.status !== "running") {

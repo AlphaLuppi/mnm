@@ -13,7 +13,7 @@ import {
 import { driftPersistenceService } from "../services/drift-persistence.js";
 import { driftMonitorService } from "../services/drift-monitor.js";
 import { emitAudit } from "../services/audit-emitter.js";
-import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertCompanyAccess, assertProjectAccess, getActorInfo } from "./authz.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
 import { getScopeProjectIds } from "../services/scope-filter.js";
@@ -47,6 +47,7 @@ export function driftRoutes(db: Db) {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const parsed = driftCheckBody.safeParse(req.body);
     if (!parsed.success) {
@@ -69,6 +70,7 @@ export function driftRoutes(db: Db) {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
     const offset = req.query.offset ? Number(req.query.offset) : undefined;
@@ -87,6 +89,7 @@ export function driftRoutes(db: Db) {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const persistence = driftPersistenceService(db);
     const severity = req.query.severity as string | undefined;
@@ -113,6 +116,7 @@ export function driftRoutes(db: Db) {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const parsed = driftScanBody.safeParse(req.body ?? {});
     if (!parsed.success) {
@@ -139,6 +143,7 @@ export function driftRoutes(db: Db) {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const scanStatus = await getDriftScanStatus(db, project.companyId, project.id);
     res.json(scanStatus);
@@ -149,6 +154,7 @@ export function driftRoutes(db: Db) {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const cancelled = cancelDriftScan(project.id);
     res.json({ cancelled });
@@ -168,6 +174,7 @@ export function driftRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, project.companyId);
+    await assertProjectAccess(db, req, project.companyId, project.id);
 
     const parsed = driftResolveBody.safeParse(req.body);
     if (!parsed.success) {

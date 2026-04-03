@@ -48,6 +48,10 @@ interface CommentThreadProps {
   /** For feedback vote buttons on agent comments */
   companyId?: string;
   issueId?: string;
+  /** Current logged-in user ID to distinguish "You" from other human commenters */
+  currentUserId?: string | null;
+  /** Map of userId → display name for human commenters */
+  userMap?: Map<string, string>;
 }
 
 const CLOSED_STATUSES = new Set(["done", "cancelled"]);
@@ -125,12 +129,16 @@ const TimelineList = memo(function TimelineList({
   highlightCommentId,
   companyId,
   issueId,
+  currentUserId,
+  userMap,
 }: {
   timeline: TimelineItem[];
   agentMap?: Map<string, Agent>;
   highlightCommentId?: string | null;
   companyId?: string;
   issueId?: string;
+  currentUserId?: string | null;
+  userMap?: Map<string, string>;
 }) {
   if (timeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No comments or runs yet.</p>;
@@ -185,7 +193,14 @@ const TimelineList = memo(function TimelineList({
                   />
                 </Link>
               ) : (
-                <Identity name="You" size="sm" />
+                <Identity
+                  name={
+                    comment.authorUserId && comment.authorUserId === currentUserId
+                      ? "You"
+                      : (comment.authorUserId && userMap?.get(comment.authorUserId)) || "User"
+                  }
+                  size="sm"
+                />
               )}
               <span className="flex items-center gap-1.5">
                 <a
@@ -248,6 +263,8 @@ export function CommentThread({
   mentions: providedMentions,
   companyId,
   issueId,
+  currentUserId,
+  userMap,
 }: CommentThreadProps) {
   const [body, setBody] = useState("");
   const [reopen, setReopen] = useState(true);
@@ -372,7 +389,7 @@ export function CommentThread({
     <div className="space-y-4">
       <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
 
-      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} companyId={companyId} issueId={issueId} />
+      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} companyId={companyId} issueId={issueId} currentUserId={currentUserId} userMap={userMap} />
 
       {liveRunSlot}
 

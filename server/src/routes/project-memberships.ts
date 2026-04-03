@@ -3,7 +3,7 @@ import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { validate } from "../middleware/validate.js";
 import { emitAudit, projectMembershipService, logActivity } from "../services/index.js";
-import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertCompanyAccess, assertProjectAccess, getActorInfo } from "./authz.js";
 import {
   addProjectMemberSchema,
   updateProjectMemberRoleSchema,
@@ -22,6 +22,7 @@ export function projectMembershipRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     const projectId = req.params.projectId as string;
     assertCompanyAccess(req, companyId);
+    await assertProjectAccess(db, req, companyId, projectId);
 
     const limitParam = req.query.limit as string | undefined;
     if (limitParam) {
@@ -46,6 +47,7 @@ export function projectMembershipRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       const projectId = req.params.projectId as string;
       assertCompanyAccess(req, companyId);
+      await assertProjectAccess(db, req, companyId, projectId);
       const { userIds, role } = req.body;
       const actor = getActorInfo(req);
       const result = await svc.bulkAddMembers(companyId, projectId, userIds, role, actor.actorId);
@@ -82,6 +84,7 @@ export function projectMembershipRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       const projectId = req.params.projectId as string;
       assertCompanyAccess(req, companyId);
+      await assertProjectAccess(db, req, companyId, projectId);
       const { userIds } = req.body;
       const actor = getActorInfo(req);
       const result = await svc.bulkRemoveMembers(companyId, projectId, userIds);
@@ -118,6 +121,7 @@ export function projectMembershipRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       const projectId = req.params.projectId as string;
       assertCompanyAccess(req, companyId);
+      await assertProjectAccess(db, req, companyId, projectId);
       const { userId, role } = req.body;
       const actor = getActorInfo(req);
       const member = await svc.addMember(
@@ -159,6 +163,7 @@ export function projectMembershipRoutes(db: Db) {
       const projectId = req.params.projectId as string;
       const userId = req.params.userId as string;
       assertCompanyAccess(req, companyId);
+      await assertProjectAccess(db, req, companyId, projectId);
       const actor = getActorInfo(req);
       const removed = await svc.removeMember(companyId, projectId, userId);
       await logActivity(db, {
@@ -194,6 +199,7 @@ export function projectMembershipRoutes(db: Db) {
       const projectId = req.params.projectId as string;
       const userId = req.params.userId as string;
       assertCompanyAccess(req, companyId);
+      await assertProjectAccess(db, req, companyId, projectId);
       const actor = getActorInfo(req);
       const updated = await svc.updateMemberRole(
         companyId,

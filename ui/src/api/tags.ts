@@ -54,4 +54,12 @@ export const tagsApi = {
   /** Get tags assigned to a specific agent */
   listForAgent: (companyId: string, agentId: string) =>
     api.get<Tag[]>(`/companies/${companyId}/agents/${agentId}/tags`),
+
+  /** Get tags assigned to a specific user */
+  listForUser: (companyId: string, userId: string) =>
+    api.get<Tag[]>(`/companies/${companyId}/users/${userId}/tags`),
+
+  /** Replace all tags for a user */
+  updateUserTags: (companyId: string, userId: string, tagIds: string[]) =>
+    api.put<void>(`/companies/${companyId}/users/${userId}/tags`, { tagIds }),
 };

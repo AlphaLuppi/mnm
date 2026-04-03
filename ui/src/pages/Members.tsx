@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, UserPlus, Search, MoreHorizontal } from "lucide-react";
+import { Users, UserPlus, Search, MoreHorizontal, Check, Tag } from "lucide-react";
 import { accessApi, type EnrichedMember } from "../api/access";
 import { rolesApi, type Role } from "../api/roles";
+import { tagsApi, type Tag as TagType } from "../api/tags";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -14,6 +15,7 @@ import { RoleBadge } from "../components/RoleBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
@@ -87,6 +89,13 @@ export function Members() {
   const { data: roles } = useQuery({
     queryKey: queryKeys.roles.list(selectedCompanyId!),
     queryFn: () => rolesApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  // Fetch all company tags for the tag selector
+  const { data: companyTags } = useQuery({
+    queryKey: queryKeys.tags.list(selectedCompanyId!, false),
+    queryFn: () => tagsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
@@ -296,6 +305,9 @@ export function Members() {
                   Role
                 </th>
                 <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
+                  Tags
+                </th>
+                <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
                   Status
                 </th>
                 <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden lg:table-cell">
@@ -313,6 +325,8 @@ export function Members() {
                   member={member}
                   roles={roles ?? []}
                   getRoleName={getRoleName}
+                  companyId={selectedCompanyId!}
+                  companyTags={companyTags ?? []}
                   onRoleChange={(roleId) =>
                     updateRoleMutation.mutate({
                       memberId: member.id,
@@ -447,6 +461,8 @@ function MemberRow({
   member,
   roles,
   getRoleName,
+  companyId,
+  companyTags,
   onRoleChange,
   onStatusChange,
   onRevoke,
@@ -454,15 +470,48 @@ function MemberRow({
   member: EnrichedMember;
   roles: Role[];
   getRoleName: (member: EnrichedMember) => string;
+  companyId: string;
+  companyTags: TagType[];
   onRoleChange: (roleId: string) => void;
   onStatusChange: (status: "active" | "suspended") => void;
   onRevoke?: () => void;
 }) {
+  const queryClient = useQueryClient();
   const isPending = member.status === "pending";
   const displayName = member.userName ?? member.userEmail ?? member.principalId;
   const displayEmail = member.userName ? (member.userEmail ?? null) : null;
   const isSuspended = member.status === "suspended";
   const roleName = getRoleName(member);
+  const [tagsOpen, setTagsOpen] = useState(false);
+
+  const { data: userTags } = useQuery({
+    queryKey: queryKeys.tags.forUser(companyId, member.principalId),
+    queryFn: () => tagsApi.listForUser(companyId, member.principalId),
+    enabled: !isPending,
+  });
+
+  const updateTagsMutation = useMutation({
+    mutationFn: (tagIds: string[]) =>
+      tagsApi.updateUserTags(companyId, member.principalId, tagIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tags.forUser(companyId, member.principalId),
+      });
+    },
+  });
+
+  const userTagIds = useMemo(
+    () => new Set((userTags ?? []).map((t) => t.id)),
+    [userTags],
+  );
+
+  function toggleTag(tagId: string) {
+    const current = [...userTagIds];
+    const next = userTagIds.has(tagId)
+      ? current.filter((id) => id !== tagId)
+      : [...current, tagId];
+    updateTagsMutation.mutate(next);
+  }
 
   return (
     <tr
@@ -524,6 +573,55 @@ function MemberRow({
               ))}
             </SelectContent>
           </Select>
+        )}
+      </td>
+
+      {/* Tags */}
+      <td className="px-4 py-2.5 hidden md:table-cell">
+        {isPending ? (
+          <span className="text-xs text-muted-foreground italic">--</span>
+        ) : (
+          <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
+            <PopoverTrigger asChild>
+              <button
+                data-testid={`mu-s02-member-tags-${member.id}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors"
+              >
+                <Tag className="h-3 w-3 text-muted-foreground" />
+                {userTagIds.size > 0
+                  ? `${userTagIds.size} tag${userTagIds.size > 1 ? "s" : ""}`
+                  : "Tags..."}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1" align="start">
+              {companyTags.length === 0 ? (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">No tags available</p>
+              ) : (
+                companyTags.map((tag) => {
+                  const isSelected = userTagIds.has(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                        isSelected && "bg-accent",
+                      )}
+                      onClick={() => toggleTag(tag.id)}
+                    >
+                      {tag.color && (
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                      )}
+                      <span className="truncate">{tag.name}</span>
+                      {isSelected && <Check className="h-3 w-3 ml-auto text-foreground shrink-0" />}
+                    </button>
+                  );
+                })
+              )}
+            </PopoverContent>
+          </Popover>
         )}
       </td>
 

@@ -6,6 +6,7 @@ import { activityApi } from "../api/activity";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
+import { accessApi } from "../api/access";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { usePanel } from "../context/PanelContext";
@@ -255,6 +256,22 @@ export function IssueDetail() {
     for (const a of agents ?? []) map.set(a.id, a);
     return map;
   }, [agents]);
+
+  const { data: members } = useQuery({
+    queryKey: queryKeys.access.members(selectedCompanyId!),
+    queryFn: () => accessApi.listMembers(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of members ?? []) {
+      if (m.principalId && m.userName) {
+        map.set(m.principalId, m.userName);
+      }
+    }
+    return map;
+  }, [members]);
 
   const mentionOptions = useMemo<MentionOption[]>(() => {
     const options: MentionOption[] = [];
@@ -771,6 +788,8 @@ export function IssueDetail() {
             agentMap={agentMap}
             companyId={selectedCompanyId ?? undefined}
             issueId={issue.id}
+            currentUserId={currentUserId}
+            userMap={userMap}
             draftKey={`mnm:issue-comment-draft:${issue.id}`}
             enableReassign
             reassignOptions={commentReassignOptions}

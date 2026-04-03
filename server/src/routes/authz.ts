@@ -1,5 +1,7 @@
 import type { Request } from "express";
-import { forbidden, unauthorized } from "../errors.js";
+import type { Db } from "@mnm/db";
+import { badRequest, forbidden, unauthorized } from "../errors.js";
+import { getScopeProjectIds } from "../services/scope-filter.js";
 
 export function assertBoard(req: Request) {
   if (req.actor.type !== "board") {
@@ -19,6 +21,14 @@ export function assertCompanyAccess(req: Request, companyId: string) {
     if (!allowedCompanies.includes(companyId)) {
       throw forbidden("User does not have access to this company");
     }
+  }
+}
+
+export async function assertProjectAccess(db: Db, req: Request, companyId: string, projectId: string): Promise<void> {
+  if (!projectId) throw badRequest("projectId is required");
+  const scopeProjectIds = await getScopeProjectIds(db, companyId, req);
+  if (scopeProjectIds !== null && !scopeProjectIds.includes(projectId)) {
+    throw forbidden("Access denied: not a member of this project");
   }
 }
 

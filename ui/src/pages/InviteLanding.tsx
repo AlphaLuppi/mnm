@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@/lib/router";
+import { Link, useNavigate, useParams } from "@/lib/router";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
@@ -49,6 +49,7 @@ function readNestedString(value: unknown, path: string[]): string | null {
 
 export function InviteLandingPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const params = useParams();
   const token = (params.token ?? "").trim();
   const [joinType, setJoinType] = useState<JoinType>("human");
@@ -57,6 +58,7 @@ export function InviteLandingPage() {
   const [capabilities, setCapabilities] = useState("");
   const [result, setResult] = useState<{ kind: "bootstrap" | "join"; payload: unknown } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoAcceptTriggered = useRef(false);
 
   const healthQuery = useQuery({
     queryKey: queryKeys.health,
@@ -116,6 +118,13 @@ export function InviteLandingPage() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
       const asBootstrap =
         payload && typeof payload === "object" && "bootstrapAccepted" in (payload as Record<string, unknown>);
+      // If auto-approved (admin invited this specific email), redirect to dashboard
+      const isAutoApproved =
+        payload && typeof payload === "object" && "autoApproved" in (payload as Record<string, unknown>);
+      if (isAutoApproved) {
+        navigate("/");
+        return;
+      }
       setResult({ kind: asBootstrap ? "bootstrap" : "join", payload });
     },
     onError: (err) => {
@@ -123,12 +132,35 @@ export function InviteLandingPage() {
     },
   });
 
+  // Auto-accept for targeted email invites: when the invite only allows human joins
+  // (admin invited a specific email), and user is already authenticated, accept immediately
+  // without showing the choice screen.
+  const shouldAutoAccept =
+    invite &&
+    invite.inviteType !== "bootstrap_ceo" &&
+    invite.targetEmail &&
+    allowedJoinTypes === "human" &&
+    sessionQuery.data &&
+    !requiresAuthForHuman &&
+    !result &&
+    !error &&
+    !acceptMutation.isPending;
+
+  useEffect(() => {
+    if (shouldAutoAccept && !autoAcceptTriggered.current) {
+      autoAcceptTriggered.current = true;
+      acceptMutation.mutate();
+    }
+  }, [shouldAutoAccept, acceptMutation]);
+
   if (!token) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-destructive">Invalid invite token.</div>;
   }
 
-  if (inviteQuery.isLoading || healthQuery.isLoading || sessionQuery.isLoading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading invite...</div>;
+  if (inviteQuery.isLoading || healthQuery.isLoading || sessionQuery.isLoading || shouldAutoAccept) {
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">
+      {shouldAutoAccept ? "Joining..." : "Loading invite..."}
+    </div>;
   }
 
   if (inviteQuery.error || !invite) {
@@ -238,7 +270,7 @@ export function InviteLandingPage() {
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">Invite expires {dateTime(invite.expiresAt)}.</p>
 
-        {invite.inviteType !== "bootstrap_ceo" && (
+        {invite.inviteType !== "bootstrap_ceo" && availableJoinTypes.length > 1 && (
           <div className="mt-5 flex gap-2">
             {availableJoinTypes.map((type) => (
               <button
@@ -301,7 +333,9 @@ export function InviteLandingPage() {
 
         {requiresAuthForHuman && (
           <div className="mt-4 rounded-md border border-border bg-muted/30 p-3 text-sm">
-            Sign in or create an account before submitting a human join request.
+            {invite.targetEmail
+              ? "Sign in or create an account to accept your invitation."
+              : "Sign in or create an account before submitting a join request."}
             <div className="mt-2">
               <Button asChild size="sm" variant="outline">
                 <Link to={`/auth?next=${encodeURIComponent(`/invite/${token}`)}`}>Sign in / Create account</Link>
@@ -322,10 +356,12 @@ export function InviteLandingPage() {
           onClick={() => acceptMutation.mutate()}
         >
           {acceptMutation.isPending
-            ? "Submitting…"
+            ? "Joining…"
             : invite.inviteType === "bootstrap_ceo"
               ? "Accept bootstrap invite"
-              : "Submit join request"}
+              : invite.targetEmail && allowedJoinTypes === "human"
+                ? "Join"
+                : "Submit join request"}
         </Button>
       </div>
     </div>

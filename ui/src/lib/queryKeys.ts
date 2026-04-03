@@ -162,6 +162,8 @@ export const queryKeys = {
       ["tags", companyId, "detail", tagId] as const,
     forAgent: (companyId: string, agentId: string) =>
       ["tags", companyId, "agent", agentId] as const,
+    forUser: (companyId: string, userId: string) =>
+      ["tags", companyId, "user", userId] as const,
   },
   // ONB-S01: onboarding tracking
   onboarding: {
