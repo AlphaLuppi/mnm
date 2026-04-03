@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Tag, Trash2, Check, ChevronsUpDown } from "lucide-react";
+import { UserPlus, Tag, Trash2, Check, ChevronsUpDown, X } from "lucide-react";
 import { foldersApi } from "../../api/folders";
 import { accessApi, type EnrichedMember } from "../../api/access";
 import { tagsApi } from "../../api/tags";
@@ -332,10 +332,10 @@ export function FolderShareManager({
               {tag.name}
               {canEdit && (
                 <button
-                  className="ml-0.5 text-muted-foreground hover:text-foreground"
-                  onClick={() => removeTagMutation.mutate(tag.id)}
+                  className="ml-0.5 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={(e) => { e.stopPropagation(); removeTagMutation.mutate(tag.id); }}
                 >
-                  &times;
+                  <X className="h-3 w-3" />
                 </button>
               )}
             </span>
