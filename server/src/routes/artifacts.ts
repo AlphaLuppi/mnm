@@ -4,7 +4,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { artifactService } from "../services/artifact.js";
 import { createArtifactSchema, updateArtifactSchema } from "@mnm/shared";
-import { badRequest, notFound } from "../errors.js";
+import { badRequest, forbidden, notFound } from "../errors.js";
 
 export function artifactRoutes(db: Db): Router {
   const router = Router();
@@ -93,6 +93,19 @@ export function artifactRoutes(db: Db): Router {
       }
 
       const actor = getActorInfo(req);
+
+      // Ownership check: user-created artifacts can only be modified by their creator (or admin)
+      // Agent-created artifacts (no createdByUserId) are modifiable by any user with permission
+      const existing = await svc.getById(companyId, req.params.id as string);
+      if (!existing) {
+        throw notFound("Artifact not found");
+      }
+      if (existing.createdByUserId && existing.createdByUserId !== actor.actorId) {
+        if (!req.tagScope?.bypassTagFilter) {
+          throw forbidden("Only the creator can modify this artifact");
+        }
+      }
+
       const creatorInfo =
         actor.actorType === "agent"
           ? { agentId: actor.actorId }
@@ -124,6 +137,15 @@ export function artifactRoutes(db: Db): Router {
       const existing = await svc.getById(companyId, req.params.id as string);
       if (!existing) {
         throw notFound("Artifact not found");
+      }
+
+      // Ownership check: user-created artifacts can only be deleted by their creator (or admin)
+      // Agent-created artifacts (no createdByUserId) are deletable by any user with permission
+      const actor = getActorInfo(req);
+      if (existing.createdByUserId && existing.createdByUserId !== actor.actorId) {
+        if (!req.tagScope?.bypassTagFilter) {
+          throw forbidden("Only the creator can delete this artifact");
+        }
       }
 
       await svc.delete(companyId, req.params.id as string);
