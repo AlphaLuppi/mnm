@@ -81,3 +81,8 @@ export { workflowTemplateStageLayers } from "./workflow_template_stage_layers.js
 export { workflowStageConfigLayers } from "./workflow_stage_config_layers.js";
 export { userMcpCredentials } from "./user_mcp_credentials.js";
 export { configLayerRevisions } from "./config_layer_revisions.js";
+// ROUTINES: Recurring task definitions
+export { routines, routineTriggers, routineRuns } from "./routines.js";
+export type { RoutineVariable } from "./routines.js";
+// FEEDBACK: Vote on agent output quality
+export { feedbackVotes } from "./feedback_votes.js";

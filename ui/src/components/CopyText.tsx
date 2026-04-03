@@ -18,7 +18,21 @@ export function CopyText({ text, children, className, copiedLabel = "Copied!" }:
 
   const handleClick = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        try {
+          textarea.select();
+          if (!document.execCommand("copy")) throw new Error("execCommand failed");
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
       setLabel(copiedLabel);
     } catch {
       setLabel("Copy failed");
