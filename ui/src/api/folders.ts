@@ -42,4 +42,12 @@ export const foldersApi = {
   removeItem(companyId: string, folderId: string, itemId: string) {
     return api.delete(`/companies/${companyId}/folders/${folderId}/items/${itemId}`);
   },
+
+  addTag(companyId: string, folderId: string, tagId: string) {
+    return api.post(`/companies/${companyId}/folders/${folderId}/tags`, { tagId });
+  },
+
+  removeTag(companyId: string, folderId: string, tagId: string) {
+    return api.delete(`/companies/${companyId}/folders/${folderId}/tags/${tagId}`);
+  },
 };

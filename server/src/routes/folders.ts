@@ -1,5 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
+import { and, eq, sql } from "drizzle-orm";
+import { tagAssignments, tags } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { folderService } from "../services/folder.js";
@@ -80,10 +82,37 @@ export function folderRoutes(db: Db): Router {
         throw notFound("Folder not found");
       }
 
-      // Also fetch items
-      const items = await svc.getItems(companyId, folder.id);
+      // Fetch items and folder tags in parallel
+      const [items, folderTags] = await Promise.all([
+        svc.getItems(companyId, folder.id),
+        db
+          .select({
+            tagId: tagAssignments.tagId,
+            tagName: tags.name,
+            tagSlug: tags.slug,
+            tagColor: tags.color,
+          })
+          .from(tagAssignments)
+          .innerJoin(tags, eq(tags.id, tagAssignments.tagId))
+          .where(
+            and(
+              eq(tagAssignments.companyId, companyId),
+              eq(tagAssignments.targetType, "folder"),
+              sql`${tagAssignments.targetId} = ${folder.id}`,
+            ),
+          ),
+      ]);
 
-      res.json({ ...folder, items });
+      res.json({
+        ...folder,
+        items,
+        tags: folderTags.map((t) => ({
+          id: t.tagId,
+          name: t.tagName,
+          slug: t.tagSlug,
+          color: t.tagColor,
+        })),
+      });
     },
   );
 
@@ -220,6 +249,88 @@ export function folderRoutes(db: Db): Router {
       if (!deleted) {
         throw notFound("Folder item not found");
       }
+
+      res.status(204).end();
+    },
+  );
+
+  // POST /api/companies/:companyId/folders/:id/tags — assign a tag to a folder
+  router.post(
+    "/companies/:companyId/folders/:id/tags",
+    requirePermission(db, "folders:edit"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const { tagId } = req.body;
+      if (!tagId || typeof tagId !== "string") {
+        throw badRequest("tagId is required");
+      }
+
+      const folderId = req.params.id as string;
+      const actor = getActorInfo(req);
+
+      // Verify folder exists
+      const isAdmin = req.tagScope?.bypassTagFilter ?? false;
+      const folder = await svc.getById(companyId, folderId, actor.actorId, { isAdmin });
+      if (!folder) {
+        throw notFound("Folder not found");
+      }
+
+      // Verify tag exists in company
+      const [tag] = await db
+        .select({ id: tags.id })
+        .from(tags)
+        .where(and(eq(tags.id, tagId), eq(tags.companyId, companyId)));
+      if (!tag) {
+        throw notFound("Tag not found");
+      }
+
+      // Insert (ignore conflict on unique index)
+      await db
+        .insert(tagAssignments)
+        .values({
+          companyId,
+          targetType: "folder",
+          targetId: folderId,
+          tagId,
+          assignedBy: actor.actorId,
+        })
+        .onConflictDoNothing();
+
+      res.status(201).json({ tagId, folderId });
+    },
+  );
+
+  // DELETE /api/companies/:companyId/folders/:id/tags/:tagId — remove a tag from a folder
+  router.delete(
+    "/companies/:companyId/folders/:id/tags/:tagId",
+    requirePermission(db, "folders:edit"),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const folderId = req.params.id as string;
+      const tagId = req.params.tagId as string;
+      const actor = getActorInfo(req);
+
+      // Verify folder exists
+      const isAdmin = req.tagScope?.bypassTagFilter ?? false;
+      const folder = await svc.getById(companyId, folderId, actor.actorId, { isAdmin });
+      if (!folder) {
+        throw notFound("Folder not found");
+      }
+
+      await db
+        .delete(tagAssignments)
+        .where(
+          and(
+            eq(tagAssignments.companyId, companyId),
+            eq(tagAssignments.targetType, "folder"),
+            sql`${tagAssignments.targetId} = ${folderId}`,
+            eq(tagAssignments.tagId, tagId),
+          ),
+        );
 
       res.status(204).end();
     },

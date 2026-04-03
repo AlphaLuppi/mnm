@@ -1,4 +1,4 @@
-export type FolderVisibility = "private" | "team" | "public";
+export type FolderVisibility = "private" | "public";
 
 export type FolderItemType = "artifact" | "document" | "channel";
 
