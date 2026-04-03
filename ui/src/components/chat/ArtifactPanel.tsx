@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Copy, Download, Pencil, Check, History } from "lucide-react";
+import { X, Copy, Download, Pencil, Check, History, ExternalLink, Code, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ArtifactVersion } from "@mnm/shared";
@@ -24,6 +24,7 @@ export function ArtifactPanel({
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [showVersions, setShowVersions] = useState(false);
+  const [showCode, setShowCode] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<ArtifactVersion | null>(
     null,
   );
@@ -92,6 +93,24 @@ export function ArtifactPanel({
     setViewingVersion(version);
     setEditing(false);
   };
+
+  const openInNewTab = useCallback(() => {
+    const text =
+      viewingVersion?.content ?? artifact?.currentVersion?.content ?? "";
+    const mimeType =
+      artifact?.artifactType === "html" ||
+      (artifact?.artifactType === "code" && artifact?.language?.toLowerCase() === "html")
+        ? "text/html"
+        : "text/plain";
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }, [viewingVersion, artifact]);
+
+  /** Whether the artifact can be rendered as a preview (HTML, code-html) */
+  const isPreviewable =
+    artifact?.artifactType === "html" ||
+    (artifact?.artifactType === "code" && artifact?.language?.toLowerCase() === "html");
 
   const displayContent =
     viewingVersion?.content ?? artifact?.currentVersion?.content ?? "";
@@ -204,6 +223,24 @@ export function ArtifactPanel({
             </Button>
           </>
         )}
+        {isPreviewable && !editing && (
+          <Button
+            variant={showCode ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={() => setShowCode((v) => !v)}
+            title={showCode ? "Show preview" : "Show code"}
+          >
+            {showCode ? <Eye className="h-3.5 w-3.5" /> : <Code className="h-3.5 w-3.5" />}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={openInNewTab}
+          title="Open in new tab"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Button>
         <div className="flex-1" />
         <Button
           variant={showVersions ? "secondary" : "ghost"}
@@ -228,6 +265,7 @@ export function ArtifactPanel({
             content={displayContent}
             artifactType={artifact.artifactType}
             language={artifact.language}
+            showCode={showCode}
           />
         )}
       </div>

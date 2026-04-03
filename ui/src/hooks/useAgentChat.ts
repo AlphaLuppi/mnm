@@ -118,7 +118,55 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
                 deletedAt: null,
                 createdAt: payload.createdAt,
               };
-              setMessages((prev) => [...prev, newMsg]);
+              // Replace streaming placeholder from this sender, or append
+              const streamingId = `streaming-${payload.senderId}`;
+              setMessages((prev) => {
+                const hasStreaming = prev.some((m) => m.id === streamingId);
+                if (hasStreaming) {
+                  return prev.map((m) => (m.id === streamingId ? newMsg : m));
+                }
+                return [...prev, newMsg];
+              });
+              break;
+            }
+
+            case "chat_message_delta": {
+              const delta = payload as {
+                type: "chat_message_delta";
+                channelId: string;
+                senderId: string;
+                senderType: "user" | "agent";
+                content: string;
+                isStreaming: boolean;
+              };
+              const streamingId = `streaming-${delta.senderId}`;
+              setMessages((prev) => {
+                const existing = prev.find((m) => m.id === streamingId);
+                if (existing) {
+                  return prev.map((m) =>
+                    m.id === streamingId ? { ...m, content: delta.content } : m,
+                  );
+                }
+                return [
+                  ...prev,
+                  {
+                    id: streamingId,
+                    channelId: delta.channelId,
+                    companyId: companyId!,
+                    senderId: delta.senderId,
+                    senderType: delta.senderType,
+                    content: delta.content,
+                    metadata: { isStreaming: true },
+                    messageType: "text" as const,
+                    replyToId: null,
+                    editedAt: null,
+                    deletedAt: null,
+                    createdAt: new Date().toISOString(),
+                  },
+                ];
+              });
+              // Hide typing indicator while streaming
+              setIsTyping(false);
               break;
             }
 

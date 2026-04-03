@@ -127,7 +127,7 @@ export function Chat() {
 
   // When a channel is selected, show full-page chat. Otherwise show channel list.
   return (
-    <div className="h-full" data-testid="chat-s04-page">
+    <div className="h-[calc(100vh-theme(spacing.12))] -m-4 md:-m-6" data-testid="chat-s04-page">
       {selectedChannel ? (
         /* ── Full-page chat ── */
         <AgentChatPanel
