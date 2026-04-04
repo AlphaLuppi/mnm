@@ -35,11 +35,14 @@
       })();
     </script>
     <style>
+      body { margin: 0; padding: 0; }
       #app-loader {
-        position: relative;
-        height: 100vh;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
         overflow: hidden;
         background: #fafaf9;
+        transition: opacity 0.4s ease-out;
       }
       .dark #app-loader {
         background: #1c1917;
@@ -62,12 +65,12 @@
     </style>
   </head>
   <body>
-    <div id="root">
-      <div id="app-loader">
-        <pre id="mnm-canvas" aria-hidden="true"></pre>
-      </div>
+    <div id="app-loader">
+      <pre id="mnm-canvas" aria-hidden="true"></pre>
     </div>
+    <div id="root"></div>
     <script>
+      window.__MNM_LOADER_START = performance.now();
       (() => {
         const LOGO = [
           "██▄     ▄██         ██▄     ▄██",
