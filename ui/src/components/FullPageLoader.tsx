@@ -10,10 +10,7 @@ const LOGO = [
 ];
 const NOISE = "░▒▓█▀▄╔╗╚╝║═╭╮╰╯│─";
 const GLYPH = [" ", ".", "·", "▪", "▫", "○"] as const;
-const SPRITES = [
-  ["  ╭────╮ ", " ╭╯╭──╮│ ", " │ │  ││ ", " │ │  ││ ", " │ ╰──╯│ ", " ╰─────╯ "],
-  [" ╭─────╮ ", " │╭──╮╰╮ ", " ││  │ │ ", " ││  │ │ ", " │╰──╯ │ ", " ╰────╯  "],
-];
+const SPRITES: string[][] = [];
 const FPS = 24;
 const FRAME_MS = 1000 / FPS;
 
