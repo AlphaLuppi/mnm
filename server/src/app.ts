@@ -299,9 +299,29 @@ export async function createApp(
     const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
     if (uiDist) {
       const indexHtml = fs.readFileSync(path.join(uiDist, "index.html"), "utf-8");
-      app.use(express.static(uiDist));
+      // Hashed assets (Vite puts them in /assets/) → immutable long-term cache
+      app.use(
+        "/assets",
+        express.static(path.join(uiDist, "assets"), {
+          maxAge: "1y",
+          immutable: true,
+        }),
+      );
+      // Everything else (favicon, manifest, sw.js, etc.) → short cache with revalidation
+      app.use(
+        express.static(uiDist, {
+          maxAge: 0,
+          etag: true,
+          lastModified: true,
+        }),
+      );
+      // SPA fallback — always serve fresh index.html (no-cache so browser fetches new chunk refs)
       app.get(/.*/, (_req, res) => {
-        res.status(200).set("Content-Type", "text/html").end(indexHtml);
+        res
+          .status(200)
+          .set("Content-Type", "text/html")
+          .set("Cache-Control", "no-cache, no-store, must-revalidate")
+          .end(indexHtml);
       });
     } else {
       console.warn("[mnm] UI dist not found; running in API-only mode");
