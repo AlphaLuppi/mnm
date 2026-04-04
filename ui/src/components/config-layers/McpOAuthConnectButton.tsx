@@ -61,14 +61,10 @@ export function McpOAuthConnectButton({
   const handleMessage = useCallback(
     (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.type === "oauth_success" && event.data?.itemId === itemId) {
+      if (event.data?.type === "mcp-oauth-result" && event.data?.itemId === itemId) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.configLayers.credentials(companyId),
         });
-        popupRef.current?.close();
-        popupRef.current = null;
-      }
-      if (event.data?.type === "oauth_error" && event.data?.itemId === itemId) {
         popupRef.current?.close();
         popupRef.current = null;
       }
