@@ -1,18 +1,26 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ConfigLayerItem, ConfigLayerItemType } from "@mnm/shared";
-import { configLayersApi } from "../../api/config-layers";
+import {
+  configLayersApi,
+  type UserMcpCredential,
+  type McpCredentialStatus,
+} from "../../api/config-layers";
 import { queryKeys } from "../../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, KeyRound, Link2Off } from "lucide-react";
 import { McpItemEditor } from "./McpItemEditor";
 import { HookItemEditor } from "./HookItemEditor";
 import { SkillItemEditor } from "./SkillItemEditor";
 import { SettingItemEditor } from "./SettingItemEditor";
+import { McpOAuthConnectButton } from "./McpOAuthConnectButton";
+import { ApiKeyCredentialDialog } from "./ApiKeyCredentialDialog";
+import { cn } from "../../lib/utils";
 
 type Props = {
   layerId: string;
+  companyId?: string;
   items: ConfigLayerItem[];
   itemType: ConfigLayerItemType;
   readOnly?: boolean;
@@ -37,9 +45,13 @@ function ItemEditor({
     case "hook":
       return <HookItemEditor item={item} onSave={onSave} onCancel={onCancel} />;
     case "skill":
-      return <SkillItemEditor item={item} onSave={onSave} onCancel={onCancel} />;
+      return (
+        <SkillItemEditor item={item} onSave={onSave} onCancel={onCancel} />
+      );
     case "setting":
-      return <SettingItemEditor item={item} onSave={onSave} onCancel={onCancel} />;
+      return (
+        <SettingItemEditor item={item} onSave={onSave} onCancel={onCancel} />
+      );
   }
 }
 
@@ -50,14 +62,68 @@ const ITEM_TYPE_LABELS: Record<ConfigLayerItemType, string> = {
   setting: "Setting",
 };
 
-export function LayerItemList({ layerId, items, itemType, readOnly }: Props) {
+// ── Credential status helpers ─────────────────────────────────────────────────
+
+const STATUS_STYLE: Record<
+  McpCredentialStatus,
+  { dotClass: string; label: string }
+> = {
+  connected: { dotClass: "bg-green-500", label: "Connected" },
+  pending: { dotClass: "bg-amber-500", label: "Pending" },
+  expired: { dotClass: "bg-amber-500", label: "Expired" },
+  revoked: { dotClass: "bg-red-500", label: "Revoked" },
+  error: { dotClass: "bg-red-500", label: "Error" },
+  disconnected: { dotClass: "bg-neutral-400", label: "No secrets" },
+};
+
+function CredentialStatusBadge({ status }: { status: McpCredentialStatus }) {
+  const cfg = STATUS_STYLE[status] ?? STATUS_STYLE.disconnected;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span
+        className={cn("inline-block h-1.5 w-1.5 rounded-full shrink-0", cfg.dotClass)}
+      />
+      {cfg.label}
+    </span>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export function LayerItemList({
+  layerId,
+  companyId,
+  items,
+  itemType,
+  readOnly,
+}: Props) {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [apiKeyItemId, setApiKeyItemId] = useState<string | null>(null);
+  const [apiKeyItemName, setApiKeyItemName] = useState("");
 
   const filtered = items.filter((it) => it.itemType === itemType);
 
+  // Load credentials for MCP items (only when viewing MCP tab with companyId)
+  const isMcp = itemType === "mcp";
+  const { data: credentials } = useQuery({
+    queryKey: queryKeys.configLayers.credentials(companyId!),
+    queryFn: () => configLayersApi.listCredentials(companyId!),
+    enabled: isMcp && !!companyId,
+  });
+
+  // Build a map of itemId → credential for quick lookup
+  const credByItemId = new Map<string, UserMcpCredential>();
+  if (credentials) {
+    for (const c of credentials) {
+      credByItemId.set(c.itemId, c);
+    }
+  }
+
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.configLayers.detail(layerId) });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.configLayers.detail(layerId),
+    });
   };
 
   const addMutation = useMutation({
@@ -75,7 +141,13 @@ export function LayerItemList({ layerId, items, itemType, readOnly }: Props) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ itemId, config }: { itemId: string; config: Record<string, unknown> }) =>
+    mutationFn: ({
+      itemId,
+      config,
+    }: {
+      itemId: string;
+      config: Record<string, unknown>;
+    }) =>
       configLayersApi.updateItem(layerId, itemId, {
         name: (config.name as string) ?? undefined,
         configJson: config,
@@ -87,8 +159,19 @@ export function LayerItemList({ layerId, items, itemType, readOnly }: Props) {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (itemId: string) => configLayersApi.removeItem(layerId, itemId),
+    mutationFn: (itemId: string) =>
+      configLayersApi.removeItem(layerId, itemId),
     onSuccess: () => invalidate(),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (credentialId: string) =>
+      configLayersApi.revokeCredential(credentialId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.configLayers.credentials(companyId!),
+      });
+    },
   });
 
   function handleSave(config: Record<string, unknown>) {
@@ -97,6 +180,17 @@ export function LayerItemList({ layerId, items, itemType, readOnly }: Props) {
     } else if (editingId) {
       updateMutation.mutate({ itemId: editingId, config });
     }
+  }
+
+  function getCredentialStatus(itemId: string): McpCredentialStatus {
+    const cred = credByItemId.get(itemId);
+    if (!cred) return "disconnected";
+    return cred.status as McpCredentialStatus;
+  }
+
+  function hasOAuthConfig(item: ConfigLayerItem): boolean {
+    const cfg = item.configJson as Record<string, unknown> | undefined;
+    return !!(cfg?.oauth && typeof cfg.oauth === "object");
   }
 
   return (
@@ -145,9 +239,70 @@ export function LayerItemList({ layerId, items, itemType, readOnly }: Props) {
                   {it.displayName ?? it.name}
                 </span>
                 {it.description && (
-                  <span className="text-muted-foreground text-xs truncate block">{it.description}</span>
+                  <span className="text-muted-foreground text-xs truncate block">
+                    {it.description}
+                  </span>
                 )}
               </div>
+
+              {/* Credential status for MCP items */}
+              {isMcp && companyId && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <CredentialStatusBadge
+                    status={getCredentialStatus(it.id)}
+                  />
+
+                  {/* API Key button */}
+                  {!readOnly && (
+                    <Button
+                      size="sm"
+                      variant={
+                        getCredentialStatus(it.id) === "connected"
+                          ? "outline"
+                          : "secondary"
+                      }
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setApiKeyItemId(it.id);
+                        setApiKeyItemName(it.displayName ?? it.name);
+                      }}
+                    >
+                      <KeyRound className="h-3 w-3 mr-1" />
+                      {getCredentialStatus(it.id) === "connected"
+                        ? "Update secrets"
+                        : "Add secrets"}
+                    </Button>
+                  )}
+
+                  {/* OAuth connect button (only if item has oauth config) */}
+                  {!readOnly && hasOAuthConfig(it) && (
+                    <McpOAuthConnectButton
+                      itemId={it.id}
+                      companyId={companyId}
+                      status={getCredentialStatus(it.id)}
+                    />
+                  )}
+
+                  {/* Revoke button (only if connected) */}
+                  {!readOnly &&
+                    getCredentialStatus(it.id) === "connected" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          const cred = credByItemId.get(it.id);
+                          if (cred) revokeMutation.mutate(cred.id);
+                        }}
+                        disabled={revokeMutation.isPending}
+                      >
+                        <Link2Off className="h-3 w-3 mr-1" />
+                        Revoke
+                      </Button>
+                    )}
+                </div>
+              )}
+
               <Badge
                 variant={it.enabled ? "default" : "secondary"}
                 className="text-xs"
@@ -179,6 +334,19 @@ export function LayerItemList({ layerId, items, itemType, readOnly }: Props) {
           )}
         </div>
       ))}
+
+      {/* API Key credential dialog */}
+      {apiKeyItemId && companyId && (
+        <ApiKeyCredentialDialog
+          open={!!apiKeyItemId}
+          onOpenChange={(open) => {
+            if (!open) setApiKeyItemId(null);
+          }}
+          itemId={apiKeyItemId}
+          itemName={apiKeyItemName}
+          companyId={companyId}
+        />
+      )}
     </div>
   );
 }

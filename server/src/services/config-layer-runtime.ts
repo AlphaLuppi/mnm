@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
+import { mcpCredentialService } from "./mcp-credential.js";
 
 // ─── Resolved Config Types ────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ interface FileRow {
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export function configLayerRuntimeService(db: Db) {
+  const credSvc = mcpCredentialService(db);
 
   /**
    * Main entry point — resolves the merged configuration for an agent run.
@@ -280,6 +282,54 @@ export function configLayerRuntimeService(db: Db) {
 
         default:
           warnings.push(`Unknown item_type "${row.item_type}" for item "${row.name}" — skipped`);
+      }
+    }
+
+    // ── 4. Inject MCP credentials ─────────────────────────────────────────
+    // For each MCP item, check if the owner has stored credentials.
+    // Credential material.env gets merged on top of static env vars.
+
+    const mcpItemIds = mergedRows
+      .filter((r) => r.item_type === "mcp")
+      .map((r) => r.id);
+
+    if (mcpItemIds.length > 0 && ownerUserId) {
+      const credByItemId = new Map<string, Record<string, unknown>>();
+
+      await Promise.all(
+        mcpItemIds.map(async (itemId) => {
+          try {
+            const material = await credSvc.getDecryptedMaterial(ownerUserId, companyId, itemId);
+            if (material) credByItemId.set(itemId, material);
+          } catch {
+            // Decryption failure already logged by credSvc
+          }
+        }),
+      );
+
+      // Match credentials to resolved servers by item id (same order as mergedRows)
+      let mcpIdx = 0;
+      for (const row of mergedRows) {
+        if (row.item_type !== "mcp") continue;
+        const material = credByItemId.get(row.id);
+        if (material) {
+          const server = mcpServers[mcpIdx];
+          // Merge credential env vars on top of static env vars
+          if (material.env && typeof material.env === "object") {
+            server.env = {
+              ...(server.env ?? {}),
+              ...(material.env as Record<string, string>),
+            };
+          }
+          // Merge credential headers on top of static headers
+          if (material.headers && typeof material.headers === "object") {
+            server.headers = {
+              ...(server.headers ?? {}),
+              ...(material.headers as Record<string, string>),
+            };
+          }
+        }
+        mcpIdx++;
       }
     }
 
