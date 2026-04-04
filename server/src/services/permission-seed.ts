@@ -1,6 +1,6 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { permissions, roles, rolePermissions, companies } from "@mnm/db";
+import { permissions, companies } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
 
 /**
@@ -184,7 +184,7 @@ export function getSeedPermissionSlugs(): Set<string> {
 // ---------------------------------------------------------------------------
 
 /** All :read/:view permissions */
-const VIEWER_PERMS: string[] = [
+export const VIEWER_PERMS: string[] = [
   "agents:read",
   "issues:read",
   "projects:read",
@@ -207,7 +207,7 @@ const VIEWER_PERMS: string[] = [
 ];
 
 /** Contributor = Viewer + create/edit + day-to-day work permissions */
-const CONTRIBUTOR_PERMS: string[] = [
+export const CONTRIBUTOR_PERMS: string[] = [
   ...VIEWER_PERMS,
   // Agents
   "agents:create",
@@ -257,7 +257,7 @@ const CONTRIBUTOR_PERMS: string[] = [
 ];
 
 /** Manager = Contributor + delete/manage (non-admin) + user management */
-const MANAGER_PERMS: string[] = [
+export const MANAGER_PERMS: string[] = [
   ...CONTRIBUTOR_PERMS,
   // Agents
   "agents:delete",
@@ -310,14 +310,14 @@ const MANAGER_PERMS: string[] = [
 ];
 
 /** Admin = everything except company:delete */
-const ADMIN_PERMS: string[] = SEED_PERMISSIONS
+export const ADMIN_PERMS: string[] = SEED_PERMISSIONS
   .map((p) => p.slug)
   .filter((s) => s !== "company:delete");
 
 /** Owner = everything */
-const OWNER_PERMS: string[] = SEED_PERMISSIONS.map((p) => p.slug);
+export const OWNER_PERMS: string[] = SEED_PERMISSIONS.map((p) => p.slug);
 
-interface RolePreset {
+export interface RolePreset {
   slug: string;
   name: string;
   description: string;
@@ -326,7 +326,7 @@ interface RolePreset {
   permSlugs: string[];
 }
 
-const DEFAULT_ROLES: RolePreset[] = [
+export const DEFAULT_ROLES: RolePreset[] = [
   {
     slug: "viewer",
     name: "Viewer",
@@ -369,80 +369,16 @@ const DEFAULT_ROLES: RolePreset[] = [
   },
 ];
 
-/**
- * Seeds the 5 default roles (Viewer, Contributor, Manager, Admin, Owner)
- * and assigns the appropriate permissions to each.
- * Idempotent — uses ON CONFLICT DO NOTHING.
- */
-export async function seedDefaultRoles(db: Db, companyId: string): Promise<void> {
-  for (const preset of DEFAULT_ROLES) {
-    // 1. Upsert the role
-    const [role] = await db
-      .insert(roles)
-      .values({
-        companyId,
-        name: preset.name,
-        slug: preset.slug,
-        description: preset.description,
-        hierarchyLevel: preset.hierarchyLevel,
-        bypassTagFilter: preset.bypassTagFilter,
-        isSystem: true,
-      })
-      .onConflictDoNothing()
-      .returning({ id: roles.id });
-
-    // If already existed, fetch it
-    let roleId = role?.id;
-    if (!roleId) {
-      const [existing] = await db
-        .select({ id: roles.id })
-        .from(roles)
-        .where(and(eq(roles.companyId, companyId), eq(roles.slug, preset.slug)));
-      roleId = existing?.id;
-    }
-    if (!roleId) continue;
-
-    // 2. Resolve permission IDs for this role's slug list
-    const dedupedSlugs = [...new Set(preset.permSlugs)];
-    const permRows = await db
-      .select({ id: permissions.id })
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.companyId, companyId),
-          inArray(permissions.slug, dedupedSlugs),
-        ),
-      );
-
-    if (permRows.length === 0) continue;
-
-    // 3. Insert role_permissions
-    await db
-      .insert(rolePermissions)
-      .values(permRows.map((p) => ({ roleId: roleId!, permissionId: p.id })))
-      .onConflictDoNothing();
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Backfill: ensure all existing companies have up-to-date permissions & roles
+// Backfill: ensure all existing companies have up-to-date permission slugs
 // ---------------------------------------------------------------------------
 
-/** Map from role slug to its expected permission slugs */
-const ROLE_PRESET_MAP: Record<string, string[]> = Object.fromEntries(
-  DEFAULT_ROLES.map((r) => [r.slug, [...new Set(r.permSlugs)]]),
-);
-
 /**
- * Backfills permissions, default roles, and missing role_permissions for
- * ALL existing companies. Idempotent — safe to run on every startup.
- *
- * Steps per company:
- * 1. seedPermissions  (inserts missing permission rows)
- * 2. seedDefaultRoles (inserts missing roles + their permissions)
- * 3. For existing system roles: add any missing permissions from presets
+ * Backfills permission slugs for ALL existing companies.
+ * Does NOT create roles — roles are chosen by the admin at onboarding.
+ * Idempotent — safe to run on every startup.
  */
-export async function backfillAllCompanies(db: Db): Promise<void> {
+export async function backfillPermissions(db: Db): Promise<void> {
   const allCompanies = await db
     .select({ id: companies.id })
     .from(companies);
@@ -455,43 +391,8 @@ export async function backfillAllCompanies(db: Db): Promise<void> {
   logger.info({ count: allCompanies.length }, "permission backfill: starting");
 
   for (const company of allCompanies) {
-    const companyId = company.id;
-
-    // 1. Seed permissions (idempotent)
-    await seedPermissions(db, companyId);
-
-    // 2. Seed default roles (idempotent — creates missing roles + permissions)
-    await seedDefaultRoles(db, companyId);
-
-    // 3. Patch existing system roles with any missing permissions from presets
-    const systemRoles = await db
-      .select({ id: roles.id, slug: roles.slug })
-      .from(roles)
-      .where(and(eq(roles.companyId, companyId), eq(roles.isSystem, true)));
-
-    for (const role of systemRoles) {
-      const expectedSlugs = ROLE_PRESET_MAP[role.slug];
-      if (!expectedSlugs) continue; // custom system role, skip
-
-      const permRows = await db
-        .select({ id: permissions.id })
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.companyId, companyId),
-            inArray(permissions.slug, expectedSlugs),
-          ),
-        );
-
-      if (permRows.length === 0) continue;
-
-      await db
-        .insert(rolePermissions)
-        .values(permRows.map((p) => ({ roleId: role.id, permissionId: p.id })))
-        .onConflictDoNothing();
-    }
-
-    logger.debug({ companyId }, "permission backfill: company done");
+    await seedPermissions(db, company.id);
+    logger.debug({ companyId: company.id }, "permission backfill: company done");
   }
 
   logger.info({ count: allCompanies.length }, "permission backfill: complete");
