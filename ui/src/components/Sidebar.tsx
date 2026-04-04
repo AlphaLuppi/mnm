@@ -65,28 +65,35 @@ export function Sidebar() {
   }
 
   // Permission checks for sidebar items
-  const canCreateIssue = hasPermission("stories:create");
-  const canViewWorkflows = hasPermission("workflows:create");
-  const canViewGoals = hasPermission("projects:create");
-  const canViewMembers = hasPermission("users:invite");
+  const canCreateIssue = hasPermission("issues:create");
+  const canViewWorkflows = hasPermission("workflows:read");
+  const canViewGoals = hasPermission("projects:read");
+  const canViewMembers = hasPermission("users:read");
   const canViewCosts = hasPermission("dashboard:view");
   const canViewActivity = hasPermission("audit:read");
-  const canViewRoles = hasPermission("users:manage_permissions");
+  const canViewRoles = hasPermission("roles:read");
   const canViewSettings = hasPermission("company:manage_settings");
   const canViewContainers = hasPermission("agents:manage_containers");
-  const canViewChat = hasPermission("chat:agent");
+  const canViewChat = hasPermission("chat:read");
   const canViewFolders = hasPermission("folders:read");
   const canViewCursors = hasPermission("workflows:enforce");
   const canViewSso = hasPermission("company:manage_sso");
   const canViewImport = hasPermission("projects:manage");
+  const canViewDashboard = hasPermission("dashboard:view");
+  const canViewInbox = hasPermission("issues:read");
+  const canViewIssues = hasPermission("issues:read");
+  const canViewRoutines = hasPermission("routines:read");
+  const canViewConfigLayers = hasPermission("config_layers:read");
+  const canViewFeedback = hasPermission("feedback:read");
+  const canViewOrg = hasPermission("org:view");
+  const canViewTraces = hasPermission("traces:read");
+  const canViewDeployments = hasPermission("agents:launch");
 
   // Section visibility: "Work" visible if at least one child is visible
-  // Issues is always visible, so Work section is always visible
-  const showWorkSection = true;
+  const showWorkSection = canViewIssues || canViewWorkflows || canViewRoutines || canViewGoals || canViewChat || canViewFolders || canViewCursors;
 
   // "Company" section visible if at least one child is visible
-  // Org is always visible, so Company section is always visible
-  const showCompanySection = true;
+  const showCompanySection = canViewMembers || canViewRoles || canViewConfigLayers || canViewFeedback || canViewOrg || canViewCosts || canViewActivity || canViewTraces || canViewContainers || canViewDeployments || canViewSettings || canViewSso || canViewImport;
 
   const sidebarWidth = sidebarCollapsed ? "w-14" : "w-60";
 
@@ -154,28 +161,36 @@ export function Sidebar() {
               {!sidebarCollapsed && <span className="truncate">New Issue</span>}
             </button>
           )}
-          <SidebarNavItem data-testid="rbac-s05-nav-dashboard" to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
-          <SidebarNavItem
-            data-testid="rbac-s05-nav-inbox"
-            to="/inbox"
-            label="Inbox"
-            icon={Inbox}
-            badge={sidebarBadges?.inbox}
-            badgeTone={sidebarBadges?.failedRuns ? "danger" : "default"}
-            alert={(sidebarBadges?.failedRuns ?? 0) > 0}
-          />
+          {canViewDashboard && (
+            <SidebarNavItem data-testid="rbac-s05-nav-dashboard" to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
+          )}
+          {canViewInbox && (
+            <SidebarNavItem
+              data-testid="rbac-s05-nav-inbox"
+              to="/inbox"
+              label="Inbox"
+              icon={Inbox}
+              badge={sidebarBadges?.inbox}
+              badgeTone={sidebarBadges?.failedRuns ? "danger" : "default"}
+              alert={(sidebarBadges?.failedRuns ?? 0) > 0}
+            />
+          )}
         </div>
 
         {showWorkSection && (
           <SidebarSection label="Work" data-testid="rbac-s05-section-work">
-            <SidebarNavItem data-testid="rbac-s05-nav-issues" to="/issues" label="Issues" icon={CircleDot} />
+            {canViewIssues && (
+              <SidebarNavItem data-testid="rbac-s05-nav-issues" to="/issues" label="Issues" icon={CircleDot} />
+            )}
             {canViewWorkflows && (
               <SidebarNavItem data-testid="rbac-s05-nav-workflows" to="/workflows" label="Workflows" icon={Workflow} />
             )}
             {canViewWorkflows && (
               <SidebarNavItem data-testid="orch-s05-nav-editor" to="/workflow-editor/new" label="Workflow Editor" icon={PenTool} />
             )}
-            <SidebarNavItem to="/routines" label="Routines" icon={CalendarClock} />
+            {canViewRoutines && (
+              <SidebarNavItem to="/routines" label="Routines" icon={CalendarClock} />
+            )}
             {canViewGoals && (
               <SidebarNavItem data-testid="rbac-s05-nav-goals" to="/goals" label="Goals" icon={Target} />
             )}
@@ -206,9 +221,15 @@ export function Sidebar() {
             {canViewRoles && (
               <SidebarNavItem data-testid="rbac-s06-nav-tags" to="/admin/tags" label="Tags" icon={Tag} />
             )}
-            <SidebarNavItem to="/admin/config-layers" label="Config Layers" icon={Layers} />
-            <SidebarNavItem to="/feedback" label="Feedback" icon={MessageSquareHeart} />
-            <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
+            {canViewConfigLayers && (
+              <SidebarNavItem to="/admin/config-layers" label="Config Layers" icon={Layers} />
+            )}
+            {canViewFeedback && (
+              <SidebarNavItem to="/feedback" label="Feedback" icon={MessageSquareHeart} />
+            )}
+            {canViewOrg && (
+              <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
+            )}
             {canViewCosts && (
               <SidebarNavItem data-testid="rbac-s05-nav-costs" to="/costs" label="Costs" icon={DollarSign} />
             )}
@@ -218,13 +239,15 @@ export function Sidebar() {
             {canViewActivity && (
               <SidebarNavItem data-testid="obs-s04-nav-audit" to="/audit" label="Audit Log" icon={ScrollText} />
             )}
-            {canViewActivity && (
+            {canViewTraces && (
               <SidebarNavItem data-testid="trace-09-nav-traces" to="/traces" label="Traces" icon={Scan} />
             )}
             {canViewContainers && (
               <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Sandboxes" icon={Box} />
             )}
-            <SidebarNavItem data-testid="deploy-06-nav-deployments" to="/deployments" label="Deployments" icon={Globe} />
+            {canViewDeployments && (
+              <SidebarNavItem data-testid="deploy-06-nav-deployments" to="/deployments" label="Deployments" icon={Globe} />
+            )}
             {canViewSettings && (
               <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />
             )}

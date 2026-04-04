@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { agents, roles, rolePermissions, permissions, tags, tagAssignments, companyMemberships } from "@mnm/db";
-import { seedPermissions } from "./permission-seed.js";
+import { seedPermissions, seedDefaultRoles } from "./permission-seed.js";
 import { logger } from "../middleware/logger.js";
 
 const CAO_AGENT_NAME = "CAO";
@@ -173,32 +173,15 @@ export async function bootstrapCompany(
     // 1. Seed standard permissions
     await seedPermissions(tx as unknown as Db, companyId);
 
-    // 2. Create the Admin role (is_system, bypass_tag_filter, all permissions)
-    const [adminRole] = await tx
-      .insert(roles)
-      .values({
-        companyId,
-        name: "Admin",
-        slug: CAO_ROLE_SLUG,
-        description: "Full access to all features and all tags",
-        hierarchyLevel: 0,
-        bypassTagFilter: true,
-        isSystem: true,
-      })
-      .onConflictDoNothing()
-      .returning();
+    // 1b. Seed default role presets (Viewer, Contributor, Manager, Admin, Owner)
+    await seedDefaultRoles(tx as unknown as Db, companyId);
 
-    const adminRoleId = adminRole?.id;
-
-    // If role already existed (onConflictDoNothing), fetch it
-    let resolvedAdminRoleId = adminRoleId;
-    if (!resolvedAdminRoleId) {
-      const [existing] = await tx
-        .select({ id: roles.id })
-        .from(roles)
-        .where(and(eq(roles.companyId, companyId), eq(roles.slug, CAO_ROLE_SLUG)));
-      resolvedAdminRoleId = existing?.id;
-    }
+    // 2. Resolve the admin role (already created by seedDefaultRoles)
+    const [existingAdmin] = await tx
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(eq(roles.companyId, companyId), eq(roles.slug, CAO_ROLE_SLUG)));
+    const resolvedAdminRoleId = existingAdmin?.id;
 
     // 3. Assign all permissions to the admin role
     if (resolvedAdminRoleId) {

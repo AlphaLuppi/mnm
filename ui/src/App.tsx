@@ -112,24 +112,24 @@ function boardRoutes() {
   return (
     <>
       <Route index element={<Navigate to="dashboard" replace />} />
-      <Route path="dashboard" element={<Dashboard />} />
+      <Route path="dashboard" element={<RequirePermission permission="dashboard:view" showForbidden><Dashboard /></RequirePermission>} />
       <Route path="companies" element={<Companies />} />
-      <Route path="members" element={<RequirePermission permission="users:invite" showForbidden><Members /></RequirePermission>} />
-      <Route path="admin/roles" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminRoles /></RequirePermission>} />
-      <Route path="admin/tags" element={<RequirePermission permission="users:manage_permissions" showForbidden><AdminTags /></RequirePermission>} />
+      <Route path="members" element={<RequirePermission permission="users:read" showForbidden><Members /></RequirePermission>} />
+      <Route path="admin/roles" element={<RequirePermission permission="roles:read" showForbidden><AdminRoles /></RequirePermission>} />
+      <Route path="admin/tags" element={<RequirePermission permission="tags:read" showForbidden><AdminTags /></RequirePermission>} />
       <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
       <Route path="admin/config-layers" element={<RequirePermission permission="config_layers:read" showForbidden><ConfigLayersPage /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
-      <Route path="org" element={<OrgChart />} />
-      <Route path="agents" element={<Navigate to="/agents/all" replace />} />
-      <Route path="agents/all" element={<Agents />} />
-      <Route path="agents/active" element={<Agents />} />
-      <Route path="agents/paused" element={<Agents />} />
-      <Route path="agents/error" element={<Agents />} />
+      <Route path="org" element={<RequirePermission permission="org:view" showForbidden><OrgChart /></RequirePermission>} />
+      <Route path="agents" element={<RequirePermission permission="agents:read" showForbidden><Navigate to="/agents/all" replace /></RequirePermission>} />
+      <Route path="agents/all" element={<RequirePermission permission="agents:read" showForbidden><Agents /></RequirePermission>} />
+      <Route path="agents/active" element={<RequirePermission permission="agents:read" showForbidden><Agents /></RequirePermission>} />
+      <Route path="agents/paused" element={<RequirePermission permission="agents:read" showForbidden><Agents /></RequirePermission>} />
+      <Route path="agents/error" element={<RequirePermission permission="agents:read" showForbidden><Agents /></RequirePermission>} />
       <Route path="agents/new" element={<RequirePermission permission="agents:create" showForbidden><NewAgent /></RequirePermission>} />
-      <Route path="agents/:agentId" element={<AgentDetail />} />
-      <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
-      <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
+      <Route path="agents/:agentId" element={<RequirePermission permission="agents:read" showForbidden><AgentDetail /></RequirePermission>} />
+      <Route path="agents/:agentId/:tab" element={<RequirePermission permission="agents:read" showForbidden><AgentDetail /></RequirePermission>} />
+      <Route path="agents/:agentId/runs/:runId" element={<RequirePermission permission="agents:read" showForbidden><AgentDetail /></RequirePermission>} />
       <Route path="projects" element={<Projects />} />
       <Route path="projects/:projectId" element={<ProjectDetail />} />
       <Route path="projects/:projectId/overview" element={<ProjectDetail />} />
@@ -141,19 +141,19 @@ function boardRoutes() {
       <Route path="projects/:projectId/settings" element={<ProjectDetail />} />
       <Route path="projects/:projectId/drift" element={<ProjectDetail />} />
       <Route path="projects/:projectId/access" element={<ProjectDetail />} />
-      <Route path="issues" element={<Issues />} />
-      <Route path="issues/all" element={<Navigate to="/issues" replace />} />
-      <Route path="issues/active" element={<Navigate to="/issues" replace />} />
-      <Route path="issues/backlog" element={<Navigate to="/issues" replace />} />
-      <Route path="issues/done" element={<Navigate to="/issues" replace />} />
-      <Route path="issues/recent" element={<Navigate to="/issues" replace />} />
-      <Route path="issues/:issueId" element={<IssueDetail />} />
-      <Route path="workflows" element={<RequirePermission permission="workflows:create" showForbidden><Workflows /></RequirePermission>} />
+      <Route path="issues" element={<RequirePermission permission="issues:read" showForbidden><Issues /></RequirePermission>} />
+      <Route path="issues/all" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
+      <Route path="issues/active" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
+      <Route path="issues/backlog" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
+      <Route path="issues/done" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
+      <Route path="issues/recent" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
+      <Route path="issues/:issueId" element={<RequirePermission permission="issues:read" showForbidden><IssueDetail /></RequirePermission>} />
+      <Route path="workflows" element={<RequirePermission permission="workflows:read" showForbidden><Workflows /></RequirePermission>} />
       <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><NewWorkflow /></RequirePermission>} />
-      <Route path="workflows/:workflowId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowDetail /></RequirePermission>} />
+      <Route path="workflows/:workflowId" element={<RequirePermission permission="workflows:read" showForbidden><WorkflowDetail /></RequirePermission>} />
       <Route path="workflow-editor/:templateId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
-      <Route path="goals" element={<RequirePermission permission="projects:create" showForbidden><Goals /></RequirePermission>} />
-      <Route path="goals/:goalId" element={<RequirePermission permission="projects:create" showForbidden><GoalDetail /></RequirePermission>} />
+      <Route path="goals" element={<RequirePermission permission="projects:read" showForbidden><Goals /></RequirePermission>} />
+      <Route path="goals/:goalId" element={<RequirePermission permission="projects:read" showForbidden><GoalDetail /></RequirePermission>} />
       <Route path="approvals" element={<RequirePermission permission="joins:approve" showForbidden><Navigate to="/approvals/pending" replace /></RequirePermission>} />
       <Route path="approvals/pending" element={<RequirePermission permission="joins:approve" showForbidden><Approvals /></RequirePermission>} />
       <Route path="approvals/all" element={<RequirePermission permission="joins:approve" showForbidden><Approvals /></RequirePermission>} />
@@ -164,25 +164,25 @@ function boardRoutes() {
       <Route path="containers" element={<RequirePermission permission="agents:manage_containers" showForbidden><Containers /></RequirePermission>} />
       {/* workspace route removed — auth via Settings > Claude */}
       <Route path="deployments" element={<RequirePermission permission="agents:launch" showForbidden><Deployments /></RequirePermission>} />
-      <Route path="chat" element={<RequirePermission permission="chat:agent" showForbidden><Chat /></RequirePermission>} />
-      <Route path="chat/:channelId" element={<RequirePermission permission="chat:agent" showForbidden><Chat /></RequirePermission>} />
+      <Route path="chat" element={<RequirePermission permission="chat:read" showForbidden><Chat /></RequirePermission>} />
+      <Route path="chat/:channelId" element={<RequirePermission permission="chat:read" showForbidden><Chat /></RequirePermission>} />
       <Route path="folders" element={<RequirePermission permission="folders:read" showForbidden><Folders /></RequirePermission>} />
       <Route path="folders/:folderId" element={<RequirePermission permission="folders:read" showForbidden><FolderDetail /></RequirePermission>} />
       <Route path="folders/:folderId/chat/:channelId" element={<RequirePermission permission="folders:read" showForbidden><FolderWorkspace /></RequirePermission>} />
       <Route path="shared/chat/:token" element={<SharedChat />} />
       <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
       <Route path="import/jira" element={<RequirePermission permission="projects:manage" showForbidden><JiraImport /></RequirePermission>} />
-      <Route path="traces" element={<RequirePermission permission="audit:read" showForbidden><Traces /></RequirePermission>} />
+      <Route path="traces" element={<RequirePermission permission="traces:read" showForbidden><Traces /></RequirePermission>} />
       <Route path="traces/demo" element={<TraceTimelineDemo />} />
-      <Route path="traces/:traceId" element={<RequirePermission permission="audit:read" showForbidden><TraceDetail /></RequirePermission>} />
-      <Route path="settings/trace-lenses" element={<RequirePermission permission="audit:read" showForbidden><TraceSettings /></RequirePermission>} />
-      <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="audit:read" showForbidden><WorkflowTraces /></RequirePermission>} />
-      <Route path="routines" element={<Routines />} />
-      <Route path="routines/:id" element={<RoutineDetail />} />
-      <Route path="feedback" element={<FeedbackDashboard />} />
-      <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
-      <Route path="inbox/new" element={<Inbox />} />
-      <Route path="inbox/all" element={<Inbox />} />
+      <Route path="traces/:traceId" element={<RequirePermission permission="traces:read" showForbidden><TraceDetail /></RequirePermission>} />
+      <Route path="settings/trace-lenses" element={<RequirePermission permission="traces:manage" showForbidden><TraceSettings /></RequirePermission>} />
+      <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="traces:read" showForbidden><WorkflowTraces /></RequirePermission>} />
+      <Route path="routines" element={<RequirePermission permission="routines:read" showForbidden><Routines /></RequirePermission>} />
+      <Route path="routines/:id" element={<RequirePermission permission="routines:read" showForbidden><RoutineDetail /></RequirePermission>} />
+      <Route path="feedback" element={<RequirePermission permission="feedback:read" showForbidden><FeedbackDashboard /></RequirePermission>} />
+      <Route path="inbox" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/inbox/new" replace /></RequirePermission>} />
+      <Route path="inbox/new" element={<RequirePermission permission="issues:read" showForbidden><Inbox /></RequirePermission>} />
+      <Route path="inbox/all" element={<RequirePermission permission="issues:read" showForbidden><Inbox /></RequirePermission>} />
       <Route path="design-guide" element={<DesignGuide />} />
     </>
   );
