@@ -10,7 +10,8 @@ const LOGO_FULL = [
   "██               ██   █     ██         ██               ██",
   "██               ██   ▀     ▀▀         ██               ██",
   "▀▀               ▀▀                    ▀▀               ▀▀",
-  "      ake                  o                 istake",
+  "",
+  "                    ake      no      istake",
 ];
 const LOGO_COMPACT = [
   "██▄     ▄██              ██▄     ▄██",
@@ -20,7 +21,8 @@ const LOGO_COMPACT = [
   "██       ██  █   ██     ██       ██",
   "██       ██  █   ██     ██       ██",
   "▀▀       ▀▀  ▀   ▀▀     ▀▀       ▀▀",
-  "   ake          o            istake",
+  "",
+  "           ake    no    istake",
 ];
 const FULL_W = Math.max(...LOGO_FULL.map(l => l.length));
 const NOISE = "░▒▓█▀▄╔╗╚╝║═╭╮╰╯│─";
