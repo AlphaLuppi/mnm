@@ -112,12 +112,26 @@ export function tagScopeMiddleware(db: Db) {
 }
 
 /**
- * Helper: assert that a TagScope exists on the request.
- * Use in routes that require tag-filtered data.
+ * Helper: get the TagScope from the request.
+ * If tagScope was not set by middleware (e.g., companyId not resolved),
+ * creates a restrictive fallback scope for board users (empty tags, no bypass = sees nothing except own items).
+ * Throws for non-board actors (agents should not hit tag-filtered routes).
  */
 export function requireTagScope(req: Request): TagScope {
-  if (!req.tagScope) {
-    throw new Error("TagScope required but not present — is tagScopeMiddleware active?");
+  if (req.tagScope) {
+    return req.tagScope;
   }
-  return req.tagScope;
+
+  // Fallback: board user without resolved tagScope → restrictive scope (sees nothing except owned items)
+  if (req.actor?.type === "board" && req.actor?.userId) {
+    const rawCompanyId = req.params.companyId;
+    const companyId = (Array.isArray(rawCompanyId) ? rawCompanyId[0] : rawCompanyId) ?? "";
+    logger.warn(
+      { userId: req.actor.userId, companyId, url: req.originalUrl },
+      "TagScope not set by middleware — creating restrictive fallback scope",
+    );
+    return createTagScope(req.actor.userId, companyId, new Set(), false);
+  }
+
+  throw new Error("TagScope required but not present — is tagScopeMiddleware active?");
 }
