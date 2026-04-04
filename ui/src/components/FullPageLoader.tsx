@@ -208,7 +208,7 @@ export function FullPageLoader() {
     <div className="fixed inset-0 bg-background overflow-hidden">
       <pre
         ref={preRef}
-        className="w-full h-full m-0 p-0 overflow-hidden text-muted-foreground/60 select-none leading-none"
+        className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
         style={{ fontSize: "11px", fontFamily: "monospace" }}
         aria-hidden="true"
       />
