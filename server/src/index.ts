@@ -34,7 +34,7 @@ import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
 import { backfillSilverEnrichment } from "./services/silver-trace-enrichment.js";
 import { goldTraceEnrichment } from "./services/gold-trace-enrichment.js";
-import { backfillAllCompanies } from "./services/permission-seed.js";
+import { backfillPermissions } from "./services/permission-seed.js";
 
 type BetterAuthSessionUser = {
   id: string;
@@ -557,8 +557,8 @@ subscribeDashboardRefreshEvents();
 // CAO-03: Start the CAO watchdog (monitors agent run anomalies, auto-comments)
 startCaoWatchdog(db as any);
 
-// PERM-BACKFILL: Ensure all companies have up-to-date permissions & default roles
-void backfillAllCompanies(db as any).catch((err) => {
+// PERM-BACKFILL: Ensure all companies have up-to-date permission slugs (roles are NOT force-created)
+void backfillPermissions(db as any).catch((err) => {
   logger.error({ err }, "startup permission backfill failed");
 });
 

@@ -7,6 +7,7 @@ import { assertCompanyAccess } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { badRequest } from "../errors.js";
 import { logger } from "../middleware/logger.js";
+import { VIEWER_PERMS, CONTRIBUTOR_PERMS, MANAGER_PERMS } from "../services/permission-seed.js";
 
 // onb-s01-route-marker
 // onb-s04-route-validation-marker
@@ -133,57 +134,32 @@ export function onboardingRoutes(db: Db) {
   });
 
   // GET /api/onboarding/role-presets — returns predefined role presets for onboarding step 2
+  // Uses the full permission arrays from permission-seed.ts (80+ perms).
+  // Admin role is created by bootstrap — not included in presets.
   router.get("/onboarding/role-presets", async (_req, res) => {
     res.json({
       startup: [
         {
-          name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 50,
-          permissionSlugs: [
-            "agents:launch", "agents:create", "agents:configure",
-            "issues:create", "issues:assign",
-            "projects:create",
-            "stories:create", "stories:edit",
-            "traces:read",
-            "chat:agent",
-            "dashboard:view",
-          ],
+          name: "Member", slug: "member", description: "Standard team member",
+          hierarchyLevel: 50, bypassTagFilter: false,
+          permissionSlugs: CONTRIBUTOR_PERMS,
         },
       ],
       structured: [
         {
-          name: "Lead", slug: "lead", description: "Team lead with elevated access", hierarchyLevel: 20,
-          permissionSlugs: [
-            "agents:create", "agents:launch", "agents:configure", "agents:delete",
-            "issues:create", "issues:assign", "issues:delete",
-            "projects:create", "projects:manage", "projects:manage_members",
-            "users:invite",
-            "workflows:create", "workflows:enforce",
-            "stories:create", "stories:edit",
-            "traces:read", "traces:write",
-            "audit:read",
-            "chat:agent", "chat:channel",
-            "dashboard:view",
-          ],
+          name: "Viewer", slug: "viewer", description: "Read-only access",
+          hierarchyLevel: 80, bypassTagFilter: false,
+          permissionSlugs: VIEWER_PERMS,
         },
         {
-          name: "Member", slug: "member", description: "Standard team member", hierarchyLevel: 50,
-          permissionSlugs: [
-            "agents:launch", "agents:create", "agents:configure",
-            "issues:create", "issues:assign",
-            "projects:create",
-            "stories:create", "stories:edit",
-            "traces:read",
-            "chat:agent",
-            "dashboard:view",
-          ],
+          name: "Contributor", slug: "contributor", description: "Create and edit resources",
+          hierarchyLevel: 50, bypassTagFilter: false,
+          permissionSlugs: CONTRIBUTOR_PERMS,
         },
         {
-          name: "Viewer", slug: "viewer", description: "Read-only access", hierarchyLevel: 80,
-          permissionSlugs: [
-            "traces:read",
-            "audit:read",
-            "dashboard:view",
-          ],
+          name: "Manager", slug: "manager", description: "Team lead with elevated access",
+          hierarchyLevel: 20, bypassTagFilter: false,
+          permissionSlugs: MANAGER_PERMS,
         },
       ],
     });
