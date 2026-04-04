@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { agents, roles, rolePermissions, permissions, tags, tagAssignments, companyMemberships } from "@mnm/db";
-import { seedPermissions, seedDefaultRoles } from "./permission-seed.js";
+import { seedPermissions } from "./permission-seed.js";
 import { logger } from "../middleware/logger.js";
 
 const CAO_AGENT_NAME = "CAO";
@@ -170,20 +170,37 @@ export async function bootstrapCompany(
   adminUserId: string,
 ): Promise<{ adminRoleId: string; caoAgentId: string }> {
   return db.transaction(async (tx) => {
-    // 1. Seed standard permissions
+    // 1. Seed standard permissions (80+ slugs)
     await seedPermissions(tx as unknown as Db, companyId);
 
-    // 1b. Seed default role presets (Viewer, Contributor, Manager, Admin, Owner)
-    await seedDefaultRoles(tx as unknown as Db, companyId);
+    // 2. Create the bootstrap admin role inline (NOT via seedDefaultRoles)
+    //    This is the only role created automatically — all others are chosen
+    //    by the admin during onboarding. isSystem=false so it's editable/deletable.
+    const [adminRole] = await tx
+      .insert(roles)
+      .values({
+        companyId,
+        name: "Admin",
+        slug: CAO_ROLE_SLUG,
+        description: "Bootstrap admin role — full access",
+        hierarchyLevel: 90,
+        bypassTagFilter: true,
+        isSystem: false,
+      })
+      .onConflictDoNothing()
+      .returning({ id: roles.id });
 
-    // 2. Resolve the admin role (already created by seedDefaultRoles)
-    const [existingAdmin] = await tx
-      .select({ id: roles.id })
-      .from(roles)
-      .where(and(eq(roles.companyId, companyId), eq(roles.slug, CAO_ROLE_SLUG)));
-    const resolvedAdminRoleId = existingAdmin?.id;
+    // If it already existed (idempotent re-run), resolve it
+    let resolvedAdminRoleId = adminRole?.id;
+    if (!resolvedAdminRoleId) {
+      const [existing] = await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(and(eq(roles.companyId, companyId), eq(roles.slug, CAO_ROLE_SLUG)));
+      resolvedAdminRoleId = existing?.id;
+    }
 
-    // 3. Assign all permissions to the admin role
+    // 3. Assign ALL permissions to the admin role
     if (resolvedAdminRoleId) {
       const allPerms = await tx
         .select({ id: permissions.id })
