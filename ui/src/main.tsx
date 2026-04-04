@@ -63,6 +63,21 @@ const queryClient = new QueryClient({
   },
 });
 
+// Dismiss HTML loader overlay with minimum display time + fade-out
+function dismissLoader() {
+  const loader = document.getElementById("app-loader");
+  if (!loader) return;
+  const start = (window as any).__MNM_LOADER_START || performance.now();
+  const elapsed = performance.now() - start;
+  const minDisplay = 1400;
+  const remaining = Math.max(0, minDisplay - elapsed);
+  setTimeout(() => {
+    loader.style.opacity = "0";
+    setTimeout(() => loader.remove(), 400);
+  }, remaining);
+}
+dismissLoader();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
