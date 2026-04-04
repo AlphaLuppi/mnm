@@ -42,7 +42,6 @@
         z-index: 9999;
         overflow: hidden;
         background: #fafaf9;
-        transition: opacity 0.4s ease-out;
       }
       .dark #app-loader {
         background: #1c1917;
@@ -65,11 +64,10 @@
     </style>
   </head>
   <body>
-    <div id="root">
-      <div id="app-loader">
-        <pre id="mnm-canvas" aria-hidden="true"></pre>
-      </div>
+    <div id="app-loader">
+      <pre id="mnm-canvas" aria-hidden="true"></pre>
     </div>
+    <div id="root"></div>
     <script>
       window.__MNM_LOADER_START = performance.now();
       (() => {
@@ -91,11 +89,25 @@
         ];
         const FPS = 24;
         const FRAME_MS = 1000 / FPS;
+        const MIN_DISPLAY = 2200;
 
         const pre = document.getElementById("mnm-canvas");
         if (!pre) return;
 
-        // Measure monospace char dimensions
+        let dissolving = false;
+        let dissolveStart = 0;
+
+        // Called by React (main.tsx) when app is ready
+        window.__dismissMnmLoader = () => {
+          if (dissolving) return;
+          const elapsed = performance.now() - window.__MNM_LOADER_START;
+          const delay = Math.max(0, MIN_DISPLAY - elapsed);
+          setTimeout(() => {
+            dissolving = true;
+            dissolveStart = performance.now();
+          }, delay);
+        };
+
         function measureChar() {
           const s = document.createElement("span");
           s.textContent = "M";
@@ -142,6 +154,7 @@
               const dist = Math.sqrt(dx * dx + dy * dy);
               logoMap.set(gr * cols + gc, {
                 ch: char,
+                dist: dist,
                 revealAt: 200 + dist * 1600,
                 lockAt: 700 + dist * 1600 + Math.random() * 400,
               });
@@ -169,7 +182,6 @@
           clips.push({ x, y, vx, vy, sp, sw, sh, life: 0, maxLife: 280 + Math.random() * 200 });
         }
 
-        // Static frame for reduced-motion
         function drawStatic() {
           let out = "";
           for (let r = 0; r < rows; r++) {
@@ -187,7 +199,8 @@
         }
 
         function render(time) {
-          if (!document.getElementById("app-loader")) return;
+          const loader = document.getElementById("app-loader");
+          if (!loader) return;
           if (time - lastFrame < FRAME_MS) { requestAnimationFrame(render); return; }
 
           const dt = lastFrame ? Math.min(3, (time - lastFrame) / 16.667) : 1;
@@ -195,11 +208,23 @@
           tick += dt;
           const elapsed = time - startTime;
 
-          // Manage clips
-          const targetClips = Math.max(2, Math.floor((cols * rows) / 3000));
-          while (clips.length < targetClips) spawnClip();
+          // Dissolve: fade overlay after chars dissolved
+          if (dissolving) {
+            const dElapsed = time - dissolveStart;
+            if (dElapsed > 1100) {
+              const fadeP = Math.min(1, (dElapsed - 1100) / 400);
+              loader.style.opacity = String(1 - fadeP);
+              if (fadeP >= 1) { loader.remove(); return; }
+            }
+          }
 
-          // Clear & stamp clips
+          // Manage clips (stop spawning during dissolve)
+          if (!dissolving) {
+            const targetClips = Math.max(2, Math.floor((cols * rows) / 3000));
+            while (clips.length < targetClips) spawnClip();
+          }
+
+          // Update & stamp clips
           clipMask.fill(0);
           for (let i = clips.length - 1; i >= 0; i--) {
             const cl = clips[i];
@@ -229,14 +254,13 @@
                 if (ch === " ") continue;
                 const col = bC + sc;
                 if (col < 0 || col >= cols) continue;
-                // Don't draw over logo area (with margin)
                 if (row >= loy - 2 && row < loy + LH + 2 && col >= lox - 3 && col < lox + LW + 3) continue;
                 clipMask[row * cols + col] = ch.charCodeAt(0);
               }
             }
           }
 
-          // Check full reveal
+          // Check full reveal (decode complete)
           if (!fullyRevealed) {
             fullyRevealed = true;
             for (const [, lc] of logoMap) {
@@ -244,7 +268,7 @@
             }
           }
 
-          // Ambient wave state
+          // Ambient waves
           const colW = new Float32Array(cols);
           const rowW = new Float32Array(rows);
           for (let c = 0; c < cols; c++) colW[c] = Math.sin(c * 0.08 + tick * 0.06);
@@ -258,8 +282,21 @@
               const lc = logoMap.get(idx);
 
               if (lc) {
-                // Logo decode animation
-                if (elapsed < lc.revealAt - 300) {
+                if (dissolving) {
+                  // === DISSOLVE: edges first, center last ===
+                  const dElapsed = time - dissolveStart;
+                  const normDist = Math.min(1, lc.dist / 0.55);
+                  const dissolveAt = (1 - normDist) * 700;
+                  if (dElapsed < dissolveAt) {
+                    out += lc.ch;
+                  } else if (dElapsed < dissolveAt + 200) {
+                    out += NOISE[Math.floor(Math.random() * NOISE.length)];
+                  } else if (dElapsed < dissolveAt + 350) {
+                    out += Math.random() < 0.5 ? "·" : " ";
+                  } else {
+                    out += " ";
+                  }
+                } else if (elapsed < lc.revealAt - 300) {
                   out += Math.random() < 0.02 ? "·" : " ";
                 } else if (elapsed < lc.revealAt) {
                   out += Math.random() < 0.3 ? NOISE[Math.floor(Math.random() * NOISE.length)] : "·";
@@ -274,7 +311,6 @@
               } else if (clipMask[idx] > 0) {
                 out += String.fromCharCode(clipMask[idx]);
               } else {
-                // Ambient background
                 const v = (colW[c] + rowW[r]) * 0.08 + 0.1;
                 const clamped = Math.max(0, Math.min(0.999, v * 0.5));
                 out += GLYPH[Math.floor(clamped * GLYPH.length)];
