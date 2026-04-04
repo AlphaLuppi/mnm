@@ -1,15 +1,28 @@
 import { useEffect, useRef } from "react";
 
-const LOGO = [
-  "██▄     ▄██         ██▄     ▄██",
-  "████▄ ▄████         ████▄ ▄████",
-  "██ ▀███▀ ██  █▀▀▀▄  ██ ▀███▀ ██",
-  "██  ▀█▀  ██  █   █  ██  ▀█▀  ██",
-  "██       ██  █   █  ██       ██",
-  "▀▀       ▀▀  ▀   ▀  ▀▀       ▀▀",
+const LOGO_FULL = [
+  "███▄           ▄███                    ███▄           ▄███",
+  "████▄         ▄████                    ████▄         ▄████",
+  "██ ███▄     ▄███ ██                    ██ ███▄     ▄███ ██",
+  "██  ▀███▄ ▄███▀  ██   ▄▀▀▀▀▄▄         ██  ▀███▄ ▄███▀  ██",
+  "██    ▀█████▀    ██   █▀    ██         ██    ▀█████▀    ██",
+  "██      ▀█▀      ██   █     ██         ██      ▀█▀      ██",
+  "██               ██   █     ██         ██               ██",
+  "██               ██   ▀     ▀▀         ██               ██",
+  "▀▀               ▀▀                    ▀▀               ▀▀",
+  "      ake                  o                 istake",
 ];
-const LH = LOGO.length;
-const LW = LOGO[0].length;
+const LOGO_COMPACT = [
+  "██▄     ▄██              ██▄     ▄██",
+  "████▄ ▄████              ████▄ ▄████",
+  "██ ▀███▀ ██  ▄▀▀▀▄▄     ██ ▀███▀ ██",
+  "██  ▀█▀  ██  █▀  ██     ██  ▀█▀  ██",
+  "██       ██  █   ██     ██       ██",
+  "██       ██  █   ██     ██       ██",
+  "▀▀       ▀▀  ▀   ▀▀     ▀▀       ▀▀",
+  "   ake          o            istake",
+];
+const FULL_W = Math.max(...LOGO_FULL.map(l => l.length));
 const NOISE = "░▒▓█▀▄╔╗╚╝║═╭╮╰╯│─";
 const GLYPH = [" ", ".", "·", "▪", "▫", "○"] as const;
 const SPRITES = [
@@ -46,36 +59,39 @@ export function FullPageLoader() {
     const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
     let { w: cw, h: ch } = measureChar(pre);
     let cols = 0, rows = 0, lox = 0, loy = 0;
-    let logoMap = new Map<number, { ch: string; revealAt: number; lockAt: number }>();
+    let LOGO = LOGO_FULL;
+    let LH = LOGO.length;
+    let LW = Math.max(...LOGO.map(l => l.length));
+    let logoMap = new Map<number, { ch: string }>();
     let clipMask = new Uint16Array(0);
     let clips: Clip[] = [];
-    let tick = 0, lastFrame = 0, fullyRevealed = false;
+    let tick = 0, lastFrame = 0;
     let loopActive = false;
-    const startTime = performance.now();
 
     function resize() {
       const nc = Math.max(1, Math.floor(pre.clientWidth / cw));
       const nr = Math.max(1, Math.floor(pre.clientHeight / ch));
       if (nc === cols && nr === rows) return;
       cols = nc; rows = nr;
+
+      LOGO = cols >= FULL_W + 6 ? LOGO_FULL : LOGO_COMPACT;
+      LH = LOGO.length;
+      LW = Math.max(...LOGO.map(l => l.length));
+
       lox = Math.floor((cols - LW) / 2);
       loy = Math.floor((rows - LH) / 2);
       clipMask = new Uint16Array(cols * rows);
       logoMap = new Map();
       for (let r = 0; r < LH; r++) {
-        for (let c = 0; c < LW; c++) {
-          const char = LOGO[r][c];
+        const line = LOGO[r]!;
+        for (let c = 0; c < line.length; c++) {
+          const char = line[c]!;
           if (char === " ") continue;
           const gr = loy + r, gc = lox + c;
           if (gr < 0 || gr >= rows || gc < 0 || gc >= cols) continue;
-          const dx = (c - LW / 2) / LW, dy = (r - LH / 2) / LH;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          logoMap.set(gr * cols + gc, {
-            ch: char, revealAt: 0, lockAt: 0,
-          });
+          logoMap.set(gr * cols + gc, { ch: char });
         }
       }
-      fullyRevealed = false;
     }
 
     function spawnClip() {
@@ -118,7 +134,6 @@ export function FullPageLoader() {
 
       const dt = lastFrame ? Math.min(3, (time - lastFrame) / 16.667) : 1;
       lastFrame = time; tick += dt;
-      const elapsed = time - startTime;
 
       const targetClips = Math.max(2, Math.floor((cols * rows) / 3000));
       while (clips.length < targetClips) spawnClip();
@@ -151,11 +166,6 @@ export function FullPageLoader() {
         }
       }
 
-      if (!fullyRevealed) {
-        fullyRevealed = true;
-        for (const [, lc] of logoMap) { if (elapsed < lc.lockAt) { fullyRevealed = false; break; } }
-      }
-
       const colW = new Float32Array(cols), rowW = new Float32Array(rows);
       for (let c = 0; c < cols; c++) colW[c] = Math.sin(c * 0.08 + tick * 0.06);
       for (let r = 0; r < rows; r++) rowW[r] = Math.cos(r * 0.1 - tick * 0.05);
@@ -166,14 +176,7 @@ export function FullPageLoader() {
           const idx = r * cols + c;
           const lc = logoMap.get(idx);
           if (lc) {
-            if (elapsed < lc.revealAt - 300) { out += Math.random() < 0.02 ? "·" : " "; }
-            else if (elapsed < lc.revealAt) { out += Math.random() < 0.3 ? NOISE[Math.floor(Math.random() * NOISE.length)] : "·"; }
-            else if (elapsed < lc.lockAt) {
-              const p = (elapsed - lc.revealAt) / (lc.lockAt - lc.revealAt);
-              out += Math.random() < p * 0.7 ? lc.ch : NOISE[Math.floor(Math.random() * NOISE.length)];
-            } else if (fullyRevealed && Math.random() < 0.0015) {
-              out += NOISE[Math.floor(Math.random() * NOISE.length)];
-            } else { out += lc.ch; }
+            out += Math.random() < 0.002 ? NOISE[Math.floor(Math.random() * NOISE.length)] : lc.ch;
           } else if (clipMask[idx] > 0) {
             out += String.fromCharCode(clipMask[idx]);
           } else {

@@ -71,16 +71,32 @@
     <script>
       window.__MNM_LOADER_START = performance.now();
       (() => {
-        const LOGO = [
-          "██▄     ▄██         ██▄     ▄██",
-          "████▄ ▄████         ████▄ ▄████",
-          "██ ▀███▀ ██  █▀▀▀▄  ██ ▀███▀ ██",
-          "██  ▀█▀  ██  █   █  ██  ▀█▀  ██",
-          "██       ██  █   █  ██       ██",
-          "▀▀       ▀▀  ▀   ▀  ▀▀       ▀▀",
+        const LOGO_FULL = [
+          "███▄           ▄███                    ███▄           ▄███",
+          "████▄         ▄████                    ████▄         ▄████",
+          "██ ███▄     ▄███ ██                    ██ ███▄     ▄███ ██",
+          "██  ▀███▄ ▄███▀  ██   ▄▀▀▀▀▄▄         ██  ▀███▄ ▄███▀  ██",
+          "██    ▀█████▀    ██   █▀    ██         ██    ▀█████▀    ██",
+          "██      ▀█▀      ██   █     ██         ██      ▀█▀      ██",
+          "██               ██   █     ██         ██               ██",
+          "██               ██   ▀     ▀▀         ██               ██",
+          "▀▀               ▀▀                    ▀▀               ▀▀",
+          "      ake                  o                 istake",
         ];
-        const LH = LOGO.length;
-        const LW = LOGO[0].length;
+        const LOGO_COMPACT = [
+          "██▄     ▄██              ██▄     ▄██",
+          "████▄ ▄████              ████▄ ▄████",
+          "██ ▀███▀ ██  ▄▀▀▀▄▄     ██ ▀███▀ ██",
+          "██  ▀█▀  ██  █▀  ██     ██  ▀█▀  ██",
+          "██       ██  █   ██     ██       ██",
+          "██       ██  █   ██     ██       ██",
+          "▀▀       ▀▀  ▀   ▀▀     ▀▀       ▀▀",
+          "   ake          o            istake",
+        ];
+        // Pick based on viewport width
+        let LOGO = LOGO_FULL;
+        let LH = LOGO.length;
+        let LW = Math.max(...LOGO.map(l => l.length));
         const NOISE = "░▒▓█▀▄╔╗╚╝║═╭╮╰╯│─";
         const GLYPH = [" ", ".", "·", "▪", "▫", "○"];
         const SPRITES = [
@@ -136,14 +152,22 @@
           const nr = Math.max(1, Math.floor(pre.clientHeight / ch));
           if (nc === cols && nr === rows) return;
           cols = nc; rows = nr;
+
+          // Pick logo variant based on available columns
+          const fullW = Math.max(...LOGO_FULL.map(l => l.length));
+          LOGO = (cols >= fullW + 6) ? LOGO_FULL : LOGO_COMPACT;
+          LH = LOGO.length;
+          LW = Math.max(...LOGO.map(l => l.length));
+
           lox = Math.floor((cols - LW) / 2);
           loy = Math.floor((rows - LH) / 2);
           clipMask = new Uint16Array(cols * rows);
           logoMap = new Map();
 
           for (let r = 0; r < LH; r++) {
-            for (let c = 0; c < LW; c++) {
-              const char = LOGO[r][c];
+            const line = LOGO[r];
+            for (let c = 0; c < line.length; c++) {
+              const char = line[c];
               if (char === " ") continue;
               const gr = loy + r;
               const gc = lox + c;
