@@ -15,6 +15,39 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
+// --- Chunk load failure recovery ---
+// After redeployment, old JS chunks no longer exist. Catch the error and reload once.
+const RELOAD_KEY = "mnm.chunk-reload";
+window.addEventListener("error", (e) => {
+  const msg = e.message || "";
+  if (
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("Loading chunk") ||
+    msg.includes("Loading CSS chunk") ||
+    msg.includes("Load failed")
+  ) {
+    const lastReload = sessionStorage.getItem(RELOAD_KEY);
+    const now = Date.now();
+    // Only auto-reload once per 30s to prevent infinite loops
+    if (!lastReload || now - Number(lastReload) > 30_000) {
+      sessionStorage.setItem(RELOAD_KEY, String(now));
+      window.location.reload();
+    }
+  }
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const msg = e.reason?.message || "";
+  if (msg.includes("Failed to fetch dynamically imported module") || msg.includes("Load failed")) {
+    const lastReload = sessionStorage.getItem(RELOAD_KEY);
+    const now = Date.now();
+    if (!lastReload || now - Number(lastReload) > 30_000) {
+      sessionStorage.setItem(RELOAD_KEY, String(now));
+      window.location.reload();
+    }
+  }
+});
+
+// --- Service worker registration ---
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js");
