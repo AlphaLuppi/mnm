@@ -9,9 +9,9 @@
 ╚═╝     ╚═╝ ╚═╝  ╚═╝ ╚═╝     ╚═╝
 ```
 
-> **Cockpit de supervision B2B pour l'orchestration d'agents IA, la gestion multi-tenant et la gouvernance enterprise.**
+> **Cockpit de supervision B2B pour orchestrer des equipes completes d'agents IA — dev, infra, PO, PM, marketing, DSI, CEO et au-dela.**
 
-MnM est un fork de [Paperclip](https://github.com/paperclipai/paperclip) transformé en plateforme enterprise B2B self-hosted pour piloter des équipes d'agents IA. Le projet est né d'un constat : les humains ne doivent plus coder, mais superviser l'alignement entre intention et exécution.
+MnM est un fork de [Paperclip](https://github.com/paperclipai/paperclip) transforme en plateforme enterprise B2B self-hosted. La vision : chaque metier de l'entreprise dispose de ses propres agents IA, orchestres dans un cockpit unifie avec gouvernance, isolation et traçabilite. L'humain ne fait plus — il pilote.
 
 Made by **Studio Manifeste**.
 
@@ -25,7 +25,7 @@ Made by **Studio Manifeste**.
 
 | | Paperclip | MnM |
 |---|---|---|
-| **Cible** | Développeur solo | Equipes enterprise B2B |
+| **Cible** | Développeur solo | Equipes enterprise completes (dev, PO, PM, infra, marketing, DSI, CEO...) |
 | **Modèle** | Mono-utilisateur | Multi-tenant (1 instance = 1 entreprise) |
 | **Sécurité** | Confiance locale | RBAC dynamique + isolation par tags + RLS PostgreSQL |
 | **Agents** | Exécution locale | Sandbox Docker par utilisateur |
@@ -39,17 +39,17 @@ Made by **Studio Manifeste**.
 
 ## Vision
 
-MnM n'est pas un IDE avec un copilote. C'est **un IDE concu POUR developper VIA des agents**.
+MnM n'est pas un outil de dev. C'est **une plateforme de pilotage pour des equipes entieres d'agents IA**, couvrant tous les metiers d'une organisation : dev, infra, PO, PM, marketing, communication, DSI, CEO, CTO...
 
-Le paradigme change : l'humain passe de codeur à pilote. 80% strategie, 20% execution. Les agents sont la workforce, MnM est la tour de controle.
+L'ambition : chaque role de l'entreprise a ses agents, ses workflows, ses outils. MnM orchestre le tout avec isolation, gouvernance et visibilite. L'humain passe de l'execution a la supervision strategique — 80% reflexion, 20% execution.
 
 **5 piliers de valeur :**
 
-1. **Orchestrateur d'agents IA** — Modele Kubernetes-for-agents : isolation, scheduling, health monitoring
-2. **Fin du handoff lossy** — Contexte partage et requetable entre tous les roles (PO, dev, QA, manager)
-3. **Dual-speed workflow** — Reflexion humaine (async) + execution machine (continue)
-4. **Anti-shadow-AI** — Tous les agents visibles, coutables, gouvernes, audites
-5. **Capture du savoir tacite** — Le savoir tribal devient un actif digital exploitable
+1. **Orchestrateur d'agents IA** — Modele Kubernetes-for-agents : isolation, scheduling, health monitoring. Pas limite au code — n'importe quel metier peut avoir ses agents (marketing, ops, finance, RH...)
+2. **Fin du handoff lossy** — Contexte partage et requetable entre tous les roles. Le PO, le dev, le QA, le DSI, le CEO voient la meme realite, enrichie par les agents
+3. **Dual-speed workflow** — Reflexion humaine (async, brainstorms, decisions strategiques) + execution machine (continue, 24/7, multi-agents)
+4. **Anti-shadow-AI** — Tous les agents visibles, coutables, gouvernes, audites. Le DSI voit qui utilise quoi, combien ca coute, et peut appliquer des politiques de gouvernance
+5. **Capture du savoir tacite** — Le savoir tribal (comment on deploie, les conventions internes, les decisions d'archi) devient un actif digital exploitable par les agents et les humains
 
 ---
 
