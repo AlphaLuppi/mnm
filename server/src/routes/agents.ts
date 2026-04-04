@@ -30,7 +30,7 @@ import {
 } from "../services/index.js";
 import { tagFilterService } from "../services/tag-filter.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
-import { assertCompanyPermission } from "../middleware/require-permission.js";
+import { requirePermission, assertCompanyPermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
@@ -466,7 +466,7 @@ export function agentRoutes(db: Db) {
     },
   );
 
-  router.get("/companies/:companyId/agents", async (req, res) => {
+  router.get("/companies/:companyId/agents", requirePermission(db, "agents:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const workspaceId = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
@@ -1291,7 +1291,7 @@ export function agentRoutes(db: Db) {
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
     if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
-    await assertCompanyPermission(db, req, existing.companyId, "agents:create");
+    await assertCompanyPermission(db, req, existing.companyId, "agents:delete");
     const agent = await svc.remove(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });

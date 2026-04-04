@@ -2,7 +2,10 @@ import { Router } from "express";
 import { z } from "zod";
 import type { Db } from "@mnm/db";
 import { validate } from "../middleware/validate.js";
+import { requireTagScope } from "../middleware/tag-scope.js";
 import { activityService } from "../services/activity.js";
+import { tagFilterService } from "../services/tag-filter.js";
+import { requirePermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { issueService } from "../services/index.js";
 import { sanitizeRecord } from "../redaction.js";
@@ -21,18 +24,39 @@ export function activityRoutes(db: Db) {
   const router = Router();
   const svc = activityService(db);
   const issueSvc = issueService(db);
+  const tagFilter = tagFilterService(db);
 
-  router.get("/companies/:companyId/activity", async (req, res) => {
+  router.get("/companies/:companyId/activity", requirePermission(db, "audit:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    const tagScope = requireTagScope(req);
+
+    const agentId = req.query.agentId as string | undefined;
+
+    // Tag isolation: if filtering by agentId, verify it's visible
+    if (agentId && !tagScope.bypassTagFilter) {
+      const visible = await tagFilter.isAgentVisible(companyId, agentId, tagScope);
+      if (!visible) {
+        res.json([]);
+        return;
+      }
+    }
 
     const filters = {
       companyId,
-      agentId: req.query.agentId as string | undefined,
+      agentId,
       entityType: req.query.entityType as string | undefined,
       entityId: req.query.entityId as string | undefined,
     };
-    const result = await svc.list(filters);
+    let result = await svc.list(filters);
+
+    // Tag isolation: filter activity to only visible agents
+    if (!tagScope.bypassTagFilter && !agentId) {
+      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, tagScope);
+      const visibleIds = new Set(visibleAgents.map((a) => a.id));
+      result = result.filter((r: any) => !r.agentId || visibleIds.has(r.agentId));
+    }
+
     res.json(result);
   });
 
@@ -70,6 +94,17 @@ export function activityRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+
+    // Tag isolation: verify user can see this issue
+    const tagScope = requireTagScope(req);
+    if (!tagScope.bypassTagFilter) {
+      const visible = await tagFilter.isIssueVisible(issue.companyId, issue, tagScope);
+      if (!visible) {
+        res.status(404).json({ error: "Issue not found" });
+        return;
+      }
+    }
+
     const result = await svc.forIssue(id);
     res.json(result);
   });
@@ -82,6 +117,17 @@ export function activityRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+
+    // Tag isolation: verify user can see this issue
+    const tagScope = requireTagScope(req);
+    if (!tagScope.bypassTagFilter) {
+      const visible = await tagFilter.isIssueVisible(issue.companyId, issue, tagScope);
+      if (!visible) {
+        res.status(404).json({ error: "Issue not found" });
+        return;
+      }
+    }
+
     const result = await svc.runsForIssue(issue.companyId, id);
     res.json(result);
   });

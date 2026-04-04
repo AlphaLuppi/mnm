@@ -3,6 +3,7 @@ import type { Db } from "@mnm/db";
 import { castFeedbackVoteSchema, feedbackSummaryFiltersSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
 import { feedbackService } from "../services/feedback.js";
+import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { notFound } from "../errors.js";
 
@@ -13,6 +14,7 @@ export function feedbackRoutes(db: Db) {
   // Cast or update a vote on an agent comment
   router.post(
     "/companies/:companyId/issues/:issueId/feedback",
+    requirePermission(db, "feedback:read"),
     validate(castFeedbackVoteSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -30,6 +32,7 @@ export function feedbackRoutes(db: Db) {
   // Get all votes for an issue (with current user's vote highlighted)
   router.get(
     "/companies/:companyId/issues/:issueId/feedback",
+    requirePermission(db, "feedback:read"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const issueId = req.params.issueId as string;
@@ -43,9 +46,10 @@ export function feedbackRoutes(db: Db) {
     },
   );
 
-  // Delete (retract) a vote
+  // Delete (retract) a vote — owner can retract with feedback:read, others need feedback:manage
   router.delete(
     "/companies/:companyId/issues/:issueId/feedback/:targetId",
+    requirePermission(db, "feedback:read"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const targetId = req.params.targetId as string;
@@ -54,7 +58,7 @@ export function feedbackRoutes(db: Db) {
       const actor = getActorInfo(req);
       const authorUserId = actor.actorId;
 
-      // targetType is always "issue_comment" for now
+      // deleteVote filters by authorUserId — only deletes the actor's own vote
       const deleted = await svc.deleteVote(companyId, "issue_comment", targetId, authorUserId);
       if (!deleted) {
         throw notFound("Vote not found");
@@ -66,6 +70,7 @@ export function feedbackRoutes(db: Db) {
   // Get aggregate feedback summary (with optional filters)
   router.get(
     "/companies/:companyId/feedback/summary",
+    requirePermission(db, "feedback:read"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

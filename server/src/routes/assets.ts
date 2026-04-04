@@ -33,7 +33,7 @@ export function assetRoutes(db: Db, storage: StorageService) {
     });
   }
 
-  router.post("/companies/:companyId/assets/images", requirePermission(db, "stories:create"), async (req, res) => {
+  router.post("/companies/:companyId/assets/images", requirePermission(db, "issues:create"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 

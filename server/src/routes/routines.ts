@@ -9,6 +9,7 @@ import {
   runRoutineSchema,
 } from "@mnm/shared";
 import { routineService } from "../services/routines.js";
+import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function routineRoutes(db: Db) {
@@ -16,7 +17,7 @@ export function routineRoutes(db: Db) {
   const svc = routineService(db);
 
   // ── List routines ────────────────────────────────────────────────────────
-  router.get("/companies/:companyId/routines", async (req, res, next) => {
+  router.get("/companies/:companyId/routines", requirePermission(db, "routines:read"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -29,7 +30,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Create routine ───────────────────────────────────────────────────────
-  router.post("/companies/:companyId/routines", async (req, res, next) => {
+  router.post("/companies/:companyId/routines", requirePermission(db, "routines:create"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -48,7 +49,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Get routine by ID ────────────────────────────────────────────────────
-  router.get("/companies/:companyId/routines/:id", async (req, res, next) => {
+  router.get("/companies/:companyId/routines/:id", requirePermission(db, "routines:read"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -65,7 +66,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Update routine ───────────────────────────────────────────────────────
-  router.patch("/companies/:companyId/routines/:id", async (req, res, next) => {
+  router.patch("/companies/:companyId/routines/:id", requirePermission(db, "routines:create"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -84,7 +85,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Create trigger ───────────────────────────────────────────────────────
-  router.post("/companies/:companyId/routines/:id/triggers", async (req, res, next) => {
+  router.post("/companies/:companyId/routines/:id/triggers", requirePermission(db, "routines:create"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -103,7 +104,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Update trigger ───────────────────────────────────────────────────────
-  router.patch("/companies/:companyId/routine-triggers/:id", async (req, res, next) => {
+  router.patch("/companies/:companyId/routine-triggers/:id", requirePermission(db, "routines:create"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -118,7 +119,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Delete trigger ───────────────────────────────────────────────────────
-  router.delete("/companies/:companyId/routine-triggers/:id", async (req, res, next) => {
+  router.delete("/companies/:companyId/routine-triggers/:id", requirePermission(db, "routines:delete"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -131,7 +132,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── Manual run ───────────────────────────────────────────────────────────
-  router.post("/companies/:companyId/routines/:id/run", async (req, res, next) => {
+  router.post("/companies/:companyId/routines/:id/run", requirePermission(db, "routines:manage"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -150,7 +151,7 @@ export function routineRoutes(db: Db) {
   });
 
   // ── List runs ────────────────────────────────────────────────────────────
-  router.get("/companies/:companyId/routines/:id/runs", async (req, res, next) => {
+  router.get("/companies/:companyId/routines/:id/runs", requirePermission(db, "routines:read"), async (req, res, next) => {
     try {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

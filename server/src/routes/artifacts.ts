@@ -1,19 +1,24 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
+import { requireTagScope } from "../middleware/tag-scope.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { artifactService } from "../services/artifact.js";
+import { chatService } from "../services/chat.js";
+import { tagFilterService } from "../services/tag-filter.js";
 import { createArtifactSchema, updateArtifactSchema } from "@mnm/shared";
 import { badRequest, forbidden, notFound } from "../errors.js";
 
 export function artifactRoutes(db: Db): Router {
   const router = Router();
   const svc = artifactService(db);
+  const chat = chatService(db);
+  const tagFilter = tagFilterService(db);
 
   // POST /api/companies/:companyId/artifacts — create artifact
   router.post(
     "/companies/:companyId/artifacts",
-    requirePermission(db, "artifacts:edit"),
+    requirePermission(db, "artifacts:create"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -58,6 +63,26 @@ export function artifactRoutes(db: Db): Router {
         offset,
       });
 
+      // Tag isolation: filter artifacts by channel agent visibility
+      const tagScope = requireTagScope(req);
+      if (!tagScope.bypassTagFilter && result.artifacts) {
+        const visibleAgents = await tagFilter.listAgentsFiltered(companyId, tagScope);
+        const visibleIds = new Set(visibleAgents.map((a) => a.id));
+        // For each artifact with a sourceChannelId, check if the channel's agent is visible
+        const filtered = [];
+        for (const artifact of result.artifacts as any[]) {
+          if (!artifact.sourceChannelId) {
+            filtered.push(artifact);
+            continue;
+          }
+          const ch = await chat.getChannel(artifact.sourceChannelId);
+          if (ch && visibleIds.has(ch.agentId)) {
+            filtered.push(artifact);
+          }
+        }
+        result.artifacts = filtered;
+      }
+
       res.json(result);
     },
   );
@@ -73,6 +98,16 @@ export function artifactRoutes(db: Db): Router {
       const artifact = await svc.getById(companyId, req.params.id as string);
       if (!artifact) {
         throw notFound("Artifact not found");
+      }
+
+      // Tag isolation: check if the artifact's channel agent is visible
+      const tagScope = requireTagScope(req);
+      if (!tagScope.bypassTagFilter && (artifact as any).sourceChannelId) {
+        const ch = await chat.getChannel((artifact as any).sourceChannelId);
+        if (ch) {
+          const visible = await chat.isChannelVisible(ch, tagScope);
+          if (!visible) throw notFound("Artifact not found");
+        }
       }
 
       res.json(artifact);

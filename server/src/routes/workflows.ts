@@ -20,7 +20,7 @@ export function workflowRoutes(db: Db) {
 
   // ─── Templates ────────────────────────────────────────────────
 
-  router.get("/companies/:companyId/workflow-templates", async (req, res) => {
+  router.get("/companies/:companyId/workflow-templates", requirePermission(db, "workflows:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const templates = await svc.listTemplates(companyId);
@@ -30,6 +30,7 @@ export function workflowRoutes(db: Db) {
   router.get("/workflow-templates/:id", async (req, res) => {
     const template = await svc.getTemplate(req.params.id as string);
     assertCompanyAccess(req, template.companyId);
+    await assertCompanyPermission(db, req, template.companyId, "workflows:read");
     res.json(template);
   });
 
@@ -114,7 +115,7 @@ export function workflowRoutes(db: Db) {
 
   // ─── Instances ────────────────────────────────────────────────
 
-  router.get("/companies/:companyId/workflows", async (req, res) => {
+  router.get("/companies/:companyId/workflows", requirePermission(db, "workflows:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -132,6 +133,7 @@ export function workflowRoutes(db: Db) {
   router.get("/workflows/:id", async (req, res) => {
     const instance = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, instance.companyId);
+    await assertCompanyPermission(db, req, instance.companyId, "workflows:read");
 
     // PROJ-S03: Scope check for single entity
     const scopeProjectIds = await getScopeProjectIds(db, instance.companyId, req);
@@ -228,7 +230,7 @@ export function workflowRoutes(db: Db) {
 
   // ─── PIPE-08: Workflow Gold ─────────────────────────────────────────────
 
-  router.get("/companies/:companyId/workflows/:instanceId/gold", async (req, res) => {
+  router.get("/companies/:companyId/workflows/:instanceId/gold", requirePermission(db, "traces:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
