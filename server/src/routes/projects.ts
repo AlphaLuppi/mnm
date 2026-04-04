@@ -56,7 +56,7 @@ export function projectRoutes(db: Db) {
     }
   });
 
-  router.get("/companies/:companyId/projects", async (req, res) => {
+  router.get("/companies/:companyId/projects", requirePermission(db, "projects:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -145,7 +145,7 @@ export function projectRoutes(db: Db) {
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
+    await assertCompanyPermission(db, req, existing.companyId, "projects:edit");
     const project = await svc.update(id, req.body);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
@@ -542,7 +542,7 @@ Reply A or B.`;
       }
       assertCompanyAccess(req, existing.companyId);
       await assertProjectAccess(db, req, existing.companyId, id);
-      await assertCompanyPermission(db, req, existing.companyId, "projects:create");
+      await assertCompanyPermission(db, req, existing.companyId, "projects:edit");
       const workspaceExists = (await svc.listWorkspaces(id)).some((workspace) => workspace.id === workspaceId);
       if (!workspaceExists) {
         res.status(404).json({ error: "Project workspace not found" });
@@ -591,7 +591,7 @@ Reply A or B.`;
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
+    await assertCompanyPermission(db, req, existing.companyId, "projects:delete");
     const workspace = await svc.removeWorkspace(id, workspaceId);
     if (!workspace) {
       res.status(404).json({ error: "Project workspace not found" });
@@ -633,7 +633,7 @@ Reply A or B.`;
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
+    await assertCompanyPermission(db, req, existing.companyId, "projects:delete");
 
     // Cascade: delete scoped agents and issues before removing the project.
     // The DB schema does not define onDelete cascade for agents (no FK) or issues

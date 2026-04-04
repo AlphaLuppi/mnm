@@ -9,6 +9,7 @@ import {
 } from "@mnm/shared";
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
+import { assertCompanyPermission } from "../middleware/require-permission.js";
 import { accessService, companyPortabilityService, companyService, emitAudit, logActivity } from "../services/index.js";
 import { bootstrapCompany } from "../services/cao.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
@@ -66,6 +67,7 @@ export function companyRoutes(db: Db) {
   router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    await assertCompanyPermission(db, req, companyId, "audit:export");
     const result = await portability.exportBundle(companyId, req.body);
 
     await emitAudit({
@@ -162,6 +164,7 @@ export function companyRoutes(db: Db) {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    await assertCompanyPermission(db, req, companyId, "company:manage_settings");
 
     // If invitationOnly is being changed, fetch current value for audit
     let oldInvitationOnly: boolean | undefined;
@@ -255,6 +258,7 @@ export function companyRoutes(db: Db) {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    await assertCompanyPermission(db, req, companyId, "company:delete");
     const company = await svc.remove(companyId);
     if (!company) {
       res.status(404).json({ error: "Company not found" });

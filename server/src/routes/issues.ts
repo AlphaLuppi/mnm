@@ -206,7 +206,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     });
   });
 
-  router.get("/companies/:companyId/issues", async (req, res) => {
+  router.get("/companies/:companyId/issues", requirePermission(db, "issues:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -290,7 +290,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(result);
   });
 
-  router.post("/companies/:companyId/labels", requirePermission(db, "stories:create"), validate(createIssueLabelSchema), async (req, res) => {
+  router.post("/companies/:companyId/labels", requirePermission(db, "issues:create"), validate(createIssueLabelSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const label = await svc.createLabel(companyId, req.body);
@@ -326,7 +326,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
-    await assertCompanyPermission(db, req, existing.companyId, "stories:create");
+    await assertCompanyPermission(db, req, existing.companyId, "issues:create");
     const removed = await svc.deleteLabel(labelId);
     if (!removed) {
       res.status(404).json({ error: "Label not found" });
@@ -363,6 +363,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    await assertCompanyPermission(db, req, issue.companyId, "issues:read");
 
     // PROJ-S03: Scope check for single entity
     const scopeProjectIds = await getScopeProjectIds(db, issue.companyId, req);
@@ -523,7 +524,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json({ ok: true });
   });
 
-  router.post("/companies/:companyId/issues", requirePermission(db, "stories:create"), validate(createIssueSchema), async (req, res) => {
+  router.post("/companies/:companyId/issues", requirePermission(db, "issues:create"), validate(createIssueSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     if (req.body.assigneeAgentId || req.body.assigneeUserId) {
@@ -591,7 +592,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    await assertCompanyPermission(db, req, existing.companyId, "stories:edit");
+    await assertCompanyPermission(db, req, existing.companyId, "issues:edit");
 
     // UI-05: "me" substitution for self-assign (Task Pool "Take" action)
     if (req.body.assigneeUserId === "me" && req.actor.type === "board" && req.actor.userId) {
@@ -805,7 +806,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(404).json({ error: "Issue not found" });
       return;
     }
-    await assertCompanyPermission(db, req, existing.companyId, "stories:create");
+    await assertCompanyPermission(db, req, existing.companyId, "issues:delete");
     const attachments = await svc.listAttachments(id);
 
     const issue = await svc.remove(id);
@@ -971,6 +972,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    await assertCompanyPermission(db, req, issue.companyId, "issues:read");
     if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
       res.status(404).json({ error: "Issue not found" });
       return;
@@ -1008,6 +1010,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
+    await assertCompanyPermission(db, req, issue.companyId, "issues:edit");
     if (req.tagScope && !await tagFilter.isIssueVisible(issue.companyId, issue, req.tagScope)) {
       res.status(404).json({ error: "Issue not found" });
       return;
@@ -1233,7 +1236,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(attachments.map(withContentPath));
   });
 
-  router.post("/companies/:companyId/issues/:issueId/attachments", requirePermission(db, "stories:edit"), async (req, res) => {
+  router.post("/companies/:companyId/issues/:issueId/attachments", requirePermission(db, "issues:edit"), async (req, res) => {
     const companyId = req.params.companyId as string;
     const issueId = req.params.issueId as string;
     assertCompanyAccess(req, companyId);
@@ -1362,7 +1365,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, attachment.companyId);
-    await assertCompanyPermission(db, req, attachment.companyId, "stories:edit");
+    await assertCompanyPermission(db, req, attachment.companyId, "issues:edit");
 
     try {
       await storage.deleteObject(attachment.companyId, attachment.objectKey);

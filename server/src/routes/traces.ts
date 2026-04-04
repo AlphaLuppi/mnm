@@ -1,11 +1,14 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
+import { requireTagScope } from "../middleware/tag-scope.js";
 import { traceService } from "../services/trace-service.js";
+import { tagFilterService } from "../services/tag-filter.js";
 import { lensAnalysisService } from "../services/lens-analysis.js";
 import { enrichTrace, backfillSilverEnrichment } from "../services/silver-trace-enrichment.js";
 import { goldTraceEnrichment } from "../services/gold-trace-enrichment.js";
-import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { forbidden } from "../errors.js";
 import {
   createTraceSchema,
   completeTraceSchema,
@@ -23,6 +26,7 @@ import {
 export function traceRoutes(db: Db) {
   const router = Router();
   const svc = traceService(db);
+  const tagFilter = tagFilterService(db);
   const analysisEngine = lensAnalysisService(db);
 
   // --- Trace endpoints ---
@@ -47,8 +51,17 @@ export function traceRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
       const filters = traceListFiltersSchema.parse(req.query);
       const result = await svc.list(companyId, filters);
+
+      // Tag isolation: filter traces to only those whose agent is visible
+      if (!tagScope.bypassTagFilter) {
+        const visibleAgents = await tagFilter.listAgentsFiltered(companyId, tagScope);
+        const visibleIds = new Set(visibleAgents.map((a) => a.id));
+        result.data = (result.data as any[]).filter((t: any) => t.agentId && visibleIds.has(t.agentId));
+      }
+
       res.json(result);
     },
   );
@@ -60,11 +73,22 @@ export function traceRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
       const tree = await svc.getByHeartbeatRunId(companyId, req.params.heartbeatRunId as string);
       if (!tree) {
         res.status(404).json({ error: "No trace found for this run" });
         return;
       }
+
+      // Tag isolation: check if the trace's agent is visible
+      if (!tagScope.bypassTagFilter && (tree as any).agentId) {
+        const visible = await tagFilter.isAgentVisible(companyId, (tree as any).agentId, tagScope);
+        if (!visible) {
+          res.status(404).json({ error: "No trace found for this run" });
+          return;
+        }
+      }
+
       res.json(tree);
     },
   );
@@ -76,7 +100,18 @@ export function traceRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      const tagScope = requireTagScope(req);
       const tree = await svc.getTree(companyId, req.params.traceId as string);
+
+      // Tag isolation: check if the trace's agent is visible
+      if (!tagScope.bypassTagFilter && (tree as any).agentId) {
+        const visible = await tagFilter.isAgentVisible(companyId, (tree as any).agentId, tagScope);
+        if (!visible) {
+          res.status(404).json({ error: "Trace not found" });
+          return;
+        }
+      }
+
       res.json(tree);
     },
   );
@@ -145,7 +180,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/trace-lenses — create lens
   router.post(
     "/companies/:companyId/trace-lenses",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, "traces:manage"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -172,7 +207,7 @@ export function traceRoutes(db: Db) {
   // PUT /api/companies/:companyId/trace-lenses/:lensId — update lens
   router.put(
     "/companies/:companyId/trace-lenses/:lensId",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, "traces:manage"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -185,7 +220,7 @@ export function traceRoutes(db: Db) {
   // DELETE /api/companies/:companyId/trace-lenses/:lensId — delete lens
   router.delete(
     "/companies/:companyId/trace-lenses/:lensId",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, "traces:manage"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -249,7 +284,11 @@ export function traceRoutes(db: Db) {
   // POST /api/traces/backfill-silver — backfill silver enrichment on all completed traces without phases
   router.post(
     "/traces/backfill-silver",
-    async (_req, res) => {
+    async (req, res) => {
+      assertBoard(req);
+      if (!req.actor.isInstanceAdmin && req.actor.source !== "local_implicit") {
+        throw forbidden("Instance admin required");
+      }
       const enriched = await backfillSilverEnrichment(db);
       res.json({ enriched });
     },
@@ -258,7 +297,11 @@ export function traceRoutes(db: Db) {
   // POST /api/traces/backfill-gold — backfill gold enrichment on traces with silver but no gold
   router.post(
     "/traces/backfill-gold",
-    async (_req, res) => {
+    async (req, res) => {
+      assertBoard(req);
+      if (!req.actor.isInstanceAdmin && req.actor.source !== "local_implicit") {
+        throw forbidden("Instance admin required");
+      }
       const enriched = await goldTraceEnrichment(db).backfillGoldEnrichment();
       res.json({ enriched });
     },

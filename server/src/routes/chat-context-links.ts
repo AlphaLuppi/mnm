@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
+import { requireTagScope } from "../middleware/tag-scope.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { chatContextLinkService } from "../services/chat-context-link.js";
 import { chatService } from "../services/chat.js";
@@ -11,6 +12,15 @@ export function chatContextLinkRoutes(db: Db) {
   const router = Router();
   const svc = chatContextLinkService(db);
   const chat = chatService(db);
+
+  /** Tag isolation helper: verify the user can see the channel. Returns 404 if not. */
+  async function assertChannelVisible(req: import("express").Request, channel: { agentId: string; companyId: string; createdBy: string | null }) {
+    const tagScope = requireTagScope(req);
+    if (!tagScope.bypassTagFilter) {
+      const visible = await chat.isChannelVisible(channel, tagScope);
+      if (!visible) throw notFound("Channel not found");
+    }
+  }
 
   // POST /api/companies/:companyId/chat/channels/:channelId/context — Add context link
   router.post(
@@ -25,6 +35,7 @@ export function chatContextLinkRoutes(db: Db) {
       if (!channel || channel.companyId !== companyId) {
         throw notFound("Channel not found");
       }
+      await assertChannelVisible(req, channel);
 
       const body = addContextLinkSchema.safeParse(req.body);
       if (!body.success) {
@@ -59,6 +70,7 @@ export function chatContextLinkRoutes(db: Db) {
       if (!channel || channel.companyId !== companyId) {
         throw notFound("Channel not found");
       }
+      await assertChannelVisible(req, channel);
 
       const links = await svc.getLinksForChannel(companyId, channel.id);
 
@@ -79,6 +91,7 @@ export function chatContextLinkRoutes(db: Db) {
       if (!channel || channel.companyId !== companyId) {
         throw notFound("Channel not found");
       }
+      await assertChannelVisible(req, channel);
 
       await svc.removeLink(companyId, channel.id, req.params.linkId as string);
 

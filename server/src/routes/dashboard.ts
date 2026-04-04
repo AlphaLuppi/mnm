@@ -13,7 +13,7 @@ export function dashboardRoutes(db: Db) {
   const svc = dashboardService(db);
 
   // Legacy route — backward compatible (AC10, dash-s01-legacy-compat)
-  router.get("/companies/:companyId/dashboard", async (req, res) => {
+  router.get("/companies/:companyId/dashboard", requirePermission(db, "dashboard:view"), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const summary = await svc.summary(companyId);

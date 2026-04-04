@@ -4,6 +4,7 @@ import type { Db } from "@mnm/db";
 import { documentChunks } from "@mnm/db";
 import { eq, and } from "drizzle-orm";
 import { requirePermission } from "../middleware/require-permission.js";
+import { requireTagScope } from "../middleware/tag-scope.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { documentService } from "../services/document.js";
 import { assetService } from "../services/assets.js";
@@ -134,6 +135,14 @@ export function documentRoutes(db: Db, storage: StorageService) {
 
       const result = await docSvc.list(companyId, { status, limit, offset });
 
+      // Tag isolation: non-admin users only see documents they uploaded
+      const tagScope = requireTagScope(req);
+      if (!tagScope.bypassTagFilter) {
+        result.documents = result.documents.filter(
+          (d) => (d as any).createdByUserId === tagScope.userId,
+        );
+      }
+
       res.json(result);
     },
   );
@@ -151,6 +160,12 @@ export function documentRoutes(db: Db, storage: StorageService) {
         throw notFound("Document not found");
       }
 
+      // Tag isolation: non-admin users only see documents they uploaded
+      const tagScope = requireTagScope(req);
+      if (!tagScope.bypassTagFilter && (doc as any).createdByUserId !== tagScope.userId) {
+        throw notFound("Document not found");
+      }
+
       res.json(doc);
     },
   );
@@ -165,6 +180,12 @@ export function documentRoutes(db: Db, storage: StorageService) {
 
       const doc = await docSvc.getById(companyId, req.params.id as string);
       if (!doc) {
+        throw notFound("Document not found");
+      }
+
+      // Tag isolation: non-admin users only see documents they uploaded
+      const tagScope = requireTagScope(req);
+      if (!tagScope.bypassTagFilter && (doc as any).createdByUserId !== tagScope.userId) {
         throw notFound("Document not found");
       }
 

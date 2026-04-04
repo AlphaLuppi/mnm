@@ -21,6 +21,7 @@ export function tagsRoutes(db: Db) {
   // ── GET /companies/:companyId/tags ── List tags
   router.get(
     "/companies/:companyId/tags",
+    requirePermission(db, "tags:read"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -106,6 +107,7 @@ export function tagsRoutes(db: Db) {
   // ── GET /companies/:companyId/tags/:tagId ── Tag detail
   router.get(
     "/companies/:companyId/tags/:tagId",
+    requirePermission(db, "tags:read"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
@@ -462,7 +464,7 @@ export function tagsRoutes(db: Db) {
   );
 
   // ── GET /companies/:companyId/tags/:tagId/members ── All principals with this tag
-  router.get("/companies/:companyId/tags/:tagId/members", async (req, res) => {
+  router.get("/companies/:companyId/tags/:tagId/members", requirePermission(db, "tags:read"), async (req, res) => {
     const companyId = req.params.companyId as string;
     const tagId = req.params.tagId as string;
 
