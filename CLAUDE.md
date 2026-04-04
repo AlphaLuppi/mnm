@@ -109,6 +109,11 @@ All P1, P2, and tech debt items are complete (including SANDBOX-AUTH, PRESET-SLU
 - `ui/src/components/chat/` — Chat UI (message bubbles, artifact panel, slash commands, mentions)
 - `ui/src/components/folders/` — Folder UI (cards, picker, item list)
 
+## Git Rules
+
+- **Always atomic commit + push** — Every commit must be immediately pushed. Never leave unpushed commits.
+- GPG signing often times out on this machine. If `git commit` fails with `gpg: signing failed: Timeout`, retry with `-c commit.gpgsign=false`.
+
 ## Dev Commands
 
 ```bash
