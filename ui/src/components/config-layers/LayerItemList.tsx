@@ -166,7 +166,7 @@ export function LayerItemList({
 
   const revokeMutation = useMutation({
     mutationFn: (credentialId: string) =>
-      configLayersApi.revokeCredential(credentialId),
+      configLayersApi.revokeCredential(companyId!, credentialId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.configLayers.credentials(companyId!),

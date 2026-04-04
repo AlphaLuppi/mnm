@@ -47,7 +47,7 @@ export function ApiKeyCredentialDialog({
   const storeMutation = useMutation({
     mutationFn: () => {
       const env = parseEnvText(envText);
-      return configLayersApi.storeApiKey(itemId, { env });
+      return configLayersApi.storeApiKey(companyId, itemId, { env });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
