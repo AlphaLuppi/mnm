@@ -63,6 +63,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// Dismiss HTML splash loader (dissolve animation + fade out)
+if (typeof (window as any).__dismissMnmLoader === "function") {
+  (window as any).__dismissMnmLoader();
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
