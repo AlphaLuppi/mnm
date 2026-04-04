@@ -172,7 +172,7 @@ export function Chat() {
 
   // When a channel is selected, show full-page chat. Otherwise show channel list.
   return (
-    <div className="absolute inset-0 overflow-hidden" data-testid="chat-s04-page">
+    <div className="absolute inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 overflow-hidden" data-testid="chat-s04-page">
       {selectedChannel ? (
         /* ── Full-page chat ── */
         <AgentChatPanel
@@ -182,7 +182,7 @@ export function Chat() {
         />
       ) : (
         /* ── Channel list (full page when no chat selected) ── */
-        <div className="max-w-2xl mx-auto py-6 px-4 space-y-6">
+        <div className="max-w-2xl mx-auto pt-6 pb-6 px-4 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
