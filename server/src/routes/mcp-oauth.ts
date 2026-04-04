@@ -108,27 +108,16 @@ export function mcpOauthRoutes(db: Db) {
     }
   });
 
-  // ── POST /mcp-credentials/:itemId/api-key ─────────────────────────────────
+  // ── POST /companies/:companyId/mcp-credentials/:itemId/api-key ────────────
   // Store an API key credential (non-OAuth) for an MCP item.
   // Body: { material: { env: { KEY: "value" } } }
-  router.post("/mcp-credentials/:itemId/api-key", async (req, res) => {
-    assertBoard(req);
-
+  router.post(
+    "/companies/:companyId/mcp-credentials/:itemId/api-key",
+    requirePermission(db, "mcp:connect"),
+    async (req, res) => {
     const itemId = req.params.itemId as string;
     const userId = req.actor.userId!;
-    const companyId = req.actor.companyId ?? (req.query.companyId as string | undefined) ?? "";
-
-    if (!companyId) {
-      throw badRequest("companyId is required");
-    }
-
-    const { accessService } = await import("../services/access.js");
-    const access = accessService(db);
-    const allowed = await access.canUser(companyId, userId, "mcp:connect");
-    if (!allowed) {
-      res.status(403).json({ error: "Missing permission: mcp:connect" });
-      return;
-    }
+    const companyId = req.params.companyId as string;
 
     const { material } = req.body as { material?: Record<string, unknown> };
     if (!material || typeof material !== "object" || Object.keys(material).length === 0) {
@@ -140,27 +129,15 @@ export function mcpOauthRoutes(db: Db) {
     res.status(201).json({ ok: true });
   });
 
-  // ── DELETE /mcp-credentials/:id ───────────────────────────────────────────
+  // ── DELETE /companies/:companyId/mcp-credentials/:id ──────────────────────
   // Revoke a credential (clear material, set status=revoked).
-  router.delete("/mcp-credentials/:id", async (req, res) => {
-    assertBoard(req);
-
+  router.delete(
+    "/companies/:companyId/mcp-credentials/:id",
+    requirePermission(db, "mcp:connect"),
+    async (req, res) => {
     const credentialId = req.params.id as string;
     const userId = req.actor.userId!;
-    const companyId = req.actor.companyId ?? (req.query.companyId as string | undefined) ?? "";
-
-    if (!companyId) {
-      throw badRequest("companyId is required");
-    }
-
-    // Check permission inline (no :companyId in this path)
-    const { accessService } = await import("../services/access.js");
-    const access = accessService(db);
-    const allowed = await access.canUser(companyId, userId, "mcp:connect");
-    if (!allowed) {
-      res.status(403).json({ error: "Missing permission: mcp:connect" });
-      return;
-    }
+    const companyId = req.params.companyId as string;
 
     const revoked = await credSvc.revoke(credentialId, userId, companyId);
     if (!revoked) {
