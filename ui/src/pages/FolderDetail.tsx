@@ -18,6 +18,8 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { foldersApi } from "../api/folders";
 import { documentsApi } from "../api/documents";
 import { artifactsApi } from "../api/artifacts";
+import { chatApi } from "../api/chat";
+import { agentsApi } from "../api/agents";
 
 import { queryKeys } from "../lib/queryKeys";
 import { FolderItemList } from "../components/folders/FolderItemList";
@@ -34,6 +36,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "../lib/utils";
 import type { FolderItemType } from "@mnm/shared";
 
@@ -55,6 +64,8 @@ export function FolderDetail() {
   const [addItemType, setAddItemType] = useState<FolderItemType>("document");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [instructions, setInstructions] = useState("");
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatForm, setNewChatForm] = useState<{ agentId: string; name: string }>({ agentId: "", name: "" });
 
   const {
     data: folder,
@@ -168,6 +179,31 @@ export function FolderDetail() {
     queryKey: queryKeys.artifacts.list(selectedCompanyId!),
     queryFn: () => artifactsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId && addItemOpen && addItemType === "artifact",
+  });
+
+  const agentsQuery = useQuery({
+    queryKey: queryKeys.agents.list(selectedCompanyId!),
+    queryFn: () => agentsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId && newChatOpen,
+  });
+
+  const createChatMutation = useMutation({
+    mutationFn: async (input: { agentId: string; name?: string }) => {
+      const channel = await chatApi.createChannel(selectedCompanyId!, input);
+      await foldersApi.addItem(selectedCompanyId!, folderId!, {
+        itemType: "channel" as FolderItemType,
+        channelId: channel.id,
+      });
+      return channel;
+    },
+    onSuccess: (channel) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.folders.detail(selectedCompanyId!, folderId!),
+      });
+      setNewChatOpen(false);
+      setNewChatForm({ agentId: "", name: "" });
+      navigate(`/folders/${folderId}/chat/${channel.id}`);
+    },
   });
 
   const addItemMutation = useMutation({
@@ -341,14 +377,26 @@ export function FolderDetail() {
       </div>
 
       {/* Conversations */}
-      {folderChannels.length > 0 && (
-        <div className="space-y-3">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">
             Conversations{" "}
             <span className="text-muted-foreground">
               ({folderChannels.length})
             </span>
           </h2>
+          {canEdit && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setNewChatOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New Chat
+            </Button>
+          )}
+        </div>
+        {folderChannels.length > 0 ? (
           <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
             {folderChannels.map((item) => (
               <button
@@ -366,8 +414,12 @@ export function FolderDetail() {
               </button>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-muted-foreground py-3">
+            No conversations in this folder yet.
+          </p>
+        )}
+      </div>
 
       {/* Sharing */}
       <div className="border border-border rounded-lg p-4">
@@ -437,6 +489,69 @@ export function FolderDetail() {
         onConfirm={(preserveIds) => deleteMutation.mutate(preserveIds)}
         isPending={deleteMutation.isPending}
       />
+
+      {/* New Chat dialog */}
+      <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Chat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Agent</Label>
+              <Select
+                value={newChatForm.agentId}
+                onValueChange={(v) => setNewChatForm((f) => ({ ...f, agentId: v }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select an agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agentsQuery.isLoading && (
+                    <SelectItem value="__loading" disabled>
+                      Loading agents...
+                    </SelectItem>
+                  )}
+                  {(agentsQuery.data ?? [])
+                    .filter((a) => a.status !== "terminated")
+                    .map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-chat-name">Name (optional)</Label>
+              <Input
+                id="new-chat-name"
+                placeholder="e.g. Debug session"
+                value={newChatForm.name}
+                onChange={(e) =>
+                  setNewChatForm((f) => ({ ...f, name: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewChatOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                createChatMutation.mutate({
+                  agentId: newChatForm.agentId,
+                  name: newChatForm.name || undefined,
+                })
+              }
+              disabled={!newChatForm.agentId || createChatMutation.isPending}
+            >
+              {createChatMutation.isPending ? "Starting..." : "Start Chat"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Item dialog */}
       <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
