@@ -167,7 +167,7 @@ export function Traces() {
           <SelectTrigger
             data-testid="trace-09-filter-status"
             size="sm"
-            className="w-[130px]"
+            className="w-full sm:w-[130px]"
             aria-label="Filter by status"
           >
             <SelectValue placeholder="Status" />
@@ -185,7 +185,7 @@ export function Traces() {
           <SelectTrigger
             data-testid="trace-09-filter-agent"
             size="sm"
-            className="w-[160px]"
+            className="w-full sm:w-[160px]"
             aria-label="Filter by agent"
           >
             <SelectValue placeholder="Agent" />

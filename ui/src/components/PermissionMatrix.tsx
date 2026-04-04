@@ -54,7 +54,7 @@ export function PermissionMatrix({ presets, permissions }: PermissionMatrixProps
   }
 
   return (
-    <div data-testid="rbac-s06-matrix" className="border border-border rounded-md overflow-auto">
+    <div data-testid="rbac-s06-matrix" className="border border-border rounded-md overflow-x-auto">
       <table
         data-testid="rbac-s06-matrix-table"
         className="w-full text-sm"

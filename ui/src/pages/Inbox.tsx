@@ -643,7 +643,7 @@ export function Inbox() {
               value={allCategoryFilter}
               onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
             >
-              <SelectTrigger className="h-8 w-[170px] text-xs">
+              <SelectTrigger className="h-8 w-full sm:w-[170px] text-xs">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -662,7 +662,7 @@ export function Inbox() {
                 value={allApprovalFilter}
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
-                <SelectTrigger className="h-8 w-[170px] text-xs">
+                <SelectTrigger className="h-8 w-full sm:w-[170px] text-xs">
                   <SelectValue placeholder="Approval status" />
                 </SelectTrigger>
                 <SelectContent>
