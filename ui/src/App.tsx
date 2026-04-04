@@ -60,6 +60,7 @@ import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { RequirePermission } from "./components/RequirePermission";
+import { FullPageLoader } from "./components/FullPageLoader";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 
@@ -83,7 +84,7 @@ function CloudAccessGate() {
   });
 
   if (healthQuery.isLoading || (isAuthenticatedMode && sessionQuery.isLoading)) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <FullPageLoader />;
   }
 
   if (healthQuery.error) {
@@ -192,7 +193,7 @@ function CompanyRootRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <FullPageLoader />;
   }
 
   if (companies.length === 0) {
@@ -212,7 +213,7 @@ function UnprefixedBoardRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <FullPageLoader />;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
