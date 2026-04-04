@@ -333,7 +333,7 @@ export function AuditLog() {
             <SelectTrigger
               data-testid="obs-s04-filter-actor-type"
               size="sm"
-              className="w-[130px]"
+              className="w-full sm:w-[130px]"
               aria-label="Filter by actor type"
             >
               <SelectValue placeholder="Actor Type" />
@@ -352,7 +352,7 @@ export function AuditLog() {
             <SelectTrigger
               data-testid="obs-s04-filter-severity"
               size="sm"
-              className="w-[130px]"
+              className="w-full sm:w-[130px]"
               aria-label="Filter by severity"
             >
               <SelectValue placeholder="Severity" />
@@ -372,7 +372,7 @@ export function AuditLog() {
             type="datetime-local"
             value={dateFrom}
             onChange={handleDateFromChange}
-            className="h-8 w-[180px]"
+            className="h-8 w-full sm:w-[180px]"
             aria-label="Date from"
           />
 
@@ -381,7 +381,7 @@ export function AuditLog() {
             type="datetime-local"
             value={dateTo}
             onChange={handleDateToChange}
-            className="h-8 w-[180px]"
+            className="h-8 w-full sm:w-[180px]"
             aria-label="Date to"
           />
         </div>
@@ -392,7 +392,7 @@ export function AuditLog() {
             <SelectTrigger
               data-testid="obs-s04-filter-action"
               size="sm"
-              className="w-[200px]"
+              className="w-full sm:w-[200px]"
               aria-label="Filter by action"
             >
               <SelectValue placeholder="Action" />
@@ -411,7 +411,7 @@ export function AuditLog() {
             <SelectTrigger
               data-testid="obs-s04-filter-target-type"
               size="sm"
-              className="w-[150px]"
+              className="w-full sm:w-[150px]"
               aria-label="Filter by target type"
             >
               <SelectValue placeholder="Target Type" />
@@ -431,7 +431,7 @@ export function AuditLog() {
             placeholder="Target ID..."
             value={targetId}
             onChange={handleTargetIdChange}
-            className="h-8 w-[180px]"
+            className="h-8 w-full sm:w-[180px]"
             aria-label="Filter by target ID"
           />
 

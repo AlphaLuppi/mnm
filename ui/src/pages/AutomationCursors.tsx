@@ -378,7 +378,7 @@ export function AutomationCursors() {
         <Select value={levelFilter} onValueChange={setLevelFilter}>
           <SelectTrigger
             data-testid="dual-s02-filter-level"
-            className="w-[160px] h-8 text-xs"
+            className="w-full sm:w-[160px] h-8 text-xs"
           >
             <SelectValue placeholder="All levels" />
           </SelectTrigger>

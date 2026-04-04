@@ -81,7 +81,7 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
         </div>
         <button
           type="button"
-          className="max-w-[75%] rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-left transition-colors cursor-pointer"
+          className="max-w-full sm:max-w-[75%] rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-left transition-colors cursor-pointer"
           onClick={() => artifactId && onArtifactClick?.(artifactId)}
         >
           <div className="flex items-center gap-2 mb-1">
@@ -124,7 +124,7 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
         >
           {isUser ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
         </div>
-        <div className="max-w-[75%] rounded-lg border border-border bg-background px-3 py-2">
+        <div className="max-w-full sm:max-w-[75%] rounded-lg border border-border bg-background px-3 py-2">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-sm font-medium truncate">{docTitle}</span>
@@ -195,7 +195,7 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium bg-muted text-muted-foreground">
           <Bot className="h-3 w-3" />
         </div>
-        <div className="max-w-[75%] flex flex-col items-start">
+        <div className="max-w-full sm:max-w-[75%] flex flex-col items-start">
           <span className="text-xs text-muted-foreground mb-0.5 ml-1">Agent</span>
           <div className="bg-muted text-foreground rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm">
             <p className="whitespace-pre-wrap break-words inline">
@@ -236,7 +236,7 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
       </div>
 
       {/* Bubble */}
-      <div className={cn("max-w-[75%] flex flex-col", isUser ? "items-end" : "items-start")}>
+      <div className={cn("max-w-full sm:max-w-[75%] flex flex-col", isUser ? "items-end" : "items-start")}>
         {/* Sender name (agent messages only) */}
         {!isUser && (
           <span className="text-xs text-muted-foreground mb-0.5 ml-1">

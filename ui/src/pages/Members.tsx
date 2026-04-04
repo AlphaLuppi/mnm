@@ -231,7 +231,7 @@ export function Members() {
           <SelectTrigger
             data-testid="mu-s02-filter-role"
             size="sm"
-            className="w-[140px]"
+            className="w-full sm:w-[140px]"
           >
             <SelectValue placeholder="All roles" />
           </SelectTrigger>
@@ -252,7 +252,7 @@ export function Members() {
           <SelectTrigger
             data-testid="mu-s02-filter-status"
             size="sm"
-            className="w-[140px]"
+            className="w-full sm:w-[140px]"
           >
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -561,7 +561,7 @@ function MemberRow({
             <SelectTrigger
               data-testid={`mu-s02-member-role-${member.id}`}
               size="sm"
-              className="w-[120px] h-7 text-xs"
+              className="w-full sm:w-[120px] h-7 text-xs"
             >
               <SelectValue>{roleName}</SelectValue>
             </SelectTrigger>
