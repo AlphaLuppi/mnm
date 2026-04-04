@@ -65,7 +65,7 @@ export function AuthPage() {
     password.trim().length >= 8 &&
     (mode === "sign_in" || name.trim().length > 0);
 
-  if (isSessionLoading) {
+  if (isSessionLoading || mutation.isPending) {
     return <FullPageLoader />;
   }
 

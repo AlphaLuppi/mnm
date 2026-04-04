@@ -71,7 +71,7 @@ export function FullPageLoader() {
           const dx = (c - LW / 2) / LW, dy = (r - LH / 2) / LH;
           const dist = Math.sqrt(dx * dx + dy * dy);
           logoMap.set(gr * cols + gc, {
-            ch: char, revealAt: 200 + dist * 1600, lockAt: 700 + dist * 1600 + Math.random() * 400,
+            ch: char, revealAt: 0, lockAt: 0,
           });
         }
       }
