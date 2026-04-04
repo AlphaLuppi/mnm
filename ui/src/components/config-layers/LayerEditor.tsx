@@ -31,7 +31,7 @@ type Props = {
   onClose?: () => void;
 };
 
-export function LayerEditor({ layerId, readOnly, onClose }: Props) {
+export function LayerEditor({ companyId, layerId, readOnly, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("mcp");
 
   const { data: layer, isLoading } = useQuery({
@@ -137,6 +137,7 @@ export function LayerEditor({ layerId, readOnly, onClose }: Props) {
       <div className="flex-1 overflow-y-auto p-4">
         <LayerItemList
           layerId={layerId}
+          companyId={companyId}
           items={layer.items}
           itemType={activeTab}
           readOnly={readOnly}

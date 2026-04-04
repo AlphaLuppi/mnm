@@ -108,6 +108,38 @@ export function mcpOauthRoutes(db: Db) {
     }
   });
 
+  // ── POST /mcp-credentials/:itemId/api-key ─────────────────────────────────
+  // Store an API key credential (non-OAuth) for an MCP item.
+  // Body: { material: { env: { KEY: "value" } } }
+  router.post("/mcp-credentials/:itemId/api-key", async (req, res) => {
+    assertBoard(req);
+
+    const itemId = req.params.itemId as string;
+    const userId = req.actor.userId!;
+    const companyId = req.actor.companyId ?? (req.query.companyId as string | undefined) ?? "";
+
+    if (!companyId) {
+      throw badRequest("companyId is required");
+    }
+
+    const { accessService } = await import("../services/access.js");
+    const access = accessService(db);
+    const allowed = await access.canUser(companyId, userId, "mcp:connect");
+    if (!allowed) {
+      res.status(403).json({ error: "Missing permission: mcp:connect" });
+      return;
+    }
+
+    const { material } = req.body as { material?: Record<string, unknown> };
+    if (!material || typeof material !== "object" || Object.keys(material).length === 0) {
+      throw badRequest("material is required and must be a non-empty object");
+    }
+
+    await credSvc.storeCredential(userId, companyId, itemId, "api_key", material);
+
+    res.status(201).json({ ok: true });
+  });
+
   // ── DELETE /mcp-credentials/:id ───────────────────────────────────────────
   // Revoke a credential (clear material, set status=revoked).
   router.delete("/mcp-credentials/:id", async (req, res) => {
