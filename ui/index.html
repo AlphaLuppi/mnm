@@ -128,7 +128,6 @@
         let clips = [];
         let tick = 0;
         let lastFrame = 0;
-        let fullyRevealed = false;
         const startTime = performance.now();
         const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -155,12 +154,9 @@
               logoMap.set(gr * cols + gc, {
                 ch: char,
                 dist: dist,
-                revealAt: 200 + dist * 1600,
-                lockAt: 700 + dist * 1600 + Math.random() * 400,
               });
             }
           }
-          fullyRevealed = false;
         }
 
         function spawnClip() {
@@ -260,14 +256,6 @@
             }
           }
 
-          // Check full reveal (decode complete)
-          if (!fullyRevealed) {
-            fullyRevealed = true;
-            for (const [, lc] of logoMap) {
-              if (elapsed < lc.lockAt) { fullyRevealed = false; break; }
-            }
-          }
-
           // Ambient waves
           const colW = new Float32Array(cols);
           const rowW = new Float32Array(rows);
@@ -296,14 +284,8 @@
                   } else {
                     out += " ";
                   }
-                } else if (elapsed < lc.revealAt - 300) {
-                  out += Math.random() < 0.02 ? "·" : " ";
-                } else if (elapsed < lc.revealAt) {
-                  out += Math.random() < 0.3 ? NOISE[Math.floor(Math.random() * NOISE.length)] : "·";
-                } else if (elapsed < lc.lockAt) {
-                  const p = (elapsed - lc.revealAt) / (lc.lockAt - lc.revealAt);
-                  out += Math.random() < p * 0.7 ? lc.ch : NOISE[Math.floor(Math.random() * NOISE.length)];
-                } else if (fullyRevealed && Math.random() < 0.0015) {
+                } else if (Math.random() < 0.002) {
+                  // Idle shimmer
                   out += NOISE[Math.floor(Math.random() * NOISE.length)];
                 } else {
                   out += lc.ch;
