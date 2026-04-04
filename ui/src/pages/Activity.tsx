@@ -102,7 +102,7 @@ export function Activity() {
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[140px] h-8 text-xs">
+          <SelectTrigger className="w-full sm:w-[140px] h-8 text-xs">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>

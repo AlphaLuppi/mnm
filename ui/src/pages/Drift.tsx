@@ -269,7 +269,7 @@ export function Drift() {
               value={selectedProjectId}
               onValueChange={setSelectedProjectId}
             >
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent>
@@ -473,7 +473,7 @@ export function Drift() {
               >
                 <SelectTrigger
                   data-testid="drift-s03-filter-severity"
-                  className="w-[140px] h-8 text-xs"
+                  className="w-full sm:w-[140px] h-8 text-xs"
                 >
                   <SelectValue placeholder="Severity" />
                 </SelectTrigger>
@@ -495,7 +495,7 @@ export function Drift() {
               >
                 <SelectTrigger
                   data-testid="drift-s03-filter-type"
-                  className="w-[180px] h-8 text-xs"
+                  className="w-full sm:w-[180px] h-8 text-xs"
                 >
                   <SelectValue placeholder="Alert Type" />
                 </SelectTrigger>
@@ -519,7 +519,7 @@ export function Drift() {
               >
                 <SelectTrigger
                   data-testid="drift-s03-filter-status"
-                  className="w-[130px] h-8 text-xs"
+                  className="w-full sm:w-[130px] h-8 text-xs"
                 >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>

@@ -37,7 +37,7 @@ function StageNode({ stage, onTransition }: { stage: StageInstance; onTransition
   const isRunning = stage.status === "running";
 
   return (
-    <div className={`rounded-lg border border-border p-4 min-w-[200px] ${cfg.bg}`}>
+    <div className={`rounded-lg border border-border p-4 min-w-[160px] sm:min-w-[200px] ${cfg.bg}`}>
       <div className="flex items-center gap-2 mb-2">
         <StatusIcon className={`h-4 w-4 ${cfg.color} ${isRunning ? "animate-spin" : ""}`} />
         <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
