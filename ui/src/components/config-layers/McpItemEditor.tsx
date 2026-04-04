@@ -69,7 +69,7 @@ export function McpItemEditor({ item, onSave, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+    <form onSubmit={handleSubmit} className="space-y-4 p-3 sm:p-4 rounded-lg border border-border bg-muted/50">
       <div className="space-y-1.5">
         <Label>Name</Label>
         <Input
@@ -135,7 +135,7 @@ export function McpItemEditor({ item, onSave, onCancel }: Props) {
           onChange={(e) => setEnvText(e.target.value)}
           placeholder={"API_KEY=your-key\nBASE_URL=https://api.example.com"}
           rows={4}
-          className="font-mono text-sm"
+          className="font-mono text-xs sm:text-sm"
         />
       </div>
 

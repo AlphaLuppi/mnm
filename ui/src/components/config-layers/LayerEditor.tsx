@@ -101,7 +101,7 @@ export function LayerEditor({ companyId, layerId, readOnly, onClose }: Props) {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-0 border-b border-border px-4">
+      <div className="flex gap-0 border-b border-border px-2 sm:px-4 overflow-x-auto scrollbar-none">
         {TABS.map((tab) => {
           const count = countByType(tab.id);
           return (
@@ -109,7 +109,7 @@ export function LayerEditor({ companyId, layerId, readOnly, onClose }: Props) {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "px-3 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 -mb-px",
+                "px-2.5 sm:px-3 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 -mb-px whitespace-nowrap",
                 activeTab === tab.id
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground",
@@ -134,7 +134,7 @@ export function LayerEditor({ companyId, layerId, readOnly, onClose }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
         <LayerItemList
           layerId={layerId}
           companyId={companyId}
