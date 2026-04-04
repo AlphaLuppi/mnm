@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { permissions, companies } from "@mnm/db";
+import { permissions, companies, roles } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
 
 /**
@@ -394,6 +394,10 @@ export async function backfillPermissions(db: Db): Promise<void> {
     await seedPermissions(db, company.id);
     logger.debug({ companyId: company.id }, "permission backfill: company done");
   }
+
+  // Remove isSystem flag from all roles — roles are user-managed, not locked
+  await db.update(roles).set({ isSystem: false }).where(eq(roles.isSystem, true));
+  logger.info("permission backfill: cleared isSystem flag on all roles");
 
   logger.info({ count: allCompanies.length }, "permission backfill: complete");
 }

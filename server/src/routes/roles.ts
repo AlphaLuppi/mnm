@@ -254,7 +254,6 @@ export function rolesRoutes(db: Db) {
         .where(and(eq(roles.id, roleId), eq(roles.companyId, companyId)));
 
       if (!existing) throw notFound("Role not found");
-      if (existing.isSystem) throw forbidden("Cannot delete a system role");
 
       // Delete role (role_permissions cascade automatically)
       await db.delete(roles).where(and(eq(roles.id, roleId), eq(roles.companyId, companyId)));
