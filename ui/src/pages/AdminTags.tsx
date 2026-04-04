@@ -190,20 +190,20 @@ export function AdminTags() {
         <>
           {/* Active tags */}
           {activeTags.length > 0 && (
-            <div className="border border-border rounded-md overflow-hidden">
+            <div className="border border-border rounded-md overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                    <th className="text-left px-3 sm:px-4 py-2.5 font-medium text-muted-foreground">
                       Tag
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">
+                    <th className="text-left px-3 sm:px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">
                       Slug
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
+                    <th className="text-left px-3 sm:px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
                       Members
                     </th>
-                    <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">
+                    <th className="text-right px-3 sm:px-4 py-2.5 font-medium text-muted-foreground">
                       Actions
                     </th>
                   </tr>
@@ -314,7 +314,7 @@ export function AdminTags() {
                   <button
                     key={c}
                     type="button"
-                    className="w-7 h-7 rounded-full border-2 transition-transform"
+                    className="w-8 h-8 sm:w-7 sm:h-7 rounded-full border-2 transition-transform"
                     style={{
                       backgroundColor: c,
                       borderColor:
@@ -425,7 +425,7 @@ function TagRow({
 
   return (
     <tr className="border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors">
-      <td className="px-4 py-2.5">
+      <td className="px-3 sm:px-4 py-2.5">
         <div className="flex items-center gap-2">
           {tag.color && (
             <span
@@ -441,15 +441,15 @@ function TagRow({
           )}
         </div>
       </td>
-      <td className="px-4 py-2.5 hidden sm:table-cell">
+      <td className="px-3 sm:px-4 py-2.5 hidden sm:table-cell">
         <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
           {tag.slug}
         </code>
       </td>
-      <td className="px-4 py-2.5 hidden md:table-cell text-muted-foreground">
+      <td className="px-3 sm:px-4 py-2.5 hidden md:table-cell text-muted-foreground">
         {tag.memberCount}
       </td>
-      <td className="px-4 py-2.5 text-right">
+      <td className="px-3 sm:px-4 py-2.5 text-right">
         <div className="flex items-center justify-end gap-1">
           {isArchived && onUnarchive ? (
             <Button
