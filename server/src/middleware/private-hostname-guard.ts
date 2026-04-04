@@ -45,7 +45,7 @@ export function resolvePrivateHostnameAllowSet(opts: { allowedHostnames: string[
 function blockedHostnameMessage(hostname: string): string {
   return (
     `Hostname '${hostname}' is not allowed for this MnM instance. ` +
-    `If you want to allow this hostname, please run pnpm mnm allowed-hostname ${hostname}`
+    `If you want to allow this hostname, please run bun mnm allowed-hostname ${hostname}`
   );
 }
 
@@ -68,7 +68,7 @@ export function privateHostnameGuard(opts: {
     const wantsJson = req.path.startsWith("/api") || req.accepts(["json", "html", "text"]) === "json";
 
     if (!hostname) {
-      const error = "Missing Host header. If you want to allow a hostname, run pnpm mnm allowed-hostname <host>.";
+      const error = "Missing Host header. If you want to allow a hostname, run bun mnm allowed-hostname <host>.";
       if (wantsJson) {
         res.status(403).json({ error });
       } else {
