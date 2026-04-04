@@ -111,6 +111,8 @@ export const configLayersApi = {
   // Credentials
   listCredentials: (companyId: string) =>
     api.get<UserMcpCredential[]>(`/companies/${companyId}/mcp-credentials`),
+  storeApiKey: (itemId: string, material: Record<string, unknown>) =>
+    api.post<{ ok: boolean }>(`/mcp-credentials/${itemId}/api-key`, { material }),
   revokeCredential: (credentialId: string) =>
     api.delete<void>(`/mcp-credentials/${credentialId}`),
 };
