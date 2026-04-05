@@ -378,14 +378,18 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
         </div>
       </div>
 
-      {/* Artifact side panel with drag handle */}
+      {/* Artifact panel: fullscreen overlay on mobile, side panel on desktop */}
       {selectedArtifactId && selectedCompanyId && (
         <>
+          {/* Drag handle – hidden on mobile */}
           <div
-            className="w-1 shrink-0 bg-border hover:bg-primary/30 cursor-col-resize transition-colors"
+            className="hidden md:block w-1 shrink-0 bg-border hover:bg-primary/30 cursor-col-resize transition-colors"
             onMouseDown={handleDragStart}
           />
-          <div className="shrink-0 h-full overflow-hidden" style={{ width: artifactWidth }}>
+          <div
+            className="fixed inset-0 z-50 bg-background md:relative md:inset-auto md:z-auto md:shrink-0 md:h-full md:overflow-hidden"
+            style={{ width: window.innerWidth >= 768 ? artifactWidth : undefined }}
+          >
             <ArtifactPanel
               companyId={selectedCompanyId}
               artifactId={selectedArtifactId}

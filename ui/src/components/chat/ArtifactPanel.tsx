@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Copy, Download, Pencil, Check, History, ExternalLink, Code, Eye } from "lucide-react";
+import { X, Copy, Download, Pencil, Check, History, ExternalLink, Code, Eye, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ArtifactVersion } from "@mnm/shared";
@@ -117,10 +117,13 @@ export function ArtifactPanel({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full border-l border-border w-full">
+      <div className="flex flex-col h-full md:border-l border-border w-full">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-sm text-muted-foreground">Loading...</span>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} className="md:hidden shrink-0 -ml-1">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground flex-1">Loading...</span>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} className="hidden md:inline-flex">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -130,12 +133,15 @@ export function ArtifactPanel({
 
   if (!artifact) {
     return (
-      <div className="flex flex-col h-full border-l border-border w-full">
+      <div className="flex flex-col h-full md:border-l border-border w-full">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-sm text-muted-foreground">
+          <Button variant="ghost" size="icon-sm" onClick={onClose} className="md:hidden shrink-0 -ml-1">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground flex-1">
             Artifact not found
           </span>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} className="hidden md:inline-flex">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -144,9 +150,18 @@ export function ArtifactPanel({
   }
 
   return (
-    <div className="flex flex-col h-full border-l border-border w-full">
+    <div className="flex flex-col h-full md:border-l border-border w-full">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2 gap-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClose}
+          aria-label="Close artifact panel"
+          className="md:hidden shrink-0 -ml-1"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <span className="text-sm font-medium truncate">
             {artifact.title}
@@ -160,6 +175,7 @@ export function ArtifactPanel({
           size="icon-sm"
           onClick={onClose}
           aria-label="Close artifact panel"
+          className="hidden md:inline-flex"
         >
           <X className="h-4 w-4" />
         </Button>
