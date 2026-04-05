@@ -221,21 +221,21 @@ export function ConfigLayersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Config Layers</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Manage reusable configuration layers for agents.
           </p>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" onClick={() => setCreateOpen(true)} className="self-start sm:self-auto shrink-0">
           <Plus className="h-3.5 w-3.5 mr-1" />
           New Layer
         </Button>
       </div>
 
       {/* Scope filter */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
         <ScopeFilterButton active={!scopeFilter} onClick={() => setScopeFilter(undefined)}>
           All
         </ScopeFilterButton>

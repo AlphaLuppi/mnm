@@ -43,12 +43,12 @@ function ConflictRow({ conflict }: { conflict: ConfigLayerConflict }) {
 
   return (
     <div className={cn("rounded-md border p-3 space-y-1", config.bgClass, config.borderClass)}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Icon className={cn("h-3.5 w-3.5 shrink-0", config.textClass)} />
         <span className={cn("text-xs font-semibold", config.textClass)}>
           {config.label}
         </span>
-        <span className="text-xs font-mono bg-background/60 px-1.5 py-0.5 rounded">
+        <span className="text-xs font-mono bg-background/60 px-1.5 py-0.5 rounded truncate max-w-[150px] sm:max-w-none">
           {conflict.name}
         </span>
         <span className="text-xs text-muted-foreground">({conflict.itemType})</span>

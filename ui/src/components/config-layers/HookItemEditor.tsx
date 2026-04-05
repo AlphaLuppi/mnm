@@ -56,7 +56,7 @@ export function HookItemEditor({ item, onSave, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+    <form onSubmit={handleSubmit} className="space-y-4 p-3 sm:p-4 rounded-lg border border-border bg-muted/50">
       <div className="space-y-1.5">
         <Label>Name</Label>
         <Input
@@ -67,7 +67,7 @@ export function HookItemEditor({ item, onSave, onCancel }: Props) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Event</Label>
           <Select value={event} onValueChange={(v) => setEvent(v as HookEvent)}>

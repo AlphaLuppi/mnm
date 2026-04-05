@@ -38,7 +38,7 @@ function ItemRow({ item }: { item: MergePreviewItem }) {
       >
         P{item.priority}
       </span>
-      <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" title={item.layerName}>
+      <span className="text-[10px] text-muted-foreground truncate max-w-[60px] sm:max-w-[80px]" title={item.layerName}>
         {item.layerName}
       </span>
     </div>

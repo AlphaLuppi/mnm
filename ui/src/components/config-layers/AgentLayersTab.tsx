@@ -205,9 +205,9 @@ export function AgentLayersTab({
   const additionalLayers = attachedLayers.filter((l) => l.id !== baseLayerId);
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
       {/* Left panel -- 2/3 */}
-      <div className="flex-[2] min-w-0 space-y-6">
+      <div className="flex-[2] min-w-0 space-y-4 md:space-y-6">
         {/* Base layer */}
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-foreground">Base Layer</h3>
@@ -265,7 +265,7 @@ export function AgentLayersTab({
       </div>
 
       {/* Right panel -- 1/3 */}
-      <div className="flex-1 min-w-0 border-l border-border pl-6">
+      <div className="flex-1 min-w-0 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6">
         <MergePreviewPanel companyId={companyId} agentId={agentId} />
       </div>
 
@@ -324,7 +324,7 @@ export function AgentLayersTab({
       {/* Layer editor dialog */}
       {editLayerId && (
         <Dialog open onOpenChange={(open) => { if (!open) setEditLayerId(null); }}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-2xl max-h-[80vh] overflow-y-auto">
             <LayerEditor
               layerId={editLayerId}
               onClose={() => setEditLayerId(null)}
