@@ -259,6 +259,11 @@
   [data-slot="select-trigger"] {
     min-height: 44px;
   }
+  /* Switch tracks and checkbox indicators have their own touch targets */
+  [role="switch"],
+  [data-slot="checkbox"] {
+    min-height: unset;
+  }
 }
 
 /* Light mode scrollbars */
