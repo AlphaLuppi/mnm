@@ -179,4 +179,10 @@ export const accessApi = {
     api.get<Record<string, readonly string[]>>(
       `/companies/${companyId}/rbac/presets`,
     ),
+
+  resetMemberPassword: (companyId: string, userId: string) =>
+    api.post<{ temporaryPassword: string }>(
+      `/companies/${companyId}/members/${userId}/reset-password`,
+      {},
+    ),
 };

@@ -2,8 +2,9 @@ import {
   createHash,
   generateKeyPairSync,
   randomBytes,
-  timingSafeEqual
+  timingSafeEqual,
 } from "node:crypto";
+import { hashPassword } from "better-auth/crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,7 @@ import { and, eq, gt, isNull, desc } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
   agentApiKeys,
+  authAccounts,
   authUsers,
   companies,
   companyMemberships,
@@ -3102,6 +3104,66 @@ export function accessRoutes(
       res.json(memberships);
     }
   );
+
+  // Admin password reset: generates a temporary password for a member
+  router.post("/companies/:companyId/members/:userId/reset-password", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const userId = req.params.userId as string;
+    if (req.actor.type !== "board") throw forbidden("Board access required");
+    await assertCompanyPermission(req, companyId, "users:manage");
+
+    // Verify the target user is a member of this company
+    const membership = await db
+      .select({ id: companyMemberships.id })
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.principalId, userId),
+          eq(companyMemberships.status, "active"),
+        ),
+      )
+      .then((rows) => rows[0] ?? null);
+
+    if (!membership) {
+      throw notFound("Member not found in this company");
+    }
+
+    // Generate a temporary password
+    const tempPassword = randomBytes(6).toString("base64url");
+
+    // Hash with better-auth's hasher
+    const hashed = await hashPassword(tempPassword);
+
+    // Update the credential account
+    const updated = await db
+      .update(authAccounts)
+      .set({ password: hashed, updatedAt: new Date() })
+      .where(
+        and(
+          eq(authAccounts.userId, userId),
+          eq(authAccounts.providerId, "credential"),
+        ),
+      )
+      .returning({ id: authAccounts.id });
+
+    if (updated.length === 0) {
+      throw notFound("No credential account found for this user");
+    }
+
+    await emitAudit({
+      req,
+      db,
+      companyId,
+      action: "member.password_reset",
+      targetType: "user",
+      targetId: userId,
+      metadata: {},
+    });
+
+    res.json({ temporaryPassword: tempPassword });
+  });
 
   return router;
 }
