@@ -9,6 +9,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { jiraImportApi, type JiraConnectionConfig } from "@/api/jira-import";
 import { queryKeys } from "@/lib/queryKeys";
 import { RequirePermission } from "@/components/RequirePermission";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, CheckCircle, XCircle, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
 
 type WizardStep = 1 | 2 | 3;
@@ -234,11 +235,10 @@ export function JiraImport() {
                       key={project.key}
                       className="flex cursor-pointer items-center gap-2 rounded-md p-2 hover:bg-muted"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         data-testid={`onb-s03-project-checkbox-${project.key}`}
                         checked={selectedProjects.has(project.key)}
-                        onChange={() => toggleProject(project.key)}
+                        onCheckedChange={() => toggleProject(project.key)}
                       />
                       <span className="font-mono text-sm">{project.key}</span>
                       <span className="text-sm">{project.name}</span>

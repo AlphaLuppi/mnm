@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -417,11 +418,9 @@ export default function AdminRoles() {
                     <div className="px-3 pb-2 space-y-1">
                       {perms.map((p) => (
                         <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={selectedPerms.has(p.slug)}
-                            onChange={() => togglePerm(p.slug)}
-                            className="rounded border-border"
+                            onCheckedChange={() => togglePerm(p.slug)}
                           />
                           <code className="text-[11px]">{p.slug}</code>
                           <span className="text-muted-foreground truncate">{p.description}</span>
@@ -557,11 +556,9 @@ export default function AdminRoles() {
                     <div className="px-3 pb-2 space-y-1">
                       {perms.map((p) => (
                         <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={selectedPerms.has(p.slug)}
-                            onChange={() => togglePerm(p.slug)}
-                            className="rounded border-border"
+                            onCheckedChange={() => togglePerm(p.slug)}
                           />
                           <code className="text-[11px]">{p.slug}</code>
                           <span className="text-muted-foreground truncate">{p.description}</span>
