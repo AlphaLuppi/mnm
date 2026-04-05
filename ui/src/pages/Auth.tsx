@@ -21,6 +21,7 @@ export function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
   const { data: session, isLoading: isSessionLoading } = useQuery({
@@ -140,6 +141,24 @@ export function AuthPage() {
                   : "Create Account"}
             </Button>
           </form>
+
+          {mode === "sign_in" && (
+            <div className="mt-3 text-sm">
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-sm text-muted-foreground underline underline-offset-2"
+                onClick={() => setForgotOpen((v) => !v)}
+              >
+                Forgot your password?
+              </Button>
+              {forgotOpen && (
+                <p className="mt-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
+                  Contact your instance administrator to reset your password.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="mt-5 text-sm text-muted-foreground">
             {mode === "sign_in" ? "Need an account?" : "Already have an account?"}{" "}
