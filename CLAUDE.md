@@ -13,6 +13,7 @@ Language: French for planning documents.
 - **Single-tenant** — 1 instance = 1 company. `company_id` is auto-injected, never exposed in UI.
 - **Dynamic RBAC** — Roles and permissions are in DB (tables `roles`, `permissions`, `role_permissions`), NOT hardcoded. No `BUSINESS_ROLES`, `AGENT_ROLES`, or `PERMISSION_KEYS` constants.
 - **Tag-based isolation** — Tags control visibility. Users only see agents/issues/traces that share at least 1 tag with them. Enforced via `TagScope` middleware.
+- **Always use UI library components** — Never create custom/inline implementations of standard UI primitives (Switch, Button, Dialog, etc.). Always use the components from `ui/src/components/ui/`. If a component doesn't exist, create it there first.
 - **Sandbox** — Each user has a personal Docker container. All agents run via `claude_local` adapter in the user's sandbox. No adapter choice needed.
 - **CAO** — Chief Agent Officer (adapter_type="claude_local", metadata.isCAO=true) is auto-created, has all tags, Admin role. Runs in admin's sandbox. Watchdog mode auto-comments on failures. Interactive via @cao mentions.
 - **Agent permissions** — Agents inherit permissions from their creator (createdByUserId). An agent in Tom's sandbox has Tom's permissions.

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ChevronUp,
   ChevronDown,
@@ -217,34 +219,30 @@ export function StageEditorCard({
           </div>
 
           {/* Auto Transition */}
-          <div className="flex items-center gap-2">
-            <input
-              data-testid={`orch-s05-stage-auto-transition-${index}`}
-              type="checkbox"
-              checked={stage.autoTransition}
-              onChange={(e) => update({ autoTransition: e.target.checked })}
-              className="rounded border-border"
-            />
+          <div className="flex items-center justify-between gap-2">
             <label className="text-xs font-medium text-muted-foreground">
               Auto Transition
             </label>
+            <Switch
+              data-testid={`orch-s05-stage-auto-transition-${index}`}
+              checked={stage.autoTransition}
+              onCheckedChange={(v) => update({ autoTransition: v })}
+            />
           </div>
 
           {/* HITL */}
           <div>
-            <div className="flex items-center gap-2">
-              <input
-                data-testid={`orch-s05-stage-hitl-toggle-${index}`}
-                type="checkbox"
-                checked={stage.hitlRequired ?? false}
-                onChange={(e) =>
-                  update({ hitlRequired: e.target.checked, hitlRoles: e.target.checked ? stage.hitlRoles ?? [] : [] })
-                }
-                className="rounded border-border"
-              />
+            <div className="flex items-center justify-between gap-2">
               <label className="text-xs font-medium text-muted-foreground">
                 Human Validation Required (HITL)
               </label>
+              <Switch
+                data-testid={`orch-s05-stage-hitl-toggle-${index}`}
+                checked={stage.hitlRequired ?? false}
+                onCheckedChange={(v) =>
+                  update({ hitlRequired: v, hitlRoles: v ? stage.hitlRoles ?? [] : [] })
+                }
+              />
             </div>
             {stage.hitlRequired && (
               <div
@@ -253,11 +251,9 @@ export function StageEditorCard({
               >
                 {HITL_ROLE_OPTIONS.map((role) => (
                   <label key={role} className="flex items-center gap-1 text-xs">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={(stage.hitlRoles ?? []).includes(role)}
-                      onChange={() => toggleHitlRole(role)}
-                      className="rounded border-border"
+                      onCheckedChange={() => toggleHitlRole(role)}
                     />
                     {role.charAt(0).toUpperCase() + role.slice(1)}
                   </label>
