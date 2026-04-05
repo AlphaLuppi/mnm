@@ -233,21 +233,50 @@ export function LayerItemList({
               onCancel={() => setEditingId(null)}
             />
           ) : (
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/50">
-              <div className="flex-1 min-w-0">
-                <span className="text-foreground text-sm font-medium truncate block">
-                  {it.displayName ?? it.name}
-                </span>
-                {it.description && (
-                  <span className="text-muted-foreground text-xs truncate block">
-                    {it.description}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2 rounded-lg border border-border bg-muted/50">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <span className="text-foreground text-sm font-medium truncate block">
+                    {it.displayName ?? it.name}
                   </span>
+                  {it.description && (
+                    <span className="text-muted-foreground text-xs truncate block">
+                      {it.description}
+                    </span>
+                  )}
+                </div>
+                <Badge
+                  variant={it.enabled ? "default" : "secondary"}
+                  className="text-xs shrink-0 sm:hidden"
+                >
+                  {it.enabled ? "enabled" : "disabled"}
+                </Badge>
+                {!readOnly && (
+                  <div className="flex gap-1 shrink-0 sm:hidden">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => setEditingId(it.id)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeMutation.mutate(it.id)}
+                      disabled={removeMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
 
               {/* Credential status for MCP items */}
               {isMcp && companyId && (
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
                   <CredentialStatusBadge
                     status={getCredentialStatus(it.id)}
                   />
@@ -305,12 +334,12 @@ export function LayerItemList({
 
               <Badge
                 variant={it.enabled ? "default" : "secondary"}
-                className="text-xs"
+                className="text-xs hidden sm:inline-flex shrink-0"
               >
                 {it.enabled ? "enabled" : "disabled"}
               </Badge>
               {!readOnly && (
-                <div className="flex gap-1 shrink-0">
+                <div className="hidden sm:flex gap-1 shrink-0">
                   <Button
                     size="icon"
                     variant="ghost"
