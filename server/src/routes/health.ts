@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { count, sql } from "drizzle-orm";
-import { instanceUserRoles } from "@mnm/db";
+import { instanceUserRoles, companies } from "@mnm/db";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import type { RedisState } from "../redis.js";
 import { pingRedis } from "../redis.js";
@@ -98,6 +98,18 @@ export function healthRoutes(
       // pg_tables query may fail on non-PG backends; ignore
     }
 
+    // Check if any company exists (used by frontend to block onboarding for non-admins)
+    let hasCompany = false;
+    try {
+      const companyCount = await db
+        .select({ count: count() })
+        .from(companies)
+        .then((rows) => Number(rows[0]?.count ?? 0));
+      hasCompany = companyCount > 0;
+    } catch {
+      // ignore
+    }
+
     res.json({
       status: "ok",
       db: {
@@ -113,6 +125,7 @@ export function healthRoutes(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       bootstrapStatus,
+      hasCompany,
       features: {
         companyDeletionEnabled: opts.companyDeletionEnabled,
       },

@@ -61,6 +61,7 @@ import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { RequirePermission } from "./components/RequirePermission";
 import { FullPageLoader } from "./components/FullPageLoader";
+import { Button } from "./components/ui/button";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 
@@ -189,19 +190,57 @@ function boardRoutes() {
   );
 }
 
+function NoCompanyAccessPage() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-background">
+      <div className="max-w-md text-center px-8">
+        <h1 className="text-xl font-semibold">Accès en attente</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Votre compte a bien été créé, mais vous n'avez pas encore été ajouté à une organisation sur cette instance.
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Demandez à un administrateur de vous envoyer une invitation.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-6"
+          onClick={async () => {
+            await authApi.signOut();
+            window.location.href = "/auth";
+          }}
+        >
+          Se déconnecter
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function CompanyRootRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
+  const healthQuery = useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => healthApi.get(),
+    retry: false,
+  });
 
-  if (loading) {
+  if (loading || healthQuery.isLoading) {
     return <FullPageLoader />;
   }
 
   if (companies.length === 0) {
+    // If a company already exists on this server, the user needs an invitation — don't show onboarding
+    if (healthQuery.data?.hasCompany) {
+      return <NoCompanyAccessPage />;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
+    if (healthQuery.data?.hasCompany) {
+      return <NoCompanyAccessPage />;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -211,13 +250,21 @@ function CompanyRootRedirect() {
 function UnprefixedBoardRedirect() {
   const location = useLocation();
   const { companies, selectedCompany, loading } = useCompany();
+  const healthQuery = useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => healthApi.get(),
+    retry: false,
+  });
 
-  if (loading) {
+  if (loading || healthQuery.isLoading) {
     return <FullPageLoader />;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
+    if (healthQuery.data?.hasCompany) {
+      return <NoCompanyAccessPage />;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 
