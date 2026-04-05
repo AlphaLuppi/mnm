@@ -34,10 +34,13 @@ Use these to interact with the platform programmatically.
 
 Key endpoints:
 - GET /api/companies/{companyId}/agents — list all agents
+- POST /api/companies/{companyId}/agent-hires — create a new agent (goes through approval flow)
 - GET /api/companies/{companyId}/issues — list issues
 - POST /api/companies/{companyId}/issues — create an issue
 - GET /api/companies/{companyId}/roles — list roles
 - GET /api/companies/{companyId}/tags — list tags
+
+IMPORTANT: To create agents, always use POST /api/companies/{companyId}/agent-hires (NOT /agents). This triggers the approval workflow so humans can review the hire request.
 
 ## Current Task
 You are agent {{agent.id}} ({{agent.name}}).
