@@ -167,6 +167,20 @@ export function Members() {
     },
   });
 
+  const [resetPasswordResult, setResetPasswordResult] = useState<{ name: string; tempPassword: string } | null>(null);
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (userId: string) =>
+      accessApi.resetMemberPassword(selectedCompanyId!, userId),
+    onSuccess: (data, userId) => {
+      const member = members?.find((m) => m.principalId === userId);
+      setResetPasswordResult({
+        name: member?.userName ?? member?.userEmail ?? userId,
+        tempPassword: data.temporaryPassword,
+      });
+    },
+  });
+
   const inviteMutation = useMutation({
     mutationFn: (email: string) =>
       accessApi.createEmailInvite(selectedCompanyId!, email),
@@ -340,6 +354,7 @@ export function Members() {
                     })
                   }
                   onRevoke={member.status === "pending" ? () => revokeMutation.mutate(member.id) : undefined}
+                  onResetPassword={member.status === "active" && member.principalType === "user" ? () => resetPasswordMutation.mutate(member.principalId) : undefined}
                 />
               ))}
             </tbody>
@@ -453,6 +468,43 @@ export function Members() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* Reset password result dialog */}
+      <Dialog open={!!resetPasswordResult} onOpenChange={(open) => { if (!open) setResetPasswordResult(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mot de passe réinitialisé</DialogTitle>
+            <DialogDescription>
+              Voici le mot de passe temporaire pour {resetPasswordResult?.name}. Copiez-le et transmettez-le de manière sécurisée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 mt-2">
+            <Input value={resetPasswordResult?.tempPassword ?? ""} readOnly className="font-mono text-sm" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (resetPasswordResult) navigator.clipboard.writeText(resetPasswordResult.tempPassword);
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            L'utilisateur devra se connecter avec ce mot de passe temporaire.
+          </p>
+          {resetPasswordMutation.error && (
+            <p className="text-xs text-destructive">
+              {resetPasswordMutation.error instanceof Error
+                ? resetPasswordMutation.error.message
+                : "Failed to reset password"}
+            </p>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setResetPasswordResult(null)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -466,6 +518,7 @@ function MemberRow({
   onRoleChange,
   onStatusChange,
   onRevoke,
+  onResetPassword,
 }: {
   member: EnrichedMember;
   roles: Role[];
@@ -475,6 +528,7 @@ function MemberRow({
   onRoleChange: (roleId: string) => void;
   onStatusChange: (status: "active" | "suspended") => void;
   onRevoke?: () => void;
+  onResetPassword?: () => void;
 }) {
   const queryClient = useQueryClient();
   const isPending = member.status === "pending";
@@ -672,13 +726,20 @@ function MemberRow({
                 )}
               </>
             ) : member.status === "active" ? (
-              <DropdownMenuItem
-                data-testid={`mu-s02-action-suspend-${member.id}`}
-                onClick={() => onStatusChange("suspended")}
-                className="text-destructive"
-              >
-                Suspend
-              </DropdownMenuItem>
+              <>
+                {onResetPassword && (
+                  <DropdownMenuItem onClick={onResetPassword}>
+                    Reset password
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  data-testid={`mu-s02-action-suspend-${member.id}`}
+                  onClick={() => onStatusChange("suspended")}
+                  className="text-destructive"
+                >
+                  Suspend
+                </DropdownMenuItem>
+              </>
             ) : member.status === "suspended" ? (
               <DropdownMenuItem
                 data-testid={`mu-s02-action-reactivate-${member.id}`}
