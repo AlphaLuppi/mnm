@@ -900,12 +900,7 @@ export function agentRoutes(db: Db) {
 
   router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
-    assertCompanyAccess(req, companyId);
-    await assertCompanyPermission(db, req, companyId, "agents:create");
-
-    if (req.actor.type === "agent") {
-      assertBoard(req);
-    }
+    await assertCanCreateAgentsForCompany(req, companyId);
 
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
       req.body.adapterType,
