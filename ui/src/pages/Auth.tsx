@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { authApi } from "../api/auth";
+import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { FullPageLoader } from "@/components/FullPageLoader";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,13 @@ export function AuthPage() {
   const [forgotOpen, setForgotOpen] = useState(false);
 
   const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
+  const { data: health } = useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => healthApi.get(),
+    retry: false,
+  });
+  // Disable signup when a company already exists (only first bootstrap user can create account)
+  const signUpAllowed = !health?.hasCompany;
   const { data: session, isLoading: isSessionLoading } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
@@ -35,6 +43,13 @@ export function AuthPage() {
       navigate(nextPath, { replace: true });
     }
   }, [session, navigate, nextPath]);
+
+  // Force sign_in mode when signup is disabled
+  useEffect(() => {
+    if (!signUpAllowed && mode === "sign_up") {
+      setMode("sign_in");
+    }
+  }, [signUpAllowed, mode]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -161,18 +176,26 @@ export function AuthPage() {
           )}
 
           <div className="mt-5 text-sm text-muted-foreground">
-            {mode === "sign_in" ? "Need an account?" : "Already have an account?"}{" "}
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-sm font-medium text-foreground underline underline-offset-2"
-              onClick={() => {
-                setError(null);
-                setMode(mode === "sign_in" ? "sign_up" : "sign_in");
-              }}
-            >
-              {mode === "sign_in" ? "Create one" : "Sign in"}
-            </Button>
+            {signUpAllowed ? (
+              <>
+                {mode === "sign_in" ? "Need an account?" : "Already have an account?"}{" "}
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-sm font-medium text-foreground underline underline-offset-2"
+                  onClick={() => {
+                    setError(null);
+                    setMode(mode === "sign_in" ? "sign_up" : "sign_in");
+                  }}
+                >
+                  {mode === "sign_in" ? "Create one" : "Sign in"}
+                </Button>
+              </>
+            ) : mode === "sign_in" ? (
+              <span>
+                Pas de compte ? Contactez un administrateur pour recevoir une invitation.
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
