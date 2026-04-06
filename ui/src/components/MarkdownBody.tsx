@@ -1,6 +1,7 @@
 import { isValidElement, useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import DOMPurify from "dompurify";
 import { parseProjectMentionHref } from "@mnm/shared";
 import { cn } from "../lib/utils";
 import { useTheme } from "../context/ThemeContext";
@@ -97,7 +98,7 @@ function MermaidDiagramBlock({ source, darkMode }: { source: string; darkMode: b
   return (
     <div className="mnm-mermaid">
       {svg ? (
-        <div dangerouslySetInnerHTML={{ __html: svg }} />
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } }) }} />
       ) : (
         <>
           <p className={cn("mnm-mermaid-status", error && "mnm-mermaid-status-error")}>
@@ -146,8 +147,9 @@ export function MarkdownBody({ children, className }: MarkdownBodyProps) {
                 </a>
               );
             }
+            const safeHref = href && /^(https?:\/\/|\/|#|mailto:)/.test(href) ? href : undefined;
             return (
-              <a href={href} rel="noreferrer">
+              <a href={safeHref} rel="noreferrer noopener" target="_blank">
                 {linkChildren}
               </a>
             );

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { Renderer, StateProvider, ActionProvider } from "@json-render/react";
 import { registry } from "./registry";
 import type { ContentDocument } from "@mnm/shared";
@@ -87,7 +87,7 @@ function contentDocumentToSpec(doc: ContentDocument) {
 }
 
 export function BlockRenderer({ blocks, context, className }: BlockRendererProps) {
-  const spec = contentDocumentToSpec(blocks);
+  const spec = useMemo(() => contentDocumentToSpec(blocks), [blocks]);
 
   const actionHandlers = context
     ? { "mnm-action": async (params: Record<string, unknown>) => context.onAction(params.action as string, params.payload as Record<string, unknown>) }
