@@ -6,7 +6,10 @@ export const createUserWidgetSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   blocks: ContentDocument,
   dataSource: z.object({
-    endpoint: z.string().min(1),
+    endpoint: z.string().min(1).refine(
+      (v) => v.startsWith("/") && !v.startsWith("//"),
+      "endpoint must be a relative path starting with /",
+    ),
     params: z.record(z.unknown()).optional(),
     refreshInterval: z.number().min(60).optional(),
   }).optional().nullable(),
@@ -21,7 +24,10 @@ export const updateUserWidgetSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   blocks: ContentDocument.optional(),
   dataSource: z.object({
-    endpoint: z.string().min(1),
+    endpoint: z.string().min(1).refine(
+      (v) => v.startsWith("/") && !v.startsWith("//"),
+      "endpoint must be a relative path starting with /",
+    ),
     params: z.record(z.unknown()).optional(),
     refreshInterval: z.number().min(60).optional(),
   }).optional().nullable(),
