@@ -289,7 +289,7 @@ function FailedRunCard({
           </div>
         </div>
 
-        <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm">
+        <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm break-all overflow-hidden">
           {displayError}
         </div>
 
@@ -643,7 +643,7 @@ export function Inbox() {
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Tabs value={tab} onValueChange={(value) => navigate(`/inbox/${value === "all" ? "all" : "new"}`)}>
           <PageTabBar

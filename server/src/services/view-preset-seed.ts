@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { viewPresets, companies } from "@mnm/db";
 import { DEFAULT_LAYOUT, PRESET_LAYOUTS } from "@mnm/shared";
@@ -55,21 +55,35 @@ const SEED_PRESETS: PresetDef[] = [
 
 /**
  * Seeds the 4 default view presets for a company.
- * Idempotent — uses ON CONFLICT DO NOTHING.
+ * Upserts — updates layout of existing presets to pick up new nav items.
  */
 export async function seedViewPresets(db: Db, companyId: string): Promise<void> {
-  const values = SEED_PRESETS.map((p) => ({
-    companyId,
-    slug: p.slug,
-    name: p.name,
-    description: p.description,
-    icon: p.icon,
-    color: p.color,
-    layout: p.layout,
-    isDefault: p.isDefault,
-  }));
+  for (const p of SEED_PRESETS) {
+    const existing = await db
+      .select({ id: viewPresets.id })
+      .from(viewPresets)
+      .where(and(eq(viewPresets.companyId, companyId), eq(viewPresets.slug, p.slug)))
+      .then((rows: { id: string }[]) => rows[0] ?? null);
 
-  await db.insert(viewPresets).values(values).onConflictDoNothing();
+    if (existing) {
+      // Update layout to pick up new sidebar items / widgets
+      await db
+        .update(viewPresets)
+        .set({ layout: p.layout, updatedAt: new Date() })
+        .where(eq(viewPresets.id, existing.id));
+    } else {
+      await db.insert(viewPresets).values({
+        companyId,
+        slug: p.slug,
+        name: p.name,
+        description: p.description,
+        icon: p.icon,
+        color: p.color,
+        layout: p.layout,
+        isDefault: p.isDefault,
+      });
+    }
+  }
 }
 
 /**

@@ -429,6 +429,39 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
         </div>
       </section>
 
+      {/* Sidebar Components */}
+      <section className="border border-border rounded-lg p-5 space-y-4">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          Sidebar Components
+        </h2>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={layout.sidebar.showProjects ?? true}
+              onCheckedChange={(val) =>
+                setLayout((prev) => ({
+                  ...prev,
+                  sidebar: { ...prev.sidebar, showProjects: val === true },
+                }))
+              }
+            />
+            <span className="text-sm">Show Projects</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={layout.sidebar.showAgents ?? true}
+              onCheckedChange={(val) =>
+                setLayout((prev) => ({
+                  ...prev,
+                  sidebar: { ...prev.sidebar, showAgents: val === true },
+                }))
+              }
+            />
+            <span className="text-sm">Show Agents</span>
+          </label>
+        </div>
+      </section>
+
       {/* Dashboard Widgets */}
       <section className="border border-border rounded-lg p-5 space-y-4">
         <div className="flex items-center justify-between">
