@@ -157,9 +157,6 @@ function parseStdoutChunk(
     if (!trimmed) continue;
     const parsed = adapter.parseStdoutLine(trimmed, ts);
     if (parsed.length === 0) {
-      if (run.adapterType === "openclaw_gateway") {
-        continue;
-      }
       const fallback = createFeedItem(run, ts, trimmed, "info", nextIdRef.current++);
       if (fallback) items.push(fallback);
       continue;

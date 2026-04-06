@@ -156,7 +156,6 @@ export function e2eSeedRoutes(db: Db) {
           capabilities?: string;
           reportsTo?: string | null;
           budgetMonthlyCents?: number;
-          isolationMode?: string;
         }>;
         projects?: Array<{
           id: string;
@@ -361,7 +360,6 @@ export function e2eSeedRoutes(db: Db) {
           capabilities: a.capabilities ?? null,
           reportsTo: null as string | null, // set later
           budgetMonthlyCents: a.budgetMonthlyCents ?? 0,
-          isolationMode: a.isolationMode ?? "process",
         }));
 
         stats.agentsCreated = await upsertById(db, agents, agents.id, agentsToInsert);

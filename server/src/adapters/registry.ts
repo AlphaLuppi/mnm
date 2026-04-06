@@ -26,14 +26,6 @@ import {
 import {
   agentConfigurationDoc as openCodeAgentConfigurationDoc,
 } from "@mnm/adapter-opencode-local";
-import {
-  execute as openclawGatewayExecute,
-  testEnvironment as openclawGatewayTestEnvironment,
-} from "@mnm/adapter-openclaw-gateway/server";
-import {
-  agentConfigurationDoc as openclawGatewayAgentConfigurationDoc,
-  models as openclawGatewayModels,
-} from "@mnm/adapter-openclaw-gateway";
 import { listCodexModels } from "./codex-models.js";
 import { listCursorModels } from "./cursor-models.js";
 import {
@@ -47,7 +39,6 @@ import {
 } from "@mnm/adapter-pi-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
-import { dockerAdapter } from "./docker/index.js";
 
 const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",
@@ -81,15 +72,6 @@ const cursorLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: cursorAgentConfigurationDoc,
 };
 
-const openclawGatewayAdapter: ServerAdapterModule = {
-  type: "openclaw_gateway",
-  execute: openclawGatewayExecute,
-  testEnvironment: openclawGatewayTestEnvironment,
-  models: openclawGatewayModels,
-  supportsLocalAgentJwt: false,
-  agentConfigurationDoc: openclawGatewayAgentConfigurationDoc,
-};
-
 const openCodeLocalAdapter: ServerAdapterModule = {
   type: "opencode_local",
   execute: openCodeExecute,
@@ -119,10 +101,8 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     openCodeLocalAdapter,
     piLocalAdapter,
     cursorLocalAdapter,
-    openclawGatewayAdapter,
     processAdapter,
     httpAdapter,
-    dockerAdapter,
   ].map((a) => [a.type, a]),
 );
 
