@@ -1,7 +1,9 @@
 import { Suspense, useState } from "react";
-import type { DashboardWidget, UserWidget } from "@mnm/shared";
+import { useQuery } from "@tanstack/react-query";
+import type { ContentDocument, DashboardWidget, UserWidget } from "@mnm/shared";
 import { WIDGET_REGISTRY } from "../lib/widget-registry";
 import { cn } from "../lib/utils";
+import { api } from "../api/client";
 import { ContentRenderer } from "./blocks/ContentRenderer";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +45,8 @@ interface DashboardGridProps {
   onResizeWidget?: (widgetId: string, span: number) => void;
 }
 
+const MIN_REFRESH_SECONDS = 60;
+
 function CustomWidgetCard({
   widget,
   onDelete,
@@ -53,6 +57,28 @@ function CustomWidgetCard({
   onResize?: (widgetId: string, span: number) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const ds = widget.dataSource;
+  const refreshMs = ds?.refreshInterval
+    ? Math.max(ds.refreshInterval, MIN_REFRESH_SECONDS) * 1000
+    : undefined;
+
+  // DI-05: Fetch data_source endpoint for dynamic widget content
+  const { data: fetchedBlocks, isLoading: dsLoading, isError: dsError } = useQuery({
+    queryKey: ["widget-data", widget.id, ds?.endpoint],
+    queryFn: async () => {
+      if (!ds?.endpoint) return null;
+      const params = ds.params
+        ? `?${new URLSearchParams(Object.entries(ds.params).map(([k, v]) => [k, String(v)])).toString()}`
+        : "";
+      return api.get<ContentDocument>(`${ds.endpoint}${params}`);
+    },
+    enabled: !!ds?.endpoint,
+    refetchInterval: refreshMs,
+    staleTime: refreshMs ? refreshMs / 2 : undefined,
+  });
+
+  const activeBlocks = fetchedBlocks ?? widget.blocks;
 
   return (
     <>
@@ -94,7 +120,14 @@ function CustomWidgetCard({
           </DropdownMenu>
         </div>
         <div className="p-4">
-          <ContentRenderer blocks={widget.blocks} body={widget.description} className="text-sm" />
+          {dsLoading && !fetchedBlocks ? (
+            <WidgetSkeleton />
+          ) : (
+            <ContentRenderer blocks={activeBlocks} body={widget.description} className="text-sm" />
+          )}
+          {dsError && (
+            <p className="mt-2 text-xs text-destructive">Failed to refresh data</p>
+          )}
         </div>
       </div>
 
