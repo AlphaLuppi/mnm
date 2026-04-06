@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_LAYOUT } from "@mnm/shared";
-import type { ResolvedLayout } from "@mnm/shared";
+import type { ResolvedLayout, WidgetPlacement } from "@mnm/shared";
 import { useCompany } from "../context/CompanyContext";
 import { usePermissions } from "./usePermissions";
 import { viewPresetsApi } from "../api/view-presets";
@@ -26,8 +26,14 @@ export function useViewPreset() {
     return resolveLayout(data.preset.layout, data.overrides, hasPermission);
   }, [data, hasPermission]);
 
+  const grid: WidgetPlacement[] = useMemo(
+    () => data?.grid ?? [],
+    [data],
+  );
+
   return {
     layout,
+    grid,
     isLoading,
     presetName: data?.preset?.name ?? null,
     presetSlug: data?.preset?.slug ?? null,
