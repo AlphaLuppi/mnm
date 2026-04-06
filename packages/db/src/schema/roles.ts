@@ -1,5 +1,6 @@
 import { type AnyPgColumn, pgTable, uuid, text, integer, timestamp, boolean, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
+import { viewPresets } from "./view_presets.js";
 
 export const roles = pgTable(
   "roles",
@@ -15,6 +16,7 @@ export const roles = pgTable(
     isSystem: boolean("is_system").notNull().default(false),
     color: text("color"),
     icon: text("icon"),
+    viewPresetId: uuid("view_preset_id").references(() => viewPresets.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

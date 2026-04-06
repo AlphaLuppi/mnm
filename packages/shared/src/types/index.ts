@@ -414,6 +414,18 @@ export type {
   RoutineListItem,
   RoutineDetail,
 } from "./routine.js";
+// VIEW-PRESETS: Persona-based dashboard & navigation
+export { DEFAULT_LAYOUT, PRESET_LAYOUTS } from "./view-preset.js";
+export type {
+  NavItemId,
+  SidebarSection,
+  DashboardWidget,
+  ViewPresetLayout,
+  LayoutOverrides,
+  ResolvedLayout,
+  MyViewResponse,
+  ViewPreset,
+} from "./view-preset.js";
 // FEEDBACK: Vote on agent output quality
 export { FEEDBACK_VOTE_VALUES, FEEDBACK_TARGET_TYPES } from "./feedback.js";
 export type {

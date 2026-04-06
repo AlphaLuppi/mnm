@@ -562,6 +562,12 @@ void backfillPermissions(db as any).catch((err) => {
   logger.error({ err }, "startup permission backfill failed");
 });
 
+// VIEW-PRESET-BACKFILL: Ensure all companies have default view presets
+import { backfillViewPresets } from "./services/view-preset-seed.js";
+void backfillViewPresets(db as any).catch((err) => {
+  logger.error({ err }, "startup view-preset backfill failed");
+});
+
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);
 
