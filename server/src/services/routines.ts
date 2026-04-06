@@ -510,6 +510,7 @@ export function routineService(db: Db) {
     publishLiveEvent({
       companyId,
       type: "routine.run_created",
+        visibility: { scope: "company-wide" },
       payload: { routineId, runId: result.run.id, issueId: result.issue.id },
     });
 
@@ -654,6 +655,7 @@ export function routineService(db: Db) {
       publishLiveEvent({
         companyId,
         type: "routine.created",
+          visibility: { scope: "company-wide" },
         payload: { routineId: routine!.id },
       });
 
@@ -689,6 +691,7 @@ export function routineService(db: Db) {
         companyId,
         type: "routine.updated",
         payload: { routineId: id },
+        visibility: { scope: "company-wide" },
       });
 
       return updated;
@@ -738,6 +741,7 @@ export function routineService(db: Db) {
         companyId,
         type: "routine.updated",
         payload: { routineId },
+        visibility: { scope: "company-wide" },
       });
 
       // For webhooks, include the secret in the response (only shown once at creation)
@@ -789,6 +793,7 @@ export function routineService(db: Db) {
         companyId,
         type: "routine.updated",
         payload: { routineId: existing.routineId },
+        visibility: { scope: "company-wide" },
       });
 
       return updated;
@@ -808,6 +813,7 @@ export function routineService(db: Db) {
         companyId,
         type: "routine.updated",
         payload: { routineId: existing.routineId },
+        visibility: { scope: "company-wide" },
       });
     },
 
@@ -956,6 +962,7 @@ export function routineService(db: Db) {
         companyId: run.companyId,
         type: "routine.run_completed",
         payload: { routineId: run.routineId, runId: run.id, issueId, status: runStatus },
+        visibility: { scope: "company-wide" },
       });
 
       return updated;

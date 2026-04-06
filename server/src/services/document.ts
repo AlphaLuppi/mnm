@@ -44,6 +44,7 @@ export function documentService(db: Db) {
           documentId: doc!.id,
           title: opts.title,
           mimeType: opts.mimeType,
+          visibility: { scope: "company-wide" },
         },
       });
 
@@ -130,6 +131,7 @@ export function documentService(db: Db) {
           payload: {
             documentId,
             action: "deleted",
+            visibility: { scope: "company-wide" },
           },
         });
       }

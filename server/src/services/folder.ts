@@ -51,6 +51,7 @@ export function folderService(db: Db) {
           name: folder!.name,
           ownerUserId,
         },
+        visibility: { scope: "actor-only", actorId: ownerUserId },
       });
 
       return folder!;
@@ -258,6 +259,7 @@ export function folderService(db: Db) {
           folderId: updated!.id,
           name: updated!.name,
         },
+        visibility: { scope: "actor-only", actorId: requestingUserId },
       });
 
       return updated!;
@@ -372,6 +374,7 @@ export function folderService(db: Db) {
         companyId,
         type: "folder.deleted",
         payload: { folderId },
+        visibility: { scope: "actor-only", actorId: existing.ownerUserId },
       });
 
       return { error: null };

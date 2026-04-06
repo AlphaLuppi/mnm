@@ -67,6 +67,7 @@ export function artifactService(db: Db) {
             artifactId: updated!.id,
             title: updated!.title,
             artifactType: updated!.artifactType,
+            visibility: { scope: "company-wide" },
           },
         });
 
@@ -239,6 +240,7 @@ export function artifactService(db: Db) {
             artifactId: updated!.id,
             title: updated!.title,
             versionNumber: newVersion?.versionNumber ?? null,
+            visibility: { scope: "company-wide" },
           },
         });
 
@@ -264,6 +266,7 @@ export function artifactService(db: Db) {
         publishLiveEvent({
           companyId,
           type: "artifact.deleted",
+            visibility: { scope: "company-wide" },
           payload: { artifactId },
         });
       }

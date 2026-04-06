@@ -233,6 +233,7 @@ export function createIngestionWorker(db: Db, redisConnection: ConnectionOptions
             documentId,
             tokenCount,
             pageCount,
+            visibility: { scope: "company-wide" },
           },
         });
 
@@ -254,6 +255,7 @@ export function createIngestionWorker(db: Db, redisConnection: ConnectionOptions
           payload: {
             documentId,
             error: errorMessage,
+            visibility: { scope: "company-wide" },
           },
         });
 

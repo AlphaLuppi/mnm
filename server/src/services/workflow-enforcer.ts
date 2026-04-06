@@ -133,6 +133,7 @@ export function workflowEnforcerService(db: Db) {
             stageId: stage.id,
             missingFiles: result.missingFiles,
             warnings: result.warnings,
+            visibility: { scope: "company-wide" },
           },
         });
 
@@ -154,6 +155,7 @@ export function workflowEnforcerService(db: Db) {
           stageId: stage.id,
           fileChecks: result.fileChecks,
           warnings: result.warnings,
+          visibility: { scope: "company-wide" },
         },
       });
 
@@ -194,6 +196,7 @@ export function workflowEnforcerService(db: Db) {
             stageName: templateDef.name,
             prePromptsCount: prePromptPayload.stagePrePrompts.length,
             previousArtifactsCount: prePromptPayload.previousArtifacts.length,
+            visibility: { scope: "company-wide" },
           },
         });
       }

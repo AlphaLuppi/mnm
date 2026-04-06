@@ -126,6 +126,7 @@ export function driftMonitorService(db: Db) {
       companyId,
       type: "drift.monitoring_started",
       payload: { companyId, config: mergedConfig },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ companyId }, "Drift monitoring started");
@@ -148,6 +149,7 @@ export function driftMonitorService(db: Db) {
       companyId,
       type: "drift.monitoring_stopped",
       payload: { companyId },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ companyId }, "Drift monitoring stopped");
@@ -467,6 +469,7 @@ export function driftMonitorService(db: Db) {
       companyId,
       type: "drift.alert_created",
       payload: alertPayload,
+      visibility: { scope: "company-wide" },
     });
 
     // Emit audit event (non-blocking)
@@ -599,6 +602,7 @@ export function driftMonitorService(db: Db) {
         resolution,
         actorId,
       },
+      visibility: { scope: "company-wide" },
     });
 
     // Emit audit event (non-blocking)

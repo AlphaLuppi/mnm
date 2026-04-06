@@ -108,6 +108,7 @@ export function compactionKillRelaunchService(db: Db) {
       publishLiveEvent({
         companyId,
         type: "compaction.circuit_breaker_triggered" as LiveEventType,
+          visibility: { scope: "agents", agentIds: [snapshot.agentId] },
         payload: { snapshotId, stageId: snapshot.stageId, agentId: snapshot.agentId, relaunchCount: snapshot.relaunchCount },
       });
 
@@ -137,6 +138,7 @@ export function compactionKillRelaunchService(db: Db) {
     publishLiveEvent({
       companyId,
       type: "compaction.kill_started" as LiveEventType,
+        visibility: { scope: "agents", agentIds: [snapshot.agentId] },
       payload: { snapshotId, stageId: snapshot.stageId, agentId: snapshot.agentId },
     });
 

@@ -116,6 +116,7 @@ export function auditService(db: Db) {
           targetId: row!.targetId,
           severity: row!.severity,
         },
+        visibility: { scope: "company-wide" },
       });
 
       return row!;

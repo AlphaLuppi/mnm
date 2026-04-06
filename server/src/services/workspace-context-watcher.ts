@@ -37,6 +37,7 @@ export function startWorkspaceContextWatcher(
           companyId: entry.companyId,
           type: "workspace.context.changed",
           payload: { projectId: entry.projectId },
+          visibility: { scope: "company-wide" },
         });
       }, DEBOUNCE_MS);
     });
