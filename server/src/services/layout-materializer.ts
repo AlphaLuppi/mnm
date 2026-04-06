@@ -23,7 +23,7 @@ export function materializeLayout(
 
   for (const w of presetWidgets) {
     const span = w.span ?? 2;
-    const gridW = spanToWidth(span as 1 | 2 | 3 | 4);
+    const gridW = Math.min(spanToWidth(Math.min(Math.max(span, 1), 4) as 1 | 2 | 3 | 4), GRID_COLS);
     const gridH = WIDGET_DEFAULT_HEIGHTS[w.type] ?? 3;
 
     if (cursorX + gridW > GRID_COLS) {
@@ -53,7 +53,8 @@ export function materializeLayout(
   }
 
   for (const uw of userWidgets) {
-    const gridW = spanToWidth((uw.span || 2) as 1 | 2 | 3 | 4);
+    const uwSpan = Math.min(Math.max(uw.span || 2, 1), 4);
+    const gridW = Math.min(spanToWidth(uwSpan as 1 | 2 | 3 | 4), GRID_COLS);
     const gridH = 3;
 
     if (cursorX + gridW > GRID_COLS) {
@@ -92,11 +93,12 @@ export function mergeNewWidgets(
   for (const w of presetWidgets) {
     const id = `preset:${w.type}`;
     if (!existingIds.has(id)) {
+      const wSpan = Math.min(Math.max(w.span ?? 2, 1), 4);
       missingPlacements.push({
         widgetId: id,
         x: 0,
         y: 9999,
-        w: spanToWidth((w.span ?? 2) as 1 | 2 | 3 | 4),
+        w: Math.min(spanToWidth(wSpan as 1 | 2 | 3 | 4), GRID_COLS),
         h: WIDGET_DEFAULT_HEIGHTS[w.type] ?? 3,
         props: w.props,
       });
@@ -105,11 +107,12 @@ export function mergeNewWidgets(
 
   for (const uw of userWidgets) {
     if (!existingIds.has(uw.id)) {
+      const uwSpan = Math.min(Math.max(uw.span || 2, 1), 4);
       missingPlacements.push({
         widgetId: uw.id,
         x: 0,
         y: 9999,
-        w: spanToWidth((uw.span || 2) as 1 | 2 | 3 | 4),
+        w: Math.min(spanToWidth(uwSpan as 1 | 2 | 3 | 4), GRID_COLS),
         h: 3,
       });
     }
