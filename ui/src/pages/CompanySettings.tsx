@@ -387,6 +387,24 @@ export function CompanySettings() {
               />
             </div>
           </div>
+
+          <div className="space-y-4">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Execution
+            </div>
+            <div className="rounded-md border border-border px-4 py-3">
+              <ToggleField
+                label="Force local execution"
+                hint="Bypass Docker sandbox routing — all agents run locally on the host. Useful for local development."
+                checked={selectedCompany?.forceLocalExecution ?? false}
+                onChange={(v) => {
+                  companiesApi.update(selectedCompanyId!, { forceLocalExecution: v }).then(() => {
+                    queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+                  });
+                }}
+              />
+            </div>
+          </div>
         </TabsContent>
 
 

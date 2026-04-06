@@ -7,3 +7,4 @@ ALTER TABLE agents DROP COLUMN IF EXISTS container_profile_id;
 ALTER TABLE agents DROP COLUMN IF EXISTS isolation_mode;
 ALTER TABLE companies DROP COLUMN IF EXISTS parent_company_id;
 ALTER TABLE companies ALTER COLUMN issue_prefix SET DEFAULT 'MNM';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS force_local_execution boolean NOT NULL DEFAULT false;
