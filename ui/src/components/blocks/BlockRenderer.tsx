@@ -9,6 +9,8 @@ export interface BlockContext {
   companyId: string;
   onAction: (action: string, payload?: Record<string, unknown>) => Promise<void>;
   hasPermission: (slug: string) => boolean;
+  /** When true, interactive blocks (ActionButton, QuickForm) should be disabled */
+  isActioned?: boolean;
 }
 
 /** React context so block components can dispatch actions without DOM events */

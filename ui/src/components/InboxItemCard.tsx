@@ -43,7 +43,7 @@ interface InboxItemCardProps {
 }
 
 export function InboxItemCard({ item, agentName, onDismiss, onMarkRead }: InboxItemCardProps) {
-  const { context: blockContext } = useBlockActions({ surface: "inbox", surfaceId: item.id });
+  const { context: blockContext } = useBlockActions({ surface: "inbox", surfaceId: item.id, isActioned: item.status === "actioned" });
   const [expanded, setExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [needsExpand, setNeedsExpand] = useState(false);
