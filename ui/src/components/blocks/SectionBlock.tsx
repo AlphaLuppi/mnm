@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 
-export function MnmSection({ props, children }: { props: Props; children?: ReactNode }) {
+export function MnmSection({ props, children }: { props: typeof SectionProps._type; children?: ReactNode }) {
   const [open, setOpen] = useState(true);
 
   if (!props.collapsible) {

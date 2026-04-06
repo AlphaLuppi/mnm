@@ -84,7 +84,7 @@ export function BlockRenderer({ blocks, context, className }: BlockRendererProps
 
   const actionHandlers = context
     ? { "mnm-action": async (params: Record<string, unknown>) => context.onAction(params.action as string, params.payload as Record<string, unknown>) }
-    : {};
+    : undefined;
 
   return (
     <div className={className}>

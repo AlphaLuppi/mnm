@@ -9,7 +9,7 @@ const TREND_ICONS = {
   flat: <Minus className="h-4 w-4 text-muted-foreground" />,
 } as const;
 
-export function MnmMetricCard({ props }: { props: z.infer<typeof MetricCardProps> }) {
+export function MnmMetricCard({ props }: { props: typeof MetricCardProps._type }) {
   return (
     <div className="rounded-lg border bg-card p-4 space-y-1">
       <div className="flex items-center justify-between">

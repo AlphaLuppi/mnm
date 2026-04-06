@@ -3,6 +3,8 @@ import { schema } from "@json-render/react/schema";
 import { shadcnComponentDefinitions } from "@json-render/shadcn/catalog";
 import { blockPropsSchemas } from "@mnm/shared";
 
+// Zod 3 (@mnm/shared) vs Zod 4 (@json-render) type mismatch — runtime is compatible
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const mnmCatalog = defineCatalog(schema, {
   components: {
     // Built-in shadcn from json-render
@@ -26,4 +28,4 @@ export const mnmCatalog = defineCatalog(schema, {
     Section: blockPropsSchemas.Section,
   },
   actions: {},
-});
+} as any);
