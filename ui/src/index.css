@@ -739,3 +739,14 @@ a.mnm-project-mention-chip {
 .react-grid-item:hover > .react-resizable-handle::after {
   background-image: radial-gradient(circle, oklch(from var(--muted-foreground) l c h / 0.7) 1px, transparent 1px);
 }
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-item {
+    transition: none !important;
+  }
+  .react-grid-item.react-grid-item--dragging {
+    transform: none;
+    filter: none;
+  }
+}
