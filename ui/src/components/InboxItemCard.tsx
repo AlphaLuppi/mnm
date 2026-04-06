@@ -68,7 +68,7 @@ export function InboxItemCard({ item, agentName, onDismiss, onMarkRead }: InboxI
 
       <div
         className={cn(
-          "border border-border rounded-lg p-4 bg-card transition-all duration-200",
+          "border border-border rounded-lg p-4 bg-card transition-all duration-200 min-w-0 overflow-hidden",
           statusCardClass,
         )}
       >
