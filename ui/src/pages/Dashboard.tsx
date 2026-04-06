@@ -277,7 +277,7 @@ export function Dashboard() {
         open={addWidgetOpen}
         onOpenChange={setAddWidgetOpen}
         onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
-        onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt).then(() => setAddWidgetOpen(false))}
+        onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt)}
         placedWidgetIds={new Set(currentGrid.filter((p) => !p.hidden).map((p) => p.widgetId))}
         onAddPresetWidget={(type, span) => {
           if (currentGrid.some((p) => p.widgetId === `preset:${type}`)) return;
