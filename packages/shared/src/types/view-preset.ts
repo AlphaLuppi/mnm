@@ -6,7 +6,7 @@ export type NavItemId =
   | "routines" | "goals" | "chat" | "folders" | "cursors" | "projects"
   | "agents" | "members" | "roles" | "tags" | "config-layers" | "feedback"
   | "org" | "costs" | "activity" | "audit" | "traces" | "containers"
-  | "deployments" | "settings" | "sso" | "import-jira";
+  | "deployments" | "settings" | "sso" | "import-jira" | "view-presets";
 
 /** A sidebar section grouping multiple nav items */
 export interface SidebarSection {
