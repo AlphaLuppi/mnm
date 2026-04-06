@@ -14,6 +14,7 @@ import type { WidgetPlacement, UserWidget, ContentDocument } from "@mnm/shared";
 import { WIDGET_REGISTRY } from "../lib/widget-registry";
 import { ContentRenderer } from "./blocks/ContentRenderer";
 import { WidgetCard } from "./WidgetCard";
+import { DashboardEmptyState } from "./DashboardEmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -30,6 +31,9 @@ interface UnifiedDashboardGridProps {
   onLayoutChange: (placements: WidgetPlacement[]) => void;
   onDeleteWidget?: (widgetId: string) => void;
   onResizeWidget?: (widgetId: string, span: number) => void;
+  onAddWidget?: () => void;
+  /** True if the user has never had a V2 layout (first time) */
+  isNewUser?: boolean;
 }
 
 /** Convert a grid width (in 12-col units) to a visual span (1-4) */
@@ -91,6 +95,8 @@ export function UnifiedDashboardGrid({
   onLayoutChange,
   onDeleteWidget,
   onResizeWidget,
+  onAddWidget,
+  isNewUser,
 }: UnifiedDashboardGridProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -210,6 +216,18 @@ export function UnifiedDashboardGrid({
     },
     [onResizeWidget],
   );
+
+  // Empty state: no visible widgets
+  if (visiblePlacements.length === 0 && onAddWidget) {
+    return (
+      <div ref={containerRef}>
+        <DashboardEmptyState
+          variant={isNewUser ? "new-user" : "all-deleted"}
+          onAddWidget={onAddWidget}
+        />
+      </div>
+    );
+  }
 
   return (
     <div

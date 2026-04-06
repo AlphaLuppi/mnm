@@ -251,6 +251,8 @@ export function Dashboard() {
         userWidgets={customWidgets ?? []}
         onLayoutChange={handleLayoutChange}
         onDeleteWidget={handleDeleteWidget}
+        onAddWidget={() => setAddWidgetOpen(true)}
+        isNewUser={grid.length === 0}
         onResizeWidget={(widgetId, span) => {
           const w = span * 3;
           const updated = currentGrid.map((p) =>
