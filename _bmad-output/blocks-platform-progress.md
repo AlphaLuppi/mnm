@@ -14,10 +14,10 @@
 | 1 | Architecture + UX/UI | DONE | 2026-04-06 | 2026-04-06 |
 | 2 | PM/PO Sprint Planning | DONE | 2026-04-06 | 2026-04-06 |
 | 3-PIVOT | Revert custom blocks, adopt json-render | DONE | 2026-04-06 | 2026-04-06 |
-| 3 | Implementation | PARTIAL | 2026-04-06 | — |
-| 4 | Review Team | PENDING | — | — |
-| 5 | Fix Team | PENDING | — | — |
-| 6 | QA Team (ChromeMCP) | PENDING | — | — |
+| 3 | Implementation | DONE | 2026-04-06 | 2026-04-06 |
+| 4 | Review Team | DONE | 2026-04-06 | 2026-04-06 |
+| 5 | Fix Team | DONE | 2026-04-06 | 2026-04-06 |
+| 6 | QA Team (ChromeMCP) | PARTIAL (server startup stuck) | 2026-04-06 | — |
 
 ---
 
@@ -46,6 +46,11 @@
 9. `ae95ec0d` feat(blocks): AF-03 — CommentThread renders content blocks
 10. `89f4ba5b` feat(blocks): DI-04 — hybrid dashboard with custom widgets
 11. `647f85b1` feat(blocks): II-04 — Inbox with rich inbox items
+12. `8f048a16` wip(blocks): block components + catalog + registry + progress doc
+13. `cd6a789e` fix(blocks): resolve all typecheck errors in block components
+14. `d1b014fd` feat(blocks): BF-02 — block catalogue API routes
+15. `86ac344a` fix(blocks): II-02/II-03 — inbox-items total count + already-actioned guard
+16. `70c5beb7` fix(blocks): Phase 5 — review findings fixes (action dispatch, Tailwind purging, a11y, empty states)
 
 ---
 
@@ -68,27 +73,19 @@
 - [x] F1-ADMIN-02: View Preset editor
 - [x] F1-ADMIN-03: Role to Preset assignment
 
-### IN PROGRESS — blockPropsSchemas + block components written, not yet committed
-- [ ] BF-01-addon: blockPropsSchemas added to content-blocks.ts (code written, needs commit)
-- [ ] catalog.ts + registry.ts created (needs commit)
-- [ ] 10 custom block components created (needs commit)
-
-### NEEDS WORK (typecheck issues to fix before commit)
-The block components have type signature issues (`z.infer<typeof X>` vs `typeof X._type`).
-Need to standardize the type pattern and fix typecheck errors:
-- MetricCardBlock uses `z.infer<typeof MetricCardProps>` but `z` not imported
-- Others use `typeof XxxProps._type` — need to verify this works
-- DataTable/Chart/QuickForm have `any` type implicit params (need explicit types)
-- catalog.ts/registry.ts may have json-render API mismatches — need to verify
+### DONE (new — session 2)
+- [x] BF-01-addon: blockPropsSchemas + Props exports added to content-blocks.ts & shared index
+- [x] BF-02: Block catalogue API route (GET /block-catalogue + POST /blocks/validate)
+- [x] BF-03c: Chart block component committed + typechecked
+- [x] BF-05: BlockRenderer + json-render Renderer integration (Zod 3/4 cast workaround)
+- [x] BF-07: Interactive blocks — ActionButton + QuickForm committed + typechecked
+- [x] catalog.ts + registry.tsx: json-render integration (defineCatalog + defineRegistry)
+- [x] 10 custom block components: all typechecked and committed
+- [x] II-02 FIX: inbox-items returns { items, total } with count query
+- [x] II-03 FIX: already-actioned guard on POST /inbox-items/:id/action
+- [x] II-03 FIX: API client types match { items, total } response
 
 ### NOT STARTED (remaining stories)
-- [ ] BF-02: Block catalogue API route (GET /block-catalogue + POST /blocks/validate)
-- [ ] BF-03c: Chart block component EXISTS but not committed
-- [ ] BF-05: BlockRenderer + ContentRenderer — REWRITTEN with json-render but needs typecheck
-- [ ] BF-07: Interactive blocks — ActionButton + QuickForm EXIST but not committed
-- [ ] II-02 FIX: inbox-items needs `total` count + "already actioned" guard
-- [ ] II-03 FIX: inbox-items API client needs matching `{ items, total }` response type
-- [ ] II-04: Inbox already modified but uses ContentRenderer stub
 - [ ] II-05: Action handler integration in inbox
 - [ ] II-06: Rich failed run notifications
 - [ ] II-07: Migration existing sources to inbox_items
@@ -104,21 +101,13 @@ Need to standardize the type pattern and fix typecheck errors:
 To continue this implementation from a new session:
 
 1. Read THIS file first
-2. Read the reference documents listed above
-3. Priority tasks:
-   a. FIX typecheck errors in block components (type imports)
-   b. COMMIT the uncommitted block components + catalog + registry + blockPropsSchemas
-   c. Create block-catalogue API route (BF-02)
-   d. Fix inbox-items bugs (total count, already-actioned guard)
-   e. Replace ContentRenderer stub with real json-render implementation
-   f. Then proceed to Phase 4 (Review team), Phase 5 (Fix), Phase 6 (QA with ChromeMCP)
-
-4. Remaining pipeline phases from user's original request:
-   - Phase 4: CreateTeam with reviewer (designer/responsive, bug hunter, architect, security, PO validator)
-   - Phase 5: CreateTeam fix team to address findings
-   - Phase 6: CreateTeam QA team with ChromeMCP to validate all features against specs
-   - Loop back to Phase 3 if QA finds issues
-
+2. All typecheck errors are resolved. All core block components committed.
+3. Remaining work:
+   a. Process Phase 4 review findings and fix (Phase 5)
+   b. Run QA with ChromeMCP (Phase 6)
+   c. Address remaining NOT STARTED stories (II-05 through AF-04) — these are mostly CAO/data integration stories
+4. Known tech debt:
+   - Zod 3 (@mnm/shared) vs Zod 4 (@json-render) mismatch — handled with `as any` casts in catalog.ts and registry.tsx. Long-term fix: upgrade shared to Zod 4.
 5. After each commit: `git -c commit.gpgsign=false commit` then `git push`
 6. Use `bun run typecheck` to verify before commits
 7. Use `bun run dev` to start the server for visual testing

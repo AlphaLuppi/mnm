@@ -108,6 +108,11 @@ export function inboxItemRoutes(db: Db) {
     const updates: Partial<typeof inboxItems.$inferInsert> = {};
     if (parsed.data.status !== undefined) updates.status = parsed.data.status;
 
+    if (Object.keys(updates).length === 0) {
+      res.json(existing);
+      return;
+    }
+
     const [updated] = await db
       .update(inboxItems)
       .set(updates)
