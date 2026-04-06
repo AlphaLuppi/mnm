@@ -79,10 +79,6 @@ import { feedbackRoutes } from "./routes/feedback.js";
 import { routineRoutes } from "./routes/routines.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
 import { viewPresetRoutes } from "./routes/view-presets.js";
-// BLOCKS-PLATFORM: Block catalogue
-import { blockCatalogueRoutes } from "./routes/block-catalogue.js";
-// BLOCKS: User custom widgets
-import { userWidgetRoutes } from "./routes/user-widgets.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -274,10 +270,6 @@ export async function createApp(
   api.use(routineRoutes(db));
   // VIEW-PRESETS: Persona-based dashboard & navigation
   api.use(viewPresetRoutes(db));
-  // BLOCKS-PLATFORM: Block catalogue
-  api.use(blockCatalogueRoutes(db));
-  // BLOCKS: User custom widgets
-  api.use(userWidgetRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

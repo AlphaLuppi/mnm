@@ -12,7 +12,6 @@ export type Role = {
   isSystem: boolean;
   color: string | null;
   icon: string | null;
-  viewPresetId: string | null;
   createdAt: string;
   updatedAt: string;
   permissions: Array<{ id: string; slug: string }>;
@@ -33,7 +32,6 @@ export type UpdateRoleInput = {
   hierarchyLevel?: number;
   bypassTagFilter?: boolean;
   permissionSlugs?: string[];
-  viewPresetId?: string | null;
 };
 
 export const rolesApi = {
