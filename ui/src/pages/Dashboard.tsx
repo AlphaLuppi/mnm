@@ -17,9 +17,11 @@ import { useDashboardLiveIndicator } from "../hooks/useDashboardLiveIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { UnifiedDashboardGrid } from "../components/UnifiedDashboardGrid";
 import { AddWidgetDialog } from "../components/AddWidgetDialog";
+import { WIDGET_REGISTRY } from "../lib/widget-registry";
+import { WIDGET_DEFAULT_HEIGHTS } from "@mnm/shared";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
-import { Bot, LayoutDashboard, Radar } from "lucide-react";
+import { Bot, LayoutDashboard, Plus, Radar } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { Button } from "@/components/ui/button";
@@ -150,33 +152,44 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* DASH-S03: Live indicator */}
-      <div data-testid="dash-s03-live-indicator" className="flex items-center gap-2">
-        <span data-testid="dash-s03-live-dot" className="relative flex h-2.5 w-2.5 shrink-0">
-          <span className={cn(
-            "absolute inline-flex h-full w-full rounded-full opacity-75",
-            isFlashing
-              ? "animate-ping bg-green-400"
-              : isLive
-                ? "animate-ping bg-green-400/50"
-                : "bg-muted-foreground/40",
-          )} />
-          <span className={cn(
-            "relative inline-flex rounded-full h-2.5 w-2.5",
-            isLive ? "bg-green-500" : "bg-muted-foreground/40",
-          )} />
-        </span>
-        <span data-testid="dash-s03-live-label" className={cn(
-          "text-xs font-medium",
-          isFlashing ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
-        )}>
-          Live
-        </span>
-        {lastRefreshAt && (
-          <span data-testid="dash-s03-last-refresh" className="text-xs text-muted-foreground">
-            Last updated {timeAgo(lastRefreshAt.toISOString())}
+      {/* Dashboard header: Live indicator + Add Widget */}
+      <div className="flex items-center justify-between">
+        <div data-testid="dash-s03-live-indicator" className="flex items-center gap-2">
+          <span data-testid="dash-s03-live-dot" className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className={cn(
+              "absolute inline-flex h-full w-full rounded-full opacity-75",
+              isFlashing
+                ? "animate-ping bg-green-400"
+                : isLive
+                  ? "animate-ping bg-green-400/50"
+                  : "bg-muted-foreground/40",
+            )} />
+            <span className={cn(
+              "relative inline-flex rounded-full h-2.5 w-2.5",
+              isLive ? "bg-green-500" : "bg-muted-foreground/40",
+            )} />
           </span>
-        )}
+          <span data-testid="dash-s03-live-label" className={cn(
+            "text-xs font-medium",
+            isFlashing ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
+          )}>
+            Live
+          </span>
+          {lastRefreshAt && (
+            <span data-testid="dash-s03-last-refresh" className="text-xs text-muted-foreground">
+              Last updated {timeAgo(lastRefreshAt.toISOString())}
+            </span>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAddWidgetOpen(true)}
+          aria-label="Add a new widget to the dashboard"
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Widget
+        </Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
@@ -252,6 +265,21 @@ export function Dashboard() {
         onOpenChange={setAddWidgetOpen}
         onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
         onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt).then(() => setAddWidgetOpen(false))}
+        placedWidgetIds={new Set(currentGrid.filter((p) => !p.hidden).map((p) => p.widgetId))}
+        onAddPresetWidget={(type, span) => {
+          const def = WIDGET_REGISTRY[type];
+          const gridW = span * 3;
+          const gridH = WIDGET_DEFAULT_HEIGHTS[type] ?? 3;
+          const newPlacement = {
+            widgetId: `preset:${type}`,
+            x: 0,
+            y: 9999,
+            w: gridW,
+            h: gridH,
+            props: undefined,
+          };
+          handleLayoutChange([...currentGrid, newPlacement]);
+        }}
       />
     </div>
   );
