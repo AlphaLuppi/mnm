@@ -33,15 +33,23 @@ export function inboxItemRoutes(db: Db) {
     if (category) conditions.push(eq(inboxItems.category, category));
     if (priority) conditions.push(eq(inboxItems.priority, priority));
 
-    const items = await db
-      .select()
-      .from(inboxItems)
-      .where(and(...conditions))
-      .orderBy(desc(inboxItems.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const whereClause = and(...conditions);
 
-    res.json(items);
+    const [items, [{ count: total }]] = await Promise.all([
+      db
+        .select()
+        .from(inboxItems)
+        .where(whereClause)
+        .orderBy(desc(inboxItems.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(inboxItems)
+        .where(whereClause),
+    ]);
+
+    res.json({ items, total });
   });
 
   // ── POST /inbox-items — Create an inbox item (agents send notifications)
@@ -137,6 +145,7 @@ export function inboxItemRoutes(db: Db) {
       );
 
     if (!existing) throw notFound("Inbox item not found");
+    if (existing.status === "actioned") throw badRequest("This item has already been actioned");
 
     const actionTaken = {
       action: parsed.data.action,

@@ -416,11 +416,12 @@ export function Inbox() {
   });
 
   // BLOCKS-PLATFORM: Rich inbox items from agents
-  const { data: inboxItems = [], isLoading: isInboxItemsLoading } = useQuery({
+  const { data: inboxItemsResponse, isLoading: isInboxItemsLoading } = useQuery({
     queryKey: queryKeys.inboxItems.list(selectedCompanyId!),
     queryFn: () => inboxItemsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+  const inboxItems = inboxItemsResponse?.items ?? [];
 
   const unreadInboxItems = useMemo(
     () => inboxItems.filter((item: InboxItem) => item.status === "unread"),
