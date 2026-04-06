@@ -166,7 +166,7 @@ export function rolesRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const roleId = req.params.roleId as string;
-      const { name, description, hierarchyLevel, inheritsFromId, bypassTagFilter, color, icon, permissionSlugs } = req.body;
+      const { name, description, hierarchyLevel, inheritsFromId, bypassTagFilter, color, icon, permissionSlugs, viewPresetId } = req.body;
 
       const [existing] = await db
         .select()
@@ -191,6 +191,7 @@ export function rolesRoutes(db: Db) {
       if (bypassTagFilter !== undefined) updates.bypassTagFilter = bypassTagFilter;
       if (color !== undefined) updates.color = color;
       if (icon !== undefined) updates.icon = icon;
+      if (viewPresetId !== undefined) updates.viewPresetId = viewPresetId;
       updates.updatedAt = new Date();
 
       const [updated] = await db
