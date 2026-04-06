@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo } from "react";
-import { Renderer, StateProvider, ActionProvider } from "@json-render/react";
+import { Renderer, StateProvider, ActionProvider, VisibilityProvider } from "@json-render/react";
 import { registry } from "./registry";
 import type { ContentDocument } from "@mnm/shared";
 
@@ -99,9 +99,11 @@ export function BlockRenderer({ blocks, context, className }: BlockRendererProps
     <div className={className}>
       <BlockActionCtx.Provider value={context ?? null}>
         <StateProvider initialState={{}}>
-          <ActionProvider handlers={actionHandlers}>
-            <Renderer spec={spec} registry={registry} />
-          </ActionProvider>
+          <VisibilityProvider>
+            <ActionProvider handlers={actionHandlers}>
+              <Renderer spec={spec} registry={registry} />
+            </ActionProvider>
+          </VisibilityProvider>
         </StateProvider>
       </BlockActionCtx.Provider>
     </div>
