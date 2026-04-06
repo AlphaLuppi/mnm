@@ -7,11 +7,13 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useViewPreset } from "../hooks/useViewPreset";
+import { useUserWidgets } from "../hooks/useUserWidgets";
 import { queryKeys } from "../lib/queryKeys";
 import { useDriftScanStatus } from "../hooks/useDriftResults";
 import { useDashboardLiveIndicator } from "../hooks/useDashboardLiveIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { DashboardGrid } from "../components/DashboardGrid";
+import { AddWidgetDialog } from "../components/AddWidgetDialog";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
 import { Bot, LayoutDashboard, Radar } from "lucide-react";
@@ -28,6 +30,10 @@ export function Dashboard() {
     localStorage.getItem("mnm:drift-prompt-hidden") === "true",
   );
   const [driftSessionDismissed, setDriftSessionDismissed] = useState(false);
+  const [addWidgetOpen, setAddWidgetOpen] = useState(false);
+
+  // Custom widgets
+  const { widgets: customWidgets, createWidget, updateWidget, deleteWidget } = useUserWidgets();
 
   // DASH-S03: Real-time live indicator
   const { isLive, isFlashing, lastRefreshAt } = useDashboardLiveIndicator();
@@ -170,7 +176,20 @@ export function Dashboard() {
       <ActiveAgentsPanel companyId={selectedCompanyId!} />
 
       {/* Dynamic dashboard grid — driven by the view preset layout */}
-      <DashboardGrid companyId={selectedCompanyId!} widgets={layout.dashboard.widgets} />
+      <DashboardGrid
+        companyId={selectedCompanyId!}
+        widgets={layout.dashboard.widgets}
+        customWidgets={customWidgets}
+        onAddWidget={() => setAddWidgetOpen(true)}
+        onDeleteWidget={(widgetId) => deleteWidget.mutate(widgetId)}
+        onResizeWidget={(widgetId, span) => updateWidget.mutate({ widgetId, data: { span } })}
+      />
+
+      <AddWidgetDialog
+        open={addWidgetOpen}
+        onOpenChange={setAddWidgetOpen}
+        onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
+      />
     </div>
   );
 }
