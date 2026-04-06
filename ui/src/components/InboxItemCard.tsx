@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { InboxItem } from "@mnm/shared";
 import { ContentRenderer } from "./blocks/ContentRenderer";
+import { useBlockActions } from "../hooks/useBlockActions";
 import { StatusBadge } from "./StatusBadge";
 import { Identity } from "./Identity";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ interface InboxItemCardProps {
 }
 
 export function InboxItemCard({ item, agentName, onDismiss, onMarkRead }: InboxItemCardProps) {
+  const { context: blockContext } = useBlockActions({ surface: "inbox", surfaceId: item.id });
   const [expanded, setExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [needsExpand, setNeedsExpand] = useState(false);
@@ -125,7 +127,7 @@ export function InboxItemCard({ item, agentName, onDismiss, onMarkRead }: InboxI
                 !expanded && needsExpand && "max-h-[200px] overflow-hidden",
               )}
             >
-              <ContentRenderer blocks={item.contentBlocks} body={item.body} className="text-sm" />
+              <ContentRenderer blocks={item.contentBlocks} body={item.body} context={blockContext} className="text-sm" />
               {!expanded && needsExpand && (
                 <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-card to-transparent" />
               )}

@@ -8,6 +8,8 @@ import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySel
 import { FeedbackVoteButtons } from "./FeedbackVoteButtons";
 import { MarkdownBody } from "./MarkdownBody";
 import { ContentRenderer } from "./blocks/ContentRenderer";
+import type { BlockContext } from "./blocks/BlockRenderer";
+import { useBlockActions } from "../hooks/useBlockActions";
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { StatusBadge } from "./StatusBadge";
 import { AgentIcon } from "./AgentIconPicker";
@@ -132,6 +134,7 @@ const TimelineList = memo(function TimelineList({
   issueId,
   currentUserId,
   userMap,
+  blockContext,
 }: {
   timeline: TimelineItem[];
   agentMap?: Map<string, Agent>;
@@ -140,6 +143,7 @@ const TimelineList = memo(function TimelineList({
   issueId?: string;
   currentUserId?: string | null;
   userMap?: Map<string, string>;
+  blockContext?: BlockContext;
 }) {
   if (timeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No comments or runs yet.</p>;
@@ -214,7 +218,7 @@ const TimelineList = memo(function TimelineList({
               </span>
             </div>
             {comment.contentBlocks ? (
-              <ContentRenderer blocks={comment.contentBlocks} body={comment.body} className="text-sm" />
+              <ContentRenderer blocks={comment.contentBlocks} body={comment.body} context={blockContext} className="text-sm" />
             ) : (
               <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
             )}
@@ -271,6 +275,7 @@ export function CommentThread({
   currentUserId,
   userMap,
 }: CommentThreadProps) {
+  const { context: blockContext } = useBlockActions({ surface: "issue", surfaceId: issueId });
   const [body, setBody] = useState("");
   const [reopen, setReopen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -394,7 +399,7 @@ export function CommentThread({
     <div className="space-y-4">
       <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
 
-      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} companyId={companyId} issueId={issueId} currentUserId={currentUserId} userMap={userMap} />
+      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} companyId={companyId} issueId={issueId} currentUserId={currentUserId} userMap={userMap} blockContext={blockContext} />
 
       {liveRunSlot}
 

@@ -239,6 +239,13 @@ export const SectionProps = z.object({
   collapsible: z.boolean().optional(),
 });
 
+export const StackProps = z.object({
+  direction: z.enum(["horizontal", "vertical"]).optional(),
+  gap: z.enum(["sm", "md", "lg"]).optional(),
+});
+
+export const DividerProps = z.object({});
+
 export const blockPropsSchemas = {
   MetricCard: { props: MetricCardProps, description: "KPI metric with label, value, and optional trend indicator" },
   StatusBadge: { props: StatusBadgeProps, description: "Colored badge with semantic variant" },
@@ -250,4 +257,6 @@ export const blockPropsSchemas = {
   ActionButton: { props: ActionButtonProps, description: "Interactive button that triggers an action" },
   QuickForm: { props: QuickFormProps, description: "Dynamic form with fields and submit action" },
   Section: { props: SectionProps, description: "Collapsible section with title" },
+  Stack: { props: StackProps, description: "Layout container (horizontal or vertical)" },
+  Divider: { props: DividerProps, description: "Visual separator" },
 } as const;

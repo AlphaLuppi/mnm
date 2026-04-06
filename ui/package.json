@@ -32,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "dompurify": "^3.3.3",
     "lucide-react": "^0.574.0",
     "mermaid": "^11.12.0",
     "radix-ui": "^1.4.3",
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.7",
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^25.2.3",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
