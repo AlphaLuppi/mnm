@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { authApi } from "./api/auth";
 import { healthApi } from "./api/health";
+import { useViewPreset } from "./hooks/useViewPreset";
 import { Dashboard } from "./pages/Dashboard";
 import { Drift } from "./pages/Drift";
 import { Companies } from "./pages/Companies";
@@ -113,7 +114,7 @@ function CloudAccessGate() {
 function boardRoutes() {
   return (
     <>
-      <Route index element={<Navigate to="dashboard" replace />} />
+      <Route index element={<BoardIndexRedirect />} />
       <Route path="dashboard" element={<RequirePermission permission="dashboard:view" showForbidden><Dashboard /></RequirePermission>} />
       <Route path="companies" element={<Companies />} />
       <Route path="members" element={<RequirePermission permission="users:read" showForbidden><Members /></RequirePermission>} />
@@ -244,7 +245,22 @@ function CompanyRootRedirect() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  return <Navigate to={`/${targetCompany.issuePrefix}/dashboard`} replace />;
+  // VIEW-PRESETS: Use the preset's landing page (resolved by useViewPreset)
+  return <CompanyLandingRedirect companyPrefix={targetCompany.issuePrefix} />;
+}
+
+/** Inner component that uses useViewPreset (requires CompanyContext to be set) */
+function CompanyLandingRedirect({ companyPrefix }: { companyPrefix: string }) {
+  const { layout } = useViewPreset();
+  return <Navigate to={`/${companyPrefix}${layout.landingPage}`} replace />;
+}
+
+/** Redirect within a board layout — uses the preset landing page (relative path) */
+function BoardIndexRedirect() {
+  const { layout } = useViewPreset();
+  // Strip leading slash for relative navigation within the board prefix
+  const target = layout.landingPage.startsWith("/") ? layout.landingPage.slice(1) : layout.landingPage;
+  return <Navigate to={target} replace />;
 }
 
 function UnprefixedBoardRedirect() {

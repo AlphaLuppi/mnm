@@ -86,3 +86,5 @@ export { routines, routineTriggers, routineRuns } from "./routines.js";
 export type { RoutineVariable } from "./routines.js";
 // FEEDBACK: Vote on agent output quality
 export { feedbackVotes } from "./feedback_votes.js";
+// VIEW-PRESETS: Persona-based dashboard & navigation
+export { viewPresets } from "./view_presets.js";

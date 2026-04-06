@@ -269,4 +269,10 @@ export const queryKeys = {
     shared: (companyId: string, token: string) => ["sharedChat", companyId, token] as const,
     contextLinks: (companyId: string, channelId: string) => ["contextLinks", companyId, channelId] as const,
   },
+  // VIEW-PRESETS: Persona-based dashboard & navigation
+  viewPresets: {
+    list: (companyId: string) => ["view-presets", companyId, "list"] as const,
+    detail: (companyId: string, presetId: string) => ["view-presets", companyId, "detail", presetId] as const,
+    myView: (companyId: string) => ["view-presets", companyId, "my-view"] as const,
+  },
 };

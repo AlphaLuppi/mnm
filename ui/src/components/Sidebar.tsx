@@ -1,32 +1,6 @@
 import {
-  Inbox,
-  CircleDot,
-  Target,
-  Workflow,
-  LayoutDashboard,
-  DollarSign,
-  History,
-  ScrollText,
-  Scan,
   Search,
   SquarePen,
-  Network,
-  Settings,
-  Shield,
-  Users,
-  Box,
-  MessageSquare,
-  SlidersHorizontal,
-  KeyRound,
-  Upload,
-  PenTool,
-  Terminal,
-  Globe,
-  Tag,
-  Layers,
-  FolderOpen,
-  MessageSquareHeart,
-  CalendarClock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -37,9 +11,12 @@ import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { useSidebar } from "../context/SidebarContext";
 import { usePermissions } from "../hooks/usePermissions";
+import { useViewPreset } from "../hooks/useViewPreset";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
+import { NAV_ITEM_REGISTRY } from "../lib/nav-registry";
+import type { NavItemId } from "@mnm/shared";
 import { Button } from "@/components/ui/button";
 import { cn } from "../lib/utils";
 
@@ -48,6 +25,7 @@ export function Sidebar() {
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { sidebarCollapsed } = useSidebar();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const { layout } = useViewPreset();
   const { data: sidebarBadges } = useQuery({
     queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
     queryFn: () => sidebarBadgesApi.get(selectedCompanyId!),
@@ -64,36 +42,7 @@ export function Sidebar() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
   }
 
-  // Permission checks for sidebar items
   const canCreateIssue = hasPermission("issues:create");
-  const canViewWorkflows = hasPermission("workflows:read");
-  const canViewGoals = hasPermission("projects:read");
-  const canViewMembers = hasPermission("users:read");
-  const canViewCosts = hasPermission("dashboard:view");
-  const canViewActivity = hasPermission("audit:read");
-  const canViewRoles = hasPermission("roles:read");
-  const canViewSettings = hasPermission("company:manage_settings");
-  const canViewContainers = hasPermission("agents:manage_containers");
-  const canViewChat = hasPermission("chat:read");
-  const canViewFolders = hasPermission("folders:read");
-  const canViewCursors = hasPermission("workflows:enforce");
-  const canViewSso = hasPermission("company:manage_sso");
-  const canViewImport = hasPermission("projects:manage");
-  const canViewDashboard = hasPermission("dashboard:view");
-  const canViewInbox = hasPermission("issues:read");
-  const canViewIssues = hasPermission("issues:read");
-  const canViewRoutines = hasPermission("routines:read");
-  const canViewConfigLayers = hasPermission("config_layers:read");
-  const canViewFeedback = hasPermission("feedback:read");
-  const canViewOrg = hasPermission("org:view");
-  const canViewTraces = hasPermission("traces:read");
-  const canViewDeployments = hasPermission("agents:launch");
-
-  // Section visibility: "Work" visible if at least one child is visible
-  const showWorkSection = canViewIssues || canViewWorkflows || canViewRoutines || canViewGoals || canViewChat || canViewFolders || canViewCursors;
-
-  // "Company" section visible if at least one child is visible
-  const showCompanySection = canViewMembers || canViewRoles || canViewConfigLayers || canViewFeedback || canViewOrg || canViewCosts || canViewActivity || canViewTraces || canViewContainers || canViewDeployments || canViewSettings || canViewSso || canViewImport;
 
   const sidebarWidth = sidebarCollapsed ? "w-14" : "w-60";
 
@@ -114,6 +63,33 @@ export function Sidebar() {
           )}
         </div>
       </aside>
+    );
+  }
+
+  /** Render a nav item with its badges and live counts */
+  function renderNavItem(itemId: NavItemId) {
+    const def = NAV_ITEM_REGISTRY[itemId];
+    if (!def) return null;
+
+    // Special badge logic for specific items
+    const extraProps: Record<string, unknown> = {};
+    if (itemId === "dashboard") {
+      extraProps.liveCount = liveRunCount;
+    }
+    if (itemId === "inbox") {
+      extraProps.badge = sidebarBadges?.inbox;
+      extraProps.badgeTone = sidebarBadges?.failedRuns ? "danger" : "default";
+      extraProps.alert = (sidebarBadges?.failedRuns ?? 0) > 0;
+    }
+
+    return (
+      <SidebarNavItem
+        key={itemId}
+        to={def.to}
+        label={def.label}
+        icon={def.icon}
+        {...extraProps}
+      />
     );
   }
 
@@ -145,120 +121,43 @@ export function Sidebar() {
       </div>
 
       <nav className={cn("flex-1 min-h-0 overflow-y-auto scrollbar-auto-hide flex flex-col gap-4 py-2", sidebarCollapsed ? "px-1" : "px-3")}>
-        <div className="flex flex-col gap-0.5">
-          {/* New Issue button — hidden if no stories:create permission */}
-          {canCreateIssue && (
-            <button
-              data-testid="rbac-s05-nav-new-issue"
-              onClick={() => openNewIssue()}
-              title={sidebarCollapsed ? "New Issue" : undefined}
-              className={cn(
-                "flex items-center text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors",
-                sidebarCollapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2",
-              )}
-            >
-              <SquarePen className="h-4 w-4 shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">New Issue</span>}
-            </button>
-          )}
-          {canViewDashboard && (
-            <SidebarNavItem data-testid="rbac-s05-nav-dashboard" to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
-          )}
-          {canViewInbox && (
-            <SidebarNavItem
-              data-testid="rbac-s05-nav-inbox"
-              to="/inbox"
-              label="Inbox"
-              icon={Inbox}
-              badge={sidebarBadges?.inbox}
-              badgeTone={sidebarBadges?.failedRuns ? "danger" : "default"}
-              alert={(sidebarBadges?.failedRuns ?? 0) > 0}
-            />
-          )}
-        </div>
+        {layout.sidebar.sections.map((section, sectionIdx) => {
+          if (section.items.length === 0) return null;
 
-        {showWorkSection && (
-          <SidebarSection label="Work" data-testid="rbac-s05-section-work">
-            {canViewIssues && (
-              <SidebarNavItem data-testid="rbac-s05-nav-issues" to="/issues" label="Issues" icon={CircleDot} />
-            )}
-            {canViewWorkflows && (
-              <SidebarNavItem data-testid="rbac-s05-nav-workflows" to="/workflows" label="Workflows" icon={Workflow} />
-            )}
-            {canViewWorkflows && (
-              <SidebarNavItem data-testid="orch-s05-nav-editor" to="/workflow-editor/new" label="Workflow Editor" icon={PenTool} />
-            )}
-            {canViewRoutines && (
-              <SidebarNavItem to="/routines" label="Routines" icon={CalendarClock} />
-            )}
-            {canViewGoals && (
-              <SidebarNavItem data-testid="rbac-s05-nav-goals" to="/goals" label="Goals" icon={Target} />
-            )}
-            {canViewChat && (
-              <SidebarNavItem data-testid="chat-s04-nav-chat" to="/chat" label="Chat" icon={MessageSquare} />
-            )}
-            {canViewFolders && (
-              <SidebarNavItem data-testid="folders-nav" to="/folders" label="Folders" icon={FolderOpen} />
-            )}
-            {canViewCursors && (
-              <SidebarNavItem data-testid="dual-s02-nav-cursors" to="/automation-cursors" label="Cursors" icon={SlidersHorizontal} />
-            )}
-          </SidebarSection>
-        )}
+          // Unlabeled section (top-level items like Dashboard, Inbox)
+          if (!section.label) {
+            return (
+              <div key={`section-${sectionIdx}`} className="flex flex-col gap-0.5">
+                {canCreateIssue && (
+                  <button
+                    data-testid="rbac-s05-nav-new-issue"
+                    onClick={() => openNewIssue()}
+                    title={sidebarCollapsed ? "New Issue" : undefined}
+                    className={cn(
+                      "flex items-center text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors",
+                      sidebarCollapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2",
+                    )}
+                  >
+                    <SquarePen className="h-4 w-4 shrink-0" />
+                    {!sidebarCollapsed && <span className="truncate">New Issue</span>}
+                  </button>
+                )}
+                {section.items.map((itemId) => renderNavItem(itemId))}
+              </div>
+            );
+          }
 
-        {!sidebarCollapsed && <SidebarProjects />}
+          // Labeled section
+          return (
+            <SidebarSection key={section.label} label={section.label}>
+              {section.items.map((itemId) => renderNavItem(itemId))}
+            </SidebarSection>
+          );
+        })}
 
-        {!sidebarCollapsed && <SidebarAgents />}
+        {!sidebarCollapsed && layout.sidebar.showProjects && <SidebarProjects />}
 
-        {showCompanySection && (
-          <SidebarSection label="Company" data-testid="rbac-s05-section-company">
-            {canViewMembers && (
-              <SidebarNavItem data-testid="rbac-s05-nav-members" to="/members" label="Members" icon={Users} />
-            )}
-            {canViewRoles && (
-              <SidebarNavItem data-testid="rbac-s06-nav-roles" to="/admin/roles" label="Roles" icon={Shield} />
-            )}
-            {canViewRoles && (
-              <SidebarNavItem data-testid="rbac-s06-nav-tags" to="/admin/tags" label="Tags" icon={Tag} />
-            )}
-            {canViewConfigLayers && (
-              <SidebarNavItem to="/admin/config-layers" label="Config Layers" icon={Layers} />
-            )}
-            {canViewFeedback && (
-              <SidebarNavItem to="/feedback" label="Feedback" icon={MessageSquareHeart} />
-            )}
-            {canViewOrg && (
-              <SidebarNavItem data-testid="rbac-s05-nav-org" to="/org" label="Org" icon={Network} />
-            )}
-            {canViewCosts && (
-              <SidebarNavItem data-testid="rbac-s05-nav-costs" to="/costs" label="Costs" icon={DollarSign} />
-            )}
-            {canViewActivity && (
-              <SidebarNavItem data-testid="rbac-s05-nav-activity" to="/activity" label="Activity" icon={History} />
-            )}
-            {canViewActivity && (
-              <SidebarNavItem data-testid="obs-s04-nav-audit" to="/audit" label="Audit Log" icon={ScrollText} />
-            )}
-            {canViewTraces && (
-              <SidebarNavItem data-testid="trace-09-nav-traces" to="/traces" label="Traces" icon={Scan} />
-            )}
-            {canViewContainers && (
-              <SidebarNavItem data-testid="cont-s06-nav-containers" to="/containers" label="Sandboxes" icon={Box} />
-            )}
-            {canViewDeployments && (
-              <SidebarNavItem data-testid="deploy-06-nav-deployments" to="/deployments" label="Deployments" icon={Globe} />
-            )}
-            {canViewSettings && (
-              <SidebarNavItem data-testid="rbac-s05-nav-settings" to="/company/settings" label="Settings" icon={Settings} />
-            )}
-            {canViewSso && (
-              <SidebarNavItem data-testid="sso-s03-nav-sso" to="/admin/sso" label="SSO" icon={KeyRound} />
-            )}
-            {canViewImport && (
-              <SidebarNavItem data-testid="onb-s03-nav-import" to="/import/jira" label="Import Jira" icon={Upload} />
-            )}
-          </SidebarSection>
-        )}
+        {!sidebarCollapsed && layout.sidebar.showAgents && <SidebarAgents />}
       </nav>
     </aside>
   );
