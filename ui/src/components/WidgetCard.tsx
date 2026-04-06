@@ -67,11 +67,11 @@ export function WidgetCard({
     <>
       <div
         className={cn(
-          "group/widget rounded-lg border bg-card overflow-hidden transition-shadow duration-150 h-full flex flex-col",
+          "group/widget rounded-lg border bg-card overflow-hidden transition-all duration-150 h-full flex flex-col outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           isDragging
             ? "shadow-xl opacity-80 z-50 rotate-1"
             : isResizing
-              ? "border-primary/50"
+              ? "border-primary/50 shadow-md"
               : "border-border shadow-sm hover:shadow-md",
         )}
         tabIndex={0}
@@ -100,7 +100,7 @@ export function WidgetCard({
           </div>
 
           {/* Actions menu */}
-          <div className="opacity-0 group-hover/widget:opacity-100 transition-opacity duration-150">
+          <div className="opacity-0 group-hover/widget:opacity-100 group-focus-within/widget:opacity-100 transition-opacity duration-150">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
