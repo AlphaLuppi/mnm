@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { roles } from "./roles.js";
 
@@ -14,6 +14,7 @@ export const companyMemberships = pgTable(
     roleId: uuid("role_id").references(() => roles.id),
     invitedBy: text("invited_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    layoutOverrides: jsonb("layout_overrides"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

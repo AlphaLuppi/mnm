@@ -769,6 +769,19 @@ export type {
   FeedbackSummary,
 } from "./types/index.js";
 
+// VIEW-PRESETS: Persona-based dashboard & navigation
+export { DEFAULT_LAYOUT, PRESET_LAYOUTS } from "./types/index.js";
+export type {
+  NavItemId,
+  SidebarSection,
+  DashboardWidget,
+  ViewPresetLayout,
+  LayoutOverrides,
+  ResolvedLayout,
+  MyViewResponse,
+  ViewPreset,
+} from "./types/index.js";
+
 // FEEDBACK: validators
 export {
   castFeedbackVoteSchema,

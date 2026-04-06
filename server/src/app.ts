@@ -77,6 +77,8 @@ import { folderRoutes } from "./routes/folders.js";
 import { feedbackRoutes } from "./routes/feedback.js";
 // ROUTINES: Routine routes
 import { routineRoutes } from "./routes/routines.js";
+// VIEW-PRESETS: Persona-based dashboard & navigation
+import { viewPresetRoutes } from "./routes/view-presets.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -266,6 +268,8 @@ export async function createApp(
   api.use(feedbackRoutes(db));
   // ROUTINES: Routine routes
   api.use(routineRoutes(db));
+  // VIEW-PRESETS: Persona-based dashboard & navigation
+  api.use(viewPresetRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

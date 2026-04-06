@@ -1,0 +1,68 @@
+import {
+  LayoutDashboard,
+  Inbox,
+  CircleDot,
+  Workflow,
+  PenTool,
+  CalendarClock,
+  Target,
+  MessageSquare,
+  FolderOpen,
+  SlidersHorizontal,
+  FolderKanban,
+  Bot,
+  Users,
+  Shield,
+  Tag,
+  Layers,
+  MessageSquareHeart,
+  Network,
+  DollarSign,
+  History,
+  ScrollText,
+  Scan,
+  Box,
+  Globe,
+  Settings,
+  KeyRound,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
+import type { NavItemId } from "@mnm/shared";
+
+export interface NavItemDef {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  permission: string;
+}
+
+export const NAV_ITEM_REGISTRY: Record<NavItemId, NavItemDef> = {
+  dashboard:         { to: "/dashboard",            icon: LayoutDashboard,     label: "Dashboard",        permission: "dashboard:view" },
+  inbox:             { to: "/inbox",                icon: Inbox,               label: "Inbox",            permission: "issues:read" },
+  issues:            { to: "/issues",               icon: CircleDot,           label: "Issues",           permission: "issues:read" },
+  workflows:         { to: "/workflows",            icon: Workflow,            label: "Workflows",        permission: "workflows:read" },
+  "workflow-editor": { to: "/workflow-editor/new",  icon: PenTool,             label: "Workflow Editor",  permission: "workflows:read" },
+  routines:          { to: "/routines",             icon: CalendarClock,       label: "Routines",         permission: "routines:read" },
+  goals:             { to: "/goals",                icon: Target,              label: "Goals",            permission: "projects:read" },
+  chat:              { to: "/chat",                 icon: MessageSquare,       label: "Chat",             permission: "chat:read" },
+  folders:           { to: "/folders",              icon: FolderOpen,          label: "Folders",          permission: "folders:read" },
+  cursors:           { to: "/automation-cursors",   icon: SlidersHorizontal,   label: "Cursors",          permission: "workflows:enforce" },
+  projects:          { to: "/projects",             icon: FolderKanban,        label: "Projects",         permission: "projects:read" },
+  agents:            { to: "/agents",               icon: Bot,                 label: "Agents",           permission: "agents:read" },
+  members:           { to: "/members",              icon: Users,               label: "Members",          permission: "users:read" },
+  roles:             { to: "/admin/roles",          icon: Shield,              label: "Roles",            permission: "roles:read" },
+  tags:              { to: "/admin/tags",           icon: Tag,                 label: "Tags",             permission: "tags:read" },
+  "config-layers":   { to: "/admin/config-layers",  icon: Layers,              label: "Config Layers",    permission: "config_layers:read" },
+  feedback:          { to: "/feedback",             icon: MessageSquareHeart,  label: "Feedback",         permission: "feedback:read" },
+  org:               { to: "/org",                  icon: Network,             label: "Org",              permission: "org:view" },
+  costs:             { to: "/costs",                icon: DollarSign,          label: "Costs",            permission: "dashboard:view" },
+  activity:          { to: "/activity",             icon: History,             label: "Activity",         permission: "audit:read" },
+  audit:             { to: "/audit",                icon: ScrollText,          label: "Audit Log",        permission: "audit:read" },
+  traces:            { to: "/traces",               icon: Scan,                label: "Traces",           permission: "traces:read" },
+  containers:        { to: "/containers",           icon: Box,                 label: "Sandboxes",        permission: "agents:manage_containers" },
+  deployments:       { to: "/deployments",          icon: Globe,               label: "Deployments",      permission: "agents:launch" },
+  settings:          { to: "/company/settings",     icon: Settings,            label: "Settings",         permission: "company:manage_settings" },
+  sso:               { to: "/admin/sso",            icon: KeyRound,            label: "SSO",              permission: "company:manage_sso" },
+  "import-jira":     { to: "/import/jira",          icon: Upload,              label: "Import Jira",      permission: "projects:manage" },
+};

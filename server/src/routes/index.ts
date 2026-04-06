@@ -43,3 +43,5 @@ export { mcpOauthRoutes } from "./mcp-oauth.js";
 export { feedbackRoutes } from "./feedback.js";
 // ROUTINES: Routine routes
 export { routineRoutes } from "./routines.js";
+// VIEW-PRESETS: Persona-based dashboard & navigation
+export { viewPresetRoutes } from "./view-presets.js";
