@@ -39,7 +39,6 @@
     "@mnm/adapter-cursor-local": "workspace:*",
     "@mnm/adapter-opencode-local": "workspace:*",
     "@mnm/adapter-pi-local": "workspace:*",
-    "@mnm/adapter-openclaw-gateway": "workspace:*",
     "@mnm/adapter-utils": "workspace:*",
     "@mnm/db": "workspace:*",
     "@mnm/server": "workspace:*",
