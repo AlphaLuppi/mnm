@@ -230,7 +230,7 @@ async function handleRunStatus(db: Db, event: LiveEvent): Promise<void> {
       }
     }
 
-    // --- Original watchdog comment on issue ---
+    // --- AF-04: Enriched watchdog comment on issue with content blocks ---
     if (issueId) {
       // Verify issue exists
       const [issue] = await db
@@ -241,11 +241,17 @@ async function handleRunStatus(db: Db, event: LiveEvent): Promise<void> {
       if (issue) {
         const svc = issueService(db);
         const body = formatWatchdogComment(agentName, status, errorStr, errorCode, startedAt, finishedAt);
-        await svc.addComment(issueId, body, { agentId: caoId });
+        let commentBlocks: ContentDocument | undefined;
+        try {
+          commentBlocks = buildFailedRunBlocks(agentName, status, errorStr, errorCode, startedAt, finishedAt, runId);
+        } catch {
+          // If block construction fails, fall back to body-only
+        }
+        await svc.addComment(issueId, body, { agentId: caoId }, commentBlocks);
 
         logger.info(
           { companyId, caoId, runId, agentId, issueId, status },
-          "CAO watchdog posted anomaly comment",
+          "CAO watchdog posted enriched anomaly comment",
         );
       }
     }
