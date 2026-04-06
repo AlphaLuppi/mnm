@@ -39,6 +39,11 @@ export function chatSharingService(db: Db) {
         })
         .returning();
 
+      // WS-SEC-08: Resolve channel's agent for visibility
+      const chanRow = await db.select({ agentId: chatChannels.agentId }).from(chatChannels)
+        .where(eq(chatChannels.id, channelId))
+        .then((rows) => rows[0]);
+
       publishLiveEvent({
         companyId,
         type: "chat.shared",
@@ -48,6 +53,7 @@ export function chatSharingService(db: Db) {
           sharedByUserId,
           permission: share!.permission,
         },
+        visibility: chanRow ? { scope: "agents", agentIds: [chanRow.agentId] } : { scope: "company-wide" },
       });
 
       return share!;
@@ -221,6 +227,7 @@ export function chatSharingService(db: Db) {
             forkingUserId,
             shareId: share.id,
           },
+          visibility: { scope: "agents", agentIds: [originalChannel.agentId] },
         });
 
         // 7. Return new channel

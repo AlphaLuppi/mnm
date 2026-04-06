@@ -235,6 +235,7 @@ export function chatRoutes(db: Db) {
           companyId,
           type: "chat.message_sent",
           payload: { channelId: channel.id, messageId: message.id, action: "deleted" },
+          visibility: { scope: "agents", agentIds: [channel.agentId] },
         });
         res.json(deleted);
         return;
@@ -249,6 +250,7 @@ export function chatRoutes(db: Db) {
           companyId,
           type: "chat.message_sent",
           payload: { channelId: channel.id, messageId: message.id, action: "edited" },
+          visibility: { scope: "agents", agentIds: [channel.agentId] },
         });
         res.json(updated);
         return;
