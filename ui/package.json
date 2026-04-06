@@ -37,6 +37,7 @@
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4",
     "react-router-dom": "^7.1.5",
+    "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.1"
   },
