@@ -317,7 +317,9 @@ export function orchestratorService(db: Db) {
       companyId: stage.companyId,
       type: orchestratorEvent.type as LiveEventType,
       payload: orchestratorEvent as unknown as Record<string, unknown>,
-      visibility: { scope: "company-wide" },
+      visibility: stage.agentId
+        ? { scope: "agents", agentIds: [stage.agentId] }
+        : { scope: "company-wide" },
     });
 
     // 10. Handle workflow-level state changes
@@ -420,9 +422,14 @@ export function orchestratorService(db: Db) {
         .set(patch)
         .where(eq(workflowInstances.id, workflowInstanceId));
 
+      const workflowAgentIds = [...new Set(
+        stages.map((s) => s.agentId).filter((id): id is string => !!id),
+      )];
       publishLiveEvent({
         companyId: workflow.companyId,
-          visibility: { scope: "company-wide" },
+        visibility: workflowAgentIds.length > 0
+          ? { scope: "agents", agentIds: workflowAgentIds }
+          : { scope: "company-wide" },
         type: `workflow.${newWorkflowState}` as LiveEventType,
         payload: { workflowId: workflowInstanceId, state: newWorkflowState },
       });

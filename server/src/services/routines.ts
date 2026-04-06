@@ -510,7 +510,7 @@ export function routineService(db: Db) {
     publishLiveEvent({
       companyId,
       type: "routine.run_created",
-        visibility: { scope: "company-wide" },
+      visibility: { scope: "agents", agentIds: [routine.assigneeAgentId] },
       payload: { routineId, runId: result.run.id, issueId: result.issue.id },
     });
 
@@ -655,7 +655,7 @@ export function routineService(db: Db) {
       publishLiveEvent({
         companyId,
         type: "routine.created",
-          visibility: { scope: "company-wide" },
+        visibility: { scope: "agents", agentIds: [data.assigneeAgentId] },
         payload: { routineId: routine!.id },
       });
 
@@ -691,7 +691,7 @@ export function routineService(db: Db) {
         companyId,
         type: "routine.updated",
         payload: { routineId: id },
-        visibility: { scope: "company-wide" },
+        visibility: { scope: "agents", agentIds: [updated.assigneeAgentId] },
       });
 
       return updated;
@@ -958,11 +958,20 @@ export function routineService(db: Db) {
         .where(eq(routineRuns.id, run.id))
         .returning();
 
+      // Look up the routine's assignee agent for scoped visibility
+      const routine = await db
+        .select({ assigneeAgentId: routines.assigneeAgentId })
+        .from(routines)
+        .where(eq(routines.id, run.routineId))
+        .then((rows) => rows[0] ?? null);
+
       publishLiveEvent({
         companyId: run.companyId,
         type: "routine.run_completed",
         payload: { routineId: run.routineId, runId: run.id, issueId, status: runStatus },
-        visibility: { scope: "company-wide" },
+        visibility: routine?.assigneeAgentId
+          ? { scope: "agents", agentIds: [routine.assigneeAgentId] }
+          : { scope: "company-wide" },
       });
 
       return updated;
