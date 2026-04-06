@@ -20,7 +20,6 @@
     "@mnm/adapter-claude-local": "workspace:*",
     "@mnm/adapter-codex-local": "workspace:*",
     "@mnm/adapter-cursor-local": "workspace:*",
-    "@mnm/adapter-openclaw-gateway": "workspace:*",
     "@mnm/adapter-opencode-local": "workspace:*",
     "@mnm/adapter-pi-local": "workspace:*",
     "@mnm/adapter-utils": "workspace:*",

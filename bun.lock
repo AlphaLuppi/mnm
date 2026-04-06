@@ -23,7 +23,6 @@
         "@mnm/adapter-claude-local": "workspace:*",
         "@mnm/adapter-codex-local": "workspace:*",
         "@mnm/adapter-cursor-local": "workspace:*",
-        "@mnm/adapter-openclaw-gateway": "workspace:*",
         "@mnm/adapter-opencode-local": "workspace:*",
         "@mnm/adapter-pi-local": "workspace:*",
         "@mnm/adapter-utils": "workspace:*",
@@ -82,20 +81,6 @@
       },
       "devDependencies": {
         "@types/node": "^24.6.0",
-        "typescript": "^5.7.3",
-      },
-    },
-    "packages/adapters/openclaw-gateway": {
-      "name": "@mnm/adapter-openclaw-gateway",
-      "version": "0.2.7",
-      "dependencies": {
-        "@mnm/adapter-utils": "workspace:*",
-        "picocolors": "^1.1.1",
-        "ws": "^8.19.0",
-      },
-      "devDependencies": {
-        "@types/node": "^24.6.0",
-        "@types/ws": "^8.18.1",
         "typescript": "^5.7.3",
       },
     },
@@ -170,7 +155,6 @@
         "@mnm/adapter-claude-local": "workspace:*",
         "@mnm/adapter-codex-local": "workspace:*",
         "@mnm/adapter-cursor-local": "workspace:*",
-        "@mnm/adapter-openclaw-gateway": "workspace:*",
         "@mnm/adapter-opencode-local": "workspace:*",
         "@mnm/adapter-pi-local": "workspace:*",
         "@mnm/adapter-utils": "workspace:*",
@@ -228,7 +212,6 @@
         "@mnm/adapter-claude-local": "workspace:*",
         "@mnm/adapter-codex-local": "workspace:*",
         "@mnm/adapter-cursor-local": "workspace:*",
-        "@mnm/adapter-openclaw-gateway": "workspace:*",
         "@mnm/adapter-opencode-local": "workspace:*",
         "@mnm/adapter-pi-local": "workspace:*",
         "@mnm/adapter-utils": "workspace:*",
@@ -733,8 +716,6 @@
     "@mnm/adapter-codex-local": ["@mnm/adapter-codex-local@workspace:packages/adapters/codex-local"],
 
     "@mnm/adapter-cursor-local": ["@mnm/adapter-cursor-local@workspace:packages/adapters/cursor-local"],
-
-    "@mnm/adapter-openclaw-gateway": ["@mnm/adapter-openclaw-gateway@workspace:packages/adapters/openclaw-gateway"],
 
     "@mnm/adapter-opencode-local": ["@mnm/adapter-opencode-local@workspace:packages/adapters/opencode-local"],
 
