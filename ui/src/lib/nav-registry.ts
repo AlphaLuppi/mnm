@@ -35,7 +35,7 @@ export interface NavItemDef {
   to: string;
   icon: LucideIcon;
   label: string;
-  permission: string;
+  permission?: string;
 }
 
 export const NAV_ITEM_REGISTRY: Record<NavItemId, NavItemDef> = {
@@ -67,4 +67,6 @@ export const NAV_ITEM_REGISTRY: Record<NavItemId, NavItemDef> = {
   sso:               { to: "/admin/sso",            icon: KeyRound,            label: "SSO",              permission: "company:manage_sso" },
   "import-jira":     { to: "/import/jira",          icon: Upload,              label: "Import Jira",      permission: "projects:manage" },
   "view-presets":    { to: "/admin/view-presets",   icon: LayoutGrid,          label: "View Presets",     permission: "roles:manage" },
+  "__projects__":    { to: "",                      icon: FolderKanban,        label: "Projects (dynamic)" },
+  "__agents__":      { to: "",                      icon: Bot,                 label: "Agents (dynamic)" },
 };

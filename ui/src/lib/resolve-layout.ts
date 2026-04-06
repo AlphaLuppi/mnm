@@ -94,7 +94,7 @@ function filterByPermission(
     items: section.items.filter((itemId) => {
       const def = NAV_ITEM_REGISTRY[itemId];
       if (!def) return false;
-      return hasPermission(def.permission);
+      return !def.permission || hasPermission(def.permission);
     }),
   }));
 }
@@ -102,7 +102,7 @@ function filterByPermission(
 function isRouteAccessible(route: string, hasPermission: (key: string) => boolean): boolean {
   const entry = Object.values(NAV_ITEM_REGISTRY).find((def) => def.to === route);
   if (!entry) return true; // Unknown routes are accessible
-  return hasPermission(entry.permission);
+  return !entry.permission || hasPermission(entry.permission);
 }
 
 function findFirstAccessibleRoute(sections: SidebarSection[]): string | null {
