@@ -7,6 +7,7 @@ import { Identity } from "./Identity";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
 import { FeedbackVoteButtons } from "./FeedbackVoteButtons";
 import { MarkdownBody } from "./MarkdownBody";
+import { ContentRenderer } from "./blocks/ContentRenderer";
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { StatusBadge } from "./StatusBadge";
 import { AgentIcon } from "./AgentIconPicker";
@@ -212,7 +213,11 @@ const TimelineList = memo(function TimelineList({
                 <CopyMarkdownButton text={comment.body} />
               </span>
             </div>
-            <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
+            {comment.contentBlocks ? (
+              <ContentRenderer blocks={comment.contentBlocks} body={comment.body} className="text-sm" />
+            ) : (
+              <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
+            )}
             {companyId && issueId && comment.authorAgentId && (
               <div className="mt-1.5">
                 <FeedbackVoteButtons
