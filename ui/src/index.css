@@ -650,3 +650,92 @@ a.mnm-project-mention-chip {
 .mnm-mdxeditor [class*="_toolbarNodeKindSelectContainer_"] {
   z-index: 81 !important;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Dashboard V2 — react-grid-layout overrides
+   ────────────────────────────────────────────────────────────────── */
+
+/* Placeholder shown during drag/resize */
+.react-grid-item.react-grid-placeholder {
+  background: oklch(from var(--primary) l c h / 0.05) !important;
+  border: 2px dashed oklch(from var(--primary) l c h / 0.3) !important;
+  border-radius: 0.5rem !important;
+  opacity: 1 !important;
+}
+
+/* Grid background guides during drag/resize */
+.dashboard-grid-active .react-grid-layout {
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      oklch(from var(--border) l c h / 0.2) 0,
+      oklch(from var(--border) l c h / 0.2) 1px,
+      transparent 1px,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      oklch(from var(--border) l c h / 0.2) 0,
+      oklch(from var(--border) l c h / 0.2) 1px,
+      transparent 1px,
+      transparent 100%
+    );
+  background-size: calc(100% / 12) 40px;
+}
+
+/* Dragging widget elevation */
+.react-grid-item.react-grid-item--dragging {
+  z-index: 50 !important;
+  opacity: 0.8;
+  filter: drop-shadow(0 20px 25px rgb(0 0 0 / 0.1)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.1));
+  transform: rotate(1deg);
+}
+
+/* Smooth transition for items moving around during drag */
+.react-grid-item {
+  transition: transform 200ms ease-out;
+}
+
+/* During active drag/resize, disable transition on the active item */
+.react-grid-item.react-grid-item--dragging,
+.react-grid-item.react-grid-item--resizing {
+  transition: none !important;
+}
+
+/* Drop settle animation */
+.react-grid-item:not(.react-grid-item--dragging):not(.react-grid-item--resizing) {
+  transition: all 300ms ease-out;
+}
+
+/* Resize handle — custom styling */
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+/* Show resize handle on widget hover */
+.react-grid-item:hover > .react-resizable-handle {
+  opacity: 1;
+}
+
+/* Resize handle dot pattern */
+.react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  background-image: radial-gradient(circle, oklch(from var(--muted-foreground) l c h / 0.3) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+.react-grid-item:hover > .react-resizable-handle::after {
+  background-image: radial-gradient(circle, oklch(from var(--muted-foreground) l c h / 0.7) 1px, transparent 1px);
+}
