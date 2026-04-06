@@ -26,6 +26,9 @@ const BOARD_ROUTE_ROOTS = new Set([
   "deployments",
   "traces",
   "settings",
+  "feedback",
+  "routines",
+  "folders",
 ]);
 
 const GLOBAL_ROUTE_ROOTS = new Set(["auth", "invite", "board-claim", "docs", "onboarding"]);
