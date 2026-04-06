@@ -7,6 +7,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   costEvents,
@@ -1402,8 +1403,13 @@ export function heartbeatService(db: Db) {
         );
       }
       // Sandbox routing: resolve user's Docker container + Claude OAuth token for execution
-      // MNM_FORCE_LOCAL_EXECUTION=true bypasses sandbox routing (useful for local dev)
-      const forceLocal = process.env.MNM_FORCE_LOCAL_EXECUTION === "true";
+      // Bypass sandbox routing if env var or company setting is enabled
+      let forceLocal = process.env.MNM_FORCE_LOCAL_EXECUTION === "true";
+      if (!forceLocal) {
+        const [company] = await db.select({ forceLocalExecution: companies.forceLocalExecution })
+          .from(companies).where(eq(companies.id, agent.companyId));
+        if (company?.forceLocalExecution) forceLocal = true;
+      }
       let dockerContainerId: string | undefined;
       let claudeOauthToken: string | undefined;
       const actorUserId = await resolveRunActor(db, {

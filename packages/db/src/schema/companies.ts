@@ -19,6 +19,7 @@ export const companies = pgTable(
     ssoEnabled: boolean("sso_enabled").notNull().default(false),
     maxUsers: integer("max_users").notNull().default(50),
     invitationOnly: boolean("invitation_only").notNull().default(false),
+    forceLocalExecution: boolean("force_local_execution").notNull().default(false),
     // a2a-s02-schema-company-col
     a2aDefaultPolicy: text("a2a_default_policy").notNull().default("allow"),
     // onb-s01-schema-onboarding-cols
