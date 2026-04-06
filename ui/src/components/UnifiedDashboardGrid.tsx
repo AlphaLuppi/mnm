@@ -96,10 +96,17 @@ export function UnifiedDashboardGrid({
   const [isResizing, setIsResizing] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const [resizeDims, setResizeDims] = useState<{ w: number; h: number } | null>(null);
+  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
   const placementsRef = useRef(placements);
   placementsRef.current = placements;
 
   const { width, containerRef } = useContainerWidth({ initialWidth: 1200 });
+
+  const isDesktop = currentBreakpoint === "lg";
+  const isTablet = currentBreakpoint === "md";
+  const isMobile = currentBreakpoint === "sm";
+  const dragEnabled = !isMobile;
+  const resizeEnabled = isDesktop;
 
   const userWidgetMap = useMemo(
     () => new Map(userWidgets.map((w) => [w.id, w])),
@@ -128,6 +135,8 @@ export function UnifiedDashboardGrid({
         maxW: def?.maxW ?? 12,
         minH: def?.minH ?? 1,
         maxH: def?.maxH ?? 6,
+        isDraggable: dragEnabled,
+        isResizable: resizeEnabled,
       };
     });
     return { lg };
@@ -135,7 +144,9 @@ export function UnifiedDashboardGrid({
 
   const handleLayoutChange = useCallback(
     (currentLayout: Layout, allLayouts: ResponsiveLayouts) => {
-      const lgLayout = allLayouts.lg ?? currentLayout;
+      // Only persist lg layout — other breakpoints are auto-calculated by RGL
+      const lgLayout = allLayouts.lg;
+      if (!lgLayout) return;
 
       const updated: WidgetPlacement[] = lgLayout.map((item) => {
         const existing = placementsRef.current.find((p) => p.widgetId === item.i);
@@ -213,9 +224,10 @@ export function UnifiedDashboardGrid({
         cols={GRID_COLS}
         rowHeight={ROW_HEIGHT}
         margin={[16, 16]}
-        containerPadding={[0, 0]}
+        containerPadding={isMobile ? [0, 0] : [0, 0]}
         compactor={verticalCompactor}
         dragConfig={{ handle: ".widget-drag-handle" }}
+        onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
         onLayoutChange={handleLayoutChange}
         onDragStart={handleDragStart}
         onDragStop={handleDragStop}
@@ -252,6 +264,8 @@ export function UnifiedDashboardGrid({
                 resizeLabel={resizeLabel}
                 onResize={handleResizeViaMenu}
                 onDelete={onDeleteWidget}
+                disableDrag={!dragEnabled}
+                disableResize={!resizeEnabled}
               >
                 {isPreset && presetDef ? (
                   <Suspense fallback={<WidgetSkeleton />}>
