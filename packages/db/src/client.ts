@@ -49,6 +49,7 @@ export function createDb(url: string) {
     connect_timeout: 10,
     connection: {
       application_name: "mnm-server",
+      client_encoding: "UTF8",
     },
   });
   return drizzlePg(sql, { schema });
