@@ -81,23 +81,27 @@ export default function RecentActivityWidget({ companyId }: WidgetProps) {
 
   useEffect(() => () => { for (const t of timersRef.current) window.clearTimeout(t); }, []);
 
-  if (recentActivity.length === 0) return null;
-
   return (
     <div className="min-w-0">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recent Activity</h3>
-      <div className="border border-border divide-y divide-border overflow-hidden">
-        {recentActivity.map((event) => (
-          <ActivityRow
-            key={event.id}
-            event={event}
-            agentMap={agentMap}
-            entityNameMap={entityNameMap}
-            entityTitleMap={entityTitleMap}
-            className={animatedIds.has(event.id) ? "activity-row-enter" : undefined}
-          />
-        ))}
-      </div>
+      {recentActivity.length === 0 ? (
+        <div className="border border-border rounded-md px-4 py-8 text-center">
+          <p className="text-xs text-muted-foreground">No activity yet</p>
+        </div>
+      ) : (
+        <div className="border border-border divide-y divide-border overflow-hidden">
+          {recentActivity.map((event) => (
+            <ActivityRow
+              key={event.id}
+              event={event}
+              agentMap={agentMap}
+              entityNameMap={entityNameMap}
+              entityTitleMap={entityTitleMap}
+              className={animatedIds.has(event.id) ? "activity-row-enter" : undefined}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
