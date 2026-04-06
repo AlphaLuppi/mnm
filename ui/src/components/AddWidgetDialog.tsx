@@ -134,11 +134,13 @@ interface AddWidgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateWidget: (data: CreateUserWidget) => Promise<void>;
+  onGenerateWidget?: (prompt: string) => Promise<void>;
 }
 
-export function AddWidgetDialog({ open, onOpenChange, onCreateWidget }: AddWidgetDialogProps) {
+export function AddWidgetDialog({ open, onOpenChange, onCreateWidget, onGenerateWidget }: AddWidgetDialogProps) {
   const [caoPrompt, setCaoPrompt] = useState("");
   const [creating, setCreating] = useState(false);
+  const [caoError, setCaoError] = useState<string | null>(null);
 
   async function handleTemplateClick(template: (typeof TEMPLATES)[number]) {
     setCreating(true);
@@ -152,23 +154,26 @@ export function AddWidgetDialog({ open, onOpenChange, onCreateWidget }: AddWidge
   async function handleCaoSubmit() {
     if (!caoPrompt.trim()) return;
     setCreating(true);
+    setCaoError(null);
     try {
-      // For now, store the prompt as a markdown widget. CAO integration will come later.
-      await onCreateWidget({
-        title: caoPrompt.trim().slice(0, 60),
-        description: caoPrompt.trim(),
-        blocks: {
-          schemaVersion: 1,
-          blocks: [
-            {
-              type: "markdown",
-              content: `*Pending CAO generation...*\n\nPrompt: ${caoPrompt.trim()}`,
-            },
-          ],
-        },
-        span: 2,
-      });
+      if (onGenerateWidget) {
+        await onGenerateWidget(caoPrompt.trim());
+      } else {
+        // Fallback: store as placeholder widget
+        await onCreateWidget({
+          title: caoPrompt.trim().slice(0, 60),
+          description: caoPrompt.trim(),
+          blocks: {
+            schemaVersion: 1,
+            blocks: [{ type: "markdown", content: `*Pending CAO generation...*\n\nPrompt: ${caoPrompt.trim()}` }],
+          },
+          span: 2,
+        });
+      }
       setCaoPrompt("");
+      onOpenChange(false);
+    } catch (err) {
+      setCaoError(err instanceof Error ? err.message : "Widget generation failed. Try rephrasing your request.");
     } finally {
       setCreating(false);
     }
@@ -224,13 +229,16 @@ export function AddWidgetDialog({ open, onOpenChange, onCreateWidget }: AddWidge
             value={caoPrompt}
             onChange={(e) => setCaoPrompt(e.target.value)}
           />
+          {caoError && (
+            <p className="text-xs text-destructive">{caoError}</p>
+          )}
           <div className="flex justify-end">
             <Button
               size="sm"
               disabled={!caoPrompt.trim() || creating}
               onClick={handleCaoSubmit}
             >
-              {creating ? "Creating..." : "Send to CAO"}
+              {creating ? "CAO is generating..." : "Send to CAO"}
             </Button>
           </div>
         </div>
