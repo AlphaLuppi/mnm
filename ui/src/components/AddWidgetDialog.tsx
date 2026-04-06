@@ -8,146 +8,53 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { TrendingDown, Activity, DollarSign, HeartPulse, Users } from "lucide-react";
-
-const TEMPLATES: {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  widget: CreateUserWidget;
-}[] = [
-  {
-    label: "Burn-down",
-    icon: TrendingDown,
-    widget: {
-      title: "Issue Burn-down",
-      blocks: {
-        schemaVersion: 1 as const,
-        blocks: [
-          {
-            type: "chart" as const,
-            chartType: "line" as const,
-            title: "Burn-down",
-            data: [
-              { label: "Week 1", value: 40 },
-              { label: "Week 2", value: 30 },
-              { label: "Week 3", value: 18 },
-              { label: "Week 4", value: 8 },
-            ],
-          },
-        ],
-      },
-      span: 2,
-    },
-  },
-  {
-    label: "Velocity",
-    icon: Activity,
-    widget: {
-      title: "Sprint Velocity",
-      blocks: {
-        schemaVersion: 1 as const,
-        blocks: [
-          {
-            type: "chart" as const,
-            chartType: "bar" as const,
-            title: "Velocity",
-            data: [
-              { label: "Sprint 1", value: 24 },
-              { label: "Sprint 2", value: 31 },
-              { label: "Sprint 3", value: 28 },
-              { label: "Sprint 4", value: 35 },
-            ],
-          },
-        ],
-      },
-      span: 2,
-    },
-  },
-  {
-    label: "Cost Tracking",
-    icon: DollarSign,
-    widget: {
-      title: "Cost Tracking",
-      blocks: {
-        schemaVersion: 1 as const,
-        blocks: [
-          {
-            type: "metric-card" as const,
-            label: "Monthly Cost",
-            value: "$0.00",
-            trend: "flat" as const,
-            description: "Current billing period",
-          },
-        ],
-      },
-      span: 1,
-    },
-  },
-  {
-    label: "Health",
-    icon: HeartPulse,
-    widget: {
-      title: "System Health",
-      blocks: {
-        schemaVersion: 1 as const,
-        blocks: [
-          {
-            type: "stack" as const,
-            direction: "vertical" as const,
-            gap: "sm" as const,
-            children: [
-              { type: "status-badge" as const, text: "All agents healthy", variant: "success" as const },
-              { type: "progress-bar" as const, label: "Uptime", value: 99, variant: "success" as const },
-            ],
-          },
-        ],
-      },
-      span: 1,
-    },
-  },
-  {
-    label: "Workload",
-    icon: Users,
-    widget: {
-      title: "Agent Workload",
-      blocks: {
-        schemaVersion: 1 as const,
-        blocks: [
-          {
-            type: "chart" as const,
-            chartType: "donut" as const,
-            title: "Workload",
-            data: [
-              { label: "Active", value: 5, color: "hsl(var(--success))" },
-              { label: "Idle", value: 3, color: "hsl(var(--muted-foreground))" },
-              { label: "Error", value: 1, color: "hsl(var(--error))" },
-            ],
-          },
-        ],
-      },
-      span: 2,
-    },
-  },
-];
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { WIDGET_REGISTRY } from "../lib/widget-registry";
+import { Package, Sparkles } from "lucide-react";
 
 interface AddWidgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateWidget: (data: CreateUserWidget) => Promise<void>;
   onGenerateWidget?: (prompt: string) => Promise<void>;
+  /** Widget IDs already placed in the grid */
+  placedWidgetIds?: Set<string>;
+  /** Callback to add a preset widget by type */
+  onAddPresetWidget?: (type: string, span: number) => void;
 }
 
-export function AddWidgetDialog({ open, onOpenChange, onCreateWidget, onGenerateWidget }: AddWidgetDialogProps) {
+const SUGGESTION_CHIPS = [
+  "Issue burn-down",
+  "Agent cost breakdown",
+  "Sprint velocity",
+];
+
+export function AddWidgetDialog({
+  open,
+  onOpenChange,
+  onCreateWidget,
+  onGenerateWidget,
+  placedWidgetIds,
+  onAddPresetWidget,
+}: AddWidgetDialogProps) {
   const [caoPrompt, setCaoPrompt] = useState("");
+  const [caoSize, setCaoSize] = useState(2);
   const [creating, setCreating] = useState(false);
   const [caoError, setCaoError] = useState<string | null>(null);
 
-  async function handleTemplateClick(template: (typeof TEMPLATES)[number]) {
-    setCreating(true);
-    try {
-      await onCreateWidget(template.widget);
-    } finally {
-      setCreating(false);
+  function handleClose() {
+    setCaoPrompt("");
+    setCaoSize(2);
+    setCaoError(null);
+    setCreating(false);
+    onOpenChange(false);
+  }
+
+  async function handleAddPreset(type: string, span: number) {
+    if (onAddPresetWidget) {
+      onAddPresetWidget(type, span);
+      handleClose();
     }
   }
 
@@ -159,7 +66,6 @@ export function AddWidgetDialog({ open, onOpenChange, onCreateWidget, onGenerate
       if (onGenerateWidget) {
         await onGenerateWidget(caoPrompt.trim());
       } else {
-        // Fallback: store as placeholder widget
         await onCreateWidget({
           title: caoPrompt.trim().slice(0, 60),
           description: caoPrompt.trim(),
@@ -167,11 +73,10 @@ export function AddWidgetDialog({ open, onOpenChange, onCreateWidget, onGenerate
             schemaVersion: 1,
             blocks: [{ type: "markdown", content: `*Pending CAO generation...*\n\nPrompt: ${caoPrompt.trim()}` }],
           },
-          span: 2,
+          span: caoSize,
         });
       }
-      setCaoPrompt("");
-      onOpenChange(false);
+      handleClose();
     } catch (err) {
       setCaoError(err instanceof Error ? err.message : "Widget generation failed. Try rephrasing your request.");
     } finally {
@@ -179,69 +84,142 @@ export function AddWidgetDialog({ open, onOpenChange, onCreateWidget, onGenerate
     }
   }
 
+  const registryEntries = Object.entries(WIDGET_REGISTRY);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+    <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : handleClose())}>
+      <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Add Widget</DialogTitle>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground">
-          Choose a template or describe what you want to see:
-        </p>
+        <Tabs defaultValue="gallery">
+          <TabsList>
+            <TabsTrigger value="gallery" aria-label="Browse preset widgets">
+              Gallery
+            </TabsTrigger>
+            <TabsTrigger value="create" aria-label="Create a custom widget with AI">
+              Create with AI
+            </TabsTrigger>
+          </TabsList>
 
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Templates
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {TEMPLATES.map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.label}
-                  type="button"
-                  disabled={creating}
-                  onClick={() => handleTemplateClick(t)}
-                  className="border border-border rounded-md p-3 hover:border-primary/50 hover:bg-accent/30 cursor-pointer transition-all text-center space-y-1.5 disabled:opacity-50"
-                >
-                  <Icon className="h-5 w-5 text-muted-foreground mx-auto" />
-                  <span className="text-xs font-medium text-foreground block">{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          {/* Gallery Tab */}
+          <TabsContent value="gallery" className="mt-4">
+            <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-1">
+              {registryEntries.map(([type, def]) => {
+                const isPlaced = placedWidgetIds?.has(`preset:${type}`);
+                return (
+                  <div
+                    key={type}
+                    className={`rounded-lg border border-border p-4 transition-all space-y-2 ${
+                      isPlaced
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:border-primary/50 hover:bg-accent/30 cursor-pointer"
+                    }`}
+                  >
+                    <Package className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-sm font-medium text-foreground">{def.label}</div>
+                    {def.description && (
+                      <div className="text-xs text-muted-foreground line-clamp-2">
+                        {def.description}
+                      </div>
+                    )}
+                    <div className="text-xs text-muted-foreground/60">
+                      {def.defaultSpan === 4 ? "4 columns" : `${def.defaultSpan} column${def.defaultSpan > 1 ? "s" : ""}`}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isPlaced || creating}
+                      onClick={() => handleAddPreset(type, def.defaultSpan)}
+                    >
+                      {isPlaced ? "Already added" : "Add"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </TabsContent>
 
-        <div className="flex items-center gap-3">
-          <div className="flex-1 border-t border-border" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <div className="flex-1 border-t border-border" />
-        </div>
+          {/* Create with AI Tab */}
+          <TabsContent value="create" className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Describe the widget you want CAO to create:
+              </p>
+              <Textarea
+                rows={3}
+                placeholder="e.g., Show me a burn-down chart for issues tagged 'backend' over the last 30 days..."
+                value={caoPrompt}
+                onChange={(e) => setCaoPrompt(e.target.value)}
+              />
+              {caoError && (
+                <p className="text-xs text-destructive">{caoError}</p>
+              )}
+            </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Ask CAO
-          </p>
-          <Textarea
-            rows={2}
-            placeholder="e.g., Show me issue burn-down for my team..."
-            value={caoPrompt}
-            onChange={(e) => setCaoPrompt(e.target.value)}
-          />
-          {caoError && (
-            <p className="text-xs text-destructive">{caoError}</p>
-          )}
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={!caoPrompt.trim() || creating}
-              onClick={handleCaoSubmit}
-            >
-              {creating ? "CAO is generating..." : "Send to CAO"}
-            </Button>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Suggested prompts:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {SUGGESTION_CHIPS.map((chip) => (
+                  <Button
+                    key={chip}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full text-xs"
+                    onClick={() => setCaoPrompt(chip)}
+                  >
+                    {chip}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Size:</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4].map((s) => (
+                  <Button
+                    key={s}
+                    variant={caoSize === s ? "default" : "outline"}
+                    size="sm"
+                    className="w-10"
+                    onClick={() => setCaoSize(s)}
+                    aria-label={`Set widget width to ${s} column${s > 1 ? "s" : ""}`}
+                  >
+                    {s}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                disabled={!caoPrompt.trim() || creating}
+                onClick={handleCaoSubmit}
+              >
+                {creating ? (
+                  <>
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
+                    CAO is generating...
+                  </>
+                ) : (
+                  "Generate Widget"
+                )}
+              </Button>
+            </div>
+
+            {creating && (
+              <div className="rounded-lg border border-dashed border-border p-4 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
