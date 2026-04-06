@@ -790,6 +790,62 @@ export {
   type FeedbackSummaryFilters,
 } from "./validators/feedback.js";
 
+// BLOCKS-PLATFORM: Content blocks types
+export {
+  ContentDocument,
+  ContentBlock,
+  BLOCK_TYPES,
+} from "./types/index.js";
+export type {
+  MetricCardBlock,
+  StatusBadgeBlock,
+  DataTableBlock,
+  CodeBlockBlock,
+  ProgressBarBlock,
+  MarkdownBlockBlock,
+  ChartBlock,
+  DividerBlock,
+  ActionButtonBlock,
+  QuickFormBlock,
+  StackBlock,
+  SectionBlock,
+  BlockType,
+} from "./types/index.js";
+export type { UserWidget, UserWidgetDataSource } from "./types/index.js";
+export {
+  INBOX_ITEM_CATEGORIES,
+  INBOX_ITEM_PRIORITIES,
+  INBOX_ITEM_STATUSES,
+} from "./types/index.js";
+export type {
+  InboxItem,
+  InboxItemCategory,
+  InboxItemPriority,
+  InboxItemStatus,
+  InboxItemActionTaken,
+} from "./types/index.js";
+
+// BLOCKS-PLATFORM: validators
+export {
+  contentBlocksSchema,
+  validateContentDocumentSchema,
+  createUserWidgetSchema,
+  updateUserWidgetSchema,
+  createInboxItemSchema,
+  updateInboxItemSchema,
+  inboxItemActionSchema,
+  inboxItemFiltersSchema,
+} from "./validators/index.js";
+export type {
+  ValidateContentDocument,
+  CreateUserWidget,
+  UpdateUserWidget,
+  CreateInboxItem,
+  UpdateInboxItem,
+  InboxItemAction,
+  InboxItemFilters,
+} from "./validators/index.js";
+
 // REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
 
 // onb-s03-barrel-shared
