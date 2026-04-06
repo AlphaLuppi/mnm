@@ -166,6 +166,7 @@ export function mcpConnectorService(db: Db) {
       companyId,
       type: "a2a.mcp_connector_changed",
       payload: { action: "created", connectorId: id, name: connector.name },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ connectorId: id, companyId, name: connector.name }, "MCP connector created");
@@ -231,6 +232,7 @@ export function mcpConnectorService(db: Db) {
       companyId,
       type: "a2a.mcp_connector_changed",
       payload: { action: "updated", connectorId, name: existing.name },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ connectorId, companyId }, "MCP connector updated");
@@ -266,6 +268,7 @@ export function mcpConnectorService(db: Db) {
       companyId,
       type: "a2a.mcp_connector_changed",
       payload: { action: "deleted", connectorId, name: existing.name },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ connectorId, companyId }, "MCP connector deleted");
@@ -357,6 +360,7 @@ export function mcpConnectorService(db: Db) {
       companyId,
       type: "a2a.mcp_connector_changed",
       payload: { action: "tested", connectorId, reachable: result.reachable },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ connectorId, companyId, reachable: result.reachable, latencyMs }, "MCP connector tested");
@@ -455,6 +459,7 @@ export function mcpConnectorService(db: Db) {
       companyId,
       type: "a2a.mcp_connector_changed",
       payload: { action: "tool_invoked", connectorId, toolName, durationMs },
+      visibility: { scope: "company-wide" },
     });
 
     logger.info({ connectorId, companyId, toolName, durationMs }, "MCP tool invoked");

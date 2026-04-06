@@ -86,6 +86,7 @@ export function compactionReinjectionService(db: Db) {
     publishLiveEvent({
       companyId,
       type: "compaction.reinjection_started" as LiveEventType,
+        visibility: { scope: "agents", agentIds: [snapshot.agentId] },
       payload: { snapshotId, stageId: snapshot.stageId, agentId: snapshot.agentId },
     });
 
@@ -210,6 +211,7 @@ export function compactionReinjectionService(db: Db) {
         stageId: snapshot.stageId,
         agentId: snapshot.agentId,
         promptLength: promptText.length,
+        visibility: { scope: "agents", agentIds: [snapshot.agentId] },
       },
     });
 

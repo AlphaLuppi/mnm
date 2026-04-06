@@ -142,6 +142,7 @@ export function cursorEnforcementService(db: Db) {
           position,
           agentId,
           projectId,
+          visibility: { scope: "agents", agentIds: [agentId] },
         },
       });
 
@@ -186,6 +187,7 @@ export function cursorEnforcementService(db: Db) {
           position,
           agentId,
           projectId,
+          visibility: { scope: "agents", agentIds: [agentId] },
         },
       });
 

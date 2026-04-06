@@ -51,6 +51,7 @@ export function feedbackService(db: Db) {
       companyId,
       type: "feedback.updated",
       payload: { issueId, targetId: data.targetId, targetType: data.targetType },
+      visibility: { scope: "company-wide" },
     });
 
     return row;
@@ -117,6 +118,7 @@ export function feedbackService(db: Db) {
         companyId,
         type: "feedback.updated",
         payload: { issueId: deleted.issueId, targetId, targetType },
+        visibility: { scope: "company-wide" },
       });
     }
 

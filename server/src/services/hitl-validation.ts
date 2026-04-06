@@ -91,6 +91,7 @@ export function hitlValidationService(db: Db) {
       companyId: stage.companyId,
       type: "hitl.validation_requested" as LiveEventType,
       payload: validationRequest as unknown as Record<string, unknown>,
+      visibility: { scope: "company-wide" },
     });
 
     return validationRequest;
@@ -147,6 +148,7 @@ export function hitlValidationService(db: Db) {
         comment,
         decidedAt: decision.decidedAt,
       },
+      visibility: { scope: "company-wide" },
     });
 
     return decision;
@@ -208,6 +210,7 @@ export function hitlValidationService(db: Db) {
         feedback,
         decidedAt: decision.decidedAt,
       },
+      visibility: { scope: "company-wide" },
     });
 
     return decision;

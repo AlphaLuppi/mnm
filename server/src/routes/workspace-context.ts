@@ -357,6 +357,7 @@ export function workspaceContextRoutes(db: Db) {
       companyId: project.companyId,
       type: "activity.logged",
       payload: { entityType: "agent", action: "agent.imported", details: { count: created.length } },
+      visibility: { scope: "company-wide" },
     });
     res.status(201).json({ created, assignments: newAssignments });
   });
@@ -394,6 +395,7 @@ export function workspaceContextRoutes(db: Db) {
       companyId: project.companyId,
       type: "workspace.context.changed",
       payload: { projectId: id },
+      visibility: { scope: "company-wide" },
     });
     res.json({ ok: true });
   });

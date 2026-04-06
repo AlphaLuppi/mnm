@@ -312,6 +312,7 @@ export function a2aBusService(db: Db) {
         receiverId: message.receiverId,
         messageType: message.messageType,
         chainDepth: message.chainDepth,
+        visibility: { scope: "agents", agentIds: [message.senderId, message.receiverId] },
       },
     });
 
@@ -418,6 +419,7 @@ export function a2aBusService(db: Db) {
         chainId: response.chainId,
         senderId: response.senderId,
         receiverId: response.receiverId,
+        visibility: { scope: "agents", agentIds: [response.senderId, response.receiverId] },
       },
     });
 
@@ -620,6 +622,7 @@ export function a2aBusService(db: Db) {
         publishLiveEvent({
           companyId: cid,
           type: "a2a.message_expired",
+            visibility: { scope: "company-wide" },
           payload: { expiredCount: messages.length, messageIds: messages.map((m) => m.id) },
         });
 
