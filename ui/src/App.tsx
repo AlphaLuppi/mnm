@@ -32,7 +32,6 @@ import { WorkflowEditor } from "./pages/WorkflowEditor";
 import { Members } from "./pages/Members";
 import AdminRoles from "./pages/AdminRoles";
 import { AdminTags } from "./pages/AdminTags";
-import { AdminViewPresets } from "./pages/AdminViewPresets";
 import { ConfigLayersPage } from "./pages/config-layers/ConfigLayersPage";
 import { AuditLog } from "./pages/AuditLog";
 import { Containers } from "./pages/Containers";
@@ -122,7 +121,6 @@ function boardRoutes() {
       <Route path="admin/roles" element={<RequirePermission permission="roles:read" showForbidden><AdminRoles /></RequirePermission>} />
       <Route path="admin/tags" element={<RequirePermission permission="tags:read" showForbidden><AdminTags /></RequirePermission>} />
       <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
-      <Route path="admin/view-presets" element={<RequirePermission permission="roles:manage" showForbidden><AdminViewPresets /></RequirePermission>} />
       <Route path="admin/config-layers" element={<RequirePermission permission="config_layers:read" showForbidden><ConfigLayersPage /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
       <Route path="org" element={<RequirePermission permission="org:view" showForbidden><OrgChart /></RequirePermission>} />
@@ -328,7 +326,6 @@ export function App() {
           <Route path="admin/roles" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/tags" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/sso" element={<UnprefixedBoardRedirect />} />
-          <Route path="admin/view-presets" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/config-layers" element={<UnprefixedBoardRedirect />} />
           <Route path="company/settings" element={<UnprefixedBoardRedirect />} />
           <Route path="audit" element={<UnprefixedBoardRedirect />} />
