@@ -458,3 +458,25 @@ export type {
   MergePreviewResult,
   UserMcpCredential,
 } from "./config-layer.js";
+
+// BLOCKS-PLATFORM: Content blocks catalogue
+export {
+  ContentDocument,
+  ContentBlock,
+  BLOCK_TYPES,
+} from "./content-blocks.js";
+export type {
+  MetricCardBlock,
+  StatusBadgeBlock,
+  DataTableBlock,
+  CodeBlockBlock,
+  ProgressBarBlock,
+  MarkdownBlockBlock,
+  ChartBlock,
+  DividerBlock,
+  ActionButtonBlock,
+  QuickFormBlock,
+  StackBlock,
+  SectionBlock,
+  BlockType,
+} from "./content-blocks.js";
