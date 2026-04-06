@@ -15,6 +15,15 @@ export function MnmChart({ props }: { props: typeof ChartProps._type }) {
     fill: d.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length],
   }));
 
+  if (data.length === 0) {
+    return (
+      <div className="space-y-2">
+        {props.title && <h4 className="text-sm font-medium">{props.title}</h4>}
+        <div className="h-48 w-full flex items-center justify-center rounded-md border text-sm text-muted-foreground">No data</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       {props.title && <h4 className="text-sm font-medium">{props.title}</h4>}
@@ -26,7 +35,7 @@ export function MnmChart({ props }: { props: typeof ChartProps._type }) {
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="value" stroke={data[0]?.fill ?? "hsl(var(--primary))"} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           ) : props.chartType === "bar" ? (
             <BarChart data={data}>
