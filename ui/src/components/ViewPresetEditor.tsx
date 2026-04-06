@@ -255,7 +255,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
     .map(([type, def]) => ({ type, label: def.label }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -278,10 +278,10 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
       )}
 
       {/* General */}
-      <section className="border border-border rounded-lg p-4 space-y-3">
+      <section className="border border-border rounded-lg p-5 space-y-4">
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">General</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
             <Label htmlFor="edit-name">Name</Label>
             <Input
               id="edit-name"
@@ -289,12 +289,12 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div>
+          <div className="space-y-1.5">
             <Label>Slug</Label>
             <Input value={preset.slug} disabled />
           </div>
         </div>
-        <div>
+        <div className="space-y-1.5">
           <Label htmlFor="edit-desc">Description</Label>
           <Textarea
             id="edit-desc"
@@ -303,10 +303,10 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
             placeholder="Optional description..."
           />
         </div>
-        <div className="flex items-center gap-4">
-          <div>
+        <div className="flex flex-wrap items-end gap-6">
+          <div className="space-y-1.5">
             <Label>Color</Label>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
                   key={c}
@@ -323,7 +323,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
               {color && (
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted-foreground hover:text-foreground ml-1"
                   onClick={() => setColor("")}
                 >
                   Clear
@@ -331,7 +331,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pb-0.5">
             <Checkbox
               id="edit-default"
               checked={isDefault}
@@ -345,7 +345,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
       </section>
 
       {/* Sidebar Sections */}
-      <section className="border border-border rounded-lg p-4 space-y-3">
+      <section className="border border-border rounded-lg p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
             Sidebar Sections
@@ -356,79 +356,81 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
           </Button>
         </div>
 
-        {layout.sidebar.sections.map((section, sIdx) => (
-          <div key={sIdx} className="border border-border/50 rounded-md">
-            <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
-              <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs font-medium text-foreground flex-1 text-left"
-                onClick={() => toggleSectionExpand(sIdx)}
-              >
-                {expandedSections.has(sIdx) ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )}
-                <Input
-                  value={section.label}
-                  onChange={(e) => updateSectionLabel(sIdx, e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-6 text-xs py-0 px-1 w-40"
-                  placeholder="Section label"
-                />
-                <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
-                  {section.items.length}
-                </Badge>
-              </button>
-              <div className="flex items-center gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => moveSectionUp(sIdx)}
-                  disabled={sIdx === 0}
+        <div className="space-y-2">
+          {layout.sidebar.sections.map((section, sIdx) => (
+            <div key={sIdx} className="border border-border/50 rounded-md">
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/20">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 text-xs font-medium text-foreground flex-1 text-left"
+                  onClick={() => toggleSectionExpand(sIdx)}
                 >
-                  <ArrowUp className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => moveSectionDown(sIdx)}
-                  disabled={sIdx === layout.sidebar.sections.length - 1}
-                >
-                  <ArrowDown className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => removeSidebarSection(sIdx)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-            {expandedSections.has(sIdx) && (
-              <div className="px-3 py-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                {allNavItems.map((item) => (
-                  <label
-                    key={item.id}
-                    className="flex items-center gap-1.5 text-xs cursor-pointer hover:text-foreground"
+                  {expandedSections.has(sIdx) ? (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <Input
+                    value={section.label}
+                    onChange={(e) => updateSectionLabel(sIdx, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-7 text-xs py-0 px-2 w-44"
+                    placeholder="Section label"
+                  />
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                    {section.items.length}
+                  </Badge>
+                </button>
+                <div className="flex items-center gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => moveSectionUp(sIdx)}
+                    disabled={sIdx === 0}
                   >
-                    <Checkbox
-                      checked={section.items.includes(item.id as any)}
-                      onCheckedChange={() => toggleSidebarItem(sIdx, item.id)}
-                    />
-                    {item.label}
-                  </label>
-                ))}
+                    <ArrowUp className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => moveSectionDown(sIdx)}
+                    disabled={sIdx === layout.sidebar.sections.length - 1}
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => removeSidebarSection(sIdx)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+              {expandedSections.has(sIdx) && (
+                <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {allNavItems.map((item) => (
+                    <label
+                      key={item.id}
+                      className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground py-0.5"
+                    >
+                      <Checkbox
+                        checked={section.items.includes(item.id as any)}
+                        onCheckedChange={() => toggleSidebarItem(sIdx, item.id)}
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Dashboard Widgets */}
-      <section className="border border-border rounded-lg p-4 space-y-3">
+      <section className="border border-border rounded-lg p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
             Dashboard Widgets
@@ -450,25 +452,25 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
         </div>
 
         {layout.dashboard.widgets.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">No widgets configured.</p>
+          <p className="text-xs text-muted-foreground py-4">No widgets configured.</p>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {layout.dashboard.widgets.map((widget, wIdx) => {
               const def = WIDGET_REGISTRY[widget.type];
               return (
                 <div
                   key={`${widget.type}-${wIdx}`}
-                  className="flex items-center gap-2 px-3 py-2 border border-border/50 rounded-md"
+                  className="flex items-center gap-3 px-3 py-2.5 border border-border/50 rounded-md"
                 >
-                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium flex-1">
+                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs font-medium flex-1 truncate">
                     {def?.label ?? widget.type}
                   </span>
                   <Select
                     value={String(widget.span ?? def?.defaultSpan ?? 2)}
                     onValueChange={(val) => updateWidgetSpan(wIdx, parseInt(val) as 1 | 2 | 3 | 4)}
                   >
-                    <SelectTrigger className="w-20 h-7 text-xs">
+                    <SelectTrigger className="w-24 h-7 text-xs shrink-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -478,7 +480,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
                       <SelectItem value="4">Span 4</SelectItem>
                     </SelectContent>
                   </Select>
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon-xs"
@@ -511,31 +513,33 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
       </section>
 
       {/* Landing Page */}
-      <section className="border border-border rounded-lg p-4 space-y-3">
+      <section className="border border-border rounded-lg p-5 space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
           Landing Page
         </h2>
-        <p className="text-xs text-muted-foreground">Redirect after login to:</p>
-        <div className="flex flex-wrap gap-3">
-          {LANDING_PAGES.map((page) => (
-            <label key={page.value} className="flex items-center gap-1.5 text-xs cursor-pointer">
-              <input
-                type="radio"
-                name="landing-page"
-                checked={layout.landingPage === page.value}
-                onChange={() =>
-                  setLayout((prev) => ({ ...prev, landingPage: page.value }))
-                }
-                className="accent-primary"
-              />
-              {page.label}
-            </label>
-          ))}
+        <div className="space-y-2.5">
+          <p className="text-xs text-muted-foreground">Redirect after login to:</p>
+          <div className="flex flex-wrap gap-4">
+            {LANDING_PAGES.map((page) => (
+              <label key={page.value} className="flex items-center gap-2 text-xs cursor-pointer py-0.5">
+                <input
+                  type="radio"
+                  name="landing-page"
+                  checked={layout.landingPage === page.value}
+                  onChange={() =>
+                    setLayout((prev) => ({ ...prev, landingPage: page.value }))
+                  }
+                  className="accent-primary"
+                />
+                {page.label}
+              </label>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Role Assignment */}
-      <section className="border border-border rounded-lg p-4 space-y-3">
+      <section className="border border-border rounded-lg p-5 space-y-4">
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
           Role Assignment
         </h2>
@@ -544,15 +548,15 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
         </p>
 
         {!roles || roles.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">No roles found.</p>
+          <p className="text-xs text-muted-foreground py-4">No roles found.</p>
         ) : (
           <div className="border border-border rounded-md overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Role</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden sm:table-cell">Current Preset</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Action</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Role</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Current Preset</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -563,8 +567,8 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
                       key={role.id}
                       className="border-b border-border last:border-b-0 hover:bg-accent/30"
                     >
-                      <td className="px-3 py-2 font-medium">{role.name}</td>
-                      <td className="px-3 py-2 hidden sm:table-cell text-muted-foreground">
+                      <td className="px-4 py-2.5 font-medium">{role.name}</td>
+                      <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground">
                         {isAssigned ? (
                           <Badge variant="secondary">{preset.name}</Badge>
                         ) : role.viewPresetId ? (
@@ -573,7 +577,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
                           <span className="italic">(none)</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-4 py-2.5 text-right">
                         {isAssigned ? (
                           <Button
                             variant="outline"
