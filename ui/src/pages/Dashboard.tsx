@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { WidgetPlacement } from "@mnm/shared";
 import { dashboardApi } from "../api/dashboard";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { userWidgetsApi } from "../api/user-widgets";
+import { viewPresetsApi } from "../api/view-presets";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useViewPreset } from "../hooks/useViewPreset";
@@ -13,7 +15,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { useDriftScanStatus } from "../hooks/useDriftResults";
 import { useDashboardLiveIndicator } from "../hooks/useDashboardLiveIndicator";
 import { EmptyState } from "../components/EmptyState";
-import { DashboardGrid } from "../components/DashboardGrid";
+import { UnifiedDashboardGrid } from "../components/UnifiedDashboardGrid";
 import { AddWidgetDialog } from "../components/AddWidgetDialog";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
@@ -26,7 +28,7 @@ export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
-  const { layout } = useViewPreset();
+  const { layout, grid } = useViewPreset();
   const [driftPromptDismissed, setDriftPromptDismissed] = useState(() =>
     localStorage.getItem("mnm:drift-prompt-hidden") === "true",
   );
@@ -42,6 +44,52 @@ export function Dashboard() {
       qc.invalidateQueries({ queryKey: queryKeys.userWidgets.list(selectedCompanyId!) });
     },
   });
+
+  // V2 grid layout state
+  const [localGrid, setLocalGrid] = useState<WidgetPlacement[] | null>(null);
+  const currentGrid = localGrid ?? grid;
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveLayoutMutation = useMutation({
+    mutationFn: (layout: WidgetPlacement[]) =>
+      viewPresetsApi.updateOverrides(selectedCompanyId!, { dashboard: { layout } }),
+  });
+
+  // Sync server grid to local state
+  useEffect(() => {
+    if (grid.length > 0 && localGrid === null) {
+      setLocalGrid(grid);
+    }
+  }, [grid, localGrid]);
+
+  const handleLayoutChange = useCallback(
+    (updated: WidgetPlacement[]) => {
+      setLocalGrid(updated);
+      // Debounced save (1s)
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        saveLayoutMutation.mutate(updated);
+      }, 1000);
+    },
+    [saveLayoutMutation],
+  );
+
+  const handleDeleteWidget = useCallback(
+    (widgetId: string) => {
+      if (widgetId.startsWith("preset:")) {
+        // Hide preset widget in layout
+        const updated = currentGrid.map((p) =>
+          p.widgetId === widgetId ? { ...p, hidden: true } : p,
+        );
+        handleLayoutChange(updated);
+      } else {
+        deleteWidget.mutate(widgetId);
+        // Also remove from local grid
+        const updated = currentGrid.filter((p) => p.widgetId !== widgetId);
+        handleLayoutChange(updated);
+      }
+    },
+    [currentGrid, handleLayoutChange, deleteWidget],
+  );
 
   // DASH-S03: Real-time live indicator
   const { isLive, isFlashing, lastRefreshAt } = useDashboardLiveIndicator();
@@ -183,14 +231,20 @@ export function Dashboard() {
 
       <ActiveAgentsPanel companyId={selectedCompanyId!} />
 
-      {/* Dynamic dashboard grid — driven by the view preset layout */}
-      <DashboardGrid
+      {/* V2: Unified dashboard grid — drag & drop, resize */}
+      <UnifiedDashboardGrid
         companyId={selectedCompanyId!}
-        widgets={layout.dashboard.widgets}
-        customWidgets={customWidgets}
-        onAddWidget={() => setAddWidgetOpen(true)}
-        onDeleteWidget={(widgetId) => deleteWidget.mutate(widgetId)}
-        onResizeWidget={(widgetId, span) => updateWidget.mutate({ widgetId, data: { span } })}
+        placements={currentGrid}
+        userWidgets={customWidgets ?? []}
+        onLayoutChange={handleLayoutChange}
+        onDeleteWidget={handleDeleteWidget}
+        onResizeWidget={(widgetId, span) => {
+          const w = span * 3;
+          const updated = currentGrid.map((p) =>
+            p.widgetId === widgetId ? { ...p, w } : p,
+          );
+          handleLayoutChange(updated);
+        }}
       />
 
       <AddWidgetDialog
