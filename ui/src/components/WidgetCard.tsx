@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,14 +66,14 @@ export function WidgetCard({
 
   return (
     <>
-      <div
+      <Card
         className={cn(
-          "group/widget rounded-lg border bg-card overflow-hidden transition-all duration-150 h-full flex flex-col outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "group/widget relative rounded-lg overflow-hidden transition-all duration-150 h-full flex flex-col gap-0 py-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           isDragging
             ? "shadow-xl opacity-80 z-50 rotate-1"
             : isResizing
               ? "border-primary/50 shadow-md"
-              : "border-border shadow-sm hover:shadow-md",
+              : "shadow-sm hover:shadow-md",
         )}
         tabIndex={0}
         role="article"
@@ -80,24 +81,28 @@ export function WidgetCard({
         aria-roledescription="dashboard widget"
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/50">
+        <CardHeader className="flex-row items-center gap-2 px-3 py-2.5 border-b border-border/50 space-y-0">
           {/* Drag handle */}
           {!disableDrag && (
-            <div
-              className="widget-drag-handle opacity-0 group-hover/widget:opacity-100 focus-within:opacity-100 transition-opacity duration-150 cursor-grab active:cursor-grabbing"
-              tabIndex={0}
-              role="button"
+            <button
+              type="button"
+              className="widget-drag-handle opacity-0 group-hover/widget:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 cursor-grab active:cursor-grabbing"
               aria-label={`Drag to reorder ${title}`}
               aria-roledescription="drag handle"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                }
+              }}
             >
               <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-            </div>
+            </button>
           )}
 
           {/* Title */}
-          <div className="text-sm font-medium text-foreground truncate flex-1">
+          <CardTitle className="text-sm font-medium text-foreground truncate flex-1">
             {title}
-          </div>
+          </CardTitle>
 
           {/* Actions menu */}
           <div className="opacity-0 group-hover/widget:opacity-100 group-focus-within/widget:opacity-100 transition-opacity duration-150">
@@ -148,10 +153,10 @@ export function WidgetCard({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
+        </CardHeader>
 
         {/* Content */}
-        <div className="p-4 overflow-hidden flex-1">
+        <CardContent className="p-4 overflow-hidden flex-1">
           {isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-3/4" />
@@ -166,7 +171,7 @@ export function WidgetCard({
           ) : (
             children
           )}
-        </div>
+        </CardContent>
 
         {/* Resize dimension overlay */}
         {isResizing && resizeLabel && (
@@ -174,7 +179,7 @@ export function WidgetCard({
             {resizeLabel}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Delete confirmation dialog */}
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
