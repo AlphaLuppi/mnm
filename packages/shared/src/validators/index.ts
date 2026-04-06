@@ -380,3 +380,7 @@ export {
   type ApprovePromotion,
   type RejectPromotion,
 } from "./config-layer.js";
+
+// BLOCKS-PLATFORM: Content blocks validators
+export { contentBlocksSchema, validateContentDocumentSchema } from "./content-blocks.js";
+export type { ValidateContentDocument } from "./content-blocks.js";
