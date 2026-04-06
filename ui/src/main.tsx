@@ -13,6 +13,7 @@ import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "@mdxeditor/editor/style.css";
+import "react-grid-layout/css/styles.css";
 import "./index.css";
 
 // --- Chunk load failure recovery ---
