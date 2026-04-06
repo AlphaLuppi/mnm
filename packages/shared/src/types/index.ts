@@ -480,3 +480,20 @@ export type {
   SectionBlock,
   BlockType,
 } from "./content-blocks.js";
+
+// BLOCKS-PLATFORM: User widgets
+export type { UserWidget, UserWidgetDataSource } from "./user-widget.js";
+
+// BLOCKS-PLATFORM: Inbox items
+export {
+  INBOX_ITEM_CATEGORIES,
+  INBOX_ITEM_PRIORITIES,
+  INBOX_ITEM_STATUSES,
+} from "./inbox-item.js";
+export type {
+  InboxItem,
+  InboxItemCategory,
+  InboxItemPriority,
+  InboxItemStatus,
+  InboxItemActionTaken,
+} from "./inbox-item.js";
