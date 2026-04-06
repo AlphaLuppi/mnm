@@ -199,36 +199,12 @@ async function handleRunStatus(db: Db, event: LiveEvent): Promise<void> {
     const startedAt = (payload.startedAt as string) ?? null;
     const finishedAt = (payload.finishedAt as string) ?? null;
 
-    // --- II-06: Create rich inbox item for the agent's creator ---
-    if (agent?.createdByUserId) {
-      try {
-        const contentBlocks = buildFailedRunBlocks(
-          agentName, status, errorStr, errorCode, startedAt, finishedAt, runId,
-        );
-        const plainBody = formatWatchdogComment(agentName, status, errorStr, errorCode, startedAt, finishedAt);
-
-        await db.insert(inboxItems).values({
-          companyId,
-          recipientId: agent.createdByUserId,
-          senderAgentId: caoId,
-          title: `Run failed — ${agentName}`,
-          body: plainBody,
-          contentBlocks,
-          category: "failed_run",
-          priority: "high",
-          relatedAgentId: agentId,
-          relatedIssueId: issueId,
-        });
-
-        logger.info(
-          { companyId, agentId, runId, recipientId: agent.createdByUserId },
-          "Rich inbox notification created for failed run",
-        );
-      } catch (inboxErr) {
-        // Non-fatal — don't block the watchdog comment
-        logger.error({ err: inboxErr, runId, agentId }, "Failed to create inbox notification for failed run");
-      }
-    }
+    // NOTE: Failed run inbox_items disabled to avoid doublon with existing
+    // FailedRuns section in Inbox.tsx. The legacy section already handles
+    // retry/open-run UX well. inbox_items should be used for OTHER notification
+    // types (CAO alerts, recommendations, system notices).
+    // When II-07 Phase 2 migrates to unified inbox_items, this can be re-enabled
+    // and the legacy FailedRuns section removed.
 
     // --- AF-04: Enriched watchdog comment on issue with content blocks ---
     if (issueId) {
