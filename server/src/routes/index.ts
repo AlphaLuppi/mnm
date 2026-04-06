@@ -45,3 +45,7 @@ export { feedbackRoutes } from "./feedback.js";
 export { routineRoutes } from "./routines.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
 export { viewPresetRoutes } from "./view-presets.js";
+// BLOCKS-PLATFORM: Block catalogue
+export { blockCatalogueRoutes } from "./block-catalogue.js";
+// BLOCKS: User custom widgets
+export { userWidgetRoutes } from "./user-widgets.js";
