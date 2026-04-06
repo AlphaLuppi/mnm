@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { dashboardApi } from "../api/dashboard";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
+import { userWidgetsApi } from "../api/user-widgets";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useViewPreset } from "../hooks/useViewPreset";
@@ -34,6 +35,13 @@ export function Dashboard() {
 
   // Custom widgets
   const { widgets: customWidgets, createWidget, updateWidget, deleteWidget } = useUserWidgets();
+  const qc = useQueryClient();
+  const generateWidget = useMutation({
+    mutationFn: (prompt: string) => userWidgetsApi.generate(selectedCompanyId!, prompt),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.userWidgets.list(selectedCompanyId!) });
+    },
+  });
 
   // DASH-S03: Real-time live indicator
   const { isLive, isFlashing, lastRefreshAt } = useDashboardLiveIndicator();
@@ -189,6 +197,7 @@ export function Dashboard() {
         open={addWidgetOpen}
         onOpenChange={setAddWidgetOpen}
         onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
+        onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt).then(() => setAddWidgetOpen(false))}
       />
     </div>
   );
