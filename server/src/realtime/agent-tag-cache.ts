@@ -24,14 +24,14 @@ export function agentTagCache(db: Db, ttlMs = DEFAULT_TTL_MS): AgentTagCache {
 
   function evictIfNeeded() {
     if (cache.size <= MAX_ENTRIES) return;
-    // Evict oldest entries when over limit
-    let oldest: { key: string; cachedAt: number } | null = null;
-    for (const [k, v] of cache) {
-      if (!oldest || v.cachedAt < oldest.cachedAt) {
-        oldest = { key: k, cachedAt: v.cachedAt };
-      }
+    // Batch eviction: delete oldest 10% (Map preserves insertion order)
+    const evictCount = Math.max(1, Math.floor(cache.size * 0.1));
+    const iter = cache.keys();
+    for (let i = 0; i < evictCount; i++) {
+      const next = iter.next();
+      if (next.done) break;
+      cache.delete(next.value);
     }
-    if (oldest) cache.delete(oldest.key);
   }
 
   async function getAgentTags(companyId: string, agentId: string): Promise<Set<string>> {
@@ -60,8 +60,10 @@ export function agentTagCache(db: Db, ttlMs = DEFAULT_TTL_MS): AgentTagCache {
 
   function invalidate(agentId: string) {
     // Invalidate all entries for this agent (across all companies)
+    // Use split to avoid suffix collision (e.g. "agent-1" matching "my-agent-1")
     for (const k of cache.keys()) {
-      if (k.endsWith(`:${agentId}`)) {
+      const sep = k.indexOf(":");
+      if (sep !== -1 && k.slice(sep + 1) === agentId) {
         cache.delete(k);
       }
     }
