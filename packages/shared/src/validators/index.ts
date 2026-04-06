@@ -384,3 +384,17 @@ export {
 // BLOCKS-PLATFORM: Content blocks validators
 export { contentBlocksSchema, validateContentDocumentSchema } from "./content-blocks.js";
 export type { ValidateContentDocument } from "./content-blocks.js";
+export { createUserWidgetSchema, updateUserWidgetSchema } from "./user-widget.js";
+export type { CreateUserWidget, UpdateUserWidget } from "./user-widget.js";
+export {
+  createInboxItemSchema,
+  updateInboxItemSchema,
+  inboxItemActionSchema,
+  inboxItemFiltersSchema,
+} from "./inbox-item.js";
+export type {
+  CreateInboxItem,
+  UpdateInboxItem,
+  InboxItemAction,
+  InboxItemFilters,
+} from "./inbox-item.js";
