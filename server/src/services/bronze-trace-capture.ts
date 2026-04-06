@@ -197,6 +197,7 @@ export function bronzeTraceCapture(db: Db) {
         companyId: opts.companyId,
         type: "trace.created",
         payload: { id: traceId, agentId: opts.agentId, name: row.name, status: "running" },
+        visibility: { scope: "agents", agentIds: [opts.agentId] },
       });
 
       return traceId;
@@ -282,6 +283,7 @@ export function bronzeTraceCapture(db: Db) {
         companyId: state.companyId,
         type: "trace.completed",
         payload: { id: state.traceId, agentId: state.agentId, status: outcome },
+        visibility: { scope: "agents", agentIds: [state.agentId] },
       });
 
       activeRuns.delete(runId);
@@ -350,6 +352,7 @@ async function persistBronzeObservation(
           companyId: state.companyId,
           type: "trace.observation_completed",
           payload: { id: obsId, traceId: state.traceId, status: event.is_error ? "error" : "completed" },
+          visibility: { scope: "agents", agentIds: [state.agentId] },
         });
         return; // Don't create a new observation
       }
@@ -447,6 +450,7 @@ async function persistBronzeObservation(
       name,
       status,
     },
+    visibility: { scope: "agents", agentIds: [state.agentId] },
   });
 }
 

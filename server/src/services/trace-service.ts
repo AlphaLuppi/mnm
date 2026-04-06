@@ -82,6 +82,7 @@ export function traceService(db: Db) {
           name: trace.name,
           status: trace.status,
         },
+        visibility: { scope: "agents", agentIds: [trace.agentId] },
       });
 
       return trace;
@@ -236,6 +237,7 @@ export function traceService(db: Db) {
           totalTokensOut: row.totalTokensOut,
           totalCostUsd: row.totalCostUsd,
         },
+        visibility: { scope: "agents", agentIds: [row.agentId] },
       });
 
       return row as unknown as Trace;
@@ -270,6 +272,11 @@ export function traceService(db: Db) {
 
       const obs = row as unknown as TraceObservation;
 
+      // WS-SEC-07: Resolve agent for visibility
+      const traceRow = await db.select({ agentId: traces.agentId }).from(traces)
+        .where(and(eq(traces.id, traceId), eq(traces.companyId, companyId)))
+        .then((rows) => rows[0]);
+
       publishLiveEvent({
         companyId,
         type: "trace.observation_created",
@@ -280,6 +287,7 @@ export function traceService(db: Db) {
           name: obs.name,
           status: obs.status,
         },
+        visibility: traceRow ? { scope: "agents", agentIds: [traceRow.agentId] } : { scope: "company-wide" },
       });
 
       return obs;
@@ -347,6 +355,11 @@ export function traceService(db: Db) {
 
       const obs = row as unknown as TraceObservation;
 
+      // WS-SEC-07: Resolve agent for visibility
+      const traceRow2 = await db.select({ agentId: traces.agentId }).from(traces)
+        .where(and(eq(traces.id, traceId), eq(traces.companyId, companyId)))
+        .then((rows) => rows[0]);
+
       publishLiveEvent({
         companyId,
         type: "trace.observation_completed",
@@ -358,6 +371,7 @@ export function traceService(db: Db) {
           status: obs.status,
           durationMs: obs.durationMs,
         },
+        visibility: traceRow2 ? { scope: "agents", agentIds: [traceRow2.agentId] } : { scope: "company-wide" },
       });
 
       return obs;
