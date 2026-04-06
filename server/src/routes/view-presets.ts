@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { viewPresets, roles, companyMemberships, userWidgets } from "@mnm/db";
 import type { DashboardWidget, LayoutOverrides, UserWidget } from "@mnm/shared";
+import { layoutOverridesV2Schema } from "@mnm/shared";
 import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
 import { materializeLayout, mergeNewWidgets } from "../services/layout-materializer.js";
@@ -256,7 +257,11 @@ export function viewPresetRoutes(db: Db) {
 
       if (!userId) throw badRequest("User ID required");
 
-      const overrides = req.body;
+      const parsed = layoutOverridesV2Schema.safeParse(req.body);
+      if (!parsed.success) {
+        throw badRequest(`Invalid layout overrides: ${parsed.error.issues.map((issue: { message: string }) => issue.message).join(", ")}`);
+      }
+      const overrides = parsed.data;
 
       const [updated] = await db
         .update(companyMemberships)
