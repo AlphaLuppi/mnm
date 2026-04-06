@@ -1066,7 +1066,7 @@ export function issueService(db: Db) {
         .where(eq(issueComments.id, commentId))
         .then((rows) => rows[0] ?? null),
 
-    addComment: async (issueId: string, body: string, actor: { agentId?: string; userId?: string }) => {
+    addComment: async (issueId: string, body: string, actor: { agentId?: string; userId?: string }, contentBlocks?: unknown) => {
       const issue = await db
         .select({ companyId: issues.companyId })
         .from(issues)
@@ -1083,6 +1083,7 @@ export function issueService(db: Db) {
           authorAgentId: actor.agentId ?? null,
           authorUserId: actor.userId ?? null,
           body,
+          contentBlocks: contentBlocks ?? null,
         })
         .returning();
 
