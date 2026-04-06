@@ -661,7 +661,7 @@ export function AgentDetail() {
 
       {/* Tab navigation */}
       {!urlRunId && (
-        <div className="flex items-center gap-0.5 border-b border-border -mb-2">
+        <div className="flex items-center gap-0.5 border-b border-border">
           {(
             [
               { view: "overview" as const, label: "Overview" },
