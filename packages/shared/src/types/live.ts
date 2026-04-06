@@ -14,3 +14,6 @@ export interface LiveEvent {
   payload: Record<string, unknown>;
   visibility: EventVisibility;
 }
+
+/** The shape clients receive over WebSocket — visibility is stripped server-side. */
+export type ClientLiveEvent = Omit<LiveEvent, "visibility">;
