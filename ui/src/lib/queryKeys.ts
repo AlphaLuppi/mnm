@@ -269,6 +269,16 @@ export const queryKeys = {
     shared: (companyId: string, token: string) => ["sharedChat", companyId, token] as const,
     contextLinks: (companyId: string, channelId: string) => ["contextLinks", companyId, channelId] as const,
   },
+  // BLOCKS-PLATFORM: User widgets
+  userWidgets: {
+    list: (companyId: string) => ["user-widgets", companyId, "list"] as const,
+    detail: (companyId: string, widgetId: string) => ["user-widgets", companyId, "detail", widgetId] as const,
+  },
+  // BLOCKS-PLATFORM: Inbox items
+  inboxItems: {
+    list: (companyId: string, filters?: Record<string, unknown>) => ["inbox-items", companyId, "list", filters] as const,
+    detail: (companyId: string, itemId: string) => ["inbox-items", companyId, "detail", itemId] as const,
+  },
   // VIEW-PRESETS: Persona-based dashboard & navigation
   viewPresets: {
     list: (companyId: string) => ["view-presets", companyId, "list"] as const,
