@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActionButtonProps } from "@mnm/shared";
+import { useBlockContext } from "./BlockRenderer";
 
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -14,19 +15,14 @@ const VARIANT_MAP: Record<string, "default" | "destructive" | "outline" | "ghost
 };
 
 export function MnmActionButton({ props }: { props: typeof ActionButtonProps._type }) {
+  const ctx = useBlockContext();
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const execute = async () => {
     setLoading(true);
     try {
-      // Action dispatch is handled by the parent context (useBlockActions)
-      // For now, we emit a custom event that the ContentRenderer can catch
-      const event = new CustomEvent("mnm-block-action", {
-        bubbles: true,
-        detail: { action: props.action, payload: props.payload },
-      });
-      document.dispatchEvent(event);
+      await ctx?.onAction(props.action, props.payload ?? undefined);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { QuickFormProps } from "@mnm/shared";
+import { useBlockContext } from "./BlockRenderer";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -11,6 +12,7 @@ import { Loader2 } from "lucide-react";
 
 
 export function MnmQuickForm({ props }: { props: typeof QuickFormProps._type }) {
+  const ctx = useBlockContext();
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const init: Record<string, unknown> = {};
     for (const f of props.fields) {
@@ -27,11 +29,7 @@ export function MnmQuickForm({ props }: { props: typeof QuickFormProps._type }) 
     e.preventDefault();
     setLoading(true);
     try {
-      const event = new CustomEvent("mnm-block-action", {
-        bubbles: true,
-        detail: { action: props.submitAction, payload: { ...props.submitPayload, formData: values } },
-      });
-      document.dispatchEvent(event);
+      await ctx?.onAction(props.submitAction, { ...props.submitPayload, formData: values });
       setSubmitted(true);
     } finally {
       setLoading(false);
@@ -53,22 +51,22 @@ export function MnmQuickForm({ props }: { props: typeof QuickFormProps._type }) 
 
       {props.fields.map((field) => (
         <div key={field.name} className="space-y-1">
-          <Label className="text-xs">{field.label}{field.required && <span className="text-red-500 ml-0.5">*</span>}</Label>
+          <Label htmlFor={field.name} className="text-xs">{field.label}{field.required && <span className="text-red-500 ml-0.5">*</span>}</Label>
           {field.type === "text" && (
-            <Input size={1} placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} />
+            <Input id={field.name} size={1} placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} />
           )}
           {field.type === "number" && (
-            <Input type="number" placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} />
+            <Input id={field.name} type="number" placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} />
           )}
           {field.type === "date" && (
-            <Input type="date" value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} />
+            <Input id={field.name} type="date" value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} />
           )}
           {field.type === "textarea" && (
-            <Textarea placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} rows={3} />
+            <Textarea id={field.name} placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(e) => setValue(field.name, e.target.value)} required={field.required} rows={3} />
           )}
           {field.type === "select" && field.options && (
             <Select value={String(values[field.name] ?? "")} onValueChange={(v) => setValue(field.name, v)}>
-              <SelectTrigger><SelectValue placeholder={field.placeholder ?? "Select..."} /></SelectTrigger>
+              <SelectTrigger id={field.name}><SelectValue placeholder={field.placeholder ?? "Select..."} /></SelectTrigger>
               <SelectContent>
                 {field.options.map((opt) => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
               </SelectContent>
