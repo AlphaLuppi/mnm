@@ -384,6 +384,8 @@ export { contentBlocksSchema, validateContentDocumentSchema } from "./content-bl
 export type { ValidateContentDocument } from "./content-blocks.js";
 export { createUserWidgetSchema, updateUserWidgetSchema } from "./user-widget.js";
 export type { CreateUserWidget, UpdateUserWidget } from "./user-widget.js";
+export { layoutOverridesV2Schema } from "./layout-overrides.js";
+export type { LayoutOverridesV2 } from "./layout-overrides.js";
 export {
   createInboxItemSchema,
   updateInboxItemSchema,
