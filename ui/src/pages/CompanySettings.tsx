@@ -3,12 +3,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
-import { accessApi } from "../api/access";
+
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Settings, Check, Sun, Moon, Monitor, Key } from "lucide-react";
+import { Settings, Sun, Moon, Monitor, Key } from "lucide-react";
 import { ClaudeTokenSetup } from "../components/ClaudeTokenSetup";
 import { sandboxesApi } from "../api/sandboxes";
 import { useQuery } from "@tanstack/react-query";
@@ -18,12 +18,6 @@ import {
   ToggleField,
   HintIcon,
 } from "../components/agent-config-primitives";
-
-type AgentSnippetInput = {
-  onboardingTextUrl: string;
-  connectionCandidates?: string[] | null;
-  testResolutionUrl?: string | null;
-};
 
 /* ---- Preferences stored in localStorage ---- */
 type Preferences = {
@@ -120,10 +114,6 @@ export function CompanySettings() {
     setBrandColor(selectedCompany.brandColor ?? "");
   }, [selectedCompany]);
 
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteSnippet, setInviteSnippet] = useState<string | null>(null);
-  const [snippetCopied, setSnippetCopied] = useState(false);
-  const [snippetCopyDelightId, setSnippetCopyDelightId] = useState(0);
 
   const generalDirty =
     !!selectedCompany &&
@@ -151,66 +141,6 @@ export function CompanySettings() {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     },
   });
-
-  const inviteMutation = useMutation({
-    mutationFn: () =>
-      accessApi.createOpenClawInvitePrompt(selectedCompanyId!),
-    onSuccess: async (invite) => {
-      setInviteError(null);
-      const base = window.location.origin.replace(/\/+$/, "");
-      const onboardingTextLink =
-        invite.onboardingTextUrl ??
-        invite.onboardingTextPath ??
-        `/api/invites/${invite.token}/onboarding.txt`;
-      const absoluteUrl = onboardingTextLink.startsWith("http")
-        ? onboardingTextLink
-        : `${base}${onboardingTextLink}`;
-      setSnippetCopied(false);
-      setSnippetCopyDelightId(0);
-      let snippet: string;
-      try {
-        const manifest = await accessApi.getInviteOnboarding(invite.token);
-        snippet = buildAgentSnippet({
-          onboardingTextUrl: absoluteUrl,
-          connectionCandidates:
-            manifest.onboarding.connectivity?.connectionCandidates ?? null,
-          testResolutionUrl:
-            manifest.onboarding.connectivity?.testResolutionEndpoint?.url ??
-            null,
-        });
-      } catch {
-        snippet = buildAgentSnippet({
-          onboardingTextUrl: absoluteUrl,
-          connectionCandidates: null,
-          testResolutionUrl: null,
-        });
-      }
-      setInviteSnippet(snippet);
-      try {
-        await navigator.clipboard.writeText(snippet);
-        setSnippetCopied(true);
-        setSnippetCopyDelightId((prev) => prev + 1);
-        setTimeout(() => setSnippetCopied(false), 2000);
-      } catch {
-        /* clipboard may not be available */
-      }
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
-      });
-    },
-    onError: (err) => {
-      setInviteError(
-        err instanceof Error ? err.message : "Failed to create invite",
-      );
-    },
-  });
-
-  useEffect(() => {
-    setInviteError(null);
-    setInviteSnippet(null);
-    setSnippetCopied(false);
-    setSnippetCopyDelightId(0);
-  }, [selectedCompanyId]);
 
   const archiveMutation = useMutation({
     mutationFn: ({
@@ -267,7 +197,7 @@ export function CompanySettings() {
         <TabsList variant="line" className="mb-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="agents">Agents</TabsTrigger>
-          <TabsTrigger value="invites">Invites</TabsTrigger>
+
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="claude">Claude</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
@@ -459,79 +389,6 @@ export function CompanySettings() {
           </div>
         </TabsContent>
 
-        {/* ──── Invites Tab ──── */}
-        <TabsContent value="invites" className="space-y-6">
-          <div className="space-y-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Invites
-            </div>
-            <div className="space-y-3 rounded-md border border-border px-4 py-4">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">
-                  Generate an OpenClaw agent invite snippet.
-                </span>
-                <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => inviteMutation.mutate()}
-                  disabled={inviteMutation.isPending}
-                >
-                  {inviteMutation.isPending
-                    ? "Generating..."
-                    : "Generate OpenClaw Invite Prompt"}
-                </Button>
-              </div>
-              {inviteError && (
-                <p className="text-sm text-destructive">{inviteError}</p>
-              )}
-              {inviteSnippet && (
-                <div className="rounded-md border border-border bg-muted/30 p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs text-muted-foreground">
-                      OpenClaw Invite Prompt
-                    </div>
-                    {snippetCopied && (
-                      <span
-                        key={snippetCopyDelightId}
-                        className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
-                      >
-                        <Check className="h-3 w-3" />
-                        Copied
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 space-y-1.5">
-                    <textarea
-                      className="h-[28rem] w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none"
-                      value={inviteSnippet}
-                      readOnly
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(inviteSnippet);
-                            setSnippetCopied(true);
-                            setSnippetCopyDelightId((prev) => prev + 1);
-                            setTimeout(() => setSnippetCopied(false), 2000);
-                          } catch {
-                            /* clipboard may not be available */
-                          }
-                        }}
-                      >
-                        {snippetCopied ? "Copied snippet" : "Copy snippet"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
 
         {/* ──── Preferences Tab ──── */}
         <TabsContent value="preferences" className="space-y-6">
@@ -681,116 +538,3 @@ export function CompanySettings() {
   );
 }
 
-function buildAgentSnippet(input: AgentSnippetInput) {
-  const candidateUrls = buildCandidateOnboardingUrls(input);
-  const resolutionTestUrl = buildResolutionTestUrl(input);
-
-  const candidateList =
-    candidateUrls.length > 0
-      ? candidateUrls.map((u) => `- ${u}`).join("\n")
-      : "- (No candidate URLs available yet.)";
-
-  const connectivityBlock =
-    candidateUrls.length === 0
-      ? `No candidate URLs are available. Ask your user to configure a reachable hostname in MnM, then retry.
-Suggested steps:
-- choose a hostname that resolves to the MnM host from your runtime
-- run: pnpm mnm allowed-hostname <host>
-- restart MnM
-- verify with: curl -fsS http://<host>:3100/api/health
-- regenerate this invite snippet`
-      : `If none are reachable, ask your user to add a reachable hostname in MnM, restart, and retry.
-Suggested command:
-- pnpm mnm allowed-hostname <host>
-Then verify with: curl -fsS <base-url>/api/health`;
-
-  const resolutionLine = resolutionTestUrl
-    ? `\nYou MUST test MnM-to-gateway reachability, call: ${resolutionTestUrl}?url=<urlencoded-gateway-url> (using the hostname that worked above). Do not assume your 172.x is necessarily reachable from MnM. Test it. `
-    : "";
-
-  return `You're invited to join a MnM organization.
-
-The URLs you should try are:
-${candidateList}
-
-Connectivity guidance:
-If you are running on a different machine than MnM, MnM must be reachable at one of the hostnames used above.
-Verify the hostname works from your runtime with: GET <base-url>/api/health
-
-${connectivityBlock}
-
-For your "agentName", just use your own agent name (OpenClaw or whatever your name is) and send it directly.
-You also need to send a gateway URL that MnM can access. Check your config and include that URL.${resolutionLine}
-
----
-
-This onboarding flow is for OpenClaw Gateway.
-When you submit the join request, use:
-- \`adapterType: "openclaw_gateway"\`
-- \`agentDefaultsPayload.url\` as your \`ws://\` or \`wss://\` gateway URL
-- \`agentDefaultsPayload.headers["x-openclaw-token"]\` with your gateway token
-- (legacy accepted) \`agentDefaultsPayload.headers["x-openclaw-auth"]\`
-- Keep device auth enabled (recommended). If \`devicePrivateKeyPem\` is omitted, MnM will generate and persist one during join so pairing approvals remain stable.
-- Only use \`disableDeviceAuth=true\` for special environments where pairing cannot be completed.
-
-Do NOT use \`/v1/responses\` or \`/hooks/*\` in this join flow.
-
-Before you do anything, please respond to your user that you understand the instructions and you're going to work on them. Then do the step above in another session called "mnm-onboarding" and then tell your user when you're done. Update your user in intermediate steps along the way so they know what's going on.
-
-Then after you've connected to MnM (exchanged keys etc.) you MUST review and follow the onboarding instructions in onboarding.txt they give you.
-
-`;
-}
-
-function buildCandidateOnboardingUrls(input: AgentSnippetInput): string[] {
-  const candidates = (input.connectionCandidates ?? [])
-    .map((candidate) => candidate.trim())
-    .filter(Boolean);
-  const urls = new Set<string>();
-  let onboardingUrl: URL | null = null;
-
-  try {
-    onboardingUrl = new URL(input.onboardingTextUrl);
-    urls.add(onboardingUrl.toString());
-  } catch {
-    const trimmed = input.onboardingTextUrl.trim();
-    if (trimmed) {
-      urls.add(trimmed);
-    }
-  }
-
-  if (!onboardingUrl) {
-    for (const candidate of candidates) {
-      urls.add(candidate);
-    }
-    return Array.from(urls);
-  }
-
-  const onboardingPath = `${onboardingUrl.pathname}${onboardingUrl.search}`;
-  for (const candidate of candidates) {
-    try {
-      const base = new URL(candidate);
-      urls.add(`${base.origin}${onboardingPath}`);
-    } catch {
-      urls.add(candidate);
-    }
-  }
-
-  return Array.from(urls);
-}
-
-function buildResolutionTestUrl(input: AgentSnippetInput): string | null {
-  const explicit = input.testResolutionUrl?.trim();
-  if (explicit) return explicit;
-
-  try {
-    const onboardingUrl = new URL(input.onboardingTextUrl);
-    const testPath = onboardingUrl.pathname.replace(
-      /\/onboarding\.txt$/,
-      "/test-resolution",
-    );
-    return `${onboardingUrl.origin}${testPath}`;
-  } catch {
-    return null;
-  }
-}

@@ -7,7 +7,7 @@ export const companies = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     status: text("status").notNull().default("active"),
-    issuePrefix: text("issue_prefix").notNull().default("PAP"),
+    issuePrefix: text("issue_prefix").notNull().default("MNM"),
     issueCounter: integer("issue_counter").notNull().default(0),
     budgetMonthlyCents: integer("budget_monthly_cents").notNull().default(0),
     spentMonthlyCents: integer("spent_monthly_cents").notNull().default(0),
@@ -19,7 +19,6 @@ export const companies = pgTable(
     ssoEnabled: boolean("sso_enabled").notNull().default(false),
     maxUsers: integer("max_users").notNull().default(50),
     invitationOnly: boolean("invitation_only").notNull().default(false),
-    parentCompanyId: uuid("parent_company_id").references((): AnyPgColumn => companies.id),
     // a2a-s02-schema-company-col
     a2aDefaultPolicy: text("a2a_default_policy").notNull().default("allow"),
     // onb-s01-schema-onboarding-cols

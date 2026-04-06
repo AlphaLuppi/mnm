@@ -42,7 +42,6 @@ import { getUIAdapter } from "../adapters";
 import { ClaudeLocalAdvancedFields } from "../adapters/claude-local/config-fields";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { ChoosePathButton } from "./PathInstructionsModal";
-import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 
 /* ---- Create mode values ---- */
 
@@ -891,7 +890,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 /* ---- Internal sub-components ---- */
 
-const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local", "cursor"]);
+const ENABLED_ADAPTER_TYPES = new Set(["claude_local"]);
 
 /** Display list includes all real adapter types plus UI-only coming-soon entries. */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
@@ -914,7 +913,7 @@ function AdapterTypeDropdown({
       <PopoverTrigger asChild>
         <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
           <span className="inline-flex items-center gap-1.5">
-            {value === "opencode_local" ? <OpenCodeLogoIcon className="h-3.5 w-3.5" /> : null}
+
             <span>{adapterLabels[value] ?? value}</span>
           </span>
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -937,7 +936,6 @@ function AdapterTypeDropdown({
             }}
           >
             <span className="inline-flex items-center gap-1.5">
-              {item.value === "opencode_local" ? <OpenCodeLogoIcon className="h-3.5 w-3.5" /> : null}
               <span>{item.label}</span>
             </span>
             {item.comingSoon && (

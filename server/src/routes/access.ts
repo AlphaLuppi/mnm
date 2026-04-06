@@ -26,7 +26,7 @@ import {
   acceptInviteSchema,
   claimJoinRequestApiKeySchema,
   createCompanyInviteSchema,
-  createOpenClawInvitePromptSchema,
+
   listJoinRequestsQuerySchema,
   updateMemberPermissionsSchema,
   updateUserCompanyAccessSchema,
@@ -1567,28 +1567,6 @@ export function accessRoutes(
     }
   }
 
-  async function assertCanGenerateOpenClawInvitePrompt(
-    req: Request,
-    companyId: string
-  ) {
-    assertCompanyAccess(req, companyId);
-    if (req.actor.type === "agent") {
-      if (!req.actor.agentId) throw forbidden("Agent authentication required");
-      const actorAgent = await agents.getById(req.actor.agentId);
-      if (!actorAgent || actorAgent.companyId !== companyId) {
-        throw forbidden("Agent key cannot access another company");
-      }
-      if (false) {
-        throw forbidden("Only CEO agents can generate OpenClaw invite prompts");
-      }
-      return;
-    }
-    if (req.actor.type !== "board") throw unauthorized();
-    if (isLocalImplicit(req)) return;
-    const allowed = await access.canUser(companyId, req.actor.userId, "users:invite");
-    if (!allowed) throw forbidden("Permission denied");
-  }
-
   async function createCompanyInviteForCompany(input: {
     req: Request;
     companyId: string;
@@ -1874,51 +1852,6 @@ export function accessRoutes(
 
     res.json(result);
   });
-
-  router.post(
-    "/companies/:companyId/openclaw/invite-prompt",
-    validate(createOpenClawInvitePromptSchema),
-    async (req, res) => {
-      const companyId = req.params.companyId as string;
-      await assertCanGenerateOpenClawInvitePrompt(req, companyId);
-      const { token, created, normalizedAgentMessage } =
-        await createCompanyInviteForCompany({
-          req,
-          companyId,
-          allowedJoinTypes: "agent",
-          defaultsPayload: null,
-          agentMessage: req.body.agentMessage ?? null
-        });
-
-      await logActivity(db, {
-        companyId,
-        actorType: req.actor.type === "agent" ? "agent" : "user",
-        actorId:
-          req.actor.type === "agent"
-            ? req.actor.agentId ?? "unknown-agent"
-            : req.actor.userId ?? "board",
-        action: "invite.openclaw_prompt_created",
-        entityType: "invite",
-        entityId: created.id,
-        details: {
-          inviteType: created.inviteType,
-          allowedJoinTypes: created.allowedJoinTypes,
-          expiresAt: created.expiresAt.toISOString(),
-          hasAgentMessage: Boolean(normalizedAgentMessage)
-        }
-      });
-
-      const inviteSummary = toInviteSummaryResponse(req, token, created);
-      res.status(201).json({
-        ...created,
-        token,
-        inviteUrl: `/invite/${token}`,
-        onboardingTextPath: inviteSummary.onboardingTextPath,
-        onboardingTextUrl: inviteSummary.onboardingTextUrl,
-        inviteMessage: inviteSummary.inviteMessage
-      });
-    }
-  );
 
   router.get("/invites/:token", async (req, res) => {
     const token = (req.params.token as string).trim();
