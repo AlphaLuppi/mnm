@@ -41,7 +41,7 @@ export type {
   AgentTaskSession,
   AgentWakeupRequest,
 } from "./heartbeat.js";
-export type { LiveEvent } from "./live.js";
+export type { LiveEvent, EventVisibility } from "./live.js";
 export type { DashboardSummary } from "./dashboard.js";
 // DASH-S01: Dashboard API types
 export {
