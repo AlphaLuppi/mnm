@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import { Renderer, StateProvider, ActionProvider } from "@json-render/react";
 import { registry } from "./registry";
 import type { ContentDocument } from "@mnm/shared";
@@ -8,6 +9,12 @@ export interface BlockContext {
   companyId: string;
   onAction: (action: string, payload?: Record<string, unknown>) => Promise<void>;
   hasPermission: (slug: string) => boolean;
+}
+
+/** React context so block components can dispatch actions without DOM events */
+const BlockActionCtx = createContext<BlockContext | null>(null);
+export function useBlockContext() {
+  return useContext(BlockActionCtx);
 }
 
 interface BlockRendererProps {
@@ -25,7 +32,7 @@ function contentDocumentToSpec(doc: ContentDocument) {
   const rootChildren: string[] = [];
 
   function processBlock(block: Record<string, unknown>, prefix: string): string {
-    const id = `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = prefix;
     const { type, children: blockChildren, ...props } = block;
 
     const childIds: string[] = [];
@@ -88,11 +95,13 @@ export function BlockRenderer({ blocks, context, className }: BlockRendererProps
 
   return (
     <div className={className}>
-      <StateProvider initialState={{}}>
-        <ActionProvider handlers={actionHandlers}>
-          <Renderer spec={spec} registry={registry} />
-        </ActionProvider>
-      </StateProvider>
+      <BlockActionCtx.Provider value={context ?? null}>
+        <StateProvider initialState={{}}>
+          <ActionProvider handlers={actionHandlers}>
+            <Renderer spec={spec} registry={registry} />
+          </ActionProvider>
+        </StateProvider>
+      </BlockActionCtx.Provider>
     </div>
   );
 }

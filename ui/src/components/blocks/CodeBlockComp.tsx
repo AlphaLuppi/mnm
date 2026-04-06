@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CodeBlockProps } from "@mnm/shared";
 
+import { Button } from "../ui/button";
 import { Check, Copy } from "lucide-react";
 
 
@@ -18,9 +19,9 @@ export function MnmCodeBlock({ props }: { props: typeof CodeBlockProps._type }) 
       {props.title && (
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">{props.title}</span>
-          <button onClick={handleCopy} className="text-muted-foreground hover:text-foreground p-1 rounded">
+          <Button variant="ghost" size="icon" onClick={handleCopy} aria-label={copied ? "Copied" : "Copy code"} className="h-6 w-6">
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          </button>
+          </Button>
         </div>
       )}
       <pre className="overflow-auto rounded-md border bg-muted/50 p-3 text-xs max-h-64">

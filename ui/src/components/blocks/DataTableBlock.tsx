@@ -1,6 +1,6 @@
 import { DataTableProps } from "@mnm/shared";
 
-
+const ALIGN: Record<string, string> = { left: "text-left", center: "text-center", right: "text-right" };
 
 export function MnmDataTable({ props }: { props: typeof DataTableProps._type }) {
   const rows = props.maxRows ? props.rows.slice(0, props.maxRows) : props.rows;
@@ -13,7 +13,7 @@ export function MnmDataTable({ props }: { props: typeof DataTableProps._type }) 
           <thead>
             <tr className="border-b bg-muted/50">
               {props.columns.map((col) => (
-                <th key={col.key} className={`px-3 py-2 font-medium text-muted-foreground text-${col.align ?? "left"}`}>
+                <th key={col.key} className={`px-3 py-2 font-medium text-muted-foreground ${ALIGN[col.align ?? "left"]}`}>
                   {col.label}
                 </th>
               ))}
@@ -25,7 +25,7 @@ export function MnmDataTable({ props }: { props: typeof DataTableProps._type }) 
             ) : rows.map((row, i) => (
               <tr key={i} className="border-b last:border-0">
                 {props.columns.map((col) => (
-                  <td key={col.key} className={`px-3 py-2 text-${col.align ?? "left"}`}>
+                  <td key={col.key} className={`px-3 py-2 ${ALIGN[col.align ?? "left"]}`}>
                     {String(row[col.key] ?? "—")}
                   </td>
                 ))}
