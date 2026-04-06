@@ -77,7 +77,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
       { label: preset.name },
     ]);
     return () => setBreadcrumbs([]);
-  }, [setBreadcrumbs, onBack, preset.name]);
+  }, [setBreadcrumbs, preset.name]);
 
   // Roles query for assignment
   const { data: roles } = useQuery({
