@@ -6,7 +6,8 @@ export type NavItemId =
   | "routines" | "goals" | "chat" | "folders" | "cursors" | "projects"
   | "agents" | "members" | "roles" | "tags" | "config-layers" | "feedback"
   | "org" | "costs" | "activity" | "audit" | "traces" | "containers"
-  | "deployments" | "settings" | "sso" | "import-jira" | "view-presets";
+  | "deployments" | "settings" | "sso" | "import-jira" | "view-presets"
+  | "__projects__" | "__agents__";
 
 /** A sidebar section grouping multiple nav items */
 export interface SidebarSection {
@@ -103,6 +104,8 @@ export const DEFAULT_LAYOUT: ViewPresetLayout = {
           "goals", "chat", "folders", "cursors",
         ],
       },
+      { label: "Projects", items: ["__projects__"] },
+      { label: "Agents", items: ["__agents__"] },
       {
         label: "Company",
         items: [
@@ -112,8 +115,6 @@ export const DEFAULT_LAYOUT: ViewPresetLayout = {
         ],
       },
     ],
-    showProjects: true,
-    showAgents: true,
   },
   dashboard: {
     widgets: [
@@ -141,8 +142,6 @@ export const PRESET_LAYOUTS = {
         { label: "Suivi", items: ["issues", "goals", "projects", "dashboard"] },
         { label: "Equipe", items: ["members", "agents", "org"] },
       ],
-      showProjects: false,
-      showAgents: false,
     },
     dashboard: {
       widgets: [
@@ -182,8 +181,6 @@ export const PRESET_LAYOUTS = {
         { label: "Suivi", items: ["goals", "projects", "feedback"] },
         { label: "Audit", items: ["audit", "traces", "activity"] },
       ],
-      showProjects: false,
-      showAgents: false,
     },
     dashboard: {
       widgets: [
