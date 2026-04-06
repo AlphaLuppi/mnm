@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -194,7 +195,7 @@ export function WidgetCard({
               <span>{error}</span>
             </div>
           ) : (
-            children
+            <WidgetErrorBoundary>{children}</WidgetErrorBoundary>
           )}
         </CardContent>
 
