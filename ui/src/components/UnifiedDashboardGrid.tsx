@@ -107,7 +107,8 @@ export function UnifiedDashboardGrid({
   const placementsRef = useRef(placements);
   placementsRef.current = placements;
 
-  const { width, containerRef } = useContainerWidth({ initialWidth: 1200 });
+  const { width: rawWidth, containerRef } = useContainerWidth({ initialWidth: 1200 });
+  const width = Math.max(rawWidth, 300);
 
   const isDesktop = currentBreakpoint === "lg";
   const isMobile = currentBreakpoint === "sm";
@@ -238,6 +239,49 @@ export function UnifiedDashboardGrid({
     [onResizeWidget],
   );
 
+  const handleKeyboardMove = useCallback(
+    (widgetId: string, dx: number, dy: number) => {
+      const updated = placementsRef.current.map((p) => {
+        if (p.widgetId !== widgetId) return p;
+        return {
+          ...p,
+          x: Math.max(0, Math.min(12 - p.w, p.x + dx)),
+          y: Math.max(0, p.y + dy),
+        };
+      });
+      onLayoutChange(updated);
+      const title = getWidgetTitle(widgetId);
+      const moved = updated.find((p) => p.widgetId === widgetId);
+      if (moved) {
+        setLiveAnnouncement(`Widget ${title} moved to row ${moved.y + 1}, column ${moved.x + 1}`);
+      }
+    },
+    [onLayoutChange, getWidgetTitle],
+  );
+
+  const handleKeyboardResize = useCallback(
+    (widgetId: string, dw: number, dh: number) => {
+      const updated = placementsRef.current.map((p) => {
+        if (p.widgetId !== widgetId) return p;
+        const isPreset = p.widgetId.startsWith("preset:");
+        const type = isPreset ? p.widgetId.replace("preset:", "") : null;
+        const def = type ? WIDGET_REGISTRY[type] : null;
+        const newW = Math.max(def?.minW ?? 3, Math.min(def?.maxW ?? 12, p.w + dw));
+        const newH = Math.max(def?.minH ?? 1, Math.min(def?.maxH ?? 6, p.h + dh));
+        return { ...p, w: newW, h: newH };
+      });
+      onLayoutChange(updated);
+      const title = getWidgetTitle(widgetId);
+      const resized = updated.find((p) => p.widgetId === widgetId);
+      if (resized) {
+        setLiveAnnouncement(
+          `Widget ${title} resized to ${widthToSpan(resized.w)} columns, ${resized.h} rows`,
+        );
+      }
+    },
+    [onLayoutChange, getWidgetTitle],
+  );
+
   // Empty state: no visible widgets
   if (visiblePlacements.length === 0 && onAddWidget) {
     return (
@@ -314,6 +358,8 @@ export function UnifiedDashboardGrid({
                 onDelete={onDeleteWidget}
                 disableDrag={!dragEnabled}
                 disableResize={!resizeEnabled}
+                onKeyboardMove={handleKeyboardMove}
+                onKeyboardResize={handleKeyboardResize}
               >
                 {isPreset && presetDef ? (
                   <Suspense fallback={<WidgetSkeleton />}>

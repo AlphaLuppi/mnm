@@ -45,6 +45,10 @@ export interface WidgetCardProps {
   /** Hide drag/resize for mobile */
   disableDrag?: boolean;
   disableResize?: boolean;
+  /** Alt+Arrow: move widget by dx/dy grid units */
+  onKeyboardMove?: (widgetId: string, dx: number, dy: number) => void;
+  /** Alt+Shift+Arrow: resize widget by dw/dh grid units */
+  onKeyboardResize?: (widgetId: string, dw: number, dh: number) => void;
 }
 
 export function WidgetCard({
@@ -61,12 +65,33 @@ export function WidgetCard({
   onDelete,
   disableDrag,
   disableResize,
+  onKeyboardMove,
+  onKeyboardResize,
 }: WidgetCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!e.altKey) return;
+    const arrow = e.key;
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(arrow)) return;
+
+    e.preventDefault();
+
+    if (e.shiftKey && onKeyboardResize && !disableResize) {
+      const dw = arrow === "ArrowRight" ? 3 : arrow === "ArrowLeft" ? -3 : 0;
+      const dh = arrow === "ArrowDown" ? 1 : arrow === "ArrowUp" ? -1 : 0;
+      if (dw !== 0 || dh !== 0) onKeyboardResize(widgetId, dw, dh);
+    } else if (onKeyboardMove && !disableDrag) {
+      const dx = arrow === "ArrowRight" ? 3 : arrow === "ArrowLeft" ? -3 : 0;
+      const dy = arrow === "ArrowDown" ? 1 : arrow === "ArrowUp" ? -1 : 0;
+      if (dx !== 0 || dy !== 0) onKeyboardMove(widgetId, dx, dy);
+    }
+  }
 
   return (
     <>
       <Card
+        onKeyDown={handleKeyDown}
         className={cn(
           "group/widget relative rounded-lg overflow-hidden transition-all duration-150 h-full flex flex-col gap-0 py-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           isDragging
