@@ -1340,7 +1340,7 @@ export function heartbeatService(db: Db) {
         await onLog("stderr", `[mnm] ${warning}\n`);
       }
 
-      // CONFIG-LAYERS: Dual-path — use layers if agent has base_layer_id, else legacy adapterConfig
+      // CONFIG-LAYERS: resolve merged config from layers
       let mergedConfig: Record<string, unknown>;
       if ((agent as any).baseLayerId) {
         const clRuntime = configLayerRuntimeService(db);
@@ -1360,6 +1360,8 @@ export function heartbeatService(db: Db) {
           await onLog("stderr", `[mnm] config-layer warning: ${warning}\n`);
         }
       } else {
+        // Legacy fallback: agent has no base config layer (should not happen after migration 0054)
+        logger.warn({ agentId: agent.id, runId }, "Agent missing baseLayerId — using legacy adapterConfig fallback");
         const config = parseObject(agent.adapterConfig);
         mergedConfig = issueAssigneeOverrides?.adapterConfig
           ? { ...config, ...issueAssigneeOverrides.adapterConfig }
@@ -1400,13 +1402,15 @@ export function heartbeatService(db: Db) {
         );
       }
       // Sandbox routing: resolve user's Docker container + Claude OAuth token for execution
+      // MNM_FORCE_LOCAL_EXECUTION=true bypasses sandbox routing (useful for local dev)
+      const forceLocal = process.env.MNM_FORCE_LOCAL_EXECUTION === "true";
       let dockerContainerId: string | undefined;
       let claudeOauthToken: string | undefined;
       const actorUserId = await resolveRunActor(db, {
         wakeupRequestId: run.wakeupRequestId,
         contextSnapshot: context,
       }, { createdByUserId: agent.createdByUserId ?? null });
-      if (actorUserId) {
+      if (!forceLocal && actorUserId) {
         const [sandbox] = await db
           .select({
             dockerContainerId: userPods.dockerContainerId,

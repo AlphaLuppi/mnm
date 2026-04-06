@@ -60,6 +60,7 @@ export interface Config {
   storageS3ForcePathStyle: boolean;
   heartbeatSchedulerEnabled: boolean;
   heartbeatSchedulerIntervalMs: number;
+  forceLocalExecution: boolean;
   companyDeletionEnabled: boolean;
   redisUrl: string | undefined;
 }
@@ -243,6 +244,7 @@ export function loadConfig(): Config {
     storageS3ForcePathStyle,
     heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
     heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
+    forceLocalExecution: process.env.MNM_FORCE_LOCAL_EXECUTION === "true",
     companyDeletionEnabled,
     redisUrl: process.env.REDIS_URL?.trim() || undefined,
   };

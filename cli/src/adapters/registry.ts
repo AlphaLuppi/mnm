@@ -4,7 +4,6 @@ import { printCodexStreamEvent } from "@mnm/adapter-codex-local/cli";
 import { printCursorStreamEvent } from "@mnm/adapter-cursor-local/cli";
 import { printOpenCodeStreamEvent } from "@mnm/adapter-opencode-local/cli";
 import { printPiStreamEvent } from "@mnm/adapter-pi-local/cli";
-import { printOpenClawGatewayStreamEvent } from "@mnm/adapter-openclaw-gateway/cli";
 import { processCLIAdapter } from "./process/index.js";
 import { httpCLIAdapter } from "./http/index.js";
 
@@ -33,11 +32,6 @@ const cursorLocalCLIAdapter: CLIAdapterModule = {
   formatStdoutEvent: printCursorStreamEvent,
 };
 
-const openclawGatewayCLIAdapter: CLIAdapterModule = {
-  type: "openclaw_gateway",
-  formatStdoutEvent: printOpenClawGatewayStreamEvent,
-};
-
 const adaptersByType = new Map<string, CLIAdapterModule>(
   [
     claudeLocalCLIAdapter,
@@ -45,7 +39,6 @@ const adaptersByType = new Map<string, CLIAdapterModule>(
     openCodeLocalCLIAdapter,
     piLocalCLIAdapter,
     cursorLocalCLIAdapter,
-    openclawGatewayCLIAdapter,
     processCLIAdapter,
     httpCLIAdapter,
   ].map((a) => [a.type, a]),
