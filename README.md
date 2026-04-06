@@ -50,6 +50,7 @@ L'ambition : chaque role de l'entreprise a ses agents, ses workflows, ses outils
 3. **Dual-speed workflow** — Reflexion humaine (async, brainstorms, decisions strategiques) + execution machine (continue, 24/7, multi-agents)
 4. **Anti-shadow-AI** — Tous les agents visibles, coutables, gouvernes, audites. Le DSI voit qui utilise quoi, combien ca coute, et peut appliquer des politiques de gouvernance
 5. **Capture du savoir tacite** — Le savoir tribal (comment on deploie, les conventions internes, les decisions d'archi) devient un actif digital exploitable par les agents et les humains
+6. **Feature Traceability** — Chaque produit est un ensemble de fonctionnalites vivantes reliees a des specs, du code et des tests. Les agents maintiennent les liens automatiquement. Un PM voit la coverage, un QA voit les tests manquants, un compliance officer voit la conformite. Audit-ready sans spreadsheets.
 
 ---
 
@@ -269,6 +270,8 @@ L'index est stocke dans `.gitnexus/` (gitignored). Les skills Claude Code sont d
 | **2 avr** | Epic Config Layers termine (5 stories, 47 SP) |
 | **3 avr** | Epic Chat Collaboratif termine (18 stories, 80 SP) |
 | **4 avr** | **69/69 stories B2B completees** — MVP enterprise ready |
+| **5-6 avr** | Blocks Platform (View Presets, Dashboard CAO, Agent Forms, Inbox) — 8 stories livrees |
+| **6 avr** | GitNexus integre (8752 nodes, 21K edges). Brainstorm Projects v2 — vision Feature Map & Traceability |
 
 ---
 
@@ -291,6 +294,9 @@ L'index est stocke dans `.gitnexus/` (gitignored). Les skills Claude Code sont d
 
 | Item | Priorite | Description |
 |---|---|---|
+| **Projects v2 — Feature Map & Traceability** | P0 | Arbre de nodes generique (features, ACs, requirements) + entity_links (graph de liens). Feature Map comme vue centrale du projet. Coverage structurelle par feature. Voir `_bmad-output/vision-projects-v2-2026-04-06.md` |
+| **GitNexus MCP par repo** | P0 | 1 MCP server par codebase exposant le knowledge graph du code. Agents + humains peuvent query l'architecture sans cloner. |
+| **Handoff Chat → Production** | P1 | Agent extracteur qui distille un brainstorm chat en document structure pour les equipes prod. |
 | Validation E2E complete | P1 | Deploy test instance, smoke test 8 scenarios CBA |
 | Import Jira intelligent | P1 | Mapping semantique Jira -> MnM, dry-run preview |
 | "Drive the Agent" Live UX | P1 | Split view code+chat, quick-actions, historique navigable |
@@ -298,7 +304,6 @@ L'index est stocke dans `.gitnexus/` (gitignored). Les skills Claude Code sont d
 | Drift Auto-Remediation | P2 | Politiques configurables, kill+relance automatique |
 | Auto-Generated Connectors | P2 | Agent analyse API/codebase, genere un MCP server |
 | MnM Self-Modifying | P3 | Les agents modifient MnM lui-meme |
-| Brainstorm as Entry Point | P3 | Brainstorm humain -> output structure -> agents -> prod |
 | Agent Communication Proxies | P3 | Echange de contexte machine-to-machine |
 | AI Auto-Brainstorming | P3 | Detection de problemes, proposition de solutions |
 
@@ -313,6 +318,7 @@ Le projet a ete construit sur une reflexion approfondie documentee dans `_bmad-o
 - **B2B Transformation** (mar 12) — 24 idees via role-playing et what-if scenarios. 5 noyaux de valeur.
 - **Distributed Tracing** (mar 16) — Trace-as-context, vision Langfuse-native
 - **Enterprise Architecture** (mar 20-21) — Modele hybride Roles+Tags, CAO, pods Docker, task pools
+- **Projects v2 — Feature Map & Traceability** (avr 6) — Vision complete : nodes generiques + entity_links, Feature Map comme vue centrale, AC tracking, compliance traceability, GitNexus MCP par repo, handoff chat → production
 
 ---
 

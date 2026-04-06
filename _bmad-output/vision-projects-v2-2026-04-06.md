@@ -47,7 +47,8 @@ C'est là que les agents **travaillent**. Le terrain commun entre les personnes 
 
 - **Projet = Produit** — un projet MnM représente un produit complet (ex: "Agathe" chez CBA)
 - **Multi-codebase** — un produit peut avoir N codebases/workspaces (app mobile, web Angular, vieille app Struts...). Chaque codebase a son MCP GitNexus.
-- **Issues = l'unité universelle** — une issue peut représenter n'importe quoi : une feature, une tâche, un bug, un requirement. La sémantique vient des tags/labels et des liens, pas du type.
+- **Nodes = la structure du produit** — un arbre générique (features, ACs, requirements, modules...) qui organise le produit. Pas des issues — les nodes sont permanents (capacités du produit), les issues sont temporaires (travail à faire).
+- **Issues = le travail à faire** — tâches, bugs, stories. Liées aux nodes via entity_links.
 - **Visibilité par tags + RBAC** — le projet appartient à l'entreprise. Plusieurs personnes y accèdent selon leurs tags et rôles. Chacun voit et fait des choses différentes.
 - **Dashboards composables (Blocks)** — chaque personne compose sa vue. Pas d'onglets figés.
 
@@ -121,23 +122,43 @@ Pas de workflow rigide — **le contenu dicte la forme**. L'agent propose, l'hum
 
 **Deux ajouts structurels :**
 
-**1. Feature nodes** — l'arbre de fonctionnalités du produit
+**1. Nodes** — arbre générique d'organisation
 
 ```sql
-features (
+nodes (
   id            UUID PRIMARY KEY,
-  project_id    UUID NOT NULL REFERENCES projects(id),
   company_id    UUID NOT NULL,
+  project_id    UUID REFERENCES projects(id),  -- nullable: null = company-wide
+  type          TEXT NOT NULL,     -- libre: 'feature', 'acceptance-criteria', 'requirement',
+                                  --        'module', 'area', 'milestone', ...
   name          TEXT NOT NULL,
   description   TEXT,              -- le TLDR humain
-  parent_id     UUID REFERENCES features(id),  -- arbre
+  parent_id     UUID REFERENCES nodes(id),  -- arbre
   metadata      JSONB,             -- métriques cachées + libre
   created_at    TIMESTAMPTZ,
   updated_at    TIMESTAMPTZ
 )
 ```
 
-Ultra léger — juste un nom dans un arbre. Le metadata stocke les métriques agrégées (issues done/total, tests passing/total, coverage %, compliance status). Mis à jour via live events.
+Ultra léger — 6 colonnes utiles + timestamps. Zéro opinion sur le contenu. Le `type` est libre — chaque entreprise utilise les siens.
+
+**Scope :**
+- `project_id` défini → noeud spécifique à un produit (feature, AC)
+- `project_id` null → noeud company-wide (requirement ISO 27001, module partagé, design system)
+
+Un requirement company-wide peut être lié à des features de N projets via entity_links.
+
+**Usages immédiats :**
+| Type | Exemple | Qui l'utilise |
+|------|---------|---------------|
+| `feature` | "Authentification" | PM, Dev, QA, CEO |
+| `acceptance-criteria` | "Given SSO configured, user can login" | PM, QA |
+| `requirement` | "REQ-04: MFA obligatoire" (ISO 27001) | Compliance, QA |
+| `module` | "auth-service" | Dev, Archi |
+| `area` | "Backend", "Mobile", "Web" | Routing d'agents |
+| Futur... | Ce qu'on imagine pas encore | ... |
+
+Le metadata stocke les métriques agrégées (issues done/total, tests passing/total, coverage %, compliance status). Mis à jour via live events.
 
 **2. Entity links** — le graph de liens entre toutes les entités
 
@@ -145,9 +166,9 @@ Ultra léger — juste un nom dans un arbre. Le metadata stocke les métriques a
 entity_links (
   id            UUID PRIMARY KEY,
   company_id    UUID NOT NULL,
-  source_type   TEXT NOT NULL,     -- 'feature', 'issue', 'chat_channel', 'artifact'
+  source_type   TEXT NOT NULL,     -- 'node', 'issue', 'chat_channel', 'artifact', 'heartbeat_run'
   source_id     UUID NOT NULL,
-  target_type   TEXT NOT NULL,     -- 'feature', 'issue', 'document', 'test', 'artifact'
+  target_type   TEXT NOT NULL,     -- 'node', 'issue', 'document', 'artifact', 'heartbeat_run'
   target_id     UUID NOT NULL,
   link_type     TEXT NOT NULL,     -- libre: 'implements', 'tests', 'references', 'spec', ...
   metadata      JSONB,             -- infos complémentaires libres
@@ -161,15 +182,15 @@ Les link_types sont **libres** — pas d'enum. Chaque entreprise utilise les sie
 **Ce que ça connecte :**
 
 ```
-Feature ←→ Issue         (feature contient des issues)
-Feature ←→ Document      (feature a des specs)
-Feature ←→ Test          (feature est testée par)
-Feature ←→ Feature       (parent/child via parent_id, OU dépendances via link)
-Issue   ←→ Issue         (parent/child, depends-on, blocks)
-Issue   ←→ Document      (implements, references)
-Issue   ←→ Test          (tested-by, validates)
-Chat    ←→ Feature       (originated-from, discusses)
-Chat    ←→ Document      (produced, references)
+Node ←→ Issue            (feature contient des issues, AC implémenté par une issue)
+Node ←→ Document         (feature a des specs, requirement a un cahier des charges)
+Node ←→ Heartbeat_run    (AC testé par un run, feature validée par un run)
+Node ←→ Node             (dépendances cross-features, requirement → feature)
+Node ←→ Artifact         (prototype, handoff doc, rapport)
+Issue ←→ Issue           (parent/child, depends-on, blocks)
+Issue ←→ Document        (implements, references)
+Chat  ←→ Node            (originated-from, discusses)
+Chat  ←→ Document        (produced, references)
 ```
 
 Les agents maintiennent ces liens automatiquement :
@@ -180,19 +201,70 @@ Les agents maintiennent ces liens automatiquement :
 ### Comment ça répond à chaque besoin
 
 **"Où en est ma feature ?"**
-→ Une issue parent avec des issues enfants. Un Block agrège : X% issues done, Y tests passing, Z specs liées. Pas besoin d'entité "Feature" — c'est juste une issue avec des enfants et des liens.
+→ Un node de type "feature" avec ses entity_links vers des issues, tests, specs. Le TLDR dans metadata montre : 14/22 issues done, 20/26 tests passing. Le Full Doc donne le détail complet.
 
 **"Quelle est la couverture de test de mon produit ?"**
-→ Un Block parcourt toutes les issues du projet avec leurs liens vers les tests. Calcule la couverture. Chaque entreprise définit ce que "couverture" signifie pour elle.
+→ Un Block parcourt les nodes du projet, lit leurs metadata (métriques cachées). Affiche la Feature Map avec coverage par feature. Chaque entreprise définit ce que "couverture" signifie pour elle.
 
 **"Ce cahier des charges est-il couvert ?"**
-→ Un document (cahier des charges) lié à N issues. Chaque issue liée à des tests. Le Block montre : REQ-01 → issue done + 3 tests passing. REQ-02 → issue in progress + 0 tests. Couverture : 50%.
+→ Un node requirement (company-wide) lié à des nodes features via entity_links. Chaque feature a des ACs (nodes enfants), chaque AC lié à des tests. Le Block montre : REQ-01 → 3/4 ACs testés. REQ-02 → 1/4 ACs testés. Couverture : 50%.
+
+**"Combien d'ACs sont couverts pour cette feature ?"**
+→ Les ACs sont des nodes enfants de la feature. Chaque AC a (ou pas) un entity_link vers un heartbeat_run (test). Le Block compte : 35/50 ACs ont un test lié qui passe. Coverage structurelle : 70%.
 
 **"Si je change cette feature, quel impact ?"**
 → Le chat a le contexte du projet (via context link). L'agent query : liens de la spec → issues → leur statut → tests liés. Plus GitNexus MCP pour l'impact code. Réponse contextualisée selon l'état du lifecycle.
 
 **"Je veux supprimer cette feature, c'est safe ?"**
 → L'agent montre : cette feature a 8 issues (toutes done), 15 tests (tous passent), liée à 2 cahiers des charges (REQ-04, REQ-07). Si les cahiers des charges ne l'exigent plus → safe to remove. Si c'est requis → warning.
+
+---
+
+## Tests, Coverage & Acceptance Criteria
+
+### Pas de nouvelle table pour les tests
+
+Les résultats de tests sont **déjà capturés** dans MnM via `heartbeat_runs.result_json` (quand un agent lance des tests dans son sandbox). C'est du JSONB, framework-agnostic :
+
+```json
+{
+  "type": "test_run",
+  "framework": "playwright",
+  "total": 26, "passed": 20, "failed": 4, "skipped": 2,
+  "duration_ms": 45000,
+  "coverage": { "lines": 78.5, "branches": 65.2, "functions": 82.1 },
+  "results": [
+    {"name": "auth login flow", "status": "passed", "duration_ms": 1200},
+    {"name": "auth SSO SAML", "status": "failed", "error": "timeout"}
+  ]
+}
+```
+
+MnM ne sait pas et n'a pas besoin de savoir si c'est du Playwright, Jest, pytest ou JUnit. C'est juste du JSONB avec des nombres.
+
+Pour les tests provenant d'un **CI/CD externe** (pas d'un agent MnM), les résultats sont stockés comme artifacts avec le même format de metadata.
+
+### Acceptance Criteria = nodes dans l'arbre
+
+Les ACs sont des **nodes enfants** d'une feature (type: "acceptance-criteria"). Ils existent AVANT que le dev commence — c'est la structure de ce qui doit être testé.
+
+**Lifecycle d'un AC :**
+
+| Phase | État | Ce qui se passe |
+|-------|------|----------------|
+| 1. Spec rédigée | Node AC créé | Le PM/PO définit l'AC dans la feature. Pas de lien encore. |
+| 2. Issue créée | entity_link AC → Issue | Un agent (ou humain) crée une issue pour implémenter cet AC. |
+| 3. Dev en cours | Issue in_progress | L'agent dev travaille sur l'issue liée. |
+| 4. Test écrit | entity_link AC → heartbeat_run | L'agent QA (ou dev) écrit un test E2E. Le run est lié à l'AC. |
+| 5. Test passe | AC = ✅ couvert | Le dernier run lié à l'AC a un status "passed". |
+| 6. Feature évolue | Nouveaux ACs ajoutés | Le PM ajoute des ACs, l'arbre grandit. La coverage recalculée. |
+
+**Multi-branches :** Si plusieurs devs travaillent sur la même feature sur différentes branches, le metadata de l'entity_link peut stocker `{ branch: "feat/sso" }`. Par défaut, on affiche les résultats de la branche principale.
+
+**Coverage structurelle vs coverage de code :**
+- **Coverage structurelle** = combien d'ACs ont un test qui passe (35/50 ACs = 70%)
+- **Coverage de code** = combien de lignes/branches sont couvertes (78% lines via istanbul/c8)
+- Les deux sont complémentaires. La coverage structurelle est plus utile pour un PM/QA. La coverage de code est plus utile pour un dev/archi.
 
 ---
 
@@ -245,31 +317,40 @@ Quand quelqu'un ouvre un projet dans MnM, peu importe qui il est, il voit les fe
 | **Compliance officer** | Conformité par requirement | Niveau 1-2 : cahier des charges → requirements → tests prouvant conformité |
 | **CEO / Direction** | Vue macro santé du produit | Niveau 0 : features + indicateurs globaux |
 
-### Comment ça marche sans entité "Feature"
+### Comment ça marche avec les nodes
 
-Une "feature" n'est pas un type d'entité — c'est **une issue qui a des enfants et des liens vers des specs/tests**. La sémantique vient des tags et des liens.
+Une feature est un **node** dans la table `nodes` (type: "feature"). Les ACs sont des nodes enfants (type: "acceptance-criteria"). Les issues, specs, tests sont liés via `entity_links`.
 
 ```
-Projet: Agathe
+Projet: Agathe (multi-codebase: web Angular + mobile React Native + legacy Struts)
 │
-├── "Authentification"              [tag libre]
-│   ├── Specs liées: auth-spec.md, sso-architecture.md
-│   ├── Issues enfants: 5/7 done
-│   ├── Tests E2E liés: 8 (tous passent)
-│   ├── Code source: 3 modules (via GitNexus)
-│   └── Cahier des charges: ISO-27001-A942
+├── Node "Création d'ordonnance"        [type: feature] ← company-wide, span multi-repo
+│   ├── Node "Ordonnance Web"           [type: feature, parent: above]
+│   │   ├── entity_link → workspace: agathe-web
+│   │   ├── entity_link → issues: 8/12 done
+│   │   └── entity_link → 15 tests E2E
+│   ├── Node "Ordonnance Mobile"        [type: feature, parent: above]
+│   │   ├── entity_link → workspace: agathe-mobile
+│   │   ├── entity_link → issues: 6/10 done
+│   │   └── entity_link → 11 tests E2E
+│   ├── Node "AC: Médecin peut prescrire un médicament" [type: acceptance-criteria]
+│   │   ├── entity_link → Issue MNM-42 (implements) ✅ done
+│   │   └── entity_link → heartbeat_run #xyz (tested-by) ✅ passing
+│   ├── Node "AC: Alerte interaction médicamenteuse" [type: acceptance-criteria]
+│   │   └── entity_link → Issue MNM-45 (implements) 🔄 in_progress
+│   ├── entity_link → spec: spec-ordonnance-global.md
+│   └── entity_link → cahier-des-charges-HAS.md (compliance)
 │
-├── "Tableau de bord"               [tag libre]
-│   ├── Specs liées: dashboard-prd.md
-│   ├── Issues enfants: 3/5 done
-│   ├── Tests E2E liés: 4 (2 passent, 2 pending)
-│   └── Code source: 2 modules
+├── Node "Authentification"             [type: feature]
+│   ├── entity_link → spec: auth-spec.md
+│   ├── entity_link → issues: 5/7 done
+│   ├── entity_link → 8 tests E2E (tous passent)
+│   └── entity_link → ISO-27001-A942 (node requirement company-wide)
 │
-└── "Conformité RGPD"              [tag libre]
-    ├── Specs liées: cahier-des-charges-rgpd.md
-    ├── Issues enfants: 2/4 done
-    ├── Tests E2E liés: 5 (3 passent, 1 fail, 1 pending)
-    └── Réglementaire: RGPD Art. 17, Art. 20
+└── Node "REQ: MFA obligatoire"         [type: requirement, project_id: null] ← company-wide
+    ├── entity_link → Node "Authentification" projet Agathe
+    ├── entity_link → Node "Authentification" projet BackOffice
+    └── entity_link → cahier-des-charges-ISO27001.md
 ```
 
 ### Les niveaux de granularité
@@ -370,8 +451,8 @@ Quand quelqu'un ouvre une feature → le doc est déjà là, pas de query à la 
 
 ### Comment la Feature Map est alimentée
 
-- **Manuellement** : quelqu'un crée une issue "Authentification" avec un tag et des sous-issues
-- **Via handoff** : l'agent de handoff crée la feature + ses sous-issues à partir du document distillé
+- **Manuellement** : quelqu'un crée un node "Authentification" (type: feature) avec des ACs enfants
+- **Via handoff** : l'agent de handoff crée le node feature + ses ACs + des issues à partir du document distillé
 - **Par discovery** : un agent analyse la codebase (GitNexus) et propose une feature map initiale basée sur les clusters fonctionnels détectés
 - **En continu** : les agents maintiennent les liens (code → feature, test → feature) au fur et à mesure de leur travail
 
@@ -418,11 +499,11 @@ L'agent regarde l'état des liens :
 
 | Brique | Description | Effort estimé |
 |--------|-------------|---------------|
-| **Feature nodes** | Table `features` (arbre de noeuds légers par projet) | 1-2j |
+| **Nodes** | Table `nodes` (arbre générique : features, ACs, requirements, modules...) | 1-2j |
 | **Entity links** | Table `entity_links` (graph de liens générique entre toutes entités) | 2-3j |
-| **Feature Map UI** | Vue centrale du projet : arbre de features + TLDR métriques | 3-5j |
-| **Feature Full Doc** | Agent qui génère le document exhaustif par feature (pattern Gold) | 2-3j |
-| **Feature metrics cache** | Listener live events → met à jour metadata des feature nodes | 1-2j |
+| **Feature Map UI** | Vue centrale du projet : arbre de nodes + TLDR métriques | 3-5j |
+| **Node Full Doc** | Agent qui génère le document exhaustif par node (pattern Gold) | 2-3j |
+| **Node metrics cache** | Listener live events → met à jour metadata des nodes | 1-2j |
 | **Auto-clone + GitNexus dans sandbox** | Clone repo au setup workspace + gitnexus analyze | 2-3j |
 | **MCP proxy** | `/projects/:id/mcp` proxy vers le sandbox GitNexus | 1-2j |
 | **Context toggle sur chat** | Activer/désactiver GitNexus MCP dans le contexte du chat | 1-2j |
@@ -436,7 +517,7 @@ L'agent regarde l'état des liens :
 
 ## Anti-patterns à éviter
 
-1. **Ne pas créer d'entités "Feature", "Handoff", "Requirement"** — tout passe par les issues + liens + tags
+1. **Ne pas créer d'entités spécifiques par domaine** ("Feature", "Handoff", "Requirement", "AC" comme tables séparées) — tout passe par `nodes` (type libre) + `entity_links`
 2. **Ne pas hardcoder des rôles** (PM, Dev, QA) dans l'UI — chaque personne compose sa vue via Blocks
 3. **Ne pas recréer GitHub/Jira** — pas de board Kanban, pas de burndown, pas de sprint planning (sauf si un Block le fait)
 4. **Ne pas faire de git UI** — les diffs, branches, PRs restent dans les IDEs/GitHub
@@ -450,12 +531,12 @@ L'agent regarde l'état des liens :
 
 La vision Projects v2 repose sur **4 piliers** :
 
-1. **Le Chat** comme espace créatif (share/fork, context toggle, prototypage)
-2. **Les Liens** comme tissu connectif (entity_links générique entre tout)
-3. **Les Blocks** comme vues composables (chacun voit ce qu'il veut)
+1. **Le Chat** comme espace créatif (share/fork, context toggle, prototypage, handoff via agent extracteur)
+2. **Nodes + Entity Links** comme structure du produit (`nodes` = arbre générique, `entity_links` = liens entre tout)
+3. **Les Blocks** comme vues composables (Feature Map, traceability, coverage — chacun voit ce qu'il veut)
 4. **GitNexus MCP** comme intelligence code (1 server par repo, accessible à tous)
 
-Zéro nouvelle entité métier. Un seul ajout structurel (entity_links). Le reste est du câblage entre ce qui existe + des Blocks de visualisation.
+**2 tables nouvelles** : `nodes` (arbre générique, project_id nullable) + `entity_links` (graph de liens). Le reste est du câblage entre ce qui existe + des Blocks de visualisation + des agents qui maintiennent les liens automatiquement.
 
 ---
 
