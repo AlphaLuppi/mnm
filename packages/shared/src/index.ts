@@ -769,11 +769,12 @@ export type {
 } from "./types/index.js";
 
 // VIEW-PRESETS: Persona-based dashboard & navigation
-export { DEFAULT_LAYOUT, PRESET_LAYOUTS } from "./types/index.js";
+export { DEFAULT_LAYOUT, PRESET_LAYOUTS, WIDGET_DEFAULT_HEIGHTS } from "./types/index.js";
 export type {
   NavItemId,
   SidebarSection,
   DashboardWidget,
+  WidgetPlacement,
   ViewPresetLayout,
   LayoutOverrides,
   ResolvedLayout,

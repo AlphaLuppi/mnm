@@ -36,6 +36,48 @@ export interface ViewPresetLayout {
   };
 }
 
+/** Grid placement for a single widget in the unified dashboard grid */
+export interface WidgetPlacement {
+  /** Unique widget identifier:
+   *  - "preset:{type}" for predefined registry widgets (e.g. "preset:kpi-bar")
+   *  - UUID for user_widgets (e.g. "d4e5f6a7-...")
+   */
+  widgetId: string;
+  /** Grid column (0-based, cols=12 for finer granularity) */
+  x: number;
+  /** Grid row (0-based, auto-compacted) */
+  y: number;
+  /** Width in grid units (1-12) */
+  w: number;
+  /** Height in grid units (1 unit = ~40px with rowHeight=40) */
+  h: number;
+  /** Hidden from view but preserved in layout */
+  hidden?: boolean;
+  /** Optional override props for preset widgets */
+  props?: Record<string, unknown>;
+}
+
+/** Default height by widget type (in grid row units, rowHeight=40px) */
+export const WIDGET_DEFAULT_HEIGHTS: Record<string, number> = {
+  "kpi-bar": 2,
+  "kpi-enterprise": 2,
+  "run-activity": 3,
+  "priority-chart": 3,
+  "status-chart": 3,
+  "success-rate": 3,
+  "active-agents": 4,
+  "recent-issues": 4,
+  "recent-activity": 4,
+  "timeline": 4,
+  "breakdown": 4,
+  "chat-activity": 3,
+  "my-folders": 3,
+  "my-issues": 3,
+  "team-activity": 3,
+  "cost-overview": 3,
+  "health-summary": 3,
+};
+
 /** Sparse user overrides — only what differs from the preset */
 export interface LayoutOverrides {
   landingPage?: string;
@@ -45,8 +87,11 @@ export interface LayoutOverrides {
     sectionOrder?: string[];
   };
   dashboard?: {
+    /** V1 (deprecated, still supported for migration): */
     hiddenWidgets?: string[];
     extraWidgets?: DashboardWidget[];
+    /** V2: Full grid layout — if present, takes precedence over V1 fields */
+    layout?: WidgetPlacement[];
   };
 }
 
@@ -74,6 +119,8 @@ export interface MyViewResponse {
     layout: ViewPresetLayout;
   } | null;
   overrides: LayoutOverrides | null;
+  /** V2: Materialized grid layout for the frontend (never null client-side) */
+  grid: WidgetPlacement[] | null;
 }
 
 /** Full view preset as stored in DB */

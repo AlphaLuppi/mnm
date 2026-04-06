@@ -415,11 +415,12 @@ export type {
   RoutineDetail,
 } from "./routine.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
-export { DEFAULT_LAYOUT, PRESET_LAYOUTS } from "./view-preset.js";
+export { DEFAULT_LAYOUT, PRESET_LAYOUTS, WIDGET_DEFAULT_HEIGHTS } from "./view-preset.js";
 export type {
   NavItemId,
   SidebarSection,
   DashboardWidget,
+  WidgetPlacement,
   ViewPresetLayout,
   LayoutOverrides,
   ResolvedLayout,
