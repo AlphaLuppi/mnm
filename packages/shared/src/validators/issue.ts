@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "../constants.js";
+import { ContentDocument } from "../types/content-blocks.js";
 
 export const issueAssigneeAdapterOverridesSchema = z
   .object({
@@ -49,6 +50,7 @@ export type CheckoutIssue = z.infer<typeof checkoutIssueSchema>;
 
 export const addIssueCommentSchema = z.object({
   body: z.string().min(1),
+  contentBlocks: ContentDocument.optional().nullable(),
   reopen: z.boolean().optional(),
   interrupt: z.boolean().optional(),
 });
