@@ -1,8 +1,13 @@
-import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Server,
+  RotateCcw,
+  Trash2,
+  Play,
+  Pause,
+  Loader2,
 } from "lucide-react";
 import type { UserSandbox } from "@mnm/shared";
 import { sandboxesApi } from "../api/sandboxes";
@@ -11,6 +16,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { timeAgo } from "../lib/timeAgo";
 
 function podStatusVariant(status: UserSandbox["status"]): "default" | "secondary" | "destructive" | "outline" {
@@ -44,6 +50,8 @@ function claudeAuthVariant(status: UserSandbox["claudeAuthStatus"]): "default" |
 export function Containers() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const queryClient = useQueryClient();
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Sandboxes" }]);
@@ -55,6 +63,61 @@ export function Containers() {
     queryFn: () => sandboxesApi.listAll(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  async function handleDestroy() {
+    if (!selectedCompanyId) return;
+    if (!confirm("Destroy your sandbox? It will be re-created on next agent run.")) return;
+    setActionLoading("destroy");
+    try {
+      await sandboxesApi.destroy(selectedCompanyId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.list(selectedCompanyId) });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to destroy sandbox");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleReprovision() {
+    if (!selectedCompanyId) return;
+    setActionLoading("reprovision");
+    try {
+      // Destroy first, then provision
+      try { await sandboxesApi.destroy(selectedCompanyId); } catch { /* may not exist */ }
+      await sandboxesApi.provision(selectedCompanyId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.list(selectedCompanyId) });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to reprovision sandbox");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleWake() {
+    if (!selectedCompanyId) return;
+    setActionLoading("wake");
+    try {
+      await sandboxesApi.wake(selectedCompanyId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.list(selectedCompanyId) });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to wake sandbox");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleHibernate() {
+    if (!selectedCompanyId) return;
+    setActionLoading("hibernate");
+    try {
+      await sandboxesApi.hibernate(selectedCompanyId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.sandboxes.list(selectedCompanyId) });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to hibernate sandbox");
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   const pods = useMemo(
     () => podsQuery.data?.pods ?? [],
@@ -143,6 +206,7 @@ export function Containers() {
                 <th className="px-4 py-3 font-medium">CPU / RAM</th>
                 <th className="px-4 py-3 font-medium">Claude Auth</th>
                 <th className="px-4 py-3 font-medium">Last Active</th>
+                <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -213,6 +277,60 @@ export function Containers() {
                     >
                       {pod.lastActiveAt ? timeAgo(pod.lastActiveAt) : "--"}
                     </span>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      {pod.status === "failed" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          disabled={!!actionLoading}
+                          onClick={handleReprovision}
+                        >
+                          {actionLoading === "reprovision" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                          Reset
+                        </Button>
+                      )}
+                      {pod.status === "hibernated" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          disabled={!!actionLoading}
+                          onClick={handleWake}
+                        >
+                          {actionLoading === "wake" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                          Wake
+                        </Button>
+                      )}
+                      {(pod.status === "running" || pod.status === "idle") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          disabled={!!actionLoading}
+                          onClick={handleHibernate}
+                        >
+                          {actionLoading === "hibernate" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
+                          Hibernate
+                        </Button>
+                      )}
+                      {pod.status !== "destroyed" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                          disabled={!!actionLoading}
+                          onClick={handleDestroy}
+                        >
+                          {actionLoading === "destroy" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          Destroy
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
