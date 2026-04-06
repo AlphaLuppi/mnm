@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { and, eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import { viewPresets, roles, companyMemberships } from "@mnm/db";
+import { viewPresets, roles, companyMemberships, userWidgets } from "@mnm/db";
+import type { DashboardWidget, LayoutOverrides, UserWidget } from "@mnm/shared";
 import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
+import { materializeLayout, mergeNewWidgets } from "../services/layout-materializer.js";
 
 export function viewPresetRoutes(db: Db) {
   const router = Router();
@@ -154,7 +156,7 @@ export function viewPresetRoutes(db: Db) {
       const userId = req.actor?.userId;
 
       if (!userId) {
-        res.json({ preset: null, overrides: null });
+        res.json({ preset: null, overrides: null, grid: null });
         return;
       }
 
@@ -174,7 +176,7 @@ export function viewPresetRoutes(db: Db) {
         );
 
       if (!membership) {
-        res.json({ preset: null, overrides: null });
+        res.json({ preset: null, overrides: null, grid: null });
         return;
       }
 
@@ -204,6 +206,30 @@ export function viewPresetRoutes(db: Db) {
         if (defaultPreset) preset = defaultPreset;
       }
 
+      // V2: Materialize grid layout
+      const userWidgetRows = (await db
+        .select()
+        .from(userWidgets)
+        .where(
+          and(
+            eq(userWidgets.companyId, companyId),
+            eq(userWidgets.userId, userId),
+          ),
+        )
+        .orderBy(userWidgets.position)) as unknown as UserWidget[];
+
+      const presetLayout = preset?.layout as { dashboard?: { widgets?: DashboardWidget[] } } | null;
+      const presetWidgets: DashboardWidget[] = presetLayout?.dashboard?.widgets ?? [];
+      const overrides = (membership.layoutOverrides ?? {}) as LayoutOverrides;
+      const dashboardOverrides = overrides.dashboard;
+
+      let grid;
+      if (dashboardOverrides?.layout) {
+        grid = mergeNewWidgets(dashboardOverrides.layout, presetWidgets, userWidgetRows);
+      } else {
+        grid = materializeLayout(presetWidgets, userWidgetRows);
+      }
+
       res.json({
         preset: preset
           ? {
@@ -216,6 +242,7 @@ export function viewPresetRoutes(db: Db) {
             }
           : null,
         overrides: membership.layoutOverrides ?? null,
+        grid,
       });
     },
   );
