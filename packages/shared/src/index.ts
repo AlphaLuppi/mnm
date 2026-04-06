@@ -795,6 +795,18 @@ export {
   ContentDocument,
   ContentBlock,
   BLOCK_TYPES,
+  // Props-only schemas (for json-render catalog & UI components)
+  MetricCardProps,
+  StatusBadgeProps,
+  DataTableProps,
+  CodeBlockProps,
+  ProgressBarProps,
+  MarkdownProps,
+  ChartProps,
+  ActionButtonProps,
+  QuickFormProps,
+  SectionProps,
+  blockPropsSchemas,
 } from "./types/index.js";
 export type {
   MetricCardBlock,

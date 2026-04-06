@@ -13,6 +13,8 @@ import { MnmActionButton } from "./ActionButtonBlock";
 import { MnmQuickForm } from "./QuickFormBlock";
 import { MnmSection } from "./SectionBlock";
 
+// Zod 3 (@mnm/shared) vs Zod 4 (@json-render) type mismatch — runtime is compatible
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const { registry } = defineRegistry(mnmCatalog, {
   components: {
     // Built-in shadcn renderers
@@ -35,4 +37,4 @@ export const { registry } = defineRegistry(mnmCatalog, {
     QuickForm: MnmQuickForm,
     Section: MnmSection,
   },
-});
+} as any);
