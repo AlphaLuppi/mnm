@@ -213,6 +213,30 @@ bun run typecheck    # Verification TypeScript (13/13 packages)
 bun run test:e2e     # Tests Playwright E2E
 ```
 
+## GitNexus — Code Intelligence
+
+Le codebase est indexe par [GitNexus](https://github.com/abhigyanpatwari/GitNexus) (knowledge graph du code source). Cela donne aux agents et aux developpeurs une comprehension architecturale du projet : call chains, dependances, clusters fonctionnels, blast radius avant modification.
+
+```bash
+# Re-indexer apres des changements importants
+npx gitnexus analyze
+
+# Lancer le MCP server (expose le knowledge graph aux agents/IDEs)
+npx gitnexus mcp
+
+# Queries utiles
+npx gitnexus query "auth validation"          # Trouver des execution flows
+npx gitnexus context "validateUser"            # Vue 360 d'un symbole
+npx gitnexus impact "SessionManager" --direction upstream  # Blast radius
+```
+
+**Setup pour un nouveau dev :**
+1. `npx gitnexus setup` — configure le MCP pour ton IDE (Cursor, Claude Code, VSCode)
+2. `npx gitnexus analyze` — indexe le repo (~23s)
+3. Le MCP est disponible dans ton IDE — pose des questions sur l'architecture
+
+L'index est stocke dans `.gitnexus/` (gitignored). Les skills Claude Code sont dans `.claude/skills/gitnexus/`.
+
 ---
 
 ## Decisions architecturales cles
