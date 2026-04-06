@@ -8,6 +8,7 @@ import { dashboardApi } from "../api/dashboard";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { inboxItemsApi } from "../api/inbox-items";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -39,8 +40,9 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Identity } from "../components/Identity";
+import { InboxItemCard } from "../components/InboxItemCard";
 import { PageTabBar } from "../components/PageTabBar";
-import type { HeartbeatRun, Issue, JoinRequest, SidebarBadges } from "@mnm/shared";
+import type { HeartbeatRun, Issue, JoinRequest, SidebarBadges, InboxItem } from "@mnm/shared";
 
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RECENT_ISSUES_LIMIT = 100;
@@ -55,7 +57,8 @@ type InboxCategoryFilter =
   | "approvals"
   | "failed_runs"
   | "alerts"
-  | "stale_work";
+  | "stale_work"
+  | "notifications";
 type InboxApprovalFilter = "all" | "actionable" | "resolved";
 type SectionKey =
   | "issues_i_touched"
@@ -63,7 +66,8 @@ type SectionKey =
   | "approvals"
   | "failed_runs"
   | "alerts"
-  | "stale_work";
+  | "stale_work"
+  | "notifications";
 
 const DISMISSED_KEY = "mnm:inbox:dismissed";
 
@@ -411,6 +415,23 @@ export function Inbox() {
     enabled: !!selectedCompanyId,
   });
 
+  // BLOCKS-PLATFORM: Rich inbox items from agents
+  const { data: inboxItems = [], isLoading: isInboxItemsLoading } = useQuery({
+    queryKey: queryKeys.inboxItems.list(selectedCompanyId!),
+    queryFn: () => inboxItemsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const unreadInboxItems = useMemo(
+    () => inboxItems.filter((item: InboxItem) => item.status === "unread"),
+    [inboxItems],
+  );
+
+  const visibleInboxItems = useMemo(
+    () => inboxItems.filter((item: InboxItem) => item.status !== "dismissed" && item.status !== "expired"),
+    [inboxItems],
+  );
+
   const staleIssues = useMemo(
     () => (issues ? getStaleIssues(issues) : []).filter((i) => !dismissed.has(`stale:${i.id}`)),
     [issues, dismissed],
@@ -564,10 +585,12 @@ export function Inbox() {
   const hasStale = staleIssues.length > 0;
   const hasJoinRequests = joinRequests.length > 0;
   const hasTouchedIssues = touchedIssues.length > 0;
+  const hasNotifications = visibleInboxItems.length > 0;
 
   const newItemCount =
     failedRuns.length +
     staleIssues.length +
+    unreadInboxItems.length +
     (showAggregateAgentError ? 1 : 0) +
     (showBudgetAlert ? 1 : 0);
 
@@ -580,6 +603,7 @@ export function Inbox() {
     allCategoryFilter === "everything" || allCategoryFilter === "failed_runs";
   const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
   const showStaleCategory = allCategoryFilter === "everything" || allCategoryFilter === "stale_work";
+  const showNotificationsCategory = allCategoryFilter === "everything" || allCategoryFilter === "notifications";
 
   const approvalsToRender = tab === "new" ? actionableApprovals : filteredAllApprovals;
   const showTouchedSection = tab === "new" ? hasTouchedIssues : showTouchedCategory && hasTouchedIssues;
@@ -593,10 +617,13 @@ export function Inbox() {
     tab === "new" ? hasRunFailures : showFailedRunsCategory && hasRunFailures;
   const showAlertsSection = tab === "new" ? hasAlerts : showAlertsCategory && hasAlerts;
   const showStaleSection = tab === "new" ? hasStale : showStaleCategory && hasStale;
+  const showNotificationsSection =
+    tab === "new" ? unreadInboxItems.length > 0 : showNotificationsCategory && hasNotifications;
 
   const visibleSections = [
     showFailedRunsSection ? "failed_runs" : null,
     showAlertsSection ? "alerts" : null,
+    showNotificationsSection ? "notifications" : null,
     showStaleSection ? "stale_work" : null,
     showApprovalsSection ? "approvals" : null,
     showJoinRequestsSection ? "join_requests" : null,
@@ -609,7 +636,8 @@ export function Inbox() {
     !isDashboardLoading &&
     !isIssuesLoading &&
     !isTouchedIssuesLoading &&
-    !isRunsLoading;
+    !isRunsLoading &&
+    !isInboxItemsLoading;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
 
@@ -654,6 +682,7 @@ export function Inbox() {
                 <SelectItem value="failed_runs">Failed runs</SelectItem>
                 <SelectItem value="alerts">Alerts</SelectItem>
                 <SelectItem value="stale_work">Stale work</SelectItem>
+                <SelectItem value="notifications">Notifications</SelectItem>
               </SelectContent>
             </Select>
 
@@ -851,6 +880,43 @@ export function Inbox() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {showNotificationsSection && (
+        <>
+          {showSeparatorBefore("notifications") && <Separator />}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Agent Notifications
+              </h3>
+              {unreadInboxItems.length > 0 && (
+                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-500">
+                  {unreadInboxItems.length} new
+                </span>
+              )}
+            </div>
+            <div className="grid gap-3">
+              {(tab === "new" ? unreadInboxItems : visibleInboxItems).map((item: InboxItem) => (
+                <InboxItemCard
+                  key={item.id}
+                  item={item}
+                  agentName={item.senderAgentId ? agentById.get(item.senderAgentId) ?? null : null}
+                  onDismiss={() => {
+                    inboxItemsApi.update(selectedCompanyId!, item.id, { status: "dismissed" }).then(() => {
+                      queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems.list(selectedCompanyId!) });
+                    });
+                  }}
+                  onMarkRead={() => {
+                    inboxItemsApi.update(selectedCompanyId!, item.id, { status: "read" }).then(() => {
+                      queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems.list(selectedCompanyId!) });
+                    });
+                  }}
+                />
+              ))}
             </div>
           </div>
         </>
