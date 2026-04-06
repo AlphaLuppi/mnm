@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { LiveEvent, LiveEventType } from "@mnm/shared";
+import type { EventVisibility, LiveEvent, LiveEventType } from "@mnm/shared";
 
 type LiveEventPayload = Record<string, unknown>;
 type LiveEventListener = (event: LiveEvent) => void;
@@ -16,6 +16,7 @@ function toLiveEvent(input: {
   companyId: string;
   type: LiveEventType;
   payload?: LiveEventPayload;
+  visibility?: EventVisibility;
 }): LiveEvent {
   nextEventId += 1;
   return {
@@ -24,6 +25,7 @@ function toLiveEvent(input: {
     type: input.type,
     createdAt: new Date().toISOString(),
     payload: input.payload ?? {},
+    visibility: input.visibility ?? { scope: "company-wide" },
   };
 }
 
@@ -31,6 +33,7 @@ export function publishLiveEvent(input: {
   companyId: string;
   type: LiveEventType;
   payload?: LiveEventPayload;
+  visibility?: EventVisibility;
 }) {
   const event = toLiveEvent(input);
   emitter.emit(input.companyId, event);
