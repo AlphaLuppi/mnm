@@ -124,6 +124,16 @@ export function Sidebar() {
         {layout.sidebar.sections.map((section, sectionIdx) => {
           if (section.items.length === 0) return null;
 
+          // Dynamic section: __projects__
+          if (section.items.includes("__projects__" as never)) {
+            return !sidebarCollapsed ? <SidebarProjects key={`section-${sectionIdx}`} /> : null;
+          }
+
+          // Dynamic section: __agents__
+          if (section.items.includes("__agents__" as never)) {
+            return !sidebarCollapsed ? <SidebarAgents key={`section-${sectionIdx}`} /> : null;
+          }
+
           // Unlabeled section (top-level items like Dashboard, Inbox)
           if (!section.label) {
             return (
@@ -155,9 +165,9 @@ export function Sidebar() {
           );
         })}
 
-        {!sidebarCollapsed && layout.sidebar.showProjects && <SidebarProjects />}
-
-        {!sidebarCollapsed && layout.sidebar.showAgents && <SidebarAgents />}
+        {/* Backward compat: legacy showProjects/showAgents if no __projects__/__agents__ in sections */}
+        {!sidebarCollapsed && layout.sidebar.showProjects && !layout.sidebar.sections.some(s => s.items.includes("__projects__" as never)) && <SidebarProjects />}
+        {!sidebarCollapsed && layout.sidebar.showAgents && !layout.sidebar.sections.some(s => s.items.includes("__agents__" as never)) && <SidebarAgents />}
       </nav>
     </aside>
   );

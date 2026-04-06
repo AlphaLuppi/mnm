@@ -218,7 +218,7 @@ function FailedRunCard({
   });
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/10 via-card to-card p-4">
+    <div className="group relative rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/10 via-card to-card p-4 overflow-x-hidden">
       <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-red-500/10 blur-2xl" />
       <button
         type="button"
@@ -228,7 +228,7 @@ function FailedRunCard({
       >
         <X className="h-4 w-4" />
       </button>
-      <div className="relative space-y-3">
+      <div className="relative space-y-3 break-words">
         {issue ? (
           <Link
             to={`/issues/${issue.identifier ?? issue.id}`}
