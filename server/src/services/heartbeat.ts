@@ -743,6 +743,7 @@ export function heartbeatService(db: Db) {
           startedAt: updated.startedAt ? new Date(updated.startedAt).toISOString() : null,
           finishedAt: updated.finishedAt ? new Date(updated.finishedAt).toISOString() : null,
         },
+        visibility: { scope: "agents", agentIds: [updated.agentId] },
       });
     }
 
@@ -800,6 +801,7 @@ export function heartbeatService(db: Db) {
         message: event.message ?? null,
         payload: event.payload ?? null,
       },
+      visibility: { scope: "agents", agentIds: [run.agentId] },
     });
   }
 
@@ -852,6 +854,7 @@ export function heartbeatService(db: Db) {
         startedAt: claimed.startedAt ? new Date(claimed.startedAt).toISOString() : null,
         finishedAt: claimed.finishedAt ? new Date(claimed.finishedAt).toISOString() : null,
       },
+      visibility: { scope: "agents", agentIds: [claimed.agentId] },
     });
 
     await setWakeupStatus(claimed.wakeupRequestId, "claimed", { claimedAt });
@@ -900,6 +903,7 @@ export function heartbeatService(db: Db) {
             : null,
           outcome,
         },
+        visibility: { scope: "agents", agentIds: [updated.id] },
       });
     }
   }
@@ -1260,6 +1264,7 @@ export function heartbeatService(db: Db) {
             status: runningAgent.status,
             outcome: "running",
           },
+          visibility: { scope: "agents", agentIds: [runningAgent.id] },
         });
       }
 
@@ -1335,6 +1340,7 @@ export function heartbeatService(db: Db) {
             chunk: payloadChunk,
             truncated: payloadChunk.length !== chunk.length,
           },
+          visibility: { scope: "agents", agentIds: [run.agentId] },
         });
       };
       for (const warning of runtimeWorkspaceWarnings) {
@@ -1830,6 +1836,7 @@ export function heartbeatService(db: Db) {
         triggerDetail: promotedRun.triggerDetail,
         wakeupRequestId: promotedRun.wakeupRequestId,
       },
+      visibility: { scope: "agents", agentIds: [promotedRun.agentId] },
     });
 
     await startNextQueuedRunForAgent(promotedRun.agentId);
@@ -2202,6 +2209,7 @@ export function heartbeatService(db: Db) {
           triggerDetail: newRun.triggerDetail,
           wakeupRequestId: newRun.wakeupRequestId,
         },
+        visibility: { scope: "agents", agentIds: [newRun.agentId] },
       });
 
       await startNextQueuedRunForAgent(agent.id);
@@ -2312,6 +2320,7 @@ export function heartbeatService(db: Db) {
         triggerDetail: newRun.triggerDetail,
         wakeupRequestId: newRun.wakeupRequestId,
       },
+      visibility: { scope: "agents", agentIds: [newRun.agentId] },
     });
 
     await startNextQueuedRunForAgent(agent.id);
