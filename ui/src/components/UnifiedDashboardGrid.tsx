@@ -112,17 +112,24 @@ export function UnifiedDashboardGrid({
     [placements],
   );
 
-  // Convert to RGL layout
+  // Convert to RGL layout with per-widget constraints from registry
   const rglLayouts = useMemo((): ResponsiveLayouts => {
-    const lg: LayoutItem[] = visiblePlacements.map((p) => ({
-      i: p.widgetId,
-      x: p.x,
-      y: p.y,
-      w: p.w,
-      h: p.h,
-      minW: 3,
-      minH: 1,
-    }));
+    const lg: LayoutItem[] = visiblePlacements.map((p) => {
+      const isPreset = p.widgetId.startsWith("preset:");
+      const widgetType = isPreset ? p.widgetId.replace("preset:", "") : null;
+      const def = widgetType ? WIDGET_REGISTRY[widgetType] : null;
+      return {
+        i: p.widgetId,
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        h: p.h,
+        minW: def?.minW ?? 3,
+        maxW: def?.maxW ?? 12,
+        minH: def?.minH ?? 1,
+        maxH: def?.maxH ?? 6,
+      };
+    });
     return { lg };
   }, [visiblePlacements]);
 
