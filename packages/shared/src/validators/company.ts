@@ -15,6 +15,7 @@ export const updateCompanySchema = createCompanySchema
     status: z.enum(COMPANY_STATUSES).optional(),
     spentMonthlyCents: z.number().int().nonnegative().optional(),
     requireBoardApprovalForNewAgents: z.boolean().optional(),
+    forceLocalExecution: z.boolean().optional(),
     brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
     invitationOnly: z.boolean().optional(),
   });

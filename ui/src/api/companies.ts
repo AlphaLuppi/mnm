@@ -21,7 +21,7 @@ export const companiesApi = {
     data: Partial<
       Pick<
         Company,
-        "name" | "description" | "status" | "budgetMonthlyCents" | "requireBoardApprovalForNewAgents" | "brandColor"
+        "name" | "description" | "status" | "budgetMonthlyCents" | "requireBoardApprovalForNewAgents" | "forceLocalExecution" | "brandColor"
       >
     >,
   ) => api.patch<Company>(`/companies/${companyId}`, data),
