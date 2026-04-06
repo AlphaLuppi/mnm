@@ -103,6 +103,7 @@ export function UnifiedDashboardGrid({
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const [resizeDims, setResizeDims] = useState<{ w: number; h: number } | null>(null);
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const placementsRef = useRef(placements);
   placementsRef.current = placements;
 
@@ -117,6 +118,17 @@ export function UnifiedDashboardGrid({
   const userWidgetMap = useMemo(
     () => new Map(userWidgets.map((w) => [w.id, w])),
     [userWidgets],
+  );
+
+  const getWidgetTitle = useCallback(
+    (widgetId: string): string => {
+      if (widgetId.startsWith("preset:")) {
+        const type = widgetId.replace("preset:", "");
+        return WIDGET_REGISTRY[type]?.label ?? "Widget";
+      }
+      return userWidgetMap.get(widgetId)?.title ?? "Widget";
+    },
+    [userWidgetMap],
   );
 
   // Visible (non-hidden) placements
@@ -185,10 +197,14 @@ export function UnifiedDashboardGrid({
     if (newItem) setActiveItem(newItem.i);
   }, []);
 
-  const handleDragStop: EventCallback = useCallback(() => {
+  const handleDragStop: EventCallback = useCallback((_layout, _oldItem, newItem) => {
     setIsDragging(false);
+    if (newItem) {
+      const title = getWidgetTitle(newItem.i);
+      setLiveAnnouncement(`Widget ${title} moved to row ${newItem.y + 1}, column ${newItem.x + 1}`);
+    }
     setActiveItem(null);
-  }, []);
+  }, [getWidgetTitle]);
 
   const handleResizeStart: EventCallback = useCallback((_layout, _oldItem, newItem) => {
     setIsResizing(true);
@@ -202,11 +218,17 @@ export function UnifiedDashboardGrid({
     if (newItem) setResizeDims({ w: newItem.w, h: newItem.h });
   }, []);
 
-  const handleResizeStop: EventCallback = useCallback(() => {
+  const handleResizeStop: EventCallback = useCallback((_layout, _oldItem, newItem) => {
     setIsResizing(false);
+    if (newItem) {
+      const title = getWidgetTitle(newItem.i);
+      setLiveAnnouncement(
+        `Widget ${title} resized to ${widthToSpan(newItem.w)} columns, ${newItem.h} rows`,
+      );
+    }
     setActiveItem(null);
     setResizeDims(null);
-  }, []);
+  }, [getWidgetTitle]);
 
   const handleResizeViaMenu = useCallback(
     (widgetId: string, span: number) => {
@@ -233,7 +255,12 @@ export function UnifiedDashboardGrid({
     <div
       ref={containerRef}
       className={isDragging || isResizing ? "dashboard-grid-active" : ""}
+      role="region"
+      aria-label="Dashboard widget grid"
     >
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveAnnouncement}
+      </div>
       <ResponsiveGridLayout
         className="unified-dashboard-grid"
         width={width}
@@ -272,7 +299,11 @@ export function UnifiedDashboardGrid({
               : undefined;
 
           return (
-            <div key={placement.widgetId}>
+            <div
+              key={placement.widgetId}
+              role="listitem"
+              aria-label={`${title} widget`}
+            >
               <WidgetCard
                 title={title}
                 widgetId={placement.widgetId}

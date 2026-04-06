@@ -84,7 +84,9 @@ export function WidgetCard({
           {/* Drag handle */}
           {!disableDrag && (
             <div
-              className="widget-drag-handle opacity-0 group-hover/widget:opacity-100 transition-opacity duration-150 cursor-grab active:cursor-grabbing"
+              className="widget-drag-handle opacity-0 group-hover/widget:opacity-100 focus-within:opacity-100 transition-opacity duration-150 cursor-grab active:cursor-grabbing"
+              tabIndex={0}
+              role="button"
               aria-label={`Drag to reorder ${title}`}
               aria-roledescription="drag handle"
             >
