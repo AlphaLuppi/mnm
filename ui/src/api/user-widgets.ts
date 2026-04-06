@@ -13,4 +13,7 @@ export const userWidgetsApi = {
 
   delete: (companyId: string, widgetId: string) =>
     api.delete(`/companies/${companyId}/my-widgets/${widgetId}`),
+
+  generate: (companyId: string, prompt: string) =>
+    api.post<UserWidget>(`/companies/${companyId}/my-widgets/generate`, { prompt }),
 };
