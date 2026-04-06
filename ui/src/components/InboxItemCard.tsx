@@ -33,7 +33,7 @@ const CATEGORY_VARIANT: Record<string, "success" | "warning" | "error" | "info" 
   action_required: "warning",
 };
 
-const CONTENT_MAX_HEIGHT = 200;
+const CONTENT_MAX_HEIGHT = 400;
 
 interface InboxItemCardProps {
   item: InboxItem;
@@ -123,8 +123,8 @@ export function InboxItemCard({ item, agentName, onDismiss, onMarkRead }: InboxI
             <div
               ref={handleContentRef}
               className={cn(
-                "rounded-md border border-border/30 bg-accent/5 p-3 space-y-3 relative",
-                !expanded && needsExpand && "max-h-[200px] overflow-hidden",
+                "rounded-md border border-border/30 bg-accent/5 p-3 space-y-3 relative overflow-x-hidden",
+                !expanded && needsExpand && "max-h-[400px] overflow-y-hidden",
               )}
             >
               <ContentRenderer blocks={item.contentBlocks} body={item.body} context={blockContext} className="text-sm" />

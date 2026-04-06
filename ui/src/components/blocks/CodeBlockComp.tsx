@@ -24,7 +24,7 @@ export function MnmCodeBlock({ props }: { props: typeof CodeBlockProps._type }) 
           </Button>
         </div>
       )}
-      <pre className="overflow-auto rounded-md border bg-muted/50 p-3 text-xs max-h-64">
+      <pre className="overflow-auto rounded-md border bg-muted/50 p-3 text-xs max-h-64 whitespace-pre-wrap break-all">
         <code>{props.code}</code>
       </pre>
     </div>
