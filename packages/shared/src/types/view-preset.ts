@@ -106,7 +106,7 @@ export const DEFAULT_LAYOUT: ViewPresetLayout = {
       {
         label: "Company",
         items: [
-          "members", "roles", "tags", "config-layers", "feedback",
+          "members", "roles", "tags", "config-layers", "view-presets", "feedback",
           "org", "costs", "activity", "audit", "traces",
           "containers", "deployments", "settings", "sso", "import-jira",
         ],
