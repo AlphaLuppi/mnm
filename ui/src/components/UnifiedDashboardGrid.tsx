@@ -110,7 +110,6 @@ export function UnifiedDashboardGrid({
   const { width, containerRef } = useContainerWidth({ initialWidth: 1200 });
 
   const isDesktop = currentBreakpoint === "lg";
-  const isTablet = currentBreakpoint === "md";
   const isMobile = currentBreakpoint === "sm";
   const dragEnabled = !isMobile;
   const resizeEnabled = isDesktop;
@@ -158,7 +157,7 @@ export function UnifiedDashboardGrid({
       };
     });
     return { lg };
-  }, [visiblePlacements]);
+  }, [visiblePlacements, dragEnabled, resizeEnabled]);
 
   const handleLayoutChange = useCallback(
     (currentLayout: Layout, allLayouts: ResponsiveLayouts) => {
@@ -269,7 +268,7 @@ export function UnifiedDashboardGrid({
         cols={GRID_COLS}
         rowHeight={ROW_HEIGHT}
         margin={[16, 16]}
-        containerPadding={isMobile ? [0, 0] : [0, 0]}
+        containerPadding={[0, 0]}
         compactor={verticalCompactor}
         dragConfig={{ handle: ".widget-drag-handle" }}
         onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
