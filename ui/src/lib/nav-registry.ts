@@ -26,6 +26,7 @@ import {
   Settings,
   KeyRound,
   Upload,
+  Eye,
   type LucideIcon,
 } from "lucide-react";
 import type { NavItemId } from "@mnm/shared";
@@ -65,4 +66,5 @@ export const NAV_ITEM_REGISTRY: Record<NavItemId, NavItemDef> = {
   settings:          { to: "/company/settings",     icon: Settings,            label: "Settings",         permission: "company:manage_settings" },
   sso:               { to: "/admin/sso",            icon: KeyRound,            label: "SSO",              permission: "company:manage_sso" },
   "import-jira":     { to: "/import/jira",          icon: Upload,              label: "Import Jira",      permission: "projects:manage" },
+  "view-presets":    { to: "/admin/view-presets",   icon: Eye,                 label: "View Presets",     permission: "roles:manage" },
 };
