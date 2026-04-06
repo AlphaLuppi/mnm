@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Db } from "@mnm/db";
-import { accessService } from "../services/access.js";
+import { resolveActorTagContext } from "../services/tag-scope-resolver.js";
 import { logger } from "./logger.js";
 
 /**
@@ -50,8 +50,6 @@ declare global {
  * This middleware runs AFTER auth and tenant-context, so req.actor and req.params.companyId are set.
  */
 export function tagScopeMiddleware(db: Db) {
-  const access = accessService(db);
-
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const companyId = req.params.companyId as string | undefined;
@@ -74,29 +72,18 @@ export function tagScopeMiddleware(db: Db) {
         return;
       }
 
-      // Board user → resolve role + tags
+      // Board user → resolve role + tags via shared resolver
       if (req.actor?.type === "board" && req.actor?.userId) {
         const userId = req.actor.userId;
-
-        // Instance admin → bypass
-        if (req.actor.isInstanceAdmin) {
-          req.tagScope = createTagScope(userId, companyId, new Set(), true);
-          next();
-          return;
-        }
-
-        // Resolve role to check bypass_tag_filter
-        const role = await access.resolveRole(companyId, "user", userId);
-        const bypassTagFilter = role?.bypassTagFilter ?? false;
-
-        if (bypassTagFilter) {
-          req.tagScope = createTagScope(userId, companyId, new Set(), true);
-        } else {
-          // Load user's tags
-          const tagIds = await access.getTagIds(companyId, "user", userId);
-          req.tagScope = createTagScope(userId, companyId, tagIds, false);
-        }
-
+        const tagContext = await resolveActorTagContext(db, companyId, "user", userId, {
+          isInstanceAdmin: req.actor.isInstanceAdmin,
+        });
+        req.tagScope = createTagScope(
+          userId,
+          companyId,
+          tagContext.tagIds as Set<string>,
+          tagContext.bypassTagFilter,
+        );
         next();
         return;
       }
