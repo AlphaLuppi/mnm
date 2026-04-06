@@ -5,10 +5,13 @@ import type { Duplex } from "node:stream";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { agentApiKeys, companyMemberships, instanceUserRoles } from "@mnm/db";
-import type { DeploymentMode } from "@mnm/shared";
+import type { DeploymentMode, LiveEvent } from "@mnm/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
+import { accessService } from "../services/access.js";
 import { subscribeCompanyLiveEvents } from "../services/live-events.js";
+import { agentTagCache } from "./agent-tag-cache.js";
+import { canReceiveEvent } from "./event-visibility.js";
 
 interface WsSocket {
   readyState: number;
@@ -44,6 +47,10 @@ interface UpgradeContext {
   companyId: string;
   actorType: "board" | "agent";
   actorId: string;
+  // WS-SEC-05: Tag-based filtering context
+  tagIds: ReadonlySet<string>;
+  bypassTagFilter: boolean;
+  agentVisibilityCache: Map<string, boolean>;
 }
 
 interface IncomingMessageWithContext extends IncomingMessage {
@@ -106,6 +113,8 @@ async function authorizeUpgrade(
   const authToken = parseBearerToken(req.headers.authorization);
   const token = authToken ?? (queryToken.length > 0 ? queryToken : null);
 
+  const access = accessService(db);
+
   // Browser board context has no bearer token in local_trusted and authenticated modes.
   if (!token) {
     if (opts.deploymentMode === "local_trusted") {
@@ -113,6 +122,9 @@ async function authorizeUpgrade(
         companyId,
         actorType: "board",
         actorId: "board",
+        tagIds: new Set<string>(),
+        bypassTagFilter: true,
+        agentVisibilityCache: new Map(),
       };
     }
 
@@ -145,10 +157,26 @@ async function authorizeUpgrade(
     const hasCompanyMembership = memberships.some((row) => row.companyId === companyId);
     if (!roleRow && !hasCompanyMembership) return null;
 
+    // WS-SEC-05: Load user's role and tags for filtering
+    const isAdmin = !!roleRow;
+    let bypassTagFilter = isAdmin;
+    let tagIds: ReadonlySet<string> = new Set<string>();
+
+    if (!isAdmin) {
+      const role = await access.resolveRole(companyId, "user", userId);
+      bypassTagFilter = role?.bypassTagFilter ?? false;
+      if (!bypassTagFilter) {
+        tagIds = await access.getTagIds(companyId, "user", userId);
+      }
+    }
+
     return {
       companyId,
-      actorType: "board",
+      actorType: "board" as const,
       actorId: userId,
+      tagIds,
+      bypassTagFilter,
+      agentVisibilityCache: new Map(),
     };
   }
 
@@ -168,11 +196,27 @@ async function authorizeUpgrade(
     .set({ lastUsedAt: new Date() })
     .where(eq(agentApiKeys.id, key.id));
 
+  // WS-SEC-05: Agent actors use their own tags
+  const agentTags = await access.getTagIds(companyId, "agent", key.agentId);
+
   return {
     companyId,
-    actorType: "agent",
+    actorType: "agent" as const,
     actorId: key.agentId,
+    tagIds: agentTags,
+    bypassTagFilter: false,
+    agentVisibilityCache: new Map(),
   };
+}
+
+/** WS-SEC-05/10: Strip visibility before sending to client */
+function sendFiltered(socket: WsSocket, event: LiveEvent, companyId: string) {
+  try {
+    const { visibility: _vis, ...clientEvent } = event;
+    socket.send(JSON.stringify(clientEvent));
+  } catch (err) {
+    logger.warn({ err, companyId }, "failed to send live event to client");
+  }
 }
 
 export function setupLiveEventsWebSocketServer(
@@ -206,20 +250,68 @@ export function setupLiveEventsWebSocketServer(
     aliveByClient.delete(socket);
   };
 
+  // WS-SEC-05: Shared agent tag cache for all connections
+  const tagCache = agentTagCache(db);
+
   wss.on("connection", (socket: WsSocket, req: IncomingMessage) => {
-    const context = (req as IncomingMessageWithContext).mnmUpgradeContext;
-    if (!context) {
+    const maybeContext = (req as IncomingMessageWithContext).mnmUpgradeContext;
+    if (!maybeContext) {
       socket.close(1008, "missing context");
       return;
     }
+    const ctx = maybeContext; // narrowed, captured for closures
 
-    const unsubscribe = subscribeCompanyLiveEvents(context.companyId, (event) => {
-      if (socket.readyState !== WebSocket.OPEN) return;
-      try {
-        socket.send(JSON.stringify(event));
-      } catch (err) {
-        logger.warn({ err, companyId: context.companyId }, "failed to send live event to client");
+    // WS-SEC-05: Build the actor and overlap resolver for this connection
+    const actor = {
+      actorId: ctx.actorId,
+      tagIds: ctx.tagIds,
+      bypassTagFilter: ctx.bypassTagFilter,
+    };
+
+    const resolveAgentTagOverlap = (agentId: string): boolean => {
+      const cached = ctx.agentVisibilityCache.get(agentId);
+      if (cached !== undefined) return cached;
+      // Synchronous check: we pre-warm the cache async below
+      // If not cached yet, conservatively return false (will be resolved next event)
+      return false;
+    };
+
+    // Async pre-warm: when we see an agent scope event, ensure cache is warm for next time
+    async function warmAgentCache(agentIds: string[]) {
+      for (const agentId of agentIds) {
+        if (ctx.agentVisibilityCache.has(agentId)) continue;
+        try {
+          const agentTags = await tagCache.getAgentTags(ctx.companyId, agentId);
+          let overlap = false;
+          for (const tagId of agentTags) {
+            if (ctx.tagIds.has(tagId)) { overlap = true; break; }
+          }
+          ctx.agentVisibilityCache.set(agentId, overlap);
+        } catch {
+          // On error, don't cache — will retry next event
+        }
       }
+    }
+
+    const unsubscribe = subscribeCompanyLiveEvents(ctx.companyId, (event) => {
+      if (socket.readyState !== WebSocket.OPEN) return;
+
+      // WS-SEC-05: Pre-warm agent cache and then filter
+      const vis = event.visibility;
+      if (vis.scope === "agents" && vis.agentIds.length > 0) {
+        const uncached = vis.agentIds.filter((id) => !ctx.agentVisibilityCache.has(id));
+        if (uncached.length > 0) {
+          void warmAgentCache(vis.agentIds).then(() => {
+            if (socket.readyState !== WebSocket.OPEN) return;
+            if (!canReceiveEvent(event, actor, resolveAgentTagOverlap)) return;
+            sendFiltered(socket, event, ctx.companyId);
+          });
+          return;
+        }
+      }
+
+      if (!canReceiveEvent(event, actor, resolveAgentTagOverlap)) return;
+      sendFiltered(socket, event, ctx.companyId);
     });
 
     cleanupByClient.set(socket, unsubscribe);
@@ -234,7 +326,7 @@ export function setupLiveEventsWebSocketServer(
     });
 
     socket.on("error", (err: Error) => {
-      logger.warn({ err, companyId: context.companyId }, "live websocket client error");
+      logger.warn({ err, companyId: ctx.companyId }, "live websocket client error");
       cleanupSocket(socket);
     });
   });
