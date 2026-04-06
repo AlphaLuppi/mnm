@@ -36,7 +36,9 @@ export function MnmQuickForm({ props }: { props: typeof QuickFormProps._type }) 
     }
   };
 
-  if (submitted) {
+  const isActioned = ctx?.isActioned ?? false;
+
+  if (submitted || isActioned) {
     return (
       <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm text-emerald-800 dark:text-emerald-300">
         Response submitted
