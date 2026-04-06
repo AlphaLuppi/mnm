@@ -56,6 +56,11 @@ export function Dashboard() {
       viewPresetsApi.updateOverrides(selectedCompanyId!, { dashboard: { layout } }),
   });
 
+  // Cleanup debounce timeout on unmount
+  useEffect(() => () => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+  }, []);
+
   // Sync server grid to local state
   useEffect(() => {
     if (grid.length > 0 && localGrid === null) {
@@ -159,19 +164,19 @@ export function Dashboard() {
             <span className={cn(
               "absolute inline-flex h-full w-full rounded-full opacity-75",
               isFlashing
-                ? "animate-ping bg-green-400"
+                ? "animate-ping bg-success"
                 : isLive
-                  ? "animate-ping bg-green-400/50"
+                  ? "animate-ping bg-success/50"
                   : "bg-muted-foreground/40",
             )} />
             <span className={cn(
               "relative inline-flex rounded-full h-2.5 w-2.5",
-              isLive ? "bg-green-500" : "bg-muted-foreground/40",
+              isLive ? "bg-success" : "bg-muted-foreground/40",
             )} />
           </span>
           <span data-testid="dash-s03-live-label" className={cn(
             "text-xs font-medium",
-            isFlashing ? "text-green-600 dark:text-green-400" : "text-muted-foreground",
+            isFlashing ? "text-success" : "text-muted-foreground",
           )}>
             Live
           </span>
@@ -195,27 +200,29 @@ export function Dashboard() {
       {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
 
       {hasNoAgents && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-500/25 dark:bg-amber-950/60">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 rounded-md border border-warning bg-warning-bg px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <Bot className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <p className="text-sm text-amber-900 dark:text-amber-100">
+            <Bot className="h-4 w-4 text-warning shrink-0" />
+            <p className="text-sm text-foreground">
               You have no agents.
             </p>
           </div>
-          <button
+          <Button
+            variant="link"
+            size="sm"
             onClick={() => navigate(`/onboarding?step=2&companyId=${selectedCompanyId}`)}
-            className="text-sm font-medium text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 underline underline-offset-2 shrink-0"
+            className="text-warning shrink-0 underline underline-offset-2"
           >
             Create one here
-          </button>
+          </Button>
         </div>
       )}
 
       {showDriftPrompt && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 rounded-md border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-500/25 dark:bg-blue-950/60">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 rounded-md border border-info bg-info-bg px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <Radar className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-            <p className="text-sm text-blue-900 dark:text-blue-100">
+            <Radar className="h-4 w-4 text-info shrink-0" />
+            <p className="text-sm text-foreground">
               Would you like to scan for spec drift?
             </p>
           </div>
@@ -223,21 +230,25 @@ export function Dashboard() {
             <Button size="sm" onClick={() => navigate("/drift")}>
               Scan Now
             </Button>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setDriftSessionDismissed(true)}
-              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+              className="text-xs text-info"
             >
               Later
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setDriftPromptDismissed(true);
                 localStorage.setItem("mnm:drift-prompt-hidden", "true");
               }}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground"
             >
               Don't ask again
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -269,6 +280,7 @@ export function Dashboard() {
         onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt).then(() => setAddWidgetOpen(false))}
         placedWidgetIds={new Set(currentGrid.filter((p) => !p.hidden).map((p) => p.widgetId))}
         onAddPresetWidget={(type, span) => {
+          if (currentGrid.some((p) => p.widgetId === `preset:${type}`)) return;
           const def = WIDGET_REGISTRY[type];
           const gridW = span * 3;
           const gridH = WIDGET_DEFAULT_HEIGHTS[type] ?? 3;
