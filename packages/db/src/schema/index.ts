@@ -88,3 +88,7 @@ export type { RoutineVariable } from "./routines.js";
 export { feedbackVotes } from "./feedback_votes.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
 export { viewPresets } from "./view_presets.js";
+// BLOCKS-PLATFORM: User widgets
+export { userWidgets } from "./user_widgets.js";
+// BLOCKS-PLATFORM: Inbox items
+export { inboxItems } from "./inbox_items.js";
