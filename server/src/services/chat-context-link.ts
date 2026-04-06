@@ -94,6 +94,11 @@ export function chatContextLinkService(db: Db) {
         })
         .returning();
 
+      // WS-SEC-08: Resolve channel's agent for visibility
+      const chanRow = await db.select({ agentId: chatChannels.agentId }).from(chatChannels)
+        .where(eq(chatChannels.id, channelId))
+        .then((rows) => rows[0]);
+
       publishLiveEvent({
         companyId,
         type: "chat.context_linked",
@@ -103,6 +108,7 @@ export function chatContextLinkService(db: Db) {
           linkType: input.linkType,
           addedByUserId,
         },
+        visibility: chanRow ? { scope: "agents", agentIds: [chanRow.agentId] } : { scope: "company-wide" },
       });
 
       return link!;

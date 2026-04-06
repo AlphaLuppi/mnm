@@ -53,6 +53,7 @@ export function chatService(db: Db) {
           agentId,
           name: opts?.name ?? null,
         },
+        visibility: { scope: "agents", agentIds: [agentId] },
       });
 
       return channel!;
@@ -191,6 +192,7 @@ export function chatService(db: Db) {
             channelId,
             reason,
           },
+          visibility: { scope: "agents", agentIds: [updated.agentId] },
         });
       }
 
@@ -251,6 +253,11 @@ export function chatService(db: Db) {
         })
         .where(eq(chatChannels.id, channelId));
 
+      // WS-SEC-08: Resolve channel's agent for visibility
+      const channelRow = await db.select({ agentId: chatChannels.agentId }).from(chatChannels)
+        .where(eq(chatChannels.id, channelId))
+        .then((rows) => rows[0]);
+
       publishLiveEvent({
         companyId,
         type: "chat.message_sent",
@@ -260,6 +267,7 @@ export function chatService(db: Db) {
           senderId,
           senderType,
         },
+        visibility: channelRow ? { scope: "agents", agentIds: [channelRow.agentId] } : { scope: "company-wide" },
       });
 
       return message!;
