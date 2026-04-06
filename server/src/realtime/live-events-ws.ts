@@ -9,6 +9,7 @@ import type { DeploymentMode, LiveEvent } from "@mnm/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
 import { accessService } from "../services/access.js";
+import { resolveActorTagContext } from "../services/tag-scope-resolver.js";
 import { subscribeCompanyLiveEvents } from "../services/live-events.js";
 import { agentTagCache } from "./agent-tag-cache.js";
 import { canReceiveEvent } from "./event-visibility.js";
@@ -157,25 +158,17 @@ async function authorizeUpgrade(
     const hasCompanyMembership = memberships.some((row) => row.companyId === companyId);
     if (!roleRow && !hasCompanyMembership) return null;
 
-    // WS-SEC-05: Load user's role and tags for filtering
-    const isAdmin = !!roleRow;
-    let bypassTagFilter = isAdmin;
-    let tagIds: ReadonlySet<string> = new Set<string>();
-
-    if (!isAdmin) {
-      const role = await access.resolveRole(companyId, "user", userId);
-      bypassTagFilter = role?.bypassTagFilter ?? false;
-      if (!bypassTagFilter) {
-        tagIds = await access.getTagIds(companyId, "user", userId);
-      }
-    }
+    // WS-SEC-05: Load user's role and tags for filtering (shared resolver)
+    const tagContext = await resolveActorTagContext(db, companyId, "user", userId, {
+      isInstanceAdmin: !!roleRow,
+    });
 
     return {
       companyId,
       actorType: "board" as const,
       actorId: userId,
-      tagIds,
-      bypassTagFilter,
+      tagIds: tagContext.tagIds,
+      bypassTagFilter: tagContext.bypassTagFilter,
       agentVisibilityCache: new Map(),
     };
   }
@@ -196,15 +189,15 @@ async function authorizeUpgrade(
     .set({ lastUsedAt: new Date() })
     .where(eq(agentApiKeys.id, key.id));
 
-  // WS-SEC-05: Agent actors use their own tags
-  const agentTags = await access.getTagIds(companyId, "agent", key.agentId);
+  // WS-SEC-05: Agent actors use their own tags (shared resolver)
+  const agentTagContext = await resolveActorTagContext(db, companyId, "agent", key.agentId);
 
   return {
     companyId,
     actorType: "agent" as const,
     actorId: key.agentId,
-    tagIds: agentTags,
-    bypassTagFilter: false,
+    tagIds: agentTagContext.tagIds,
+    bypassTagFilter: agentTagContext.bypassTagFilter,
     agentVisibilityCache: new Map(),
   };
 }
@@ -276,21 +269,39 @@ export function setupLiveEventsWebSocketServer(
       return false;
     };
 
+    // FIX-B4: Dedup in-flight warm-ups per agent to prevent duplicate events
+    const warmUpInFlight = new Map<string, Promise<void>>();
+
     // Async pre-warm: when we see an agent scope event, ensure cache is warm for next time
-    async function warmAgentCache(agentIds: string[]) {
+    function warmAgentCache(agentIds: string[]): Promise<void> {
+      const promises: Promise<void>[] = [];
       for (const agentId of agentIds) {
         if (ctx.agentVisibilityCache.has(agentId)) continue;
-        try {
-          const agentTags = await tagCache.getAgentTags(ctx.companyId, agentId);
-          let overlap = false;
-          for (const tagId of agentTags) {
-            if (ctx.tagIds.has(tagId)) { overlap = true; break; }
-          }
-          ctx.agentVisibilityCache.set(agentId, overlap);
-        } catch {
-          // On error, don't cache — will retry next event
+
+        const existing = warmUpInFlight.get(agentId);
+        if (existing) {
+          promises.push(existing);
+          continue;
         }
+
+        const p = (async () => {
+          try {
+            const agentTags = await tagCache.getAgentTags(ctx.companyId, agentId);
+            let overlap = false;
+            for (const tagId of agentTags) {
+              if (ctx.tagIds.has(tagId)) { overlap = true; break; }
+            }
+            ctx.agentVisibilityCache.set(agentId, overlap);
+          } catch {
+            // On error, don't cache — will retry next event
+          } finally {
+            warmUpInFlight.delete(agentId);
+          }
+        })();
+        warmUpInFlight.set(agentId, p);
+        promises.push(p);
       }
+      return Promise.all(promises).then(() => {});
     }
 
     const unsubscribe = subscribeCompanyLiveEvents(ctx.companyId, (event) => {
@@ -299,9 +310,11 @@ export function setupLiveEventsWebSocketServer(
       // WS-SEC-05: Pre-warm agent cache and then filter
       const vis = event.visibility;
       if (vis.scope === "agents" && vis.agentIds.length > 0) {
-        const uncached = vis.agentIds.filter((id) => !ctx.agentVisibilityCache.has(id));
+        const uncached = vis.agentIds.filter(
+          (id) => !ctx.agentVisibilityCache.has(id),
+        );
         if (uncached.length > 0) {
-          void warmAgentCache(vis.agentIds).then(() => {
+          void warmAgentCache(uncached).then(() => {
             if (socket.readyState !== WebSocket.OPEN) return;
             if (!canReceiveEvent(event, actor, resolveAgentTagOverlap)) return;
             sendFiltered(socket, event, ctx.companyId);
