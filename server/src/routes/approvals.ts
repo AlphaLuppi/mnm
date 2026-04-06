@@ -20,6 +20,7 @@ import {
 } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { redactEventPayload } from "../redaction.js";
+import { notifyApprovalCreated } from "../services/inbox-notifications.js";
 
 function redactApprovalPayload<T extends { payload: Record<string, unknown> }>(approval: T): T {
   return {
@@ -111,6 +112,16 @@ export function approvalRoutes(db: Db) {
       targetType: "approval",
       targetId: approval.id,
       metadata: { agentName: approval.type },
+    });
+
+    // II-07: Dual-write inbox_items for approval notifications
+    void notifyApprovalCreated(db, {
+      companyId,
+      approvalId: approval.id,
+      approvalType: approval.type,
+      requestedByAgentId: approval.requestedByAgentId ?? null,
+      agentName: typeof normalizedPayload.name === "string" ? normalizedPayload.name : null,
+      payload: normalizedPayload as Record<string, unknown>,
     });
 
     res.status(201).json(redactApprovalPayload(approval));
