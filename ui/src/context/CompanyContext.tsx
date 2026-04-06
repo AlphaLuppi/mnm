@@ -65,14 +65,16 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   // Auto-select first company when list loads, clear stale IDs
   useEffect(() => {
+    if (isLoading) return;
+
     // Clear stale companyId if it doesn't match any existing company
     let stored: string | null = null;
     try { stored = localStorage.getItem(STORAGE_KEY); } catch { /* ignore */ }
-    if (stored && companies.length > 0 && !companies.some((c) => c.id === stored)) {
+    if (stored && !companies.some((c) => c.id === stored)) {
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       setSelectedCompanyIdState(null);
     }
-    if (selectedCompanyId && companies.length > 0 && !companies.some((c) => c.id === selectedCompanyId)) {
+    if (selectedCompanyId && !companies.some((c) => c.id === selectedCompanyId)) {
       setSelectedCompanyIdState(null);
     }
 
@@ -86,7 +88,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     setSelectedCompanyIdState(next);
     setSelectionSource("bootstrap");
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
-  }, [companies, selectedCompanyId, sidebarCompanies]);
+  }, [companies, selectedCompanyId, sidebarCompanies, isLoading]);
 
   const setSelectedCompanyId = useCallback((companyId: string, options?: CompanySelectionOptions) => {
     setSelectedCompanyIdState(companyId);
