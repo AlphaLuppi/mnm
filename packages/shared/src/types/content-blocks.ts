@@ -163,3 +163,91 @@ export const BLOCK_TYPES = [
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];
+
+// ─── PROPS-ONLY SCHEMAS (for json-render defineCatalog) ─
+
+export const MetricCardProps = z.object({
+  label: z.string(),
+  value: z.union([z.string(), z.number()]),
+  trend: z.enum(["up", "down", "flat"]).optional(),
+  description: z.string().optional(),
+});
+
+export const StatusBadgeProps = z.object({
+  text: z.string(),
+  variant: z.enum(["success", "warning", "error", "info", "neutral"]),
+});
+
+export const DataTableProps = z.object({
+  title: z.string().optional(),
+  columns: z.array(z.object({ key: z.string(), label: z.string(), align: z.enum(["left", "center", "right"]).optional() })),
+  rows: z.array(z.record(z.unknown())),
+  maxRows: z.number().optional(),
+});
+
+export const CodeBlockProps = z.object({
+  language: z.string().optional(),
+  code: z.string(),
+  title: z.string().optional(),
+});
+
+export const ProgressBarProps = z.object({
+  label: z.string(),
+  value: z.number().min(0).max(100),
+  variant: z.enum(["default", "success", "warning", "error"]).optional(),
+});
+
+export const MarkdownProps = z.object({
+  content: z.string(),
+});
+
+export const ChartProps = z.object({
+  chartType: z.enum(["line", "bar", "pie", "donut"]),
+  title: z.string().optional(),
+  data: z.array(z.object({ label: z.string(), value: z.number(), color: z.string().optional() })),
+});
+
+export const ActionButtonProps = z.object({
+  label: z.string(),
+  action: z.string(),
+  payload: z.record(z.unknown()).optional(),
+  variant: z.enum(["default", "destructive", "outline", "ghost"]).optional(),
+  confirm: z.string().optional(),
+  permission: z.string().optional(),
+  icon: z.string().optional(),
+});
+
+export const QuickFormProps = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  fields: z.array(z.object({
+    name: z.string(),
+    label: z.string(),
+    type: z.enum(["text", "textarea", "select", "checkbox", "number", "date"]),
+    options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+    required: z.boolean().optional(),
+    placeholder: z.string().optional(),
+    defaultValue: z.unknown().optional(),
+  })),
+  submitLabel: z.string().optional(),
+  submitAction: z.string(),
+  submitPayload: z.record(z.unknown()).optional(),
+});
+
+export const SectionProps = z.object({
+  title: z.string().optional(),
+  collapsible: z.boolean().optional(),
+});
+
+export const blockPropsSchemas = {
+  MetricCard: { props: MetricCardProps, description: "KPI metric with label, value, and optional trend indicator" },
+  StatusBadge: { props: StatusBadgeProps, description: "Colored badge with semantic variant" },
+  DataTable: { props: DataTableProps, description: "Structured table with columns and rows" },
+  CodeBlock: { props: CodeBlockProps, description: "Syntax-highlighted code block" },
+  ProgressBar: { props: ProgressBarProps, description: "Progress indicator with percentage" },
+  Markdown: { props: MarkdownProps, description: "Markdown text content" },
+  Chart: { props: ChartProps, description: "Chart visualization (line, bar, pie, donut)" },
+  ActionButton: { props: ActionButtonProps, description: "Interactive button that triggers an action" },
+  QuickForm: { props: QuickFormProps, description: "Dynamic form with fields and submit action" },
+  Section: { props: SectionProps, description: "Collapsible section with title" },
+} as const;

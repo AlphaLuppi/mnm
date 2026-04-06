@@ -480,6 +480,19 @@ export type {
   SectionBlock,
   BlockType,
 } from "./content-blocks.js";
+export {
+  MetricCardProps,
+  StatusBadgeProps,
+  DataTableProps,
+  CodeBlockProps,
+  ProgressBarProps,
+  MarkdownProps,
+  ChartProps,
+  ActionButtonProps,
+  QuickFormProps,
+  SectionProps,
+  blockPropsSchemas,
+} from "./content-blocks.js";
 
 // BLOCKS-PLATFORM: User widgets
 export type { UserWidget, UserWidgetDataSource } from "./user-widget.js";
