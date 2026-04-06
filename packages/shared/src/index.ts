@@ -103,6 +103,7 @@ export type {
   AgentTaskSession,
   AgentWakeupRequest,
   LiveEvent,
+  ClientLiveEvent,
   EventVisibility,
   DashboardSummary,
   // DASH-S01: Dashboard API types
