@@ -227,7 +227,7 @@ export function workflowService(db: Db) {
       });
     }
 
-    publishLiveEvent({ companyId, type: "workflow.created", payload: { workflowId: instance!.id } });
+    publishLiveEvent({ companyId, type: "workflow.created", payload: { workflowId: instance!.id }, visibility: { scope: "company-wide" } });
     return getInstance(instance!.id);
   }
 
@@ -245,14 +245,14 @@ export function workflowService(db: Db) {
       .returning();
     if (!row) throw notFound("Workflow instance not found");
 
-    publishLiveEvent({ companyId: row.companyId, type: "workflow.updated", payload: { workflowId: id } });
+    publishLiveEvent({ companyId: row.companyId, type: "workflow.updated", payload: { workflowId: id }, visibility: { scope: "company-wide" } });
     return getInstance(id);
   }
 
   async function deleteInstance(id: string): Promise<void> {
     const [row] = await db.delete(workflowInstances).where(eq(workflowInstances.id, id)).returning();
     if (!row) throw notFound("Workflow instance not found");
-    publishLiveEvent({ companyId: row.companyId, type: "workflow.deleted", payload: { workflowId: id } });
+    publishLiveEvent({ companyId: row.companyId, type: "workflow.deleted", payload: { workflowId: id }, visibility: { scope: "company-wide" } });
   }
 
   // ─── Stage helpers ────────────────────────────────────────────

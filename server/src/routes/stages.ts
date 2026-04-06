@@ -53,6 +53,7 @@ export function stageRoutes(db: Db) {
       companyId: stage.companyId,
       type: "stage.transitioned",
       payload: { stageId: stage.id },
+      visibility: { scope: "company-wide" },
     });
     res.json(updated);
   });

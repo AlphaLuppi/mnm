@@ -42,5 +42,6 @@ export async function logActivity(db: Db, input: LogActivityInput) {
       runId: input.runId ?? null,
       details: sanitizedDetails,
     },
+    visibility: { scope: "company-wide" },
   });
 }

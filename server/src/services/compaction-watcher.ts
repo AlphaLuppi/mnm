@@ -120,6 +120,7 @@ export function compactionWatcherService(db: Db) {
     publishLiveEvent({
       companyId,
       type: "compaction.watching_started" as LiveEventType,
+        visibility: { scope: "company-wide" },
       payload: { companyId, config: mergedConfig },
     });
 
@@ -141,6 +142,7 @@ export function compactionWatcherService(db: Db) {
     publishLiveEvent({
       companyId,
       type: "compaction.watching_stopped" as LiveEventType,
+        visibility: { scope: "company-wide" },
       payload: { companyId },
     });
 
@@ -320,12 +322,14 @@ export function compactionWatcherService(db: Db) {
         agentId,
         workflowInstanceId: targetStage.workflowInstanceId,
         detectionPattern: detectionResult.pattern,
+        visibility: { scope: "agents", agentIds: [agentId] },
       },
     });
 
     publishLiveEvent({
       companyId,
       type: "compaction.snapshot_created" as LiveEventType,
+        visibility: { scope: "agents", agentIds: [agentId] },
       payload: { snapshotId: snapshot.id, stageId: targetStage.id, agentId },
     });
 

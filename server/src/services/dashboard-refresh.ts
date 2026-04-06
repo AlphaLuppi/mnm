@@ -64,6 +64,7 @@ function emitDashboardRefresh(companyId: string, source: string) {
     companyId,
     type: "dashboard.refresh",
     payload: { source },
+    visibility: { scope: "company-wide" },
   });
 }
 

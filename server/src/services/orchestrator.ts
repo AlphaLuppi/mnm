@@ -317,6 +317,7 @@ export function orchestratorService(db: Db) {
       companyId: stage.companyId,
       type: orchestratorEvent.type as LiveEventType,
       payload: orchestratorEvent as unknown as Record<string, unknown>,
+      visibility: { scope: "company-wide" },
     });
 
     // 10. Handle workflow-level state changes
@@ -421,6 +422,7 @@ export function orchestratorService(db: Db) {
 
       publishLiveEvent({
         companyId: workflow.companyId,
+          visibility: { scope: "company-wide" },
         type: `workflow.${newWorkflowState}` as LiveEventType,
         payload: { workflowId: workflowInstanceId, state: newWorkflowState },
       });
