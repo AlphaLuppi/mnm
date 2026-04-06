@@ -1,6 +1,7 @@
 import type { IssuePriority, IssueStatus } from "../constants.js";
 import type { Goal } from "./goal.js";
 import type { Project, ProjectWorkspace } from "./project.js";
+import type { ContentDocument } from "./content-blocks.js";
 
 export interface IssueAncestorProject {
   id: string;
@@ -98,6 +99,7 @@ export interface IssueComment {
   authorAgentId: string | null;
   authorUserId: string | null;
   body: string;
+  contentBlocks: ContentDocument | null;
   createdAt: Date;
   updatedAt: Date;
 }
