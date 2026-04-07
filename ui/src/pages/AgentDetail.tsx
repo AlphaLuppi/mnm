@@ -1702,7 +1702,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
         <div className="flex flex-col sm:flex-row">
           {/* Left column: status + timing */}
           <div className="flex-1 p-4 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <StatusBadge status={run.status} />
               {(run.status === "running" || run.status === "queued") && (
                 <Button
