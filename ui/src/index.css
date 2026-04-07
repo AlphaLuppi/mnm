@@ -216,6 +216,14 @@
   --agent-bg: oklch(0.24 0.03 220);
 }
 
+/* Loader font-size — mobile: 11px, desktop: 30px (fullpage) / 20px (inline) */
+.loader-fullpage { font-size: 11px; }
+.loader-inline { font-size: 11px; }
+@media (min-width: 768px) {
+  .loader-fullpage { font-size: 30px; }
+  .loader-inline { font-size: 20px; }
+}
+
 @layer base {
   * {
     @apply border-border;
