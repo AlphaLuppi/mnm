@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ConfigLayerItem, ConfigLayerItemType } from "@mnm/shared";
 import {
   configLayersApi,
-  type UserMcpCredential,
-  type McpCredentialStatus,
+  type UserCredential,
+  type CredentialStatus,
 } from "../../api/config-layers";
 import { queryKeys } from "../../lib/queryKeys";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,8 @@ import { McpItemEditor } from "./McpItemEditor";
 import { HookItemEditor } from "./HookItemEditor";
 import { SkillItemEditor } from "./SkillItemEditor";
 import { SettingItemEditor } from "./SettingItemEditor";
-import { McpOAuthConnectButton } from "./McpOAuthConnectButton";
-import { ApiKeyCredentialDialog } from "./ApiKeyCredentialDialog";
+import { OAuthConnectButton } from "./OAuthConnectButton";
+import { CredentialDialog } from "./CredentialDialog";
 import { cn } from "../../lib/utils";
 
 type Props = {
@@ -65,7 +65,7 @@ const ITEM_TYPE_LABELS: Record<ConfigLayerItemType, string> = {
 // ── Credential status helpers ─────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<
-  McpCredentialStatus,
+  CredentialStatus,
   { dotClass: string; label: string }
 > = {
   connected: { dotClass: "bg-green-500", label: "Connected" },
@@ -76,7 +76,7 @@ const STATUS_STYLE: Record<
   disconnected: { dotClass: "bg-neutral-400", label: "No secrets" },
 };
 
-function CredentialStatusBadge({ status }: { status: McpCredentialStatus }) {
+function CredentialStatusBadge({ status }: { status: CredentialStatus }) {
   const cfg = STATUS_STYLE[status] ?? STATUS_STYLE.disconnected;
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -113,7 +113,7 @@ export function LayerItemList({
   });
 
   // Build a map of itemId → credential for quick lookup
-  const credByItemId = new Map<string, UserMcpCredential>();
+  const credByItemId = new Map<string, UserCredential>();
   if (credentials) {
     for (const c of credentials) {
       credByItemId.set(c.itemId, c);
@@ -182,10 +182,10 @@ export function LayerItemList({
     }
   }
 
-  function getCredentialStatus(itemId: string): McpCredentialStatus {
+  function getCredentialStatus(itemId: string): CredentialStatus {
     const cred = credByItemId.get(itemId);
     if (!cred) return "disconnected";
-    return cred.status as McpCredentialStatus;
+    return cred.status as CredentialStatus;
   }
 
   function hasOAuthConfig(item: ConfigLayerItem): boolean {
@@ -305,7 +305,7 @@ export function LayerItemList({
 
                   {/* OAuth connect button (only if item has oauth config) */}
                   {!readOnly && hasOAuthConfig(it) && (
-                    <McpOAuthConnectButton
+                    <OAuthConnectButton
                       itemId={it.id}
                       companyId={companyId}
                       status={getCredentialStatus(it.id)}
@@ -366,7 +366,7 @@ export function LayerItemList({
 
       {/* API Key credential dialog */}
       {apiKeyItemId && companyId && (
-        <ApiKeyCredentialDialog
+        <CredentialDialog
           open={!!apiKeyItemId}
           onOpenChange={(open) => {
             if (!open) setApiKeyItemId(null);
