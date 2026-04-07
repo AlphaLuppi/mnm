@@ -680,7 +680,7 @@ a.mnm-project-mention-chip {
       transparent 1px,
       transparent 100%
     );
-  background-size: calc(100% / 12) 40px;
+  background-size: calc(100% / 12) 56px; /* ROW_HEIGHT (40px) + margin (16px) */
 }
 
 /* Dragging widget elevation */

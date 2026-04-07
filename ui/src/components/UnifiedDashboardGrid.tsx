@@ -21,7 +21,7 @@ import { api } from "../api/client";
 
 const GRID_COLS = { lg: 12, md: 6, sm: 3 };
 const BREAKPOINTS = { lg: 1024, md: 768, sm: 0 };
-const ROW_HEIGHT = 60;
+const ROW_HEIGHT = 40;
 const MIN_REFRESH_SECONDS = 60;
 
 interface UnifiedDashboardGridProps {
@@ -30,15 +30,9 @@ interface UnifiedDashboardGridProps {
   userWidgets: UserWidget[];
   onLayoutChange: (placements: WidgetPlacement[]) => void;
   onDeleteWidget?: (widgetId: string) => void;
-  onResizeWidget?: (widgetId: string, span: number) => void;
   onAddWidget?: () => void;
   /** True if the user has never had a V2 layout (first time) */
   isNewUser?: boolean;
-}
-
-/** Convert a grid width (in 12-col units) to a visual span (1-4) */
-function widthToSpan(w: number): number {
-  return Math.max(1, Math.min(4, Math.round(w / 3)));
 }
 
 function WidgetSkeleton() {
@@ -94,7 +88,6 @@ export function UnifiedDashboardGrid({
   userWidgets,
   onLayoutChange,
   onDeleteWidget,
-  onResizeWidget,
   onAddWidget,
   isNewUser,
 }: UnifiedDashboardGridProps) {
@@ -149,10 +142,10 @@ export function UnifiedDashboardGrid({
         y: p.y,
         w: p.w,
         h: p.h,
-        minW: def?.minW ?? 3,
+        minW: def?.minW ?? 2,
         maxW: def?.maxW ?? 12,
-        minH: def?.minH ?? 1,
-        maxH: def?.maxH ?? 6,
+        minH: def?.minH ?? 2,
+        maxH: def?.maxH ?? 16,
         isDraggable: dragEnabled,
         isResizable: resizeEnabled,
       };
@@ -223,21 +216,12 @@ export function UnifiedDashboardGrid({
     if (newItem) {
       const title = getWidgetTitle(newItem.i);
       setLiveAnnouncement(
-        `Widget ${title} resized to ${widthToSpan(newItem.w)} columns, ${newItem.h} rows`,
+        `Widget ${title} resized to ${newItem.w} columns, ${newItem.h} rows`,
       );
     }
     setActiveItem(null);
     setResizeDims(null);
   }, [getWidgetTitle]);
-
-  const handleResizeViaMenu = useCallback(
-    (widgetId: string, span: number) => {
-      if (onResizeWidget) {
-        onResizeWidget(widgetId, span);
-      }
-    },
-    [onResizeWidget],
-  );
 
   const handleKeyboardMove = useCallback(
     (widgetId: string, dx: number, dy: number) => {
@@ -266,8 +250,8 @@ export function UnifiedDashboardGrid({
         const isPreset = p.widgetId.startsWith("preset:");
         const type = isPreset ? p.widgetId.replace("preset:", "") : null;
         const def = type ? WIDGET_REGISTRY[type] : null;
-        const newW = Math.max(def?.minW ?? 3, Math.min(def?.maxW ?? 12, p.w + dw));
-        const newH = Math.max(def?.minH ?? 1, Math.min(def?.maxH ?? 6, p.h + dh));
+        const newW = Math.max(def?.minW ?? 2, Math.min(def?.maxW ?? 12, p.w + dw));
+        const newH = Math.max(def?.minH ?? 2, Math.min(def?.maxH ?? 16, p.h + dh));
         return { ...p, w: newW, h: newH };
       });
       onLayoutChange(updated);
@@ -275,7 +259,7 @@ export function UnifiedDashboardGrid({
       const resized = updated.find((p) => p.widgetId === widgetId);
       if (resized) {
         setLiveAnnouncement(
-          `Widget ${title} resized to ${widthToSpan(resized.w)} columns, ${resized.h} rows`,
+          `Widget ${title} resized to ${resized.w} columns, ${resized.h} rows`,
         );
       }
     },
@@ -334,12 +318,11 @@ export function UnifiedDashboardGrid({
             ? userWidgetMap.get(placement.widgetId)
             : null;
           const title = presetDef?.label ?? userWidget?.title ?? "Widget";
-          const currentSpan = widthToSpan(placement.w);
 
           const isActive = activeItem === placement.widgetId;
           const resizeLabel =
             isActive && isResizing && resizeDims
-              ? `${widthToSpan(resizeDims.w)}x${resizeDims.h}`
+              ? `${resizeDims.w}x${resizeDims.h}`
               : undefined;
 
           return (
@@ -352,11 +335,9 @@ export function UnifiedDashboardGrid({
                 variant={isPreset ? "overlay" : "card"}
                 title={title}
                 widgetId={placement.widgetId}
-                currentSpan={currentSpan}
                 isDragging={isActive && isDragging}
                 isResizing={isActive && isResizing}
                 resizeLabel={resizeLabel}
-                onResize={handleResizeViaMenu}
                 onDelete={onDeleteWidget}
                 disableDrag={!dragEnabled}
                 disableResize={!resizeEnabled}
@@ -367,7 +348,7 @@ export function UnifiedDashboardGrid({
                   <Suspense fallback={<WidgetSkeleton />}>
                     <presetDef.component
                       companyId={companyId}
-                      span={currentSpan}
+                      span={placement.w}
                       props={placement.props}
                     />
                   </Suspense>
