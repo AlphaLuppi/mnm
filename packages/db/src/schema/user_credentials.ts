@@ -6,6 +6,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { companies } from "./companies.js";
@@ -35,5 +36,13 @@ export const userCredentials = pgTable(
     expiringIdx: index("user_credentials_expiring_idx")
       .on(table.expiresAt)
       .where(sql`status = 'connected' AND expires_at IS NOT NULL`),
+    providerCheck: check(
+      "user_credentials_provider_check",
+      sql`provider IN ('oauth2', 'api_key', 'bearer', 'pat', 'custom')`,
+    ),
+    statusCheck: check(
+      "user_credentials_status_check",
+      sql`status IN ('pending', 'connected', 'expired', 'revoked', 'error')`,
+    ),
   }),
 );

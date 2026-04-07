@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,12 @@ export function CredentialDialog({
   const queryClient = useQueryClient();
   const [envText, setEnvText] = useState("");
   const [patValue, setPatValue] = useState("");
+
+  // Reset form state when switching between items
+  useEffect(() => {
+    setEnvText("");
+    setPatValue("");
+  }, [itemId]);
 
   const storeMutation = useMutation({
     mutationFn: () => {

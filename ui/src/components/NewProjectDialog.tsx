@@ -291,7 +291,7 @@ export function NewProjectDialog() {
         <div className="px-4 pb-3 space-y-3 border-t border-border">
           <div className="pt-3">
             <p className="text-sm font-medium">Where will work be done on this project?</p>
-            <p className="text-xs text-muted-foreground">Add local folder and/or GitHub repo workspace hints.</p>
+            <p className="text-xs text-muted-foreground">Add local folder and/or git repo workspace hints.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <button
