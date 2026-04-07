@@ -166,7 +166,15 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     />
   );
 
-  if (inline) return pre;
+  if (inline) {
+    return (
+      <div className="w-full h-full overflow-hidden">
+        <div className="h-full" style={{ marginLeft: -40, width: "calc(100% + 40px)" }}>
+          {pre}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-background overflow-hidden">
