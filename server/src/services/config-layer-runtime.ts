@@ -32,11 +32,19 @@ export interface ResolvedHook {
   timeout?: number;
 }
 
+export interface ResolvedGitProvider {
+  name: string;
+  host: string;
+  providerType: string;
+  token?: string; // decrypte au runtime, JAMAIS loggue
+}
+
 export interface ResolvedConfig {
   mcpServers: ResolvedMcpServer[];
   skills: ResolvedSkill[];
   hooks: ResolvedHook[];
   settings: Record<string, unknown>;
+  gitProviders: ResolvedGitProvider[];
   warnings: string[];
 }
 
@@ -187,7 +195,7 @@ export function configLayerRuntimeService(db: Db) {
     } catch (err) {
       logger.error({ err, companyId, agentId }, "[config-layer-runtime] merge query failed");
       warnings.push("Config layer merge query failed — running with empty config");
-      return { mcpServers: [], skills: [], hooks: [], settings: {}, warnings };
+      return { mcpServers: [], skills: [], hooks: [], settings: {}, gitProviders: [], warnings };
     }
 
     // ── 2. Load files for skill items ────────────────────────────────────────
@@ -229,6 +237,7 @@ export function configLayerRuntimeService(db: Db) {
     const skills: ResolvedSkill[] = [];
     const hooks: ResolvedHook[] = [];
     const settings: Record<string, unknown> = {};
+    const gitProviders: ResolvedGitProvider[] = [];
 
     for (const row of mergedRows) {
       const cfg = row.config_json ?? {};
@@ -280,24 +289,35 @@ export function configLayerRuntimeService(db: Db) {
           break;
         }
 
+        case "git_provider": {
+          const gp: ResolvedGitProvider = {
+            name: row.name,
+            host: (cfg.host as string) ?? row.name,
+            providerType: (cfg.providerType as string) ?? "generic",
+          };
+          gitProviders.push(gp);
+          break;
+        }
+
         default:
           warnings.push(`Unknown item_type "${row.item_type}" for item "${row.name}" — skipped`);
       }
     }
 
-    // ── 4. Inject MCP credentials ─────────────────────────────────────────
-    // For each MCP item, check if the owner has stored credentials.
-    // Credential material.env gets merged on top of static env vars.
+    // ── 4. Inject credentials for all credentialed item types ────────────────
+    // MCP: credential material.env/headers merged into server config
+    // git_provider: credential material.token injected into ResolvedGitProvider
 
-    const mcpItemIds = mergedRows
-      .filter((r) => r.item_type === "mcp")
+    const CREDENTIALED_ITEM_TYPES = ["mcp", "git_provider"];
+    const credentialedItemIds = mergedRows
+      .filter((r) => CREDENTIALED_ITEM_TYPES.includes(r.item_type))
       .map((r) => r.id);
 
-    if (mcpItemIds.length > 0 && ownerUserId) {
+    if (credentialedItemIds.length > 0 && ownerUserId) {
       const credByItemId = new Map<string, Record<string, unknown>>();
 
       await Promise.all(
-        mcpItemIds.map(async (itemId) => {
+        credentialedItemIds.map(async (itemId) => {
           try {
             const material = await credSvc.getDecryptedMaterial(ownerUserId, companyId, itemId);
             if (material) credByItemId.set(itemId, material);
@@ -307,7 +327,7 @@ export function configLayerRuntimeService(db: Db) {
         }),
       );
 
-      // Match credentials to resolved servers by item id (same order as mergedRows)
+      // Inject into MCP servers
       let mcpIdx = 0;
       for (const row of mergedRows) {
         if (row.item_type !== "mcp") continue;
@@ -331,6 +351,17 @@ export function configLayerRuntimeService(db: Db) {
         }
         mcpIdx++;
       }
+
+      // Inject tokens into git providers
+      let gpIdx = 0;
+      for (const row of mergedRows) {
+        if (row.item_type !== "git_provider") continue;
+        const material = credByItemId.get(row.id);
+        if (material?.token && typeof material.token === "string") {
+          gitProviders[gpIdx]!.token = material.token;
+        }
+        gpIdx++;
+      }
     }
 
     logger.debug(
@@ -342,11 +373,12 @@ export function configLayerRuntimeService(db: Db) {
         skillCount: skills.length,
         hookCount: hooks.length,
         settingCount: Object.keys(settings).length,
+        gitProviderCount: gitProviders.length,
       },
       "[config-layer-runtime] config resolved",
     );
 
-    return { mcpServers, skills, hooks, settings, warnings };
+    return { mcpServers, skills, hooks, settings, gitProviders, warnings };
   }
 
   // ─── File generators ──────────────────────────────────────────────────────
