@@ -146,12 +146,12 @@ export function WidgetCard({
         <div
           onKeyDown={handleKeyDown}
           className={cn(
-            "group/widget relative h-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg transition-all duration-150",
+            "group/widget relative h-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg transition-all duration-150 bg-card border border-border shadow-sm",
             isDragging
               ? "shadow-xl opacity-80 z-50 rotate-1"
               : isResizing
-                ? "shadow-md"
-                : "",
+                ? "border-primary/50 shadow-md"
+                : "hover:shadow-md",
           )}
           tabIndex={0}
           role="article"

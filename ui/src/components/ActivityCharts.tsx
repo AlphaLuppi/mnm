@@ -44,9 +44,9 @@ function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
   );
 }
 
-export function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+export function ChartCard({ title, subtitle, children, noBorder }: { title: string; subtitle?: string; children: React.ReactNode; noBorder?: boolean }) {
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3 h-full flex flex-col overflow-hidden">
+    <div className={`${noBorder ? "" : "border border-border rounded-lg"} p-4 space-y-3 h-full flex flex-col overflow-hidden`}>
       <div className="shrink-0">
         <h3 className="text-xs font-medium text-muted-foreground truncate">{title}</h3>
         {subtitle && <span className="text-[10px] text-muted-foreground/60">{subtitle}</span>}
@@ -82,7 +82,7 @@ export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
 
   return (
     <div>
-      <div className="flex items-end gap-[3px] h-20">
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const total = entry.succeeded + entry.failed + entry.other;
@@ -134,7 +134,7 @@ export function PriorityChart({ issues }: { issues: { priority: string; createdA
 
   return (
     <div>
-      <div className="flex items-end gap-[3px] h-20">
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const total = Object.values(entry).reduce((a, b) => a + b, 0);
@@ -201,7 +201,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
 
   return (
     <div>
-      <div className="flex items-end gap-[3px] h-20">
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const total = Object.values(entry).reduce((a, b) => a + b, 0);
@@ -245,7 +245,7 @@ export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
 
   return (
     <div>
-      <div className="flex items-end gap-[3px] h-20">
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const rate = entry.total > 0 ? entry.succeeded / entry.total : 0;

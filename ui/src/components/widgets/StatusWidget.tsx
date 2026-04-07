@@ -12,7 +12,7 @@ export default function StatusWidget({ companyId }: WidgetProps) {
   });
 
   return (
-    <ChartCard title="Issues by Status" subtitle="Last 14 days">
+    <ChartCard title="Issues by Status" subtitle="Last 14 days" noBorder>
       <IssueStatusChart issues={issues ?? []} />
     </ChartCard>
   );
