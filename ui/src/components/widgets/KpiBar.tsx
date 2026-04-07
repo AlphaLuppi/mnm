@@ -37,6 +37,7 @@ export default function KpiBar({ companyId }: WidgetProps) {
   const healthColor = { green: "text-green-500", orange: "text-amber-500", red: "text-red-500" }[healthLevel];
 
   return (
+    <div className="border border-border rounded-lg p-4 bg-card h-full">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-2 h-full">
       <MetricCard
         icon={Bot}
@@ -83,6 +84,7 @@ export default function KpiBar({ companyId }: WidgetProps) {
           </span>
         }
       />
+    </div>
     </div>
   );
 }
