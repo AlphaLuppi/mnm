@@ -45,9 +45,7 @@ export function credentialRoutes(db: Db) {
     const userId = req.actor.userId!;
 
     // Build the callback URL pointing back to our server
-    const proto = req.headers["x-forwarded-proto"] ?? req.protocol;
-    const host = req.headers["x-forwarded-host"] ?? req.headers.host;
-    const callbackUrl = `${proto}://${host}/api/oauth/callback`;
+    const callbackUrl = `${buildPublicBaseUrl(req)}/api/oauth/callback`;
 
     const authorizeUrl = await oauthSvc.initiateAuthorize(
       userId,
@@ -69,9 +67,7 @@ export function credentialRoutes(db: Db) {
     const errorDescription = req.query.error_description as string | undefined;
 
     // Determine the callback URL (same as used in authorize)
-    const proto = req.headers["x-forwarded-proto"] ?? req.protocol;
-    const host = req.headers["x-forwarded-host"] ?? req.headers.host;
-    const callbackUrl = `${proto}://${host}/api/oauth/callback`;
+    const callbackUrl = `${buildPublicBaseUrl(req)}/api/oauth/callback`;
 
     if (error) {
       const html = buildPopupHtml({
@@ -172,14 +168,17 @@ export function credentialRoutes(db: Db) {
   // ── Backward-compat redirects (supprimer en V2) ───────────────────────────
   router.get(
     "/companies/:companyId/mcp-credentials",
+    requirePermission(db, "mcp:connect"),
     (req, res) => res.redirect(301, `/api/companies/${req.params.companyId}/credentials`),
   );
   router.post(
     "/companies/:companyId/mcp-credentials/:itemId/api-key",
+    requirePermission(db, "mcp:connect"),
     (req, res) => res.redirect(307, `/api/companies/${req.params.companyId}/credentials/${req.params.itemId}/secret`),
   );
   router.delete(
     "/companies/:companyId/mcp-credentials/:id",
+    requirePermission(db, "mcp:connect"),
     (req, res) => res.redirect(307, `/api/companies/${req.params.companyId}/credentials/${req.params.id}`),
   );
 
@@ -196,15 +195,14 @@ interface PopupResult {
 }
 
 function buildPopupHtml(result: PopupResult): string {
-  const payload = JSON.stringify(result);
-  // Escape for safe embedding in a JS string literal
-  const escaped = payload.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  // Use JSON.stringify for safe embedding — escape </script> to prevent premature tag close
+  const safePayload = JSON.stringify(result).replace(/<\//g, "<\\/");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MCP OAuth</title>
+  <title>OAuth Connection</title>
   <style>
     body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb; }
     .card { background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,.12); text-align: center; max-width: 360px; }
@@ -215,19 +213,33 @@ function buildPopupHtml(result: PopupResult): string {
 </head>
 <body>
   <div class="card">
-    <div class="icon">${result.success ? "✅" : "❌"}</div>
+    <div class="icon">${result.success ? "&#x2705;" : "&#x274C;"}</div>
     <h2>${result.success ? "Connected!" : "Connection failed"}</h2>
     <p>${result.success ? "You can close this window." : escapeHtml(result.error ?? "Unknown error")}</p>
   </div>
   <script>
     try {
-      const payload = '${escaped}';
-      window.opener?.postMessage({ type: 'mcp-oauth-result', ...JSON.parse(payload) }, '*');
+      const payload = ${safePayload};
+      window.opener?.postMessage({ type: 'mcp-oauth-result', ...payload }, window.location.origin);
     } catch (e) { /* ignore */ }
     setTimeout(() => { try { window.close(); } catch(e){} }, 2000);
   </script>
 </body>
 </html>`;
+}
+
+/**
+ * Resolve the public base URL for OAuth callbacks.
+ * Prefers MNM_PUBLIC_URL (explicit config), falls back to req.protocol + req.headers.host.
+ * Does NOT use x-forwarded-host to avoid host injection attacks (SEC-04).
+ */
+function buildPublicBaseUrl(req: import("express").Request): string {
+  if (process.env.MNM_PUBLIC_URL) {
+    return process.env.MNM_PUBLIC_URL.replace(/\/+$/, "");
+  }
+  const proto = req.protocol ?? "http";
+  const host = req.headers.host ?? "localhost";
+  return `${proto}://${host}`;
 }
 
 function escapeHtml(str: string): string {

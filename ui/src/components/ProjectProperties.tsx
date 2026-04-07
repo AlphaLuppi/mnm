@@ -202,7 +202,7 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
     }
   };
 
-  const formatGitHubRepo = (value: string) => {
+  const formatRepoUrl = (value: string) => {
     try {
       const parsed = new URL(value);
       const segments = parsed.pathname.split("/").filter(Boolean);
@@ -264,7 +264,7 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
     const hasLocalFolder = Boolean(workspace.cwd && workspace.cwd !== REPO_ONLY_CWD_SENTINEL);
     const confirmed = window.confirm(
       hasLocalFolder
-        ? "Clear GitHub repo from this workspace?"
+        ? "Clear git repo from this workspace?"
         : "Delete this workspace repo?",
     );
     if (!confirmed) return;
@@ -422,7 +422,7 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
                           const p = detectGitProvider(workspace.repoUrl);
                           return <GitProviderIcon provider={p.providerType} className="h-3 w-3 shrink-0" />;
                         })()}
-                        <span className="truncate">{formatGitHubRepo(workspace.repoUrl)}</span>
+                        <span className="truncate">{formatRepoUrl(workspace.repoUrl)}</span>
                         <ExternalLink className="h-3 w-3 shrink-0" />
                       </a>
                       <Button
