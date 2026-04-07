@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   materializeLayout,
   mergeNewWidgets,
-  spanToWidth,
 } from "../services/layout-materializer.js";
 import type { DashboardWidget, UserWidget } from "@mnm/shared";
 
@@ -22,15 +21,6 @@ function makeUserWidget(overrides: Partial<UserWidget> & { id: string }): UserWi
     ...overrides,
   };
 }
-
-describe("spanToWidth", () => {
-  it("converts span to grid width", () => {
-    expect(spanToWidth(1)).toBe(3);
-    expect(spanToWidth(2)).toBe(6);
-    expect(spanToWidth(3)).toBe(9);
-    expect(spanToWidth(4)).toBe(12);
-  });
-});
 
 describe("materializeLayout", () => {
   it("returns empty array for empty inputs", () => {

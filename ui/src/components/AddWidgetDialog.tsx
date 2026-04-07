@@ -55,7 +55,7 @@ interface AddWidgetDialogProps {
   /** Widget IDs already placed in the grid */
   placedWidgetIds?: Set<string>;
   /** Callback to add a preset widget by type */
-  onAddPresetWidget?: (type: string, span: number) => void;
+  onAddPresetWidget?: (type: string) => void;
 }
 
 const SUGGESTION_CHIPS = [
@@ -73,23 +73,21 @@ export function AddWidgetDialog({
   onAddPresetWidget,
 }: AddWidgetDialogProps) {
   const [caoPrompt, setCaoPrompt] = useState("");
-  const [caoSize, setCaoSize] = useState(2);
   const [creating, setCreating] = useState(false);
   const [caoError, setCaoError] = useState<string | null>(null);
   const [previewWidget, setPreviewWidget] = useState<UserWidget | null>(null);
 
   function handleClose() {
     setCaoPrompt("");
-    setCaoSize(2);
     setCaoError(null);
     setCreating(false);
     setPreviewWidget(null);
     onOpenChange(false);
   }
 
-  async function handleAddPreset(type: string, span: number) {
+  async function handleAddPreset(type: string) {
     if (onAddPresetWidget) {
-      onAddPresetWidget(type, span);
+      onAddPresetWidget(type);
       handleClose();
     }
   }
@@ -111,7 +109,7 @@ export function AddWidgetDialog({
             schemaVersion: 1,
             blocks: [{ type: "markdown", content: `*Pending CAO generation...*\n\nPrompt: ${caoPrompt.trim()}` }],
           },
-          span: caoSize,
+          span: 2,
         });
         handleClose();
       }
@@ -175,14 +173,14 @@ export function AddWidgetDialog({
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground/60">
-                        {def.defaultSpan === 4 ? "4 columns" : `${def.defaultSpan} column${def.defaultSpan > 1 ? "s" : ""}`}
+                        {def.defaultW === 12 ? "Full width" : `${def.defaultW}/${12} width`}
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
                         className="w-full"
                         disabled={isPlaced || creating}
-                        onClick={() => handleAddPreset(type, def.defaultSpan)}
+                        onClick={() => handleAddPreset(type)}
                       >
                         {isPlaced ? "Already added" : "Add"}
                       </Button>
@@ -239,24 +237,6 @@ export function AddWidgetDialog({
                         onClick={() => setCaoPrompt(chip)}
                       >
                         {chip}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Size:</p>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4].map((s) => (
-                      <Button
-                        key={s}
-                        variant={caoSize === s ? "default" : "outline"}
-                        size="sm"
-                        className="w-10"
-                        onClick={() => setCaoSize(s)}
-                        aria-label={`Set widget width to ${s} column${s > 1 ? "s" : ""}`}
-                      >
-                        {s}
                       </Button>
                     ))}
                   </div>
