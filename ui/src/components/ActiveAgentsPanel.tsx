@@ -386,8 +386,8 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
           <p className="text-sm text-muted-foreground">No recent agent runs.</p>
         </div>
       ) : (
-        <div className="flex-1 min-h-0">
-          <div className="flex flex-wrap gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex flex-wrap gap-3 content-start">
             {runs.map((run) => (
               <AgentRunCard
                 key={run.id}
@@ -475,7 +475,7 @@ function AgentRunCard({
       )}
 
       {/* Feed body */}
-      <div ref={bodyRef} className="flex-1 max-h-[140px] overflow-y-auto p-2 font-mono text-[11px] space-y-1">
+      <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto p-2 font-mono text-[11px] space-y-1">
         {isActive && recent.length === 0 && (
           <div className="text-xs text-muted-foreground">Waiting for output...</div>
         )}

@@ -38,11 +38,11 @@ function TimelineChart({ data }: { data: DashboardTimelineType }) {
   const visiblePoints = points.length > 30 ? points.filter((_, i) => i % 3 === 0) : points;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Tasks Completed */}
       <div>
         <p className="text-xs text-muted-foreground mb-1">Tasks Completed</p>
-        <div className="flex items-end gap-[2px] h-16">
+        <div className="flex items-end gap-[2px] h-14">
           {visiblePoints.map((point) => {
             const height = (point.tasksCompleted / maxTasks) * 100;
             return (
@@ -60,7 +60,7 @@ function TimelineChart({ data }: { data: DashboardTimelineType }) {
       {/* Audit Events */}
       <div>
         <p className="text-xs text-muted-foreground mb-1">Audit Events</p>
-        <div className="flex items-end gap-[2px] h-16">
+        <div className="flex items-end gap-[2px] h-14">
           {visiblePoints.map((point) => {
             const height = (point.auditEvents / maxAudit) * 100;
             return (
@@ -96,7 +96,7 @@ export function DashboardTimeline({ companyId }: DashboardTimelineProps) {
 
   return (
     <div data-testid="dash-s02-timeline" className="rounded-lg border border-border p-4 bg-card h-full flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
+      <div className="flex flex-wrap items-center justify-between mb-3 shrink-0 gap-2">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide truncate">
           Activity Timeline
         </h3>
