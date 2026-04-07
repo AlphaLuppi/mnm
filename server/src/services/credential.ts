@@ -24,6 +24,10 @@ function loadEncryptionKey(): Buffer {
     if (decoded.length === 32) return decoded;
     throw new Error("MNM_SECRETS_KEY must be a 32-byte hex (64 chars) or base64 value");
   }
+  // In production, credentials MUST be encrypted with a stable key
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FATAL: MNM_SECRETS_KEY must be set in production — credentials cannot be encrypted without it");
+  }
   // Dev fallback: random key per process (credentials won't survive restarts)
   logger.warn("[credential] MNM_SECRETS_KEY not set — using ephemeral dev key");
   return randomBytes(32);
