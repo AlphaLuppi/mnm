@@ -56,7 +56,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
       const nr = Math.max(1, Math.floor(pre.clientHeight / ch));
       if (nc === cols && nr === rows) return;
       cols = nc; rows = nr;
-      lox = Math.floor((cols - LW) / 2) - (inline ? 1 : 0);
+      lox = Math.floor((cols - LW) / 2);
       loy = Math.floor((rows - LH) / 2);
       logoMap = new Map();
       for (let r = 0; r < LH; r++) {
@@ -167,7 +167,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     <pre
       ref={preRef}
       className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
-      style={{ fontFamily: "monospace" }}
+      style={{ fontFamily: "monospace", ...(inline ? { transform: "translateX(-40px)" } : {}) }}
       aria-hidden="true"
     />
   );
