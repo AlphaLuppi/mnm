@@ -147,6 +147,16 @@ export function credentialService(db: Db) {
 
     if (!row) return null;
 
+    // Check expiration — mark as expired and return null if token is past its expiry
+    if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+      await db
+        .update(userCredentials)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(eq(userCredentials.id, row.id));
+      logger.debug({ userId, companyId, itemId }, "[credential] credential expired — marked as expired");
+      return null;
+    }
+
     try {
       const encMaterial = row.material as unknown as EncryptedMaterial;
       const plaintext = decrypt(encMaterial);

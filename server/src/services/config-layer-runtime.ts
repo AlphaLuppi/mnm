@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
+import type { ResolvedGitProvider } from "@mnm/shared";
 import { logger } from "../middleware/logger.js";
 import { credentialService } from "./credential.js";
 
@@ -32,12 +33,8 @@ export interface ResolvedHook {
   timeout?: number;
 }
 
-export interface ResolvedGitProvider {
-  name: string;
-  host: string;
-  providerType: string;
-  token?: string; // decrypte au runtime, JAMAIS loggue
-}
+// Re-export for downstream consumers
+export type { ResolvedGitProvider };
 
 export interface ResolvedConfig {
   mcpServers: ResolvedMcpServer[];
