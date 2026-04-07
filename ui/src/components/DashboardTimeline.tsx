@@ -95,7 +95,7 @@ export function DashboardTimeline({ companyId }: DashboardTimelineProps) {
   });
 
   return (
-    <div data-testid="dash-s02-timeline" className="rounded-lg border border-border p-4 h-full flex flex-col overflow-hidden">
+    <div data-testid="dash-s02-timeline" className="rounded-lg border border-border p-4 bg-card h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide truncate">
           Activity Timeline
