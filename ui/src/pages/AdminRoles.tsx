@@ -327,7 +327,7 @@ export default function AdminRoles() {
           if (!open) setFormData(emptyForm);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Role</DialogTitle>
             <DialogDescription>
@@ -476,7 +476,7 @@ export default function AdminRoles() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Role</DialogTitle>
             <DialogDescription>
@@ -604,7 +604,7 @@ export default function AdminRoles() {
           if (!open) setDeleteTarget(null);
         }}
       >
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete Role</DialogTitle>
             <DialogDescription>

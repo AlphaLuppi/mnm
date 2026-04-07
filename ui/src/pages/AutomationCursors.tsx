@@ -117,7 +117,7 @@ function AddCursorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="dual-s02-add-dialog" className="max-w-md">
+      <DialogContent data-testid="dual-s02-add-dialog" className="p-4 sm:p-6 gap-4 max-w-md">
         <DialogHeader>
           <DialogTitle>Add Automation Cursor</DialogTitle>
           <DialogDescription>

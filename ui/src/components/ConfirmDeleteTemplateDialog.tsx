@@ -27,7 +27,7 @@ export function ConfirmDeleteTemplateDialog({
 }: ConfirmDeleteTemplateDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="p-4 sm:p-6 gap-4">
         <DialogHeader>
           <DialogTitle>Delete template</DialogTitle>
           <DialogDescription>

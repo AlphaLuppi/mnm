@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { CreateUserWidget } from "@mnm/shared";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { WIDGET_REGISTRY } from "../lib/widget-registry";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
@@ -53,7 +49,6 @@ const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
 interface AddWidgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateWidget: (data: CreateUserWidget) => Promise<void>;
   /** Widget IDs already placed in the grid */
   placedWidgetIds?: Set<string>;
   /** Callback to add a preset widget by type */
@@ -69,7 +64,6 @@ const SUGGESTION_CHIPS = [
 export function AddWidgetDialog({
   open,
   onOpenChange,
-  onCreateWidget,
   placedWidgetIds,
   onAddPresetWidget,
 }: AddWidgetDialogProps) {
@@ -90,7 +84,7 @@ export function AddWidgetDialog({
     onOpenChange(false);
   }
 
-  async function handleAddPreset(type: string) {
+  function handleAddPreset(type: string) {
     if (onAddPresetWidget) {
       onAddPresetWidget(type);
       handleClose();
@@ -111,14 +105,26 @@ export function AddWidgetDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : handleClose())}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Add Widget</DialogTitle>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-md p-0 gap-0 overflow-hidden"
+      >
+        {/* Header — same as NewAgentDialog */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+          <span className="text-sm text-muted-foreground">Add a widget</span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            onClick={() => handleClose()}
+          >
+            <span className="text-lg leading-none">&times;</span>
+          </Button>
+        </div>
 
         {/* Preset gallery */}
-        <ScrollArea className="max-h-[300px]">
-          <div className="grid grid-cols-2 gap-3 pr-1">
+        <ScrollArea className="max-h-[300px] px-6 py-4">
+          <div className="grid grid-cols-2 gap-3">
             {registryEntries.map(([type, def]) => {
               const isPlaced = placedWidgetIds?.has(`preset:${type}`);
               const IconComponent = WIDGET_ICON_MAP[type] ?? Package;
@@ -146,18 +152,13 @@ export function AddWidgetDialog({
           </div>
         </ScrollArea>
 
-        <Separator />
-
-        {/* Ask the CAO */}
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Or ask the CAO to create a custom widget:
-          </p>
+        {/* CAO section */}
+        <div className="border-t border-border px-6 py-4 space-y-3">
           <div className="flex gap-2">
             <Textarea
               rows={1}
               className="min-h-9 resize-none"
-              placeholder="Describe the widget you need..."
+              placeholder="Or describe a custom widget..."
               value={caoPrompt}
               onChange={(e) => setCaoPrompt(e.target.value)}
             />

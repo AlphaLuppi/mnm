@@ -331,7 +331,7 @@ function CreateRoutineDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create Routine</DialogTitle>
           <DialogDescription>
@@ -487,7 +487,7 @@ function RunNowDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Run "{routine.title}"</DialogTitle>
           <DialogDescription>

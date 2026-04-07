@@ -54,7 +54,7 @@ export function FolderDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="p-4 sm:p-6 gap-4 max-w-md">
         <DialogHeader>
           <DialogTitle>Delete "{folderName}"</DialogTitle>
         </DialogHeader>

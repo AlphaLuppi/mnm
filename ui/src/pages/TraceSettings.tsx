@@ -212,7 +212,7 @@ export function TraceSettings() {
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Create Lens</DialogTitle>
           </DialogHeader>
@@ -238,7 +238,7 @@ export function TraceSettings() {
 
       {/* Edit dialog */}
       <Dialog open={!!editingLens} onOpenChange={(open) => { if (!open) setEditingLens(null); }}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Edit Lens</DialogTitle>
           </DialogHeader>
@@ -267,7 +267,7 @@ export function TraceSettings() {
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Delete Lens</DialogTitle>
           </DialogHeader>
@@ -517,7 +517,7 @@ function GoldPromptsSection({ companyId }: { companyId: string }) {
 
       {/* Create gold prompt dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader><DialogTitle>Create Gold Prompt</DialogTitle></DialogHeader>
           <GoldPromptForm form={form} onChange={setForm} showScope />
           <DialogFooter>
@@ -532,7 +532,7 @@ function GoldPromptsSection({ companyId }: { companyId: string }) {
 
       {/* Edit gold prompt dialog */}
       <Dialog open={!!editingPrompt} onOpenChange={(open) => { if (!open) setEditingPrompt(null); }}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader><DialogTitle>Edit Gold Prompt</DialogTitle></DialogHeader>
           <GoldPromptForm form={form} onChange={setForm} />
           <DialogFooter>
@@ -547,7 +547,7 @@ function GoldPromptsSection({ companyId }: { companyId: string }) {
 
       {/* Delete gold prompt dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader><DialogTitle>Delete Gold Prompt</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Delete this {SCOPE_LABELS[deleteTarget?.scope ?? "global"]} gold prompt? This cannot be undone.</p>
           <DialogFooter>

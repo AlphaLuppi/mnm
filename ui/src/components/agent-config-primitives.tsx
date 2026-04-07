@@ -376,7 +376,7 @@ export function ChoosePathButton() {
         Choose
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Specify path manually</DialogTitle>
             <DialogDescription>

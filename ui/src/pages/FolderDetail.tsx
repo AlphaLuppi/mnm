@@ -434,7 +434,7 @@ export function FolderDetail() {
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="p-4 sm:p-6 gap-4 max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit Folder</DialogTitle>
           </DialogHeader>
@@ -492,7 +492,7 @@ export function FolderDetail() {
 
       {/* New Chat dialog */}
       <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="p-4 sm:p-6 gap-4 max-w-sm">
           <DialogHeader>
             <DialogTitle>New Chat</DialogTitle>
           </DialogHeader>
@@ -555,7 +555,7 @@ export function FolderDetail() {
 
       {/* Add Item dialog */}
       <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="p-4 sm:p-6 gap-4 max-w-md">
           <DialogHeader>
             <DialogTitle>Import Item</DialogTitle>
           </DialogHeader>

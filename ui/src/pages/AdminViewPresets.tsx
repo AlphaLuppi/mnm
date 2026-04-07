@@ -188,7 +188,7 @@ export default function AdminViewPresets() {
           if (!open) setFormData(emptyForm);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create View Preset</DialogTitle>
             <DialogDescription>
@@ -293,7 +293,7 @@ export default function AdminViewPresets() {
           if (!open) setDeleteTarget(null);
         }}
       >
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete Preset</DialogTitle>
             <DialogDescription>
