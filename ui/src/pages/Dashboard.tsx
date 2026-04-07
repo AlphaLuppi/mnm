@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import type { WidgetPlacement } from "@mnm/shared";
 import { dashboardApi } from "../api/dashboard";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
-import { userWidgetsApi } from "../api/user-widgets";
 import { viewPresetsApi } from "../api/view-presets";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -39,13 +38,6 @@ export function Dashboard() {
 
   // Custom widgets
   const { widgets: customWidgets, createWidget, updateWidget, deleteWidget } = useUserWidgets();
-  const qc = useQueryClient();
-  const generateWidget = useMutation({
-    mutationFn: (prompt: string) => userWidgetsApi.generate(selectedCompanyId!, prompt),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.userWidgets.list(selectedCompanyId!) });
-    },
-  });
 
   // V2 grid layout state
   const [localGrid, setLocalGrid] = useState<WidgetPlacement[] | null>(null);
@@ -270,7 +262,6 @@ export function Dashboard() {
         open={addWidgetOpen}
         onOpenChange={setAddWidgetOpen}
         onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
-        onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt)}
         placedWidgetIds={new Set(currentGrid.filter((p) => !p.hidden).map((p) => p.widgetId))}
         onAddPresetWidget={(type) => {
           if (currentGrid.some((p) => p.widgetId === `preset:${type}`)) return;
