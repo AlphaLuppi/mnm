@@ -165,7 +165,7 @@ export const createConfigLayerSchema = z.object({
   icon: z.string().optional().nullable(),
   scope: z.enum(CONFIG_LAYER_SCOPES),
   enforced: z.boolean().optional().default(false),
-  visibility: z.enum(CONFIG_LAYER_VISIBILITIES).optional().default("public"),
+  visibility: z.enum(CONFIG_LAYER_VISIBILITIES).optional(),
 });
 
 export type CreateConfigLayer = z.infer<typeof createConfigLayerSchema>;
