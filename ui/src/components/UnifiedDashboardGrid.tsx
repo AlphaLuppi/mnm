@@ -21,7 +21,7 @@ import { api } from "../api/client";
 
 const GRID_COLS = { lg: 12, md: 6, sm: 3 };
 const BREAKPOINTS = { lg: 1024, md: 768, sm: 0 };
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 60;
 const MIN_REFRESH_SECONDS = 60;
 
 interface UnifiedDashboardGridProps {
@@ -348,6 +348,7 @@ export function UnifiedDashboardGrid({
               aria-label={`${title} widget`}
             >
               <WidgetCard
+                variant={isPreset ? "overlay" : "card"}
                 title={title}
                 widgetId={placement.widgetId}
                 currentSpan={currentSpan}
