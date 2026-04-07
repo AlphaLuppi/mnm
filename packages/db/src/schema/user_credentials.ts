@@ -7,6 +7,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { companies } from "./companies.js";
 import { configLayerItems } from "./config_layer_items.js";
 
@@ -32,6 +33,7 @@ export const userCredentials = pgTable(
     userCompanyIdx: index("user_credentials_user_company_idx")
       .on(table.userId, table.companyId),
     expiringIdx: index("user_credentials_expiring_idx")
-      .on(table.expiresAt),
+      .on(table.expiresAt)
+      .where(sql`status = 'connected' AND expires_at IS NOT NULL`),
   }),
 );

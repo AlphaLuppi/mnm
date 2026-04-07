@@ -114,8 +114,8 @@ const SEED_PERMISSIONS: Array<{ slug: string; description: string; category: str
   { slug: "config_layers:manage", description: "Gérer les config layers company/enforced", category: "config" },
   { slug: "config_layers:promote", description: "Approuver/rejeter les promotions de layers", category: "config" },
   { slug: "config_layers:attach", description: "Attacher des layers aux agents", category: "config" },
-  { slug: "mcp:connect", description: "Connecter des credentials MCP", category: "config" },
-  { slug: "mcp:manage", description: "Gérer TOUTES les credentials MCP", category: "config" },
+  { slug: "mcp:connect", description: "Connecter des credentials (MCP, git providers)", category: "config" },
+  { slug: "mcp:manage", description: "Gérer TOUTES les credentials (MCP, git providers)", category: "config" },
 
   // Users (additional)
   { slug: "users:read", description: "Voir la liste des utilisateurs", category: "users" },
