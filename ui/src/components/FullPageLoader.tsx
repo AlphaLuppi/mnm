@@ -16,7 +16,7 @@ const LH = LOGO.length;
 const LW = Math.max(...LOGO.map(l => l.length));
 
 const FONT_MOBILE = 11;
-const FONT_DESKTOP = 55;
+const FONT_DESKTOP = 30;
 const MD_BREAKPOINT = "(min-width: 768px)";
 
 function getFontSize() {
@@ -33,7 +33,7 @@ function measureChar(container: HTMLElement, fontSize: number) {
   return { w: r.width || fontSize * 0.64, h: r.height || fontSize };
 }
 
-export function FullPageLoader() {
+export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
   const preRef = useRef<HTMLPreElement>(null);
   const frameRef = useRef<number | null>(null);
 
@@ -163,14 +163,20 @@ export function FullPageLoader() {
     };
   }, []);
 
+  const pre = (
+    <pre
+      ref={preRef}
+      className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
+      style={{ fontFamily: "monospace" }}
+      aria-hidden="true"
+    />
+  );
+
+  if (inline) return pre;
+
   return (
     <div className="fixed inset-0 bg-background overflow-hidden">
-      <pre
-        ref={preRef}
-        className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
-        style={{ fontFamily: "monospace" }}
-        aria-hidden="true"
-      />
+      {pre}
     </div>
   );
 }

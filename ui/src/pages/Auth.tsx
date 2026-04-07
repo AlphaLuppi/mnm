@@ -8,7 +8,6 @@ import { FullPageLoader } from "@/components/FullPageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AsciiArtAnimation } from "@/components/AsciiArtAnimation";
 import { Sparkles } from "lucide-react";
 
 type AuthMode = "sign_in" | "sign_up";
@@ -202,7 +201,7 @@ export function AuthPage() {
 
       {/* Right half — ASCII art animation (hidden on mobile) */}
       <div className="hidden md:block w-1/2 overflow-hidden">
-        <AsciiArtAnimation />
+        <FullPageLoader inline />
       </div>
     </div>
   );
