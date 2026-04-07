@@ -229,13 +229,23 @@ export function oauthService(db: Db) {
       if (!isNaN(secs)) expiresAt = new Date(Date.now() + secs * 1000);
     }
 
+    // Normalize OAuth response fields to a stable internal shape
+    // (standard OAuth returns `access_token`, but runtime expects `token`)
+    const normalizedMaterial = {
+      token: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token,
+      tokenType: tokenResponse.token_type,
+      scope: tokenResponse.scope,
+      expiresIn: tokenResponse.expires_in,
+    };
+
     // Store the credential (encrypted)
     await credSvc.storeCredential(
       userId,
       companyId,
       itemId,
       "oauth2",
-      tokenResponse,
+      normalizedMaterial,
       expiresAt,
     );
 
