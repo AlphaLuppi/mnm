@@ -117,7 +117,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     }
 
     function syncLoop() {
-      if (inline || motionMedia.matches || cols <= 0 || rows <= 0) {
+      if (motionMedia.matches || cols <= 0 || rows <= 0) {
         if (loopActive) {
           loopActive = false;
           if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
