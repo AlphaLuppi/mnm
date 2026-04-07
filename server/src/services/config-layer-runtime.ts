@@ -57,11 +57,11 @@ interface CachedConfig {
 
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
 
-// key = `${companyId}:${agentId}`
+// key = `${companyId}:${agentId}:${ownerUserId}`
 const configCache = new Map<string, CachedConfig>();
 
-function cacheKey(companyId: string, agentId: string): string {
-  return `${companyId}:${agentId}`;
+function cacheKey(companyId: string, agentId: string, ownerUserId?: string): string {
+  return `${companyId}:${agentId}:${ownerUserId ?? ""}`;
 }
 
 function isStale(cachedAt: number): boolean {
@@ -99,7 +99,7 @@ export function configLayerRuntimeService(db: Db) {
     agentId: string,
     ownerUserId: string,
   ): Promise<ResolvedConfig> {
-    const key = cacheKey(companyId, agentId);
+    const key = cacheKey(companyId, agentId, ownerUserId);
     const cached = configCache.get(key);
     if (cached && !isStale(cached.cachedAt)) {
       return cached.config;
@@ -239,6 +239,10 @@ export function configLayerRuntimeService(db: Db) {
     const settings: Record<string, unknown> = {};
     const gitProviders: ResolvedGitProvider[] = [];
 
+    // Maps keyed by row.id for safe credential injection (avoids fragile parallel index)
+    const mcpServersByItemId = new Map<string, ResolvedMcpServer>();
+    const gitProvidersByItemId = new Map<string, ResolvedGitProvider>();
+
     for (const row of mergedRows) {
       const cfg = row.config_json ?? {};
 
@@ -258,6 +262,7 @@ export function configLayerRuntimeService(db: Db) {
             server.env = cfg.env as Record<string, string>;
           }
           mcpServers.push(server);
+          mcpServersByItemId.set(row.id, server);
           break;
         }
 
@@ -296,6 +301,7 @@ export function configLayerRuntimeService(db: Db) {
             providerType: (cfg.providerType as string) ?? "generic",
           };
           gitProviders.push(gp);
+          gitProvidersByItemId.set(row.id, gp);
           break;
         }
 
@@ -327,40 +333,35 @@ export function configLayerRuntimeService(db: Db) {
         }),
       );
 
-      // Inject into MCP servers
-      let mcpIdx = 0;
-      for (const row of mergedRows) {
-        if (row.item_type !== "mcp") continue;
-        const material = credByItemId.get(row.id);
-        if (material) {
-          const server = mcpServers[mcpIdx];
-          // Merge credential env vars on top of static env vars
-          if (material.env && typeof material.env === "object") {
-            server.env = {
-              ...(server.env ?? {}),
-              ...(material.env as Record<string, string>),
-            };
-          }
-          // Merge credential headers on top of static headers
-          if (material.headers && typeof material.headers === "object") {
-            server.headers = {
-              ...(server.headers ?? {}),
-              ...(material.headers as Record<string, string>),
-            };
-          }
+      // Inject into MCP servers (safe map lookup — no parallel index)
+      for (const [itemId, material] of credByItemId) {
+        const server = mcpServersByItemId.get(itemId);
+        if (!server) continue;
+
+        // Merge credential env vars on top of static env vars
+        if (material.env && typeof material.env === "object") {
+          server.env = {
+            ...(server.env ?? {}),
+            ...(material.env as Record<string, string>),
+          };
         }
-        mcpIdx++;
+        // Merge credential headers on top of static headers
+        if (material.headers && typeof material.headers === "object") {
+          server.headers = {
+            ...(server.headers ?? {}),
+            ...(material.headers as Record<string, string>),
+          };
+        }
       }
 
-      // Inject tokens into git providers
-      let gpIdx = 0;
-      for (const row of mergedRows) {
-        if (row.item_type !== "git_provider") continue;
-        const material = credByItemId.get(row.id);
-        if (material?.token && typeof material.token === "string") {
-          gitProviders[gpIdx]!.token = material.token;
+      // Inject tokens into git providers (safe map lookup — no parallel index)
+      for (const [itemId, material] of credByItemId) {
+        const gp = gitProvidersByItemId.get(itemId);
+        if (!gp) continue;
+
+        if (material.token && typeof material.token === "string") {
+          gp.token = material.token;
         }
-        gpIdx++;
       }
     }
 
