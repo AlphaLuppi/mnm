@@ -14,6 +14,7 @@ import { McpItemEditor } from "./McpItemEditor";
 import { HookItemEditor } from "./HookItemEditor";
 import { SkillItemEditor } from "./SkillItemEditor";
 import { SettingItemEditor } from "./SettingItemEditor";
+import { GitProviderItemEditor } from "./GitProviderItemEditor";
 import { OAuthConnectButton } from "./OAuthConnectButton";
 import { CredentialDialog } from "./CredentialDialog";
 import { cn } from "../../lib/utils";
@@ -52,11 +53,16 @@ function ItemEditor({
       return (
         <SettingItemEditor item={item} onSave={onSave} onCancel={onCancel} />
       );
+    case "git_provider":
+      return (
+        <GitProviderItemEditor item={item} onSave={onSave} onCancel={onCancel} />
+      );
   }
 }
 
 const ITEM_TYPE_LABELS: Record<ConfigLayerItemType, string> = {
   mcp: "MCP Server",
+  git_provider: "Git Provider",
   hook: "Hook",
   skill: "Skill",
   setting: "Setting",
@@ -101,15 +107,18 @@ export function LayerItemList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [apiKeyItemId, setApiKeyItemId] = useState<string | null>(null);
   const [apiKeyItemName, setApiKeyItemName] = useState("");
+  const [apiKeyMode, setApiKeyMode] = useState<"env" | "pat">("env");
 
   const filtered = items.filter((it) => it.itemType === itemType);
 
-  // Load credentials for MCP items (only when viewing MCP tab with companyId)
+  // Load credentials for credentialed items (MCP + git_provider)
   const isMcp = itemType === "mcp";
+  const isGitProvider = itemType === "git_provider";
+  const needsCredentials = isMcp || isGitProvider;
   const { data: credentials } = useQuery({
     queryKey: queryKeys.configLayers.credentials(companyId!),
     queryFn: () => configLayersApi.listCredentials(companyId!),
-    enabled: isMcp && !!companyId,
+    enabled: needsCredentials && !!companyId,
   });
 
   // Build a map of itemId → credential for quick lookup
@@ -274,14 +283,14 @@ export function LayerItemList({
                 )}
               </div>
 
-              {/* Credential status for MCP items */}
-              {isMcp && companyId && (
+              {/* Credential status for credentialed items */}
+              {needsCredentials && companyId && (
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
                   <CredentialStatusBadge
                     status={getCredentialStatus(it.id)}
                   />
 
-                  {/* API Key button */}
+                  {/* Secret / Token button */}
                   {!readOnly && (
                     <Button
                       size="sm"
@@ -294,17 +303,22 @@ export function LayerItemList({
                       onClick={() => {
                         setApiKeyItemId(it.id);
                         setApiKeyItemName(it.displayName ?? it.name);
+                        setApiKeyMode(isGitProvider ? "pat" : "env");
                       }}
                     >
                       <KeyRound className="h-3 w-3 mr-1" />
-                      {getCredentialStatus(it.id) === "connected"
-                        ? "Update secrets"
-                        : "Add secrets"}
+                      {isGitProvider
+                        ? getCredentialStatus(it.id) === "connected"
+                          ? "Update token"
+                          : "Add token"
+                        : getCredentialStatus(it.id) === "connected"
+                          ? "Update secrets"
+                          : "Add secrets"}
                     </Button>
                   )}
 
-                  {/* OAuth connect button (only if item has oauth config) */}
-                  {!readOnly && hasOAuthConfig(it) && (
+                  {/* OAuth connect button (only for MCP items with oauth config) */}
+                  {!readOnly && isMcp && hasOAuthConfig(it) && (
                     <OAuthConnectButton
                       itemId={it.id}
                       companyId={companyId}
@@ -364,7 +378,7 @@ export function LayerItemList({
         </div>
       ))}
 
-      {/* API Key credential dialog */}
+      {/* Credential dialog (env mode for MCP, pat mode for git_provider) */}
       {apiKeyItemId && companyId && (
         <CredentialDialog
           open={!!apiKeyItemId}
@@ -374,6 +388,7 @@ export function LayerItemList({
           itemId={apiKeyItemId}
           itemName={apiKeyItemName}
           companyId={companyId}
+          mode={apiKeyMode}
         />
       )}
     </div>
