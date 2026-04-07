@@ -10,8 +10,8 @@ import {
 import { companies } from "./companies.js";
 import { configLayerItems } from "./config_layer_items.js";
 
-export const userMcpCredentials = pgTable(
-  "user_mcp_credentials",
+export const userCredentials = pgTable(
+  "user_credentials",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: text("user_id").notNull(),
@@ -27,11 +27,11 @@ export const userMcpCredentials = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    userCompanyItemUq: uniqueIndex("user_mcp_credentials_user_company_item_uq")
+    userCompanyItemUq: uniqueIndex("user_credentials_user_company_item_uq")
       .on(table.userId, table.companyId, table.itemId),
-    userCompanyIdx: index("user_mcp_credentials_user_company_idx")
+    userCompanyIdx: index("user_credentials_user_company_idx")
       .on(table.userId, table.companyId),
-    expiringIdx: index("user_mcp_credentials_expiring_idx")
+    expiringIdx: index("user_credentials_expiring_idx")
       .on(table.expiresAt),
   }),
 );
