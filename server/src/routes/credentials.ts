@@ -167,6 +167,9 @@ export function credentialRoutes(db: Db) {
       if (!material?.token || typeof material.token !== "string") {
         throw badRequest("material.token is required");
       }
+      if (material.token.length > 1000) {
+        return res.status(400).json({ error: "Token exceeds maximum length (1000)" });
+      }
 
       await credSvc.storeCredential(userId, companyId, itemId, "pat", material);
       clRuntime.invalidateCompanyCache(companyId);

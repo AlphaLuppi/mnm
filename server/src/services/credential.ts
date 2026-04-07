@@ -80,6 +80,9 @@ export function credentialService(db: Db) {
 
     const encryptedMaterial = encrypt(JSON.stringify(material));
 
+    // 90-day maximum TTL for credentials (set on first insert, preserved on update)
+    const maxTtlAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
     await db
       .insert(userCredentials)
       .values({
@@ -91,6 +94,7 @@ export function credentialService(db: Db) {
         status: "connected",
         connectedAt: new Date(),
         expiresAt: expiresAt ?? null,
+        maxTtlAt,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -105,6 +109,7 @@ export function credentialService(db: Db) {
           status: "connected",
           connectedAt: new Date(),
           expiresAt: expiresAt ?? null,
+          // maxTtlAt intentionally NOT updated on conflict — preserves original TTL
           updatedAt: new Date(),
         },
       });
@@ -271,6 +276,7 @@ export function credentialService(db: Db) {
       .where(
         and(
           eq(userCredentials.status, "connected"),
+          isNotNull(userCredentials.expiresAt),
           lt(userCredentials.expiresAt, threshold),
         ),
       );
