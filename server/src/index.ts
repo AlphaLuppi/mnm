@@ -656,6 +656,21 @@ if (config.databaseBackupEnabled) {
 import { validatePermissionSlugs } from "./services/permission-validator.js";
 validatePermissionSlugs();
 
+// Ensure CAO exists for all companies at startup (self-healing if accidentally deleted)
+import { ensureCao } from "./services/cao.js";
+import { companies as companiesTable } from "@mnm/db";
+(async () => {
+  try {
+    const allCompanies = await (db as any).select({ id: companiesTable.id }).from(companiesTable);
+    for (const company of allCompanies) {
+      await ensureCao(db as any, company.id);
+    }
+    if (allCompanies.length > 0) logger.info(`CAO ensured for ${allCompanies.length} company(ies)`);
+  } catch (err) {
+    logger.warn({ err }, "Failed to ensure CAO at startup (non-blocking)");
+  }
+})();
+
 server.listen(listenPort, config.host, () => {
   logger.info(`Server listening on ${config.host}:${listenPort}`);
   if (process.env.MNM_OPEN_ON_LISTEN === "true") {
