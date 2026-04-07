@@ -31,7 +31,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
   "success-rate":     { component: lazy(() => import("../components/widgets/SuccessRateWidget")),     defaultW: 4, label: "Success Rate",        description: "Agent success rate trends",        minW: 2, maxW: 12, minH: 5, maxH: 16 },
 
   // Panels — tables and lists
-  "active-agents":    { component: lazy(() => import("../components/widgets/ActiveAgentsWidget")),    defaultW: 6, label: "Active Agents",       description: "Currently running agents",         minW: 3, maxW: 12, minH: 4, maxH: 16 },
+  "active-agents":    { component: lazy(() => import("../components/widgets/ActiveAgentsWidget")),    defaultW: 12, label: "Active Agents",      description: "Currently running agents",         minW: 4, maxW: 12, minH: 6, maxH: 16 },
   "recent-issues":    { component: lazy(() => import("../components/widgets/RecentIssuesWidget")),    defaultW: 6, label: "Recent Issues",       description: "Latest issues across agents",      minW: 3, maxW: 12, minH: 4, maxH: 16 },
   "recent-activity":  { component: lazy(() => import("../components/widgets/RecentActivityWidget")),  defaultW: 6, label: "Recent Activity",     description: "Latest activity feed",             minW: 3, maxW: 12, minH: 4, maxH: 16 },
 

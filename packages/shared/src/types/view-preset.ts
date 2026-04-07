@@ -65,7 +65,7 @@ export const WIDGET_DEFAULT_HEIGHTS: Record<string, number> = {
   "priority-chart": 8,
   "status-chart": 8,
   "success-rate": 8,
-  "active-agents": 8,
+  "active-agents": 12,
   "recent-issues": 8,
   "recent-activity": 8,
   "timeline": 8,
