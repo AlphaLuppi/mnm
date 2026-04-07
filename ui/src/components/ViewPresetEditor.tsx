@@ -11,6 +11,21 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { ViewPreset, ViewPresetLayout, SidebarSection, DashboardWidget } from "@mnm/shared";
 import { viewPresetsApi } from "../api/view-presets";
 import { rolesApi, type Role } from "../api/roles";
@@ -48,6 +63,191 @@ const LANDING_PAGES = [
   { value: "/projects", label: "Projects" },
   { value: "/agents", label: "Agents" },
 ];
+
+// --- Sortable sidebar section row ---
+function SortableSidebarSection({
+  section,
+  sIdx,
+  totalSections,
+  expanded,
+  onToggleExpand,
+  onUpdateLabel,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  allNavItems,
+  onToggleItem,
+}: {
+  section: SidebarSection;
+  sIdx: number;
+  totalSections: number;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onUpdateLabel: (label: string) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+  allNavItems: { id: string; label: string }[];
+  onToggleItem: (itemId: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `section-${sIdx}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+      className="border border-border/50 rounded-md"
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/20 min-w-0">
+        <div
+          {...attributes}
+          {...listeners}
+          className="touch-none cursor-grab active:cursor-grabbing shrink-0"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-xs font-medium text-foreground flex-1 min-w-0 text-left"
+          onClick={onToggleExpand}
+        >
+          {expanded ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <Input
+            value={section.label}
+            onChange={(e) => onUpdateLabel(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-7 text-xs py-0 px-2 flex-1 min-w-0"
+            placeholder="Section label"
+          />
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1 shrink-0">
+            {section.items.length}
+          </Badge>
+        </button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button variant="ghost" size="icon-xs" onClick={onMoveUp} disabled={sIdx === 0}>
+            <ArrowUp className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={sIdx === totalSections - 1}>
+            <ArrowDown className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="icon-xs" onClick={onRemove}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {allNavItems.map((item) => (
+            <label
+              key={item.id}
+              className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground py-0.5"
+            >
+              <Checkbox
+                checked={section.items.includes(item.id as any)}
+                onCheckedChange={() => onToggleItem(item.id)}
+              />
+              {item.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Sortable widget row ---
+function SortableWidgetRow({
+  widget,
+  wIdx,
+  totalWidgets,
+  onUpdateSpan,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  widget: DashboardWidget;
+  wIdx: number;
+  totalWidgets: number;
+  onUpdateSpan: (span: 1 | 2 | 3 | 4) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}) {
+  const def = WIDGET_REGISTRY[widget.type];
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `widget-${wIdx}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+      className="flex items-center gap-3 px-3 py-2.5 border border-border/50 rounded-md"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="touch-none cursor-grab active:cursor-grabbing shrink-0"
+      >
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <span className="text-xs font-medium flex-1 truncate">
+        {def?.label ?? widget.type}
+      </span>
+      <Select
+        value={String(widget.span ?? (def ? Math.round(def.defaultW / 3) : 2))}
+        onValueChange={(val) => onUpdateSpan(parseInt(val) as 1 | 2 | 3 | 4)}
+      >
+        <SelectTrigger className="w-24 h-7 text-xs shrink-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="1">Span 1</SelectItem>
+          <SelectItem value="2">Span 2</SelectItem>
+          <SelectItem value="3">Span 3</SelectItem>
+          <SelectItem value="4">Span 4</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="flex items-center gap-0.5 shrink-0">
+        <Button variant="ghost" size="icon-xs" onClick={onMoveUp} disabled={wIdx === 0}>
+          <ArrowUp className="h-3 w-3" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={wIdx === totalWidgets - 1}>
+          <ArrowDown className="h-3 w-3" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={onRemove}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 interface ViewPresetEditorProps {
   preset: ViewPreset;
@@ -242,6 +442,39 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
     });
   }
 
+  // DnD sensors (require a small drag distance to avoid conflicts with clicks)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  function handleSectionDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = parseInt(String(active.id).replace("section-", ""));
+    const newIndex = parseInt(String(over.id).replace("section-", ""));
+    setLayout((prev) => ({
+      ...prev,
+      sidebar: {
+        ...prev.sidebar,
+        sections: arrayMove(prev.sidebar.sections, oldIndex, newIndex),
+      },
+    }));
+  }
+
+  function handleWidgetDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = parseInt(String(active.id).replace("widget-", ""));
+    const newIndex = parseInt(String(over.id).replace("widget-", ""));
+    setLayout((prev) => ({
+      ...prev,
+      dashboard: {
+        ...prev.dashboard,
+        widgets: arrayMove(prev.dashboard.widgets, oldIndex, newIndex),
+      },
+    }));
+  }
+
   // All nav item IDs for sidebar item checkboxes
   const allNavItems = Object.entries(NAV_ITEM_REGISTRY).map(([id, def]) => ({
     id,
@@ -306,12 +539,12 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
         <div className="flex flex-wrap items-end gap-6">
           <div className="space-y-1.5">
             <Label>Color</Label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
-                  className={`h-6 w-6 rounded-full transition-all ${
+                  className={`h-6 w-6 shrink-0 aspect-square rounded-full transition-all ${
                     color === c
                       ? "ring-2 ring-offset-2 ring-primary"
                       : "hover:scale-110"
@@ -356,77 +589,31 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
           </Button>
         </div>
 
-        <div className="space-y-2">
-          {layout.sidebar.sections.map((section, sIdx) => (
-            <div key={sIdx} className="border border-border/50 rounded-md">
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/20">
-                <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-xs font-medium text-foreground flex-1 text-left"
-                  onClick={() => toggleSectionExpand(sIdx)}
-                >
-                  {expandedSections.has(sIdx) ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                  )}
-                  <Input
-                    value={section.label}
-                    onChange={(e) => updateSectionLabel(sIdx, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-7 text-xs py-0 px-2 w-44"
-                    placeholder="Section label"
-                  />
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
-                    {section.items.length}
-                  </Badge>
-                </button>
-                <div className="flex items-center gap-0.5">
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => moveSectionUp(sIdx)}
-                    disabled={sIdx === 0}
-                  >
-                    <ArrowUp className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => moveSectionDown(sIdx)}
-                    disabled={sIdx === layout.sidebar.sections.length - 1}
-                  >
-                    <ArrowDown className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => removeSidebarSection(sIdx)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-              {expandedSections.has(sIdx) && (
-                <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {allNavItems.map((item) => (
-                    <label
-                      key={item.id}
-                      className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground py-0.5"
-                    >
-                      <Checkbox
-                        checked={section.items.includes(item.id as any)}
-                        onCheckedChange={() => toggleSidebarItem(sIdx, item.id)}
-                      />
-                      {item.label}
-                    </label>
-                  ))}
-                </div>
-              )}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+          <SortableContext
+            items={layout.sidebar.sections.map((_, i) => `section-${i}`)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-2">
+              {layout.sidebar.sections.map((section, sIdx) => (
+                <SortableSidebarSection
+                  key={`section-${sIdx}`}
+                  section={section}
+                  sIdx={sIdx}
+                  totalSections={layout.sidebar.sections.length}
+                  expanded={expandedSections.has(sIdx)}
+                  onToggleExpand={() => toggleSectionExpand(sIdx)}
+                  onUpdateLabel={(label) => updateSectionLabel(sIdx, label)}
+                  onMoveUp={() => moveSectionUp(sIdx)}
+                  onMoveDown={() => moveSectionDown(sIdx)}
+                  onRemove={() => removeSidebarSection(sIdx)}
+                  allNavItems={allNavItems}
+                  onToggleItem={(itemId) => toggleSidebarItem(sIdx, itemId)}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       </section>
 
       {/* Dashboard Widgets */}
@@ -454,61 +641,27 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
         {layout.dashboard.widgets.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4">No widgets configured.</p>
         ) : (
-          <div className="space-y-2">
-            {layout.dashboard.widgets.map((widget, wIdx) => {
-              const def = WIDGET_REGISTRY[widget.type];
-              return (
-                <div
-                  key={`${widget.type}-${wIdx}`}
-                  className="flex items-center gap-3 px-3 py-2.5 border border-border/50 rounded-md"
-                >
-                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs font-medium flex-1 truncate">
-                    {def?.label ?? widget.type}
-                  </span>
-                  <Select
-                    value={String(widget.span ?? (def ? Math.round(def.defaultW / 3) : 2))}
-                    onValueChange={(val) => updateWidgetSpan(wIdx, parseInt(val) as 1 | 2 | 3 | 4)}
-                  >
-                    <SelectTrigger className="w-24 h-7 text-xs shrink-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Span 1</SelectItem>
-                      <SelectItem value="2">Span 2</SelectItem>
-                      <SelectItem value="3">Span 3</SelectItem>
-                      <SelectItem value="4">Span 4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => moveWidgetUp(wIdx)}
-                      disabled={wIdx === 0}
-                    >
-                      <ArrowUp className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => moveWidgetDown(wIdx)}
-                      disabled={wIdx === layout.dashboard.widgets.length - 1}
-                    >
-                      <ArrowDown className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => removeWidget(wIdx)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleWidgetDragEnd}>
+            <SortableContext
+              items={layout.dashboard.widgets.map((_, i) => `widget-${i}`)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {layout.dashboard.widgets.map((widget, wIdx) => (
+                  <SortableWidgetRow
+                    key={`widget-${wIdx}`}
+                    widget={widget}
+                    wIdx={wIdx}
+                    totalWidgets={layout.dashboard.widgets.length}
+                    onUpdateSpan={(span) => updateWidgetSpan(wIdx, span)}
+                    onMoveUp={() => moveWidgetUp(wIdx)}
+                    onMoveDown={() => moveWidgetDown(wIdx)}
+                    onRemove={() => removeWidget(wIdx)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </section>
 
