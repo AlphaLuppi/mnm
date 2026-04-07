@@ -18,9 +18,10 @@ interface FolderSidebarProps {
   folder: FolderDetail;
   onBack: () => void;
   onCollapse?: () => void;
+  onDocumentClick?: (item: import("@mnm/shared").FolderItem) => void;
 }
 
-export function FolderSidebar({ companyId, folder, onBack, onCollapse }: FolderSidebarProps) {
+export function FolderSidebar({ companyId, folder, onBack, onCollapse, onDocumentClick }: FolderSidebarProps) {
   const queryClient = useQueryClient();
   const [instructions, setInstructions] = useState(folder.instructions ?? "");
   const [expandedSections, setExpandedSections] = useState<
@@ -181,6 +182,7 @@ export function FolderSidebar({ companyId, folder, onBack, onCollapse }: FolderS
             <FolderItemList
               items={folder.items.filter((i) => i.itemType !== "channel")}
               onRemove={(itemId) => removeItemMutation.mutate(itemId)}
+              onItemClick={onDocumentClick}
             />
           </div>
         )}

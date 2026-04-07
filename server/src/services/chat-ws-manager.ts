@@ -799,6 +799,7 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
             actorType,
             payload.content,
             payload.metadata,
+            payload.messageType ? { messageType: payload.messageType } : undefined,
           );
 
           const serverMessage: ChatServerMessage = {
@@ -810,6 +811,7 @@ export function createChatWsManager(opts: ChatWsManagerOptions) {
             senderName: actorName,
             content: payload.content,
             metadata: payload.metadata,
+            messageType: payload.messageType,
             createdAt: dbMessage.createdAt.toISOString(),
           };
 

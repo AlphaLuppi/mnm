@@ -22,6 +22,7 @@ import { chatApi } from "../api/chat";
 import { agentsApi } from "../api/agents";
 
 import { queryKeys } from "../lib/queryKeys";
+import { useDocumentViewer, type DocumentViewerItem } from "../components/ui/document-viewer";
 import { FolderItemList } from "../components/folders/FolderItemList";
 import { FolderShareManager } from "../components/folders/FolderShareManager";
 import { FolderDeleteDialog } from "../components/folders/FolderDeleteDialog";
@@ -103,6 +104,42 @@ export function FolderDetail() {
   }, [folder]);
 
   const canEdit = folder?.canEdit ?? false;
+  const { openDocuments } = useDocumentViewer();
+
+  const handleFolderDocumentClick = useCallback(
+    async (clickedItem: import("@mnm/shared").FolderItem) => {
+      if (!clickedItem.documentId || !selectedCompanyId || !folder) return;
+      try {
+        const doc = await documentsApi.getById(selectedCompanyId, clickedItem.documentId);
+        const docItems = folder.items.filter((i) => i.itemType === "document" && i.documentId);
+        const viewerDocs: DocumentViewerItem[] = [];
+        let startIndex = 0;
+        for (let i = 0; i < docItems.length; i++) {
+          const item = docItems[i];
+          if (item.documentId === clickedItem.documentId) {
+            startIndex = i;
+            viewerDocs.push({
+              id: doc.id,
+              title: doc.title,
+              mimeType: doc.mimeType,
+              url: documentsApi.getContentUrl(selectedCompanyId, doc.id),
+            });
+          } else {
+            viewerDocs.push({
+              id: item.documentId!,
+              title: item.displayName ?? item.documentId!,
+              mimeType: "application/octet-stream",
+              url: documentsApi.getContentUrl(selectedCompanyId, item.documentId!),
+            });
+          }
+        }
+        openDocuments(viewerDocs, startIndex);
+      } catch (err) {
+        console.error("Failed to load document:", err);
+      }
+    },
+    [selectedCompanyId, folder, openDocuments],
+  );
 
   const updateMutation = useMutation({
     mutationFn: (input: { name?: string; description?: string; instructions?: string | null }) =>
@@ -373,6 +410,7 @@ export function FolderDetail() {
           items={nonChannelItems}
           onRemove={(itemId) => removeItemMutation.mutate(itemId)}
           removing={removingItemId}
+          onItemClick={handleFolderDocumentClick}
         />
       </div>
 

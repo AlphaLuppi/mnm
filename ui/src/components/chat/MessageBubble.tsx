@@ -9,6 +9,7 @@ import { DocumentStatusBadge } from "./DocumentStatusBadge";
 export interface MessageBubbleProps {
   message: ChatMessage;
   onArtifactClick?: (artifactId: string) => void;
+  onDocumentClick?: (documentId: string, title: string, mimeType: string) => void;
 }
 
 function formatTime(iso: string): string {
@@ -19,7 +20,7 @@ function formatTime(iso: string): string {
   });
 }
 
-export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) {
+export function MessageBubble({ message, onArtifactClick, onDocumentClick }: MessageBubbleProps) {
   const isUser = message.senderType === "user";
   const isSystem = message.messageType === "system";
   const meta = message.metadata as Record<string, unknown> | null;
@@ -106,6 +107,26 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
   if (meta?.type === "document_upload") {
     const docTitle = (meta.title as string) || "Document";
     const ingestionStatus = (meta.ingestionStatus as IngestionStatus) || "pending";
+    const documentId = meta.documentId as string | undefined;
+    const docMimeType = (meta.mimeType as string) || "application/octet-stream";
+    const isClickable = !!documentId && !!onDocumentClick;
+
+    const cardContent = (
+      <>
+        <div className="flex items-center gap-2 mb-1">
+          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-sm font-medium truncate">{docTitle}</span>
+          <DocumentStatusBadge status={ingestionStatus} />
+        </div>
+        {message.content && (
+          <p className="text-xs text-muted-foreground">{message.content}</p>
+        )}
+        <span className="mt-1 block text-[10px] text-muted-foreground">
+          {formatTime(message.createdAt)}
+        </span>
+      </>
+    );
+
     return (
       <div
         data-testid="chat-s04-message"
@@ -124,19 +145,19 @@ export function MessageBubble({ message, onArtifactClick }: MessageBubbleProps) 
         >
           {isUser ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
         </div>
-        <div className="max-w-full sm:max-w-[75%] rounded-lg border border-border bg-background px-3 py-2">
-          <div className="flex items-center gap-2 mb-1">
-            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-medium truncate">{docTitle}</span>
-            <DocumentStatusBadge status={ingestionStatus} />
+        {isClickable ? (
+          <button
+            type="button"
+            className="max-w-full sm:max-w-[75%] rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-left transition-colors cursor-pointer"
+            onClick={() => onDocumentClick(documentId, docTitle, docMimeType)}
+          >
+            {cardContent}
+          </button>
+        ) : (
+          <div className="max-w-full sm:max-w-[75%] rounded-lg border border-border bg-background px-3 py-2">
+            {cardContent}
           </div>
-          {message.content && (
-            <p className="text-xs text-muted-foreground">{message.content}</p>
-          )}
-          <span className="mt-1 block text-[10px] text-muted-foreground">
-            {formatTime(message.createdAt)}
-          </span>
-        </div>
+        )}
       </div>
     );
   }

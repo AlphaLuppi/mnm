@@ -3,6 +3,7 @@ import { ArrowDown, ArrowLeft, Bot, MessageSquare, Paperclip, Send } from "lucid
 // Resizable split uses simple CSS resize instead of react-resizable-panels
 import type { ChatChannel } from "../api/chat";
 import { documentsApi } from "../api/documents";
+import { useDocumentViewer } from "./ui/document-viewer";
 import { useAgentChat } from "../hooks/useAgentChat";
 import { useCompany } from "../context/CompanyContext";
 import { MessageBubble } from "./chat/MessageBubble";
@@ -157,12 +158,54 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
     setSelectedArtifactId(artifactId);
   }, []);
 
+  const { openDocument } = useDocumentViewer();
+
+  const handleDocumentClick = useCallback(
+    (documentId: string, title: string, mimeType: string) => {
+      if (!selectedCompanyId) return;
+      openDocument({
+        id: documentId,
+        title,
+        mimeType,
+        url: documentsApi.getContentUrl(selectedCompanyId, documentId),
+      });
+    },
+    [selectedCompanyId, openDocument],
+  );
+
+  const handleContextDocumentClick = useCallback(
+    async (documentId: string) => {
+      if (!selectedCompanyId) return;
+      try {
+        const doc = await documentsApi.getById(selectedCompanyId, documentId);
+        openDocument({
+          id: doc.id,
+          title: doc.title,
+          mimeType: doc.mimeType,
+          url: documentsApi.getContentUrl(selectedCompanyId, doc.id),
+        });
+      } catch (err) {
+        console.error("Failed to load document:", err);
+      }
+    },
+    [selectedCompanyId, openDocument],
+  );
+
   const handleFileSelect = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedCompanyId) return;
     try {
-      await documentsApi.upload(selectedCompanyId, file, { channelId: channel.id });
-      sendMessage(`[Uploaded: ${file.name}]`);
+      const doc = await documentsApi.upload(selectedCompanyId, file, { channelId: channel.id });
+      sendMessage(`[Uploaded: ${file.name}]`, {
+        messageType: "document_upload",
+        metadata: {
+          type: "document_upload",
+          documentId: doc.id,
+          title: doc.title,
+          mimeType: doc.mimeType,
+          ingestionStatus: doc.ingestionStatus,
+        },
+      });
     } catch (err) {
       console.error("File upload failed:", err);
     }
@@ -235,6 +278,7 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
             companyId={selectedCompanyId}
             channelId={channel.id}
             onArtifactClick={handleArtifactClick}
+            onDocumentClick={handleContextDocumentClick}
           />
         )}
 
@@ -272,6 +316,7 @@ export function AgentChatPanel({ channel, agentName, onBack }: AgentChatPanelPro
                     key={msg.id}
                     message={msg}
                     onArtifactClick={handleArtifactClick}
+                    onDocumentClick={handleDocumentClick}
                   />
                 ))}
               </div>

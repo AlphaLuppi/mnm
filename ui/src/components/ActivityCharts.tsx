@@ -19,7 +19,7 @@ function formatDayLabel(dateStr: string): string {
 
 function DateLabels({ days }: { days: string[] }) {
   return (
-    <div className="flex gap-[3px] mt-1 shrink-0">
+    <div className="flex gap-[3px] mt-1.5">
       {days.map((day, i) => (
         <div key={day} className="flex-1 text-center">
           {(i === 0 || i === 6 || i === 13) ? (
@@ -33,7 +33,7 @@ function DateLabels({ days }: { days: string[] }) {
 
 function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
   return (
-    <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 mt-1 shrink-0">
+    <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 mt-2">
       {items.map(item => (
         <span key={item.label} className="flex items-center gap-1 text-[9px] text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
@@ -46,7 +46,7 @@ function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
 
 export function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="border border-border rounded-lg bg-card p-3 space-y-1.5 h-full flex flex-col overflow-hidden">
+    <div className="border border-border rounded-lg bg-card p-4 space-y-2 h-full flex flex-col overflow-hidden">
       <div className="shrink-0">
         <h3 className="text-xs font-medium text-muted-foreground truncate">{title}</h3>
         {subtitle && <span className="text-[10px] text-muted-foreground/60">{subtitle}</span>}
@@ -81,8 +81,8 @@ export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
   if (!hasData) return <p className="text-xs text-muted-foreground">No runs yet</p>;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-end gap-[3px] flex-1 min-h-0">
+    <div>
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const total = entry.succeeded + entry.failed + entry.other;
@@ -133,8 +133,8 @@ export function PriorityChart({ issues }: { issues: { priority: string; createdA
   if (!hasData) return <p className="text-xs text-muted-foreground">No issues</p>;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-end gap-[3px] flex-1 min-h-0">
+    <div>
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const total = Object.values(entry).reduce((a, b) => a + b, 0);
@@ -200,8 +200,8 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
   if (!hasData) return <p className="text-xs text-muted-foreground">No issues</p>;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-end gap-[3px] flex-1 min-h-0">
+    <div>
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const total = Object.values(entry).reduce((a, b) => a + b, 0);
@@ -244,8 +244,8 @@ export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
   if (!hasData) return <p className="text-xs text-muted-foreground">No runs yet</p>;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-end gap-[3px] flex-1 min-h-0">
+    <div>
+      <div className="flex items-end gap-[3px] flex-1 min-h-[80px]">
         {days.map(day => {
           const entry = grouped.get(day)!;
           const rate = entry.total > 0 ? entry.succeeded / entry.total : 0;

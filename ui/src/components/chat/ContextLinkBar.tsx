@@ -10,6 +10,7 @@ interface ContextLinkBarProps {
   companyId: string;
   channelId: string;
   onArtifactClick?: (artifactId: string) => void;
+  onDocumentClick?: (documentId: string) => void;
 }
 
 const LINK_TYPE_CONFIG: Record<
@@ -45,6 +46,7 @@ export function ContextLinkBar({
   companyId,
   channelId,
   onArtifactClick,
+  onDocumentClick,
 }: ContextLinkBarProps) {
   const queryClient = useQueryClient();
 
@@ -66,6 +68,10 @@ export function ContextLinkBar({
   });
 
   const handleChipClick = (link: ChatContextLink) => {
+    if (link.linkType === "document" && link.documentId && onDocumentClick) {
+      onDocumentClick(link.documentId);
+      return;
+    }
     if (link.linkType === "artifact" && link.artifactId && onArtifactClick) {
       onArtifactClick(link.artifactId);
     }

@@ -134,7 +134,7 @@ export function AddWidgetDialog({
 
         {/* Preset gallery */}
         <ScrollArea className="max-h-[60vh]">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-6">
             {registryEntries.map(([type, def]) => {
               const isPlaced = placedWidgetIds?.has(`preset:${type}`);
               const IconComponent = WIDGET_ICON_MAP[type] ?? Package;

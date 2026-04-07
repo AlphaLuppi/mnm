@@ -26,7 +26,7 @@ export interface ChatMessage {
   senderType: "user" | "agent";
   content: string;
   metadata: Record<string, unknown> | null;
-  messageType: "text" | "system" | "command" | "file_reference";
+  messageType: string;
   replyToId: string | null;
   editedAt: string | null;
   deletedAt: string | null;

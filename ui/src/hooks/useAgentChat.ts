@@ -18,7 +18,7 @@ export interface UseAgentChatResult {
   connectionState: ConnectionState;
   isTyping: boolean;
   typingSenderName: string | null;
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string, opts?: { metadata?: Record<string, unknown>; messageType?: string }) => void;
   loadMoreMessages: () => void;
   hasMore: boolean;
   isLoadingHistory: boolean;
@@ -112,7 +112,7 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
                 senderType: payload.senderType,
                 content: payload.content,
                 metadata: payload.metadata ?? null,
-                messageType: "text",
+                messageType: (payload as any).messageType ?? "text",
                 replyToId: null,
                 editedAt: null,
                 deletedAt: null,
@@ -232,7 +232,7 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
 
   // chat-s04-send-message
   const sendMessage = useCallback(
-    (content: string) => {
+    (content: string, opts?: { metadata?: Record<string, unknown>; messageType?: string }) => {
       if (!content.trim() || !channelId || !companyId) return;
 
       const clientMessageId = `client-${Date.now()}-${++clientMsgIdRef.current}`;
@@ -249,8 +249,8 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
         senderId: "me",
         senderType: "user",
         content: content.trim(),
-        metadata: null,
-        messageType: "text",
+        metadata: opts?.metadata ?? null,
+        messageType: opts?.messageType ?? "text",
         replyToId: null,
         editedAt: null,
         deletedAt: null,
@@ -263,6 +263,8 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
           type: "chat_message" as const,
           content: content.trim(),
           clientMessageId,
+          ...(opts?.metadata && { metadata: opts.metadata }),
+          ...(opts?.messageType && { messageType: opts.messageType }),
         }));
       } catch {
         // Remove optimistic message on send failure
