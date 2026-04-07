@@ -12,7 +12,7 @@ export default function PriorityWidget({ companyId }: WidgetProps) {
   });
 
   return (
-    <ChartCard title="Issues by Priority" subtitle="Last 14 days">
+    <ChartCard title="Issues by Priority" subtitle="Last 14 days" noBorder>
       <PriorityChart issues={issues ?? []} />
     </ChartCard>
   );
