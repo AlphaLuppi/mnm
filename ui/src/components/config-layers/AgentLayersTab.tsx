@@ -271,7 +271,7 @@ export function AgentLayersTab({
 
       {/* Attach layer dialog */}
       <Dialog open={attachDialogOpen} onOpenChange={setAttachDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="p-4 sm:p-6 gap-4 max-w-md">
           <DialogHeader>
             <DialogTitle>Attach a Layer</DialogTitle>
           </DialogHeader>
@@ -324,7 +324,7 @@ export function AgentLayersTab({
       {/* Layer editor dialog */}
       {editLayerId && (
         <Dialog open onOpenChange={(open) => { if (!open) setEditLayerId(null); }}>
-          <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="p-4 sm:p-6 gap-4 max-w-[calc(100%-1rem)] sm:max-w-2xl max-h-[80vh] overflow-y-auto">
             <LayerEditor
               layerId={editLayerId}
               onClose={() => setEditLayerId(null)}

@@ -711,7 +711,7 @@ function CreateTriggerDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Trigger</DialogTitle>
           <DialogDescription>
@@ -828,7 +828,7 @@ function EditTriggerDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Trigger</DialogTitle>
           <DialogDescription>

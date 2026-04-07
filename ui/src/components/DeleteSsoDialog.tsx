@@ -37,7 +37,7 @@ export function DeleteSsoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="sso-s03-delete-dialog" className="sm:max-w-md">
+      <DialogContent data-testid="sso-s03-delete-dialog" className="p-4 sm:p-6 gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle data-testid="sso-s03-delete-title">
             Delete SSO Provider

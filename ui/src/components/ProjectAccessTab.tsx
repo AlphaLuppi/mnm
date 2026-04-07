@@ -387,7 +387,7 @@ export function ProjectAccessTab({ projectId, companyId }: ProjectAccessTabProps
           if (!open) setRemoveTarget(null);
         }}
       >
-        <DialogContent data-testid="proj-s04-remove-confirm-dialog">
+        <DialogContent data-testid="proj-s04-remove-confirm-dialog" className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
             <DialogDescription data-testid="proj-s04-remove-confirm-message">

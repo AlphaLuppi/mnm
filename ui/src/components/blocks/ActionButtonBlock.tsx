@@ -64,7 +64,7 @@ export function MnmActionButton({ props }: { props: typeof ActionButtonProps._ty
 
       {props.confirm && (
         <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-          <DialogContent>
+          <DialogContent className="p-4 sm:p-6 gap-4">
             <DialogHeader>
               <DialogTitle>Confirmation</DialogTitle>
               <DialogDescription>{props.confirm}</DialogDescription>

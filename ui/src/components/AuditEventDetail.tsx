@@ -37,7 +37,7 @@ export function AuditEventDetail({ event, open, onOpenChange }: AuditEventDetail
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="obs-s04-detail-dialog" className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent data-testid="obs-s04-detail-dialog" className="p-4 sm:p-6 gap-4 sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="obs-s04-detail-title">
             {event.action}

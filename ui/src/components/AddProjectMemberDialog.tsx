@@ -165,7 +165,7 @@ export function AddProjectMemberDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent data-testid="proj-s04-add-dialog" className="sm:max-w-lg">
+      <DialogContent data-testid="proj-s04-add-dialog" className="p-4 sm:p-6 gap-4 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle data-testid="proj-s04-add-dialog-title">
             Add Members to Project

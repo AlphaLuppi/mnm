@@ -166,7 +166,7 @@ export function ValidationBanner({
 
       {/* Approve dialog */}
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-        <DialogContent data-testid="orch-s03-approve-dialog">
+        <DialogContent data-testid="orch-s03-approve-dialog" className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Approuver "{stageName}"</DialogTitle>
           </DialogHeader>
@@ -203,7 +203,7 @@ export function ValidationBanner({
 
       {/* Reject dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-        <DialogContent data-testid="orch-s03-reject-dialog">
+        <DialogContent data-testid="orch-s03-reject-dialog" className="p-4 sm:p-6 gap-4">
           <DialogHeader>
             <DialogTitle>Rejeter "{stageName}"</DialogTitle>
           </DialogHeader>

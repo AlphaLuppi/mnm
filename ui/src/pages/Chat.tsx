@@ -277,7 +277,7 @@ export function Chat() {
 
       {/* New Chat dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="p-4 sm:p-6 gap-4 max-w-sm">
           <DialogHeader>
             <DialogTitle>New Chat</DialogTitle>
           </DialogHeader>

@@ -377,7 +377,7 @@ export function Members() {
         setInviteOpen(open);
         if (!open) { setInviteEmail(""); setInviteUrl(null); }
       }}>
-        <DialogContent data-testid="mu-s02-invite-dialog" className="sm:max-w-lg">
+        <DialogContent data-testid="mu-s02-invite-dialog" className="p-4 sm:p-6 gap-4 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Invite Members</DialogTitle>
             <DialogDescription>
@@ -471,7 +471,7 @@ export function Members() {
 
       {/* Reset password result dialog */}
       <Dialog open={!!resetPasswordResult} onOpenChange={(open) => { if (!open) setResetPasswordResult(null); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Mot de passe réinitialisé</DialogTitle>
             <DialogDescription>

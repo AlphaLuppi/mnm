@@ -36,7 +36,7 @@ export function Dashboard() {
   const [addWidgetOpen, setAddWidgetOpen] = useState(false);
 
   // Custom widgets
-  const { widgets: customWidgets, createWidget, updateWidget, deleteWidget } = useUserWidgets();
+  const { widgets: customWidgets, updateWidget, deleteWidget } = useUserWidgets();
 
   // V2 grid layout state
   const [localGrid, setLocalGrid] = useState<WidgetPlacement[] | null>(null);
@@ -258,7 +258,6 @@ export function Dashboard() {
       <AddWidgetDialog
         open={addWidgetOpen}
         onOpenChange={setAddWidgetOpen}
-        onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
         placedWidgetIds={new Set(currentGrid.filter((p) => !p.hidden).map((p) => p.widgetId))}
         onAddPresetWidget={(type) => {
           if (currentGrid.some((p) => p.widgetId === `preset:${type}`)) return;

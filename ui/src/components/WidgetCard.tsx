@@ -114,7 +114,7 @@ export function WidgetCard({
   /* ── Delete confirmation dialog (shared) ── */
   const deleteDialog = (
     <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-      <DialogContent>
+      <DialogContent className="p-4 sm:p-6 gap-4">
         <DialogHeader>
           <DialogTitle>Delete widget</DialogTitle>
           <DialogDescription>

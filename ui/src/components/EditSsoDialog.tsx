@@ -69,7 +69,7 @@ export function EditSsoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="sso-s03-edit-dialog" className="sm:max-w-lg">
+      <DialogContent data-testid="sso-s03-edit-dialog" className="p-4 sm:p-6 gap-4 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle data-testid="sso-s03-edit-title">
             Edit SSO Provider — {config.provider.toUpperCase()}
