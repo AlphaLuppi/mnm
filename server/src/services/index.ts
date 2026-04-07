@@ -79,8 +79,11 @@ export { configLayerService } from "./config-layer.js";
 export { configLayerConflictService } from "./config-layer-conflict.js";
 // CONFIG-LAYERS: Runtime merge engine + MCP credentials + OAuth
 export { configLayerRuntimeService, type ResolvedConfig } from "./config-layer-runtime.js";
-export { mcpCredentialService } from "./mcp-credential.js";
-export { mcpOauthService } from "./mcp-oauth.js";
+export { credentialService } from "./credential.js";
+export { oauthService } from "./oauth.js";
+// Backward-compat aliases (supprimer en V2)
+export { credentialService as mcpCredentialService } from "./credential.js";
+export { oauthService as mcpOauthService } from "./oauth.js";
 // DOCUMENTS: Document service, ingestion, RAG
 export { documentService } from "./document.js";
 export { createIngestionQueue, createIngestionWorker } from "./document-ingestion.js";
