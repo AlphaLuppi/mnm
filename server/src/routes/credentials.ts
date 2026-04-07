@@ -4,12 +4,15 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { credentialService } from "../services/credential.js";
 import { oauthService } from "../services/oauth.js";
+import { configLayerRuntimeService } from "../services/config-layer-runtime.js";
 import { badRequest } from "../errors.js";
+import { logger } from "../middleware/logger.js";
 
 export function credentialRoutes(db: Db) {
   const router = Router();
   const credSvc = credentialService(db);
   const oauthSvc = oauthService(db);
+  const clRuntime = configLayerRuntimeService(db);
 
   // ── GET /companies/:companyId/credentials ──────────────────────────────────
   // List the current user's credentials for this company.
@@ -114,6 +117,7 @@ export function credentialRoutes(db: Db) {
     const itemId = req.params.itemId as string;
     const userId = req.actor.userId!;
     const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
 
     const { material } = req.body as { material?: Record<string, unknown> };
     if (!material || typeof material !== "object" || Object.keys(material).length === 0) {
@@ -121,6 +125,7 @@ export function credentialRoutes(db: Db) {
     }
 
     await credSvc.storeCredential(userId, companyId, itemId, "api_key", material);
+    clRuntime.invalidateCompanyCache(companyId);
 
     res.status(201).json({ ok: true });
   });
@@ -134,6 +139,7 @@ export function credentialRoutes(db: Db) {
     const credentialId = req.params.id as string;
     const userId = req.actor.userId!;
     const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
 
     const revoked = await credSvc.revoke(credentialId, userId, companyId);
     if (!revoked) {
@@ -141,6 +147,7 @@ export function credentialRoutes(db: Db) {
       return;
     }
 
+    clRuntime.invalidateCompanyCache(companyId);
     res.status(204).send();
   });
 
@@ -154,6 +161,7 @@ export function credentialRoutes(db: Db) {
       const itemId = req.params.itemId as string;
       const userId = req.actor.userId!;
       const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
 
       const { material } = req.body as { material?: Record<string, unknown> };
       if (!material?.token || typeof material.token !== "string") {
@@ -161,6 +169,7 @@ export function credentialRoutes(db: Db) {
       }
 
       await credSvc.storeCredential(userId, companyId, itemId, "pat", material);
+      clRuntime.invalidateCompanyCache(companyId);
       res.status(201).json({ ok: true });
     },
   );
@@ -236,6 +245,9 @@ function buildPopupHtml(result: PopupResult): string {
 function buildPublicBaseUrl(req: import("express").Request): string {
   if (process.env.MNM_PUBLIC_URL) {
     return process.env.MNM_PUBLIC_URL.replace(/\/+$/, "");
+  }
+  if (process.env.NODE_ENV === "production") {
+    logger.warn("[credentials] MNM_PUBLIC_URL not set in production — OAuth callback URL derived from Host header");
   }
   const proto = req.protocol ?? "http";
   const host = req.headers.host ?? "localhost";
