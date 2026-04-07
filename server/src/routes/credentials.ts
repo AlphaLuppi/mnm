@@ -2,19 +2,19 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
-import { mcpCredentialService } from "../services/mcp-credential.js";
-import { mcpOauthService } from "../services/mcp-oauth.js";
+import { credentialService } from "../services/credential.js";
+import { oauthService } from "../services/oauth.js";
 import { badRequest } from "../errors.js";
 
-export function mcpOauthRoutes(db: Db) {
+export function credentialRoutes(db: Db) {
   const router = Router();
-  const credSvc = mcpCredentialService(db);
-  const oauthSvc = mcpOauthService(db);
+  const credSvc = credentialService(db);
+  const oauthSvc = oauthService(db);
 
-  // ── GET /companies/:companyId/mcp-credentials ─────────────────────────────
-  // List the current user's MCP credentials for this company.
+  // ── GET /companies/:companyId/credentials ──────────────────────────────────
+  // List the current user's credentials for this company.
   router.get(
-    "/companies/:companyId/mcp-credentials",
+    "/companies/:companyId/credentials",
     requirePermission(db, "mcp:connect"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -108,11 +108,11 @@ export function mcpOauthRoutes(db: Db) {
     }
   });
 
-  // ── POST /companies/:companyId/mcp-credentials/:itemId/api-key ────────────
-  // Store an API key credential (non-OAuth) for an MCP item.
+  // ── POST /companies/:companyId/credentials/:itemId/secret ─────────────────
+  // Store an API key credential (non-OAuth) for an item.
   // Body: { material: { env: { KEY: "value" } } }
   router.post(
-    "/companies/:companyId/mcp-credentials/:itemId/api-key",
+    "/companies/:companyId/credentials/:itemId/secret",
     requirePermission(db, "mcp:connect"),
     async (req, res) => {
     const itemId = req.params.itemId as string;
@@ -129,10 +129,10 @@ export function mcpOauthRoutes(db: Db) {
     res.status(201).json({ ok: true });
   });
 
-  // ── DELETE /companies/:companyId/mcp-credentials/:id ──────────────────────
+  // ── DELETE /companies/:companyId/credentials/:id ───────────────────────────
   // Revoke a credential (clear material, set status=revoked).
   router.delete(
-    "/companies/:companyId/mcp-credentials/:id",
+    "/companies/:companyId/credentials/:id",
     requirePermission(db, "mcp:connect"),
     async (req, res) => {
     const credentialId = req.params.id as string;
@@ -147,6 +147,41 @@ export function mcpOauthRoutes(db: Db) {
 
     res.status(204).send();
   });
+
+  // ── POST /companies/:companyId/credentials/:itemId/pat ─────────────────────
+  // Store a PAT credential for a git provider item.
+  // Body: { material: { token: "ghp_xxx" } }
+  router.post(
+    "/companies/:companyId/credentials/:itemId/pat",
+    requirePermission(db, "mcp:connect"),
+    async (req, res) => {
+      const itemId = req.params.itemId as string;
+      const userId = req.actor.userId!;
+      const companyId = req.params.companyId as string;
+
+      const { material } = req.body as { material?: Record<string, unknown> };
+      if (!material?.token || typeof material.token !== "string") {
+        throw badRequest("material.token is required");
+      }
+
+      await credSvc.storeCredential(userId, companyId, itemId, "pat", material);
+      res.status(201).json({ ok: true });
+    },
+  );
+
+  // ── Backward-compat redirects (supprimer en V2) ───────────────────────────
+  router.get(
+    "/companies/:companyId/mcp-credentials",
+    (req, res) => res.redirect(301, `/api/companies/${req.params.companyId}/credentials`),
+  );
+  router.post(
+    "/companies/:companyId/mcp-credentials/:itemId/api-key",
+    (req, res) => res.redirect(307, `/api/companies/${req.params.companyId}/credentials/${req.params.itemId}/secret`),
+  );
+  router.delete(
+    "/companies/:companyId/mcp-credentials/:id",
+    (req, res) => res.redirect(307, `/api/companies/${req.params.companyId}/credentials/${req.params.id}`),
+  );
 
   return router;
 }
