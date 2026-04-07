@@ -3,8 +3,8 @@ import type {
   CONFIG_LAYER_SCOPES,
   CONFIG_LAYER_VISIBILITIES,
   CONFIG_LAYER_SOURCE_TYPES,
-  MCP_CREDENTIAL_PROVIDERS,
-  MCP_CREDENTIAL_STATUSES,
+  CREDENTIAL_PROVIDERS,
+  CREDENTIAL_STATUSES,
 } from "../validators/config-layer.js";
 
 // ─── Scalar type aliases ──────────────────────────────────────────────────────
@@ -13,8 +13,11 @@ export type ConfigLayerItemType = (typeof CONFIG_LAYER_ITEM_TYPES)[number];
 export type ConfigLayerScope = (typeof CONFIG_LAYER_SCOPES)[number];
 export type ConfigLayerVisibility = (typeof CONFIG_LAYER_VISIBILITIES)[number];
 export type ConfigLayerSourceType = (typeof CONFIG_LAYER_SOURCE_TYPES)[number];
-export type McpCredentialProvider = (typeof MCP_CREDENTIAL_PROVIDERS)[number];
-export type McpCredentialStatus = (typeof MCP_CREDENTIAL_STATUSES)[number];
+export type CredentialProvider = (typeof CREDENTIAL_PROVIDERS)[number];
+export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number];
+// Backward-compat aliases
+export type McpCredentialProvider = CredentialProvider;
+export type McpCredentialStatus = CredentialStatus;
 
 // ─── Core entity interfaces ───────────────────────────────────────────────────
 
@@ -128,17 +131,29 @@ export interface MergePreviewResult {
   layerSources: Array<{ layerId: string; layerName: string; priority: number }>;
 }
 
-// ─── MCP credentials ──────────────────────────────────────────────────────────
+// ─── Credentials ─────────────────────────────────────────────────────────────
 
-export interface UserMcpCredential {
+export interface UserCredential {
   id: string;
   userId: string;
   companyId: string;
   itemId: string;
-  provider: McpCredentialProvider;
-  status: McpCredentialStatus;
+  provider: CredentialProvider;
+  status: CredentialStatus;
   statusMessage: string | null;
   connectedAt: string | null;
   expiresAt: string | null;
   updatedAt: string;
+}
+
+// Backward-compat alias
+export type UserMcpCredential = UserCredential;
+
+// ─── Resolved Git Provider ────────────────────────────────────────────────────
+
+export interface ResolvedGitProvider {
+  name: string;
+  host: string;
+  providerType: string;
+  token?: string; // decrypte au runtime, JAMAIS persiste
 }
