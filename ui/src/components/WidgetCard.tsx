@@ -25,7 +25,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   GripVertical,
   MoreHorizontal,
-  Wrench,
   Maximize2,
   Trash2,
   AlertCircle,
@@ -109,10 +108,6 @@ export function WidgetCard({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem disabled>
-          <Wrench className="mr-2 h-3.5 w-3.5" />
-          Configure
-        </DropdownMenuItem>
         {!disableResize && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger aria-label={`Resize widget ${title}`}>

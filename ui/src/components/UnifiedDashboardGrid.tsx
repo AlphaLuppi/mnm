@@ -315,6 +315,7 @@ export function UnifiedDashboardGrid({
         containerPadding={[0, 0]}
         compactor={verticalCompactor}
         dragConfig={{ handle: ".widget-drag-handle" }}
+        resizeConfig={{ enabled: resizeEnabled, handles: ["se"] }}
         onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
         onLayoutChange={handleLayoutChange}
         onDragStart={handleDragStart}
