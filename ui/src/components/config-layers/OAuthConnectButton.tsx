@@ -53,7 +53,6 @@ export function OAuthConnectButton({
 }) {
   const queryClient = useQueryClient();
   const popupRef = useRef<Window | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
   const { icon: Icon } = config;
@@ -76,7 +75,6 @@ export function OAuthConnectButton({
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
-      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [handleMessage]);
 
@@ -89,18 +87,6 @@ export function OAuthConnectButton({
     );
     if (!popup) return;
     popupRef.current = popup;
-
-    // Fallback polling in case postMessage doesn't fire (e.g., cross-origin redirect)
-    pollRef.current = setInterval(() => {
-      if (!popup || popup.closed) {
-        clearInterval(pollRef.current!);
-        pollRef.current = null;
-        // Refresh credential status after popup closes
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.configLayers.credentials(companyId),
-        });
-      }
-    }, 500);
   }
 
   const isConnected = status === "connected";
