@@ -387,7 +387,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-full">
+          <div className="grid gap-3 h-full" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gridAutoRows: "1fr" }}>
             {runs.map((run) => (
               <AgentRunCard
                 key={run.id}
