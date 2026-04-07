@@ -1254,6 +1254,11 @@ export function agentRoutes(db: Db) {
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
     if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
+    // Prevent deletion of the CAO agent
+    if (existing.metadata && typeof existing.metadata === "object" && (existing.metadata as Record<string, unknown>).isCAO === true) {
+      res.status(403).json({ error: "The CAO (Chief Agent Officer) cannot be deleted. It is a system agent." });
+      return;
+    }
     await assertCompanyPermission(db, req, existing.companyId, "agents:delete");
     const agent = await svc.remove(id);
     if (!agent) {
