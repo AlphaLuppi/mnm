@@ -18,6 +18,7 @@ export interface ChatClientMessage {
   type: "chat_message";
   content: string;
   metadata?: Record<string, unknown>;
+  messageType?: string;
   clientMessageId?: string;
 }
 
@@ -74,6 +75,7 @@ export interface ChatServerMessage {
   senderName?: string;
   content: string;
   metadata?: Record<string, unknown>;
+  messageType?: string;
   createdAt: string;
 }
 

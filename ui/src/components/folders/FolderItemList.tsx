@@ -1,6 +1,7 @@
 import { FileText, MessageSquare, Package, Trash2 } from "lucide-react";
 import type { FolderItem } from "@mnm/shared";
 import { Button } from "@/components/ui/button";
+import { cn } from "../../lib/utils";
 import { timeAgo } from "../../lib/timeAgo";
 
 const ITEM_TYPE_ICONS: Record<string, typeof FileText> = {
@@ -19,9 +20,10 @@ interface FolderItemListProps {
   items: FolderItem[];
   onRemove: (itemId: string) => void;
   removing?: string | null;
+  onItemClick?: (item: FolderItem) => void;
 }
 
-export function FolderItemList({ items, onRemove, removing }: FolderItemListProps) {
+export function FolderItemList({ items, onRemove, removing, onItemClick }: FolderItemListProps) {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -37,7 +39,11 @@ export function FolderItemList({ items, onRemove, removing }: FolderItemListProp
         return (
           <div
             key={item.id}
-            className="flex items-center gap-3 border-b border-border last:border-0 px-4 py-3 hover:bg-muted/40"
+            className={cn(
+              "flex items-center gap-3 border-b border-border last:border-0 px-4 py-3 hover:bg-muted/40",
+              item.itemType === "document" && onItemClick && "cursor-pointer",
+            )}
+            onClick={() => item.itemType === "document" && onItemClick?.(item)}
           >
             <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
@@ -58,7 +64,10 @@ export function FolderItemList({ items, onRemove, removing }: FolderItemListProp
               size="icon-xs"
               title="Remove item"
               disabled={removing === item.id}
-              onClick={() => onRemove(item.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(item.id);
+              }}
               className="shrink-0 text-muted-foreground hover:text-destructive"
             >
               <Trash2 className="h-3.5 w-3.5" />
