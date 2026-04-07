@@ -33,12 +33,12 @@ export default function RecentIssuesWidget({ companyId }: WidgetProps) {
   };
 
   return (
-    <div className="min-w-0 h-full flex flex-col overflow-hidden">
+    <div className="border border-border rounded-lg p-4 bg-card h-full flex flex-col overflow-hidden">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 shrink-0">Recent Tasks</h3>
       {recentIssues.length === 0 ? (
-        <div className="border border-border p-4"><p className="text-sm text-muted-foreground">No tasks yet.</p></div>
+        <div className="rounded-md p-4"><p className="text-sm text-muted-foreground">No tasks yet.</p></div>
       ) : (
-        <div className="border border-border divide-y divide-border overflow-hidden flex-1 min-h-0 overflow-y-auto">
+        <div className="divide-y divide-border overflow-hidden flex-1 min-h-0 overflow-y-auto">
           {recentIssues.map((issue) => (
             <Link
               key={issue.id}

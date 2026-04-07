@@ -12,7 +12,7 @@ export default function SuccessRateWidget({ companyId }: WidgetProps) {
   });
 
   return (
-    <ChartCard title="Success Rate" subtitle="Last 14 days" noBorder>
+    <ChartCard title="Success Rate" subtitle="Last 14 days">
       <SuccessRateChart runs={runs ?? []} />
     </ChartCard>
   );

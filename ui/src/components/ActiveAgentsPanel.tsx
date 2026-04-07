@@ -377,12 +377,12 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
   }, [activeRunIds, companyId, runById]);
 
   return (
-    <div className="h-full flex flex-col min-w-0 overflow-hidden">
+    <div className="border border-border rounded-lg p-4 bg-card h-full flex flex-col min-w-0 overflow-hidden">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 shrink-0">
         Agents
       </h3>
       {runs.length === 0 ? (
-        <div className="border border-border rounded-lg p-4">
+        <div className="rounded-lg p-4">
           <p className="text-sm text-muted-foreground">No recent agent runs.</p>
         </div>
       ) : (

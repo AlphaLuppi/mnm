@@ -12,7 +12,7 @@ export default function RunActivityWidget({ companyId }: WidgetProps) {
   });
 
   return (
-    <ChartCard title="Run Activity" subtitle="Last 14 days" noBorder>
+    <ChartCard title="Run Activity" subtitle="Last 14 days">
       <RunActivityChart runs={runs ?? []} />
     </ChartCard>
   );

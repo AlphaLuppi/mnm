@@ -44,9 +44,9 @@ function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
   );
 }
 
-export function ChartCard({ title, subtitle, children, noBorder }: { title: string; subtitle?: string; children: React.ReactNode; noBorder?: boolean }) {
+export function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className={`${noBorder ? "" : "border border-border rounded-lg"} p-4 space-y-3 h-full flex flex-col overflow-hidden`}>
+    <div className="border border-border rounded-lg bg-card p-4 space-y-3 h-full flex flex-col overflow-hidden">
       <div className="shrink-0">
         <h3 className="text-xs font-medium text-muted-foreground truncate">{title}</h3>
         {subtitle && <span className="text-[10px] text-muted-foreground/60">{subtitle}</span>}

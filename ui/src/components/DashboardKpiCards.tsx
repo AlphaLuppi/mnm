@@ -10,6 +10,7 @@ export function DashboardKpiCards({ data }: DashboardKpiCardsProps) {
   if (!data) return null;
 
   return (
+    <div className="border border-border rounded-lg p-4 bg-card h-full">
     <div data-testid="dash-s02-kpi-cards" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2 h-full">
       <div data-testid="dash-s02-kpi-workflows">
         <MetricCard
@@ -63,6 +64,7 @@ export function DashboardKpiCards({ data }: DashboardKpiCardsProps) {
           }
         />
       </div>
+    </div>
     </div>
   );
 }
