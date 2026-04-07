@@ -33,7 +33,7 @@ export function credentialRoutes(db: Db) {
   // ── GET /oauth/authorize/:itemId ──────────────────────────────────────────
   // Initiate the OAuth2 PKCE flow — redirect to the provider.
   // Query param: companyId (required)
-  router.get("/oauth/authorize/:itemId", async (req, res) => {
+  router.get("/oauth/authorize/:itemId", requirePermission(db, "mcp:connect"), async (req, res) => {
     assertBoard(req);
 
     const itemId = req.params.itemId as string;
@@ -174,7 +174,8 @@ export function credentialRoutes(db: Db) {
     },
   );
 
-  // ── Backward-compat redirects (supprimer en V2) ───────────────────────────
+  // ── Backward-compat aliases (supprimer en V2) ─────────────────────────────
+  // Inline handlers instead of 307 redirects to avoid body/header loss on some clients.
   router.get(
     "/companies/:companyId/mcp-credentials",
     requirePermission(db, "mcp:connect"),
@@ -183,12 +184,40 @@ export function credentialRoutes(db: Db) {
   router.post(
     "/companies/:companyId/mcp-credentials/:itemId/api-key",
     requirePermission(db, "mcp:connect"),
-    (req, res) => res.redirect(307, `/api/companies/${req.params.companyId}/credentials/${req.params.itemId}/secret`),
+    async (req, res) => {
+      const itemId = req.params.itemId as string;
+      const userId = req.actor.userId!;
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const { material } = req.body as { material?: Record<string, unknown> };
+      if (!material || typeof material !== "object" || Object.keys(material).length === 0) {
+        throw badRequest("material is required and must be a non-empty object");
+      }
+
+      await credSvc.storeCredential(userId, companyId, itemId, "api_key", material);
+      clRuntime.invalidateCompanyCache(companyId);
+      res.status(201).json({ ok: true });
+    },
   );
   router.delete(
     "/companies/:companyId/mcp-credentials/:id",
     requirePermission(db, "mcp:connect"),
-    (req, res) => res.redirect(307, `/api/companies/${req.params.companyId}/credentials/${req.params.id}`),
+    async (req, res) => {
+      const credentialId = req.params.id as string;
+      const userId = req.actor.userId!;
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const revoked = await credSvc.revoke(credentialId, userId, companyId);
+      if (!revoked) {
+        res.status(404).json({ error: "Credential not found" });
+        return;
+      }
+
+      clRuntime.invalidateCompanyCache(companyId);
+      res.status(204).send();
+    },
   );
 
   return router;

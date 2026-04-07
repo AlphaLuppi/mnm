@@ -1349,7 +1349,7 @@ export function heartbeatService(db: Db) {
 
       // CONFIG-LAYERS: resolve merged config from layers
       let mergedConfig: Record<string, unknown>;
-      let resolvedGitProviders: Array<{ name: string; host: string; providerType: string; token?: string }> = [];
+      let resolvedGitProviders: import("@mnm/shared").ResolvedGitProvider[] = [];
       if ((agent as any).baseLayerId) {
         const clRuntime = configLayerRuntimeService(db);
         const layerConfig = await clRuntime.resolveConfigForRun(
