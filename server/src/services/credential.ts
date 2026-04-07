@@ -1,7 +1,7 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, isNotNull, lt } from "drizzle-orm";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { Db } from "@mnm/db";
-import { userCredentials } from "@mnm/db";
+import { userCredentials, configLayerItems } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
 import { auditService } from "./audit.js";
 
@@ -70,6 +70,14 @@ export function credentialService(db: Db) {
     material: Record<string, unknown>,
     expiresAt?: Date,
   ): Promise<void> {
+    // Validate that itemId belongs to companyId
+    const item = await db
+      .select({ id: configLayerItems.id })
+      .from(configLayerItems)
+      .where(and(eq(configLayerItems.id, itemId), eq(configLayerItems.companyId, companyId)))
+      .then((r) => r[0] ?? null);
+    if (!item) throw new Error("Item not found in this company");
+
     const encryptedMaterial = encrypt(JSON.stringify(material));
 
     await db
