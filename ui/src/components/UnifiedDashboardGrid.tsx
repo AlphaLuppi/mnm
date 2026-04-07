@@ -95,7 +95,7 @@ export function UnifiedDashboardGrid({
   const [isResizing, setIsResizing] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const [resizeDims, setResizeDims] = useState<{ w: number; h: number } | null>(null);
-  const [currentBreakpoint, setCurrentBreakpoint] = useState<string>("lg");
+  // currentBreakpoint is now derived from width, not from RGL callback
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const placementsRef = useRef(placements);
   placementsRef.current = placements;
@@ -103,8 +103,10 @@ export function UnifiedDashboardGrid({
   const { width: rawWidth, containerRef } = useContainerWidth({ initialWidth: 1200 });
   const width = Math.max(rawWidth, 300);
 
-  const isDesktop = currentBreakpoint === "lg";
-  const isMobile = currentBreakpoint === "sm";
+  // Derive breakpoint from measured width (RGL's onBreakpointChange only fires inside <ResponsiveGridLayout>)
+  const derivedBreakpoint = width >= BREAKPOINTS.lg ? "lg" : width >= BREAKPOINTS.md ? "md" : "sm";
+  const isDesktop = derivedBreakpoint === "lg";
+  const isMobile = derivedBreakpoint === "sm";
   const dragEnabled = !isMobile;
   const resizeEnabled = isDesktop;
 
@@ -266,6 +268,56 @@ export function UnifiedDashboardGrid({
     [onLayoutChange, getWidgetTitle],
   );
 
+  /** Render a single widget (shared between grid and mobile stack) */
+  const renderWidget = useCallback(
+    (placement: WidgetPlacement) => {
+      const isPreset = placement.widgetId.startsWith("preset:");
+      const widgetType = isPreset ? placement.widgetId.replace("preset:", "") : null;
+      const presetDef = widgetType ? WIDGET_REGISTRY[widgetType] : null;
+      const userWidget = !isPreset ? userWidgetMap.get(placement.widgetId) : null;
+      const title = presetDef?.label ?? userWidget?.title ?? "Widget";
+      const isActive = activeItem === placement.widgetId;
+      const resizeLabel =
+        isActive && isResizing && resizeDims
+          ? `${resizeDims.w}x${resizeDims.h}`
+          : undefined;
+
+      return (
+        <WidgetCard
+          variant={isPreset ? "overlay" : "card"}
+          title={title}
+          widgetId={placement.widgetId}
+          isDragging={isActive && isDragging}
+          isResizing={isActive && isResizing}
+          resizeLabel={resizeLabel}
+          onDelete={onDeleteWidget}
+          disableDrag={!dragEnabled}
+          disableResize={!resizeEnabled}
+          onKeyboardMove={handleKeyboardMove}
+          onKeyboardResize={handleKeyboardResize}
+        >
+          {isPreset && presetDef ? (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <presetDef.component
+                companyId={companyId}
+                span={placement.w}
+                props={placement.props}
+              />
+            </Suspense>
+          ) : userWidget ? (
+            <CustomWidgetContent widget={userWidget} />
+          ) : (
+            <div className="text-xs text-muted-foreground">Widget not found</div>
+          )}
+        </WidgetCard>
+      );
+    },
+    [
+      companyId, userWidgetMap, activeItem, isDragging, isResizing, resizeDims,
+      onDeleteWidget, dragEnabled, resizeEnabled, handleKeyboardMove, handleKeyboardResize,
+    ],
+  );
+
   // Empty state: no visible widgets
   if (visiblePlacements.length === 0 && onAddWidget) {
     return (
@@ -278,6 +330,25 @@ export function UnifiedDashboardGrid({
     );
   }
 
+  // ── Mobile: simple vertical stack with auto-height (no RGL) ──
+  if (isMobile) {
+    return (
+      <div
+        ref={containerRef}
+        className="flex flex-col gap-4"
+        role="region"
+        aria-label="Dashboard widget grid"
+      >
+        {visiblePlacements.map((placement) => (
+          <div key={placement.widgetId} role="listitem">
+            {renderWidget(placement)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Desktop / Tablet: full RGL grid with drag + resize ──
   return (
     <div
       ref={containerRef}
@@ -300,7 +371,7 @@ export function UnifiedDashboardGrid({
         compactor={verticalCompactor}
         dragConfig={{ handle: ".widget-drag-handle" }}
         resizeConfig={{ enabled: resizeEnabled, handles: ["se"] }}
-        onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
+        onBreakpointChange={() => {}}
         onLayoutChange={handleLayoutChange}
         onDragStart={handleDragStart}
         onDragStop={handleDragStop}
@@ -308,61 +379,15 @@ export function UnifiedDashboardGrid({
         onResize={handleResize}
         onResizeStop={handleResizeStop}
       >
-        {visiblePlacements.map((placement) => {
-          const isPreset = placement.widgetId.startsWith("preset:");
-          const widgetType = isPreset
-            ? placement.widgetId.replace("preset:", "")
-            : null;
-          const presetDef = widgetType ? WIDGET_REGISTRY[widgetType] : null;
-          const userWidget = !isPreset
-            ? userWidgetMap.get(placement.widgetId)
-            : null;
-          const title = presetDef?.label ?? userWidget?.title ?? "Widget";
-
-          const isActive = activeItem === placement.widgetId;
-          const resizeLabel =
-            isActive && isResizing && resizeDims
-              ? `${resizeDims.w}x${resizeDims.h}`
-              : undefined;
-
-          return (
-            <div
-              key={placement.widgetId}
-              role="listitem"
-              aria-label={`${title} widget`}
-            >
-              <WidgetCard
-                variant={isPreset ? "overlay" : "card"}
-                title={title}
-                widgetId={placement.widgetId}
-                isDragging={isActive && isDragging}
-                isResizing={isActive && isResizing}
-                resizeLabel={resizeLabel}
-                onDelete={onDeleteWidget}
-                disableDrag={!dragEnabled}
-                disableResize={!resizeEnabled}
-                onKeyboardMove={handleKeyboardMove}
-                onKeyboardResize={handleKeyboardResize}
-              >
-                {isPreset && presetDef ? (
-                  <Suspense fallback={<WidgetSkeleton />}>
-                    <presetDef.component
-                      companyId={companyId}
-                      span={placement.w}
-                      props={placement.props}
-                    />
-                  </Suspense>
-                ) : userWidget ? (
-                  <CustomWidgetContent widget={userWidget} />
-                ) : (
-                  <div className="text-xs text-muted-foreground">
-                    Widget not found
-                  </div>
-                )}
-              </WidgetCard>
-            </div>
-          );
-        })}
+        {visiblePlacements.map((placement) => (
+          <div
+            key={placement.widgetId}
+            role="listitem"
+            aria-label={`${getWidgetTitle(placement.widgetId)} widget`}
+          >
+            {renderWidget(placement)}
+          </div>
+        ))}
       </ResponsiveGridLayout>
     </div>
   );
