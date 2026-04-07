@@ -141,27 +141,25 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     };
   }, []);
 
-  const pre = (
-    <pre
-      ref={preRef}
-      className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400 font-mono text-[11px] md:text-[30px]"
-      aria-hidden="true"
-    />
-  );
+  const baseClass = "w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400 font-mono text-[11px]";
 
   if (inline) {
     return (
-      <div className="w-full h-full overflow-hidden">
-        <div className="h-full" style={{ marginLeft: -40, width: "calc(100% + 40px)" }}>
-          {pre}
-        </div>
-      </div>
+      <pre
+        ref={preRef}
+        className={`${baseClass} md:text-[20px]`}
+        aria-hidden="true"
+      />
     );
   }
 
   return (
     <div className="fixed inset-0 bg-background overflow-hidden">
-      {pre}
+      <pre
+        ref={preRef}
+        className={`${baseClass} md:text-[30px]`}
+        aria-hidden="true"
+      />
     </div>
   );
 }
