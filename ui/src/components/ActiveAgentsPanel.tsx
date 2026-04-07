@@ -377,8 +377,8 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
   }, [activeRunIds, companyId, runById]);
 
   return (
-    <div>
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+    <div className="h-full flex flex-col min-w-0 overflow-hidden">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 shrink-0">
         Agents
       </h3>
       {runs.length === 0 ? (
@@ -386,16 +386,18 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
           <p className="text-sm text-muted-foreground">No recent agent runs.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
-          {runs.map((run) => (
-            <AgentRunCard
-              key={run.id}
-              run={run}
-              issue={run.issueId ? issueById.get(run.issueId) : undefined}
-              feed={feedByRun.get(run.id) ?? []}
-              isActive={isRunActive(run)}
-            />
-          ))}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+            {runs.map((run) => (
+              <AgentRunCard
+                key={run.id}
+                run={run}
+                issue={run.issueId ? issueById.get(run.issueId) : undefined}
+                feed={feedByRun.get(run.id) ?? []}
+                isActive={isRunActive(run)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -424,7 +426,7 @@ function AgentRunCard({
 
   return (
     <div className={cn(
-      "flex flex-col rounded-lg border overflow-hidden min-h-[200px]",
+      "flex flex-col rounded-lg border overflow-hidden min-h-[180px]",
       isActive
         ? "border-blue-500/30 bg-background/80 shadow-[0_0_12px_rgba(59,130,246,0.08)]"
         : "border-border bg-background/50",

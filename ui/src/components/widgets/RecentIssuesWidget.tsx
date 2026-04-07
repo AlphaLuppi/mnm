@@ -33,21 +33,21 @@ export default function RecentIssuesWidget({ companyId }: WidgetProps) {
   };
 
   return (
-    <div className="min-w-0">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recent Tasks</h3>
+    <div className="min-w-0 h-full flex flex-col overflow-hidden">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 shrink-0">Recent Tasks</h3>
       {recentIssues.length === 0 ? (
         <div className="border border-border p-4"><p className="text-sm text-muted-foreground">No tasks yet.</p></div>
       ) : (
-        <div className="border border-border divide-y divide-border overflow-hidden">
+        <div className="border border-border divide-y divide-border overflow-hidden flex-1 min-h-0 overflow-y-auto">
           {recentIssues.map((issue) => (
             <Link
               key={issue.id}
               to={`/issues/${issue.identifier ?? issue.id}`}
-              className="px-4 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit block"
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit block"
             >
-              <div className="flex gap-3">
-                <div className="flex items-start gap-2 min-w-0 flex-1">
-                  <div className="flex items-center gap-2 shrink-0 mt-0.5">
+              <div className="flex gap-2 min-w-0">
+                <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                     <PriorityIcon priority={issue.priority} />
                     <StatusIcon status={issue.status} />
                   </div>
@@ -59,7 +59,7 @@ export default function RecentIssuesWidget({ companyId }: WidgetProps) {
                     })()}
                   </p>
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0 pt-0.5">{timeAgo(issue.updatedAt)}</span>
+                <span className="text-xs text-muted-foreground shrink-0 pt-0.5 hidden sm:block">{timeAgo(issue.updatedAt)}</span>
               </div>
             </Link>
           ))}
