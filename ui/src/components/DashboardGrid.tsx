@@ -175,7 +175,7 @@ export function DashboardGrid({
           const def = WIDGET_REGISTRY[widget.type];
           if (!def) return null;
           const Widget = def.component;
-          const span = widget.span ?? def.defaultSpan;
+          const span = widget.span ?? Math.round(def.defaultW / 3) as 1 | 2 | 3 | 4;
           return (
             <div key={`${widget.type}-${i}`} className={cn(SPAN_CLASSES[span] ?? "col-span-1")}>
               <Suspense fallback={<WidgetSkeleton />}>

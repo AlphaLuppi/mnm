@@ -202,7 +202,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
         ...prev.dashboard,
         widgets: [
           ...prev.dashboard.widgets,
-          { type, span: def.defaultSpan },
+          { type, span: Math.round(def.defaultW / 3) as 1 | 2 | 3 | 4 },
         ],
       },
     }));
@@ -467,7 +467,7 @@ export function ViewPresetEditor({ preset, onBack }: ViewPresetEditorProps) {
                     {def?.label ?? widget.type}
                   </span>
                   <Select
-                    value={String(widget.span ?? def?.defaultSpan ?? 2)}
+                    value={String(widget.span ?? (def ? Math.round(def.defaultW / 3) : 2))}
                     onValueChange={(val) => updateWidgetSpan(wIdx, parseInt(val) as 1 | 2 | 3 | 4)}
                   >
                     <SelectTrigger className="w-24 h-7 text-xs shrink-0">

@@ -7,10 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -25,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   GripVertical,
   MoreHorizontal,
-  Maximize2,
   Trash2,
   AlertCircle,
 } from "lucide-react";
@@ -33,14 +28,12 @@ import {
 export interface WidgetCardProps {
   title: string;
   widgetId: string;
-  currentSpan: number;
   isDragging?: boolean;
   isResizing?: boolean;
   isLoading?: boolean;
   error?: string | null;
   resizeLabel?: string;
   children: ReactNode;
-  onResize?: (widgetId: string, span: number) => void;
   onDelete?: (widgetId: string) => void;
   /** Hide drag/resize for mobile */
   disableDrag?: boolean;
@@ -59,14 +52,12 @@ export interface WidgetCardProps {
 export function WidgetCard({
   title,
   widgetId,
-  currentSpan,
   isDragging,
   isResizing,
   isLoading,
   error,
   resizeLabel,
   children,
-  onResize,
   onDelete,
   disableDrag,
   disableResize,
@@ -84,11 +75,11 @@ export function WidgetCard({
     e.preventDefault();
 
     if (e.shiftKey && onKeyboardResize && !disableResize) {
-      const dw = arrow === "ArrowRight" ? 3 : arrow === "ArrowLeft" ? -3 : 0;
+      const dw = arrow === "ArrowRight" ? 1 : arrow === "ArrowLeft" ? -1 : 0;
       const dh = arrow === "ArrowDown" ? 1 : arrow === "ArrowUp" ? -1 : 0;
       if (dw !== 0 || dh !== 0) onKeyboardResize(widgetId, dw, dh);
     } else if (onKeyboardMove && !disableDrag) {
-      const dx = arrow === "ArrowRight" ? 3 : arrow === "ArrowLeft" ? -3 : 0;
+      const dx = arrow === "ArrowRight" ? 1 : arrow === "ArrowLeft" ? -1 : 0;
       const dy = arrow === "ArrowDown" ? 1 : arrow === "ArrowUp" ? -1 : 0;
       if (dx !== 0 || dy !== 0) onKeyboardMove(widgetId, dx, dy);
     }
@@ -108,26 +99,6 @@ export function WidgetCard({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {!disableResize && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger aria-label={`Resize widget ${title}`}>
-              <Maximize2 className="mr-2 h-3.5 w-3.5" />
-              Resize
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {[1, 2, 3, 4].map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onClick={() => onResize?.(widgetId, s)}
-                  className={currentSpan === s ? "font-semibold" : ""}
-                >
-                  Span {s}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-destructive"
           onClick={() => setConfirmDelete(true)}

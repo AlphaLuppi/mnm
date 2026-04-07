@@ -264,13 +264,6 @@ export function Dashboard() {
         onDeleteWidget={handleDeleteWidget}
         onAddWidget={() => setAddWidgetOpen(true)}
         isNewUser={grid.length === 0}
-        onResizeWidget={(widgetId, span) => {
-          const w = span * 3;
-          const updated = currentGrid.map((p) =>
-            p.widgetId === widgetId ? { ...p, w } : p,
-          );
-          handleLayoutChange(updated);
-        }}
       />
 
       <AddWidgetDialog
@@ -279,11 +272,11 @@ export function Dashboard() {
         onCreateWidget={(data) => createWidget.mutateAsync(data).then(() => setAddWidgetOpen(false))}
         onGenerateWidget={(prompt) => generateWidget.mutateAsync(prompt)}
         placedWidgetIds={new Set(currentGrid.filter((p) => !p.hidden).map((p) => p.widgetId))}
-        onAddPresetWidget={(type, span) => {
+        onAddPresetWidget={(type) => {
           if (currentGrid.some((p) => p.widgetId === `preset:${type}`)) return;
           const def = WIDGET_REGISTRY[type];
-          const gridW = span * 3;
-          const gridH = WIDGET_DEFAULT_HEIGHTS[type] ?? 3;
+          const gridW = def?.defaultW ?? 6;
+          const gridH = WIDGET_DEFAULT_HEIGHTS[type] ?? 5;
           const newPlacement = {
             widgetId: `preset:${type}`,
             x: 0,
