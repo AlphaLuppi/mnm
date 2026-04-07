@@ -386,8 +386,8 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
           <p className="text-sm text-muted-foreground">No recent agent runs.</p>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+        <div className="flex-1 min-h-0">
+          <div className="flex flex-wrap gap-3">
             {runs.map((run) => (
               <AgentRunCard
                 key={run.id}
@@ -426,7 +426,7 @@ function AgentRunCard({
 
   return (
     <div className={cn(
-      "flex flex-col rounded-lg border overflow-hidden min-h-[180px]",
+      "flex flex-col rounded-lg border overflow-hidden min-h-[160px] min-w-[240px] flex-1 basis-[calc(50%-0.375rem)]",
       isActive
         ? "border-blue-500/30 bg-background/80 shadow-[0_0_12px_rgba(59,130,246,0.08)]"
         : "border-border bg-background/50",
