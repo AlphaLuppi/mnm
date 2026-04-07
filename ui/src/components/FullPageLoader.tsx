@@ -141,13 +141,13 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     };
   }, []);
 
-  const baseClass = "w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400 font-mono text-[11px]";
+  const baseClass = "w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400 font-mono";
 
   if (inline) {
     return (
       <pre
         ref={preRef}
-        className={`${baseClass} md:text-[20px]`}
+        className={`${baseClass} loader-inline`}
         aria-hidden="true"
       />
     );
@@ -157,7 +157,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     <div className="fixed inset-0 bg-background overflow-hidden">
       <pre
         ref={preRef}
-        className={`${baseClass} md:text-[30px]`}
+        className={`${baseClass} loader-fullpage`}
         aria-hidden="true"
       />
     </div>
