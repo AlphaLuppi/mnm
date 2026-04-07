@@ -58,6 +58,11 @@
         -webkit-user-select: none;
         user-select: none;
       }
+      @media (min-width: 768px) {
+        #mnm-canvas {
+          font-size: 30px;
+        }
+      }
       .dark #mnm-canvas {
         color: #a8a29e;
       }
@@ -116,7 +121,7 @@
         function measureChar() {
           const s = document.createElement("span");
           s.textContent = "M";
-          s.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font:11px/1 monospace";
+          s.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font:inherit";
           pre.appendChild(s);
           const r = s.getBoundingClientRect();
           pre.removeChild(s);
