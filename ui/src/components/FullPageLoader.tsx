@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const LOGO = [
   "███╗   ███╗       █████╗       ███╗   ███╗",
@@ -36,16 +36,21 @@ function measureChar(container: HTMLElement, fontSize: number) {
 export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
   const preRef = useRef<HTMLPreElement>(null);
   const frameRef = useRef<number | null>(null);
+  const [fontSize, setFontSize] = useState(getFontSize);
+
+  useEffect(() => {
+    const mq = window.matchMedia(MD_BREAKPOINT);
+    const onChange = () => setFontSize(getFontSize());
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     if (!preRef.current) return;
     const pre: HTMLPreElement = preRef.current;
 
     const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const desktopMedia = window.matchMedia(MD_BREAKPOINT);
-    let currentFontSize = getFontSize();
-    pre.style.fontSize = `${currentFontSize}px`;
-    let { w: cw, h: ch } = measureChar(pre, currentFontSize);
+    let { w: cw, h: ch } = measureChar(pre, fontSize);
     let cols = 0, rows = 0, lox = 0, loy = 0;
     let logoMap = new Map<number, { ch: string }>();
     let tick = 0, lastFrame = 0;
@@ -133,7 +138,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     }
 
     const observer = new ResizeObserver(() => {
-      const m = measureChar(pre, currentFontSize);
+      const m = measureChar(pre, fontSize);
       cw = m.w; ch = m.h;
       resize(); syncLoop();
     });
@@ -142,16 +147,6 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     const onMotion = () => syncLoop();
     motionMedia.addEventListener("change", onMotion);
 
-    const onBreakpoint = () => {
-      currentFontSize = getFontSize();
-      pre.style.fontSize = `${currentFontSize}px`;
-      const m = measureChar(pre, currentFontSize);
-      cw = m.w; ch = m.h;
-      cols = 0; rows = 0; // force recalc
-      resize(); syncLoop();
-    };
-    desktopMedia.addEventListener("change", onBreakpoint);
-
     resize(); syncLoop();
 
     return () => {
@@ -159,15 +154,14 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       observer.disconnect();
       motionMedia.removeEventListener("change", onMotion);
-      desktopMedia.removeEventListener("change", onBreakpoint);
     };
-  }, []);
+  }, [fontSize]);
 
   const pre = (
     <pre
       ref={preRef}
       className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
-      style={{ fontFamily: "monospace", ...(inline ? { transform: "translateX(-40px)" } : {}) }}
+      style={{ fontFamily: "monospace", fontSize: `${fontSize}px` }}
       aria-hidden="true"
     />
   );
