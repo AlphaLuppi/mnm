@@ -110,6 +110,11 @@ export function oauthService(db: Db) {
     const codeChallenge = generateCodeChallenge(codeVerifier);
     const state = generateState();
 
+    // Guard against unbounded growth of in-memory state map
+    if (pendingStates.size >= 10000) {
+      throw badRequest("Too many pending OAuth flows — please try again later");
+    }
+
     // Store state
     pendingStates.set(state, {
       userId,

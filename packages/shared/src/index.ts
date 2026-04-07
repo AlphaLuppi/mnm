@@ -882,7 +882,7 @@ export type {
 } from "./jira-import-types.js";
 
 // GIT-PROVIDER: Detection + parsing utilities
-export { detectGitProvider, parseRepoUrl, sanitizeEnvKey } from "./utils/git-provider.js";
+export { detectGitProvider, parseRepoUrl, sanitizeEnvKey, GIT_PROVIDER_TYPES } from "./utils/git-provider.js";
 export type { GitProviderType, DetectedGitProvider } from "./utils/git-provider.js";
 
 export { API_PREFIX, API } from "./api.js";

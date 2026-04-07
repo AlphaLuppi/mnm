@@ -1,4 +1,5 @@
 import { z, type RefinementCtx } from "zod";
+import { GIT_PROVIDER_TYPES } from "../utils/git-provider.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -150,9 +151,7 @@ export type SettingItemConfig = z.infer<typeof settingItemConfigSchema>;
 
 export const gitProviderItemConfigSchema = z.object({
   host: z.string().min(1),
-  providerType: z.enum([
-    "github", "gitlab", "bitbucket", "gitea", "azure_devops", "generic"
-  ]).default("generic"),
+  providerType: z.enum(GIT_PROVIDER_TYPES).default("generic"),
   apiUrl: z.string().url().optional().nullable(),
 });
 

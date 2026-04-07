@@ -1,12 +1,10 @@
 // packages/shared/src/utils/git-provider.ts
 
-export type GitProviderType =
-  | "github"
-  | "gitlab"
-  | "bitbucket"
-  | "gitea"
-  | "azure_devops"
-  | "generic";
+export const GIT_PROVIDER_TYPES = [
+  "github", "gitlab", "bitbucket", "gitea", "azure_devops", "generic",
+] as const;
+
+export type GitProviderType = (typeof GIT_PROVIDER_TYPES)[number];
 
 export interface DetectedGitProvider {
   providerType: GitProviderType;

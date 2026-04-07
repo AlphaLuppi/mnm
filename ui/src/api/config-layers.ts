@@ -36,6 +36,7 @@ export interface ConflictItem {
   candidatePriority: number;
 }
 
+// "disconnected" is a UI-only pseudo-status (no credential row exists for this item)
 export type CredentialStatus = "pending" | "connected" | "expired" | "revoked" | "error" | "disconnected";
 // Backward-compat alias
 export type McpCredentialStatus = CredentialStatus;
