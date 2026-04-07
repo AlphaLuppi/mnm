@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Db } from "@mnm/db";
 import { configLayerItems } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
-import { mcpCredentialService } from "./mcp-credential.js";
+import { credentialService } from "./credential.js";
 import { badRequest } from "../errors.js";
 
 // ─── PKCE Helpers ─────────────────────────────────────────────────────────────
@@ -63,8 +63,8 @@ interface OAuthConfig {
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
-export function mcpOauthService(db: Db) {
-  const credSvc = mcpCredentialService(db);
+export function oauthService(db: Db) {
+  const credSvc = credentialService(db);
 
   /**
    * Initiate the OAuth2 PKCE flow for an MCP server item.
@@ -131,7 +131,7 @@ export function mcpOauthService(db: Db) {
     if (oauth.scope) url.searchParams.set("scope", oauth.scope);
     if (oauth.audience) url.searchParams.set("audience", oauth.audience);
 
-    logger.debug({ userId, companyId, itemId }, "[mcp-oauth] initiated authorize flow");
+    logger.debug({ userId, companyId, itemId }, "[oauth] initiated authorize flow");
 
     return url.toString();
   }
@@ -211,7 +211,7 @@ export function mcpOauthService(db: Db) {
 
       tokenResponse = (await res.json()) as Record<string, unknown>;
     } catch (err) {
-      logger.error({ err, userId, companyId, itemId }, "[mcp-oauth] token exchange failed");
+      logger.error({ err, userId, companyId, itemId }, "[oauth] token exchange failed");
       throw badRequest(`OAuth token exchange failed: ${(err as Error).message}`);
     }
 
@@ -234,7 +234,7 @@ export function mcpOauthService(db: Db) {
       expiresAt,
     );
 
-    logger.info({ userId, companyId, itemId }, "[mcp-oauth] OAuth flow completed — credential stored");
+    logger.info({ userId, companyId, itemId }, "[oauth] OAuth flow completed — credential stored");
 
     return { userId, companyId, itemId };
   }

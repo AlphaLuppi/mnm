@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
-import { mcpCredentialService } from "./mcp-credential.js";
+import { credentialService } from "./credential.js";
 
 // ─── Resolved Config Types ────────────────────────────────────────────────────
 
@@ -80,7 +80,7 @@ interface FileRow {
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export function configLayerRuntimeService(db: Db) {
-  const credSvc = mcpCredentialService(db);
+  const credSvc = credentialService(db);
 
   /**
    * Main entry point — resolves the merged configuration for an agent run.
