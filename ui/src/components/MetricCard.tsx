@@ -15,10 +15,10 @@ export function MetricCard({ icon: Icon, value, label, description, to, onClick 
   const isClickable = !!(to || onClick);
 
   const inner = (
-    <div className={`h-full px-4 py-4 sm:px-5 sm:py-5 rounded-lg border border-border bg-card transition-colors${isClickable ? " hover:bg-accent/50 cursor-pointer" : ""}`}>
+    <div className={`h-full px-3 py-3 sm:px-4 sm:py-4 rounded-lg border border-border bg-card transition-colors${isClickable ? " hover:bg-accent/50 cursor-pointer" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          <p className="text-xl sm:text-2xl font-semibold tracking-tight">
             {value}
           </p>
           <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-1">
