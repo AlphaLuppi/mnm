@@ -17,6 +17,7 @@ import { SettingItemEditor } from "./SettingItemEditor";
 import { GitProviderItemEditor } from "./GitProviderItemEditor";
 import { OAuthConnectButton } from "./OAuthConnectButton";
 import { CredentialDialog } from "./CredentialDialog";
+import { GitProviderIcon } from "../GitProviderIcon";
 import { cn } from "../../lib/utils";
 
 type Props = {
@@ -244,6 +245,12 @@ export function LayerItemList({
           ) : (
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2 rounded-lg border border-border bg-muted/50">
               <div className="flex items-center gap-2 flex-1 min-w-0">
+                {it.itemType === "git_provider" && (
+                  <GitProviderIcon
+                    provider={(it.configJson as any).providerType ?? "generic"}
+                    className="h-4 w-4 shrink-0 text-muted-foreground"
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <span className="text-foreground text-sm font-medium truncate block">
                     {it.displayName ?? it.name}
