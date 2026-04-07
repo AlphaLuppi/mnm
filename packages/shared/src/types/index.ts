@@ -444,8 +444,14 @@ export type {
   ConfigLayerScope,
   ConfigLayerVisibility,
   ConfigLayerSourceType,
+  CredentialProvider,
+  CredentialStatus,
+  UserCredential,
+  ResolvedGitProvider,
+  // Backward-compat
   McpCredentialProvider,
   McpCredentialStatus,
+  UserMcpCredential,
   ConfigLayer,
   ConfigLayerItem,
   ConfigLayerFile,
@@ -457,7 +463,6 @@ export type {
   ConflictCheckResult,
   MergedConfigItem,
   MergePreviewResult,
-  UserMcpCredential,
 } from "./config-layer.js";
 
 // BLOCKS-PLATFORM: Content blocks catalogue

@@ -1,8 +1,9 @@
 import { z, type RefinementCtx } from "zod";
+import { GIT_PROVIDER_TYPES } from "../utils/git-provider.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const CONFIG_LAYER_ITEM_TYPES = ["mcp", "skill", "hook", "setting"] as const;
+export const CONFIG_LAYER_ITEM_TYPES = ["mcp", "skill", "hook", "setting", "git_provider"] as const;
 export const CONFIG_LAYER_SCOPES = ["company", "shared", "private"] as const;
 export const CONFIG_LAYER_VISIBILITIES = ["public", "team", "private"] as const;
 export const CONFIG_LAYER_SOURCE_TYPES = ["inline", "url", "git"] as const;
@@ -14,19 +15,25 @@ export const CONFIG_LAYER_CHANGE_SOURCES = [
   "system",
   "migration",
 ] as const;
-export const MCP_CREDENTIAL_PROVIDERS = [
+export const CREDENTIAL_PROVIDERS = [
   "oauth2",
   "api_key",
   "bearer",
+  "pat",
   "custom",
 ] as const;
-export const MCP_CREDENTIAL_STATUSES = [
+// Backward-compat alias (supprimer en V2)
+export const MCP_CREDENTIAL_PROVIDERS = CREDENTIAL_PROVIDERS;
+
+export const CREDENTIAL_STATUSES = [
   "pending",
   "connected",
   "expired",
   "revoked",
   "error",
 ] as const;
+// Backward-compat alias (supprimer en V2)
+export const MCP_CREDENTIAL_STATUSES = CREDENTIAL_STATUSES;
 export const HOOK_EVENTS = [
   "PreToolUse",
   "PostToolUse",
@@ -139,6 +146,16 @@ export const settingItemConfigSchema = z.object({
 });
 
 export type SettingItemConfig = z.infer<typeof settingItemConfigSchema>;
+
+// ─── Git Provider item config ─────────────────────────────────────────────────
+
+export const gitProviderItemConfigSchema = z.object({
+  host: z.string().min(1),
+  providerType: z.enum(GIT_PROVIDER_TYPES).default("generic"),
+  apiUrl: z.string().url().optional().nullable(),
+});
+
+export type GitProviderItemConfig = z.infer<typeof gitProviderItemConfigSchema>;
 
 // ─── CRUD schemas ─────────────────────────────────────────────────────────────
 

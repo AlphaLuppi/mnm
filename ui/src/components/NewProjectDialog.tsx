@@ -24,10 +24,10 @@ import {
   Plus,
   X,
   FolderOpen,
-  Github,
   GitBranch,
 } from "lucide-react";
-import { PROJECT_COLORS } from "@mnm/shared";
+import { PROJECT_COLORS, detectGitProvider } from "@mnm/shared";
+import { GitProviderIcon } from "./GitProviderIcon";
 import { cn } from "../lib/utils";
 import { MarkdownEditor, type MarkdownEditorRef } from "./MarkdownEditor";
 import { StatusBadge } from "./StatusBadge";
@@ -96,11 +96,15 @@ export function NewProjectDialog() {
 
   const isAbsolutePath = (value: string) => value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value);
 
-  const isGitHubRepoUrl = (value: string) => {
+  const isGitUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    // git@ SSH format
+    if (/^git@[^:]+:[^/]+\/.+/.test(trimmed)) return true;
+    // https:// with at least owner/repo
     try {
-      const parsed = new URL(value);
-      const host = parsed.hostname.toLowerCase();
-      if (host !== "github.com" && host !== "www.github.com") return false;
+      const parsed = new URL(trimmed);
+      if (!["http:", "https:"].includes(parsed.protocol)) return false;
       const segments = parsed.pathname.split("/").filter(Boolean);
       return segments.length >= 2;
     } catch {
@@ -116,12 +120,15 @@ export function NewProjectDialog() {
 
   const deriveWorkspaceNameFromRepo = (value: string) => {
     try {
+      // Handle git@ format
+      const sshMatch = value.match(/^git@[^:]+:([^/]+)\/([^.]+)/);
+      if (sshMatch) return sshMatch[2] ?? "repo";
       const parsed = new URL(value);
       const segments = parsed.pathname.split("/").filter(Boolean);
       const repo = segments[segments.length - 1]?.replace(/\.git$/i, "") ?? "";
-      return repo || "GitHub repo";
+      return repo || "repo";
     } catch {
-      return "GitHub repo";
+      return "repo";
     }
   };
 
@@ -141,8 +148,8 @@ export function NewProjectDialog() {
       setWorkspaceError("Local folder must be a full absolute path.");
       return;
     }
-    if (repoRequired && !isGitHubRepoUrl(repoUrl)) {
-      setWorkspaceError("Repo workspace must use a valid GitHub repo URL.");
+    if (repoRequired && !isGitUrl(repoUrl)) {
+      setWorkspaceError("L'URL du repo doit être une URL git valide (https:// ou git@).");
       return;
     }
 
@@ -284,7 +291,7 @@ export function NewProjectDialog() {
         <div className="px-4 pb-3 space-y-3 border-t border-border">
           <div className="pt-3">
             <p className="text-sm font-medium">Where will work be done on this project?</p>
-            <p className="text-xs text-muted-foreground">Add local folder and/or GitHub repo workspace hints.</p>
+            <p className="text-xs text-muted-foreground">Add local folder and/or git repo workspace hints.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <button
@@ -310,10 +317,10 @@ export function NewProjectDialog() {
               onClick={() => toggleWorkspaceSetup("repo")}
             >
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Github className="h-4 w-4" />
-                A github repo
+                <GitBranch className="h-4 w-4" />
+                A git repo
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">Paste a GitHub URL.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Paste any git URL.</p>
             </button>
             <button
               type="button"
@@ -347,13 +354,22 @@ export function NewProjectDialog() {
           )}
           {(workspaceSetup === "repo" || workspaceSetup === "both") && (
             <div className="rounded-md border border-border p-2">
-              <label className="mb-1 block text-xs text-muted-foreground">GitHub repo URL</label>
+              <label className="mb-1 block text-xs text-muted-foreground">Git repo URL</label>
               <input
                 className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
                 value={workspaceRepoUrl}
                 onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
-                placeholder="https://github.com/org/repo"
+                placeholder="https://github.com/org/repo ou https://gitlab.com/org/repo"
               />
+              {workspaceRepoUrl.trim() && (() => {
+                const p = detectGitProvider(workspaceRepoUrl.trim());
+                return (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                    <GitProviderIcon provider={p.providerType} className="h-3 w-3" />
+                    <span>{p.label}</span>
+                  </div>
+                );
+              })()}
             </div>
           )}
           {workspaceError && (

@@ -7,12 +7,12 @@ import type {
   AgentConfigLayerAttachment,
   ConflictCheckResult,
   MergePreviewResult,
-  UserMcpCredential,
+  UserCredential,
 } from "@mnm/shared";
 import { api } from "./client";
 
 // Re-export types for consumers
-export type { ConfigLayer, ConfigLayerDetail, ConfigLayerItem, ConfigLayerFile, ConfigLayerRevision, AgentConfigLayerAttachment, ConflictCheckResult, MergePreviewResult, UserMcpCredential };
+export type { ConfigLayer, ConfigLayerDetail, ConfigLayerItem, ConfigLayerFile, ConfigLayerRevision, AgentConfigLayerAttachment, ConflictCheckResult, MergePreviewResult, UserCredential };
 
 // Local convenience types used by page/component consumers
 export type LayerScope = "company" | "shared" | "private";
@@ -36,7 +36,10 @@ export interface ConflictItem {
   candidatePriority: number;
 }
 
-export type McpCredentialStatus = "pending" | "connected" | "expired" | "revoked" | "error" | "disconnected";
+// "disconnected" is a UI-only pseudo-status (no credential row exists for this item)
+export type CredentialStatus = "pending" | "connected" | "expired" | "revoked" | "error" | "disconnected";
+// Backward-compat alias
+export type McpCredentialStatus = CredentialStatus;
 
 export interface MergePreviewItem {
   id: string;
@@ -110,9 +113,11 @@ export const configLayersApi = {
 
   // Credentials
   listCredentials: (companyId: string) =>
-    api.get<UserMcpCredential[]>(`/companies/${companyId}/mcp-credentials`),
+    api.get<UserCredential[]>(`/companies/${companyId}/credentials`),
   storeApiKey: (companyId: string, itemId: string, material: Record<string, unknown>) =>
-    api.post<{ ok: boolean }>(`/companies/${companyId}/mcp-credentials/${itemId}/api-key`, { material }),
+    api.post<{ ok: boolean }>(`/companies/${companyId}/credentials/${itemId}/secret`, { material }),
+  storePat: (companyId: string, itemId: string, token: string) =>
+    api.post<{ ok: boolean }>(`/companies/${companyId}/credentials/${itemId}/pat`, { material: { token } }),
   revokeCredential: (companyId: string, credentialId: string) =>
-    api.delete<void>(`/companies/${companyId}/mcp-credentials/${credentialId}`),
+    api.delete<void>(`/companies/${companyId}/credentials/${credentialId}`),
 };

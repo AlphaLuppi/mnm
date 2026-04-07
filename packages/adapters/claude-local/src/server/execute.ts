@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@mnm/adapter-utils";
+import { parseRepoUrl, sanitizeEnvKey } from "@mnm/shared";
 import type { RunProcessResult } from "@mnm/adapter-utils/server-utils";
 import {
   asString,
@@ -135,6 +136,7 @@ interface ClaudeExecutionInput {
   authToken?: string;
   dockerContainerId?: string;
   claudeOauthToken?: string;
+  gitProviders?: Array<{ host: string; token?: string }>;
 }
 
 interface ClaudeRuntimeConfig {
@@ -279,6 +281,21 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     env.CLAUDE_CODE_OAUTH_TOKEN = input.claudeOauthToken;
   }
 
+  // GIT CREDENTIALS: inject per-host tokens for workspace repos
+  if (input.gitProviders && input.gitProviders.length > 0 && workspaceHints.length > 0) {
+    for (const hint of workspaceHints) {
+      const repoUrl = hint.repoUrl;
+      if (!repoUrl) continue;
+      const parsed = parseRepoUrl(repoUrl as string);
+      if (!parsed) continue;
+      const matchingProvider = input.gitProviders.find((gp) => gp.host === parsed.host);
+      if (matchingProvider?.token) {
+        const envKey = `GIT_TOKEN_${sanitizeEnvKey(parsed.host)}`;
+        env[envKey] = matchingProvider.token;
+      }
+    }
+  }
+
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   if (!isDocker) {
     await ensureCommandResolvable(command, cwd, runtimeEnv);
@@ -343,7 +360,7 @@ export async function runClaudeLogin(input: {
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId, claudeOauthToken } = ctx;
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId, claudeOauthToken, gitProviders } = ctx;
 
   const defaultPromptTemplate = `You are agent {{agent.name}} (id: {{agent.id}}) on the MnM platform.
 {{#if context.issueTitle}}
@@ -378,6 +395,7 @@ Continue your MnM work. Check for assigned issues and tasks.
     authToken,
     dockerContainerId,
     claudeOauthToken,
+    gitProviders,
   });
   const {
     command,

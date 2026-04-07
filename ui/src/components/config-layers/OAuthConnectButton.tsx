@@ -2,12 +2,12 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link2, Link2Off, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type McpCredentialStatus } from "../../api/config-layers";
+import { type CredentialStatus } from "../../api/config-layers";
 import { queryKeys } from "../../lib/queryKeys";
 import { cn } from "../../lib/utils";
 
 const STATUS_CONFIG: Record<
-  McpCredentialStatus,
+  CredentialStatus,
   { label: string; dotClass: string; icon: typeof Link2 }
 > = {
   connected: {
@@ -42,18 +42,17 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export function McpOAuthConnectButton({
+export function OAuthConnectButton({
   itemId,
   companyId,
   status = "disconnected",
 }: {
   itemId: string;
   companyId: string;
-  status?: McpCredentialStatus;
+  status?: CredentialStatus;
 }) {
   const queryClient = useQueryClient();
   const popupRef = useRef<Window | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
   const { icon: Icon } = config;
@@ -76,7 +75,6 @@ export function McpOAuthConnectButton({
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
-      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [handleMessage]);
 
@@ -89,18 +87,6 @@ export function McpOAuthConnectButton({
     );
     if (!popup) return;
     popupRef.current = popup;
-
-    // Fallback polling in case postMessage doesn't fire (e.g., cross-origin redirect)
-    pollRef.current = setInterval(() => {
-      if (!popup || popup.closed) {
-        clearInterval(pollRef.current!);
-        pollRef.current = null;
-        // Refresh credential status after popup closes
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.configLayers.credentials(companyId),
-        });
-      }
-    }, 500);
   }
 
   const isConnected = status === "connected";
