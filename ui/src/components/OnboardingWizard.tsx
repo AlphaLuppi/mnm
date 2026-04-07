@@ -9,7 +9,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "../lib/utils";
-import { AsciiArtAnimation } from "./AsciiArtAnimation";
+import { FullPageLoader } from "./FullPageLoader";
 import { OnboardingProgressBar } from "./OnboardingProgressBar";
 import { onboardingApi } from "../api/onboarding";
 import { api } from "../api/client";
@@ -1232,7 +1232,7 @@ export function OnboardingWizard() {
 
         {/* Right half — ASCII art (hidden on mobile) */}
         <div className="hidden md:block w-1/2 overflow-hidden">
-          <AsciiArtAnimation />
+          <FullPageLoader inline />
         </div>
       </div>
     </div>
