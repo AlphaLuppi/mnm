@@ -21,7 +21,6 @@ import { WIDGET_DEFAULT_HEIGHTS } from "@mnm/shared";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
 import { Bot, LayoutDashboard, Plus, Radar } from "lucide-react";
-import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { Button } from "@/components/ui/button";
 
@@ -244,8 +243,6 @@ export function Dashboard() {
           </div>
         </div>
       )}
-
-      <ActiveAgentsPanel companyId={selectedCompanyId!} />
 
       {/* V2: Unified dashboard grid — drag & drop, resize */}
       <UnifiedDashboardGrid
