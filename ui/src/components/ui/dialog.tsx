@@ -1,9 +1,21 @@
 import * as React from "react"
-import { XIcon } from "lucide-react"
+import { Maximize2Icon, Minimize2Icon, XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+
+/* ── Expand context ── */
+interface DialogExpandContext {
+  expanded: boolean
+  toggle: () => void
+}
+const ExpandCtx = React.createContext<DialogExpandContext | null>(null)
+
+/** Hook for custom headers that need the expand toggle. */
+export function useDialogExpand() {
+  return React.useContext(ExpandCtx)
+}
 
 function Dialog({
   ...props
@@ -49,32 +61,55 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  expandable = true,
+  defaultExpanded = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  expandable?: boolean
+  defaultExpanded?: boolean
 }) {
+  const [expanded, setExpanded] = React.useState(defaultExpanded)
+  const toggle = React.useCallback(() => setExpanded((e) => !e), [])
+  const expandCtx = React.useMemo(() => ({ expanded, toggle }), [expanded, toggle])
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] data-[state=closed]:slide-out-to-top-[1%] data-[state=open]:slide-in-from-top-[1%] fixed top-[max(1rem,env(safe-area-inset-top))] md:top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-1rem)] sm:max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-0 md:translate-y-[-50%] rounded-lg border shadow-lg duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] outline-none sm:max-w-lg max-h-[calc(100vh-2rem)] md:max-h-[85vh] overflow-y-auto",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
+      <ExpandCtx.Provider value={expandCtx}>
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
+            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] data-[state=closed]:slide-out-to-top-[1%] data-[state=open]:slide-in-from-top-[1%] fixed top-[max(1rem,env(safe-area-inset-top))] md:top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-1rem)] sm:max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-0 md:translate-y-[-50%] rounded-lg border shadow-lg duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] outline-none max-h-[calc(100vh-2rem)] md:max-h-[85vh] overflow-y-auto transition-[max-width]",
+            expanded ? "sm:max-w-[90vw] md:max-w-[85vw]" : "sm:max-w-lg",
+            className
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1">
+              {expandable && (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  className="ring-offset-background focus:ring-ring rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+                >
+                  {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
+                  <span className="sr-only">{expanded ? "Reduce" : "Expand"}</span>
+                </button>
+              )}
+              <DialogPrimitive.Close
+                data-slot="dialog-close"
+                className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              >
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </DialogPrimitive.Close>
+            </div>
+          )}
+        </DialogPrimitive.Content>
+      </ExpandCtx.Provider>
     </DialogPortal>
   )
 }
