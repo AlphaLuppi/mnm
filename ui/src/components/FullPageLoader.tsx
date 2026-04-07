@@ -56,7 +56,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
       const nr = Math.max(1, Math.floor(pre.clientHeight / ch));
       if (nc === cols && nr === rows) return;
       cols = nc; rows = nr;
-      lox = Math.floor((cols - LW) / 2);
+      lox = inline ? Math.floor((cols - LW) / 3) : Math.floor((cols - LW) / 2);
       loy = Math.floor((rows - LH) / 2);
       logoMap = new Map();
       for (let r = 0; r < LH; r++) {
