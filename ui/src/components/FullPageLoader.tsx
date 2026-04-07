@@ -15,14 +15,22 @@ const FRAME_MS = 1000 / FPS;
 const LH = LOGO.length;
 const LW = Math.max(...LOGO.map(l => l.length));
 
-function measureChar(container: HTMLElement) {
+const FONT_MOBILE = 11;
+const FONT_DESKTOP = 55;
+const MD_BREAKPOINT = "(min-width: 768px)";
+
+function getFontSize() {
+  return window.matchMedia(MD_BREAKPOINT).matches ? FONT_DESKTOP : FONT_MOBILE;
+}
+
+function measureChar(container: HTMLElement, fontSize: number) {
   const s = document.createElement("span");
   s.textContent = "M";
-  s.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font:11px/1 monospace";
+  s.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${fontSize}px/1 monospace`;
   container.appendChild(s);
   const r = s.getBoundingClientRect();
   container.removeChild(s);
-  return { w: r.width || 7, h: r.height || 11 };
+  return { w: r.width || fontSize * 0.64, h: r.height || fontSize };
 }
 
 export function FullPageLoader() {
@@ -34,7 +42,10 @@ export function FullPageLoader() {
     const pre: HTMLPreElement = preRef.current;
 
     const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let { w: cw, h: ch } = measureChar(pre);
+    const desktopMedia = window.matchMedia(MD_BREAKPOINT);
+    let currentFontSize = getFontSize();
+    pre.style.fontSize = `${currentFontSize}px`;
+    let { w: cw, h: ch } = measureChar(pre, currentFontSize);
     let cols = 0, rows = 0, lox = 0, loy = 0;
     let logoMap = new Map<number, { ch: string }>();
     let tick = 0, lastFrame = 0;
@@ -122,7 +133,7 @@ export function FullPageLoader() {
     }
 
     const observer = new ResizeObserver(() => {
-      const m = measureChar(pre);
+      const m = measureChar(pre, currentFontSize);
       cw = m.w; ch = m.h;
       resize(); syncLoop();
     });
@@ -131,6 +142,16 @@ export function FullPageLoader() {
     const onMotion = () => syncLoop();
     motionMedia.addEventListener("change", onMotion);
 
+    const onBreakpoint = () => {
+      currentFontSize = getFontSize();
+      pre.style.fontSize = `${currentFontSize}px`;
+      const m = measureChar(pre, currentFontSize);
+      cw = m.w; ch = m.h;
+      cols = 0; rows = 0; // force recalc
+      resize(); syncLoop();
+    };
+    desktopMedia.addEventListener("change", onBreakpoint);
+
     resize(); syncLoop();
 
     return () => {
@@ -138,6 +159,7 @@ export function FullPageLoader() {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       observer.disconnect();
       motionMedia.removeEventListener("change", onMotion);
+      desktopMedia.removeEventListener("change", onBreakpoint);
     };
   }, []);
 
@@ -146,7 +168,7 @@ export function FullPageLoader() {
       <pre
         ref={preRef}
         className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
-        style={{ fontSize: "11px", fontFamily: "monospace" }}
+        style={{ fontFamily: "monospace" }}
         aria-hidden="true"
       />
     </div>
