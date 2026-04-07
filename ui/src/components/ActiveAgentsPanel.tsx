@@ -387,7 +387,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="grid gap-3 h-full" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gridAutoRows: "1fr" }}>
+          <div className="flex flex-wrap gap-3 content-start">
             {runs.map((run) => (
               <AgentRunCard
                 key={run.id}
@@ -426,7 +426,7 @@ function AgentRunCard({
 
   return (
     <div className={cn(
-      "flex flex-col rounded-lg border overflow-hidden min-w-0",
+      "flex flex-col rounded-lg border overflow-hidden min-h-[160px] min-w-[240px] flex-1 basis-[calc(50%-0.375rem)]",
       isActive
         ? "border-blue-500/30 bg-background/80 shadow-[0_0_12px_rgba(59,130,246,0.08)]"
         : "border-border bg-background/50",
@@ -475,7 +475,7 @@ function AgentRunCard({
       )}
 
       {/* Feed body */}
-      <div ref={bodyRef} className="max-h-[120px] overflow-y-auto p-2 font-mono text-[11px] space-y-1">
+      <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto p-2 font-mono text-[11px] space-y-1">
         {isActive && recent.length === 0 && (
           <div className="text-xs text-muted-foreground">Waiting for output...</div>
         )}

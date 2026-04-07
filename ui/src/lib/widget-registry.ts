@@ -25,10 +25,10 @@ export const WIDGET_REGISTRY: Record<string, WidgetDef> = {
   "kpi-bar":          { component: lazy(() => import("../components/widgets/KpiBar")),               defaultW: 12, label: "KPI Bar",             description: "Full-width KPI overview",          minW: 6, maxW: 12, minH: 2, maxH: 6 },
 
   // Charts — compact metric widgets
-  "run-activity":     { component: lazy(() => import("../components/widgets/RunActivityWidget")),     defaultW: 3, label: "Run Activity",        description: "Recent run timeline",              minW: 2, maxW: 12, minH: 3, maxH: 16 },
-  "priority-chart":   { component: lazy(() => import("../components/widgets/PriorityWidget")),        defaultW: 3, label: "Issues by Priority",  description: "Priority distribution chart",      minW: 2, maxW: 12, minH: 3, maxH: 16 },
-  "status-chart":     { component: lazy(() => import("../components/widgets/StatusWidget")),          defaultW: 3, label: "Issues by Status",    description: "Status distribution chart",        minW: 2, maxW: 12, minH: 3, maxH: 16 },
-  "success-rate":     { component: lazy(() => import("../components/widgets/SuccessRateWidget")),     defaultW: 3, label: "Success Rate",        description: "Agent success rate trends",        minW: 2, maxW: 12, minH: 3, maxH: 16 },
+  "run-activity":     { component: lazy(() => import("../components/widgets/RunActivityWidget")),     defaultW: 4, label: "Run Activity",        description: "Recent run timeline",              minW: 2, maxW: 12, minH: 5, maxH: 16 },
+  "priority-chart":   { component: lazy(() => import("../components/widgets/PriorityWidget")),        defaultW: 4, label: "Issues by Priority",  description: "Priority distribution chart",      minW: 2, maxW: 12, minH: 5, maxH: 16 },
+  "status-chart":     { component: lazy(() => import("../components/widgets/StatusWidget")),          defaultW: 4, label: "Issues by Status",    description: "Status distribution chart",        minW: 2, maxW: 12, minH: 5, maxH: 16 },
+  "success-rate":     { component: lazy(() => import("../components/widgets/SuccessRateWidget")),     defaultW: 4, label: "Success Rate",        description: "Agent success rate trends",        minW: 2, maxW: 12, minH: 5, maxH: 16 },
 
   // Panels — tables and lists
   "active-agents":    { component: lazy(() => import("../components/widgets/ActiveAgentsWidget")),    defaultW: 12, label: "Active Agents",      description: "Currently running agents",         minW: 4, maxW: 12, minH: 6, maxH: 16 },

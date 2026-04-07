@@ -5,9 +5,12 @@ import { useParams, useNavigate } from "../lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { foldersApi } from "../api/folders";
+import { documentsApi } from "../api/documents";
 import { agentsApi } from "../api/agents";
 import { chatApi } from "../api/chat";
 import { queryKeys } from "../lib/queryKeys";
+import { useDocumentViewer } from "../components/ui/document-viewer";
+import type { FolderItem } from "@mnm/shared";
 import { FolderSidebar } from "../components/folders/FolderSidebar";
 import { AgentChatPanel } from "../components/AgentChatPanel";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -25,6 +28,7 @@ export function FolderWorkspace() {
   const [sidebarWidth, setSidebarWidth] = useState(288);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isDragging = useRef(false);
+  const { openDocument } = useDocumentViewer();
 
   // Drag-to-resize handler (same pattern as artifact panel)
   const handleDragStart = useCallback(
@@ -48,6 +52,24 @@ export function FolderWorkspace() {
       document.addEventListener("mouseup", onUp);
     },
     [sidebarWidth],
+  );
+
+  const handleDocumentClick = useCallback(
+    async (item: FolderItem) => {
+      if (!item.documentId || !selectedCompanyId) return;
+      try {
+        const doc = await documentsApi.getById(selectedCompanyId, item.documentId);
+        openDocument({
+          id: doc.id,
+          title: doc.title,
+          mimeType: doc.mimeType,
+          url: documentsApi.getContentUrl(selectedCompanyId, doc.id),
+        });
+      } catch (err) {
+        console.error("Failed to load document:", err);
+      }
+    },
+    [selectedCompanyId, openDocument],
   );
 
   // Remove parent padding for full-bleed layout
@@ -132,6 +154,7 @@ export function FolderWorkspace() {
               folder={folderQuery.data}
               onBack={() => navigate(`/folders/${folderId}`)}
               onCollapse={() => setSidebarCollapsed(true)}
+              onDocumentClick={handleDocumentClick}
             />
           </div>
           {/* Resize handle */}

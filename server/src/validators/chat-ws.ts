@@ -4,6 +4,7 @@ export const chatClientMessageSchema = z.object({
   type: z.literal("chat_message"),
   content: z.string().min(1).max(4096),
   metadata: z.record(z.unknown()).optional(),
+  messageType: z.enum(["text", "document_upload"]).optional(),
   clientMessageId: z.string().optional(),
 });
 
