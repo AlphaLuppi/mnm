@@ -8,12 +8,11 @@ import type {
   ConflictCheckResult,
   MergePreviewResult,
   UserCredential,
-  UserMcpCredential,
 } from "@mnm/shared";
 import { api } from "./client";
 
 // Re-export types for consumers
-export type { ConfigLayer, ConfigLayerDetail, ConfigLayerItem, ConfigLayerFile, ConfigLayerRevision, AgentConfigLayerAttachment, ConflictCheckResult, MergePreviewResult, UserCredential, UserMcpCredential };
+export type { ConfigLayer, ConfigLayerDetail, ConfigLayerItem, ConfigLayerFile, ConfigLayerRevision, AgentConfigLayerAttachment, ConflictCheckResult, MergePreviewResult, UserCredential };
 
 // Local convenience types used by page/component consumers
 export type LayerScope = "company" | "shared" | "private";

@@ -153,7 +153,7 @@ export function credentialService(db: Db) {
         action: "credential.decrypt_failed",
         targetType: "credential",
         targetId: itemId,
-        metadata: { error: (err as Error).message },
+        metadata: { error: "decryption_failed" },
         severity: "warning",
       });
 
