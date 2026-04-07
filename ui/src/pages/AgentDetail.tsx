@@ -63,6 +63,7 @@ import {
   Rocket,
   Tag,
   Check,
+  Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
@@ -1666,6 +1667,67 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
     },
   });
 
+  // Download full transcript (run metadata + parsed transcript + events + trace + issues)
+  const [downloading, setDownloading] = useState(false);
+  const downloadTranscript = useCallback(async () => {
+    setDownloading(true);
+    try {
+      // Fetch log content
+      const logChunks: Array<{ ts: string; stream: "stdout" | "stderr" | "system"; chunk: string }> = [];
+      try {
+        let offset = 0;
+        while (true) {
+          const result = await heartbeatsApi.log(run.id, offset, 256_000);
+          for (const line of result.content.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const raw = JSON.parse(trimmed) as { ts?: unknown; stream?: unknown; chunk?: unknown };
+              const stream: "stdout" | "stderr" | "system" =
+                raw.stream === "stderr" || raw.stream === "system" ? raw.stream : "stdout";
+              const chunk = typeof raw.chunk === "string" ? raw.chunk : "";
+              const ts = typeof raw.ts === "string" ? raw.ts : new Date().toISOString();
+              if (chunk) logChunks.push({ ts, stream, chunk });
+            } catch { /* skip malformed lines */ }
+          }
+          if (result.nextOffset === undefined) break;
+          offset = result.nextOffset;
+        }
+      } catch { /* log may not exist */ }
+
+      // Fetch events
+      let runEvents: HeartbeatRunEvent[] = [];
+      try {
+        runEvents = await heartbeatsApi.events(run.id, 0, 9999);
+      } catch { /* ignore */ }
+
+      // Build parsed transcript
+      const adapter = getUIAdapter(adapterType);
+      const transcript = buildTranscript(logChunks, adapter.parseStdoutLine);
+
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        run,
+        transcript,
+        events: runEvents,
+        linkedTrace: linkedTrace ?? null,
+        touchedIssues: touchedIssues ?? null,
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `run-${run.id.slice(0, 8)}-transcript.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  }, [run, adapterType, linkedTrace, touchedIssues]);
+
   const isRunning = run.status === "running" && !!run.startedAt && !run.finishedAt;
   const [elapsedSec, setElapsedSec] = useState<number>(() => {
     if (!run.startedAt) return 0;
@@ -1751,6 +1813,16 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
                   {deployRun.isPending ? "Deploying…" : "Deploy"}
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-6 px-2"
+                onClick={() => void downloadTranscript()}
+                disabled={downloading}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                {downloading ? "Downloading…" : "Download Transcript"}
+              </Button>
             </div>
             {resumeRun.isError && (
               <div className="text-xs text-destructive">
