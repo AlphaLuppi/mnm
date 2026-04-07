@@ -86,7 +86,7 @@ export function ChatShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="p-4 sm:p-6 gap-4 max-w-md">
         <DialogHeader>
           <DialogTitle>Share Chat</DialogTitle>
         </DialogHeader>

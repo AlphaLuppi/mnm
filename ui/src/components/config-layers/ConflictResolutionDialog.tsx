@@ -83,7 +83,7 @@ export function ConflictResolutionDialog({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="p-4 sm:p-6 gap-4 max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {!canAttach ? (

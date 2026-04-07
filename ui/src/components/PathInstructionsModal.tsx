@@ -67,7 +67,7 @@ export function PathInstructionsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">How to get a full path</DialogTitle>
           <DialogDescription>

@@ -102,7 +102,7 @@ export function CreateSsoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="sso-s03-create-dialog" className="sm:max-w-lg">
+      <DialogContent data-testid="sso-s03-create-dialog" className="p-4 sm:p-6 gap-4 sm:max-w-lg">
         <DialogHeader>
           <DialogTitle data-testid="sso-s03-create-title">
             Add SSO Provider

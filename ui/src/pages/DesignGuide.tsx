@@ -982,7 +982,7 @@ export function DesignGuide() {
           <DialogTrigger asChild>
             <Button variant="outline">Open Dialog</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="p-4 sm:p-6 gap-4">
             <DialogHeader>
               <DialogTitle>Dialog Title</DialogTitle>
               <DialogDescription>
