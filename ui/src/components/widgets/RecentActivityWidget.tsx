@@ -82,14 +82,14 @@ export default function RecentActivityWidget({ companyId }: WidgetProps) {
   useEffect(() => () => { for (const t of timersRef.current) window.clearTimeout(t); }, []);
 
   return (
-    <div className="min-w-0">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recent Activity</h3>
+    <div className="min-w-0 h-full flex flex-col overflow-hidden">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 shrink-0">Recent Activity</h3>
       {recentActivity.length === 0 ? (
         <div className="border border-border rounded-md px-4 py-8 text-center">
           <p className="text-xs text-muted-foreground">No activity yet</p>
         </div>
       ) : (
-        <div className="border border-border divide-y divide-border overflow-hidden">
+        <div className="border border-border divide-y divide-border overflow-hidden flex-1 min-h-0 overflow-y-auto">
           {recentActivity.map((event) => (
             <ActivityRow
               key={event.id}
