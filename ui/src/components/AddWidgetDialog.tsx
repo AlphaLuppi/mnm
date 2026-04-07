@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
+  useDialogExpand,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WIDGET_REGISTRY } from "../lib/widget-registry";
 import { useDialog } from "../context/DialogContext";
@@ -53,6 +55,35 @@ interface AddWidgetDialogProps {
   onAddPresetWidget?: (type: string) => void;
 }
 
+function WidgetDialogHeader({ onClose }: { onClose: () => void }) {
+  const expand = useDialogExpand();
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+      <span className="text-sm text-muted-foreground">Add a widget</span>
+      <div className="flex items-center gap-1">
+        {expand && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            onClick={expand.toggle}
+          >
+            {expand.expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
+          onClick={onClose}
+        >
+          <span className="text-lg leading-none">&times;</span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AddWidgetDialog({
   open,
   onOpenChange,
@@ -96,24 +127,14 @@ export function AddWidgetDialog({
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : handleClose())}>
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-md p-0 gap-0 overflow-hidden"
+        defaultExpanded
+        className="p-0 gap-0 overflow-hidden"
       >
-        {/* Header — same pattern as NewAgentDialog */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <span className="text-sm text-muted-foreground">Add a widget</span>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground"
-            onClick={() => handleClose()}
-          >
-            <span className="text-lg leading-none">&times;</span>
-          </Button>
-        </div>
+        <WidgetDialogHeader onClose={handleClose} />
 
         {/* Preset gallery */}
-        <ScrollArea className="max-h-[340px]">
-          <div className="grid grid-cols-2 gap-3 p-6">
+        <ScrollArea className="max-h-[60vh]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-6">
             {registryEntries.map(([type, def]) => {
               const isPlaced = placedWidgetIds?.has(`preset:${type}`);
               const IconComponent = WIDGET_ICON_MAP[type] ?? Package;
