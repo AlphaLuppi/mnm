@@ -49,7 +49,7 @@ export interface WidgetPlacement {
   y: number;
   /** Width in grid units (1-12) */
   w: number;
-  /** Height in grid units (1 unit = ~40px with rowHeight=40) */
+  /** Height in grid units (1 unit = ~60px with rowHeight=60) */
   h: number;
   /** Hidden from view but preserved in layout */
   hidden?: boolean;
@@ -57,25 +57,25 @@ export interface WidgetPlacement {
   props?: Record<string, unknown>;
 }
 
-/** Default height by widget type (in grid row units, rowHeight=40px) */
+/** Default height by widget type (in grid row units, rowHeight=60px) */
 export const WIDGET_DEFAULT_HEIGHTS: Record<string, number> = {
   "kpi-bar": 2,
   "kpi-enterprise": 2,
-  "run-activity": 3,
-  "priority-chart": 3,
-  "status-chart": 3,
-  "success-rate": 3,
-  "active-agents": 4,
-  "recent-issues": 4,
-  "recent-activity": 4,
-  "timeline": 4,
-  "breakdown": 4,
-  "chat-activity": 3,
-  "my-folders": 3,
-  "my-issues": 3,
-  "team-activity": 3,
-  "cost-overview": 3,
-  "health-summary": 3,
+  "run-activity": 4,
+  "priority-chart": 4,
+  "status-chart": 4,
+  "success-rate": 4,
+  "active-agents": 5,
+  "recent-issues": 5,
+  "recent-activity": 5,
+  "timeline": 5,
+  "breakdown": 5,
+  "chat-activity": 4,
+  "my-folders": 4,
+  "my-issues": 4,
+  "team-activity": 4,
+  "cost-overview": 4,
+  "health-summary": 4,
 };
 
 /** Sparse user overrides — only what differs from the preset */
