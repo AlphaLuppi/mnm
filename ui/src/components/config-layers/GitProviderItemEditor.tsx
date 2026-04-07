@@ -21,7 +21,6 @@ export function GitProviderItemEditor({ item, onSave, onCancel }: Props) {
   function handleSave() {
     if (!detected) return;
     onSave({
-      name: detected.host,
       host: detected.host,
       providerType: detected.providerType,
     });
