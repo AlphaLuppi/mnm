@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WIDGET_REGISTRY } from "../lib/widget-registry";
 import { useDialog } from "../context/DialogContext";
@@ -55,19 +53,12 @@ interface AddWidgetDialogProps {
   onAddPresetWidget?: (type: string) => void;
 }
 
-const SUGGESTION_CHIPS = [
-  "Issue burn-down",
-  "Agent cost breakdown",
-  "Sprint velocity",
-];
-
 export function AddWidgetDialog({
   open,
   onOpenChange,
   placedWidgetIds,
   onAddPresetWidget,
 }: AddWidgetDialogProps) {
-  const [caoPrompt, setCaoPrompt] = useState("");
   const { openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
 
@@ -80,7 +71,6 @@ export function AddWidgetDialog({
   const caoAgent = (agents ?? []).find((a) => a.name === "CAO");
 
   function handleClose() {
-    setCaoPrompt("");
     onOpenChange(false);
   }
 
@@ -92,12 +82,11 @@ export function AddWidgetDialog({
   }
 
   function handleAskCao() {
-    if (!caoPrompt.trim()) return;
     handleClose();
     openNewIssue({
       assigneeAgentId: caoAgent?.id,
       title: "Create a dashboard widget",
-      description: caoPrompt.trim(),
+      description: "(Describe the widget you want: what data, what visualization, which tags or filters)",
     });
   }
 
@@ -109,7 +98,7 @@ export function AddWidgetDialog({
         showCloseButton={false}
         className="sm:max-w-md p-0 gap-0 overflow-hidden"
       >
-        {/* Header — same as NewAgentDialog */}
+        {/* Header — same pattern as NewAgentDialog */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <span className="text-sm text-muted-foreground">Add a widget</span>
           <Button
@@ -123,8 +112,8 @@ export function AddWidgetDialog({
         </div>
 
         {/* Preset gallery */}
-        <ScrollArea className="max-h-[300px] px-6 py-4">
-          <div className="grid grid-cols-2 gap-3">
+        <ScrollArea className="max-h-[340px]">
+          <div className="grid grid-cols-2 gap-3 p-6">
             {registryEntries.map(([type, def]) => {
               const isPlaced = placedWidgetIds?.has(`preset:${type}`);
               const IconComponent = WIDGET_ICON_MAP[type] ?? Package;
@@ -152,40 +141,20 @@ export function AddWidgetDialog({
           </div>
         </ScrollArea>
 
-        {/* CAO section */}
-        <div className="border-t border-border px-6 py-4 space-y-3">
-          <div className="flex gap-2">
-            <Textarea
-              rows={1}
-              className="min-h-9 resize-none"
-              placeholder="Or describe a custom widget..."
-              value={caoPrompt}
-              onChange={(e) => setCaoPrompt(e.target.value)}
-            />
-            <Button
-              size="sm"
-              onClick={handleAskCao}
-              disabled={!caoAgent || !caoPrompt.trim()}
-            >
-              <Crown className="h-4 w-4 mr-1.5" />
-              Ask CAO
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {SUGGESTION_CHIPS.map((chip) => (
-              <Button
-                key={chip}
-                variant="outline"
-                size="sm"
-                className="rounded-full text-xs"
-                onClick={() => setCaoPrompt(chip)}
-              >
-                {chip}
-              </Button>
-            ))}
-          </div>
+        {/* CTA — same pattern as NewAgentDialog */}
+        <div className="p-6 space-y-6 border-t border-border">
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleAskCao}
+            disabled={!caoAgent}
+          >
+            <Crown className="h-4 w-4 mr-2" />
+            Ask the CAO for a custom widget
+          </Button>
+
           {!caoAgent && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-center text-muted-foreground">
               CAO agent not found. Complete onboarding first.
             </p>
           )}
