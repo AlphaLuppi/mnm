@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const LOGO = [
   "███╗   ███╗       █████╗       ███╗   ███╗",
@@ -15,42 +15,26 @@ const FRAME_MS = 1000 / FPS;
 const LH = LOGO.length;
 const LW = Math.max(...LOGO.map(l => l.length));
 
-const FONT_MOBILE = 11;
-const FONT_DESKTOP = 30;
-const MD_BREAKPOINT = "(min-width: 768px)";
-
-function getFontSize() {
-  return window.matchMedia(MD_BREAKPOINT).matches ? FONT_DESKTOP : FONT_MOBILE;
-}
-
-function measureChar(container: HTMLElement, fontSize: number) {
+function measureChar(container: HTMLElement) {
   const s = document.createElement("span");
   s.textContent = "M";
-  s.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${fontSize}px/1 monospace`;
+  s.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font:inherit";
   container.appendChild(s);
   const r = s.getBoundingClientRect();
   container.removeChild(s);
-  return { w: r.width || fontSize * 0.64, h: r.height || fontSize };
+  return { w: r.width || 7, h: r.height || 11 };
 }
 
 export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
   const preRef = useRef<HTMLPreElement>(null);
   const frameRef = useRef<number | null>(null);
-  const [fontSize, setFontSize] = useState(getFontSize);
-
-  useEffect(() => {
-    const mq = window.matchMedia(MD_BREAKPOINT);
-    const onChange = () => setFontSize(getFontSize());
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   useEffect(() => {
     if (!preRef.current) return;
     const pre: HTMLPreElement = preRef.current;
 
     const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let { w: cw, h: ch } = measureChar(pre, fontSize);
+    let { w: cw, h: ch } = measureChar(pre);
     let cols = 0, rows = 0, lox = 0, loy = 0;
     let logoMap = new Map<number, { ch: string }>();
     let tick = 0, lastFrame = 0;
@@ -138,7 +122,7 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
     }
 
     const observer = new ResizeObserver(() => {
-      const m = measureChar(pre, fontSize);
+      const m = measureChar(pre);
       cw = m.w; ch = m.h;
       resize(); syncLoop();
     });
@@ -155,13 +139,12 @@ export function FullPageLoader({ inline }: { inline?: boolean } = {}) {
       observer.disconnect();
       motionMedia.removeEventListener("change", onMotion);
     };
-  }, [fontSize]);
+  }, []);
 
   const pre = (
     <pre
       ref={preRef}
-      className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400"
-      style={{ fontFamily: "monospace", fontSize: `${fontSize}px` }}
+      className="w-full h-full m-0 p-0 overflow-hidden select-none leading-none text-stone-600 dark:text-stone-400 font-mono text-[11px] md:text-[30px]"
       aria-hidden="true"
     />
   );
