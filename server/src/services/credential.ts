@@ -144,7 +144,7 @@ export function credentialService(db: Db) {
       const plaintext = decrypt(encMaterial);
       return JSON.parse(plaintext) as Record<string, unknown>;
     } catch (err) {
-      logger.warn({ err, userId, companyId, itemId }, "[credential] decryption failed");
+      logger.warn({ err: "decryption_failed", userId, companyId, itemId }, "[credential] decryption failed");
 
       await audit.emit({
         companyId,
