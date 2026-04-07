@@ -1,7 +1,7 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, isNotNull, lt } from "drizzle-orm";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { Db } from "@mnm/db";
-import { userMcpCredentials } from "@mnm/db";
+import { userCredentials, configLayerItems } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
 import { auditService } from "./audit.js";
 
@@ -24,8 +24,12 @@ function loadEncryptionKey(): Buffer {
     if (decoded.length === 32) return decoded;
     throw new Error("MNM_SECRETS_KEY must be a 32-byte hex (64 chars) or base64 value");
   }
+  // In production, credentials MUST be encrypted with a stable key
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FATAL: MNM_SECRETS_KEY must be set in production — credentials cannot be encrypted without it");
+  }
   // Dev fallback: random key per process (credentials won't survive restarts)
-  logger.warn("[mcp-credential] MNM_SECRETS_KEY not set — using ephemeral dev key");
+  logger.warn("[credential] MNM_SECRETS_KEY not set — using ephemeral dev key");
   return randomBytes(32);
 }
 
@@ -55,7 +59,7 @@ function decrypt(material: EncryptedMaterial): string {
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
-export function mcpCredentialService(db: Db) {
+export function credentialService(db: Db) {
   const audit = auditService(db);
 
   /**
@@ -70,10 +74,21 @@ export function mcpCredentialService(db: Db) {
     material: Record<string, unknown>,
     expiresAt?: Date,
   ): Promise<void> {
+    // Validate that itemId belongs to companyId
+    const item = await db
+      .select({ id: configLayerItems.id })
+      .from(configLayerItems)
+      .where(and(eq(configLayerItems.id, itemId), eq(configLayerItems.companyId, companyId)))
+      .then((r) => r[0] ?? null);
+    if (!item) throw new Error("Item not found in this company");
+
     const encryptedMaterial = encrypt(JSON.stringify(material));
 
+    // 90-day maximum TTL for credentials (set on first insert, preserved on update)
+    const maxTtlAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
     await db
-      .insert(userMcpCredentials)
+      .insert(userCredentials)
       .values({
         userId,
         companyId,
@@ -83,13 +98,14 @@ export function mcpCredentialService(db: Db) {
         status: "connected",
         connectedAt: new Date(),
         expiresAt: expiresAt ?? null,
+        maxTtlAt,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: [
-          userMcpCredentials.userId,
-          userMcpCredentials.companyId,
-          userMcpCredentials.itemId,
+          userCredentials.userId,
+          userCredentials.companyId,
+          userCredentials.itemId,
         ],
         set: {
           provider,
@@ -97,6 +113,7 @@ export function mcpCredentialService(db: Db) {
           status: "connected",
           connectedAt: new Date(),
           expiresAt: expiresAt ?? null,
+          // maxTtlAt intentionally NOT updated on conflict — preserves original TTL
           updatedAt: new Date(),
         },
       });
@@ -105,14 +122,14 @@ export function mcpCredentialService(db: Db) {
       companyId,
       actorId: userId,
       actorType: "user",
-      action: "mcp_credential.stored",
-      targetType: "mcp_credential",
+      action: "credential.stored",
+      targetType: "credential",
       targetId: itemId,
       metadata: { provider },
       severity: "info",
     });
 
-    logger.debug({ userId, companyId, itemId, provider }, "[mcp-credential] credential stored");
+    logger.debug({ userId, companyId, itemId, provider }, "[credential] credential stored");
   }
 
   /**
@@ -126,34 +143,44 @@ export function mcpCredentialService(db: Db) {
   ): Promise<Record<string, unknown> | null> {
     const row = await db
       .select()
-      .from(userMcpCredentials)
+      .from(userCredentials)
       .where(
         and(
-          eq(userMcpCredentials.userId, userId),
-          eq(userMcpCredentials.companyId, companyId),
-          eq(userMcpCredentials.itemId, itemId),
-          eq(userMcpCredentials.status, "connected"),
+          eq(userCredentials.userId, userId),
+          eq(userCredentials.companyId, companyId),
+          eq(userCredentials.itemId, itemId),
+          eq(userCredentials.status, "connected"),
         ),
       )
       .then((rows) => rows[0] ?? null);
 
     if (!row) return null;
 
+    // Check expiration — mark as expired and return null if token is past its expiry
+    if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+      await db
+        .update(userCredentials)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(eq(userCredentials.id, row.id));
+      logger.debug({ userId, companyId, itemId }, "[credential] credential expired — marked as expired");
+      return null;
+    }
+
     try {
       const encMaterial = row.material as unknown as EncryptedMaterial;
       const plaintext = decrypt(encMaterial);
       return JSON.parse(plaintext) as Record<string, unknown>;
     } catch (err) {
-      logger.warn({ err, userId, companyId, itemId }, "[mcp-credential] decryption failed");
+      logger.warn({ err: "decryption_failed", userId, companyId, itemId }, "[credential] decryption failed");
 
       await audit.emit({
         companyId,
         actorId: userId,
         actorType: "user",
-        action: "mcp_credential.decrypt_failed",
-        targetType: "mcp_credential",
+        action: "credential.decrypt_failed",
+        targetType: "credential",
         targetId: itemId,
-        metadata: { error: (err as Error).message },
+        metadata: { error: "decryption_failed" },
         severity: "warning",
       });
 
@@ -167,22 +194,22 @@ export function mcpCredentialService(db: Db) {
   async function listUserCredentials(userId: string, companyId: string) {
     return db
       .select({
-        id: userMcpCredentials.id,
-        userId: userMcpCredentials.userId,
-        companyId: userMcpCredentials.companyId,
-        itemId: userMcpCredentials.itemId,
-        provider: userMcpCredentials.provider,
-        status: userMcpCredentials.status,
-        statusMessage: userMcpCredentials.statusMessage,
-        connectedAt: userMcpCredentials.connectedAt,
-        expiresAt: userMcpCredentials.expiresAt,
-        updatedAt: userMcpCredentials.updatedAt,
+        id: userCredentials.id,
+        userId: userCredentials.userId,
+        companyId: userCredentials.companyId,
+        itemId: userCredentials.itemId,
+        provider: userCredentials.provider,
+        status: userCredentials.status,
+        statusMessage: userCredentials.statusMessage,
+        connectedAt: userCredentials.connectedAt,
+        expiresAt: userCredentials.expiresAt,
+        updatedAt: userCredentials.updatedAt,
       })
-      .from(userMcpCredentials)
+      .from(userCredentials)
       .where(
         and(
-          eq(userMcpCredentials.userId, userId),
-          eq(userMcpCredentials.companyId, companyId),
+          eq(userCredentials.userId, userId),
+          eq(userCredentials.companyId, companyId),
         ),
       );
   }
@@ -196,13 +223,13 @@ export function mcpCredentialService(db: Db) {
     companyId: string,
   ): Promise<boolean> {
     const row = await db
-      .select({ id: userMcpCredentials.id, itemId: userMcpCredentials.itemId })
-      .from(userMcpCredentials)
+      .select({ id: userCredentials.id, itemId: userCredentials.itemId })
+      .from(userCredentials)
       .where(
         and(
-          eq(userMcpCredentials.id, credentialId),
-          eq(userMcpCredentials.userId, userId),
-          eq(userMcpCredentials.companyId, companyId),
+          eq(userCredentials.id, credentialId),
+          eq(userCredentials.userId, userId),
+          eq(userCredentials.companyId, companyId),
         ),
       )
       .then((rows) => rows[0] ?? null);
@@ -210,26 +237,26 @@ export function mcpCredentialService(db: Db) {
     if (!row) return false;
 
     await db
-      .update(userMcpCredentials)
+      .update(userCredentials)
       .set({
         material: {} as Record<string, unknown>,
         status: "revoked",
         updatedAt: new Date(),
       })
-      .where(eq(userMcpCredentials.id, credentialId));
+      .where(eq(userCredentials.id, credentialId));
 
     await audit.emit({
       companyId,
       actorId: userId,
       actorType: "user",
-      action: "mcp_credential.revoked",
-      targetType: "mcp_credential",
+      action: "credential.revoked",
+      targetType: "credential",
       targetId: row.itemId,
       metadata: { credentialId },
       severity: "info",
     });
 
-    logger.debug({ credentialId, userId, companyId }, "[mcp-credential] credential revoked");
+    logger.debug({ credentialId, userId, companyId }, "[credential] credential revoked");
     return true;
   }
 
@@ -242,25 +269,26 @@ export function mcpCredentialService(db: Db) {
 
     const expiring = await db
       .select({
-        id: userMcpCredentials.id,
-        userId: userMcpCredentials.userId,
-        companyId: userMcpCredentials.companyId,
-        itemId: userMcpCredentials.itemId,
-        provider: userMcpCredentials.provider,
-        expiresAt: userMcpCredentials.expiresAt,
+        id: userCredentials.id,
+        userId: userCredentials.userId,
+        companyId: userCredentials.companyId,
+        itemId: userCredentials.itemId,
+        provider: userCredentials.provider,
+        expiresAt: userCredentials.expiresAt,
       })
-      .from(userMcpCredentials)
+      .from(userCredentials)
       .where(
         and(
-          eq(userMcpCredentials.status, "connected"),
-          lt(userMcpCredentials.expiresAt, threshold),
+          eq(userCredentials.status, "connected"),
+          isNotNull(userCredentials.expiresAt),
+          lt(userCredentials.expiresAt, threshold),
         ),
       );
 
     for (const cred of expiring) {
       logger.warn(
         { credentialId: cred.id, userId: cred.userId, itemId: cred.itemId, expiresAt: cred.expiresAt },
-        "[mcp-credential] credential expiring soon — token refresh not yet implemented",
+        "[credential] credential expiring soon — token refresh not yet implemented",
       );
     }
   }

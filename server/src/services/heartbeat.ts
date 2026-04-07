@@ -1349,6 +1349,7 @@ export function heartbeatService(db: Db) {
 
       // CONFIG-LAYERS: resolve merged config from layers
       let mergedConfig: Record<string, unknown>;
+      let resolvedGitProviders: import("@mnm/shared").ResolvedGitProvider[] = [];
       if ((agent as any).baseLayerId) {
         const clRuntime = configLayerRuntimeService(db);
         const layerConfig = await clRuntime.resolveConfigForRun(
@@ -1363,6 +1364,8 @@ export function heartbeatService(db: Db) {
         mergedConfig = issueAssigneeOverrides?.adapterConfig
           ? { ...baseConfig, ...issueAssigneeOverrides.adapterConfig }
           : baseConfig;
+        // Extract resolved git providers (with decrypted tokens)
+        resolvedGitProviders = layerConfig.gitProviders ?? [];
         for (const warning of layerConfig.warnings) {
           await onLog("stderr", `[mnm] config-layer warning: ${warning}\n`);
         }
@@ -1449,6 +1452,7 @@ export function heartbeatService(db: Db) {
         authToken: authToken ?? undefined,
         dockerContainerId,
         claudeOauthToken,
+        gitProviders: resolvedGitProviders,
       });
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,

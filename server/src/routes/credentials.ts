@@ -2,19 +2,22 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
-import { mcpCredentialService } from "../services/mcp-credential.js";
-import { mcpOauthService } from "../services/mcp-oauth.js";
+import { credentialService } from "../services/credential.js";
+import { oauthService } from "../services/oauth.js";
+import { configLayerRuntimeService } from "../services/config-layer-runtime.js";
 import { badRequest } from "../errors.js";
+import { logger } from "../middleware/logger.js";
 
-export function mcpOauthRoutes(db: Db) {
+export function credentialRoutes(db: Db) {
   const router = Router();
-  const credSvc = mcpCredentialService(db);
-  const oauthSvc = mcpOauthService(db);
+  const credSvc = credentialService(db);
+  const oauthSvc = oauthService(db);
+  const clRuntime = configLayerRuntimeService(db);
 
-  // ── GET /companies/:companyId/mcp-credentials ─────────────────────────────
-  // List the current user's MCP credentials for this company.
+  // ── GET /companies/:companyId/credentials ──────────────────────────────────
+  // List the current user's credentials for this company.
   router.get(
-    "/companies/:companyId/mcp-credentials",
+    "/companies/:companyId/credentials",
     requirePermission(db, "mcp:connect"),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -30,7 +33,7 @@ export function mcpOauthRoutes(db: Db) {
   // ── GET /oauth/authorize/:itemId ──────────────────────────────────────────
   // Initiate the OAuth2 PKCE flow — redirect to the provider.
   // Query param: companyId (required)
-  router.get("/oauth/authorize/:itemId", async (req, res) => {
+  router.get("/oauth/authorize/:itemId", requirePermission(db, "mcp:connect"), async (req, res) => {
     assertBoard(req);
 
     const itemId = req.params.itemId as string;
@@ -45,9 +48,7 @@ export function mcpOauthRoutes(db: Db) {
     const userId = req.actor.userId!;
 
     // Build the callback URL pointing back to our server
-    const proto = req.headers["x-forwarded-proto"] ?? req.protocol;
-    const host = req.headers["x-forwarded-host"] ?? req.headers.host;
-    const callbackUrl = `${proto}://${host}/api/oauth/callback`;
+    const callbackUrl = `${buildPublicBaseUrl(req)}/api/oauth/callback`;
 
     const authorizeUrl = await oauthSvc.initiateAuthorize(
       userId,
@@ -66,12 +67,10 @@ export function mcpOauthRoutes(db: Db) {
     const code = req.query.code as string | undefined;
     const state = req.query.state as string | undefined;
     const error = req.query.error as string | undefined;
-    const errorDescription = req.query.error_description as string | undefined;
+    const errorDescription = (req.query.error_description as string | undefined)?.slice(0, 500);
 
     // Determine the callback URL (same as used in authorize)
-    const proto = req.headers["x-forwarded-proto"] ?? req.protocol;
-    const host = req.headers["x-forwarded-host"] ?? req.headers.host;
-    const callbackUrl = `${proto}://${host}/api/oauth/callback`;
+    const callbackUrl = `${buildPublicBaseUrl(req)}/api/oauth/callback`;
 
     if (error) {
       const html = buildPopupHtml({
@@ -108,16 +107,17 @@ export function mcpOauthRoutes(db: Db) {
     }
   });
 
-  // ── POST /companies/:companyId/mcp-credentials/:itemId/api-key ────────────
-  // Store an API key credential (non-OAuth) for an MCP item.
+  // ── POST /companies/:companyId/credentials/:itemId/secret ─────────────────
+  // Store an API key credential (non-OAuth) for an item.
   // Body: { material: { env: { KEY: "value" } } }
   router.post(
-    "/companies/:companyId/mcp-credentials/:itemId/api-key",
+    "/companies/:companyId/credentials/:itemId/secret",
     requirePermission(db, "mcp:connect"),
     async (req, res) => {
     const itemId = req.params.itemId as string;
     const userId = req.actor.userId!;
     const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
 
     const { material } = req.body as { material?: Record<string, unknown> };
     if (!material || typeof material !== "object" || Object.keys(material).length === 0) {
@@ -125,19 +125,21 @@ export function mcpOauthRoutes(db: Db) {
     }
 
     await credSvc.storeCredential(userId, companyId, itemId, "api_key", material);
+    clRuntime.invalidateCompanyCache(companyId);
 
     res.status(201).json({ ok: true });
   });
 
-  // ── DELETE /companies/:companyId/mcp-credentials/:id ──────────────────────
+  // ── DELETE /companies/:companyId/credentials/:id ───────────────────────────
   // Revoke a credential (clear material, set status=revoked).
   router.delete(
-    "/companies/:companyId/mcp-credentials/:id",
+    "/companies/:companyId/credentials/:id",
     requirePermission(db, "mcp:connect"),
     async (req, res) => {
     const credentialId = req.params.id as string;
     const userId = req.actor.userId!;
     const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
 
     const revoked = await credSvc.revoke(credentialId, userId, companyId);
     if (!revoked) {
@@ -145,8 +147,81 @@ export function mcpOauthRoutes(db: Db) {
       return;
     }
 
+    clRuntime.invalidateCompanyCache(companyId);
     res.status(204).send();
   });
+
+  // ── POST /companies/:companyId/credentials/:itemId/pat ─────────────────────
+  // Store a PAT credential for a git provider item.
+  // Body: { material: { token: "ghp_xxx" } }
+  router.post(
+    "/companies/:companyId/credentials/:itemId/pat",
+    requirePermission(db, "mcp:connect"),
+    async (req, res) => {
+      const itemId = req.params.itemId as string;
+      const userId = req.actor.userId!;
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const { material } = req.body as { material?: Record<string, unknown> };
+      if (!material?.token || typeof material.token !== "string") {
+        throw badRequest("material.token is required");
+      }
+      if (material.token.length > 1000) {
+        return res.status(400).json({ error: "Token exceeds maximum length (1000)" });
+      }
+
+      await credSvc.storeCredential(userId, companyId, itemId, "pat", material);
+      clRuntime.invalidateCompanyCache(companyId);
+      res.status(201).json({ ok: true });
+    },
+  );
+
+  // ── Backward-compat aliases (supprimer en V2) ─────────────────────────────
+  // Inline handlers instead of 307 redirects to avoid body/header loss on some clients.
+  router.get(
+    "/companies/:companyId/mcp-credentials",
+    requirePermission(db, "mcp:connect"),
+    (req, res) => res.redirect(301, `/api/companies/${req.params.companyId}/credentials`),
+  );
+  router.post(
+    "/companies/:companyId/mcp-credentials/:itemId/api-key",
+    requirePermission(db, "mcp:connect"),
+    async (req, res) => {
+      const itemId = req.params.itemId as string;
+      const userId = req.actor.userId!;
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const { material } = req.body as { material?: Record<string, unknown> };
+      if (!material || typeof material !== "object" || Object.keys(material).length === 0) {
+        throw badRequest("material is required and must be a non-empty object");
+      }
+
+      await credSvc.storeCredential(userId, companyId, itemId, "api_key", material);
+      clRuntime.invalidateCompanyCache(companyId);
+      res.status(201).json({ ok: true });
+    },
+  );
+  router.delete(
+    "/companies/:companyId/mcp-credentials/:id",
+    requirePermission(db, "mcp:connect"),
+    async (req, res) => {
+      const credentialId = req.params.id as string;
+      const userId = req.actor.userId!;
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const revoked = await credSvc.revoke(credentialId, userId, companyId);
+      if (!revoked) {
+        res.status(404).json({ error: "Credential not found" });
+        return;
+      }
+
+      clRuntime.invalidateCompanyCache(companyId);
+      res.status(204).send();
+    },
+  );
 
   return router;
 }
@@ -161,15 +236,14 @@ interface PopupResult {
 }
 
 function buildPopupHtml(result: PopupResult): string {
-  const payload = JSON.stringify(result);
-  // Escape for safe embedding in a JS string literal
-  const escaped = payload.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  // Use JSON.stringify for safe embedding — escape </script> to prevent premature tag close
+  const safePayload = JSON.stringify(result).replace(/<\//g, "<\\/");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MCP OAuth</title>
+  <title>OAuth Connection</title>
   <style>
     body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb; }
     .card { background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,.12); text-align: center; max-width: 360px; }
@@ -180,19 +254,36 @@ function buildPopupHtml(result: PopupResult): string {
 </head>
 <body>
   <div class="card">
-    <div class="icon">${result.success ? "✅" : "❌"}</div>
+    <div class="icon">${result.success ? "&#x2705;" : "&#x274C;"}</div>
     <h2>${result.success ? "Connected!" : "Connection failed"}</h2>
     <p>${result.success ? "You can close this window." : escapeHtml(result.error ?? "Unknown error")}</p>
   </div>
   <script>
     try {
-      const payload = '${escaped}';
-      window.opener?.postMessage({ type: 'mcp-oauth-result', ...JSON.parse(payload) }, '*');
+      const payload = ${safePayload};
+      window.opener?.postMessage({ type: 'mcp-oauth-result', ...payload }, window.location.origin);
     } catch (e) { /* ignore */ }
     setTimeout(() => { try { window.close(); } catch(e){} }, 2000);
   </script>
 </body>
 </html>`;
+}
+
+/**
+ * Resolve the public base URL for OAuth callbacks.
+ * Prefers MNM_PUBLIC_URL (explicit config), falls back to req.protocol + req.headers.host.
+ * Does NOT use x-forwarded-host to avoid host injection attacks (SEC-04).
+ */
+function buildPublicBaseUrl(req: import("express").Request): string {
+  if (process.env.MNM_PUBLIC_URL) {
+    return process.env.MNM_PUBLIC_URL.replace(/\/+$/, "");
+  }
+  if (process.env.NODE_ENV === "production") {
+    logger.warn("[credentials] MNM_PUBLIC_URL not set in production — OAuth callback URL derived from Host header");
+  }
+  const proto = req.protocol ?? "http";
+  const host = req.headers.host ?? "localhost";
+  return `${proto}://${host}`;
 }
 
 function escapeHtml(str: string): string {

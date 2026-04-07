@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Db } from "@mnm/db";
 import { configLayerItems } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
-import { mcpCredentialService } from "./mcp-credential.js";
+import { credentialService } from "./credential.js";
 import { badRequest } from "../errors.js";
 
 // ─── PKCE Helpers ─────────────────────────────────────────────────────────────
@@ -63,8 +63,8 @@ interface OAuthConfig {
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
-export function mcpOauthService(db: Db) {
-  const credSvc = mcpCredentialService(db);
+export function oauthService(db: Db) {
+  const credSvc = credentialService(db);
 
   /**
    * Initiate the OAuth2 PKCE flow for an MCP server item.
@@ -110,6 +110,11 @@ export function mcpOauthService(db: Db) {
     const codeChallenge = generateCodeChallenge(codeVerifier);
     const state = generateState();
 
+    // Guard against unbounded growth of in-memory state map
+    if (pendingStates.size >= 10000) {
+      throw badRequest("Too many pending OAuth flows — please try again later");
+    }
+
     // Store state
     pendingStates.set(state, {
       userId,
@@ -131,7 +136,7 @@ export function mcpOauthService(db: Db) {
     if (oauth.scope) url.searchParams.set("scope", oauth.scope);
     if (oauth.audience) url.searchParams.set("audience", oauth.audience);
 
-    logger.debug({ userId, companyId, itemId }, "[mcp-oauth] initiated authorize flow");
+    logger.debug({ userId, companyId, itemId }, "[oauth] initiated authorize flow");
 
     return url.toString();
   }
@@ -211,7 +216,7 @@ export function mcpOauthService(db: Db) {
 
       tokenResponse = (await res.json()) as Record<string, unknown>;
     } catch (err) {
-      logger.error({ err, userId, companyId, itemId }, "[mcp-oauth] token exchange failed");
+      logger.error({ err, userId, companyId, itemId }, "[oauth] token exchange failed");
       throw badRequest(`OAuth token exchange failed: ${(err as Error).message}`);
     }
 
@@ -224,17 +229,27 @@ export function mcpOauthService(db: Db) {
       if (!isNaN(secs)) expiresAt = new Date(Date.now() + secs * 1000);
     }
 
+    // Normalize OAuth response fields to a stable internal shape
+    // (standard OAuth returns `access_token`, but runtime expects `token`)
+    const normalizedMaterial = {
+      token: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token,
+      tokenType: tokenResponse.token_type,
+      scope: tokenResponse.scope,
+      expiresIn: tokenResponse.expires_in,
+    };
+
     // Store the credential (encrypted)
     await credSvc.storeCredential(
       userId,
       companyId,
       itemId,
       "oauth2",
-      tokenResponse,
+      normalizedMaterial,
       expiresAt,
     );
 
-    logger.info({ userId, companyId, itemId }, "[mcp-oauth] OAuth flow completed — credential stored");
+    logger.info({ userId, companyId, itemId }, "[oauth] OAuth flow completed — credential stored");
 
     return { userId, companyId, itemId };
   }

@@ -348,6 +348,9 @@ export {
   CONFIG_LAYER_VISIBILITIES,
   CONFIG_LAYER_SOURCE_TYPES,
   CONFIG_LAYER_CHANGE_SOURCES,
+  CREDENTIAL_PROVIDERS,
+  CREDENTIAL_STATUSES,
+  // Backward-compat aliases
   MCP_CREDENTIAL_PROVIDERS,
   MCP_CREDENTIAL_STATUSES,
   HOOK_EVENTS,
@@ -357,6 +360,8 @@ export {
   skillItemConfigSchema,
   hookItemConfigSchema,
   settingItemConfigSchema,
+  gitProviderItemConfigSchema,
+  type GitProviderItemConfig,
   createConfigLayerSchema,
   updateConfigLayerSchema,
   createConfigLayerItemSchema,

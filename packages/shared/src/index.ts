@@ -323,8 +323,14 @@ export type {
   ConfigLayerScope,
   ConfigLayerVisibility,
   ConfigLayerSourceType,
+  CredentialProvider,
+  CredentialStatus,
+  UserCredential,
+  ResolvedGitProvider,
+  // Backward-compat
   McpCredentialProvider,
   McpCredentialStatus,
+  UserMcpCredential,
   ConfigLayer,
   ConfigLayerItem,
   ConfigLayerFile,
@@ -336,7 +342,6 @@ export type {
   ConflictCheckResult,
   MergedConfigItem,
   MergePreviewResult,
-  UserMcpCredential,
   // CHAT-ARTIFACTS: Artifact types
   ArtifactType,
   Artifact,
@@ -402,6 +407,9 @@ export {
   CONFIG_LAYER_VISIBILITIES,
   CONFIG_LAYER_SOURCE_TYPES,
   CONFIG_LAYER_CHANGE_SOURCES,
+  CREDENTIAL_PROVIDERS,
+  CREDENTIAL_STATUSES,
+  // Backward-compat aliases
   MCP_CREDENTIAL_PROVIDERS,
   MCP_CREDENTIAL_STATUSES,
   HOOK_EVENTS,
@@ -667,6 +675,8 @@ export {
   skillItemConfigSchema,
   hookItemConfigSchema,
   settingItemConfigSchema,
+  gitProviderItemConfigSchema,
+  type GitProviderItemConfig,
   createConfigLayerSchema,
   updateConfigLayerSchema,
   createConfigLayerItemSchema,
@@ -870,6 +880,10 @@ export type {
   JiraImportPreview,
   JiraImportProgress,
 } from "./jira-import-types.js";
+
+// GIT-PROVIDER: Detection + parsing utilities
+export { detectGitProvider, parseRepoUrl, sanitizeEnvKey, GIT_PROVIDER_TYPES } from "./utils/git-provider.js";
+export type { GitProviderType, DetectedGitProvider } from "./utils/git-provider.js";
 
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
