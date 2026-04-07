@@ -64,7 +64,7 @@ export function credentialRoutes(db: Db) {
     const code = req.query.code as string | undefined;
     const state = req.query.state as string | undefined;
     const error = req.query.error as string | undefined;
-    const errorDescription = req.query.error_description as string | undefined;
+    const errorDescription = (req.query.error_description as string | undefined)?.slice(0, 500);
 
     // Determine the callback URL (same as used in authorize)
     const callbackUrl = `${buildPublicBaseUrl(req)}/api/oauth/callback`;

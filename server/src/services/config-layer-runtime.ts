@@ -114,7 +114,10 @@ export function configLayerRuntimeService(db: Db) {
    * Invalidate the cache for a specific agent.
    */
   function invalidateCache(companyId: string, agentId: string): void {
-    configCache.delete(cacheKey(companyId, agentId));
+    const prefix = `${companyId}:${agentId}:`;
+    for (const key of configCache.keys()) {
+      if (key.startsWith(prefix)) configCache.delete(key);
+    }
   }
 
   /**

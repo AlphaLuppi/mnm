@@ -21,3 +21,7 @@ ALTER TABLE user_credentials
 ALTER TABLE config_layer_items DROP CONSTRAINT IF EXISTS config_layer_items_item_type_check;
 ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check
   CHECK (item_type IN ('mcp', 'skill', 'hook', 'setting', 'git_provider'));
+
+ALTER TABLE user_credentials
+  ADD CONSTRAINT user_credentials_status_check
+  CHECK (status IN ('pending', 'connected', 'expired', 'revoked', 'error'));
