@@ -95,14 +95,14 @@ export function DashboardTimeline({ companyId }: DashboardTimelineProps) {
   });
 
   return (
-    <div data-testid="dash-s02-timeline" className="rounded-lg border border-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+    <div data-testid="dash-s02-timeline" className="rounded-lg border border-border p-4 h-full flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide truncate">
           Activity Timeline
         </h3>
-        <div data-testid="dash-s02-timeline-select">
+        <div data-testid="dash-s02-timeline-select" className="shrink-0">
           <Select value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
-            <SelectTrigger className="w-[140px] h-8 text-xs">
+            <SelectTrigger className="w-auto min-w-[110px] max-w-[160px] h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -117,13 +117,13 @@ export function DashboardTimeline({ companyId }: DashboardTimelineProps) {
       </div>
 
       {isLoading ? (
-        <div data-testid="dash-s02-timeline-loading" className="space-y-3 animate-pulse">
+        <div data-testid="dash-s02-timeline-loading" className="space-y-3 animate-pulse flex-1 min-h-0">
           <div className="h-16 bg-muted rounded" />
           <div className="h-16 bg-muted rounded" />
           <div className="h-4 bg-muted rounded w-full" />
         </div>
       ) : (
-        <div data-testid="dash-s02-timeline-chart">
+        <div data-testid="dash-s02-timeline-chart" className="flex-1 min-h-0 overflow-y-auto">
           {data && <TimelineChart data={data} />}
         </div>
       )}

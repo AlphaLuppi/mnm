@@ -109,7 +109,7 @@ export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, cl
     ?? (event.actorType === "system" ? "System" : event.actorType === "user" ? (eventAny.actorEmail as string | undefined) ?? "User" : event.actorId || "Unknown");
 
   const inner = (
-    <div className="flex gap-3">
+    <div className="flex gap-2 min-w-0">
       <p className="flex-1 min-w-0 truncate">
         <Identity
           name={actorName}
@@ -118,14 +118,14 @@ export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, cl
         />
         <span className="text-muted-foreground ml-1">{verb} </span>
         {name && <span className="font-medium">{name}</span>}
-        {entityTitle && <span className="text-muted-foreground ml-1">— {entityTitle}</span>}
+        {entityTitle && <span className="text-muted-foreground ml-1 hidden sm:inline">— {entityTitle}</span>}
       </p>
-      <span className="text-xs text-muted-foreground shrink-0 pt-0.5">{timeAgo(event.createdAt)}</span>
+      <span className="text-xs text-muted-foreground shrink-0 pt-0.5 hidden sm:block">{timeAgo(event.createdAt)}</span>
     </div>
   );
 
   const classes = cn(
-    "px-4 py-2 text-sm",
+    "px-3 py-2 text-sm",
     link && "cursor-pointer hover:bg-accent/50 transition-colors",
     className,
   );

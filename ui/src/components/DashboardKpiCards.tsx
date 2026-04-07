@@ -10,7 +10,7 @@ export function DashboardKpiCards({ data }: DashboardKpiCardsProps) {
   if (!data) return null;
 
   return (
-    <div data-testid="dash-s02-kpi-cards" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2">
+    <div data-testid="dash-s02-kpi-cards" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-2 h-full">
       <div data-testid="dash-s02-kpi-workflows">
         <MetricCard
           icon={GitBranch}
