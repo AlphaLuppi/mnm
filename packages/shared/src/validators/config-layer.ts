@@ -3,7 +3,7 @@ import { GIT_PROVIDER_TYPES } from "../utils/git-provider.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const CONFIG_LAYER_ITEM_TYPES = ["mcp", "skill", "hook", "setting", "git_provider"] as const;
+export const CONFIG_LAYER_ITEM_TYPES = ["mcp", "skill", "hook", "setting", "git_provider", "credential"] as const;
 export const CONFIG_LAYER_SCOPES = ["company", "shared", "private"] as const;
 export const CONFIG_LAYER_VISIBILITIES = ["public", "team", "private"] as const;
 export const CONFIG_LAYER_SOURCE_TYPES = ["inline", "url", "git"] as const;
@@ -156,6 +156,24 @@ export const gitProviderItemConfigSchema = z.object({
 });
 
 export type GitProviderItemConfig = z.infer<typeof gitProviderItemConfigSchema>;
+
+// ─── Credential item config ──────────────────────────────────────────────────
+
+export const CREDENTIAL_TYPES = [
+  "ssh_key",
+  "access_token",
+  "api_key",
+  "bearer_token",
+  "custom",
+] as const;
+
+export const credentialItemConfigSchema = z.object({
+  credentialType: z.enum(CREDENTIAL_TYPES).default("custom"),
+  /** Env var name to inject the secret value as at runtime */
+  envVar: z.string().min(1).max(256).optional(),
+});
+
+export type CredentialItemConfig = z.infer<typeof credentialItemConfigSchema>;
 
 // ─── CRUD schemas ─────────────────────────────────────────────────────────────
 

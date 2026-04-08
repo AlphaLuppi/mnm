@@ -448,6 +448,8 @@ export type {
   CredentialStatus,
   UserCredential,
   ResolvedGitProvider,
+  ResolvedCredential,
+  CredentialType,
   // Backward-compat
   McpCredentialProvider,
   McpCredentialStatus,
