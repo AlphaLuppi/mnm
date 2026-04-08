@@ -29,17 +29,9 @@ const toolRegistry = new ToolRegistry();
 const resourceRegistry = new ResourceRegistry();
 let registriesPopulated = false;
 
-/** Convert token-verifier McpActor to registry McpActor. */
-function toRegistryActor(raw: any, mcpSessionId: string): McpActor {
-  return {
-    type: raw.type,
-    userId: raw.type === "user" ? raw.id : undefined,
-    agentId: raw.type === "agent" ? raw.id : undefined,
-    companyId: raw.companyId,
-    effectivePermissions: raw.effectivePermissions,
-    effectiveTags: raw.effectiveTags instanceof Set ? [...raw.effectiveTags] : raw.effectiveTags,
-    mcpSessionId,
-  };
+/** Extract the principal ID from an actor (userId or agentId). */
+function actorPrincipalId(a: Pick<McpActor, "userId" | "agentId">): string {
+  return (a.userId ?? a.agentId)!;
 }
 
 export function createMcpRouter(deps: McpRouterDeps): Router {
@@ -98,8 +90,8 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       return;
     }
 
-    const rawActor = await verifyMcpToken(db, authHeader, "pending");
-    if (!rawActor) {
+    const verifiedActor = await verifyMcpToken(db, authHeader);
+    if (!verifiedActor) {
       res.status(401).json({ error: "Invalid or expired token" });
       return;
     }
@@ -112,7 +104,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
 
       const mcpSessionId = transport.sessionId!;
 
-      const actor = toRegistryActor(rawActor, mcpSessionId);
+      const actor: McpActor = { ...verifiedActor, mcpSessionId };
 
       const mcpServer = new McpServer(
         { name: "mnm-mcp", version: "1.0.0" },
@@ -169,7 +161,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       }
 
       // Check session capacity BEFORE connecting to avoid resource leaks
-      if (!sessionManager.createSession(mcpSessionId, transport, actor.type)) {
+      if (!sessionManager.createSession(mcpSessionId, transport, actor.type, actorPrincipalId(actor))) {
         res.status(503).json({ error: "Too many active sessions" });
         return;
       }
@@ -202,14 +194,44 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       return;
     }
 
+    // Verify the caller owns this session
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    const actor = await verifyMcpToken(db, authHeader);
+    if (!actor || actorPrincipalId(actor) !== session.actorId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
     await session.transport.handleRequest(req, res);
   });
 
   // ── DELETE /mcp — Session termination ───────────────────────────────────
-  router.delete("/mcp", (req: Request, res: Response) => {
+  router.delete("/mcp", async (req: Request, res: Response) => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
     if (!sessionId) {
       res.status(400).json({ error: "Mcp-Session-Id header required" });
+      return;
+    }
+
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      res.status(404).json({ error: "Session not found or expired" });
+      return;
+    }
+
+    // Verify the caller owns this session
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    const actor = await verifyMcpToken(db, authHeader);
+    if (!actor || actorPrincipalId(actor) !== session.actorId) {
+      res.status(403).json({ error: "Forbidden" });
       return;
     }
 
