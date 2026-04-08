@@ -7,6 +7,7 @@ import { oauthService } from "../services/oauth.js";
 import { configLayerRuntimeService } from "../services/config-layer-runtime.js";
 import { badRequest } from "../errors.js";
 import { logger } from "../middleware/logger.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 export function credentialRoutes(db: Db) {
   const router = Router();
@@ -18,7 +19,7 @@ export function credentialRoutes(db: Db) {
   // List the current user's credentials for this company.
   router.get(
     "/companies/:companyId/credentials",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -33,7 +34,7 @@ export function credentialRoutes(db: Db) {
   // ── GET /oauth/authorize/:itemId ──────────────────────────────────────────
   // Initiate the OAuth2 PKCE flow — redirect to the provider.
   // Query param: companyId (required)
-  router.get("/oauth/authorize/:itemId", requirePermission(db, "mcp:connect"), async (req, res) => {
+  router.get("/oauth/authorize/:itemId", requirePermission(db, PERMISSIONS.MCP_CONNECT), async (req, res) => {
     assertBoard(req);
 
     const itemId = req.params.itemId as string;
@@ -112,7 +113,7 @@ export function credentialRoutes(db: Db) {
   // Body: { material: { env: { KEY: "value" } } }
   router.post(
     "/companies/:companyId/credentials/:itemId/secret",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     async (req, res) => {
     const itemId = req.params.itemId as string;
     const userId = req.actor.userId!;
@@ -134,7 +135,7 @@ export function credentialRoutes(db: Db) {
   // Revoke a credential (clear material, set status=revoked).
   router.delete(
     "/companies/:companyId/credentials/:id",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     async (req, res) => {
     const credentialId = req.params.id as string;
     const userId = req.actor.userId!;
@@ -156,7 +157,7 @@ export function credentialRoutes(db: Db) {
   // Body: { material: { token: "ghp_xxx" } }
   router.post(
     "/companies/:companyId/credentials/:itemId/pat",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     async (req, res) => {
       const itemId = req.params.itemId as string;
       const userId = req.actor.userId!;
@@ -181,12 +182,12 @@ export function credentialRoutes(db: Db) {
   // Inline handlers instead of 307 redirects to avoid body/header loss on some clients.
   router.get(
     "/companies/:companyId/mcp-credentials",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     (req, res) => res.redirect(301, `/api/companies/${req.params.companyId}/credentials`),
   );
   router.post(
     "/companies/:companyId/mcp-credentials/:itemId/api-key",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     async (req, res) => {
       const itemId = req.params.itemId as string;
       const userId = req.actor.userId!;
@@ -205,7 +206,7 @@ export function credentialRoutes(db: Db) {
   );
   router.delete(
     "/companies/:companyId/mcp-credentials/:id",
-    requirePermission(db, "mcp:connect"),
+    requirePermission(db, PERMISSIONS.MCP_CONNECT),
     async (req, res) => {
       const credentialId = req.params.id as string;
       const userId = req.actor.userId!;

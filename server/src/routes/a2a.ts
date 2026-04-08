@@ -32,7 +32,7 @@
 
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   sendA2AMessageSchema,
   respondA2AMessageSchema,
   a2aMessageFiltersSchema,
@@ -65,7 +65,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/messages",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(sendA2AMessageSchema),
     async (req, res) => {
       const { companyId } = req.params;
@@ -130,7 +130,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/messages/:id/respond",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(respondA2AMessageSchema),
     async (req, res) => {
       const { companyId, id } = req.params;
@@ -178,7 +178,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/messages/:id/cancel",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, id } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -212,7 +212,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/messages",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -230,7 +230,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/messages/:id",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, id } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -250,7 +250,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/chains/:chainId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, chainId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -267,7 +267,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/stats",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -299,7 +299,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/permissions",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(createA2APermissionRuleSchema),
     async (req, res) => {
       const { companyId } = req.params;
@@ -331,7 +331,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/permissions",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -349,7 +349,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/permissions/:ruleId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, ruleId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -369,7 +369,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.put(
     "/companies/:companyId/a2a/permissions/:ruleId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(updateA2APermissionRuleSchema),
     async (req, res) => {
       const { companyId, ruleId } = req.params;
@@ -404,7 +404,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.delete(
     "/companies/:companyId/a2a/permissions/:ruleId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, ruleId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -437,7 +437,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/default-policy",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -454,7 +454,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.put(
     "/companies/:companyId/a2a/default-policy",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(updateA2ADefaultPolicySchema),
     async (req, res) => {
       const { companyId } = req.params;
@@ -486,7 +486,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/mcp-connectors",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(createMcpConnectorSchema),
     async (req, res) => {
       const { companyId } = req.params;
@@ -514,7 +514,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/mcp-connectors",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -532,7 +532,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/mcp-connectors/stats",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -549,7 +549,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/mcp-connectors/:connectorId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, connectorId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -569,7 +569,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.put(
     "/companies/:companyId/a2a/mcp-connectors/:connectorId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(updateMcpConnectorSchema),
     async (req, res) => {
       const { companyId, connectorId } = req.params;
@@ -604,7 +604,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.delete(
     "/companies/:companyId/a2a/mcp-connectors/:connectorId",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, connectorId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -637,7 +637,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/mcp-connectors/:connectorId/test",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, connectorId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -671,7 +671,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/a2a/mcp-connectors/:connectorId/tools",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     async (req, res) => {
       const { companyId, connectorId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -695,7 +695,7 @@ export function a2aRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/a2a/mcp-connectors/:connectorId/tools/:toolName/invoke",
-    requirePermission(db, "agents:create"),
+    requirePermission(db, PERMISSIONS.AGENTS_CREATE),
     validate(invokeMcpToolSchema),
     async (req, res) => {
       const { companyId, connectorId, toolName } = req.params;

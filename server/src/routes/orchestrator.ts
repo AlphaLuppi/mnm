@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   orchestratorTransitionSchema,
   orchestratorApproveSchema,
   orchestratorRejectSchema,
@@ -28,7 +28,7 @@ export function orchestratorRoutes(db: Db) {
   // POST /companies/:companyId/orchestrator/stages/:stageId/transition
   router.post(
     "/companies/:companyId/orchestrator/stages/:stageId/transition",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(orchestratorTransitionSchema),
     async (req, res) => {
       const { companyId, stageId } = req.params;
@@ -215,7 +215,7 @@ export function orchestratorRoutes(db: Db) {
   // GET /companies/:companyId/orchestrator/validations/pending
   router.get(
     "/companies/:companyId/orchestrator/validations/pending",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -228,7 +228,7 @@ export function orchestratorRoutes(db: Db) {
   // POST /companies/:companyId/orchestrator/stages/:stageId/approve
   router.post(
     "/companies/:companyId/orchestrator/stages/:stageId/approve",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(orchestratorApproveSchema),
     async (req, res) => {
       const { companyId, stageId } = req.params;
@@ -279,7 +279,7 @@ export function orchestratorRoutes(db: Db) {
   // POST /companies/:companyId/orchestrator/stages/:stageId/reject
   router.post(
     "/companies/:companyId/orchestrator/stages/:stageId/reject",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(orchestratorRejectSchema),
     async (req, res) => {
       const { companyId, stageId } = req.params;
@@ -352,7 +352,7 @@ export function orchestratorRoutes(db: Db) {
   // POST /companies/:companyId/orchestrator/stages/:stageId/check-enforcement
   router.post(
     "/companies/:companyId/orchestrator/stages/:stageId/check-enforcement",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(orchestratorCheckEnforcementSchema),
     async (req, res) => {
       const { companyId, stageId } = req.params;

@@ -6,6 +6,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { accessService } from "../services/access.js";
 import { auditService } from "../services/audit.js";
 import { badRequest, notFound, forbidden } from "../errors.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 export function rolesRoutes(db: Db) {
   const router = Router();
@@ -15,7 +16,7 @@ export function rolesRoutes(db: Db) {
   // ── GET /api/roles ── List all roles for the company
   router.get(
     "/companies/:companyId/roles",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
 
@@ -58,7 +59,7 @@ export function rolesRoutes(db: Db) {
   // ── GET /api/roles/:roleId ── Get role detail + permissions
   router.get(
     "/companies/:companyId/roles/:roleId",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const roleId = req.params.roleId as string;
@@ -83,7 +84,7 @@ export function rolesRoutes(db: Db) {
   // ── POST /api/roles ── Create a new role
   router.post(
     "/companies/:companyId/roles",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const { name, slug, description, hierarchyLevel, inheritsFromId, bypassTagFilter, color, icon, permissionSlugs } = req.body;
@@ -162,7 +163,7 @@ export function rolesRoutes(db: Db) {
   // ── PATCH /api/roles/:roleId ── Update a role
   router.patch(
     "/companies/:companyId/roles/:roleId",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const roleId = req.params.roleId as string;
@@ -244,7 +245,7 @@ export function rolesRoutes(db: Db) {
   // ── DELETE /api/roles/:roleId ── Delete a role
   router.delete(
     "/companies/:companyId/roles/:roleId",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const roleId = req.params.roleId as string;

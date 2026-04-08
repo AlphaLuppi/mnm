@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Db } from "@mnm/db";
-import type { ResourceScope } from "@mnm/shared";
+import type { ResourceScope, PermissionSlug } from "@mnm/shared";
 import { accessService } from "../services/access.js";
 import { auditService } from "../services/audit.js";
 import { forbidden, unauthorized } from "../errors.js";
@@ -14,7 +14,7 @@ function emitAccessDenied(
   db: Db,
   req: Request,
   companyId: string,
-  permissionKey: string,
+  permissionKey: PermissionSlug,
   actorId: string,
   actorType: "user" | "agent",
   resourceScope?: ResourceScope | null,
@@ -47,7 +47,7 @@ export type ScopeExtractor = (req: Request) => ResourceScope | undefined;
  */
 export function requirePermission(
   db: Db,
-  permissionKey: string,
+  permissionKey: PermissionSlug,
   extractScope?: ScopeExtractor,
 ) {
   const access = accessService(db);
@@ -148,7 +148,7 @@ export async function assertCompanyPermission(
   db: Db,
   req: Request,
   companyId: string,
-  permissionKey: string,
+  permissionKey: PermissionSlug,
   resourceScope?: ResourceScope,
 ) {
   // local_implicit (local_trusted mode) bypasses permission checks

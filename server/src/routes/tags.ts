@@ -8,6 +8,7 @@ import { auditService } from "../services/audit.js";
 import { badRequest, notFound } from "../errors.js";
 import { onTagCreated } from "../services/cao.js";
 import { assertCompanyAccess } from "./authz.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 export function tagsRoutes(db: Db) {
   const router = Router();
@@ -21,7 +22,7 @@ export function tagsRoutes(db: Db) {
   // ── GET /companies/:companyId/tags ── List tags
   router.get(
     "/companies/:companyId/tags",
-    requirePermission(db, "tags:read"),
+    requirePermission(db, PERMISSIONS.TAGS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -67,7 +68,7 @@ export function tagsRoutes(db: Db) {
   // ── POST /companies/:companyId/tags ── Create a tag
   router.post(
     "/companies/:companyId/tags",
-    requirePermission(db, "tags:manage"),
+    requirePermission(db, PERMISSIONS.TAGS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const { name, slug, description, color, icon } = req.body;
@@ -107,7 +108,7 @@ export function tagsRoutes(db: Db) {
   // ── GET /companies/:companyId/tags/:tagId ── Tag detail
   router.get(
     "/companies/:companyId/tags/:tagId",
-    requirePermission(db, "tags:read"),
+    requirePermission(db, PERMISSIONS.TAGS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
@@ -131,7 +132,7 @@ export function tagsRoutes(db: Db) {
   // ── PATCH /companies/:companyId/tags/:tagId ── Update a tag
   router.patch(
     "/companies/:companyId/tags/:tagId",
-    requirePermission(db, "tags:manage"),
+    requirePermission(db, PERMISSIONS.TAGS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
@@ -163,7 +164,7 @@ export function tagsRoutes(db: Db) {
   // ── POST /companies/:companyId/tags/:tagId/archive ── Archive a tag
   router.post(
     "/companies/:companyId/tags/:tagId/archive",
-    requirePermission(db, "tags:manage"),
+    requirePermission(db, PERMISSIONS.TAGS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
@@ -190,7 +191,7 @@ export function tagsRoutes(db: Db) {
   // ── POST /companies/:companyId/tags/:tagId/unarchive ── Unarchive a tag
   router.post(
     "/companies/:companyId/tags/:tagId/unarchive",
-    requirePermission(db, "tags:manage"),
+    requirePermission(db, PERMISSIONS.TAGS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
@@ -217,7 +218,7 @@ export function tagsRoutes(db: Db) {
   // ── DELETE /companies/:companyId/tags/:tagId ── Delete (only if 0 assignments)
   router.delete(
     "/companies/:companyId/tags/:tagId",
-    requirePermission(db, "tags:manage"),
+    requirePermission(db, PERMISSIONS.TAGS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
@@ -270,7 +271,7 @@ export function tagsRoutes(db: Db) {
   // ── PUT /companies/:companyId/users/:userId/tags ── Replace all user tags
   router.put(
     "/companies/:companyId/users/:userId/tags",
-    requirePermission(db, "users:manage"),
+    requirePermission(db, PERMISSIONS.USERS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const userId = req.params.userId as string;
@@ -312,7 +313,7 @@ export function tagsRoutes(db: Db) {
   // ── POST /companies/:companyId/users/:userId/tags/:tagId ── Add tag to user
   router.post(
     "/companies/:companyId/users/:userId/tags/:tagId",
-    requirePermission(db, "users:manage"),
+    requirePermission(db, PERMISSIONS.USERS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const userId = req.params.userId as string;
@@ -341,7 +342,7 @@ export function tagsRoutes(db: Db) {
   // ── DELETE /companies/:companyId/users/:userId/tags/:tagId ── Remove tag from user
   router.delete(
     "/companies/:companyId/users/:userId/tags/:tagId",
-    requirePermission(db, "users:manage"),
+    requirePermission(db, PERMISSIONS.USERS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const userId = req.params.userId as string;
@@ -389,7 +390,7 @@ export function tagsRoutes(db: Db) {
 
   router.put(
     "/companies/:companyId/agents/:agentId/tags",
-    requirePermission(db, "agents:configure"),
+    requirePermission(db, PERMISSIONS.AGENTS_CONFIGURE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -426,7 +427,7 @@ export function tagsRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/agents/:agentId/tags/:tagId",
-    requirePermission(db, "agents:configure"),
+    requirePermission(db, PERMISSIONS.AGENTS_CONFIGURE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -445,7 +446,7 @@ export function tagsRoutes(db: Db) {
 
   router.delete(
     "/companies/:companyId/agents/:agentId/tags/:tagId",
-    requirePermission(db, "agents:configure"),
+    requirePermission(db, PERMISSIONS.AGENTS_CONFIGURE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -464,7 +465,7 @@ export function tagsRoutes(db: Db) {
   );
 
   // ── GET /companies/:companyId/tags/:tagId/members ── All principals with this tag
-  router.get("/companies/:companyId/tags/:tagId/members", requirePermission(db, "tags:read"), async (req, res) => {
+  router.get("/companies/:companyId/tags/:tagId/members", requirePermission(db, PERMISSIONS.TAGS_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     const tagId = req.params.tagId as string;
 

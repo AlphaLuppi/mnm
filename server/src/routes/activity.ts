@@ -9,6 +9,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { issueService } from "../services/index.js";
 import { sanitizeRecord } from "../redaction.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 const createActivitySchema = z.object({
   actorType: z.enum(["agent", "user", "system"]).optional().default("system"),
@@ -26,7 +27,7 @@ export function activityRoutes(db: Db) {
   const issueSvc = issueService(db);
   const tagFilter = tagFilterService(db);
 
-  router.get("/companies/:companyId/activity", requirePermission(db, "audit:read"), async (req, res) => {
+  router.get("/companies/:companyId/activity", requirePermission(db, PERMISSIONS.AUDIT_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const tagScope = requireTagScope(req);

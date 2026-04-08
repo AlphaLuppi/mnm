@@ -6,7 +6,7 @@ import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { artifactService } from "../services/artifact.js";
 import { chatService } from "../services/chat.js";
 import { tagFilterService } from "../services/tag-filter.js";
-import { createArtifactSchema, updateArtifactSchema } from "@mnm/shared";
+import { PERMISSIONS, createArtifactSchema, updateArtifactSchema } from "@mnm/shared";
 import { badRequest, forbidden, notFound } from "../errors.js";
 
 export function artifactRoutes(db: Db): Router {
@@ -18,7 +18,7 @@ export function artifactRoutes(db: Db): Router {
   // POST /api/companies/:companyId/artifacts — create artifact
   router.post(
     "/companies/:companyId/artifacts",
-    requirePermission(db, "artifacts:create"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_CREATE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -43,7 +43,7 @@ export function artifactRoutes(db: Db): Router {
   // GET /api/companies/:companyId/artifacts — list artifacts
   router.get(
     "/companies/:companyId/artifacts",
-    requirePermission(db, "artifacts:read"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -90,7 +90,7 @@ export function artifactRoutes(db: Db): Router {
   // GET /api/companies/:companyId/artifacts/:id — get artifact detail
   router.get(
     "/companies/:companyId/artifacts/:id",
-    requirePermission(db, "artifacts:read"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -117,7 +117,7 @@ export function artifactRoutes(db: Db): Router {
   // PATCH /api/companies/:companyId/artifacts/:id — update artifact
   router.patch(
     "/companies/:companyId/artifacts/:id",
-    requirePermission(db, "artifacts:edit"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_EDIT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -163,7 +163,7 @@ export function artifactRoutes(db: Db): Router {
   // DELETE /api/companies/:companyId/artifacts/:id — delete artifact
   router.delete(
     "/companies/:companyId/artifacts/:id",
-    requirePermission(db, "artifacts:delete"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_DELETE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -192,7 +192,7 @@ export function artifactRoutes(db: Db): Router {
   // GET /api/companies/:companyId/artifacts/:id/versions — list versions
   router.get(
     "/companies/:companyId/artifacts/:id/versions",
-    requirePermission(db, "artifacts:read"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -216,7 +216,7 @@ export function artifactRoutes(db: Db): Router {
   // GET /api/companies/:companyId/artifacts/:id/versions/:versionId — get specific version
   router.get(
     "/companies/:companyId/artifacts/:id/versions/:versionId",
-    requirePermission(db, "artifacts:read"),
+    requirePermission(db, PERMISSIONS.ARTIFACTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

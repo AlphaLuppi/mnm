@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   companyPortabilityExportSchema,
   companyPortabilityImportSchema,
   companyPortabilityPreviewSchema,
@@ -67,7 +67,7 @@ export function companyRoutes(db: Db) {
   router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    await assertCompanyPermission(db, req, companyId, "audit:export");
+    await assertCompanyPermission(db, req, companyId, PERMISSIONS.AUDIT_EXPORT);
     const result = await portability.exportBundle(companyId, req.body);
 
     await emitAudit({
@@ -164,7 +164,7 @@ export function companyRoutes(db: Db) {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    await assertCompanyPermission(db, req, companyId, "company:manage_settings");
+    await assertCompanyPermission(db, req, companyId, PERMISSIONS.COMPANY_MANAGE_SETTINGS);
 
     // If invitationOnly is being changed, fetch current value for audit
     let oldInvitationOnly: boolean | undefined;
@@ -258,7 +258,7 @@ export function companyRoutes(db: Db) {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    await assertCompanyPermission(db, req, companyId, "company:delete");
+    await assertCompanyPermission(db, req, companyId, PERMISSIONS.COMPANY_DELETE);
     const company = await svc.remove(companyId);
     if (!company) {
       res.status(404).json({ error: "Company not found" });

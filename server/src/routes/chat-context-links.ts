@@ -5,7 +5,7 @@ import { requireTagScope } from "../middleware/tag-scope.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { chatContextLinkService } from "../services/chat-context-link.js";
 import { chatService } from "../services/chat.js";
-import { addContextLinkSchema } from "@mnm/shared";
+import { PERMISSIONS, addContextLinkSchema } from "@mnm/shared";
 import { badRequest, notFound } from "../errors.js";
 
 export function chatContextLinkRoutes(db: Db) {
@@ -25,7 +25,7 @@ export function chatContextLinkRoutes(db: Db) {
   // POST /api/companies/:companyId/chat/channels/:channelId/context — Add context link
   router.post(
     "/companies/:companyId/chat/channels/:channelId/context",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -60,7 +60,7 @@ export function chatContextLinkRoutes(db: Db) {
   // GET /api/companies/:companyId/chat/channels/:channelId/context — List context links
   router.get(
     "/companies/:companyId/chat/channels/:channelId/context",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -81,7 +81,7 @@ export function chatContextLinkRoutes(db: Db) {
   // DELETE /api/companies/:companyId/chat/channels/:channelId/context/:linkId — Remove link
   router.delete(
     "/companies/:companyId/chat/channels/:channelId/context/:linkId",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

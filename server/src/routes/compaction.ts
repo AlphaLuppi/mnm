@@ -17,7 +17,7 @@
 
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   startCompactionWatcherSchema,
   compactionSnapshotFiltersSchema,
   killRelaunchSchema,
@@ -46,7 +46,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/compaction/start",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(startCompactionWatcherSchema),
     async (req, res) => {
       const { companyId } = req.params;
@@ -87,7 +87,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/compaction/stop",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -124,7 +124,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/compaction/status",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -140,7 +140,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/compaction/snapshots",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -161,7 +161,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/compaction/snapshots/:snapshotId",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId, snapshotId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -185,7 +185,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/compaction/snapshots/:snapshotId/kill-relaunch",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(killRelaunchSchema),
     async (req, res) => {
       const { companyId, snapshotId } = req.params;
@@ -228,7 +228,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/compaction/relaunch-history",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -249,7 +249,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/compaction/snapshots/:snapshotId/reinject",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(reinjectionSchema),
     async (req, res) => {
       const { companyId, snapshotId } = req.params;
@@ -292,7 +292,7 @@ export function compactionRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/compaction/reinjection-history",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
