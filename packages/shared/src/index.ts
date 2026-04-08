@@ -871,6 +871,13 @@ export type {
   InboxItemFilters,
 } from "./validators/index.js";
 
+// Permission contracts — typed single source of truth
+export {
+  PERMISSIONS, PERMISSION_META, PERMISSION_CATEGORIES, ALL_PERMISSION_SLUGS,
+  MCP_SCOPES, ALL_MCP_SCOPES, permissionsForScopes,
+  type PermissionSlug, type PermissionCategory, type PermissionMeta, type McpScope,
+} from "./contracts/permissions.js";
+
 // REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
 
 // onb-s03-barrel-shared
