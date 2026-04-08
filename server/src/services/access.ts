@@ -10,6 +10,7 @@ import {
   permissions,
   tags,
   tagAssignments,
+  agentPermissions,
 } from "@mnm/db";
 import { isNull, gt } from "drizzle-orm";
 import type { PrincipalType } from "@mnm/shared";
@@ -128,6 +129,16 @@ export function accessService(db: Db) {
         .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
         .where(eq(rolePermissions.roleId, role.inheritsFromId));
       for (const p of parentPerms) slugs.add(p.slug);
+    }
+
+    // Direct agent permissions (agent_permissions table)
+    if (principalType === "agent") {
+      const directPerms = await db
+        .select({ slug: permissions.slug })
+        .from(agentPermissions)
+        .innerJoin(permissions, eq(permissions.id, agentPermissions.permissionId))
+        .where(eq(agentPermissions.agentId, principalId));
+      for (const p of directPerms) slugs.add(p.slug);
     }
 
     const result: CachedRole = {

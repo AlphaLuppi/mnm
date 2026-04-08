@@ -5,16 +5,19 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { agentsApi } from "../api/agents";
 import { tagsApi } from "../api/tags";
+import { api } from "../api/client";
 import { queryKeys } from "../lib/queryKeys";
 // Stub: agent roles (will be loaded from DB in Sprint 4)
 const AGENT_ROLES = ["ceo", "general"] as const;
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Shield, User, Tag, Check } from "lucide-react";
+import { Shield, User, Tag, Check, ChevronRight, ChevronDown } from "lucide-react";
 import { cn, agentUrl } from "../lib/utils";
 import { roleLabels } from "../components/agent-config-primitives";
 import { AgentConfigForm, type CreateConfigValues } from "../components/AgentConfigForm";
@@ -70,6 +73,9 @@ export function NewAgent() {
   const [reportsToOpen, setReportsToOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
+  const [expandedPermCategories, setExpandedPermCategories] = useState<Set<string>>(new Set());
+  const [permsOpen, setPermsOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: companyTags } = useQuery({
@@ -77,6 +83,19 @@ export function NewAgent() {
     queryFn: () => tagsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+
+  type PermissionItem = { id: string; slug: string; description: string; category: string };
+
+  const { data: allPermissions } = useQuery({
+    queryKey: ["permissions", selectedCompanyId],
+    queryFn: () => api.get<PermissionItem[]>(`/companies/${selectedCompanyId}/permissions`),
+    enabled: !!selectedCompanyId,
+  });
+
+  const permsByCategory = (allPermissions ?? []).reduce<Record<string, PermissionItem[]>>((acc, p) => {
+    (acc[p.category] ??= []).push(p);
+    return acc;
+  }, {});
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -158,6 +177,7 @@ export function NewAgent() {
       ...(title.trim() ? { title: title.trim() } : {}),
       ...(reportsTo ? { reportsTo } : {}),
       ...(selectedTagIds.length > 0 ? { tagIds: selectedTagIds } : {}),
+      ...(selectedPerms.size > 0 ? { permissionSlugs: [...selectedPerms] } : {}),
       adapterType: configValues.adapterType,
       adapterConfig: buildAdapterConfig(),
       runtimeConfig: {
@@ -298,6 +318,100 @@ export function NewAgent() {
               )}
             </PopoverContent>
           </Popover>
+        </div>
+
+        {/* Permissions — collapsible */}
+        <div className="border-t border-border">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent/30"
+            onClick={() => setPermsOpen(!permsOpen)}
+          >
+            <span className="flex items-center gap-1.5">
+              <Shield className="h-3 w-3" />
+              Permissions
+              {selectedPerms.size > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                  {selectedPerms.size}
+                </Badge>
+              )}
+            </span>
+            {permsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </button>
+          {permsOpen && (
+            <div className="px-4 pb-3">
+              <div className="border border-border rounded-md max-h-[240px] overflow-y-auto">
+                {Object.entries(permsByCategory).map(([category, perms]) => {
+                  const allSelected = perms.every((p) => selectedPerms.has(p.slug));
+                  return (
+                    <div key={category} className="border-b border-border last:border-b-0">
+                      <button
+                        type="button"
+                        className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/30"
+                        onClick={() => {
+                          setExpandedPermCategories((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(category)) next.delete(category);
+                            else next.add(category);
+                            return next;
+                          });
+                        }}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {expandedPermCategories.has(category) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                          {category}
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                            {perms.filter((p) => selectedPerms.has(p.slug)).length}/{perms.length}
+                          </Badge>
+                        </span>
+                        <button
+                          type="button"
+                          className="text-[10px] text-primary hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPerms((prev) => {
+                              const next = new Set(prev);
+                              for (const p of perms) {
+                                if (allSelected) next.delete(p.slug);
+                                else next.add(p.slug);
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          {allSelected ? "Deselect all" : "Select all"}
+                        </button>
+                      </button>
+                      {expandedPermCategories.has(category) && (
+                        <div className="px-3 pb-2 space-y-1">
+                          {perms.map((p) => (
+                            <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
+                              <Checkbox
+                                checked={selectedPerms.has(p.slug)}
+                                onCheckedChange={() => {
+                                  setSelectedPerms((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(p.slug)) next.delete(p.slug);
+                                    else next.add(p.slug);
+                                    return next;
+                                  });
+                                }}
+                              />
+                              <code className="text-[11px]">{p.slug}</code>
+                              <span className="text-muted-foreground truncate">{p.description}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {Object.keys(permsByCategory).length === 0 && (
+                  <p className="text-xs text-muted-foreground p-3">No permissions available.</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Shared config form */}
