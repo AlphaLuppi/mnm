@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   addApprovalCommentSchema,
   createApprovalSchema,
   requestApprovalRevisionSchema,
@@ -145,7 +145,7 @@ export function approvalRoutes(db: Db) {
     const existing = await svc.getById(id);
     if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
-    await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.JOINS_APPROVE);
     const approval = await svc.approve(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
     const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
     const linkedIssueIds = linkedIssues.map((issue) => issue.id);
@@ -245,7 +245,7 @@ export function approvalRoutes(db: Db) {
     const existing = await svc.getById(id);
     if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
-    await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.JOINS_APPROVE);
     const approval = await svc.reject(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
 
     await logActivity(db, {
@@ -278,7 +278,7 @@ export function approvalRoutes(db: Db) {
       const existing = await svc.getById(id);
       if (!existing) { res.status(404).json({ error: "Approval not found" }); return; }
       assertCompanyAccess(req, existing.companyId);
-      await assertCompanyPermission(db, req, existing.companyId, "joins:approve");
+      await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.JOINS_APPROVE);
       const approval = await svc.requestRevision(
         id,
         req.body.decidedByUserId ?? "board",

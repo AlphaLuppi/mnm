@@ -8,6 +8,7 @@ import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { badRequest } from "../errors.js";
 import type { DeploymentStatus } from "@mnm/shared";
+import { PERMISSIONS } from "@mnm/shared";
 
 const createDeploymentSchema = z.object({
   sourcePath: z.string().min(1).max(4096),
@@ -26,7 +27,7 @@ export function deploymentRoutes(db: Db) {
   // POST /companies/:companyId/deployments — create deployment
   router.post(
     "/companies/:companyId/deployments",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -60,7 +61,7 @@ export function deploymentRoutes(db: Db) {
   // GET /companies/:companyId/deployments — list deployments
   router.get(
     "/companies/:companyId/deployments",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -76,7 +77,7 @@ export function deploymentRoutes(db: Db) {
   // GET /companies/:companyId/deployments/:deploymentId — get deployment
   router.get(
     "/companies/:companyId/deployments/:deploymentId",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId, deploymentId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -89,7 +90,7 @@ export function deploymentRoutes(db: Db) {
   // GET /companies/:companyId/deployments/:deploymentId/logs — get build logs
   router.get(
     "/companies/:companyId/deployments/:deploymentId/logs",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId, deploymentId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -102,7 +103,7 @@ export function deploymentRoutes(db: Db) {
   // POST /companies/:companyId/deployments/:deploymentId/pin — pin deployment
   router.post(
     "/companies/:companyId/deployments/:deploymentId/pin",
-    requirePermission(db, "agents:manage_containers"),
+    requirePermission(db, PERMISSIONS.AGENTS_MANAGE_CONTAINERS),
     async (req, res) => {
       const { companyId, deploymentId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -115,7 +116,7 @@ export function deploymentRoutes(db: Db) {
   // POST /companies/:companyId/deployments/:deploymentId/unpin — unpin deployment
   router.post(
     "/companies/:companyId/deployments/:deploymentId/unpin",
-    requirePermission(db, "agents:manage_containers"),
+    requirePermission(db, PERMISSIONS.AGENTS_MANAGE_CONTAINERS),
     async (req, res) => {
       const { companyId, deploymentId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -128,7 +129,7 @@ export function deploymentRoutes(db: Db) {
   // DELETE /companies/:companyId/deployments/:deploymentId — destroy deployment
   router.delete(
     "/companies/:companyId/deployments/:deploymentId",
-    requirePermission(db, "agents:manage_containers"),
+    requirePermission(db, PERMISSIONS.AGENTS_MANAGE_CONTAINERS),
     async (req, res) => {
       const { companyId, deploymentId } = req.params;
       assertCompanyAccess(req, companyId as string);

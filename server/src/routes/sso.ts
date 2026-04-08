@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   createSsoConfigurationSchema,
   updateSsoConfigurationSchema,
 } from "@mnm/shared";
@@ -18,7 +18,7 @@ export function ssoRoutes(db: Db) {
   // GET /companies/:companyId/sso — list SSO configurations
   router.get(
     "/companies/:companyId/sso",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -32,7 +32,7 @@ export function ssoRoutes(db: Db) {
   // GET /companies/:companyId/sso/:configId — get SSO configuration by ID
   router.get(
     "/companies/:companyId/sso/:configId",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId, configId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -49,7 +49,7 @@ export function ssoRoutes(db: Db) {
   // POST /companies/:companyId/sso — create SSO configuration
   router.post(
     "/companies/:companyId/sso",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -91,7 +91,7 @@ export function ssoRoutes(db: Db) {
   // PUT /companies/:companyId/sso/:configId — update SSO configuration
   router.put(
     "/companies/:companyId/sso/:configId",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId, configId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -128,7 +128,7 @@ export function ssoRoutes(db: Db) {
   // DELETE /companies/:companyId/sso/:configId — delete SSO configuration
   router.delete(
     "/companies/:companyId/sso/:configId",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId, configId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -158,7 +158,7 @@ export function ssoRoutes(db: Db) {
   // POST /companies/:companyId/sso/:configId/toggle — toggle enabled/disabled
   router.post(
     "/companies/:companyId/sso/:configId/toggle",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId, configId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -187,7 +187,7 @@ export function ssoRoutes(db: Db) {
   // POST /companies/:companyId/sso/:configId/verify — verify SSO configuration
   router.post(
     "/companies/:companyId/sso/:configId/verify",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId, configId } = req.params;
       assertCompanyAccess(req, companyId as string);

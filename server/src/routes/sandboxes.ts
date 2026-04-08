@@ -6,6 +6,7 @@ import { sandboxManagerService } from "../services/sandbox-manager.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 const provisionSchema = z.object({
   image: z.string().max(255).optional(),
@@ -20,7 +21,7 @@ export function sandboxRoutes(db: Db) {
   // POST /companies/:companyId/sandboxes/provision — provision user's sandbox
   router.post(
     "/companies/:companyId/sandboxes/provision",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -51,7 +52,7 @@ export function sandboxRoutes(db: Db) {
   // GET /companies/:companyId/sandboxes/my — get current user's sandbox
   router.get(
     "/companies/:companyId/sandboxes/my",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -65,7 +66,7 @@ export function sandboxRoutes(db: Db) {
   // POST /companies/:companyId/sandboxes/my/wake — wake hibernated sandbox
   router.post(
     "/companies/:companyId/sandboxes/my/wake",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -79,7 +80,7 @@ export function sandboxRoutes(db: Db) {
   // POST /companies/:companyId/sandboxes/my/hibernate — hibernate sandbox
   router.post(
     "/companies/:companyId/sandboxes/my/hibernate",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -93,7 +94,7 @@ export function sandboxRoutes(db: Db) {
   // DELETE /companies/:companyId/sandboxes/my — destroy sandbox
   router.delete(
     "/companies/:companyId/sandboxes/my",
-    requirePermission(db, "agents:manage_containers"),
+    requirePermission(db, PERMISSIONS.AGENTS_MANAGE_CONTAINERS),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -118,7 +119,7 @@ export function sandboxRoutes(db: Db) {
   // PUT /companies/:companyId/sandboxes/my/claude-token — save Claude OAuth token
   router.put(
     "/companies/:companyId/sandboxes/my/claude-token",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -149,7 +150,7 @@ export function sandboxRoutes(db: Db) {
   // DELETE /companies/:companyId/sandboxes/my/claude-token — remove Claude OAuth token
   router.delete(
     "/companies/:companyId/sandboxes/my/claude-token",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -163,7 +164,7 @@ export function sandboxRoutes(db: Db) {
   // GET /companies/:companyId/sandboxes — list all sandboxes (admin)
   router.get(
     "/companies/:companyId/sandboxes",
-    requirePermission(db, "agents:manage_containers"),
+    requirePermission(db, PERMISSIONS.AGENTS_MANAGE_CONTAINERS),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);

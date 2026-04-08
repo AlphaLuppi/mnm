@@ -17,6 +17,7 @@ import { assertCompanyAccess, assertProjectAccess, getActorInfo } from "./authz.
 import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
 import { getScopeProjectIds } from "../services/scope-filter.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 const driftCheckBody = z.object({
   sourceDoc: z.string().min(1),
@@ -313,7 +314,7 @@ export function driftRoutes(db: Db) {
   // POST /companies/:companyId/drift/monitoring/start — start monitoring
   router.post(
     "/companies/:companyId/drift/monitoring/start",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -327,7 +328,7 @@ export function driftRoutes(db: Db) {
   // POST /companies/:companyId/drift/monitoring/stop — stop monitoring
   router.post(
     "/companies/:companyId/drift/monitoring/stop",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

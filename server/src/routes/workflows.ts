@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   createWorkflowTemplateSchema,
   updateWorkflowTemplateSchema,
   createWorkflowInstanceSchema,
@@ -20,7 +20,7 @@ export function workflowRoutes(db: Db) {
 
   // ─── Templates ────────────────────────────────────────────────
 
-  router.get("/companies/:companyId/workflow-templates", requirePermission(db, "workflows:read"), async (req, res) => {
+  router.get("/companies/:companyId/workflow-templates", requirePermission(db, PERMISSIONS.WORKFLOWS_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const templates = await svc.listTemplates(companyId);
@@ -30,13 +30,13 @@ export function workflowRoutes(db: Db) {
   router.get("/workflow-templates/:id", async (req, res) => {
     const template = await svc.getTemplate(req.params.id as string);
     assertCompanyAccess(req, template.companyId);
-    await assertCompanyPermission(db, req, template.companyId, "workflows:read");
+    await assertCompanyPermission(db, req, template.companyId, PERMISSIONS.WORKFLOWS_READ);
     res.json(template);
   });
 
   router.post(
     "/companies/:companyId/workflow-templates",
-    requirePermission(db, "workflows:create"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_CREATE),
     validate(createWorkflowTemplateSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -72,7 +72,7 @@ export function workflowRoutes(db: Db) {
     async (req, res) => {
       const existing = await svc.getTemplate(req.params.id as string);
       assertCompanyAccess(req, existing.companyId);
-      await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
+      await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.WORKFLOWS_CREATE);
       const template = await svc.updateTemplate(existing.id, req.body);
 
       await emitAudit({
@@ -90,7 +90,7 @@ export function workflowRoutes(db: Db) {
   router.delete("/workflow-templates/:id", async (req, res) => {
     const existing = await svc.getTemplate(req.params.id as string);
     assertCompanyAccess(req, existing.companyId);
-    await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.WORKFLOWS_CREATE);
     await svc.deleteTemplate(existing.id);
 
     await emitAudit({
@@ -106,7 +106,7 @@ export function workflowRoutes(db: Db) {
   });
 
   // Ensure BMAD builtin template exists for a company
-  router.post("/companies/:companyId/workflow-templates/ensure-bmad", requirePermission(db, "workflows:create"), async (req, res) => {
+  router.post("/companies/:companyId/workflow-templates/ensure-bmad", requirePermission(db, PERMISSIONS.WORKFLOWS_CREATE), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const template = await svc.ensureBmadTemplate(companyId);
@@ -115,7 +115,7 @@ export function workflowRoutes(db: Db) {
 
   // ─── Instances ────────────────────────────────────────────────
 
-  router.get("/companies/:companyId/workflows", requirePermission(db, "workflows:read"), async (req, res) => {
+  router.get("/companies/:companyId/workflows", requirePermission(db, PERMISSIONS.WORKFLOWS_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -133,7 +133,7 @@ export function workflowRoutes(db: Db) {
   router.get("/workflows/:id", async (req, res) => {
     const instance = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, instance.companyId);
-    await assertCompanyPermission(db, req, instance.companyId, "workflows:read");
+    await assertCompanyPermission(db, req, instance.companyId, PERMISSIONS.WORKFLOWS_READ);
 
     // PROJ-S03: Scope check for single entity
     const scopeProjectIds = await getScopeProjectIds(db, instance.companyId, req);
@@ -159,7 +159,7 @@ export function workflowRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/workflows",
-    requirePermission(db, "workflows:create"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_CREATE),
     validate(createWorkflowInstanceSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -195,7 +195,7 @@ export function workflowRoutes(db: Db) {
     async (req, res) => {
       const existing = await svc.getInstance(req.params.id as string);
       assertCompanyAccess(req, existing.companyId);
-      await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
+      await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.WORKFLOWS_CREATE);
       const instance = await svc.updateInstance(existing.id, req.body);
 
       await emitAudit({
@@ -213,7 +213,7 @@ export function workflowRoutes(db: Db) {
   router.delete("/workflows/:id", async (req, res) => {
     const existing = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, existing.companyId);
-    await assertCompanyPermission(db, req, existing.companyId, "workflows:create");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.WORKFLOWS_CREATE);
     await svc.deleteInstance(existing.id);
 
     await emitAudit({
@@ -230,7 +230,7 @@ export function workflowRoutes(db: Db) {
 
   // ─── PIPE-08: Workflow Gold ─────────────────────────────────────────────
 
-  router.get("/companies/:companyId/workflows/:instanceId/gold", requirePermission(db, "traces:read"), async (req, res) => {
+  router.get("/companies/:companyId/workflows/:instanceId/gold", requirePermission(db, PERMISSIONS.TRACES_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -254,7 +254,7 @@ export function workflowRoutes(db: Db) {
   router.post("/companies/:companyId/workflows/:instanceId/enrich", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    await assertCompanyPermission(db, req, companyId, "traces:write");
+    await assertCompanyPermission(db, req, companyId, PERMISSIONS.TRACES_WRITE);
 
     const instance = await svc.getInstance(req.params.instanceId as string);
     if (!instance || instance.companyId !== companyId) {

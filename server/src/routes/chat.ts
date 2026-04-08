@@ -8,6 +8,7 @@ import { createChannelSchema, updateMessageSchema, pipeAttachSchema } from "../v
 import { badRequest, forbidden, notFound, conflict } from "../errors.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { publishLiveEvent } from "../services/live-events.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 export function chatRoutes(db: Db) {
   const router = Router();
@@ -16,7 +17,7 @@ export function chatRoutes(db: Db) {
   // POST /api/companies/:companyId/chat/channels — create channel
   router.post(
     "/companies/:companyId/chat/channels",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -57,7 +58,7 @@ export function chatRoutes(db: Db) {
   // GET /api/companies/:companyId/chat/channels — list channels
   router.get(
     "/companies/:companyId/chat/channels",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -88,7 +89,7 @@ export function chatRoutes(db: Db) {
   // GET /api/companies/:companyId/chat/channels/:channelId — channel detail
   router.get(
     "/companies/:companyId/chat/channels/:channelId",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -114,7 +115,7 @@ export function chatRoutes(db: Db) {
   // GET /api/companies/:companyId/chat/channels/:channelId/messages — message history
   router.get(
     "/companies/:companyId/chat/channels/:channelId/messages",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -144,7 +145,7 @@ export function chatRoutes(db: Db) {
   // PATCH /api/companies/:companyId/chat/channels/:channelId — update/close channel
   router.patch(
     "/companies/:companyId/chat/channels/:channelId",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -183,7 +184,7 @@ export function chatRoutes(db: Db) {
   // CHAT-S02: PATCH /api/companies/:companyId/chat/channels/:channelId/messages/:messageId — edit/soft-delete message
   router.patch(
     "/companies/:companyId/chat/channels/:channelId/messages/:messageId",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -264,7 +265,7 @@ export function chatRoutes(db: Db) {
   // CHAT-S02: GET /api/companies/:companyId/chat/channels/:channelId/messages/:messageId/replies — thread replies
   router.get(
     "/companies/:companyId/chat/channels/:channelId/messages/:messageId/replies",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -298,7 +299,7 @@ export function chatRoutes(db: Db) {
   // chat-s03-pipe-attach — POST (stub: legacy container pipe removed)
   router.post(
     "/companies/:companyId/chat/channels/:channelId/pipe",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (_req, res) => {
       res.status(410).json({ error: "Container pipe system has been removed" });
     },
@@ -307,7 +308,7 @@ export function chatRoutes(db: Db) {
   // chat-s03-pipe-detach — DELETE (stub: legacy container pipe removed)
   router.delete(
     "/companies/:companyId/chat/channels/:channelId/pipe",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (_req, res) => {
       res.status(410).json({ error: "Container pipe system has been removed" });
     },
@@ -316,7 +317,7 @@ export function chatRoutes(db: Db) {
   // chat-s03-pipe-status — GET (stub: legacy container pipe removed)
   router.get(
     "/companies/:companyId/chat/channels/:channelId/pipe",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const channelId = req.params.channelId as string;
       res.json({ channelId, status: "detached", instanceId: null, attachedAt: null, detachedAt: null, error: null, messagesPiped: 0 });

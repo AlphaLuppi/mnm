@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import { ssoDiscoverSchema } from "@mnm/shared";
+import { PERMISSIONS, ssoDiscoverSchema } from "@mnm/shared";
 import { ssoAuthService } from "../services/sso-auth.js";
 import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
@@ -176,7 +176,7 @@ export function ssoAuthRoutes(db: Db) {
   // POST /companies/:companyId/sso/:configId/sync — sync IdP metadata (requires permission)
   router.post(
     "/companies/:companyId/sso/:configId/sync",
-    requirePermission(db, "company:manage_sso"),
+    requirePermission(db, PERMISSIONS.COMPANY_MANAGE_SSO),
     async (req, res) => {
       const { companyId, configId } = req.params;
       assertCompanyAccess(req, companyId as string);
