@@ -3,30 +3,10 @@ import type { Db } from "@mnm/db";
 import { verifyLocalAgentJwt } from "../../agent-auth-jwt.js";
 import { accessService } from "../../services/access.js";
 import { permissionsForScopes, type McpScope, type PermissionSlug } from "@mnm/shared";
+import type { McpActor } from "../registry/types.js";
+import { getMcpJwtSecret } from "./mcp-auth-config.js";
 
-// ── Types ───────────────────────────────────────────────────────────────────
-
-export interface McpActor {
-  type: "user" | "agent";
-  id: string;
-  companyId: string;
-  effectivePermissions: Set<PermissionSlug>;
-  effectiveTags: Set<string>;
-  /** For agent actors, the userId that created the agent */
-  createdBy?: string;
-  /** MCP session ID for audit/logging */
-  mcpSessionId: string;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function getMcpJwtSecret(): string | null {
-  const secret = process.env.MNM_MCP_JWT_SECRET;
-  if (secret) return secret;
-  const deploymentMode = process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted";
-  if (deploymentMode === "local_trusted") return "mnm-mcp-dev-secret";
-  return null;
-}
+export type { McpActor };
 
 function base64UrlDecode(value: string): string {
   return Buffer.from(value, "base64url").toString("utf8");
@@ -77,8 +57,7 @@ function decodeIssuer(token: string): string | null {
 export async function verifyMcpToken(
   db: Db,
   authorizationHeader: string,
-  mcpSessionId: string,
-): Promise<McpActor | null> {
+): Promise<Omit<McpActor, "mcpSessionId"> | null> {
   const token = authorizationHeader.startsWith("Bearer ")
     ? authorizationHeader.slice(7)
     : authorizationHeader;
@@ -89,8 +68,12 @@ export async function verifyMcpToken(
 
   // ── OAuth token (iss = "mnm-oauth") ───────────────────────────────────
   if (issuer === "mnm-oauth") {
-    const secret = getMcpJwtSecret();
-    if (!secret) return null;
+    let secret: string;
+    try {
+      secret = getMcpJwtSecret();
+    } catch {
+      return null;
+    }
 
     const claims = verifyHmac(token, secret);
     if (!claims) return null;
@@ -117,11 +100,10 @@ export async function verifyMcpToken(
 
     return {
       type: "user",
-      id: userId,
+      userId,
       companyId,
       effectivePermissions,
-      effectiveTags,
-      mcpSessionId,
+      effectiveTags: [...effectiveTags],
     };
   }
 
@@ -146,26 +128,24 @@ export async function verifyMcpToken(
 
     // Resolve tags: intersection of creator tags and agent tags
     const agentTags = await access.getTagIds(companyId, "agent", agentId);
-    let effectiveTags: Set<string>;
+    let effectiveTags: string[];
 
     if (createdBy) {
       const creatorTags = await access.getTagIds(companyId, "user", createdBy);
-      effectiveTags = new Set<string>();
+      effectiveTags = [];
       for (const tagId of agentTags) {
-        if (creatorTags.has(tagId)) effectiveTags.add(tagId);
+        if (creatorTags.has(tagId)) effectiveTags.push(tagId);
       }
     } else {
-      effectiveTags = agentTags;
+      effectiveTags = [...agentTags];
     }
 
     return {
       type: "agent",
-      id: agentId,
+      agentId,
       companyId,
       effectivePermissions,
       effectiveTags,
-      createdBy,
-      mcpSessionId,
     };
   }
 

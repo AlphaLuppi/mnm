@@ -29,7 +29,25 @@ export function collectResources(
   const registrar: ResourceRegistrar = {
     services,
     template(uriTemplate, config) {
-      resources.push({ uriTemplate, ...config });
+      const wrappedHandler: McpResourceDefinition["handler"] = async (ctx) => {
+        try {
+          return await Promise.race([
+            config.handler(ctx),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Resource read timeout")), 30_000),
+            ),
+          ]);
+        } catch (err: any) {
+          return {
+            contents: [{
+              uri: ctx.uri,
+              mimeType: "application/json",
+              text: JSON.stringify({ error: err.message ?? "Internal error", code: "INTERNAL_ERROR" }),
+            }],
+          };
+        }
+      };
+      resources.push({ uriTemplate, ...config, handler: wrappedHandler });
     },
   };
 
