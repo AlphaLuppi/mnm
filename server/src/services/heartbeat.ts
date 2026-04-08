@@ -1350,7 +1350,7 @@ export function heartbeatService(db: Db) {
       // CONFIG-LAYERS: resolve merged config from layers
       let mergedConfig: Record<string, unknown>;
       let resolvedGitProviders: import("@mnm/shared").ResolvedGitProvider[] = [];
-      if ((agent as any).baseLayerId) {
+      {
         const clRuntime = configLayerRuntimeService(db);
         const layerConfig = await clRuntime.resolveConfigForRun(
           agent.companyId,
@@ -1369,13 +1369,6 @@ export function heartbeatService(db: Db) {
         for (const warning of layerConfig.warnings) {
           await onLog("stderr", `[mnm] config-layer warning: ${warning}\n`);
         }
-      } else {
-        // Legacy fallback: agent has no base config layer (should not happen after migration 0054)
-        logger.warn({ agentId: agent.id, runId }, "Agent missing baseLayerId — using legacy adapterConfig fallback");
-        const config = parseObject(agent.adapterConfig);
-        mergedConfig = issueAssigneeOverrides?.adapterConfig
-          ? { ...config, ...issueAssigneeOverrides.adapterConfig }
-          : config;
       }
       const { config: resolvedConfig, secretKeys } = await secretsSvc.resolveAdapterConfigForRuntime(
         agent.companyId,
