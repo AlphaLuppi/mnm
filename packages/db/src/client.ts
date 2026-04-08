@@ -43,7 +43,7 @@ export type MigrationState =
 
 export function createDb(url: string) {
   const sql = postgres(url, {
-    max: 20,
+    max: 40,
     idle_timeout: 30,
     max_lifetime: 60 * 30,
     connect_timeout: 10,

@@ -12,6 +12,7 @@ import { badRequest, forbidden, notFound } from "../errors.js";
 import { publishLiveEvent } from "../services/live-events.js";
 import { logger } from "../middleware/logger.js";
 import type { StorageService } from "../storage/types.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 const MAX_DOCUMENT_BYTES = Number(process.env.MNM_DOCUMENT_MAX_BYTES) || 50 * 1024 * 1024;
 
@@ -37,7 +38,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // POST /api/companies/:companyId/documents/upload — multipart file upload
   router.post(
     "/companies/:companyId/documents/upload",
-    requirePermission(db, "documents:upload"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_UPLOAD),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -124,7 +125,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // GET /api/companies/:companyId/documents — list documents
   router.get(
     "/companies/:companyId/documents",
-    requirePermission(db, "documents:read"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -150,7 +151,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // GET /api/companies/:companyId/documents/:id — document detail
   router.get(
     "/companies/:companyId/documents/:id",
-    requirePermission(db, "documents:read"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -173,7 +174,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // GET /api/companies/:companyId/documents/:id/content — download file
   router.get(
     "/companies/:companyId/documents/:id/content",
-    requirePermission(db, "documents:read"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_READ),
     async (req, res, next) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -217,7 +218,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // DELETE /api/companies/:companyId/documents/:id — soft delete
   router.delete(
     "/companies/:companyId/documents/:id",
-    requirePermission(db, "documents:delete"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_DELETE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -248,7 +249,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // POST /api/companies/:companyId/documents/:id/summarize — trigger summarization
   router.post(
     "/companies/:companyId/documents/:id/summarize",
-    requirePermission(db, "documents:read"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -308,7 +309,7 @@ export function documentRoutes(db: Db, storage: StorageService) {
   // GET /api/companies/:companyId/documents/:id/chunks — debug endpoint, list chunks
   router.get(
     "/companies/:companyId/documents/:id/chunks",
-    requirePermission(db, "documents:read"),
+    requirePermission(db, PERMISSIONS.DOCUMENTS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

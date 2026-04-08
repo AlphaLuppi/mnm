@@ -9,7 +9,7 @@ import { tagFilterService } from "../services/tag-filter.js";
 import { auditService } from "../services/audit.js";
 import { badRequest, notFound, forbidden } from "../errors.js";
 import { assertCompanyAccess } from "./authz.js";
-import {
+import { PERMISSIONS,
   createConfigLayerSchema,
   updateConfigLayerSchema,
   createConfigLayerItemSchema,
@@ -74,7 +74,7 @@ export function configLayerRoutes(db: Db) {
   // ── GET /companies/:companyId/config-layers ── List layers (tag-filtered)
   router.get(
     "/companies/:companyId/config-layers",
-    requirePermission(db, "config_layers:read"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -106,7 +106,7 @@ export function configLayerRoutes(db: Db) {
   // ── POST /companies/:companyId/config-layers ── Create a layer
   router.post(
     "/companies/:companyId/config-layers",
-    requirePermission(db, "config_layers:create"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_CREATE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -127,7 +127,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
       const layer = await svc.getLayer(layerId);
 
-      await assertCompanyPermission(db, req, layer.companyId, "config_layers:read");
+      await assertCompanyPermission(db, req, layer.companyId, PERMISSIONS.CONFIG_LAYERS_READ);
       assertLayerAccess(layer, req);
       res.json(layer);
     },
@@ -140,7 +140,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
 
       const existing = await svc.getLayer(layerId);
-      await assertCompanyPermission(db, req, existing.companyId, "config_layers:edit");
+      await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.CONFIG_LAYERS_EDIT);
       assertLayerAccess(existing, req);
 
       // Only creator or admin can edit
@@ -164,7 +164,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
 
       const existing = await svc.getLayer(layerId);
-      await assertCompanyPermission(db, req, existing.companyId, "config_layers:delete");
+      await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.CONFIG_LAYERS_DELETE);
       assertLayerAccess(existing, req);
 
       // Only creator or admin can archive
@@ -185,7 +185,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
 
       const layer = await svc.getLayer(layerId);
-      await assertCompanyPermission(db, req, layer.companyId, "config_layers:read");
+      await assertCompanyPermission(db, req, layer.companyId, PERMISSIONS.CONFIG_LAYERS_READ);
       assertLayerAccess(layer, req);
 
       const revisions = await svc.listRevisions(layerId);
@@ -200,7 +200,7 @@ export function configLayerRoutes(db: Db) {
   // Helper: assert layer access + ownership for mutations
   async function assertLayerMutationAccess(req: Parameters<typeof assertCompanyAccess>[0], layerId: string) {
     const layer = await svc.getLayer(layerId);
-    await assertCompanyPermission(db, req, layer.companyId, "config_layers:edit");
+    await assertCompanyPermission(db, req, layer.companyId, PERMISSIONS.CONFIG_LAYERS_EDIT);
     assertLayerAccess(layer, req);
     const userId = actorId(req);
     if (layer.createdByUserId !== userId && !req.tagScope?.bypassTagFilter) {
@@ -293,7 +293,7 @@ export function configLayerRoutes(db: Db) {
   // ── GET /companies/:companyId/agents/:agentId/config-layers ── List attached layers
   router.get(
     "/companies/:companyId/agents/:agentId/config-layers",
-    requirePermission(db, "config_layers:read"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -323,7 +323,7 @@ export function configLayerRoutes(db: Db) {
   // ── POST /companies/:companyId/agents/:agentId/config-layers ── Attach layer
   router.post(
     "/companies/:companyId/agents/:agentId/config-layers",
-    requirePermission(db, "config_layers:attach"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_ATTACH),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -383,7 +383,7 @@ export function configLayerRoutes(db: Db) {
   // ── DELETE /companies/:companyId/agents/:agentId/config-layers/:lid ── Detach layer
   router.delete(
     "/companies/:companyId/agents/:agentId/config-layers/:lid",
-    requirePermission(db, "config_layers:attach"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_ATTACH),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -418,7 +418,7 @@ export function configLayerRoutes(db: Db) {
   // ── POST /companies/:companyId/agents/:agentId/config-layers/check ── Conflict check
   router.post(
     "/companies/:companyId/agents/:agentId/config-layers/check",
-    requirePermission(db, "config_layers:read"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -436,7 +436,7 @@ export function configLayerRoutes(db: Db) {
   // ── GET /companies/:companyId/agents/:agentId/config-layers/preview ── Merge preview
   router.get(
     "/companies/:companyId/agents/:agentId/config-layers/preview",
-    requirePermission(db, "config_layers:read"),
+    requirePermission(db, PERMISSIONS.CONFIG_LAYERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const agentId = req.params.agentId as string;
@@ -458,7 +458,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
 
       const layer = await svc.getLayer(layerId);
-      await assertCompanyPermission(db, req, layer.companyId, "config_layers:edit");
+      await assertCompanyPermission(db, req, layer.companyId, PERMISSIONS.CONFIG_LAYERS_EDIT);
 
       const userId = actorId(req);
       const updated = await svc.propose(layerId, userId);
@@ -473,7 +473,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
 
       const layer = await svc.getLayer(layerId);
-      await assertCompanyPermission(db, req, layer.companyId, "config_layers:promote");
+      await assertCompanyPermission(db, req, layer.companyId, PERMISSIONS.CONFIG_LAYERS_PROMOTE);
 
       const parsed = approvePromotionSchema.safeParse(req.body);
       if (!parsed.success) throw badRequest(parsed.error.message);
@@ -495,7 +495,7 @@ export function configLayerRoutes(db: Db) {
       const layerId = req.params.id as string;
 
       const layer = await svc.getLayer(layerId);
-      await assertCompanyPermission(db, req, layer.companyId, "config_layers:promote");
+      await assertCompanyPermission(db, req, layer.companyId, PERMISSIONS.CONFIG_LAYERS_PROMOTE);
 
       const parsed = rejectPromotionSchema.safeParse(req.body);
       if (!parsed.success) throw badRequest(parsed.error.message);

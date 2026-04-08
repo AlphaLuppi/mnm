@@ -22,7 +22,7 @@ import {
   joinRequests,
   roles
 } from "@mnm/db";
-import {
+import { PERMISSIONS,
   acceptInviteSchema,
   claimJoinRequestApiKeySchema,
   createCompanyInviteSchema,
@@ -1646,7 +1646,7 @@ export function accessRoutes(
     validate(createCompanyInviteSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
-      await assertCompanyPermission(req, companyId, "users:invite");
+      await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_INVITE);
 
       const email: string | undefined = req.body.email;
 
@@ -1829,7 +1829,7 @@ export function accessRoutes(
 
   router.get("/companies/:companyId/invites", async (req, res) => {
     const companyId = req.params.companyId as string;
-    await assertCompanyPermission(req, companyId, "users:invite");
+    await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_INVITE);
 
     const inviteList = await db
       .select()
@@ -2445,7 +2445,7 @@ export function accessRoutes(
       await assertInstanceAdmin(req);
     } else {
       if (!invite.companyId) throw conflict("Invite is missing company scope");
-      await assertCompanyPermission(req, invite.companyId, "users:invite");
+      await assertCompanyPermission(req, invite.companyId, PERMISSIONS.USERS_INVITE);
     }
     if (invite.acceptedAt) throw conflict("Invite already consumed");
     if (invite.revokedAt) return res.json(invite);
@@ -2476,7 +2476,7 @@ export function accessRoutes(
 
   router.get("/companies/:companyId/join-requests", async (req, res) => {
     const companyId = req.params.companyId as string;
-    await assertCompanyPermission(req, companyId, "joins:approve");
+    await assertCompanyPermission(req, companyId, PERMISSIONS.JOINS_APPROVE);
     const query = listJoinRequestsQuerySchema.parse(req.query);
     const all = await db
       .select()
@@ -2524,7 +2524,7 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const requestId = req.params.requestId as string;
-      await assertCompanyPermission(req, companyId, "joins:approve");
+      await assertCompanyPermission(req, companyId, PERMISSIONS.JOINS_APPROVE);
 
       const existing = await db
         .select()
@@ -2689,7 +2689,7 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const requestId = req.params.requestId as string;
-      await assertCompanyPermission(req, companyId, "joins:approve");
+      await assertCompanyPermission(req, companyId, PERMISSIONS.JOINS_APPROVE);
 
       const existing = await db
         .select()
@@ -2823,7 +2823,7 @@ export function accessRoutes(
 
   router.get("/companies/:companyId/members", async (req, res) => {
     const companyId = req.params.companyId as string;
-    await assertCompanyPermission(req, companyId, "users:manage_permissions");
+    await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_MANAGE_PERMISSIONS);
     const members = await access.listMembers(companyId);
     res.json(members);
   });
@@ -2834,7 +2834,7 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
-      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_MANAGE_PERMISSIONS);
       // TODO [PERM-01]: setMemberPermissions removed — permissions managed via roles
       // For now, return 501 Not Implemented
       res.status(501).json({ error: "Permission grants are now managed through roles. Use PATCH .../business-role instead." });
@@ -2846,7 +2846,7 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
-      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_MANAGE_PERMISSIONS);
       const updated = await access.updateMemberRole(
         companyId,
         memberId,
@@ -2882,7 +2882,7 @@ export function accessRoutes(
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
-      await assertCompanyPermission(req, companyId, "users:manage_permissions");
+      await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_MANAGE_PERMISSIONS);
       const status = req.body.status;
       if (status !== "active" && status !== "suspended") {
         throw badRequest("status must be 'active' or 'suspended'");
@@ -2984,7 +2984,7 @@ export function accessRoutes(
         member.principalId === req.actor.userId;
 
       if (!isOwnProfile) {
-        await assertCompanyPermission(req, companyId, "users:manage_permissions");
+        await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_MANAGE_PERMISSIONS);
       }
 
       const effective = await access.getEffectivePermissions(
@@ -3043,7 +3043,7 @@ export function accessRoutes(
     const companyId = req.params.companyId as string;
     const userId = req.params.userId as string;
     if (req.actor.type !== "board") throw forbidden("Board access required");
-    await assertCompanyPermission(req, companyId, "users:manage");
+    await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_MANAGE);
 
     // Verify the target user is a member of this company
     const membership = await db

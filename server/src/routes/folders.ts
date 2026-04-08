@@ -9,7 +9,7 @@ import { folderService } from "../services/folder.js";
 import { folderShareService } from "../services/folder-share.js";
 import { documentService } from "../services/document.js";
 import { assetService } from "../services/assets.js";
-import {
+import { PERMISSIONS,
   createFolderSchema,
   updateFolderSchema,
   addFolderItemSchema,
@@ -46,7 +46,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // POST /api/companies/:companyId/folders — create folder
   router.post(
     "/companies/:companyId/folders",
-    requirePermission(db, "folders:create"),
+    requirePermission(db, PERMISSIONS.FOLDERS_CREATE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -66,7 +66,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // GET /api/companies/:companyId/folders — list folders
   router.get(
     "/companies/:companyId/folders",
-    requirePermission(db, "folders:read"),
+    requirePermission(db, PERMISSIONS.FOLDERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -89,7 +89,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // GET /api/companies/:companyId/folders/:id — get folder + items + tags + shares
   router.get(
     "/companies/:companyId/folders/:id",
-    requirePermission(db, "folders:read"),
+    requirePermission(db, PERMISSIONS.FOLDERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -146,7 +146,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // PATCH /api/companies/:companyId/folders/:id — update folder
   router.patch(
     "/companies/:companyId/folders/:id",
-    requirePermission(db, "folders:edit"),
+    requirePermission(db, PERMISSIONS.FOLDERS_EDIT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -181,7 +181,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // DELETE /api/companies/:companyId/folders/:id — delete folder (with smart document handling)
   router.delete(
     "/companies/:companyId/folders/:id",
-    requirePermission(db, "folders:delete"),
+    requirePermission(db, PERMISSIONS.FOLDERS_DELETE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -210,7 +210,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // GET /api/companies/:companyId/folders/:id/deletion-preview
   router.get(
     "/companies/:companyId/folders/:id/deletion-preview",
-    requirePermission(db, "folders:delete"),
+    requirePermission(db, PERMISSIONS.FOLDERS_DELETE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -240,7 +240,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // POST /api/companies/:companyId/folders/:id/items — add item to folder
   router.post(
     "/companies/:companyId/folders/:id/items",
-    requirePermission(db, "folders:edit"),
+    requirePermission(db, PERMISSIONS.FOLDERS_EDIT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -281,7 +281,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // DELETE /api/companies/:companyId/folders/:id/items/:itemId — remove item from folder
   router.delete(
     "/companies/:companyId/folders/:id/items/:itemId",
-    requirePermission(db, "folders:edit"),
+    requirePermission(db, PERMISSIONS.FOLDERS_EDIT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -316,7 +316,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // POST /api/companies/:companyId/folders/:id/upload — upload document to folder
   router.post(
     "/companies/:companyId/folders/:id/upload",
-    requirePermission(db, "folders:edit"),
+    requirePermission(db, PERMISSIONS.FOLDERS_EDIT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -418,7 +418,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // POST /api/companies/:companyId/folders/:id/shares — share folder with user
   router.post(
     "/companies/:companyId/folders/:id/shares",
-    requirePermission(db, "folders:share_users"),
+    requirePermission(db, PERMISSIONS.FOLDERS_SHARE_USERS),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -448,7 +448,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // GET /api/companies/:companyId/folders/:id/shares — list shares
   router.get(
     "/companies/:companyId/folders/:id/shares",
-    requirePermission(db, "folders:read"),
+    requirePermission(db, PERMISSIONS.FOLDERS_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -473,7 +473,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // PATCH /api/companies/:companyId/folders/:id/shares/:shareId — update share permission
   router.patch(
     "/companies/:companyId/folders/:id/shares/:shareId",
-    requirePermission(db, "folders:share_users"),
+    requirePermission(db, PERMISSIONS.FOLDERS_SHARE_USERS),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -500,7 +500,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // DELETE /api/companies/:companyId/folders/:id/shares/:shareId — revoke share
   router.delete(
     "/companies/:companyId/folders/:id/shares/:shareId",
-    requirePermission(db, "folders:share_users"),
+    requirePermission(db, PERMISSIONS.FOLDERS_SHARE_USERS),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -521,7 +521,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // POST /api/companies/:companyId/folders/:id/tags — assign a tag to a folder
   router.post(
     "/companies/:companyId/folders/:id/tags",
-    requirePermission(db, "folders:share_tags"),
+    requirePermission(db, PERMISSIONS.FOLDERS_SHARE_TAGS),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -567,7 +567,7 @@ export function folderRoutes(db: Db, storage: StorageService): Router {
   // DELETE /api/companies/:companyId/folders/:id/tags/:tagId — remove a tag from a folder
   router.delete(
     "/companies/:companyId/folders/:id/tags/:tagId",
-    requirePermission(db, "folders:share_tags"),
+    requirePermission(db, PERMISSIONS.FOLDERS_SHARE_TAGS),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

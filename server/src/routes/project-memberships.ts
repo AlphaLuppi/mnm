@@ -4,7 +4,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { validate } from "../middleware/validate.js";
 import { emitAudit, projectMembershipService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, assertProjectAccess, getActorInfo } from "./authz.js";
-import {
+import { PERMISSIONS,
   addProjectMemberSchema,
   updateProjectMemberRoleSchema,
   bulkAddProjectMembersSchema,
@@ -41,7 +41,7 @@ export function projectMembershipRoutes(db: Db) {
   // POST /api/companies/:companyId/projects/:projectId/members/bulk
   router.post(
     "/companies/:companyId/projects/:projectId/members/bulk",
-    requirePermission(db, "projects:manage_members"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE_MEMBERS),
     validate(bulkAddProjectMembersSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -78,7 +78,7 @@ export function projectMembershipRoutes(db: Db) {
   // DELETE /api/companies/:companyId/projects/:projectId/members/bulk
   router.delete(
     "/companies/:companyId/projects/:projectId/members/bulk",
-    requirePermission(db, "projects:manage_members"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE_MEMBERS),
     validate(bulkRemoveProjectMembersSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -115,7 +115,7 @@ export function projectMembershipRoutes(db: Db) {
   // POST /api/companies/:companyId/projects/:projectId/members (single add)
   router.post(
     "/companies/:companyId/projects/:projectId/members",
-    requirePermission(db, "projects:manage_members"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE_MEMBERS),
     validate(addProjectMemberSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -157,7 +157,7 @@ export function projectMembershipRoutes(db: Db) {
   // DELETE /api/companies/:companyId/projects/:projectId/members/:userId
   router.delete(
     "/companies/:companyId/projects/:projectId/members/:userId",
-    requirePermission(db, "projects:manage_members"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE_MEMBERS),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const projectId = req.params.projectId as string;
@@ -192,7 +192,7 @@ export function projectMembershipRoutes(db: Db) {
   // PATCH /api/companies/:companyId/projects/:projectId/members/:userId
   router.patch(
     "/companies/:companyId/projects/:projectId/members/:userId",
-    requirePermission(db, "projects:manage_members"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE_MEMBERS),
     validate(updateProjectMemberRoleSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;

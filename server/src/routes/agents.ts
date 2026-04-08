@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Db } from "@mnm/db";
 import { agents as agentsTable, companies, heartbeatRuns } from "@mnm/db";
 import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
-import {
+import { PERMISSIONS,
   createAgentKeySchema,
   createAgentHireSchema,
   createAgentSchema,
@@ -434,7 +434,7 @@ export function agentRoutes(db: Db) {
     },
   );
 
-  router.get("/companies/:companyId/agents", requirePermission(db, "agents:read"), async (req, res) => {
+  router.get("/companies/:companyId/agents", requirePermission(db, PERMISSIONS.AGENTS_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const workspaceId = typeof req.query.workspaceId === "string" ? req.query.workspaceId : undefined;
@@ -648,7 +648,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
+    await assertCompanyPermission(db, req, agent.companyId, PERMISSIONS.AGENTS_LAUNCH);
 
     const state = await heartbeat.getRuntimeState(id);
     res.json(state);
@@ -667,7 +667,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
+    await assertCompanyPermission(db, req, agent.companyId, PERMISSIONS.AGENTS_LAUNCH);
 
     const sessions = await heartbeat.listTaskSessions(id);
     res.json(
@@ -691,7 +691,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    await assertCompanyPermission(db, req, agent.companyId, "agents:launch");
+    await assertCompanyPermission(db, req, agent.companyId, PERMISSIONS.AGENTS_LAUNCH);
 
     const taskKey =
       typeof req.body.taskKey === "string" && req.body.taskKey.trim().length > 0
@@ -918,6 +918,23 @@ export function agentRoutes(db: Db) {
     res.status(201).json(agent);
   });
 
+  router.get("/agents/:id/direct-permissions", async (req, res) => {
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const slugs = await svc.getDirectPermissions(id);
+    res.json({ permissionSlugs: slugs });
+  });
+
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -930,7 +947,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    await assertCompanyPermission(db, req, existing.companyId, "users:manage_permissions");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.USERS_MANAGE_PERMISSIONS);
 
     if (req.actor.type === "agent") {
       const actorAgent = req.actor.agentId ? await svc.getById(req.actor.agentId) : null;
@@ -938,8 +955,6 @@ export function agentRoutes(db: Db) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      // TODO [PERM-01]: Check permission grants instead of role
-      // For now, allow all agents with manage_permissions access
       const hasPermGrant = await access.hasPermission(existing.companyId, "agent", actorAgent.id, "users:manage_permissions");
       if (!hasPermGrant) {
         res.status(403).json({ error: "Missing permission: users:manage_permissions" });
@@ -952,6 +967,9 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+
+    // Invalidate permission cache for this agent
+    access.invalidateRoleCache(agent.companyId, id);
 
     const actor = getActorInfo(req);
     await logActivity(db, {
@@ -1172,7 +1190,7 @@ export function agentRoutes(db: Db) {
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
     if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
-    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.AGENTS_LAUNCH);
     const agent = await svc.pause(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1200,7 +1218,7 @@ export function agentRoutes(db: Db) {
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
     if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
-    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.AGENTS_LAUNCH);
     const agent = await svc.resume(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1226,7 +1244,7 @@ export function agentRoutes(db: Db) {
     if (!existing) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, existing.companyId);
     if (!(await assertAgentTagVisible(req, id, existing.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
-    await assertCompanyPermission(db, req, existing.companyId, "agents:launch");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.AGENTS_LAUNCH);
     const agent = await svc.terminate(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1259,7 +1277,7 @@ export function agentRoutes(db: Db) {
       res.status(403).json({ error: "The CAO (Chief Agent Officer) cannot be deleted. It is a system agent." });
       return;
     }
-    await assertCompanyPermission(db, req, existing.companyId, "agents:delete");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.AGENTS_DELETE);
     const agent = await svc.remove(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1305,7 +1323,7 @@ export function agentRoutes(db: Db) {
     if (!agentForPermCheck) { res.status(404).json({ error: "Agent not found" }); return; }
     assertCompanyAccess(req, agentForPermCheck.companyId);
     if (!(await assertAgentTagVisible(req, id, agentForPermCheck.companyId))) { res.status(404).json({ error: "Agent not found" }); return; }
-    await assertCompanyPermission(db, req, agentForPermCheck.companyId, "agents:create");
+    await assertCompanyPermission(db, req, agentForPermCheck.companyId, PERMISSIONS.AGENTS_CREATE);
     const key = await svc.createApiKey(id, req.body.name);
 
     const agent = await svc.getById(id);
@@ -1475,7 +1493,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    await assertCompanyPermission(db, req, agent.companyId, "agents:create");
+    await assertCompanyPermission(db, req, agent.companyId, PERMISSIONS.AGENTS_CREATE);
     if (agent.adapterType !== "claude_local") {
       res.status(400).json({ error: "Login is only supported for claude_local agents" });
       return;

@@ -9,6 +9,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { assertCompanyAccess } from "./authz.js";
 import { emitAudit } from "../services/audit-emitter.js";
 import { badRequest } from "../errors.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 export function jiraImportRoutes(db: Db) {
   const router = Router();
@@ -18,7 +19,7 @@ export function jiraImportRoutes(db: Db) {
   // POST /companies/:companyId/import/jira/connect — test Jira connection
   router.post(
     "/companies/:companyId/import/jira/connect",
-    requirePermission(db, "projects:manage"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -39,7 +40,7 @@ export function jiraImportRoutes(db: Db) {
   // POST /companies/:companyId/import/jira/preview — preview available projects/issues
   router.post(
     "/companies/:companyId/import/jira/preview",
-    requirePermission(db, "projects:manage"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -73,7 +74,7 @@ export function jiraImportRoutes(db: Db) {
   // POST /companies/:companyId/import/jira/start — start import
   router.post(
     "/companies/:companyId/import/jira/start",
-    requirePermission(db, "projects:manage"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -104,7 +105,7 @@ export function jiraImportRoutes(db: Db) {
   // GET /companies/:companyId/import/jira/jobs — list import jobs
   router.get(
     "/companies/:companyId/import/jira/jobs",
-    requirePermission(db, "projects:manage"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -118,7 +119,7 @@ export function jiraImportRoutes(db: Db) {
   // GET /companies/:companyId/import/jira/jobs/:jobId — get job status
   router.get(
     "/companies/:companyId/import/jira/jobs/:jobId",
-    requirePermission(db, "projects:manage"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE),
     async (req, res) => {
       const { companyId, jobId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -132,7 +133,7 @@ export function jiraImportRoutes(db: Db) {
   // POST /companies/:companyId/import/jira/jobs/:jobId/cancel — cancel import
   router.post(
     "/companies/:companyId/import/jira/jobs/:jobId/cancel",
-    requirePermission(db, "projects:manage"),
+    requirePermission(db, PERMISSIONS.PROJECTS_MANAGE),
     async (req, res) => {
       const { companyId, jobId } = req.params;
       assertCompanyAccess(req, companyId as string);

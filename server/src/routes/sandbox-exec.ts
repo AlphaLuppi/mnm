@@ -9,6 +9,7 @@ import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { badRequest } from "../errors.js";
 import { getDockerClient } from "../services/docker-client.js";
 import { logger } from "../middleware/logger.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 const execSchema = z.object({
   command: z.string().min(1).max(10000),
@@ -21,7 +22,7 @@ export function sandboxExecRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/sandboxes/my/exec",
-    requirePermission(db, "agents:launch"),
+    requirePermission(db, PERMISSIONS.AGENTS_LAUNCH),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);

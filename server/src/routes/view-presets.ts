@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { viewPresets, roles, companyMemberships, userWidgets } from "@mnm/db";
 import type { DashboardWidget, LayoutOverrides, UserWidget } from "@mnm/shared";
+import { PERMISSIONS } from "@mnm/shared";
 import { layoutOverridesV2Schema } from "@mnm/shared";
 import { requirePermission } from "../middleware/require-permission.js";
 import { badRequest, notFound } from "../errors.js";
@@ -14,7 +15,7 @@ export function viewPresetRoutes(db: Db) {
   // ── GET /view-presets — List all presets for the company
   router.get(
     "/companies/:companyId/view-presets",
-    requirePermission(db, "roles:read"),
+    requirePermission(db, PERMISSIONS.ROLES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
 
@@ -31,7 +32,7 @@ export function viewPresetRoutes(db: Db) {
   // ── GET /view-presets/:id — Get a single preset
   router.get(
     "/companies/:companyId/view-presets/:presetId",
-    requirePermission(db, "roles:read"),
+    requirePermission(db, PERMISSIONS.ROLES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const presetId = req.params.presetId as string;
@@ -50,7 +51,7 @@ export function viewPresetRoutes(db: Db) {
   // ── POST /view-presets — Create a preset
   router.post(
     "/companies/:companyId/view-presets",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const { slug, name, description, icon, color, layout, isDefault } = req.body;
@@ -87,7 +88,7 @@ export function viewPresetRoutes(db: Db) {
   // ── PATCH /view-presets/:id — Update a preset
   router.patch(
     "/companies/:companyId/view-presets/:presetId",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const presetId = req.params.presetId as string;
@@ -129,7 +130,7 @@ export function viewPresetRoutes(db: Db) {
   // ── DELETE /view-presets/:id — Delete a preset
   router.delete(
     "/companies/:companyId/view-presets/:presetId",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const presetId = req.params.presetId as string;

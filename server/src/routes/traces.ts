@@ -9,7 +9,7 @@ import { enrichTrace, backfillSilverEnrichment } from "../services/silver-trace-
 import { goldTraceEnrichment } from "../services/gold-trace-enrichment.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { forbidden } from "../errors.js";
-import {
+import { PERMISSIONS,
   createTraceSchema,
   completeTraceSchema,
   createObservationSchema,
@@ -34,7 +34,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/traces — create trace
   router.post(
     "/companies/:companyId/traces",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -47,7 +47,7 @@ export function traceRoutes(db: Db) {
   // GET /api/companies/:companyId/traces — list traces (cursor pagination)
   router.get(
     "/companies/:companyId/traces",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -69,7 +69,7 @@ export function traceRoutes(db: Db) {
   // GET /api/companies/:companyId/traces/by-run/:heartbeatRunId — trace for a heartbeat run
   router.get(
     "/companies/:companyId/traces/by-run/:heartbeatRunId",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -96,7 +96,7 @@ export function traceRoutes(db: Db) {
   // GET /api/companies/:companyId/traces/:traceId — detail + observation tree
   router.get(
     "/companies/:companyId/traces/:traceId",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -119,7 +119,7 @@ export function traceRoutes(db: Db) {
   // PATCH /api/companies/:companyId/traces/:traceId/complete — finalize trace
   router.patch(
     "/companies/:companyId/traces/:traceId/complete",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -134,7 +134,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/traces/:traceId/observations — add observation
   router.post(
     "/companies/:companyId/traces/:traceId/observations",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -147,7 +147,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/traces/:traceId/observations/batch — bulk add
   router.post(
     "/companies/:companyId/traces/:traceId/observations/batch",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -160,7 +160,7 @@ export function traceRoutes(db: Db) {
   // PATCH /api/companies/:companyId/traces/:traceId/observations/:obsId — complete observation
   router.patch(
     "/companies/:companyId/traces/:traceId/observations/:obsId",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -180,7 +180,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/trace-lenses — create lens
   router.post(
     "/companies/:companyId/trace-lenses",
-    requirePermission(db, "traces:manage"),
+    requirePermission(db, PERMISSIONS.TRACES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -194,7 +194,7 @@ export function traceRoutes(db: Db) {
   // GET /api/companies/:companyId/trace-lenses — list user lenses + templates
   router.get(
     "/companies/:companyId/trace-lenses",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -207,7 +207,7 @@ export function traceRoutes(db: Db) {
   // PUT /api/companies/:companyId/trace-lenses/:lensId — update lens
   router.put(
     "/companies/:companyId/trace-lenses/:lensId",
-    requirePermission(db, "traces:manage"),
+    requirePermission(db, PERMISSIONS.TRACES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -220,7 +220,7 @@ export function traceRoutes(db: Db) {
   // DELETE /api/companies/:companyId/trace-lenses/:lensId — delete lens
   router.delete(
     "/companies/:companyId/trace-lenses/:lensId",
-    requirePermission(db, "traces:manage"),
+    requirePermission(db, PERMISSIONS.TRACES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -232,7 +232,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/trace-lenses/:lensId/analyze/:traceId — run lens analysis
   router.post(
     "/companies/:companyId/trace-lenses/:lensId/analyze/:traceId",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -250,7 +250,7 @@ export function traceRoutes(db: Db) {
   // GET /api/companies/:companyId/trace-lenses/:lensId/results/:traceId — get cached result
   router.get(
     "/companies/:companyId/trace-lenses/:lensId/results/:traceId",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -272,7 +272,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/traces/:traceId/enrich — run silver enrichment on one trace
   router.post(
     "/companies/:companyId/traces/:traceId/enrich",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -312,7 +312,7 @@ export function traceRoutes(db: Db) {
   // POST /api/companies/:companyId/gold-prompts — create gold prompt
   router.post(
     "/companies/:companyId/gold-prompts",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -326,7 +326,7 @@ export function traceRoutes(db: Db) {
   // GET /api/companies/:companyId/gold-prompts — list gold prompts
   router.get(
     "/companies/:companyId/gold-prompts",
-    requirePermission(db, "traces:read"),
+    requirePermission(db, PERMISSIONS.TRACES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -339,7 +339,7 @@ export function traceRoutes(db: Db) {
   // PUT /api/companies/:companyId/gold-prompts/:promptId — update gold prompt
   router.put(
     "/companies/:companyId/gold-prompts/:promptId",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -352,7 +352,7 @@ export function traceRoutes(db: Db) {
   // DELETE /api/companies/:companyId/gold-prompts/:promptId — delete gold prompt
   router.delete(
     "/companies/:companyId/gold-prompts/:promptId",
-    requirePermission(db, "traces:write"),
+    requirePermission(db, PERMISSIONS.TRACES_WRITE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

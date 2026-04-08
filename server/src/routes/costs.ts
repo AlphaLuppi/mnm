@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import { createCostEventSchema, updateBudgetSchema } from "@mnm/shared";
+import { PERMISSIONS, createCostEventSchema, updateBudgetSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
 import { requireTagScope } from "../middleware/tag-scope.js";
 import { costService, companyService, agentService, emitAudit, logActivity } from "../services/index.js";
@@ -15,7 +15,7 @@ export function costRoutes(db: Db) {
   const agents = agentService(db);
   const tagFilter = tagFilterService(db);
 
-  router.post("/companies/:companyId/cost-events", requirePermission(db, "traces:write"), validate(createCostEventSchema), async (req, res) => {
+  router.post("/companies/:companyId/cost-events", requirePermission(db, PERMISSIONS.TRACES_WRITE), validate(createCostEventSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 

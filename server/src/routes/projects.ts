@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import type { Db } from "@mnm/db";
 import { issues as issuesTable } from "@mnm/db";
 import { eq } from "drizzle-orm";
-import {
+import { PERMISSIONS,
   createProjectSchema,
   createProjectWorkspaceSchema,
   isUuidLike,
@@ -56,7 +56,7 @@ export function projectRoutes(db: Db) {
     }
   });
 
-  router.get("/companies/:companyId/projects", requirePermission(db, "projects:read"), async (req, res) => {
+  router.get("/companies/:companyId/projects", requirePermission(db, PERMISSIONS.PROJECTS_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
@@ -89,7 +89,7 @@ export function projectRoutes(db: Db) {
     res.json(project);
   });
 
-  router.post("/companies/:companyId/projects", requirePermission(db, "projects:create"), validate(createProjectSchema), async (req, res) => {
+  router.post("/companies/:companyId/projects", requirePermission(db, PERMISSIONS.PROJECTS_CREATE), validate(createProjectSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     type CreateProjectPayload = Parameters<typeof svc.create>[1] & {
@@ -145,7 +145,7 @@ export function projectRoutes(db: Db) {
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:edit");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.PROJECTS_EDIT);
     const project = await svc.update(id, req.body);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
@@ -181,7 +181,7 @@ export function projectRoutes(db: Db) {
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
     assertCompanyAccess(req, project.companyId);
     await assertProjectAccess(db, req, project.companyId, id);
-    await assertCompanyPermission(db, req, project.companyId, "projects:create");
+    await assertCompanyPermission(db, req, project.companyId, PERMISSIONS.PROJECTS_CREATE);
 
     const workspacePath = project.primaryWorkspace?.cwd;
     if (!workspacePath) {
@@ -494,7 +494,7 @@ Reply A or B.`;
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:create");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.PROJECTS_CREATE);
     const workspace = await svc.createWorkspace(id, req.body);
     if (!workspace) {
       res.status(422).json({ error: "Invalid project workspace payload" });
@@ -542,7 +542,7 @@ Reply A or B.`;
       }
       assertCompanyAccess(req, existing.companyId);
       await assertProjectAccess(db, req, existing.companyId, id);
-      await assertCompanyPermission(db, req, existing.companyId, "projects:edit");
+      await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.PROJECTS_EDIT);
       const workspaceExists = (await svc.listWorkspaces(id)).some((workspace) => workspace.id === workspaceId);
       if (!workspaceExists) {
         res.status(404).json({ error: "Project workspace not found" });
@@ -591,7 +591,7 @@ Reply A or B.`;
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:delete");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.PROJECTS_DELETE);
     const workspace = await svc.removeWorkspace(id, workspaceId);
     if (!workspace) {
       res.status(404).json({ error: "Project workspace not found" });
@@ -633,7 +633,7 @@ Reply A or B.`;
     }
     assertCompanyAccess(req, existing.companyId);
     await assertProjectAccess(db, req, existing.companyId, id);
-    await assertCompanyPermission(db, req, existing.companyId, "projects:delete");
+    await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.PROJECTS_DELETE);
 
     // Cascade: delete scoped agents and issues before removing the project.
     // The DB schema does not define onDelete cascade for agents (no FK) or issues
