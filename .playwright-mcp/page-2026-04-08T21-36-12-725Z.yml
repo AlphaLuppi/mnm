@@ -1,0 +1,178 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "MnM — home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: ███╗ ███╗ ████╗████║ ██╔██╔██║ ██║ ╚═╝██║
+      - generic [ref=e7]:
+        - link "Features" [ref=e8] [cursor=pointer]:
+          - /url: "#features"
+        - link "Download" [ref=e9] [cursor=pointer]:
+          - /url: "#download"
+        - link "Web version" [ref=e10] [cursor=pointer]:
+          - /url: https://mnm.example.com
+        - link "GitHub" [ref=e11] [cursor=pointer]:
+          - /url: https://github.com/AlphaLuppi/mnm
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e18]: v0.1 — macOS preview
+          - heading "Make no Mistake." [level=1] [ref=e19]:
+            - generic [ref=e20]: Make
+            - generic [ref=e21]: "no"
+            - generic [ref=e22]: Mistake.
+          - paragraph [ref=e23]: The supervision cockpit for AI agents. Orchestrate, trace, and govern your agent workflows — built for teams who can't afford to be wrong.
+          - generic [ref=e24]:
+            - link "Download for macOS →" [ref=e25] [cursor=pointer]:
+              - /url: "#download"
+              - text: Download for macOS
+              - generic [ref=e26]: →
+            - link "Try the web version ↗" [ref=e27] [cursor=pointer]:
+              - /url: https://mnm.example.com
+              - text: Try the web version
+              - generic [ref=e28]: ↗
+        - generic [ref=e29]:
+          - generic [ref=e31]: ███╗ ███╗ ████╗████║ ██╔██╔██║ ██║ ╚═╝██║
+          - paragraph [ref=e34]:
+            - text: Supervision
+            - text: Traces
+            - text: Governance
+          - paragraph [ref=e36]:
+            - text: Made by
+            - text: Studio Manifeste
+      - generic [ref=e38]: Scroll
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e45]: Four pillars
+        - heading "Everything an operator needs to see." [level=2] [ref=e46]:
+          - text: Everything an operator
+          - text: needs to see.
+        - paragraph [ref=e47]: MnM exists because AI agents running in production need the same operational rigor as any other critical system — observability, governance, rollback, and audit. Not bolted on. Built in.
+      - generic [ref=e48]:
+        - article [ref=e49]:
+          - generic [ref=e50]:
+            - generic [ref=e51]: "01"
+            - generic [ref=e52]: Real-time cockpit
+          - heading "Supervision" [level=3] [ref=e53]
+          - paragraph [ref=e54]: See every agent, every run, every decision — in a single cockpit. Live events via SSE, no polling, no delays. Built for operators who need to know exactly what's happening.
+        - article [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: "02"
+            - generic [ref=e58]: Gold, Silver, Bronze
+          - heading "Traces" [level=3] [ref=e59]
+          - paragraph [ref=e60]: Every agent run is captured in three resolutions. Gold for scored phases and verdicts. Silver for grouped detail. Bronze for raw debug. Auto-generated at completion.
+        - article [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]: "03"
+            - generic [ref=e64]: Tag-based isolation
+          - heading "Governance" [level=3] [ref=e65]
+          - paragraph [ref=e66]: Dynamic RBAC, tag-scoped visibility, config layers with priority merge. Users only see what they should. Single tenant, multi-team. Built for compliance from day one.
+        - article [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e69]: "04"
+            - generic [ref=e70]: Multi-agent workflows
+          - heading "Orchestration" [level=3] [ref=e71]
+          - paragraph [ref=e72]: A2A messaging, workflow state machines, HITL validation, compaction snapshots. Chain agents, enforce stages, pause for human review. The whole stack, governed.
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - generic [ref=e78]: How it works
+        - heading "Three steps. No surprises." [level=2] [ref=e80]:
+          - text: Three steps.
+          - text: No surprises.
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: i
+          - heading "Deploy" [level=3] [ref=e84]
+          - paragraph [ref=e85]: Single Docker container or bare-metal install. Embedded Postgres for dev, external for prod. Zero vendor lock-in.
+        - generic [ref=e86]:
+          - generic [ref=e87]: ii
+          - heading "Connect" [level=3] [ref=e88]
+          - paragraph [ref=e89]: Point your agents at MnM via a simple adapter. Claude, Codex, Cursor, OpenCode — all supported out of the box.
+        - generic [ref=e90]:
+          - generic [ref=e91]: iii
+          - heading "Observe" [level=3] [ref=e92]
+          - paragraph [ref=e93]: Every run, every trace, every decision. Surfaced in real-time. Scored, annotated, and archived automatically.
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - generic [ref=e99]: Download
+        - heading "Native desktop, three platforms." [level=2] [ref=e100]:
+          - text: Native desktop,
+          - text: three platforms.
+        - paragraph [ref=e101]: Built with Tauri 2. Same React UI as the web version, wrapped in a native shell — faster, lighter, and closer to the OS.
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - generic [ref=e104]:
+            - generic [ref=e105]: Apple Silicon + Intel
+            - generic [ref=e106]: In progress
+          - heading "macOS" [level=3] [ref=e107]
+          - generic [ref=e109]: Coming soon
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e112]: x64 + ARM64
+            - generic [ref=e113]: Planned
+          - heading "Windows" [level=3] [ref=e114]
+          - generic [ref=e116]: Coming soon
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - generic [ref=e119]: AppImage, deb, rpm
+            - generic [ref=e120]: Planned
+          - heading "Linux" [level=3] [ref=e121]
+          - generic [ref=e123]: Coming soon
+      - generic [ref=e124]:
+        - paragraph [ref=e125]: Need it today? The web version is fully functional and production-ready. Same features, accessible from any browser.
+        - link "Try the web version ↗" [ref=e126] [cursor=pointer]:
+          - /url: https://mnm.example.com
+          - text: Try the web version
+          - generic [ref=e127]: ↗
+  - contentinfo [ref=e128]:
+    - generic [ref=e129]:
+      - generic [ref=e130]:
+        - generic [ref=e131]:
+          - heading "MnM" [level=2] [ref=e132]
+          - paragraph [ref=e133]: Make No Mistake
+        - generic [ref=e134]:
+          - paragraph [ref=e135]: Made by
+          - paragraph [ref=e136]: Studio Manifeste
+          - paragraph [ref=e137]: © 2026
+      - generic [ref=e139]:
+        - generic [ref=e140]:
+          - paragraph [ref=e141]: Product
+          - list [ref=e142]:
+            - listitem [ref=e143]:
+              - link "Features" [ref=e144] [cursor=pointer]:
+                - /url: "#features"
+            - listitem [ref=e145]:
+              - link "Download" [ref=e146] [cursor=pointer]:
+                - /url: "#download"
+            - listitem [ref=e147]:
+              - link "Web version" [ref=e148] [cursor=pointer]:
+                - /url: https://mnm.example.com
+            - listitem [ref=e149]:
+              - link "Changelog" [ref=e150] [cursor=pointer]:
+                - /url: /changelog
+        - generic [ref=e151]:
+          - paragraph [ref=e152]: Resources
+          - list [ref=e153]:
+            - listitem [ref=e154]:
+              - link "GitHub" [ref=e155] [cursor=pointer]:
+                - /url: https://github.com/AlphaLuppi/mnm
+            - listitem [ref=e156]:
+              - link "Documentation" [ref=e157] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e158]:
+              - link "Changelog" [ref=e159] [cursor=pointer]:
+                - /url: "#"
+        - generic [ref=e160]:
+          - paragraph [ref=e161]: Company
+          - list [ref=e162]:
+            - listitem [ref=e163]:
+              - link "Studio Manifeste" [ref=e164] [cursor=pointer]:
+                - /url: https://alphaluppi.fr
+            - listitem [ref=e165]:
+              - link "Contact" [ref=e166] [cursor=pointer]:
+                - /url: "#"
+        - generic [ref=e167]:
+          - paragraph [ref=e168]: Status
+          - generic [ref=e173]: v0.1 Preview
+          - paragraph [ref=e174]: Native desktop builds coming soon.
