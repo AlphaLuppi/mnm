@@ -11,6 +11,8 @@ import {
   heartbeatRunEvents,
   heartbeatRuns,
   tagAssignments,
+  agentPermissions,
+  permissions,
 } from "@mnm/db";
 import { isUuidLike, normalizeAgentUrlKey } from "@mnm/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
@@ -495,21 +497,63 @@ export function agentService(db: Db) {
       return updated ? normalizeAgentRow(updated) : null;
     },
 
-    updatePermissions: async (id: string, permissions: { canCreateAgents: boolean }) => {
+    updatePermissions: async (id: string, input: { canCreateAgents?: boolean; permissionSlugs?: string[] }) => {
       const existing = await getById(id);
       if (!existing) return null;
 
+      // Update legacy JSONB permissions if canCreateAgents provided
+      if (input.canCreateAgents !== undefined) {
+        await db
+          .update(agents)
+          .set({
+            permissions: normalizeAgentPermissions({ canCreateAgents: input.canCreateAgents }),
+            updatedAt: new Date(),
+          })
+          .where(eq(agents.id, id));
+      }
+
+      // Update direct agent permissions if permissionSlugs provided
+      if (input.permissionSlugs !== undefined) {
+        // Delete existing direct permissions
+        await db.delete(agentPermissions).where(eq(agentPermissions.agentId, id));
+
+        if (input.permissionSlugs.length > 0) {
+          // Resolve slugs to permission IDs for this agent's company
+          const permRows = await db
+            .select({ id: permissions.id, slug: permissions.slug })
+            .from(permissions)
+            .where(
+              and(
+                eq(permissions.companyId, existing.companyId),
+                inArray(permissions.slug, input.permissionSlugs),
+              ),
+            );
+
+          if (permRows.length > 0) {
+            await db.insert(agentPermissions).values(
+              permRows.map((p) => ({ agentId: id, permissionId: p.id })),
+            );
+          }
+        }
+      }
+
+      // Re-fetch and return
       const updated = await db
-        .update(agents)
-        .set({
-          permissions: normalizeAgentPermissions(permissions),
-          updatedAt: new Date(),
-        })
+        .select()
+        .from(agents)
         .where(eq(agents.id, id))
-        .returning()
         .then((rows) => rows[0] ?? null);
 
       return updated ? normalizeAgentRow(updated) : null;
+    },
+
+    getDirectPermissions: async (id: string) => {
+      return db
+        .select({ slug: permissions.slug })
+        .from(agentPermissions)
+        .innerJoin(permissions, eq(permissions.id, agentPermissions.permissionId))
+        .where(eq(agentPermissions.agentId, id))
+        .then((rows) => rows.map((r) => r.slug));
     },
 
     listConfigRevisions: async (id: string) =>
