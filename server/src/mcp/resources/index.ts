@@ -6,5 +6,7 @@ import chatResources from "./chat.resource.js";
 import documentsResources from "./documents.resource.js";
 import foldersResources from "./folders.resource.js";
 import artifactsResources from "./artifacts.resource.js";
+import agentResources from "./agents.resource.js";
+import nodesResources from "./nodes.resource.js";
 
-export const allResourceDefiners = [projectResources, issueResources, configLayerResources, traceResources, chatResources, documentsResources, foldersResources, artifactsResources];
+export const allResourceDefiners = [projectResources, issueResources, configLayerResources, traceResources, chatResources, documentsResources, foldersResources, artifactsResources, agentResources, nodesResources];
