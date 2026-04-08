@@ -91,6 +91,11 @@ export interface AdapterExecutionContext {
    * Other adapters ignore this field.
    */
   gitProviders?: Array<{ host: string; token?: string }>;
+  /**
+   * Standalone secret credentials resolved from config layers.
+   * Injected as env vars at runtime. Each entry has a name and env map.
+   */
+  credentials?: Array<{ name: string; env?: Record<string, string> }>;
 }
 
 export interface AdapterModel {
