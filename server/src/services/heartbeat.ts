@@ -1398,7 +1398,7 @@ export function heartbeatService(db: Db) {
 
       const adapter = getServerAdapter(agent.adapterType);
       const authToken = adapter.supportsLocalAgentJwt
-        ? createLocalAgentJwt(agent.id, agent.companyId, agent.adapterType, run.id)
+        ? createLocalAgentJwt(agent.id, agent.companyId, agent.adapterType, run.id, agent.createdByUserId ?? undefined)
         : null;
       if (adapter.supportsLocalAgentJwt && !authToken) {
         logger.warn(
