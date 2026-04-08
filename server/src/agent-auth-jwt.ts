@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 
 interface JwtHeader {
   alg: string;
@@ -15,6 +15,7 @@ export interface LocalAgentJwtClaims {
   iss?: string;
   aud?: string;
   jti?: string;
+  created_by?: string;
 }
 
 const JWT_ALGORITHM = "HS256";
@@ -31,13 +32,18 @@ function jwtConfig() {
   // In local_trusted dev mode, fall back to a well-known dev secret so agents always
   // receive MNM_API_KEY without requiring `mnm onboard` to have been run.
   const secret = rawSecret || (deploymentMode === "local_trusted" ? "mnm-dev-secret" : null);
-  if (!secret) return null;
+  if (!secret) {
+    if (deploymentMode !== "local_trusted") {
+      throw new Error("MNM_AGENT_JWT_SECRET is required in non-local deployments");
+    }
+    return null;
+  }
 
   return {
     secret,
-    ttlSeconds: parseNumber(process.env.MNM_AGENT_JWT_TTL_SECONDS, 60 * 60 * 48),
-    issuer: process.env.MNM_AGENT_JWT_ISSUER ?? "mnm",
-    audience: process.env.MNM_AGENT_JWT_AUDIENCE ?? "mnm-api",
+    ttlSeconds: parseNumber(process.env.MNM_AGENT_JWT_TTL_SECONDS, 60 * 60 * 2),
+    issuer: process.env.MNM_AGENT_JWT_ISSUER ?? "mnm-agent",
+    audience: process.env.MNM_AGENT_JWT_AUDIENCE ?? "mnm-mcp",
   };
 }
 
@@ -69,7 +75,7 @@ function safeCompare(a: string, b: string) {
   return timingSafeEqual(left, right);
 }
 
-export function createLocalAgentJwt(agentId: string, companyId: string, adapterType: string, runId: string) {
+export function createLocalAgentJwt(agentId: string, companyId: string, adapterType: string, runId: string, createdByUserId?: string) {
   const config = jwtConfig();
   if (!config) return null;
 
@@ -83,6 +89,8 @@ export function createLocalAgentJwt(agentId: string, companyId: string, adapterT
     exp: now + config.ttlSeconds,
     iss: config.issuer,
     aud: config.audience,
+    jti: randomUUID(),
+    ...(createdByUserId ? { created_by: createdByUserId } : {}),
   };
 
   const header = {
@@ -128,8 +136,10 @@ export function verifyLocalAgentJwt(token: string): LocalAgentJwtClaims | null {
 
   const issuer = typeof claims.iss === "string" ? claims.iss : undefined;
   const audience = typeof claims.aud === "string" ? claims.aud : undefined;
-  if (issuer && issuer !== config.issuer) return null;
-  if (audience && audience !== config.audience) return null;
+  // Accept both new ("mnm-agent") and legacy ("mnm") issuers during transition
+  if (issuer && issuer !== config.issuer && issuer !== "mnm") return null;
+  // Accept both new ("mnm-mcp") and legacy ("mnm-api") audiences during transition
+  if (audience && audience !== config.audience && audience !== "mnm-api") return null;
 
   return {
     sub,
@@ -141,5 +151,6 @@ export function verifyLocalAgentJwt(token: string): LocalAgentJwtClaims | null {
     ...(issuer ? { iss: issuer } : {}),
     ...(audience ? { aud: audience } : {}),
     jti: typeof claims.jti === "string" ? claims.jti : undefined,
+    created_by: typeof claims.created_by === "string" ? claims.created_by : undefined,
   };
 }

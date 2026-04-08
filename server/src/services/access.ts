@@ -11,6 +11,7 @@ import {
   permissions,
   tags,
   tagAssignments,
+  agentPermissions,
 } from "@mnm/db";
 import { isNull, gt } from "drizzle-orm";
 import { normalizeAgentPermissions } from "./agent-permissions.js";
@@ -132,6 +133,16 @@ export function accessService(db: Db) {
       for (const p of parentPerms) slugs.add(p.slug);
     }
 
+    // Direct agent permissions (agent_permissions table)
+    if (principalType === "agent") {
+      const directPerms = await db
+        .select({ slug: permissions.slug })
+        .from(agentPermissions)
+        .innerJoin(permissions, eq(permissions.id, agentPermissions.permissionId))
+        .where(eq(agentPermissions.agentId, principalId));
+      for (const p of directPerms) slugs.add(p.slug);
+    }
+
     const result: CachedRole = {
       roleId: role.id,
       slug: role.slug,
@@ -203,10 +214,21 @@ export function accessService(db: Db) {
     }
 
     const role = await resolveRole(companyId, principalType, principalId);
-    if (!role) return false;
+    if (role) {
+      return role.permissionSlugs.has(permissionKey);
+    }
 
-    // Check the permission exists in the role (+ inherited)
-    return role.permissionSlugs.has(permissionKey);
+    // Agents without a company membership can still have direct agent_permissions
+    if (principalType === "agent") {
+      const directPerms = await db
+        .select({ slug: permissions.slug })
+        .from(agentPermissions)
+        .innerJoin(permissions, eq(permissions.id, agentPermissions.permissionId))
+        .where(eq(agentPermissions.agentId, principalId));
+      return directPerms.some((p) => p.slug === permissionKey);
+    }
+
+    return false;
   }
 
   /**

@@ -8,7 +8,7 @@ import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { chatSharingService } from "../services/chat-sharing.js";
 import { chatService } from "../services/chat.js";
 import { tagFilterService } from "../services/tag-filter.js";
-import { createShareSchema } from "@mnm/shared";
+import { PERMISSIONS, createShareSchema } from "@mnm/shared";
 import { badRequest, forbidden, notFound } from "../errors.js";
 
 export function chatSharingRoutes(db: Db) {
@@ -20,7 +20,7 @@ export function chatSharingRoutes(db: Db) {
   // POST /api/companies/:companyId/chat/channels/:channelId/share — Create share
   router.post(
     "/companies/:companyId/chat/channels/:channelId/share",
-    requirePermission(db, "chat:share"),
+    requirePermission(db, PERMISSIONS.CHAT_SHARE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -60,7 +60,7 @@ export function chatSharingRoutes(db: Db) {
   // GET /api/companies/:companyId/chat/channels/:channelId/shares — List shares
   router.get(
     "/companies/:companyId/chat/channels/:channelId/shares",
-    requirePermission(db, "chat:share"),
+    requirePermission(db, PERMISSIONS.CHAT_SHARE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -87,7 +87,7 @@ export function chatSharingRoutes(db: Db) {
   // DELETE /api/companies/:companyId/chat/shares/:shareId — Revoke share
   router.delete(
     "/companies/:companyId/chat/shares/:shareId",
-    requirePermission(db, "chat:share"),
+    requirePermission(db, PERMISSIONS.CHAT_SHARE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -122,7 +122,7 @@ export function chatSharingRoutes(db: Db) {
   // GET /api/companies/:companyId/shared/chat/:token — Access shared chat
   router.get(
     "/companies/:companyId/shared/chat/:token",
-    requirePermission(db, "chat:agent"),
+    requirePermission(db, PERMISSIONS.CHAT_AGENT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -146,7 +146,7 @@ export function chatSharingRoutes(db: Db) {
   // POST /api/companies/:companyId/shared/chat/:token/fork — Fork chat
   router.post(
     "/companies/:companyId/shared/chat/:token/fork",
-    requirePermission(db, "chat:fork"),
+    requirePermission(db, PERMISSIONS.CHAT_FORK),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

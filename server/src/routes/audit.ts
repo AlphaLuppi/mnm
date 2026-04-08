@@ -4,7 +4,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { auditService } from "../services/audit.js";
 import { auditSummarizerService } from "../services/audit-summarizer.js";
 import { assertCompanyAccess } from "./authz.js";
-import {
+import { PERMISSIONS,
   auditEventFiltersSchema,
   auditExportFiltersSchema,
   auditVerifySchema,
@@ -20,7 +20,7 @@ export function auditRoutes(db: Db) {
   // GET /api/companies/:companyId/audit — list with 12 filters + pagination
   router.get(
     "/companies/:companyId/audit",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -33,7 +33,7 @@ export function auditRoutes(db: Db) {
   // GET /api/companies/:companyId/audit/count — count events
   router.get(
     "/companies/:companyId/audit/count",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -46,7 +46,7 @@ export function auditRoutes(db: Db) {
   // GET /api/companies/:companyId/audit/export/csv — export CSV (streamed)
   router.get(
     "/companies/:companyId/audit/export/csv",
-    requirePermission(db, "audit:export"),
+    requirePermission(db, PERMISSIONS.AUDIT_EXPORT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -64,7 +64,7 @@ export function auditRoutes(db: Db) {
   // GET /api/companies/:companyId/audit/export/json — export JSON (streamed)
   router.get(
     "/companies/:companyId/audit/export/json",
-    requirePermission(db, "audit:export"),
+    requirePermission(db, PERMISSIONS.AUDIT_EXPORT),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -82,7 +82,7 @@ export function auditRoutes(db: Db) {
   // GET /api/companies/:companyId/audit/verify — verify hash chain integrity
   router.get(
     "/companies/:companyId/audit/verify",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -95,7 +95,7 @@ export function auditRoutes(db: Db) {
   // OBS-S03: GET /api/companies/:companyId/audit/summary — get summary for period (obs-s03-summary-route)
   router.get(
     "/companies/:companyId/audit/summary",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -108,7 +108,7 @@ export function auditRoutes(db: Db) {
   // OBS-S03: GET /api/companies/:companyId/audit/summaries — list cached summaries (obs-s03-summaries-route)
   router.get(
     "/companies/:companyId/audit/summaries",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -124,7 +124,7 @@ export function auditRoutes(db: Db) {
   // OBS-S03: POST /api/companies/:companyId/audit/summary/generate — force generate (obs-s03-generate-route)
   router.post(
     "/companies/:companyId/audit/summary/generate",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -143,7 +143,7 @@ export function auditRoutes(db: Db) {
   // to prevent Express from matching "count", "export", "verify", "summary", "summaries" as :id.
   router.get(
     "/companies/:companyId/audit/:id",
-    requirePermission(db, "audit:read"),
+    requirePermission(db, PERMISSIONS.AUDIT_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);

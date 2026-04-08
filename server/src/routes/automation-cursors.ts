@@ -11,7 +11,7 @@
 
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   setCursorSchema,
   cursorFiltersSchema,
   resolveCursorSchema,
@@ -33,7 +33,7 @@ export function automationCursorRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/automation-cursors",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -51,7 +51,7 @@ export function automationCursorRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.get(
     "/companies/:companyId/automation-cursors/:cursorId",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId, cursorId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -75,7 +75,7 @@ export function automationCursorRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.put(
     "/companies/:companyId/automation-cursors",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(setCursorSchema),
     async (req, res) => {
       const { companyId } = req.params;
@@ -117,7 +117,7 @@ export function automationCursorRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.delete(
     "/companies/:companyId/automation-cursors/:cursorId",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     async (req, res) => {
       const { companyId, cursorId } = req.params;
       assertCompanyAccess(req, companyId as string);
@@ -161,7 +161,7 @@ export function automationCursorRoutes(db: Db) {
   // ──────────────────────────────────────────────────────────
   router.post(
     "/companies/:companyId/automation-cursors/resolve",
-    requirePermission(db, "workflows:enforce"),
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
     validate(resolveCursorSchema),
     async (req, res) => {
       const { companyId } = req.params;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@mnm/db";
-import {
+import { PERMISSIONS,
   BLOCK_TYPES,
   blockPropsSchemas,
   validateContentDocumentSchema,
@@ -15,7 +15,7 @@ export function blockCatalogueRoutes(db: Db) {
   // GET /companies/:companyId/block-catalogue — list all available block types
   router.get(
     "/companies/:companyId/block-catalogue",
-    requirePermission(db, "issues:read"),
+    requirePermission(db, PERMISSIONS.ISSUES_READ),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
@@ -42,7 +42,7 @@ export function blockCatalogueRoutes(db: Db) {
   // POST /companies/:companyId/blocks/validate — validate a ContentDocument
   router.post(
     "/companies/:companyId/blocks/validate",
-    requirePermission(db, "issues:read"),
+    requirePermission(db, PERMISSIONS.ISSUES_READ),
     validate(validateContentDocumentSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;

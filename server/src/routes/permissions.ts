@@ -6,6 +6,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { accessService } from "../services/access.js";
 import { auditService } from "../services/audit.js";
 import { badRequest, notFound, forbidden } from "../errors.js";
+import { PERMISSIONS } from "@mnm/shared";
 
 export function permissionsRoutes(db: Db) {
   const router = Router();
@@ -15,7 +16,7 @@ export function permissionsRoutes(db: Db) {
   // ── GET /api/permissions ── List all permissions for the company
   router.get(
     "/companies/:companyId/permissions",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const allPerms = await db
@@ -30,7 +31,7 @@ export function permissionsRoutes(db: Db) {
   // ── POST /api/permissions ── Create a custom permission
   router.post(
     "/companies/:companyId/permissions",
-    requirePermission(db, "roles:manage"),
+    requirePermission(db, PERMISSIONS.ROLES_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const { slug, description, category } = req.body;
@@ -67,7 +68,7 @@ export function permissionsRoutes(db: Db) {
   // ── PATCH /api/members/:memberId/role ── Change a member's role
   router.patch(
     "/companies/:companyId/members/:memberId/role",
-    requirePermission(db, "users:manage"),
+    requirePermission(db, PERMISSIONS.USERS_MANAGE),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const memberId = req.params.memberId as string;
