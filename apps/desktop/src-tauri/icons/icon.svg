@@ -5,31 +5,28 @@
       <stop offset="55%" stop-color="#1c1917"/>
       <stop offset="100%" stop-color="#09090b"/>
     </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
-      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.04"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
   </defs>
 
-  <!-- macOS squircle ~22% corner radius -->
-  <path d="M 0,512 C 0,128 128,0 512,0 C 896,0 1024,128 1024,512 C 1024,896 896,1024 512,1024 C 128,1024 0,896 0,512 Z" fill="url(#bg)"/>
-  <!-- Top specular rim highlight -->
-  <path d="M 0,512 C 0,128 128,0 512,0 C 896,0 1024,128 1024,512 L 1024,520 C 1024,140 900,16 512,16 C 124,16 0,140 0,520 Z" fill="url(#rim)"/>
-  <!-- Inner stroke -->
-  <path d="M 12,512 C 12,134 134,12 512,12 C 890,12 1012,134 1012,512 C 1012,890 890,1012 512,1012 C 134,1012 12,890 12,512 Z" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.08"/>
+  <!-- Full opaque 1024x1024 background. macOS applies its own squircle mask
+       at render time; Windows/Linux show the full square, which is fine. -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <!-- Tiny ASCII MnM — exact same glyphs as the hero square and nav mark.
-       Monospace, rendered large so the box-drawing chars form overlapping M shapes. -->
+  <!-- Subtle top specular highlight (optional; helps the icon read as a
+       physical surface when the OS applies its rounded mask) -->
+  <rect width="1024" height="180" fill="#ffffff" opacity="0.04"/>
+
+  <!-- ASCII MnM mark — content centered within Apple's safe area (~824x824).
+       All text sits comfortably inside the central ~80% of the canvas so
+       nothing gets clipped by the squircle. -->
   <g font-family="'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace"
-     font-size="140"
+     font-size="110"
      font-weight="700"
      fill="#fafaf9"
      text-anchor="middle"
      xml:space="preserve">
-    <text x="512" y="370">███╗ ███╗</text>
-    <text x="512" y="470">████╗████║</text>
+    <text x="512" y="420">███╗ ███╗</text>
+    <text x="512" y="495">████╗████║</text>
     <text x="512" y="570">██╔██╔██║</text>
-    <text x="512" y="670">██║ ╚═╝██║</text>
+    <text x="512" y="645">██║ ╚═╝██║</text>
   </g>
 </svg>
