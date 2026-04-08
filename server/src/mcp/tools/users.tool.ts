@@ -37,28 +37,22 @@ export default defineMcpTools(({ tool, services }) => {
     permissions: [PERMISSIONS.USERS_INVITE],
     description:
       "[Users] Invite a new user to the company by email.\n" +
-      "Sends an invitation email. The user will appear as pending until accepted.\n" +
-      "Requires the target user's email address.",
+      "Not yet available via MCP — use the web UI to send invitations.\n" +
+      "Returns an error explaining the limitation.",
     input: z.object({
       email: z.string().email().describe("Email address of the user to invite"),
       roleId: z.string().uuid().optional().describe("Role ID to assign (uses default role if omitted)"),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    handler: async ({ input, actor }) => {
-      const invite = await services.onboarding.inviteUser(actor.companyId, {
-        email: input.email,
-        roleId: input.roleId,
-        invitedBy: actor.userId!,
-      });
+    handler: async () => {
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            id: invite.id,
-            email: input.email,
-            status: "pending",
+            error: "User invitations are not yet available via MCP. Use the web UI to invite users.",
           }),
         }],
+        isError: true,
       };
     },
   });

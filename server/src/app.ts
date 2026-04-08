@@ -85,6 +85,7 @@ import { inboxItemRoutes } from "./routes/inbox-items.js";
 import { blockCatalogueRoutes } from "./routes/block-catalogue.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 import { createMcpRouter, shutdownMcp } from "./mcp/index.js";
+import { buildMcpServices } from "./mcp/build-mcp-services.js";
 
 type UiMode = "none" | "static" | "vite-dev";
 
@@ -307,7 +308,7 @@ export async function createApp(
   // express.json() is NOT applied — the MCP SDK handles its own body parsing.
   const mcpRouter = createMcpRouter({
     db,
-    services: { db },
+    services: buildMcpServices(db),
     resolveSession: opts.resolveSession ?? (async () => null),
     getPublicUrl: () => process.env.MNM_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 3001}`,
   });

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { eq, and, isNull, inArray } from "drizzle-orm";
+import { roles, rolePermissions, permissions, tags } from "@mnm/db";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
 
@@ -14,12 +16,18 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({}),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ actor }) => {
-      const roles = await services.roles.list(actor.companyId);
+      const db = services.db;
+      const allRoles = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.companyId, actor.companyId))
+        .orderBy(roles.hierarchyLevel);
+
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: roles.map((r: any) => ({
+            items: allRoles.map((r: any) => ({
               id: r.id,
               name: r.name,
               slug: r.slug,
@@ -27,7 +35,7 @@ export default defineMcpTools(({ tool, services }) => {
               bypassTagFilter: r.bypassTagFilter,
               inheritsFromId: r.inheritsFromId,
             })),
-            total: roles.length,
+            total: allRoles.length,
           }),
         }],
       };
@@ -52,17 +60,40 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const db = services.db;
+
       if (input.action === "create") {
-        const role = await services.roles.create(actor.companyId, {
-          name: input.name!,
-          slug: input.slug!,
-          hierarchyLevel: input.hierarchyLevel ?? 0,
-          bypassTagFilter: input.bypassTagFilter ?? false,
-          inheritsFromId: input.inheritsFromId ?? null,
-          permissionSlugs: input.permissionSlugs ?? [],
-        });
+        const [created] = await db
+          .insert(roles)
+          .values({
+            companyId: actor.companyId,
+            name: input.name!,
+            slug: input.slug!,
+            hierarchyLevel: input.hierarchyLevel ?? 100,
+            bypassTagFilter: input.bypassTagFilter ?? false,
+            inheritsFromId: input.inheritsFromId ?? null,
+            isSystem: false,
+          })
+          .returning();
+
+        if (Array.isArray(input.permissionSlugs) && input.permissionSlugs.length > 0) {
+          const permRows = await db
+            .select({ id: permissions.id })
+            .from(permissions)
+            .where(and(
+              eq(permissions.companyId, actor.companyId),
+              inArray(permissions.slug, input.permissionSlugs),
+            ));
+          if (permRows.length > 0) {
+            await db.insert(rolePermissions).values(
+              permRows.map((p: any) => ({ roleId: created.id, permissionId: p.id })),
+            );
+          }
+        }
+
+        services.access.invalidateRoleCache();
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ id: role.id, name: role.name, slug: role.slug }) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ id: created.id, name: created.name, slug: created.slug }) }],
         };
       }
 
@@ -73,16 +104,47 @@ export default defineMcpTools(({ tool, services }) => {
             isError: true,
           };
         }
-        const role = await services.roles.update(actor.companyId, input.roleId, {
-          name: input.name,
-          slug: input.slug,
-          hierarchyLevel: input.hierarchyLevel,
-          bypassTagFilter: input.bypassTagFilter,
-          inheritsFromId: input.inheritsFromId,
-          permissionSlugs: input.permissionSlugs,
-        });
+        const updates: Record<string, unknown> = { updatedAt: new Date() };
+        if (input.name !== undefined) updates.name = input.name;
+        if (input.slug !== undefined) updates.slug = input.slug;
+        if (input.hierarchyLevel !== undefined) updates.hierarchyLevel = input.hierarchyLevel;
+        if (input.bypassTagFilter !== undefined) updates.bypassTagFilter = input.bypassTagFilter;
+        if (input.inheritsFromId !== undefined) updates.inheritsFromId = input.inheritsFromId;
+
+        const [updated] = await db
+          .update(roles)
+          .set(updates)
+          .where(and(eq(roles.id, input.roleId), eq(roles.companyId, actor.companyId)))
+          .returning();
+
+        if (!updated) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: "Role not found" }) }],
+            isError: true,
+          };
+        }
+
+        if (Array.isArray(input.permissionSlugs)) {
+          await db.delete(rolePermissions).where(eq(rolePermissions.roleId, input.roleId));
+          if (input.permissionSlugs.length > 0) {
+            const permRows = await db
+              .select({ id: permissions.id })
+              .from(permissions)
+              .where(and(
+                eq(permissions.companyId, actor.companyId),
+                inArray(permissions.slug, input.permissionSlugs),
+              ));
+            if (permRows.length > 0) {
+              await db.insert(rolePermissions).values(
+                permRows.map((p: any) => ({ roleId: input.roleId!, permissionId: p.id })),
+              );
+            }
+          }
+        }
+
+        services.access.invalidateRoleCache();
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ id: role.id, name: role.name, slug: role.slug }) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ id: updated.id, name: updated.name, slug: updated.slug }) }],
         };
       }
 
@@ -93,7 +155,8 @@ export default defineMcpTools(({ tool, services }) => {
             isError: true,
           };
         }
-        await services.roles.delete(actor.companyId, input.roleId);
+        await db.delete(roles).where(and(eq(roles.id, input.roleId), eq(roles.companyId, actor.companyId)));
+        services.access.invalidateRoleCache();
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ success: true, action: "deleted" }) }],
         };
@@ -117,12 +180,18 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({}),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ actor }) => {
-      const tags = await services.tags.list(actor.companyId);
+      const db = services.db;
+      const allTags = await db
+        .select()
+        .from(tags)
+        .where(and(eq(tags.companyId, actor.companyId), isNull(tags.archivedAt)))
+        .orderBy(tags.name);
+
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: tags.map((t: any) => ({
+            items: allTags.map((t: any) => ({
               id: t.id,
               name: t.name,
               slug: t.slug,
@@ -130,7 +199,7 @@ export default defineMcpTools(({ tool, services }) => {
               color: t.color,
               archivedAt: t.archivedAt,
             })),
-            total: tags.length,
+            total: allTags.length,
           }),
         }],
       };
@@ -153,15 +222,21 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const db = services.db;
+
       if (input.action === "create") {
-        const tag = await services.tags.create(actor.companyId, {
-          name: input.name!,
-          slug: input.slug!,
-          description: input.description ?? null,
-          color: input.color ?? null,
-        });
+        const [created] = await db
+          .insert(tags)
+          .values({
+            companyId: actor.companyId,
+            name: input.name!,
+            slug: input.slug!,
+            description: input.description ?? null,
+            color: input.color ?? null,
+          })
+          .returning();
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ id: tag.id, name: tag.name, slug: tag.slug }) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ id: created.id, name: created.name, slug: created.slug }) }],
         };
       }
 
@@ -172,14 +247,26 @@ export default defineMcpTools(({ tool, services }) => {
             isError: true,
           };
         }
-        const tag = await services.tags.update(actor.companyId, input.tagId, {
-          name: input.name,
-          slug: input.slug,
-          description: input.description,
-          color: input.color,
-        });
+        const updates: Record<string, unknown> = { updatedAt: new Date() };
+        if (input.name !== undefined) updates.name = input.name;
+        if (input.slug !== undefined) updates.slug = input.slug;
+        if (input.description !== undefined) updates.description = input.description;
+        if (input.color !== undefined) updates.color = input.color;
+
+        const [updated] = await db
+          .update(tags)
+          .set(updates)
+          .where(and(eq(tags.id, input.tagId), eq(tags.companyId, actor.companyId)))
+          .returning();
+
+        if (!updated) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: "Tag not found" }) }],
+            isError: true,
+          };
+        }
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ id: tag.id, name: tag.name, slug: tag.slug }) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ id: updated.id, name: updated.name, slug: updated.slug }) }],
         };
       }
 
@@ -190,7 +277,18 @@ export default defineMcpTools(({ tool, services }) => {
             isError: true,
           };
         }
-        await services.tags.archive(actor.companyId, input.tagId);
+        const [archived] = await db
+          .update(tags)
+          .set({ archivedAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(tags.id, input.tagId), eq(tags.companyId, actor.companyId)))
+          .returning();
+
+        if (!archived) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: "Tag not found" }) }],
+            isError: true,
+          };
+        }
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ success: true, action: "archived" }) }],
         };

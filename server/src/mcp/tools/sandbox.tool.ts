@@ -12,6 +12,12 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({}),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ actor }) => {
+      if (!actor.userId) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: "Sandbox status is only available for user actors" }) }],
+          isError: true,
+        };
+      }
       const sandbox = await services.sandboxManager.getMySandbox(actor.userId, actor.companyId);
       if (!sandbox) {
         return {
