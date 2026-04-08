@@ -114,4 +114,127 @@ export default defineMcpTools(({ tool, services }) => {
       };
     },
   });
+
+  tool("update_issue", {
+    permissions: [PERMISSIONS.ISSUES_EDIT],
+    description:
+      "[Issues] Update an existing issue's properties.\n" +
+      "Use to change status, priority, assignee, or description.\n" +
+      "Setting status to 'in_progress' requires an assignee.",
+    input: z.object({
+      issueId: z.string().uuid().describe("The issue ID to update"),
+      title: z.string().min(1).optional().describe("New title"),
+      description: z.string().optional().describe("New description (markdown)"),
+      status: z.string().optional().describe("New status: backlog, todo, in_progress, in_review, blocked, done, cancelled"),
+      priority: z.string().optional().describe("New priority: critical, high, medium, low"),
+      projectId: z.string().uuid().nullable().optional().describe("Move to project (null to unassign)"),
+      assigneeAgentId: z.string().uuid().nullable().optional().describe("Assign to agent (null to unassign)"),
+      assigneeUserId: z.string().uuid().nullable().optional().describe("Assign to user (null to unassign)"),
+      labelIds: z.array(z.string().uuid()).optional().describe("Replace label IDs"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      const { issueId, ...data } = input;
+      const existing = await services.issues.getById(issueId);
+      if (!existing || existing.companyId !== actor.companyId) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: "Issue not found" }) }],
+          isError: true,
+        };
+      }
+      const updated = await services.issues.update(issueId, data);
+      if (!updated) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: "Update failed" }) }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            id: updated.id,
+            identifier: updated.identifier,
+            title: updated.title,
+            status: updated.status,
+            priority: updated.priority,
+          }),
+        }],
+      };
+    },
+  });
+
+  tool("delete_issue", {
+    permissions: [PERMISSIONS.ISSUES_DELETE],
+    description:
+      "[Issues] Permanently delete an issue and its comments/attachments.\n" +
+      "Use with caution — this cannot be undone.\n" +
+      "Cost events linked to this issue will have their issueId cleared.",
+    input: z.object({
+      issueId: z.string().uuid().describe("The issue ID to delete"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      const existing = await services.issues.getById(input.issueId);
+      if (!existing || existing.companyId !== actor.companyId) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: "Issue not found" }) }],
+          isError: true,
+        };
+      }
+      const removed = await services.issues.remove(input.issueId);
+      if (!removed) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: "Delete failed" }) }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ id: removed.id, identifier: removed.identifier, deleted: true }),
+        }],
+      };
+    },
+  });
+
+  tool("search_issues", {
+    permissions: [PERMISSIONS.ISSUES_READ],
+    description:
+      "[Issues] Full-text search across issues (title, identifier, description, comments).\n" +
+      "Returns matching issues ranked by relevance.\n" +
+      "Combine with status/project filters to narrow results.",
+    input: z.object({
+      q: z.string().min(1).describe("Search query"),
+      projectId: z.string().uuid().optional().describe("Limit search to a project"),
+      status: z.string().optional().describe("Filter by status (comma-separated)"),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      const items = await services.issues.list(actor.companyId, {
+        q: input.q,
+        projectId: input.projectId,
+        status: input.status,
+      });
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            items: items.map((i: any) => ({
+              id: i.id,
+              identifier: i.identifier,
+              title: i.title,
+              status: i.status,
+              priority: i.priority,
+              assigneeAgentId: i.assigneeAgentId,
+              assigneeUserId: i.assigneeUserId,
+              projectId: i.projectId,
+            })),
+            total: items.length,
+            query: input.q,
+          }),
+        }],
+      };
+    },
+  });
 });
