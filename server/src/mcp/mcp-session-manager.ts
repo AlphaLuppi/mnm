@@ -5,6 +5,7 @@ interface McpSession {
   transport: StreamableHTTPServerTransport;
   sessionId: string;
   actorType: "user" | "agent";
+  actorId: string;
   lastActivity: number;
   createdAt: number;
 }
@@ -40,6 +41,7 @@ export class McpSessionManager {
     sessionId: string,
     transport: StreamableHTTPServerTransport,
     actorType: "user" | "agent",
+    actorId: string,
   ): boolean {
     if (this.sessions.size >= this.maxSessions) {
       logger.warn(
@@ -54,6 +56,7 @@ export class McpSessionManager {
       transport,
       sessionId,
       actorType,
+      actorId,
       lastActivity: now,
       createdAt: now,
     });

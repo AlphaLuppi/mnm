@@ -36,7 +36,7 @@ export interface RefreshToken {
 
 // ── Store ───────────────────────────────────────────────────────────────────
 
-const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CODE_TTL_MS = 60 * 1000; // 60 seconds
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export class OAuthStore {

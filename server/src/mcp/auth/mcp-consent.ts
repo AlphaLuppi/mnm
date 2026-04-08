@@ -11,6 +11,7 @@ export interface ConsentPageParams {
   codeChallenge: string;
   codeChallengeMethod: string;
   resource?: string;
+  csrfToken: string;
 }
 
 const SCOPE_INFO: Record<string, { label: string; description: string; defaultChecked: boolean; warning?: string }> = {
@@ -97,6 +98,7 @@ export function renderConsentPage(params: ConsentPageParams): string {
       <input type="hidden" name="code_challenge_method" value="${escapeHtml(params.codeChallengeMethod)}" />
       ${params.state ? `<input type="hidden" name="state" value="${escapeHtml(params.state)}" />` : ""}
       ${params.resource ? `<input type="hidden" name="resource" value="${escapeHtml(params.resource)}" />` : ""}
+      <input type="hidden" name="csrf_token" value="${escapeHtml(params.csrfToken)}" />
       <input type="hidden" name="consent" value="approve" />
 
       <div class="scopes">

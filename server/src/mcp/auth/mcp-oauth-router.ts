@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from "express";
-import { createHmac, createHash, randomUUID } from "node:crypto";
+import { createHmac, createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Db } from "@mnm/db";
 import { companyMemberships } from "@mnm/db";
 import { eq, and } from "drizzle-orm";
 import { OAuthStore } from "./oauth-store.js";
 import { renderConsentPage } from "./mcp-consent.js";
 import type { BetterAuthSessionResult } from "../../auth/better-auth.js";
+import { getMcpJwtSecret } from "./mcp-auth-config.js";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -13,16 +14,6 @@ export interface McpOAuthRouterDeps {
   db: Db;
   resolveSession: (req: Request) => Promise<BetterAuthSessionResult | null>;
   getPublicUrl: () => string;
-}
-
-// ── JWT helpers ─────────────────────────────────────────────────────────────
-
-function getMcpJwtSecret(): string {
-  const secret = process.env.MNM_MCP_JWT_SECRET;
-  if (secret) return secret;
-  const deploymentMode = process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted";
-  if (deploymentMode === "local_trusted") return "mnm-mcp-dev-secret";
-  throw new Error("MNM_MCP_JWT_SECRET is required in non-local deployments");
 }
 
 function base64UrlEncode(value: string): string {
@@ -41,7 +32,10 @@ function signAccessToken(claims: Record<string, unknown>): string {
 
 function verifyPkceS256(codeVerifier: string, codeChallenge: string): boolean {
   const computed = createHash("sha256").update(codeVerifier).digest("base64url");
-  return computed === codeChallenge;
+  const a = Buffer.from(computed);
+  const b = Buffer.from(codeChallenge);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 // ── Resolve user's companyId ────────────────────────────────────────────────
@@ -65,14 +59,43 @@ async function getUserCompanyId(db: Db, userId: string): Promise<string | null> 
 
 const store = new OAuthStore();
 
-// Periodic cleanup every 15 minutes
-setInterval(() => store.cleanup(), 15 * 60 * 1000).unref();
+// ── CSRF token store ───────────────────────────────────────────────────────
+
+const CSRF_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const csrfTokens = new Map<string, number>(); // token → expiresAt
+
+function createCsrfToken(): string {
+  const token = randomUUID();
+  csrfTokens.set(token, Date.now() + CSRF_TTL_MS);
+  return token;
+}
+
+function consumeCsrfToken(token: string): boolean {
+  const expiresAt = csrfTokens.get(token);
+  if (expiresAt == null) return false;
+  csrfTokens.delete(token);
+  return Date.now() <= expiresAt;
+}
 
 // ── Router ──────────────────────────────────────────────────────────────────
+
+let cleanupStarted = false;
 
 export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
   const router = Router();
   const { db, resolveSession, getPublicUrl } = deps;
+
+  // Periodic cleanup every 15 minutes (started once)
+  if (!cleanupStarted) {
+    cleanupStarted = true;
+    setInterval(() => {
+      store.cleanup();
+      const now = Date.now();
+      for (const [token, expiresAt] of csrfTokens) {
+        if (now > expiresAt) csrfTokens.delete(token);
+      }
+    }, 15 * 60 * 1000).unref();
+  }
 
   // ── 1. Protected Resource Metadata (RFC 9728) ────────────────────────
 
@@ -114,6 +137,19 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     if (uris.length === 0) {
       res.status(400).json({ error: "invalid_client_metadata", error_description: "redirect_uris is required" });
       return;
+    }
+
+    for (const uri of uris) {
+      try {
+        const parsed = new URL(uri);
+        if (!["https:", "http:"].includes(parsed.protocol)) {
+          res.status(400).json({ error: "invalid_client_metadata", error_description: "redirect_uris must use https: or http: scheme" });
+          return;
+        }
+      } catch {
+        res.status(400).json({ error: "invalid_client_metadata", error_description: "Invalid redirect_uri format" });
+        return;
+      }
     }
 
     const grants: string[] = Array.isArray(grant_types)
@@ -177,6 +213,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     // User is logged in — render consent screen
     const requestedScopes = scope ? scope.split(" ").filter(Boolean) : ["mcp:read", "mcp:write"];
+    const csrfToken = createCsrfToken();
 
     const html = renderConsentPage({
       clientName: client.clientName,
@@ -187,6 +224,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       codeChallenge: code_challenge,
       codeChallengeMethod: code_challenge_method ?? "S256",
       resource,
+      csrfToken,
     });
 
     res.type("html").send(html);
@@ -203,7 +241,14 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       consent,
       scopes: rawScopes,
       resource,
+      csrf_token,
     } = req.body ?? {};
+
+    // Validate CSRF token
+    if (!csrf_token || !consumeCsrfToken(csrf_token)) {
+      res.status(403).json({ error: "invalid_request", error_description: "Invalid or expired CSRF token" });
+      return;
+    }
 
     if (consent !== "approve") {
       const redirectTarget = redirect_uri
@@ -230,6 +275,11 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     const client = store.getClient(client_id);
     if (!client) {
       res.status(400).json({ error: "invalid_client" });
+      return;
+    }
+
+    if (!client.redirectUris.includes(redirect_uri)) {
+      res.status(400).json({ error: "invalid_request", error_description: "redirect_uri not registered" });
       return;
     }
 
