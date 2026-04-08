@@ -282,17 +282,35 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
 
   // GIT CREDENTIALS: inject per-host tokens for workspace repos
+  // Injects tokens as GIT_TOKEN_<HOST> env vars and configures a git credential helper
+  // via GIT_CONFIG_COUNT/KEY/VALUE that reads from those env vars.
   if (input.gitProviders && input.gitProviders.length > 0 && workspaceHints.length > 0) {
+    const tokensByHost = new Map<string, string>();
+
     for (const hint of workspaceHints) {
       const repoUrl = hint.repoUrl;
       if (!repoUrl) continue;
       const parsed = parseRepoUrl(repoUrl as string);
-      if (!parsed) continue;
+      if (!parsed || tokensByHost.has(parsed.host)) continue;
       const matchingProvider = input.gitProviders.find((gp) => gp.host === parsed.host);
       if (matchingProvider?.token) {
-        const envKey = `GIT_TOKEN_${sanitizeEnvKey(parsed.host)}`;
-        env[envKey] = matchingProvider.token;
+        tokensByHost.set(parsed.host, matchingProvider.token);
       }
+    }
+
+    if (tokensByHost.size > 0) {
+      for (const [host, token] of tokensByHost) {
+        env[`GIT_TOKEN_${sanitizeEnvKey(host)}`] = token;
+      }
+      // Build a credential helper shell function that maps hosts to their token env vars.
+      // Git calls `credential.helper get` with host info on stdin and expects username/password on stdout.
+      const cases = [...tokensByHost.keys()]
+        .map((host) => `*${host}*) echo "username=x-access-token"; echo "password=$GIT_TOKEN_${sanitizeEnvKey(host)}";;`)
+        .join(" ");
+      env.GIT_CONFIG_COUNT = "1";
+      env.GIT_CONFIG_KEY_0 = "credential.helper";
+      env.GIT_CONFIG_VALUE_0 = `!f() { host=$(cat); case "$host" in ${cases} esac; }; f`;
+      env.GIT_TERMINAL_PROMPT = "0";
     }
   }
 
