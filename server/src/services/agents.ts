@@ -374,7 +374,7 @@ export function agentService(db: Db) {
 
     create: async (
       companyId: string,
-      data: Omit<typeof agents.$inferInsert, "companyId"> & { tagIds?: string[] },
+      data: Omit<typeof agents.$inferInsert, "companyId"> & { tagIds?: string[]; permissionSlugs?: string[] },
     ) => {
       if (data.reportsTo) {
         await ensureManager(companyId, data.reportsTo);
@@ -386,8 +386,8 @@ export function agentService(db: Db) {
         .where(eq(agents.companyId, companyId));
       const uniqueName = deduplicateAgentName(data.name, existingAgents);
 
-      // Extract tagIds before inserting (not a DB column)
-      const { tagIds, ...insertData } = data;
+      // Extract tagIds and permissionSlugs before inserting (not DB columns)
+      const { tagIds, permissionSlugs, ...insertData } = data;
       const normalizedPermissions = normalizeAgentPermissions(insertData.permissions);
       const created = await db
         .insert(agents)
@@ -406,6 +406,24 @@ export function agentService(db: Db) {
             assignedBy: created.createdByUserId ?? "system",
           })),
         ).onConflictDoNothing();
+      }
+
+      // AGENT-PERMS: Assign direct permissions to the newly created agent
+      if (permissionSlugs && permissionSlugs.length > 0) {
+        const permRows = await db
+          .select({ id: permissions.id })
+          .from(permissions)
+          .where(
+            and(
+              eq(permissions.companyId, companyId),
+              inArray(permissions.slug, permissionSlugs),
+            ),
+          );
+        if (permRows.length > 0) {
+          await db.insert(agentPermissions).values(
+            permRows.map((p) => ({ agentId: created.id, permissionId: p.id })),
+          );
+        }
       }
 
       return normalizeAgentRow(created);
