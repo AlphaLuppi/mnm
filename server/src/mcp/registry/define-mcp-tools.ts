@@ -1,7 +1,9 @@
 import type { z } from "zod";
+import type { Db } from "@mnm/db";
 import type { PermissionSlug } from "@mnm/shared";
 import { MCP_ERROR_CODES, type McpErrorCode } from "@mnm/shared";
 import type { McpToolDefinition, McpToolResult, McpActor, McpServices } from "./types.js";
+import { auditService } from "../../services/audit.js";
 import { logger } from "../../middleware/logger.js";
 
 const TOOL_TIMEOUT_MS = 30_000;
@@ -18,12 +20,12 @@ interface ToolConfig {
   handler: (ctx: { input: any; actor: McpActor }) => Promise<McpToolResult>;
 }
 
-interface ToolRegistrar {
+export interface ToolRegistrar {
   services: McpServices;
   tool: (name: string, config: ToolConfig) => void;
 }
 
-type ToolDefiner = (registrar: ToolRegistrar) => void;
+export type ToolDefiner = (registrar: ToolRegistrar) => void;
 
 function mcpError(
   error: string,
@@ -43,13 +45,15 @@ export function defineMcpTools(definer: ToolDefiner) {
 
 /**
  * Collects tool definitions from a definer function, wrapping each handler
- * with permission re-check, error handling, and timeout.
+ * with permission re-check, audit logging, error handling, and timeout.
  */
 export function collectTools(
   definer: ToolDefiner,
   services: McpServices,
+  db: Db,
 ): McpToolDefinition[] {
   const tools: McpToolDefinition[] = [];
+  const audit = auditService(db);
 
   const registrar: ToolRegistrar = {
     services,
@@ -61,6 +65,17 @@ export function collectTools(
         // Defense in depth: re-check permissions at execution time
         for (const perm of config.permissions) {
           if (!actor.effectivePermissions.has(perm)) {
+            // Fire-and-forget audit for permission denial
+            audit.emit({
+              companyId: actor.companyId,
+              actorId: actor.userId ?? actor.agentId ?? "unknown",
+              actorType: actor.type,
+              action: "mcp.tool.permission_denied",
+              targetType: "mcp_tool",
+              targetId: name,
+              metadata: { missingPermission: perm, mcpSessionId: actor.mcpSessionId },
+              severity: "warning",
+            }).catch(() => {});
             return mcpError(
               `Missing permission: ${perm}`,
               MCP_ERROR_CODES.PERMISSION_DENIED,
@@ -77,7 +92,22 @@ export function collectTools(
               setTimeout(() => reject(new Error("Tool execution timed out")), TOOL_TIMEOUT_MS),
             ),
           ]);
-          logger.debug({ tool: name, durationMs: Date.now() - start, actorType: actor.type }, "mcp.tool.ok");
+
+          const durationMs = Date.now() - start;
+          logger.debug({ tool: name, durationMs, actorType: actor.type }, "mcp.tool.ok");
+
+          // Fire-and-forget audit for successful tool call
+          audit.emit({
+            companyId: actor.companyId,
+            actorId: actor.userId ?? actor.agentId ?? "unknown",
+            actorType: actor.type,
+            action: "mcp.tool.called",
+            targetType: "mcp_tool",
+            targetId: name,
+            metadata: { durationMs, mcpSessionId: actor.mcpSessionId, isError: result.isError ?? false },
+            severity: "info",
+          }).catch(() => {});
+
           return result;
         } catch (err: any) {
           const durationMs = Date.now() - start;
@@ -87,6 +117,9 @@ export function collectTools(
             return mcpError("Tool execution timed out", MCP_ERROR_CODES.TIMEOUT, true);
           }
 
+          if (err?.statusCode === 403) {
+            return mcpError(err.message ?? "Permission denied", MCP_ERROR_CODES.PERMISSION_DENIED, false);
+          }
           if (err?.statusCode === 404) {
             return mcpError(err.message ?? "Not found", MCP_ERROR_CODES.NOT_FOUND, false);
           }

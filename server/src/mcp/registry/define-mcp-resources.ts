@@ -9,12 +9,12 @@ interface ResourceConfig {
   handler: (ctx: { uri: string; params: Record<string, string>; actor: McpActor }) => Promise<McpResourceResult>;
 }
 
-interface ResourceRegistrar {
+export interface ResourceRegistrar {
   services: McpServices;
   template: (uriTemplate: string, config: ResourceConfig) => void;
 }
 
-type ResourceDefiner = (registrar: ResourceRegistrar) => void;
+export type ResourceDefiner = (registrar: ResourceRegistrar) => void;
 
 export function defineMcpResources(definer: ResourceDefiner) {
   return definer;
