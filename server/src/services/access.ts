@@ -199,10 +199,21 @@ export function accessService(db: Db) {
     permissionKey: string,
   ): Promise<boolean> {
     const role = await resolveRole(companyId, principalType, principalId);
-    if (!role) return false;
+    if (role) {
+      return role.permissionSlugs.has(permissionKey);
+    }
 
-    // Check the permission exists in the role (+ inherited)
-    return role.permissionSlugs.has(permissionKey);
+    // Agents without a company membership can still have direct agent_permissions
+    if (principalType === "agent") {
+      const directPerms = await db
+        .select({ slug: permissions.slug })
+        .from(agentPermissions)
+        .innerJoin(permissions, eq(permissions.id, agentPermissions.permissionId))
+        .where(eq(agentPermissions.agentId, principalId));
+      return directPerms.some((p) => p.slug === permissionKey);
+    }
+
+    return false;
   }
 
   /**
