@@ -81,6 +81,11 @@ if (typeof (window as any).__dismissMnmLoader === "function") {
   (window as any).__dismissMnmLoader();
 }
 
+// Mark the app as successfully mounted so the Tauri early-error handler
+// in index.html can step aside. We set this flag BEFORE rendering so the
+// 8s watchdog doesn't fire even if the first React render is slow.
+(window as unknown as { __mnmMounted?: boolean }).__mnmMounted = true;
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TauriErrorBoundary>

@@ -24,7 +24,8 @@
         "center": true,
         "backgroundColor": "#1c1917",
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "devtools": true
       }
     ],
     "security": {
