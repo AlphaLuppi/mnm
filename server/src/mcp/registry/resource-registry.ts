@@ -54,6 +54,11 @@ export class ResourceRegistry {
     return null;
   }
 
+  /** Match a URI against registered templates (exposed for mcp/index.ts). */
+  matchUri(template: string, uri: string): Record<string, string> | null {
+    return matchUriTemplate(template, uri);
+  }
+
   get allResources(): McpResourceDefinition[] {
     return this.resources;
   }
