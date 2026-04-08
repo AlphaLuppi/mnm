@@ -8,7 +8,7 @@ import { tracesApi } from "../api/traces";
 import type { TracePhase, TraceObservation } from "../api/traces";
 import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
 import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
-import { ApiError } from "../api/client";
+import { ApiError, api } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
@@ -65,6 +65,8 @@ import {
   Check,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@mnm/shared";
 import { agentRouteRef } from "../lib/utils";
@@ -403,12 +405,13 @@ export function AgentDetail() {
   });
 
   const updatePermissions = useMutation({
-    mutationFn: (canCreateAgents: boolean) =>
-      agentsApi.updatePermissions(agentLookupRef, { canCreateAgents }, resolvedCompanyId ?? undefined),
+    mutationFn: (data: { canCreateAgents?: boolean; permissionSlugs?: string[] }) =>
+      agentsApi.updatePermissions(agentLookupRef, data, resolvedCompanyId ?? undefined),
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: ["agent-direct-permissions", agentLookupRef] });
       if (resolvedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
       }
@@ -1124,7 +1127,7 @@ function AgentConfigurePage({
   onSaveActionChange: (save: (() => void) | null) => void;
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
-  updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
+  updatePermissions: { mutate: (data: { canCreateAgents?: boolean; permissionSlugs?: string[] }) => void; isPending: boolean };
 }) {
   const queryClient = useQueryClient();
   const [revisionsOpen, setRevisionsOpen] = useState(false);
@@ -1230,8 +1233,10 @@ function ConfigurationTab({
   onSaveActionChange: (save: (() => void) | null) => void;
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
-  updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
+  updatePermissions: { mutate: (data: { canCreateAgents?: boolean; permissionSlugs?: string[] }) => void; isPending: boolean };
 }) {
+  type PermissionItem = { id: string; slug: string; description: string; category: string };
+
   const queryClient = useQueryClient();
 
   const { data: adapterModels } = useQuery({
@@ -1254,6 +1259,58 @@ function ConfigurationTab({
     queryFn: () => tagsApi.listForAgent(companyId!, agent.id),
     enabled: Boolean(companyId),
   });
+
+  const { data: allPermissions } = useQuery({
+    queryKey: ["permissions", companyId],
+    queryFn: () => api.get<PermissionItem[]>(`/companies/${companyId}/permissions`),
+    enabled: Boolean(companyId),
+  });
+
+  const { data: directPermsData } = useQuery({
+    queryKey: ["agent-direct-permissions", agent.id],
+    queryFn: () => agentsApi.getDirectPermissions(agent.id, companyId),
+    enabled: Boolean(companyId),
+  });
+
+  const permsByCategory = (allPermissions ?? []).reduce<Record<string, PermissionItem[]>>((acc, p) => {
+    (acc[p.category] ??= []).push(p);
+    return acc;
+  }, {});
+
+  const [selectedPerms, setSelectedPerms] = useState<Set<string> | null>(null);
+  const [expandedPermCategories, setExpandedPermCategories] = useState<Set<string>>(new Set());
+
+  // Initialize selectedPerms from fetched direct permissions
+  const resolvedPerms = selectedPerms ?? new Set(directPermsData?.permissionSlugs ?? []);
+
+  function togglePerm(slug: string) {
+    const next = new Set(resolvedPerms);
+    if (next.has(slug)) next.delete(slug);
+    else next.add(slug);
+    setSelectedPerms(next);
+    updatePermissions.mutate({ permissionSlugs: [...next] });
+  }
+
+  function togglePermCategory(category: string) {
+    setExpandedPermCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }
+
+  function toggleAllInPermCategory(category: string) {
+    const catPerms = permsByCategory[category] ?? [];
+    const allSelected = catPerms.every((p) => resolvedPerms.has(p.slug));
+    const next = new Set(resolvedPerms);
+    for (const p of catPerms) {
+      if (allSelected) next.delete(p.slug);
+      else next.add(p.slug);
+    }
+    setSelectedPerms(next);
+    updatePermissions.mutate({ permissionSlugs: [...next] });
+  }
 
   const [tagsOpen, setTagsOpen] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[] | null>(null);
@@ -1364,22 +1421,50 @@ function ConfigurationTab({
       </div>
 
       <div>
-        <h3 className="text-sm font-medium mb-3">Permissions</h3>
-        <div className="border border-border rounded-lg p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span>Can create new agents</span>
-            <Button
-              variant={agent.permissions?.canCreateAgents ? "default" : "outline"}
-              size="sm"
-              className="h-7 px-2.5 text-xs"
-              onClick={() =>
-                updatePermissions.mutate(!Boolean(agent.permissions?.canCreateAgents))
-              }
-              disabled={updatePermissions.isPending}
-            >
-              {agent.permissions?.canCreateAgents ? "Enabled" : "Disabled"}
-            </Button>
-          </div>
+        <h3 className="text-sm font-medium mb-3">Permissions ({resolvedPerms.size} selected)</h3>
+        <div className="border border-border rounded-lg max-h-[320px] overflow-y-auto">
+          {Object.entries(permsByCategory).map(([category, perms]) => (
+            <div key={category} className="border-b border-border last:border-b-0">
+              <button
+                type="button"
+                className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/30"
+                onClick={() => togglePermCategory(category)}
+              >
+                <span className="flex items-center gap-1.5">
+                  {expandedPermCategories.has(category) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {category}
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                    {perms.filter((p) => resolvedPerms.has(p.slug)).length}/{perms.length}
+                  </Badge>
+                </span>
+                <button
+                  type="button"
+                  className="text-[10px] text-primary hover:underline"
+                  onClick={(e) => { e.stopPropagation(); toggleAllInPermCategory(category); }}
+                >
+                  {perms.every((p) => resolvedPerms.has(p.slug)) ? "Deselect all" : "Select all"}
+                </button>
+              </button>
+              {expandedPermCategories.has(category) && (
+                <div className="px-3 pb-2 space-y-1">
+                  {perms.map((p) => (
+                    <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
+                      <Checkbox
+                        checked={resolvedPerms.has(p.slug)}
+                        onCheckedChange={() => togglePerm(p.slug)}
+                        disabled={updatePermissions.isPending}
+                      />
+                      <code className="text-[11px]">{p.slug}</code>
+                      <span className="text-muted-foreground truncate">{p.description}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {Object.keys(permsByCategory).length === 0 && (
+            <p className="text-xs text-muted-foreground p-3">No permissions available.</p>
+          )}
         </div>
       </div>
     </div>

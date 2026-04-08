@@ -918,6 +918,23 @@ export function agentRoutes(db: Db) {
     res.status(201).json(agent);
   });
 
+  router.get("/agents/:id/direct-permissions", async (req, res) => {
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    if (!(await assertAgentTagVisible(req, id, existing.companyId))) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const slugs = await svc.getDirectPermissions(id);
+    res.json({ permissionSlugs: slugs });
+  });
+
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -938,8 +955,6 @@ export function agentRoutes(db: Db) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      // TODO [PERM-01]: Check permission grants instead of role
-      // For now, allow all agents with manage_permissions access
       const hasPermGrant = await access.hasPermission(existing.companyId, "agent", actorAgent.id, "users:manage_permissions");
       if (!hasPermGrant) {
         res.status(403).json({ error: "Missing permission: users:manage_permissions" });
@@ -952,6 +967,9 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+
+    // Invalidate permission cache for this agent
+    access.invalidateRoleCache(agent.companyId, id);
 
     const actor = getActorInfo(req);
     await logActivity(db, {
