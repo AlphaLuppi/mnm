@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -26,6 +27,7 @@ export interface McpRouterDeps {
 const sessionManager = new McpSessionManager();
 const toolRegistry = new ToolRegistry();
 const resourceRegistry = new ResourceRegistry();
+let registriesPopulated = false;
 
 /** Convert token-verifier McpActor to registry McpActor. */
 function toRegistryActor(raw: any, mcpSessionId: string): McpActor {
@@ -44,12 +46,15 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
   const { db, services, resolveSession, getPublicUrl } = deps;
   const router = Router();
 
-  // ── Collect all tools and resources ──────────────────────────────────────
-  for (const definer of allToolDefiners) {
-    toolRegistry.register(collectTools(definer, services, db));
-  }
-  for (const definer of allResourceDefiners) {
-    resourceRegistry.register(collectResources(definer, services));
+  // ── Collect all tools and resources (once only) ──────────────────────────
+  if (!registriesPopulated) {
+    for (const definer of allToolDefiners) {
+      toolRegistry.register(collectTools(definer, services, db));
+    }
+    for (const definer of allResourceDefiners) {
+      resourceRegistry.register(collectResources(definer, services));
+    }
+    registriesPopulated = true;
   }
 
   logger.info(
@@ -102,14 +107,10 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
     // Create new MCP server + transport for this session
     try {
       const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined, // Let the SDK generate session IDs
+        sessionIdGenerator: () => randomUUID(),
       });
 
-      const mcpSessionId = transport.sessionId;
-      if (!mcpSessionId) {
-        res.status(500).json({ error: "Failed to generate session ID" });
-        return;
-      }
+      const mcpSessionId = transport.sessionId!;
 
       const actor = toRegistryActor(rawActor, mcpSessionId);
 
@@ -121,12 +122,27 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       // Register tools filtered by actor permissions
       const actorTools = toolRegistry.listForActor(actor);
       for (const tool of actorTools) {
+        // MCP SDK accepts Zod shapes as paramsSchema
+        const zodShape = (tool.input as any)?._def?.shape?.() ?? {};
         mcpServer.tool(
           tool.name,
           tool.description,
-          {},
+          zodShape,
           async (params: any) => {
-            const result = await tool.handler({ input: params, actor });
+            // Validate input against Zod schema
+            const parsed = tool.input.safeParse(params);
+            if (!parsed.success) {
+              return {
+                content: [{ type: "text" as const, text: JSON.stringify({
+                  error: "Validation error",
+                  code: "VALIDATION_ERROR",
+                  retryable: false,
+                  details: parsed.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
+                }) }],
+                isError: true,
+              };
+            }
+            const result = await tool.handler({ input: parsed.data, actor });
             return { ...result } as any;
           },
         );
@@ -152,12 +168,13 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
         );
       }
 
-      await mcpServer.connect(transport);
-
+      // Check session capacity BEFORE connecting to avoid resource leaks
       if (!sessionManager.createSession(mcpSessionId, transport, actor.type)) {
         res.status(503).json({ error: "Too many active sessions" });
         return;
       }
+
+      await mcpServer.connect(transport);
 
       logger.info(
         { mcpSessionId, actorType: actor.type, tools: actorTools.length },
