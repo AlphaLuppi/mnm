@@ -19,6 +19,25 @@
 
 ---
 
+## Phase 2 — All Tools & Resources
+
+| Step | Status | Description |
+|------|--------|-------------|
+| Build (4 agents) | ✅ Done | 68 tools + 10 resources across 14 domains |
+| Review+Fix | ✅ Done | 4 bugs fixed: services wiring, admin/roles, invite stub, sandbox guard |
+| Final QA | ✅ Done | Typecheck 0 errors, 68 tools + 10 resources verified |
+
+### Phase 2 Commits
+| Commit | Description |
+|--------|-------------|
+| `124bc9b` | feat(mcp): config-layers, workflows, traces tools + resources |
+| `4417894` | feat(mcp): sandbox, users, admin, a2a tools |
+| `69cb54a` | feat(mcp): chat, documents, folders, artifacts tools + resources |
+| `8c910fd` | feat(mcp): complete agents, issues, projects tools + agents, nodes resources |
+| `1e83601` | fix(mcp): review fixes — services wiring, admin/roles, invite stub, sandbox guard |
+
+---
+
 ## Implementation Tasks (Plan Tasks 1-18)
 
 | # | Task | Status | Commit |
