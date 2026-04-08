@@ -4,6 +4,7 @@ import { BrowserRouter } from "@/lib/router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { TauriPreviewGate } from "./components/TauriPreviewGate";
+import { TauriErrorBoundary } from "./components/TauriErrorBoundary";
 import { CompanyProvider } from "./context/CompanyContext";
 import { LiveUpdatesProvider } from "./context/LiveUpdatesProvider";
 import { BreadcrumbProvider } from "./context/BreadcrumbContext";
@@ -51,9 +52,18 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 // --- Service worker registration ---
-if ("serviceWorker" in navigator) {
+// Skip in Tauri: the custom `tauri://` protocol does not support service
+// workers, and navigator.serviceWorker.register("/sw.js") throws a
+// DOMException ("The string did not match the expected pattern") that
+// crashes the React mount before any error boundary can handle it.
+const isTauriRuntime =
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+if ("serviceWorker" in navigator && !isTauriRuntime) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js");
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Silently ignore SW registration failures in edge browsers
+    });
   });
 }
 
@@ -73,8 +83,9 @@ if (typeof (window as any).__dismissMnmLoader === "function") {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <TauriPreviewGate>
-      <QueryClientProvider client={queryClient}>
+    <TauriErrorBoundary>
+      <TauriPreviewGate>
+        <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <CompanyProvider>
             <ToastProvider>
@@ -97,8 +108,9 @@ createRoot(document.getElementById("root")!).render(
               </LiveUpdatesProvider>
             </ToastProvider>
           </CompanyProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </TauriPreviewGate>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </TauriPreviewGate>
+    </TauriErrorBoundary>
   </StrictMode>
 );
