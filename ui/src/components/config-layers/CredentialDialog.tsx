@@ -36,28 +36,41 @@ export function CredentialDialog({
   itemName,
   companyId,
   mode = "env",
+  envVarName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   itemId: string;
   itemName: string;
   companyId: string;
-  mode?: "env" | "pat";
+  mode?: "env" | "pat" | "credential";
+  envVarName?: string;
 }) {
   const queryClient = useQueryClient();
   const [envText, setEnvText] = useState("");
   const [patValue, setPatValue] = useState("");
+  const [secretValue, setSecretValue] = useState("");
 
   // Reset form state when switching between items
   useEffect(() => {
     setEnvText("");
     setPatValue("");
+    setSecretValue("");
   }, [itemId]);
 
   const storeMutation = useMutation({
     mutationFn: () => {
       if (mode === "pat") {
         return configLayersApi.storePat(companyId, itemId, patValue.trim());
+      }
+      if (mode === "credential") {
+        const env: Record<string, string> = {};
+        if (envVarName) {
+          env[envVarName] = secretValue;
+        } else {
+          env[itemName.replace(/[^a-zA-Z0-9_]/g, "_").toUpperCase()] = secretValue;
+        }
+        return configLayersApi.storeApiKey(companyId, itemId, { env });
       }
       const env = parseEnvText(envText);
       return configLayersApi.storeApiKey(companyId, itemId, { env });
@@ -68,13 +81,19 @@ export function CredentialDialog({
       });
       setEnvText("");
       setPatValue("");
+      setSecretValue("");
       onOpenChange(false);
     },
   });
 
   const parsed = parseEnvText(envText);
   const keyCount = Object.keys(parsed).length;
-  const canSubmit = mode === "pat" ? patValue.trim().length > 0 : keyCount > 0;
+  const canSubmit =
+    mode === "pat"
+      ? patValue.trim().length > 0
+      : mode === "credential"
+        ? secretValue.length > 0
+        : keyCount > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,7 +103,9 @@ export function CredentialDialog({
             <KeyRound className="h-4 w-4" />
             {mode === "pat"
               ? `Access token — ${itemName}`
-              : `Secret credentials — ${itemName}`}
+              : mode === "credential"
+                ? `Secret value — ${itemName}`
+                : `Secret credentials — ${itemName}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -102,6 +123,24 @@ export function CredentialDialog({
                   value={patValue}
                   onChange={(e) => setPatValue(e.target.value)}
                   placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  autoFocus
+                />
+              </div>
+            </>
+          ) : mode === "credential" ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                This value is stored encrypted (AES-256-GCM) and injected at
+                runtime{envVarName ? ` as ${envVarName}` : ""}.
+              </p>
+              <div className="space-y-1.5">
+                <Label>Secret value</Label>
+                <Textarea
+                  value={secretValue}
+                  onChange={(e) => setSecretValue(e.target.value)}
+                  placeholder="Paste your secret key, token, or credential here…"
+                  rows={5}
+                  className="font-mono text-sm"
                   autoFocus
                 />
               </div>
@@ -150,7 +189,9 @@ export function CredentialDialog({
               ? "Encrypting…"
               : mode === "pat"
                 ? "Store token"
-                : `Store ${keyCount} secret${keyCount !== 1 ? "s" : ""}`}
+                : mode === "credential"
+                  ? "Store secret"
+                  : `Store ${keyCount} secret${keyCount !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
