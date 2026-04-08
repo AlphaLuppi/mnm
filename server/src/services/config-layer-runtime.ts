@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
-import type { ResolvedGitProvider } from "@mnm/shared";
+import type { ResolvedGitProvider, ResolvedCredential } from "@mnm/shared";
 import { logger } from "../middleware/logger.js";
 import { credentialService } from "./credential.js";
 
@@ -42,6 +42,7 @@ export interface ResolvedConfig {
   hooks: ResolvedHook[];
   settings: Record<string, unknown>;
   gitProviders: ResolvedGitProvider[];
+  credentials: ResolvedCredential[];
   warnings: string[];
 }
 
@@ -195,7 +196,7 @@ export function configLayerRuntimeService(db: Db) {
     } catch (err) {
       logger.error({ err, companyId, agentId }, "[config-layer-runtime] merge query failed");
       warnings.push("Config layer merge query failed — running with empty config");
-      return { mcpServers: [], skills: [], hooks: [], settings: {}, gitProviders: [], warnings };
+      return { mcpServers: [], skills: [], hooks: [], settings: {}, gitProviders: [], credentials: [], warnings };
     }
 
     // ── 2. Load files for skill items ────────────────────────────────────────
@@ -238,10 +239,12 @@ export function configLayerRuntimeService(db: Db) {
     const hooks: ResolvedHook[] = [];
     const settings: Record<string, unknown> = {};
     const gitProviders: ResolvedGitProvider[] = [];
+    const credentials: ResolvedCredential[] = [];
 
     // Maps keyed by row.id for safe credential injection (avoids fragile parallel index)
     const mcpServersByItemId = new Map<string, ResolvedMcpServer>();
     const gitProvidersByItemId = new Map<string, ResolvedGitProvider>();
+    const credentialsByItemId = new Map<string, ResolvedCredential>();
 
     for (const row of mergedRows) {
       const cfg = row.config_json ?? {};
@@ -305,6 +308,16 @@ export function configLayerRuntimeService(db: Db) {
           break;
         }
 
+        case "credential": {
+          const cred: ResolvedCredential = {
+            name: row.name,
+            credentialType: (cfg.credentialType as string) ?? "custom",
+          };
+          credentials.push(cred);
+          credentialsByItemId.set(row.id, cred);
+          break;
+        }
+
         default:
           warnings.push(`Unknown item_type "${row.item_type}" for item "${row.name}" — skipped`);
       }
@@ -314,7 +327,7 @@ export function configLayerRuntimeService(db: Db) {
     // MCP: credential material.env/headers merged into server config
     // git_provider: credential material.token injected into ResolvedGitProvider
 
-    const CREDENTIALED_ITEM_TYPES = ["mcp", "git_provider"];
+    const CREDENTIALED_ITEM_TYPES = ["mcp", "git_provider", "credential"];
     const credentialedItemIds = mergedRows
       .filter((r) => CREDENTIALED_ITEM_TYPES.includes(r.item_type))
       .map((r) => r.id);
@@ -363,6 +376,16 @@ export function configLayerRuntimeService(db: Db) {
           gp.token = material.token;
         }
       }
+
+      // Inject env vars into standalone credential items
+      for (const [itemId, material] of credByItemId) {
+        const cred = credentialsByItemId.get(itemId);
+        if (!cred) continue;
+
+        if (material.env && typeof material.env === "object") {
+          cred.env = material.env as Record<string, string>;
+        }
+      }
     }
 
     logger.debug(
@@ -375,11 +398,12 @@ export function configLayerRuntimeService(db: Db) {
         hookCount: hooks.length,
         settingCount: Object.keys(settings).length,
         gitProviderCount: gitProviders.length,
+        credentialCount: credentials.length,
       },
       "[config-layer-runtime] config resolved",
     );
 
-    return { mcpServers, skills, hooks, settings, gitProviders, warnings };
+    return { mcpServers, skills, hooks, settings, gitProviders, credentials, warnings };
   }
 
   // ─── File generators ──────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { HookItemEditor } from "./HookItemEditor";
 import { SkillItemEditor } from "./SkillItemEditor";
 import { SettingItemEditor } from "./SettingItemEditor";
 import { GitProviderItemEditor } from "./GitProviderItemEditor";
+import { CredentialItemEditor } from "./CredentialItemEditor";
 import { OAuthConnectButton } from "./OAuthConnectButton";
 import { CredentialDialog } from "./CredentialDialog";
 import { GitProviderIcon } from "../GitProviderIcon";
@@ -58,12 +59,17 @@ function ItemEditor({
       return (
         <GitProviderItemEditor item={item} onSave={onSave} onCancel={onCancel} />
       );
+    case "credential":
+      return (
+        <CredentialItemEditor item={item} onSave={onSave} onCancel={onCancel} />
+      );
   }
 }
 
 const ITEM_TYPE_LABELS: Record<ConfigLayerItemType, string> = {
   mcp: "MCP Server",
   git_provider: "Git Provider",
+  credential: "Credential",
   hook: "Hook",
   skill: "Skill",
   setting: "Setting",
@@ -112,10 +118,11 @@ export function LayerItemList({
 
   const filtered = items.filter((it) => it.itemType === itemType);
 
-  // Load credentials for credentialed items (MCP + git_provider)
+  // Load credentials for credentialed items (MCP + git_provider + credential)
   const isMcp = itemType === "mcp";
   const isGitProvider = itemType === "git_provider";
-  const needsCredentials = isMcp || isGitProvider;
+  const isCredential = itemType === "credential";
+  const needsCredentials = isMcp || isGitProvider || isCredential;
   const { data: credentials } = useQuery({
     queryKey: queryKeys.configLayers.credentials(companyId!),
     queryFn: () => configLayersApi.listCredentials(companyId!),
@@ -310,7 +317,7 @@ export function LayerItemList({
                       onClick={() => {
                         setApiKeyItemId(it.id);
                         setApiKeyItemName(it.displayName ?? it.name);
-                        setApiKeyMode(isGitProvider ? "pat" : "env");
+                        setApiKeyMode(isGitProvider && !isCredential ? "pat" : "env");
                       }}
                     >
                       <KeyRound className="h-3 w-3 mr-1" />

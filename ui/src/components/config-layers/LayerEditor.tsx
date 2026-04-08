@@ -14,6 +14,7 @@ type Tab = ConfigLayerItemType;
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "mcp", label: "MCP Servers" },
   { id: "git_provider", label: "Git Providers" },
+  { id: "credential", label: "Credentials" },
   { id: "skill", label: "Skills" },
   { id: "hook", label: "Hooks" },
   { id: "setting", label: "Settings" },
