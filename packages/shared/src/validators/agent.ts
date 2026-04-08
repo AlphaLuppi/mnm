@@ -38,6 +38,8 @@ export const createAgentSchema = z.object({
   scopedToWorkspaceId: z.string().uuid().optional().nullable(),
   // AGENT-01: Tags for visibility (at least 1 recommended, enforced by UI)
   tagIds: z.array(z.string().uuid()).optional(),
+  // AGENT-PERMS: Direct permission grants at creation time
+  permissionSlugs: z.array(z.string().min(1)).optional(),
 });
 
 export type CreateAgent = z.infer<typeof createAgentSchema>;
