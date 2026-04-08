@@ -8,7 +8,7 @@ import { tracesApi } from "../api/traces";
 import type { TracePhase, TraceObservation } from "../api/traces";
 import { GoldVerdictBanner } from "../components/traces/GoldVerdictBanner";
 import { GoldPhaseCard } from "../components/traces/GoldPhaseCard";
-import { ApiError } from "../api/client";
+import { ApiError, api } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
@@ -32,6 +32,8 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { formatCents, formatDate, relativeTime, formatTokens } from "../lib/utils";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
@@ -403,8 +405,8 @@ export function AgentDetail() {
   });
 
   const updatePermissions = useMutation({
-    mutationFn: (canCreateAgents: boolean) =>
-      agentsApi.updatePermissions(agentLookupRef, { canCreateAgents }, resolvedCompanyId ?? undefined),
+    mutationFn: (data: { canCreateAgents: boolean; permissionSlugs: string[] }) =>
+      agentsApi.updatePermissions(agentLookupRef, data, resolvedCompanyId ?? undefined),
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
@@ -1124,7 +1126,7 @@ function AgentConfigurePage({
   onSaveActionChange: (save: (() => void) | null) => void;
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
-  updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
+  updatePermissions: { mutate: (data: { canCreateAgents: boolean; permissionSlugs: string[] }) => void; isPending: boolean };
 }) {
   const queryClient = useQueryClient();
   const [revisionsOpen, setRevisionsOpen] = useState(false);
@@ -1230,7 +1232,7 @@ function ConfigurationTab({
   onSaveActionChange: (save: (() => void) | null) => void;
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
-  updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
+  updatePermissions: { mutate: (data: { canCreateAgents: boolean; permissionSlugs: string[] }) => void; isPending: boolean };
 }) {
   const queryClient = useQueryClient();
 
@@ -1363,24 +1365,155 @@ function ConfigurationTab({
         </div>
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium mb-3">Permissions</h3>
-        <div className="border border-border rounded-lg p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span>Can create new agents</span>
-            <Button
-              variant={agent.permissions?.canCreateAgents ? "default" : "outline"}
-              size="sm"
-              className="h-7 px-2.5 text-xs"
-              onClick={() =>
-                updatePermissions.mutate(!Boolean(agent.permissions?.canCreateAgents))
-              }
-              disabled={updatePermissions.isPending}
-            >
-              {agent.permissions?.canCreateAgents ? "Enabled" : "Disabled"}
-            </Button>
+      <AgentPermissionsSection
+        agent={agent}
+        companyId={companyId}
+        updatePermissions={updatePermissions}
+      />
+    </div>
+  );
+}
+
+type Permission = { id: string; slug: string; description: string; category: string };
+
+function AgentPermissionsSection({
+  agent,
+  companyId,
+  updatePermissions,
+}: {
+  agent: Agent;
+  companyId?: string;
+  updatePermissions: { mutate: (data: { canCreateAgents: boolean; permissionSlugs: string[] }) => void; isPending: boolean };
+}) {
+  const { data: allPermissions } = useQuery({
+    queryKey: ["permissions", companyId],
+    queryFn: () => api.get<Permission[]>(`/companies/${companyId}/permissions`),
+    enabled: !!companyId,
+  });
+
+  const permsByCategory = (allPermissions ?? []).reduce<Record<string, Permission[]>>((acc, p) => {
+    (acc[p.category] ??= []).push(p);
+    return acc;
+  }, {});
+
+  const [canCreateAgents, setCanCreateAgents] = useState(Boolean(agent.permissions?.canCreateAgents));
+  const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(
+    new Set(agent.permissions?.permissionSlugs ?? []),
+  );
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  // Sync from agent prop changes
+  useEffect(() => {
+    setCanCreateAgents(Boolean(agent.permissions?.canCreateAgents));
+    setSelectedSlugs(new Set(agent.permissions?.permissionSlugs ?? []));
+  }, [agent.permissions]);
+
+  function toggleSlug(slug: string) {
+    setSelectedSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }
+
+  function toggleCategory(category: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }
+
+  function toggleAllInCategory(category: string) {
+    const catPerms = permsByCategory[category] ?? [];
+    const allSelected = catPerms.every((p) => selectedSlugs.has(p.slug));
+    setSelectedSlugs((prev) => {
+      const next = new Set(prev);
+      for (const p of catPerms) {
+        if (allSelected) next.delete(p.slug);
+        else next.add(p.slug);
+      }
+      return next;
+    });
+  }
+
+  function handleSave() {
+    updatePermissions.mutate({ canCreateAgents, permissionSlugs: [...selectedSlugs] });
+  }
+
+  const isDirty =
+    canCreateAgents !== Boolean(agent.permissions?.canCreateAgents) ||
+    JSON.stringify([...selectedSlugs].sort()) !==
+      JSON.stringify([...(agent.permissions?.permissionSlugs ?? [])].sort());
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium">Permissions</h3>
+        {isDirty && (
+          <Button size="sm" className="h-7 px-2.5 text-xs" onClick={handleSave} disabled={updatePermissions.isPending}>
+            {updatePermissions.isPending ? "Saving..." : "Save"}
+          </Button>
+        )}
+      </div>
+      <div className="border border-border rounded-lg divide-y divide-border">
+        {/* canCreateAgents toggle */}
+        <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent/20">
+          <Checkbox
+            checked={canCreateAgents}
+            onCheckedChange={(v) => setCanCreateAgents(Boolean(v))}
+          />
+          <div>
+            <p className="text-sm">Can create new agents</p>
+            <p className="text-xs text-muted-foreground">Allows this agent to provision new agents via the API</p>
           </div>
-        </div>
+        </label>
+
+        {/* Granular permission slugs */}
+        {Object.entries(permsByCategory).map(([category, perms]) => (
+          <div key={category}>
+            <button
+              type="button"
+              className="flex items-center justify-between w-full px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent/30"
+              onClick={() => toggleCategory(category)}
+            >
+              <span className="flex items-center gap-1.5">
+                {expandedCategories.has(category) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                {category}
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                  {perms.filter((p) => selectedSlugs.has(p.slug)).length}/{perms.length}
+                </Badge>
+              </span>
+              <button
+                type="button"
+                className="text-[10px] text-primary hover:underline"
+                onClick={(e) => { e.stopPropagation(); toggleAllInCategory(category); }}
+              >
+                {perms.every((p) => selectedSlugs.has(p.slug)) ? "Deselect all" : "Select all"}
+              </button>
+            </button>
+            {expandedCategories.has(category) && (
+              <div className="px-4 pb-3 space-y-1.5">
+                {perms.map((p) => (
+                  <label key={p.slug} className="flex items-center gap-2 text-xs cursor-pointer hover:text-foreground">
+                    <Checkbox
+                      checked={selectedSlugs.has(p.slug)}
+                      onCheckedChange={() => toggleSlug(p.slug)}
+                    />
+                    <code className="text-[11px]">{p.slug}</code>
+                    <span className="text-muted-foreground truncate">{p.description}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {Object.keys(permsByCategory).length === 0 && (
+          <p className="text-xs text-muted-foreground px-4 py-3">No permissions available.</p>
+        )}
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 export type NormalizedAgentPermissions = Record<string, unknown> & {
   canCreateAgents: boolean;
+  permissionSlugs: string[];
 };
 
 export function defaultAgentPermissions(): NormalizedAgentPermissions {
   return {
     canCreateAgents: false,
+    permissionSlugs: [],
   };
 }
 
@@ -22,5 +24,10 @@ export function normalizeAgentPermissions(
       typeof record.canCreateAgents === "boolean"
         ? record.canCreateAgents
         : defaults.canCreateAgents,
+    permissionSlugs:
+      Array.isArray(record.permissionSlugs) &&
+      record.permissionSlugs.every((s) => typeof s === "string")
+        ? (record.permissionSlugs as string[])
+        : defaults.permissionSlugs,
   };
 }
