@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#292524"/>
+      <stop offset="55%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS squircle -->
+  <path d="M 0,512 C 0,128 128,0 512,0 C 896,0 1024,128 1024,512 C 1024,896 896,1024 512,1024 C 128,1024 0,896 0,512 Z" fill="url(#bg)"/>
+  <path d="M 0,512 C 0,128 128,0 512,0 C 896,0 1024,128 1024,512 L 1024,520 C 1024,140 900,16 512,16 C 124,16 0,140 0,520 Z" fill="url(#rim)"/>
+  <path d="M 12,512 C 12,134 134,12 512,12 C 890,12 1012,134 1012,512 C 1012,890 890,1012 512,1012 C 134,1012 12,890 12,512 Z" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.08"/>
+
+  <!-- ASCII art "M o M" — same chars as ui/index.html loader -->
+  <!-- font-size 38 → ~22px per char × 32 chars = ~700px wide → fits with ~160px padding each side -->
+  <g font-family="'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace"
+     font-size="44"
+     font-weight="700"
+     fill="#a8a29e"
+     text-anchor="middle"
+     xml:space="preserve">
+    <text x="512" y="386">███╗   ███╗  █████╗  ███╗   ███╗</text>
+    <text x="512" y="430">████╗ ████║ ██╔══██╗ ████╗ ████║</text>
+    <text x="512" y="474">██╔████╔██║ ██║  ██║ ██╔████╔██║</text>
+    <text x="512" y="518">██║╚██╔╝██║ ██║  ██║ ██║╚██╔╝██║</text>
+    <text x="512" y="562">██║ ╚═╝ ██║ ██║  ██║ ██║ ╚═╝ ██║</text>
+    <text x="512" y="606">╚═╝     ╚═╝ ╚═╝  ╚═╝ ╚═╝     ╚═╝</text>
+  </g>
+
+  <!-- Subtitle "Make no Mistake" — small caps, monospace -->
+  <text x="512" y="700"
+        font-family="'SF Mono', 'Menlo', 'Monaco', monospace"
+        font-size="36"
+        font-weight="500"
+        fill="#78716c"
+        text-anchor="middle"
+        letter-spacing="6">MAKE  NO  MISTAKE</text>
+</svg>

@@ -1,0 +1,27 @@
+[package]
+name = "mnm-desktop"
+version = "0.1.0"
+description = "MnM Desktop — Native cockpit for AI agent supervision"
+authors = ["MnM Team"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "mnm_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# specta / tauri-specta are pinned to exact RC versions because pre-1.0 RCs
+# introduce breaking changes between releases. Re-pin together when upgrading.
+specta = "=2.0.0-rc.22"
+specta-typescript = "=0.0.9"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

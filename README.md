@@ -54,6 +54,20 @@ L'ambition : chaque role de l'entreprise a ses agents, ses workflows, ses outils
 
 ---
 
+## Desktop App (Sprint 1)
+
+MnM is now available as a **native desktop application** for macOS (Windows and Linux follow). The desktop shell is built with [Tauri 2](https://tauri.app/) and reuses 100% of the web app's React interface.
+
+**Quick start:**
+```bash
+bun run dev:desktop        # Launch dev mode (Vite + Tauri window)
+bun run build:desktop      # Create unsigned DMG
+```
+
+See [`apps/desktop/README.md`](./apps/desktop/README.md) for full setup, architecture, known limitations, and security roadmap. **Status:** POC (proof-of-concept). Code signing and backend connectivity come in Sprint 2.
+
+---
+
 ## Stack technique
 
 ```
