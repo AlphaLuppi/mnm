@@ -877,6 +877,10 @@ export {
   MCP_SCOPES, ALL_MCP_SCOPES, permissionsForScopes,
   type PermissionSlug, type PermissionCategory, type PermissionMeta, type McpScope,
 } from "./contracts/permissions.js";
+export {
+  MCP_ERROR_CODES,
+  type McpErrorCode, type McpErrorPayload,
+} from "./contracts/mcp-errors.js";
 
 // REMOVED: rbac-presets.ts and role-hierarchy.ts — replaced by dynamic roles in DB
 
