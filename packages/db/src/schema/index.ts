@@ -70,6 +70,8 @@ export { artifactDeployments } from "./artifact_deployments.js";
 export { permissions } from "./permissions.js";
 export { roles } from "./roles.js";
 export { rolePermissions } from "./role_permissions.js";
+// AGENT-PERMS: Direct per-agent permission grants
+export { agentPermissions } from "./agent_permissions.js";
 export { tags } from "./tags.js";
 export { tagAssignments } from "./tag_assignments.js";
 // CONFIG-LAYERS: Config layers system

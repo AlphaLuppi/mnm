@@ -96,7 +96,8 @@ export const testAdapterEnvironmentSchema = z.object({
 export type TestAdapterEnvironment = z.infer<typeof testAdapterEnvironmentSchema>;
 
 export const updateAgentPermissionsSchema = z.object({
-  canCreateAgents: z.boolean(),
+  canCreateAgents: z.boolean().optional(),
+  permissionSlugs: z.array(z.string().min(1)).optional(),
 });
 
 export type UpdateAgentPermissions = z.infer<typeof updateAgentPermissionsSchema>;
