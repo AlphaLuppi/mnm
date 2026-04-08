@@ -5,6 +5,7 @@ import type {
   CONFIG_LAYER_SOURCE_TYPES,
   CREDENTIAL_PROVIDERS,
   CREDENTIAL_STATUSES,
+  CREDENTIAL_TYPES,
 } from "../validators/config-layer.js";
 
 // ─── Scalar type aliases ──────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number];
 // Backward-compat aliases
 export type McpCredentialProvider = CredentialProvider;
 export type McpCredentialStatus = CredentialStatus;
+export type CredentialType = (typeof CREDENTIAL_TYPES)[number];
 
 // ─── Core entity interfaces ───────────────────────────────────────────────────
 
@@ -156,4 +158,13 @@ export interface ResolvedGitProvider {
   host: string;
   providerType: string;
   token?: string; // decrypte au runtime, JAMAIS persiste
+}
+
+// ─── Resolved Credential ─────────────────────────────────────────────────────
+
+export interface ResolvedCredential {
+  name: string;
+  credentialType: string;
+  /** Env var name → decrypted value, injected at runtime */
+  env?: Record<string, string>;
 }

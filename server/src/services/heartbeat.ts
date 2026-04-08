@@ -1350,6 +1350,7 @@ export function heartbeatService(db: Db) {
       // CONFIG-LAYERS: resolve merged config from layers
       let mergedConfig: Record<string, unknown>;
       let resolvedGitProviders: import("@mnm/shared").ResolvedGitProvider[] = [];
+      let resolvedCredentials: import("@mnm/shared").ResolvedCredential[] = [];
       {
         const clRuntime = configLayerRuntimeService(db);
         const layerConfig = await clRuntime.resolveConfigForRun(
@@ -1366,6 +1367,8 @@ export function heartbeatService(db: Db) {
           : baseConfig;
         // Extract resolved git providers (with decrypted tokens)
         resolvedGitProviders = layerConfig.gitProviders ?? [];
+        // Extract resolved standalone credentials (with decrypted env vars)
+        resolvedCredentials = layerConfig.credentials ?? [];
         for (const warning of layerConfig.warnings) {
           await onLog("stderr", `[mnm] config-layer warning: ${warning}\n`);
         }
@@ -1446,6 +1449,7 @@ export function heartbeatService(db: Db) {
         dockerContainerId,
         claudeOauthToken,
         gitProviders: resolvedGitProviders,
+        credentials: resolvedCredentials,
       });
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,

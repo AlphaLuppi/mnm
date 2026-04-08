@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import {
+  agents,
   authUsers,
   companyMemberships,
   instanceUserRoles,
@@ -13,6 +14,7 @@ import {
   agentPermissions,
 } from "@mnm/db";
 import { isNull, gt } from "drizzle-orm";
+import { normalizeAgentPermissions } from "./agent-permissions.js";
 import type { PrincipalType } from "@mnm/shared";
 import { badRequest } from "../errors.js";
 import { logger } from "../middleware/logger.js";
@@ -198,6 +200,19 @@ export function accessService(db: Db) {
     principalId: string,
     permissionKey: string,
   ): Promise<boolean> {
+    // For agents: also check direct permissionSlugs stored on the agent record
+    if (principalType === "agent") {
+      const agentRow = await db
+        .select({ permissions: agents.permissions })
+        .from(agents)
+        .where(and(eq(agents.id, principalId), eq(agents.companyId, companyId)))
+        .then((rows) => rows[0] ?? null);
+      if (agentRow) {
+        const normalized = normalizeAgentPermissions(agentRow.permissions);
+        if (normalized.permissionSlugs.includes(permissionKey)) return true;
+      }
+    }
+
     const role = await resolveRole(companyId, principalType, principalId);
     if (role) {
       return role.permissionSlugs.has(permissionKey);

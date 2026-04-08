@@ -137,6 +137,7 @@ interface ClaudeExecutionInput {
   dockerContainerId?: string;
   claudeOauthToken?: string;
   gitProviders?: Array<{ host: string; token?: string }>;
+  credentials?: Array<{ name: string; env?: Record<string, string> }>;
 }
 
 interface ClaudeRuntimeConfig {
@@ -314,6 +315,17 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     }
   }
 
+  // CREDENTIAL SECRETS: inject env vars from standalone credential items
+  if (input.credentials && input.credentials.length > 0) {
+    for (const cred of input.credentials) {
+      if (cred.env && typeof cred.env === "object") {
+        for (const [key, value] of Object.entries(cred.env)) {
+          env[key] = value;
+        }
+      }
+    }
+  }
+
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   if (!isDocker) {
     await ensureCommandResolvable(command, cwd, runtimeEnv);
@@ -378,7 +390,7 @@ export async function runClaudeLogin(input: {
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId, claudeOauthToken, gitProviders } = ctx;
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken, dockerContainerId, claudeOauthToken, gitProviders, credentials } = ctx;
 
   const defaultPromptTemplate = `You are agent {{agent.name}} (id: {{agent.id}}) on the MnM platform.
 {{#if context.issueTitle}}
@@ -414,6 +426,7 @@ Continue your MnM work. Check for assigned issues and tasks.
     dockerContainerId,
     claudeOauthToken,
     gitProviders,
+    credentials,
   });
   const {
     command,

@@ -327,6 +327,8 @@ export type {
   CredentialStatus,
   UserCredential,
   ResolvedGitProvider,
+  ResolvedCredential,
+  CredentialType,
   // Backward-compat
   McpCredentialProvider,
   McpCredentialStatus,
@@ -415,6 +417,7 @@ export {
   HOOK_EVENTS,
   HOOK_TYPES,
   SETTING_KEYS,
+  CREDENTIAL_TYPES,
 } from "./validators/index.js";
 
 export {
@@ -677,6 +680,8 @@ export {
   settingItemConfigSchema,
   gitProviderItemConfigSchema,
   type GitProviderItemConfig,
+  credentialItemConfigSchema,
+  type CredentialItemConfig,
   createConfigLayerSchema,
   updateConfigLayerSchema,
   createConfigLayerItemSchema,
