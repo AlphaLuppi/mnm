@@ -27,6 +27,22 @@
 | Review+Fix | ✅ Done | 4 bugs fixed: services wiring, admin/roles, invite stub, sandbox guard |
 | Final QA | ✅ Done | Typecheck 0 errors, 68 tools + 10 resources verified |
 
+---
+
+## Phase 3 — Hardening & Production Readiness
+
+| Task | Status | Commit | Description |
+|------|--------|--------|-------------|
+| H1 | ✅ Done | `28e31ca` | OAuth store → PostgreSQL (migration 0063) |
+| H2 | ✅ Done | `c247d02` | Cursor pagination on all list_* tools (default 25, max 100) |
+| H3 | ✅ Done | `2edc134` | `aud` claim validation on OAuth tokens |
+| H4 | ✅ Done | `551f762` | SSE legacy transport (`/mcp/sse`) |
+| H5 | ✅ Done | `37c2e9e` | Rate limiting on OAuth/MCP endpoints |
+| H6 | ✅ Done | `2edc134` | Client secret verification at token endpoint |
+| H7 | ✅ Done | `37c2e9e` | Event loop monitoring + DB semaphore (15 concurrent) |
+| H8 | ✅ Done | `664f08c` | invite_user service extraction + MCP tool wired |
+| Review | ✅ Done | — | QA 9/9 checklist PASS |
+
 ### Phase 2 Commits
 | Commit | Description |
 |--------|-------------|
