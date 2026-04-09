@@ -49,22 +49,38 @@ export default defineMcpTools(({ tool, services }) => {
     permissions: [PERMISSIONS.USERS_INVITE],
     description:
       "[Users] Invite a new user to the company by email.\n" +
-      "Not yet available via MCP — use the web UI to send invitations.\n" +
-      "Returns an error explaining the limitation.",
+      "Creates a company invite and returns the invite ID and token.\n" +
+      "Optionally assign a role at invite time.",
     input: z.object({
       email: z.string().email().describe("Email address of the user to invite"),
       roleId: z.string().uuid().optional().describe("Role ID to assign (uses default role if omitted)"),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    handler: async () => {
+    handler: async ({ input, actor }) => {
+      const defaultsPayload: Record<string, unknown> = {};
+      if (input.roleId) {
+        defaultsPayload.roleId = input.roleId;
+      }
+
+      const { token, created } = await services.invite.create({
+        companyId: actor.companyId,
+        allowedJoinTypes: "human",
+        defaultsPayload: Object.keys(defaultsPayload).length > 0 ? defaultsPayload : null,
+        targetEmail: input.email,
+        invitedByUserId: actor.userId ?? null,
+      });
+
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            error: "User invitations are not yet available via MCP. Use the web UI to invite users.",
+            inviteId: created.id,
+            token,
+            email: input.email,
+            expiresAt: created.expiresAt.toISOString(),
+            inviteUrl: `/invite/${token}`,
           }),
         }],
-        isError: true,
       };
     },
   });
