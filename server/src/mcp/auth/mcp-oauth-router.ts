@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import express, { Router, type Request, type Response } from "express";
 import { createHmac, createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Db } from "@mnm/db";
 import { companyMemberships } from "@mnm/db";
@@ -235,8 +235,8 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     res.type("html").send(html);
   });
 
-  // Consent form submission
-  router.post("/oauth/authorize", oauthAuthorizePostLimiter, async (req: Request, res: Response) => {
+  // Consent form submission (HTML form sends application/x-www-form-urlencoded)
+  router.post("/oauth/authorize", express.urlencoded({ extended: false }), oauthAuthorizePostLimiter, async (req: Request, res: Response) => {
     const {
       client_id,
       redirect_uri,
