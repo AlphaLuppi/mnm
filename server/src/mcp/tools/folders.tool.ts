@@ -1,29 +1,36 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_folders", {
     permissions: [PERMISSIONS.FOLDERS_READ],
     description:
       "[Folders] List folders visible to the current user.\n" +
-      "Visibility is derived from ownership, shares, and tag overlap.",
+      "Returns cursor-paginated results. Visibility is derived from ownership, shares, and tag overlap.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
-      limit: z.number().optional().describe("Max results (default 50)"),
-      offset: z.number().optional().describe("Offset for pagination"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const result = await services.folders.list(
         actor.companyId,
         actor.userId!,
-        { limit: input.limit, offset: input.offset },
+        { limit: limit + 1, offset },
       );
+      const items = result.folders;
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: result.folders.map((f: any) => ({
+            items: page.map((f: any) => ({
               id: f.id,
               name: f.name,
               description: f.description,
@@ -32,7 +39,9 @@ export default defineMcpTools(({ tool, services }) => {
               createdAt: f.createdAt,
               updatedAt: f.updatedAt,
             })),
-            total: result.total,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

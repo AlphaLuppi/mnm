@@ -1,34 +1,41 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_channels", {
     permissions: [PERMISSIONS.CHAT_READ],
     description:
       "[Chat] List chat channels with optional filters by status, agent, or project.\n" +
-      "Returns channels ordered by most recent activity.",
+      "Returns cursor-paginated channels ordered by most recent activity.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       status: z.string().optional().describe("Filter by status: open, closed"),
       agentId: z.string().uuid().optional().describe("Filter by agent ID"),
       projectId: z.string().uuid().optional().describe("Filter by project ID"),
-      limit: z.number().optional().describe("Max results (default 50)"),
-      offset: z.number().optional().describe("Offset for pagination"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const result = await services.chat.listChannels(actor.companyId, {
         status: input.status,
         agentId: input.agentId,
         projectId: input.projectId,
-        limit: input.limit,
-        offset: input.offset,
+        limit: limit + 1,
+        offset,
       });
+      const items = result.channels;
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: result.channels.map((c: any) => ({
+            items: page.map((c: any) => ({
               id: c.id,
               name: c.name,
               status: c.status,
@@ -38,7 +45,9 @@ export default defineMcpTools(({ tool, services }) => {
               lastMessageAt: c.lastMessageAt,
               createdAt: c.createdAt,
             })),
-            total: result.total,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

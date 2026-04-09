@@ -1,29 +1,38 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_config_layers", {
     permissions: [PERMISSIONS.CONFIG_LAYERS_READ],
     description:
       "[Config Layers] List all config layers for the company.\n" +
-      "Returns non-base, non-archived layers by default with item counts and attached agents.\n" +
-      "Use scope filter to narrow results (private, shared, company).",
+      "Returns cursor-paginated, non-base, non-archived layers by default with item counts and attached agents.\n" +
+      "Use scope filter to narrow results (private, shared, company).\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       scope: z.string().optional().describe("Filter by scope: private, shared, company"),
       includeArchived: z.boolean().optional().describe("Include archived layers (default false)"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const items = await services.configLayers.listLayers(actor.companyId, {
         scope: input.scope,
         includeArchived: input.includeArchived,
       });
+      const slice = items.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: items.map((l: any) => ({
+            items: page.map((l: any) => ({
               id: l.id,
               name: l.name,
               description: l.description,
@@ -36,7 +45,9 @@ export default defineMcpTools(({ tool, services }) => {
               createdByUserName: l.createdByUserName,
               createdAt: l.createdAt,
             })),
-            total: items.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

@@ -1,39 +1,45 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_a2a_messages", {
     permissions: [PERMISSIONS.AGENTS_READ],
     description:
       "[A2A] List agent-to-agent messages with optional filters.\n" +
-      "Returns messages ordered by recency with sender, receiver, and status.\n" +
-      "Supports filtering by sender, receiver, message type, status, or chain.",
+      "Returns cursor-paginated messages ordered by recency with sender, receiver, and status.\n" +
+      "Supports filtering by sender, receiver, message type, status, or chain.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       senderId: z.string().uuid().optional().describe("Filter by sender agent ID"),
       receiverId: z.string().uuid().optional().describe("Filter by receiver agent ID"),
       messageType: z.string().optional().describe("Filter by type: request, response, notification, error"),
       status: z.string().optional().describe("Filter by status: pending, completed, expired, cancelled, error"),
       chainId: z.string().uuid().optional().describe("Filter by conversation chain ID"),
-      limit: z.number().optional().describe("Max results (default 50)"),
-      offset: z.number().optional().describe("Offset for pagination"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const messages = await services.a2aBus.getMessages(actor.companyId, {
         senderId: input.senderId,
         receiverId: input.receiverId,
         messageType: input.messageType,
         status: input.status,
         chainId: input.chainId,
-        limit: input.limit,
-        offset: input.offset,
+        limit: limit + 1,
+        offset,
       });
+      const hasMore = messages.length > limit;
+      const page = hasMore ? messages.slice(0, limit) : messages;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: messages.map((m: any) => ({
+            items: page.map((m: any) => ({
               id: m.id,
               chainId: m.chainId,
               senderId: m.senderId,
@@ -43,7 +49,9 @@ export default defineMcpTools(({ tool, services }) => {
               chainDepth: m.chainDepth,
               createdAt: m.createdAt,
             })),
-            total: messages.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

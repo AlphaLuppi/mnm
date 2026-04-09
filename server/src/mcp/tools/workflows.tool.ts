@@ -1,27 +1,37 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_workflows", {
     permissions: [PERMISSIONS.WORKFLOWS_READ],
     description:
       "[Workflows] List workflow templates and instances.\n" +
-      "Returns all workflow templates for the company, or instances filtered by status/project.",
+      "Returns cursor-paginated workflow templates for the company, or instances filtered by status/project.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       type: z.enum(["templates", "instances"]).describe("Whether to list templates or instances"),
       status: z.string().optional().describe("Filter instances by status (active, completed, failed, paused)"),
       projectId: z.string().uuid().optional().describe("Filter instances by project ID"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
+
       if (input.type === "templates") {
         const templates = await services.workflows.listTemplates(actor.companyId);
+        const slice = templates.slice(offset, offset + limit + 1);
+        const hasMore = slice.length > limit;
+        const page = hasMore ? slice.slice(0, limit) : slice;
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              items: templates.map((t: any) => ({
+              items: page.map((t: any) => ({
                 id: t.id,
                 name: t.name,
                 description: t.description,
@@ -30,7 +40,9 @@ export default defineMcpTools(({ tool, services }) => {
                 stages: t.stages,
                 createdAt: t.createdAt,
               })),
-              total: templates.length,
+              total: page.length,
+              hasMore,
+              nextCursor: hasMore ? encodeCursor(offset + limit) : null,
             }),
           }],
         };
@@ -40,11 +52,14 @@ export default defineMcpTools(({ tool, services }) => {
         status: input.status,
         projectId: input.projectId,
       });
+      const slice = instances.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: instances.map((i: any) => ({
+            items: page.map((i: any) => ({
               id: i.id,
               name: i.name,
               description: i.description,
@@ -55,7 +70,9 @@ export default defineMcpTools(({ tool, services }) => {
               currentStage: i.stages?.find((s: any) => s.status === "running")?.name ?? null,
               createdAt: i.createdAt,
             })),
-            total: instances.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };
