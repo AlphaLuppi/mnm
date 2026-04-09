@@ -8,6 +8,7 @@ import { accessService } from "../../services/access.js";
 import type { BetterAuthSessionResult } from "../../auth/better-auth.js";
 import { getMcpJwtSecret, MCP_TOKEN_AUDIENCE } from "./mcp-auth-config.js";
 import { createRateLimiter } from "../../middleware/rate-limit.js";
+import { auditService } from "../../services/audit.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
 
@@ -15,6 +16,7 @@ const oauthRegisterLimiter = createRateLimiter({ max: 5, windowMs: 60_000 });
 const oauthTokenLimiter = createRateLimiter({ max: 20, windowMs: 60_000 });
 const oauthAuthorizeGetLimiter = createRateLimiter({ max: 20, windowMs: 60_000 });
 const oauthAuthorizePostLimiter = createRateLimiter({ max: 10, windowMs: 60_000 });
+const oauthConsentDataLimiter = createRateLimiter({ max: 20, windowMs: 60_000 });
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,20 +67,28 @@ async function getUserCompanyId(db: Db, userId: string): Promise<string | null> 
 
 // ── CSRF token store ───────────────────────────────────────────────────────
 
-const CSRF_TTL_MS = 10 * 60 * 1000; // 10 minutes
-const csrfTokens = new Map<string, number>(); // token → expiresAt
+const CSRF_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-function createCsrfToken(): string {
+interface CsrfEntry {
+  expiresAt: number;
+  userId: string;
+  clientId: string;
+}
+const csrfTokens = new Map<string, CsrfEntry>();
+
+function createCsrfToken(userId: string, clientId: string): string {
   const token = randomUUID();
-  csrfTokens.set(token, Date.now() + CSRF_TTL_MS);
+  csrfTokens.set(token, { expiresAt: Date.now() + CSRF_TTL_MS, userId, clientId });
   return token;
 }
 
-function consumeCsrfToken(token: string): boolean {
-  const expiresAt = csrfTokens.get(token);
-  if (expiresAt == null) return false;
+function consumeCsrfToken(token: string, userId: string, clientId: string): boolean {
+  const entry = csrfTokens.get(token);
+  if (!entry) return false;
   csrfTokens.delete(token);
-  return Date.now() <= expiresAt;
+  if (Date.now() > entry.expiresAt) return false;
+  if (entry.userId !== userId || entry.clientId !== clientId) return false;
+  return true;
 }
 
 // ── Router ──────────────────────────────────────────────────────────────────
@@ -90,14 +100,21 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
   const { db, resolveSession, getPublicUrl } = deps;
   const store = new OAuthStore(db);
 
+  // ── Anti-clickjacking headers for all OAuth routes ─────────────────
+  router.use((req, res, next) => {
+    res.set("X-Frame-Options", "DENY");
+    res.set("Content-Security-Policy", "frame-ancestors 'none'");
+    next();
+  });
+
   // Periodic cleanup every 15 minutes (started once)
   if (!cleanupStarted) {
     cleanupStarted = true;
     setInterval(() => {
       void store.cleanup();
       const now = Date.now();
-      for (const [token, expiresAt] of csrfTokens) {
-        if (now > expiresAt) csrfTokens.delete(token);
+      for (const [token, entry] of csrfTokens) {
+        if (now > entry.expiresAt) csrfTokens.delete(token);
       }
     }, 15 * 60 * 1000).unref();
   }
@@ -147,6 +164,10 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     for (const uri of uris) {
       try {
         const parsed = new URL(uri);
+        if (parsed.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)) {
+          res.status(400).json({ error: "invalid_client_metadata", error_description: "http: redirect_uris allowed only for localhost" });
+          return;
+        }
         if (!["https:", "http:"].includes(parsed.protocol)) {
           res.status(400).json({ error: "invalid_client_metadata", error_description: "redirect_uris must use https: or http: scheme" });
           return;
@@ -163,6 +184,17 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     const client = await store.registerClient(client_name, uris, grants);
 
+    auditService(db).emit({
+      companyId: "system",
+      actorId: "anonymous",
+      actorType: "system",
+      action: "oauth.client.registered",
+      targetType: "oauth_client",
+      targetId: client.clientId,
+      metadata: { clientName: client.clientName, redirectUris: client.redirectUris },
+      severity: "info",
+    }).catch(() => {});
+
     res.status(201).json({
       client_id: client.clientId,
       client_secret: client.clientSecret,
@@ -175,7 +207,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
   // ── 4. Authorization Endpoint ────────────────────────────────────────
 
   // ── Consent data API (for React SPA consent page) ────────────────────
-  router.get("/oauth/consent-data", async (req: Request, res: Response) => {
+  router.get("/oauth/consent-data", oauthConsentDataLimiter, async (req: Request, res: Response) => {
     const client_id = req.query.client_id as string | undefined;
     if (!client_id) {
       res.status(400).json({ error: "invalid_request", error_description: "client_id is required" });
@@ -207,7 +239,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       }
     }
 
-    const csrfToken = createCsrfToken();
+    const csrfToken = createCsrfToken(userId, client_id);
 
     res.json({
       clientName: client.clientName,
@@ -286,21 +318,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       csrf_token,
     } = req.body ?? {};
 
-    // Validate CSRF token
-    if (!csrf_token || !consumeCsrfToken(csrf_token)) {
-      res.status(403).json({ error: "invalid_request", error_description: "Invalid or expired CSRF token" });
-      return;
-    }
-
-    if (consent !== "approve") {
-      const redirectTarget = redirect_uri
-        ? `${redirect_uri}?error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ""}`
-        : "/";
-      res.redirect(redirectTarget);
-      return;
-    }
-
-    // Verify session
+    // Verify session first
     const sessionResult = await resolveSession(req);
     if (!sessionResult?.user?.id) {
       res.status(401).json({ error: "login_required" });
@@ -308,12 +326,8 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     }
 
     const userId = sessionResult.user.id;
-    const companyId = await getUserCompanyId(db, userId);
-    if (!companyId) {
-      res.status(403).json({ error: "access_denied", error_description: "User has no active company membership" });
-      return;
-    }
 
+    // Validate client and redirect_uri BEFORE checking consent (prevents open redirect on deny)
     const client = await store.getClient(client_id);
     if (!client) {
       res.status(400).json({ error: "invalid_client" });
@@ -322,6 +336,24 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     if (!client.redirectUris.includes(redirect_uri)) {
       res.status(400).json({ error: "invalid_request", error_description: "redirect_uri not registered" });
+      return;
+    }
+
+    // Validate CSRF token (bound to session + client)
+    if (!csrf_token || !consumeCsrfToken(csrf_token, userId, client_id)) {
+      res.status(403).json({ error: "invalid_request", error_description: "Invalid or expired CSRF token" });
+      return;
+    }
+
+    if (consent !== "approve") {
+      const redirectTarget = `${redirect_uri}?error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ""}`;
+      res.redirect(redirectTarget);
+      return;
+    }
+
+    const companyId = await getUserCompanyId(db, userId);
+    if (!companyId) {
+      res.status(403).json({ error: "access_denied", error_description: "User has no active company membership" });
       return;
     }
 
