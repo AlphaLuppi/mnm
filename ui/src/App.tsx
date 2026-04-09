@@ -59,6 +59,7 @@ import { RoutineDetail } from "./pages/RoutineDetail";
 // Feedback dashboard
 import { FeedbackDashboard } from "./pages/FeedbackDashboard";
 import { AuthPage } from "./pages/Auth";
+import { OAuthConsentPage } from "./pages/OAuthConsent";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { RequirePermission } from "./components/RequirePermission";
@@ -299,6 +300,7 @@ export function App() {
     <>
       <Routes>
         <Route path="auth" element={<AuthPage />} />
+        <Route path="oauth-consent" element={<OAuthConsentPage />} />
         <Route path="board-claim/:token" element={<BoardClaimPage />} />
         <Route path="invite/:token" element={<InviteLandingPage />} />
 
