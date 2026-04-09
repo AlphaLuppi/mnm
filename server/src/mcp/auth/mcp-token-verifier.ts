@@ -87,9 +87,22 @@ export async function verifyMcpToken(
     if (!userId || !companyId) return null;
 
     const scopes = scopeStr.split(" ").filter(Boolean) as McpScope[];
-    const scopePermissions = permissionsForScopes(scopes);
 
-    // Intersect with user's actual role permissions
+    // Check for individual permissions from consent screen
+    const tokenPermissions = Array.isArray(claims.permissions) ? claims.permissions as string[] : null;
+
+    let scopePermissions: Set<PermissionSlug>;
+    if (tokenPermissions && tokenPermissions.length > 0) {
+      // Individual permissions from consent — use these instead of scope expansion
+      scopePermissions = new Set(
+        tokenPermissions.filter((p): p is PermissionSlug => true),
+      );
+    } else {
+      // Legacy: compute from scopes
+      scopePermissions = permissionsForScopes(scopes);
+    }
+
+    // Intersect with user's actual role permissions (defense in depth)
     const access = accessService(db);
     const userRole = await access.resolveRole(companyId, "user", userId);
     const userPermissions = userRole?.permissionSlugs ?? new Set<string>();

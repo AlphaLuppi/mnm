@@ -341,11 +341,30 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     // Validate CSRF token (bound to session + client)
     if (!csrf_token || !consumeCsrfToken(csrf_token, userId, client_id)) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: userId,
+        actorType: "system",
+        action: "oauth.csrf.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(403).json({ error: "invalid_request", error_description: "Invalid or expired CSRF token" });
       return;
     }
 
     if (consent !== "approve") {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: userId,
+        actorType: "user",
+        action: "oauth.consent.denied",
+        targetType: "oauth_client",
+        targetId: client_id,
+        severity: "info",
+      }).catch(() => {});
       const redirectTarget = `${redirect_uri}?error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ""}`;
       res.redirect(redirectTarget);
       return;
@@ -370,11 +389,19 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     }
 
     // Normalize individual permissions from React SPA consent form
-    const approvedPermissions: string[] = Array.isArray(rawPermissions)
+    let approvedPermissions: string[] = Array.isArray(rawPermissions)
       ? rawPermissions
       : rawPermissions
         ? [rawPermissions]
         : [];
+
+    // Validate submitted permissions against user's actual role permissions
+    if (approvedPermissions.length > 0) {
+      const access = accessService(db);
+      const role = await access.resolveRole(companyId, "user", userId);
+      const userPerms = role?.permissionSlugs ?? new Set<string>();
+      approvedPermissions = approvedPermissions.filter(p => userPerms.has(p));
+    }
 
     const code = store.createCode({
       clientId: client_id,
@@ -387,6 +414,17 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       resource,
       ...(approvedPermissions.length > 0 && { permissions: approvedPermissions }),
     });
+
+    auditService(db).emit({
+      companyId,
+      actorId: userId,
+      actorType: "user",
+      action: "oauth.consent.approved",
+      targetType: "oauth_client",
+      targetId: client_id,
+      metadata: { scopes: approvedScopes, permissions: approvedPermissions },
+      severity: "info",
+    }).catch(() => {});
 
     const redirectUrl = new URL(redirect_uri);
     redirectUrl.searchParams.set("code", code);
@@ -419,12 +457,32 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     const authCode = store.consumeCode(code);
     if (!authCode) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: "unknown",
+        actorType: "system",
+        action: "oauth.token.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { reason: "invalid_grant", ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired authorization code" });
       return;
     }
 
     // Verify client
     if (authCode.clientId !== client_id) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: "unknown",
+        actorType: "system",
+        action: "oauth.token.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { reason: "client_id_mismatch", ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(400).json({ error: "invalid_grant", error_description: "client_id mismatch" });
       return;
     }
@@ -434,12 +492,32 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     if (client?.clientSecret) {
       const client_secret = req.body?.client_secret;
       if (!client_secret) {
+        auditService(db).emit({
+          companyId: "unknown",
+          actorId: "unknown",
+          actorType: "system",
+          action: "oauth.token.failed",
+          targetType: "oauth_client",
+          targetId: client_id ?? "unknown",
+          metadata: { reason: "client_secret_missing", ip: req.ip },
+          severity: "warning",
+        }).catch(() => {});
         res.status(401).json({ error: "invalid_client", error_description: "client_secret required" });
         return;
       }
       const expected = Buffer.from(client.clientSecret);
       const actual = Buffer.from(String(client_secret));
       if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+        auditService(db).emit({
+          companyId: "unknown",
+          actorId: "unknown",
+          actorType: "system",
+          action: "oauth.token.failed",
+          targetType: "oauth_client",
+          targetId: client_id ?? "unknown",
+          metadata: { reason: "client_secret_mismatch", ip: req.ip },
+          severity: "warning",
+        }).catch(() => {});
         res.status(401).json({ error: "invalid_client", error_description: "Invalid client_secret" });
         return;
       }
@@ -447,12 +525,32 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     // Verify redirect_uri
     if (redirect_uri && authCode.redirectUri !== redirect_uri) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: "unknown",
+        actorType: "system",
+        action: "oauth.token.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { reason: "redirect_uri_mismatch", ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(400).json({ error: "invalid_grant", error_description: "redirect_uri mismatch" });
       return;
     }
 
     // Verify PKCE
     if (!verifyPkceS256(code_verifier, authCode.codeChallenge)) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: "unknown",
+        actorType: "system",
+        action: "oauth.token.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { reason: "pkce_failed", ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(400).json({ error: "invalid_grant", error_description: "PKCE verification failed" });
       return;
     }
@@ -469,6 +567,10 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       exp: now + 30 * 60, // 30 minutes
       jti: randomUUID(),
       ...(authCode.resource ? { resource: authCode.resource } : {}),
+      // Individual permissions from consent (validated server-side)
+      ...(authCode.permissions && authCode.permissions.length > 0 && {
+        permissions: authCode.permissions,
+      }),
     };
 
     const accessToken = signAccessToken(accessTokenClaims);
@@ -477,8 +579,20 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       userId: authCode.userId,
       companyId: authCode.companyId,
       scopes: authCode.scopes,
+      permissions: authCode.permissions,
       resource: authCode.resource,
     });
+
+    auditService(db).emit({
+      companyId: authCode.companyId,
+      actorId: authCode.userId,
+      actorType: "user",
+      action: "oauth.token.issued",
+      targetType: "oauth_client",
+      targetId: authCode.clientId,
+      metadata: { scopes: authCode.scopes, permissions: authCode.permissions, grantType: "authorization_code" },
+      severity: "info",
+    }).catch(() => {});
 
     res.json({
       access_token: accessToken,
@@ -499,11 +613,31 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     const tokenEntry = await store.consumeRefreshToken(refresh_token);
     if (!tokenEntry) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: "unknown",
+        actorType: "system",
+        action: "oauth.token.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { reason: "invalid_refresh_token", ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired refresh token" });
       return;
     }
 
     if (tokenEntry.clientId !== client_id) {
+      auditService(db).emit({
+        companyId: "unknown",
+        actorId: "unknown",
+        actorType: "system",
+        action: "oauth.token.failed",
+        targetType: "oauth_client",
+        targetId: client_id ?? "unknown",
+        metadata: { reason: "client_id_mismatch_refresh", ip: req.ip },
+        severity: "warning",
+      }).catch(() => {});
       res.status(400).json({ error: "invalid_grant", error_description: "client_id mismatch" });
       return;
     }
@@ -513,12 +647,32 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     if (client?.clientSecret) {
       const client_secret = req.body?.client_secret;
       if (!client_secret) {
+        auditService(db).emit({
+          companyId: "unknown",
+          actorId: "unknown",
+          actorType: "system",
+          action: "oauth.token.failed",
+          targetType: "oauth_client",
+          targetId: client_id ?? "unknown",
+          metadata: { reason: "client_secret_missing_refresh", ip: req.ip },
+          severity: "warning",
+        }).catch(() => {});
         res.status(401).json({ error: "invalid_client", error_description: "client_secret required" });
         return;
       }
       const expected = Buffer.from(client.clientSecret);
       const actual = Buffer.from(String(client_secret));
       if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+        auditService(db).emit({
+          companyId: "unknown",
+          actorId: "unknown",
+          actorType: "system",
+          action: "oauth.token.failed",
+          targetType: "oauth_client",
+          targetId: client_id ?? "unknown",
+          metadata: { reason: "client_secret_mismatch_refresh", ip: req.ip },
+          severity: "warning",
+        }).catch(() => {});
         res.status(401).json({ error: "invalid_client", error_description: "Invalid client_secret" });
         return;
       }
@@ -536,6 +690,10 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       exp: now + 30 * 60,
       jti: randomUUID(),
       ...(tokenEntry.resource ? { resource: tokenEntry.resource } : {}),
+      // Propagate individual permissions through refresh
+      ...(tokenEntry.permissions && tokenEntry.permissions.length > 0 && {
+        permissions: tokenEntry.permissions,
+      }),
     };
 
     const accessToken = signAccessToken(accessTokenClaims);
@@ -544,8 +702,20 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       userId: tokenEntry.userId,
       companyId: tokenEntry.companyId,
       scopes: tokenEntry.scopes,
+      permissions: tokenEntry.permissions,
       resource: tokenEntry.resource,
     });
+
+    auditService(db).emit({
+      companyId: tokenEntry.companyId,
+      actorId: tokenEntry.userId,
+      actorType: "user",
+      action: "oauth.token.refreshed",
+      targetType: "oauth_client",
+      targetId: tokenEntry.clientId,
+      metadata: { scopes: tokenEntry.scopes, permissions: tokenEntry.permissions },
+      severity: "info",
+    }).catch(() => {});
 
     res.json({
       access_token: accessToken,
