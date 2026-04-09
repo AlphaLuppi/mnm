@@ -6,7 +6,15 @@ import { eq, and } from "drizzle-orm";
 import { OAuthStore } from "./oauth-store.js";
 import { renderConsentPage } from "./mcp-consent.js";
 import type { BetterAuthSessionResult } from "../../auth/better-auth.js";
-import { getMcpJwtSecret } from "./mcp-auth-config.js";
+import { getMcpJwtSecret, MCP_TOKEN_AUDIENCE } from "./mcp-auth-config.js";
+import { createRateLimiter } from "../../middleware/rate-limit.js";
+
+// ── Rate limiters for OAuth endpoints ──────────────────────────────────────
+
+const oauthRegisterLimiter = createRateLimiter({ max: 5, windowMs: 60_000 });
+const oauthTokenLimiter = createRateLimiter({ max: 20, windowMs: 60_000 });
+const oauthAuthorizeGetLimiter = createRateLimiter({ max: 20, windowMs: 60_000 });
+const oauthAuthorizePostLimiter = createRateLimiter({ max: 10, windowMs: 60_000 });
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,10 +63,6 @@ async function getUserCompanyId(db: Db, userId: string): Promise<string | null> 
   return membership?.companyId ?? null;
 }
 
-// ── Store (singleton per process) ───────────────────────────────────────────
-
-const store = new OAuthStore();
-
 // ── CSRF token store ───────────────────────────────────────────────────────
 
 const CSRF_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -84,12 +88,13 @@ let cleanupStarted = false;
 export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
   const router = Router();
   const { db, resolveSession, getPublicUrl } = deps;
+  const store = new OAuthStore(db);
 
   // Periodic cleanup every 15 minutes (started once)
   if (!cleanupStarted) {
     cleanupStarted = true;
     setInterval(() => {
-      store.cleanup();
+      void store.cleanup();
       const now = Date.now();
       for (const [token, expiresAt] of csrfTokens) {
         if (now > expiresAt) csrfTokens.delete(token);
@@ -125,7 +130,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 3. Dynamic Client Registration (RFC 7591) ───────────────────────
 
-  router.post("/oauth/register", (req: Request, res: Response) => {
+  router.post("/oauth/register", oauthRegisterLimiter, async (req: Request, res: Response) => {
     const { client_name, redirect_uris, grant_types } = req.body ?? {};
 
     if (!client_name || typeof client_name !== "string") {
@@ -169,7 +174,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 4. Authorization Endpoint ────────────────────────────────────────
 
-  router.get("/oauth/authorize", async (req: Request, res: Response) => {
+  router.get("/oauth/authorize", oauthAuthorizeGetLimiter, async (req: Request, res: Response) => {
     const {
       client_id,
       redirect_uri,
@@ -231,7 +236,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
   });
 
   // Consent form submission
-  router.post("/oauth/authorize", async (req: Request, res: Response) => {
+  router.post("/oauth/authorize", oauthAuthorizePostLimiter, async (req: Request, res: Response) => {
     const {
       client_id,
       redirect_uri,
@@ -310,7 +315,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 5. Token Endpoint ────────────────────────────────────────────────
 
-  router.post("/oauth/token", async (req: Request, res: Response) => {
+  router.post("/oauth/token", oauthTokenLimiter, async (req: Request, res: Response) => {
     const { grant_type } = req.body ?? {};
 
     if (grant_type === "authorization_code") {
@@ -342,6 +347,22 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
+    // Verify client_secret if the client has one
+    const client = store.getClient(client_id);
+    if (client?.clientSecret) {
+      const client_secret = req.body?.client_secret;
+      if (!client_secret) {
+        res.status(401).json({ error: "invalid_client", error_description: "client_secret required" });
+        return;
+      }
+      const expected = Buffer.from(client.clientSecret);
+      const actual = Buffer.from(String(client_secret));
+      if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+        res.status(401).json({ error: "invalid_client", error_description: "Invalid client_secret" });
+        return;
+      }
+    }
+
     // Verify redirect_uri
     if (redirect_uri && authCode.redirectUri !== redirect_uri) {
       res.status(400).json({ error: "invalid_grant", error_description: "redirect_uri mismatch" });
@@ -361,7 +382,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       company_id: authCode.companyId,
       scope: authCode.scopes.join(" "),
       iss: "mnm-oauth",
-      aud: "mnm-mcp",
+      aud: MCP_TOKEN_AUDIENCE,
       iat: now,
       exp: now + 30 * 60, // 30 minutes
       jti: randomUUID(),
@@ -405,6 +426,22 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
+    // Verify client_secret if the client has one
+    const client = store.getClient(client_id);
+    if (client?.clientSecret) {
+      const client_secret = req.body?.client_secret;
+      if (!client_secret) {
+        res.status(401).json({ error: "invalid_client", error_description: "client_secret required" });
+        return;
+      }
+      const expected = Buffer.from(client.clientSecret);
+      const actual = Buffer.from(String(client_secret));
+      if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+        res.status(401).json({ error: "invalid_client", error_description: "Invalid client_secret" });
+        return;
+      }
+    }
+
     // Issue new tokens (rotation)
     const now = Math.floor(Date.now() / 1000);
     const accessTokenClaims = {
@@ -412,7 +449,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       company_id: tokenEntry.companyId,
       scope: tokenEntry.scopes.join(" "),
       iss: "mnm-oauth",
-      aud: "mnm-mcp",
+      aud: MCP_TOKEN_AUDIENCE,
       iat: now,
       exp: now + 30 * 60,
       jti: randomUUID(),

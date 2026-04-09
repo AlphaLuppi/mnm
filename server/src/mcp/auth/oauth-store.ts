@@ -1,4 +1,7 @@
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, createHash } from "node:crypto";
+import { eq, lt } from "drizzle-orm";
+import type { Db } from "@mnm/db";
+import { oauthClients, oauthRefreshTokens } from "@mnm/db";
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -34,39 +37,69 @@ export interface RefreshToken {
   expiresAt: number;
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 // ── Store ───────────────────────────────────────────────────────────────────
 
 const CODE_TTL_MS = 60 * 1000; // 60 seconds
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export class OAuthStore {
-  private clients = new Map<string, OAuthClient>();
   private codes = new Map<string, AuthorizationCode>();
-  private refreshTokens = new Map<string, RefreshToken>();
+  private db: Db;
 
-  registerClient(
+  constructor(db: Db) {
+    this.db = db;
+  }
+
+  async registerClient(
     name: string,
     redirectUris: string[],
     grantTypes: string[],
-  ): OAuthClient {
-    const clientId = randomUUID();
+  ): Promise<OAuthClient> {
     const clientSecret = randomBytes(32).toString("hex");
 
-    const client: OAuthClient = {
-      clientId,
-      clientSecret,
-      clientName: name,
-      redirectUris,
-      grantTypes,
-      createdAt: new Date(),
-    };
+    const [row] = await this.db
+      .insert(oauthClients)
+      .values({
+        clientSecret,
+        clientName: name,
+        redirectUris,
+        grantTypes,
+      })
+      .returning();
 
-    this.clients.set(clientId, client);
-    return client;
+    return {
+      clientId: row.clientId,
+      clientSecret: row.clientSecret ?? undefined,
+      clientName: row.clientName,
+      redirectUris: row.redirectUris as string[],
+      grantTypes: row.grantTypes as string[],
+      createdAt: row.createdAt,
+    };
   }
 
-  getClient(clientId: string): OAuthClient | undefined {
-    return this.clients.get(clientId);
+  async getClient(clientId: string): Promise<OAuthClient | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(oauthClients)
+      .where(eq(oauthClients.clientId, clientId))
+      .limit(1);
+
+    if (!row) return undefined;
+
+    return {
+      clientId: row.clientId,
+      clientSecret: row.clientSecret ?? undefined,
+      clientName: row.clientName,
+      redirectUris: row.redirectUris as string[],
+      grantTypes: row.grantTypes as string[],
+      createdAt: row.createdAt,
+    };
   }
 
   createCode(params: {
@@ -111,51 +144,65 @@ export class OAuthStore {
     return entry;
   }
 
-  createRefreshToken(params: {
+  async createRefreshToken(params: {
     clientId: string;
     userId: string;
     companyId: string;
     scopes: string[];
     resource?: string;
-  }): string {
+  }): Promise<string> {
     const token = randomBytes(48).toString("hex");
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-    const entry: RefreshToken = {
-      token,
+    await this.db.insert(oauthRefreshTokens).values({
+      tokenHash,
       clientId: params.clientId,
       userId: params.userId,
       companyId: params.companyId,
       scopes: params.scopes,
       resource: params.resource,
-      expiresAt: Date.now() + REFRESH_TOKEN_TTL_MS,
-    };
+      expiresAt,
+    });
 
-    this.refreshTokens.set(token, entry);
     return token;
   }
 
-  consumeRefreshToken(token: string): RefreshToken | null {
-    const entry = this.refreshTokens.get(token);
-    if (!entry) return null;
+  async consumeRefreshToken(token: string): Promise<RefreshToken | null> {
+    const tokenHash = hashToken(token);
 
-    // Rotate on use: delete old token
-    this.refreshTokens.delete(token);
+    const [row] = await this.db
+      .delete(oauthRefreshTokens)
+      .where(eq(oauthRefreshTokens.tokenHash, tokenHash))
+      .returning();
+
+    if (!row) return null;
 
     // Check expiration
-    if (Date.now() > entry.expiresAt) return null;
+    if (new Date() > row.expiresAt) return null;
 
-    return entry;
+    return {
+      token,
+      clientId: row.clientId,
+      userId: row.userId,
+      companyId: row.companyId,
+      scopes: row.scopes as string[],
+      resource: row.resource ?? undefined,
+      expiresAt: row.expiresAt.getTime(),
+    };
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     const now = Date.now();
 
+    // Clean expired in-memory auth codes
     for (const [code, entry] of this.codes) {
       if (now > entry.expiresAt) this.codes.delete(code);
     }
 
-    for (const [token, entry] of this.refreshTokens) {
-      if (now > entry.expiresAt) this.refreshTokens.delete(token);
-    }
+    // Clean expired refresh tokens from DB
+    await this.db
+      .delete(oauthRefreshTokens)
+      .where(lt(oauthRefreshTokens.expiresAt, new Date()));
   }
 }

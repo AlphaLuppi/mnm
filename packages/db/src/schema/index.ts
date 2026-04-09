@@ -94,3 +94,6 @@ export { viewPresets } from "./view_presets.js";
 export { userWidgets } from "./user_widgets.js";
 // BLOCKS-PLATFORM: Inbox items
 export { inboxItems } from "./inbox_items.js";
+// MCP-OAUTH: OAuth clients & refresh tokens (PostgreSQL-backed)
+export { oauthClients } from "./oauth-clients.js";
+export { oauthRefreshTokens } from "./oauth-refresh-tokens.js";

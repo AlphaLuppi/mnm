@@ -4,7 +4,7 @@ import { verifyLocalAgentJwt } from "../../agent-auth-jwt.js";
 import { accessService } from "../../services/access.js";
 import { permissionsForScopes, type McpScope, type PermissionSlug } from "@mnm/shared";
 import type { McpActor } from "../registry/types.js";
-import { getMcpJwtSecret } from "./mcp-auth-config.js";
+import { getMcpJwtSecret, MCP_TOKEN_AUDIENCE } from "./mcp-auth-config.js";
 
 export type { McpActor };
 
@@ -77,6 +77,9 @@ export async function verifyMcpToken(
 
     const claims = verifyHmac(token, secret);
     if (!claims) return null;
+
+    const aud = typeof claims.aud === "string" ? claims.aud : null;
+    if (aud !== MCP_TOKEN_AUDIENCE) return null;
 
     const userId = typeof claims.sub === "string" ? claims.sub : null;
     const companyId = typeof claims.company_id === "string" ? claims.company_id : null;

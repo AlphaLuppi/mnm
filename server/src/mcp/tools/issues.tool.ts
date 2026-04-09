@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_issues", {
     permissions: [PERMISSIONS.ISSUES_READ],
     description:
       "[Issues] List issues with optional filters by project, status, assignee, or label.\n" +
-      "Returns all matching issues ordered by priority then recency.",
+      "Returns cursor-paginated results ordered by priority then recency.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       projectId: z.string().uuid().optional().describe("Filter by project ID"),
       status: z.string().optional().describe("Filter by status (comma-separated: backlog,todo,in_progress,in_review,blocked,done,cancelled)"),
@@ -15,9 +17,13 @@ export default defineMcpTools(({ tool, services }) => {
       assigneeUserId: z.string().uuid().optional().describe("Filter by assigned user ID"),
       labelId: z.string().uuid().optional().describe("Filter by label ID"),
       q: z.string().optional().describe("Full-text search across title, identifier, description, comments"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const items = await services.issues.list(actor.companyId, {
         projectId: input.projectId,
         status: input.status,
@@ -26,11 +32,14 @@ export default defineMcpTools(({ tool, services }) => {
         labelId: input.labelId,
         q: input.q,
       });
+      const slice = items.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: items.map((i: any) => ({
+            items: page.map((i: any) => ({
               id: i.id,
               identifier: i.identifier,
               title: i.title,
@@ -41,7 +50,9 @@ export default defineMcpTools(({ tool, services }) => {
               projectId: i.projectId,
               labelIds: i.labelIds,
             })),
-            total: items.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };
@@ -202,25 +213,33 @@ export default defineMcpTools(({ tool, services }) => {
     permissions: [PERMISSIONS.ISSUES_READ],
     description:
       "[Issues] Full-text search across issues (title, identifier, description, comments).\n" +
-      "Returns matching issues ranked by relevance.\n" +
-      "Combine with status/project filters to narrow results.",
+      "Returns cursor-paginated results ranked by relevance.\n" +
+      "Combine with status/project filters to narrow results.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       q: z.string().min(1).describe("Search query"),
       projectId: z.string().uuid().optional().describe("Limit search to a project"),
       status: z.string().optional().describe("Filter by status (comma-separated)"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const items = await services.issues.list(actor.companyId, {
         q: input.q,
         projectId: input.projectId,
         status: input.status,
       });
+      const slice = items.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: items.map((i: any) => ({
+            items: page.map((i: any) => ({
               id: i.id,
               identifier: i.identifier,
               title: i.title,
@@ -230,7 +249,9 @@ export default defineMcpTools(({ tool, services }) => {
               assigneeUserId: i.assigneeUserId,
               projectId: i.projectId,
             })),
-            total: items.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
             query: input.q,
           }),
         }],
