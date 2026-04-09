@@ -225,12 +225,74 @@ export function OAuthConsentPage() {
     return [...scopes].join(",");
   }, [selectedPerms, permTiers]);
 
-  // Form submission
-  const formRef = useRef<HTMLFormElement>(null);
+  // Form submission via fetch
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleApprove = useCallback(() => {
-    formRef.current?.submit();
-  }, []);
+  const handleApprove = useCallback(async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const formData = new URLSearchParams();
+      formData.set("client_id", clientId);
+      formData.set("redirect_uri", redirectUri);
+      formData.set("code_challenge", codeChallenge);
+      formData.set("code_challenge_method", codeChallengeMethod);
+      if (state) formData.set("state", state);
+      if (resource) formData.set("resource", resource);
+      formData.set("csrf_token", consentData!.csrfToken);
+      formData.set("consent", "approve");
+      derivedScopes.split(",").filter(Boolean).forEach(s => formData.append("scopes", s));
+      selectedPerms.forEach(p => formData.append("permissions", p));
+
+      const res = await fetch("/oauth/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
+        credentials: "include",
+        redirect: "follow",
+      });
+
+      // If the redirect was followed to a cross-origin URL, fetch will return an opaque response
+      if (res.type === "opaqueredirect") {
+        // Cannot read Location header; fall back to form submit
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/oauth/authorize";
+        form.style.display = "none";
+        for (const [key, value] of formData.entries()) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = value;
+          form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
+        return;
+      }
+
+      // If redirected successfully (browser followed it), the final URL is the callback
+      if (res.redirected) {
+        window.location.href = res.url;
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "unknown" }));
+        if (data.error === "login_required") {
+          window.location.href = `/auth?next=${encodeURIComponent(window.location.href)}`;
+          return;
+        }
+        setSubmitError(data.error_description || data.error || "Echec de l'autorisation");
+      }
+    } catch {
+      setSubmitError("Erreur reseau — veuillez reessayer");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [clientId, redirectUri, codeChallenge, codeChallengeMethod, state, resource, consentData, derivedScopes, selectedPerms]);
 
   const denyUrl = useMemo(() => {
     if (!redirectUri) return "/";
@@ -401,30 +463,20 @@ export function OAuthConsentPage() {
 
           <Separator />
 
-          <CardFooter className="flex gap-3 pt-4">
-            {/* Hidden form for POST submission */}
-            <form ref={formRef} method="POST" action="/oauth/authorize" className="hidden">
-              <input type="hidden" name="client_id" value={clientId} />
-              <input type="hidden" name="redirect_uri" value={redirectUri} />
-              <input type="hidden" name="code_challenge" value={codeChallenge} />
-              <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />
-              {state && <input type="hidden" name="state" value={state} />}
-              {resource && <input type="hidden" name="resource" value={resource} />}
-              <input type="hidden" name="csrf_token" value={consentData.csrfToken} />
-              <input type="hidden" name="consent" value="approve" />
-              <input type="hidden" name="scopes" value={derivedScopes} />
-              {/* Individual permission checkboxes as hidden inputs */}
-              {[...selectedPerms].map((slug) => (
-                <input key={slug} type="hidden" name="permissions" value={slug} />
-              ))}
-            </form>
-
-            <Button variant="outline" className="flex-1" asChild>
-              <a href={denyUrl}>Refuser</a>
-            </Button>
-            <Button className="flex-1" onClick={handleApprove} disabled={selectedPerms.size === 0}>
-              Autoriser
-            </Button>
+          <CardFooter className="flex flex-col gap-3 pt-4">
+            {submitError && (
+              <div className="w-full rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {submitError}
+              </div>
+            )}
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1" asChild>
+                <a href={denyUrl}>Refuser</a>
+              </Button>
+              <Button className="flex-1" onClick={handleApprove} disabled={selectedPerms.size === 0 || submitting}>
+                {submitting ? "Autorisation..." : "Autoriser"}
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </div>
