@@ -4,6 +4,7 @@ import type { Db } from "@mnm/db";
 import { companyMemberships } from "@mnm/db";
 import { eq, and } from "drizzle-orm";
 import { OAuthStore } from "./oauth-store.js";
+import { accessService } from "../../services/access.js";
 import { renderConsentPage } from "./mcp-consent.js";
 import type { BetterAuthSessionResult } from "../../auth/better-auth.js";
 import { getMcpJwtSecret, MCP_TOKEN_AUDIENCE } from "./mcp-auth-config.js";
@@ -216,9 +217,19 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
-    // User is logged in — render consent screen
+    // User is logged in — resolve their actual permissions to filter the consent screen
+    const userId = sessionResult.user.id;
+    const userCompanyId = await getUserCompanyId(db, userId);
     const requestedScopes = scope ? scope.split(" ").filter(Boolean) : ["mcp:read", "mcp:write"];
     const csrfToken = createCsrfToken();
+
+    // Resolve user's role permissions so the consent screen only shows what they can actually get
+    let userPermissionSlugs: Set<string> | null = null;
+    if (userCompanyId) {
+      const access = accessService(db);
+      const role = await access.resolveRole(userCompanyId, "user", userId);
+      userPermissionSlugs = role?.permissionSlugs ?? null;
+    }
 
     const html = renderConsentPage({
       clientName: client.clientName,
@@ -230,6 +241,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       codeChallengeMethod: code_challenge_method ?? "S256",
       resource,
       csrfToken,
+      userPermissions: userPermissionSlugs ? [...userPermissionSlugs] : null,
     });
 
     res.type("html").send(html);

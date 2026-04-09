@@ -21,6 +21,8 @@ export interface ConsentPageParams {
   codeChallengeMethod: string;
   resource?: string;
   csrfToken: string;
+  /** User's actual role permissions — if provided, only show permissions the user has. */
+  userPermissions: string[] | null;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -102,11 +104,16 @@ interface DomainPermissions {
   admin: Array<{ slug: PermissionSlug; description: string; action: string }>;
 }
 
-function buildDomainPermissions(): DomainPermissions[] {
+function buildDomainPermissions(userPermissions: Set<string> | null): DomainPermissions[] {
   const domains: DomainPermissions[] = [];
 
   for (const cat of PERMISSION_CATEGORIES) {
-    const perms = ALL_PERMISSION_SLUGS.filter(s => PERMISSION_META[s].category === cat);
+    // Filter to only permissions the user actually has (if provided)
+    const perms = ALL_PERMISSION_SLUGS.filter(s => {
+      if (PERMISSION_META[s].category !== cat) return false;
+      if (userPermissions && !userPermissions.has(s)) return false;
+      return true;
+    });
     if (perms.length === 0) continue;
 
     const domain: DomainPermissions = {
@@ -163,7 +170,8 @@ function renderTierBlock(
 }
 
 export function renderConsentPage(params: ConsentPageParams): string {
-  const domains = buildDomainPermissions();
+  const userPermsSet = params.userPermissions ? new Set(params.userPermissions) : null;
+  const domains = buildDomainPermissions(userPermsSet);
 
   const domainSections = domains.map(domain => {
     const readBlock = renderTierBlock("read", domain.read, "mcp:read", true, domain.category);
