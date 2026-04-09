@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Db } from "@mnm/db";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
@@ -52,6 +53,62 @@ function actorPrincipalId(a: Pick<McpActor, "userId" | "agentId">): string {
   return (a.userId ?? a.agentId)!;
 }
 
+/** Create and configure an McpServer with tools/resources filtered for the given actor. */
+function createConfiguredMcpServer(actor: McpActor): { mcpServer: McpServer; toolCount: number } {
+  const mcpServer = new McpServer(
+    { name: "mnm-mcp", version: "1.0.0" },
+    { capabilities: { tools: { listChanged: true }, resources: { subscribe: true, listChanged: true } } },
+  );
+
+  // Register tools filtered by actor permissions
+  const actorTools = toolRegistry.listForActor(actor);
+  for (const tool of actorTools) {
+    const zodShape = (tool.input as any)?._def?.shape?.() ?? {};
+    mcpServer.tool(
+      tool.name,
+      tool.description,
+      zodShape,
+      async (params: any) => {
+        const parsed = tool.input.safeParse(params);
+        if (!parsed.success) {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({
+              error: "Validation error",
+              code: "VALIDATION_ERROR",
+              retryable: false,
+              details: parsed.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
+            }) }],
+            isError: true,
+          };
+        }
+        const result = await mcpDbSemaphore.run(() => tool.handler({ input: parsed.data, actor }));
+        return { ...result } as any;
+      },
+    );
+  }
+
+  // Register resource templates filtered by actor permissions
+  const actorResources = resourceRegistry.listForActor(actor);
+  for (const resource of actorResources) {
+    const template = new ResourceTemplate(resource.uriTemplate, { list: undefined });
+    mcpServer.resource(
+      resource.name,
+      template,
+      { description: resource.description, mimeType: resource.mimeType },
+      async (uri: URL, variables: Record<string, string | string[]>) => {
+        const params: Record<string, string> = {};
+        for (const [k, v] of Object.entries(variables)) {
+          params[k] = Array.isArray(v) ? v[0] ?? "" : v;
+        }
+        const result = await resource.handler({ uri: uri.href, params, actor });
+        return { ...result } as any;
+      },
+    );
+  }
+
+  return { mcpServer, toolCount: actorTools.length };
+}
+
 export function createMcpRouter(deps: McpRouterDeps): Router {
   const { db, services, resolveSession, getPublicUrl } = deps;
   const router = Router();
@@ -99,7 +156,9 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
         res.status(404).json({ error: "Session not found or expired" });
         return;
       }
-      await session.transport.handleRequest(req, res);
+      // Streamable HTTP sessions use handleRequest
+      const transport = session.transport as StreamableHTTPServerTransport;
+      await transport.handleRequest(req, res);
       return;
     }
 
@@ -130,62 +189,8 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       });
 
       const mcpSessionId = transport.sessionId!;
-
       const actor: McpActor = { ...verifiedActor, mcpSessionId };
-
-      const mcpServer = new McpServer(
-        { name: "mnm-mcp", version: "1.0.0" },
-        { capabilities: { tools: { listChanged: true }, resources: { subscribe: true, listChanged: true } } },
-      );
-
-      // Register tools filtered by actor permissions
-      const actorTools = toolRegistry.listForActor(actor);
-      for (const tool of actorTools) {
-        // MCP SDK accepts Zod shapes as paramsSchema
-        const zodShape = (tool.input as any)?._def?.shape?.() ?? {};
-        mcpServer.tool(
-          tool.name,
-          tool.description,
-          zodShape,
-          async (params: any) => {
-            // Validate input against Zod schema
-            const parsed = tool.input.safeParse(params);
-            if (!parsed.success) {
-              return {
-                content: [{ type: "text" as const, text: JSON.stringify({
-                  error: "Validation error",
-                  code: "VALIDATION_ERROR",
-                  retryable: false,
-                  details: parsed.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
-                }) }],
-                isError: true,
-              };
-            }
-            const result = await mcpDbSemaphore.run(() => tool.handler({ input: parsed.data, actor }));
-            return { ...result } as any;
-          },
-        );
-      }
-
-      // Register resource templates filtered by actor permissions
-      const actorResources = resourceRegistry.listForActor(actor);
-      for (const resource of actorResources) {
-        const template = new ResourceTemplate(resource.uriTemplate, { list: undefined });
-        mcpServer.resource(
-          resource.name,
-          template,
-          { description: resource.description, mimeType: resource.mimeType },
-          async (uri: URL, variables: Record<string, string | string[]>) => {
-            // Flatten variables to single strings
-            const params: Record<string, string> = {};
-            for (const [k, v] of Object.entries(variables)) {
-              params[k] = Array.isArray(v) ? v[0] ?? "" : v;
-            }
-            const result = await resource.handler({ uri: uri.href, params, actor });
-            return { ...result } as any;
-          },
-        );
-      }
+      const { mcpServer, toolCount } = createConfiguredMcpServer(actor);
 
       // Check session capacity BEFORE connecting to avoid resource leaks
       if (!sessionManager.createSession(mcpSessionId, transport, actor.type, actorPrincipalId(actor))) {
@@ -196,7 +201,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       await mcpServer.connect(transport);
 
       logger.info(
-        { mcpSessionId, actorType: actor.type, tools: actorTools.length },
+        { mcpSessionId, actorType: actor.type, tools: toolCount },
         "mcp.session.initialized",
       );
 
@@ -233,7 +238,9 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       return;
     }
 
-    await session.transport.handleRequest(req, res);
+    // Streamable HTTP sessions use handleRequest for GET (SSE notifications)
+    const transport = session.transport as StreamableHTTPServerTransport;
+    await transport.handleRequest(req, res);
   });
 
   // ── DELETE /mcp — Session termination ───────────────────────────────────
@@ -264,6 +271,96 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
 
     sessionManager.removeSession(sessionId);
     res.status(204).end();
+  });
+
+  // ── GET /mcp/sse — Legacy SSE transport (backward compatibility) ────────
+  router.get("/mcp/sse", async (req: Request, res: Response) => {
+    // Rate limit new SSE sessions
+    const limited = await new Promise<boolean>((resolve) => {
+      mcpNewSessionLimiter(req, res, () => resolve(false));
+      if (res.writableEnded) resolve(true);
+    });
+    if (limited) return;
+
+    // Verify auth token
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      const publicUrl = getPublicUrl();
+      res
+        .status(401)
+        .set(
+          "WWW-Authenticate",
+          `Bearer resource_metadata="${publicUrl}/.well-known/oauth-protected-resource"`,
+        )
+        .json({ error: "Authentication required" });
+      return;
+    }
+
+    const verifiedActor = await verifyMcpToken(db, authHeader);
+    if (!verifiedActor) {
+      res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+
+    try {
+      // SSEServerTransport sends the `endpoint` event pointing clients to POST /mcp/sse/message
+      const transport = new SSEServerTransport("/mcp/sse/message", res);
+      const sseSessionId = transport.sessionId;
+
+      const actor: McpActor = { ...verifiedActor, mcpSessionId: sseSessionId };
+      const { mcpServer, toolCount } = createConfiguredMcpServer(actor);
+
+      if (!sessionManager.createSession(sseSessionId, transport, actor.type, actorPrincipalId(actor))) {
+        res.status(503).json({ error: "Too many active sessions" });
+        return;
+      }
+
+      // Clean up session when the SSE connection drops
+      res.on("close", () => {
+        sessionManager.removeSession(sseSessionId);
+        logger.debug({ sseSessionId }, "mcp.sse.session.disconnected");
+      });
+
+      await mcpServer.connect(transport);
+
+      logger.info(
+        { mcpSessionId: sseSessionId, actorType: actor.type, tools: toolCount, transport: "sse" },
+        "mcp.sse.session.initialized",
+      );
+
+      // start() sets up the SSE stream and sends the endpoint event
+      await transport.start();
+    } catch (err) {
+      logger.error({ err }, "mcp.sse.session.init-error");
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to initialize SSE session" });
+      }
+    }
+  });
+
+  // ── POST /mcp/sse/message — Client→server messages for legacy SSE ──────
+  router.post("/mcp/sse/message", async (req: Request, res: Response) => {
+    const sseSessionId = req.query.sessionId as string | undefined;
+    if (!sseSessionId) {
+      res.status(400).json({ error: "sessionId query parameter required" });
+      return;
+    }
+
+    // Rate limit existing SSE session messages
+    const limited = await new Promise<boolean>((resolve) => {
+      mcpExistingSessionLimiter(req, res, () => resolve(false));
+      if (res.writableEnded) resolve(true);
+    });
+    if (limited) return;
+
+    const session = sessionManager.getSession(sseSessionId);
+    if (!session) {
+      res.status(404).json({ error: "Session not found or expired" });
+      return;
+    }
+
+    const sseTransport = session.transport as SSEServerTransport;
+    await sseTransport.handlePostMessage(req, res);
   });
 
   return router;

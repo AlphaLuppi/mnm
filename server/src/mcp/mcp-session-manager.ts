@@ -1,8 +1,11 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { logger } from "../middleware/logger.js";
 
-interface McpSession {
-  transport: StreamableHTTPServerTransport;
+export type McpTransport = StreamableHTTPServerTransport | SSEServerTransport;
+
+export interface McpSession {
+  transport: McpTransport;
   sessionId: string;
   actorType: "user" | "agent";
   actorId: string;
@@ -39,7 +42,7 @@ export class McpSessionManager {
 
   createSession(
     sessionId: string,
-    transport: StreamableHTTPServerTransport,
+    transport: McpTransport,
     actorType: "user" | "agent",
     actorId: string,
   ): boolean {
