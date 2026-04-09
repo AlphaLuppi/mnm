@@ -45,7 +45,7 @@
     "detect-port": "^2.1.0",
     "dockerode": "^4.0.9",
     "dotenv": "^17.0.1",
-    "drizzle-orm": "^0.38.4",
+    "drizzle-orm": "^0.45.1",
     "embedded-postgres": "^18.1.0-beta.16",
     "express": "^5.1.0",
     "ioredis": "^5.10.0",
