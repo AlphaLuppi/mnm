@@ -20,6 +20,7 @@ export interface AuthorizationCode {
   userId: string;
   companyId: string;
   scopes: string[];
+  permissions?: string[];
   codeChallenge: string;
   codeChallengeMethod: string;
   redirectUri: string;
@@ -107,6 +108,7 @@ export class OAuthStore {
     userId: string;
     companyId: string;
     scopes: string[];
+    permissions?: string[];
     codeChallenge: string;
     codeChallengeMethod: string;
     redirectUri: string;
@@ -120,6 +122,7 @@ export class OAuthStore {
       userId: params.userId,
       companyId: params.companyId,
       scopes: params.scopes,
+      ...(params.permissions && { permissions: params.permissions }),
       codeChallenge: params.codeChallenge,
       codeChallengeMethod: params.codeChallengeMethod,
       redirectUri: params.redirectUri,

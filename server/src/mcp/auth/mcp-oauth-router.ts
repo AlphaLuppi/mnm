@@ -5,7 +5,6 @@ import { companyMemberships } from "@mnm/db";
 import { eq, and } from "drizzle-orm";
 import { OAuthStore } from "./oauth-store.js";
 import { accessService } from "../../services/access.js";
-import { renderConsentPage } from "./mcp-consent.js";
 import type { BetterAuthSessionResult } from "../../auth/better-auth.js";
 import { getMcpJwtSecret, MCP_TOKEN_AUDIENCE } from "./mcp-auth-config.js";
 import { createRateLimiter } from "../../middleware/rate-limit.js";
@@ -175,6 +174,48 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 4. Authorization Endpoint ────────────────────────────────────────
 
+  // ── Consent data API (for React SPA consent page) ────────────────────
+  router.get("/oauth/consent-data", async (req: Request, res: Response) => {
+    const client_id = req.query.client_id as string | undefined;
+    if (!client_id) {
+      res.status(400).json({ error: "invalid_request", error_description: "client_id is required" });
+      return;
+    }
+
+    // Require authenticated session
+    const sessionResult = await resolveSession(req);
+    if (!sessionResult?.user?.id) {
+      res.status(401).json({ error: "login_required" });
+      return;
+    }
+
+    const client = await store.getClient(client_id);
+    if (!client) {
+      res.status(400).json({ error: "invalid_client", error_description: "Unknown client_id" });
+      return;
+    }
+
+    const userId = sessionResult.user.id;
+    const userCompanyId = await getUserCompanyId(db, userId);
+
+    let userPermissions: string[] = [];
+    if (userCompanyId) {
+      const access = accessService(db);
+      const role = await access.resolveRole(userCompanyId, "user", userId);
+      if (role?.permissionSlugs) {
+        userPermissions = [...role.permissionSlugs];
+      }
+    }
+
+    const csrfToken = createCsrfToken();
+
+    res.json({
+      clientName: client.clientName,
+      userPermissions,
+      csrfToken,
+    });
+  });
+
   router.get("/oauth/authorize", oauthAuthorizeGetLimiter, async (req: Request, res: Response) => {
     const {
       client_id,
@@ -211,40 +252,23 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     // Check if user is logged in
     const sessionResult = await resolveSession(req);
     if (!sessionResult?.user?.id) {
-      // Not logged in: redirect to login page with return URL
+      // Not logged in: redirect to auth page with return URL
       const returnUrl = req.originalUrl;
-      res.redirect(`/login?redirect=${encodeURIComponent(returnUrl)}`);
+      res.redirect(`/auth?next=${encodeURIComponent(returnUrl)}`);
       return;
     }
 
-    // User is logged in — resolve their actual permissions to filter the consent screen
-    const userId = sessionResult.user.id;
-    const userCompanyId = await getUserCompanyId(db, userId);
-    const requestedScopes = scope ? scope.split(" ").filter(Boolean) : ["mcp:read", "mcp:write"];
-    const csrfToken = createCsrfToken();
-
-    // Resolve user's role permissions so the consent screen only shows what they can actually get
-    let userPermissionSlugs: Set<string> | null = null;
-    if (userCompanyId) {
-      const access = accessService(db);
-      const role = await access.resolveRole(userCompanyId, "user", userId);
-      userPermissionSlugs = role?.permissionSlugs ?? null;
-    }
-
-    const html = renderConsentPage({
-      clientName: client.clientName,
-      requestedScopes,
-      clientId: client_id,
-      redirectUri: redirect_uri,
-      state,
-      codeChallenge: code_challenge,
-      codeChallengeMethod: code_challenge_method ?? "S256",
-      resource,
-      csrfToken,
-      userPermissions: userPermissionSlugs ? [...userPermissionSlugs] : null,
+    // Redirect to React SPA consent page
+    const consentParams = new URLSearchParams({
+      client_id,
+      redirect_uri,
+      code_challenge,
+      code_challenge_method: code_challenge_method ?? "S256",
+      ...(state && { state }),
+      ...(scope && { scope }),
+      ...(resource && { resource }),
     });
-
-    res.type("html").send(html);
+    res.redirect(`/oauth-consent?${consentParams.toString()}`);
   });
 
   // Consent form submission (HTML form sends application/x-www-form-urlencoded)
@@ -257,6 +281,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       state,
       consent,
       scopes: rawScopes,
+      permissions: rawPermissions,
       resource,
       csrf_token,
     } = req.body ?? {};
@@ -300,12 +325,24 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
-    // Normalize scopes from form checkboxes
-    const approvedScopes: string[] = Array.isArray(rawScopes)
-      ? rawScopes
-      : rawScopes
-        ? [rawScopes]
-        : ["mcp:read"];
+    // Normalize scopes — may come as comma-separated string (from React SPA) or checkbox array
+    let approvedScopes: string[];
+    if (typeof rawScopes === "string" && rawScopes.includes(",")) {
+      approvedScopes = rawScopes.split(",").filter(Boolean);
+    } else if (Array.isArray(rawScopes)) {
+      approvedScopes = rawScopes;
+    } else if (rawScopes) {
+      approvedScopes = [rawScopes];
+    } else {
+      approvedScopes = ["mcp:read"];
+    }
+
+    // Normalize individual permissions from React SPA consent form
+    const approvedPermissions: string[] = Array.isArray(rawPermissions)
+      ? rawPermissions
+      : rawPermissions
+        ? [rawPermissions]
+        : [];
 
     const code = store.createCode({
       clientId: client_id,
@@ -316,6 +353,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       codeChallengeMethod: code_challenge_method ?? "S256",
       redirectUri: redirect_uri,
       resource,
+      ...(approvedPermissions.length > 0 && { permissions: approvedPermissions }),
     });
 
     const redirectUrl = new URL(redirect_uri);
