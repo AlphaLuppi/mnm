@@ -9,6 +9,7 @@ export const oauthRefreshTokens = pgTable(
     userId: text("user_id").notNull(),
     companyId: uuid("company_id").notNull(),
     scopes: jsonb("scopes").notNull().default([]),
+    permissions: jsonb("permissions").default([]),
     resource: text("resource"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

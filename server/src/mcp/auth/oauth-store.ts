@@ -34,6 +34,7 @@ export interface RefreshToken {
   userId: string;
   companyId: string;
   scopes: string[];
+  permissions?: string[];
   resource?: string;
   expiresAt: number;
 }
@@ -152,6 +153,7 @@ export class OAuthStore {
     userId: string;
     companyId: string;
     scopes: string[];
+    permissions?: string[];
     resource?: string;
   }): Promise<string> {
     const token = randomBytes(48).toString("hex");
@@ -164,6 +166,7 @@ export class OAuthStore {
       userId: params.userId,
       companyId: params.companyId,
       scopes: params.scopes,
+      permissions: params.permissions ?? [],
       resource: params.resource,
       expiresAt,
     });
@@ -184,12 +187,15 @@ export class OAuthStore {
     // Check expiration
     if (new Date() > row.expiresAt) return null;
 
+    const permissions = Array.isArray(row.permissions) ? row.permissions as string[] : [];
+
     return {
       token,
       clientId: row.clientId,
       userId: row.userId,
       companyId: row.companyId,
       scopes: row.scopes as string[],
+      permissions: permissions.length > 0 ? permissions : undefined,
       resource: row.resource ?? undefined,
       expiresAt: row.expiresAt.getTime(),
     };
