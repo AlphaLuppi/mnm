@@ -1,34 +1,41 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_artifacts", {
     permissions: [PERMISSIONS.ARTIFACTS_READ],
     description:
       "[Artifacts] List artifacts with optional filters by channel, type, or creator.\n" +
-      "Returns artifacts ordered by most recently created.",
+      "Returns cursor-paginated artifacts ordered by most recently created.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       channelId: z.string().uuid().optional().describe("Filter by source channel ID"),
       artifactType: z.string().optional().describe("Filter by type: markdown, code, html, spreadsheet"),
       createdByUserId: z.string().uuid().optional().describe("Filter by creator user ID"),
-      limit: z.number().optional().describe("Max results (default 50)"),
-      offset: z.number().optional().describe("Offset for pagination"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const result = await services.artifacts.list(actor.companyId, {
         channelId: input.channelId,
         artifactType: input.artifactType,
         createdByUserId: input.createdByUserId,
-        limit: input.limit,
-        offset: input.offset,
+        limit: limit + 1,
+        offset,
       });
+      const items = result.artifacts;
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: result.artifacts.map((a: any) => ({
+            items: page.map((a: any) => ({
               id: a.id,
               title: a.title,
               artifactType: a.artifactType,
@@ -38,7 +45,9 @@ export default defineMcpTools(({ tool, services }) => {
               createdByAgentId: a.createdByAgentId,
               createdAt: a.createdAt,
             })),
-            total: result.total,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

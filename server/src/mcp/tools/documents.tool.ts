@@ -1,32 +1,39 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_documents", {
     permissions: [PERMISSIONS.DOCUMENTS_READ],
     description:
       "[Documents] List documents with optional filters.\n" +
-      "Returns documents ordered by most recently created.",
+      "Returns cursor-paginated documents ordered by most recently created.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       createdByUserId: z.string().uuid().optional().describe("Filter by uploader user ID"),
       status: z.string().optional().describe("Filter by ingestion status: pending, processing, completed, error"),
-      limit: z.number().optional().describe("Max results (default 50)"),
-      offset: z.number().optional().describe("Offset for pagination"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const result = await services.documents.list(actor.companyId, {
         createdByUserId: input.createdByUserId,
         status: input.status,
-        limit: input.limit,
-        offset: input.offset,
+        limit: limit + 1,
+        offset,
       });
+      const items = result.documents;
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: result.documents.map((d: any) => ({
+            items: page.map((d: any) => ({
               id: d.id,
               title: d.title,
               mimeType: d.mimeType,
@@ -35,7 +42,9 @@ export default defineMcpTools(({ tool, services }) => {
               createdByUserId: d.createdByUserId,
               createdAt: d.createdAt,
             })),
-            total: result.total,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

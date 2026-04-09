@@ -8,20 +8,28 @@ export default defineMcpTools(({ tool, services }) => {
     permissions: [PERMISSIONS.AGENTS_READ],
     description:
       "[Agents] List all active agents in the company.\n" +
-      "Returns non-terminated agents by default.",
+      "Returns cursor-paginated, non-terminated agents by default.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       includeTerminated: z.boolean().optional().describe("Include terminated agents (default false)"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const items = await services.agents.list(actor.companyId, {
         includeTerminated: input.includeTerminated,
       });
+      const slice = items.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: items.map((a: any) => ({
+            items: page.map((a: any) => ({
               id: a.id,
               name: a.name,
               title: a.title,
@@ -30,7 +38,9 @@ export default defineMcpTools(({ tool, services }) => {
               reportsTo: a.reportsTo,
               adapterType: a.adapterType,
             })),
-            total: items.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

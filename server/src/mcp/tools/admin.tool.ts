@@ -3,6 +3,7 @@ import { eq, and, isNull, inArray } from "drizzle-orm";
 import { roles, rolePermissions, permissions, tags } from "@mnm/db";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   // ── Roles ─────────────────────────────────────────────────────────────────
@@ -11,11 +12,17 @@ export default defineMcpTools(({ tool, services }) => {
     permissions: [PERMISSIONS.ROLES_READ],
     description:
       "[Admin] List all roles defined in the company.\n" +
-      "Returns role name, slug, hierarchy level, and permissions.\n" +
-      "Roles control what actions users and agents can perform.",
-    input: z.object({}),
+      "Returns cursor-paginated role name, slug, hierarchy level, and permissions.\n" +
+      "Roles control what actions users and agents can perform.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
+    input: z.object({
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
+    }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    handler: async ({ actor }) => {
+    handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const db = services.db;
       const allRoles = await db
         .select()
@@ -23,11 +30,15 @@ export default defineMcpTools(({ tool, services }) => {
         .where(eq(roles.companyId, actor.companyId))
         .orderBy(roles.hierarchyLevel);
 
+      const slice = allRoles.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
+
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: allRoles.map((r: any) => ({
+            items: page.map((r: any) => ({
               id: r.id,
               name: r.name,
               slug: r.slug,
@@ -35,7 +46,9 @@ export default defineMcpTools(({ tool, services }) => {
               bypassTagFilter: r.bypassTagFilter,
               inheritsFromId: r.inheritsFromId,
             })),
-            total: allRoles.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };
@@ -176,10 +189,16 @@ export default defineMcpTools(({ tool, services }) => {
     description:
       "[Admin] List all tags in the company.\n" +
       "Tags control visibility — users only see agents/issues sharing at least 1 tag.\n" +
-      "Returns tag name, slug, description, and assignment counts.",
-    input: z.object({}),
+      "Returns cursor-paginated tag name, slug, description, and assignment counts.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
+    input: z.object({
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
+    }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    handler: async ({ actor }) => {
+    handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const db = services.db;
       const allTags = await db
         .select()
@@ -187,11 +206,15 @@ export default defineMcpTools(({ tool, services }) => {
         .where(and(eq(tags.companyId, actor.companyId), isNull(tags.archivedAt)))
         .orderBy(tags.name);
 
+      const slice = allTags.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
+
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: allTags.map((t: any) => ({
+            items: page.map((t: any) => ({
               id: t.id,
               name: t.name,
               slug: t.slug,
@@ -199,7 +222,9 @@ export default defineMcpTools(({ tool, services }) => {
               color: t.color,
               archivedAt: t.archivedAt,
             })),
-            total: allTags.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };
@@ -306,9 +331,10 @@ export default defineMcpTools(({ tool, services }) => {
   tool("get_audit_log", {
     permissions: [PERMISSIONS.AUDIT_READ],
     description:
-      "[Admin] Query the audit log with filters and pagination.\n" +
+      "[Admin] Query the audit log with filters and cursor pagination.\n" +
       "Returns timestamped events with actor, action, target, and severity.\n" +
-      "Supports filtering by actor, action, target, severity, and date range.",
+      "Supports filtering by actor, action, target, severity, and date range.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
     input: z.object({
       actorId: z.string().optional().describe("Filter by actor ID"),
       actorType: z.string().optional().describe("Filter by actor type (user, agent, system)"),
@@ -319,11 +345,13 @@ export default defineMcpTools(({ tool, services }) => {
       dateFrom: z.string().optional().describe("Start date (ISO 8601)"),
       dateTo: z.string().optional().describe("End date (ISO 8601)"),
       search: z.string().optional().describe("Full-text search across action, target type, target ID"),
-      limit: z.number().optional().describe("Max results (default 50)"),
-      offset: z.number().optional().describe("Offset for pagination"),
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const result = await services.audit.list({
         companyId: actor.companyId,
         actorId: input.actorId,
@@ -335,14 +363,17 @@ export default defineMcpTools(({ tool, services }) => {
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
         search: input.search,
-        limit: input.limit,
-        offset: input.offset,
+        limit: limit + 1,
+        offset,
       });
+      const items = result.data;
+      const hasMore = items.length > limit;
+      const page = hasMore ? items.slice(0, limit) : items;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: result.data.map((e: any) => ({
+            items: page.map((e: any) => ({
               id: e.id,
               actorId: e.actorId,
               actorType: e.actorType,
@@ -352,9 +383,9 @@ export default defineMcpTools(({ tool, services }) => {
               severity: e.severity,
               createdAt: e.createdAt,
             })),
-            total: result.total,
-            limit: result.limit,
-            offset: result.offset,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };

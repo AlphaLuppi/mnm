@@ -1,23 +1,33 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { encodeCursor, decodeCursor } from "./_pagination.js";
 
 export default defineMcpTools(({ tool, services }) => {
   tool("list_users", {
     permissions: [PERMISSIONS.USERS_READ],
     description:
       "[Users] List all company members and pending invites.\n" +
-      "Returns active members with their roles and pending invitations.\n" +
-      "Includes user name, email, status, and role information.",
-    input: z.object({}),
+      "Returns cursor-paginated active members with their roles and pending invitations.\n" +
+      "Includes user name, email, status, and role information.\n" +
+      "Pass the nextCursor value to fetch subsequent pages.",
+    input: z.object({
+      cursor: z.string().optional().describe("Pagination cursor from previous response"),
+      limit: z.number().int().min(1).max(100).default(25).describe("Page size (default 25, max 100)"),
+    }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    handler: async ({ actor }) => {
+    handler: async ({ input, actor }) => {
+      const limit = input.limit ?? 25;
+      const offset = decodeCursor(input.cursor);
       const members = await services.access.listMembers(actor.companyId);
+      const slice = members.slice(offset, offset + limit + 1);
+      const hasMore = slice.length > limit;
+      const page = hasMore ? slice.slice(0, limit) : slice;
       return {
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            items: members.map((m: any) => ({
+            items: page.map((m: any) => ({
               id: m.id,
               principalId: m.principalId,
               status: m.status,
@@ -26,7 +36,9 @@ export default defineMcpTools(({ tool, services }) => {
               userEmail: m.userEmail,
               createdAt: m.createdAt,
             })),
-            total: members.length,
+            total: page.length,
+            hasMore,
+            nextCursor: hasMore ? encodeCursor(offset + limit) : null,
           }),
         }],
       };
