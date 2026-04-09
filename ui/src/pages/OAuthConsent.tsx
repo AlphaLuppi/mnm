@@ -248,39 +248,29 @@ export function OAuthConsentPage() {
 
       const res = await fetch("/oauth/authorize", {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Accept": "application/json",
+        },
         body: formData.toString(),
         credentials: "include",
-        redirect: "manual",
       });
 
-      // Server returns 302 to the client's callback (e.g. http://localhost:PORT/callback).
-      // With redirect:"manual", fetch gives us an opaque redirect we can't read.
-      // Fall back to a real form submit so the browser navigates directly (no CORS).
-      if (res.type === "opaqueredirect") {
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = "/oauth/authorize";
-        form.style.display = "none";
-        for (const [key, value] of formData.entries()) {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = key;
-          input.value = value;
-          form.appendChild(input);
-        }
-        document.body.appendChild(form);
-        form.submit();
-        return;
-      }
+      const data = await res.json().catch(() => ({ error: "unknown" }));
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "unknown" }));
         if (data.error === "login_required") {
           window.location.href = `/auth?next=${encodeURIComponent(window.location.href)}`;
           return;
         }
         setSubmitError(data.error_description || data.error || "Echec de l'autorisation");
+        return;
+      }
+
+      // Server returns JSON with redirect URL — navigate to complete OAuth flow
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url;
+        return;
       }
     } catch {
       setSubmitError("Erreur reseau — veuillez reessayer");
