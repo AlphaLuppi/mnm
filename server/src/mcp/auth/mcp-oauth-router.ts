@@ -366,7 +366,11 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
         severity: "info",
       }).catch(() => {});
       const redirectTarget = `${redirect_uri}?error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ""}`;
-      res.redirect(redirectTarget);
+      if (req.headers.accept?.includes("application/json")) {
+        res.json({ redirect_url: redirectTarget });
+      } else {
+        res.redirect(redirectTarget);
+      }
       return;
     }
 
@@ -430,7 +434,11 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     redirectUrl.searchParams.set("code", code);
     if (state) redirectUrl.searchParams.set("state", state);
 
-    res.redirect(redirectUrl.toString());
+    if (req.headers.accept?.includes("application/json")) {
+      res.json({ redirect_url: redirectUrl.toString() });
+    } else {
+      res.redirect(redirectUrl.toString());
+    }
   });
 
   // ── 5. Token Endpoint ────────────────────────────────────────────────
