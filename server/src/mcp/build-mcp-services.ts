@@ -20,6 +20,7 @@ import { deployManagerService } from "../services/deploy-manager.js";
 import { sandboxManagerService } from "../services/sandbox-manager.js";
 import { accessService } from "../services/access.js";
 import { onboardingService } from "../services/onboarding.js";
+import { inviteService } from "../services/invite.js";
 import { auditService } from "../services/audit.js";
 import { a2aBusService } from "../services/a2a-bus.js";
 import { a2aPermissionsService } from "../services/a2a-permissions.js";
@@ -46,6 +47,7 @@ export function buildMcpServices(db: Db): McpServices {
     sandboxManager: sandboxManagerService(db),
     access: accessService(db),
     onboarding: onboardingService(db),
+    invite: inviteService(db),
     audit: auditService(db),
     a2aBus: a2aBusService(db),
     a2aPermissions: a2aPermissionsService(db),

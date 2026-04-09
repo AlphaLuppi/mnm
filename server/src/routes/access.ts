@@ -51,6 +51,7 @@ import {
   logActivity,
   notifyHireApproved
 } from "../services/index.js";
+import { inviteService } from "../services/invite.js";
 import { assertCompanyAccess } from "./authz.js";
 import {
   claimBoardOwnership,
@@ -61,21 +62,7 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-const INVITE_TOKEN_PREFIX = "pcp_invite_";
-const INVITE_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
-const INVITE_TOKEN_SUFFIX_LENGTH = 8;
-const INVITE_TOKEN_MAX_RETRIES = 5;
 const COMPANY_INVITE_TTL_MS = 10 * 60 * 1000;
-const EMAIL_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function createInviteToken() {
-  const bytes = randomBytes(INVITE_TOKEN_SUFFIX_LENGTH);
-  let suffix = "";
-  for (let idx = 0; idx < INVITE_TOKEN_SUFFIX_LENGTH; idx += 1) {
-    suffix += INVITE_TOKEN_ALPHABET[bytes[idx]! % INVITE_TOKEN_ALPHABET.length];
-  }
-  return `${INVITE_TOKEN_PREFIX}${suffix}`;
-}
 
 function createClaimSecret() {
   return `pcp_claim_${randomBytes(24).toString("hex")}`;
@@ -1246,20 +1233,6 @@ function extractInviteMessage(
   return trimmed.length ? trimmed : null;
 }
 
-function mergeInviteDefaults(
-  defaultsPayload: Record<string, unknown> | null | undefined,
-  agentMessage: string | null
-): Record<string, unknown> | null {
-  const merged =
-    defaultsPayload && typeof defaultsPayload === "object"
-      ? { ...defaultsPayload }
-      : {};
-  if (agentMessage) {
-    merged.agentMessage = agentMessage;
-  }
-  return Object.keys(merged).length ? merged : null;
-}
-
 function requestIp(req: Request) {
   const forwarded = req.header("x-forwarded-for");
   if (forwarded) {
@@ -1336,32 +1309,6 @@ export function resolveJoinRequestAgentManagerId(
     (candidate) => candidate.reportsTo === null
   );
   return (rootCeo ?? ceoCandidates[0] ?? null)?.id ?? null;
-}
-
-function isInviteTokenHashCollisionError(error: unknown) {
-  const candidates = [
-    error,
-    (error as { cause?: unknown } | null)?.cause ?? null
-  ];
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== "object") continue;
-    const code =
-      "code" in candidate && typeof candidate.code === "string"
-        ? candidate.code
-        : null;
-    const message =
-      "message" in candidate && typeof candidate.message === "string"
-        ? candidate.message
-        : "";
-    const constraint =
-      "constraint" in candidate && typeof candidate.constraint === "string"
-        ? candidate.constraint
-        : null;
-    if (code !== "23505") continue;
-    if (constraint === "invites_token_hash_unique_idx") return true;
-    if (message.includes("invites_token_hash_unique_idx")) return true;
-  }
-  return false;
 }
 
 function isAbortError(error: unknown) {
@@ -1454,6 +1401,7 @@ export function accessRoutes(
   const access = accessService(db);
   const agents = agentService(db);
   const cascade = cascadeService(db);
+  const inviteSvc = inviteService(db);
 
   async function assertInstanceAdmin(req: Request) {
     if (req.actor.type !== "board") throw unauthorized();
@@ -1567,6 +1515,7 @@ export function accessRoutes(
     }
   }
 
+  // createCompanyInviteForCompany — delegates to invite service
   async function createCompanyInviteForCompany(input: {
     req: Request;
     companyId: string;
@@ -1575,51 +1524,14 @@ export function accessRoutes(
     agentMessage?: string | null;
     targetEmail?: string | null;
   }) {
-    const normalizedAgentMessage =
-      typeof input.agentMessage === "string"
-        ? input.agentMessage.trim() || null
-        : null;
-    const ttl = input.targetEmail ? EMAIL_INVITE_TTL_MS : COMPANY_INVITE_TTL_MS;
-    const insertValues = {
+    return inviteSvc.create({
       companyId: input.companyId,
-      inviteType: "company_join" as const,
       allowedJoinTypes: input.allowedJoinTypes,
-      defaultsPayload: mergeInviteDefaults(
-        input.defaultsPayload ?? null,
-        normalizedAgentMessage
-      ),
-      targetEmail: input.targetEmail ?? null,
-      expiresAt: companyInviteExpiresAt(Date.now(), ttl),
-      invitedByUserId: input.req.actor.userId ?? null
-    };
-
-    let token: string | null = null;
-    let created: typeof invites.$inferSelect | null = null;
-    for (let attempt = 0; attempt < INVITE_TOKEN_MAX_RETRIES; attempt += 1) {
-      const candidateToken = createInviteToken();
-      try {
-        const row = await db
-          .insert(invites)
-          .values({
-            ...insertValues,
-            tokenHash: hashToken(candidateToken)
-          })
-          .returning()
-          .then((rows) => rows[0]);
-        token = candidateToken;
-        created = row;
-        break;
-      } catch (error) {
-        if (!isInviteTokenHashCollisionError(error)) {
-          throw error;
-        }
-      }
-    }
-    if (!token || !created) {
-      throw conflict("Failed to generate a unique invite token. Please retry.");
-    }
-
-    return { token, created, normalizedAgentMessage };
+      defaultsPayload: input.defaultsPayload,
+      agentMessage: input.agentMessage,
+      targetEmail: input.targetEmail,
+      invitedByUserId: input.req.actor.userId ?? null,
+    });
   }
 
   router.get("/skills/index", (_req, res) => {
@@ -1652,21 +1564,8 @@ export function accessRoutes(
 
       // Duplicate check: if email provided, reject if a pending invite exists
       if (email) {
-        const now = new Date();
-        const existing = await db
-          .select({ id: invites.id })
-          .from(invites)
-          .where(
-            and(
-              eq(invites.companyId, companyId),
-              eq(invites.targetEmail, email),
-              isNull(invites.revokedAt),
-              isNull(invites.acceptedAt),
-              gt(invites.expiresAt, now),
-            ),
-          )
-          .then((rows) => rows[0] ?? null);
-        if (existing) {
+        const hasPending = await inviteSvc.hasPendingInviteForEmail(companyId, email);
+        if (hasPending) {
           throw conflict("A pending invitation already exists for this email address");
         }
       }
@@ -1831,11 +1730,7 @@ export function accessRoutes(
     const companyId = req.params.companyId as string;
     await assertCompanyPermission(req, companyId, PERMISSIONS.USERS_INVITE);
 
-    const inviteList = await db
-      .select()
-      .from(invites)
-      .where(eq(invites.companyId, companyId))
-      .orderBy(desc(invites.createdAt));
+    const inviteList = await inviteSvc.listByCompany(companyId);
 
     // Add computed status
     const now = new Date();

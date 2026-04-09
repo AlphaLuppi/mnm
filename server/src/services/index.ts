@@ -62,6 +62,7 @@ export { ssoAuthService } from "./sso-auth.js";
 export { onboardingService } from "./onboarding.js";
 // onb-s02-barrel-svc
 export { cascadeService } from "./cascade.js";
+export { inviteService } from "./invite.js";
 // onb-s03-barrel-svc
 export { jiraImportService } from "./jira-import.js";
 // TRACE-02: Trace service
