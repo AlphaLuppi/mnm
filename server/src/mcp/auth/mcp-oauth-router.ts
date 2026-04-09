@@ -161,7 +161,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       ? grant_types
       : ["authorization_code", "refresh_token"];
 
-    const client = store.registerClient(client_name, uris, grants);
+    const client = await store.registerClient(client_name, uris, grants);
 
     res.status(201).json({
       client_id: client.clientId,
@@ -196,7 +196,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
-    const client = store.getClient(client_id);
+    const client = await store.getClient(client_id);
     if (!client) {
       res.status(400).json({ error: "invalid_client", error_description: "Unknown client_id" });
       return;
@@ -277,7 +277,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
-    const client = store.getClient(client_id);
+    const client = await store.getClient(client_id);
     if (!client) {
       res.status(400).json({ error: "invalid_client" });
       return;
@@ -348,7 +348,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     }
 
     // Verify client_secret if the client has one
-    const client = store.getClient(client_id);
+    const client = await store.getClient(client_id);
     if (client?.clientSecret) {
       const client_secret = req.body?.client_secret;
       if (!client_secret) {
@@ -390,7 +390,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     };
 
     const accessToken = signAccessToken(accessTokenClaims);
-    const refreshToken = store.createRefreshToken({
+    const refreshToken = await store.createRefreshToken({
       clientId: authCode.clientId,
       userId: authCode.userId,
       companyId: authCode.companyId,
@@ -415,7 +415,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
-    const tokenEntry = store.consumeRefreshToken(refresh_token);
+    const tokenEntry = await store.consumeRefreshToken(refresh_token);
     if (!tokenEntry) {
       res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired refresh token" });
       return;
@@ -427,7 +427,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     }
 
     // Verify client_secret if the client has one
-    const client = store.getClient(client_id);
+    const client = await store.getClient(client_id);
     if (client?.clientSecret) {
       const client_secret = req.body?.client_secret;
       if (!client_secret) {
@@ -457,7 +457,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     };
 
     const accessToken = signAccessToken(accessTokenClaims);
-    const newRefreshToken = store.createRefreshToken({
+    const newRefreshToken = await store.createRefreshToken({
       clientId: tokenEntry.clientId,
       userId: tokenEntry.userId,
       companyId: tokenEntry.companyId,
