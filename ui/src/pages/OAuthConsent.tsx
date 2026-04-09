@@ -251,12 +251,13 @@ export function OAuthConsentPage() {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData.toString(),
         credentials: "include",
-        redirect: "follow",
+        redirect: "manual",
       });
 
-      // If the redirect was followed to a cross-origin URL, fetch will return an opaque response
+      // Server returns 302 to the client's callback (e.g. http://localhost:PORT/callback).
+      // With redirect:"manual", fetch gives us an opaque redirect we can't read.
+      // Fall back to a real form submit so the browser navigates directly (no CORS).
       if (res.type === "opaqueredirect") {
-        // Cannot read Location header; fall back to form submit
         const form = document.createElement("form");
         form.method = "POST";
         form.action = "/oauth/authorize";
@@ -270,12 +271,6 @@ export function OAuthConsentPage() {
         }
         document.body.appendChild(form);
         form.submit();
-        return;
-      }
-
-      // If redirected successfully (browser followed it), the final URL is the callback
-      if (res.redirected) {
-        window.location.href = res.url;
         return;
       }
 
