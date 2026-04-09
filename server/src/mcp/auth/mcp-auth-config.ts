@@ -1,3 +1,5 @@
+export const MCP_TOKEN_AUDIENCE = "mnm-mcp";
+
 export function getMcpJwtSecret(): string {
   const secret = process.env.MNM_MCP_JWT_SECRET;
   if (secret) return secret;

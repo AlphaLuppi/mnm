@@ -16,6 +16,24 @@ import { collectResources } from "./registry/define-mcp-resources.js";
 import { allToolDefiners } from "./tools/index.js";
 import { allResourceDefiners } from "./resources/index.js";
 import type { McpActor, McpServices } from "./registry/types.js";
+import { createRateLimiter } from "../middleware/rate-limit.js";
+import { mcpDbSemaphore } from "./mcp-health.js";
+// Side-effect import: starts event loop monitor
+import "./mcp-health.js";
+
+// ── MCP rate limiters ───────────────────────────────────────────────────────
+
+const mcpNewSessionLimiter = createRateLimiter({
+  max: 10,
+  windowMs: 60_000,
+  keyGenerator: (req) => `mcp-new:${req.ip ?? "unknown"}`,
+});
+
+const mcpExistingSessionLimiter = createRateLimiter({
+  max: 200,
+  windowMs: 60_000,
+  keyGenerator: (req) => `mcp-sess:${req.headers["mcp-session-id"] as string}`,
+});
 
 export interface McpRouterDeps {
   db: Db;
@@ -64,6 +82,15 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
   // ── POST /mcp — Main MCP endpoint (Streamable HTTP) ─────────────────────
   router.post("/mcp", async (req: Request, res: Response) => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+    // Apply appropriate rate limiter based on session presence
+    const limiter = sessionId ? mcpExistingSessionLimiter : mcpNewSessionLimiter;
+    const limited = await new Promise<boolean>((resolve) => {
+      limiter(req, res, () => resolve(false));
+      // If the limiter already sent a 429, the response is finished
+      if (res.writableEnded) resolve(true);
+    });
+    if (limited) return;
 
     // Existing session — route to transport
     if (sessionId) {
@@ -134,7 +161,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
                 isError: true,
               };
             }
-            const result = await tool.handler({ input: parsed.data, actor });
+            const result = await mcpDbSemaphore.run(() => tool.handler({ input: parsed.data, actor }));
             return { ...result } as any;
           },
         );
