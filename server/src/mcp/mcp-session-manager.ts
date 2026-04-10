@@ -130,4 +130,8 @@ export class McpSessionManager {
   get activeCount(): number {
     return this.sessions.size;
   }
+
+  atCapacity(): boolean {
+    return this.sessions.size >= this.maxSessions;
+  }
 }
