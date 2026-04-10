@@ -1,12 +1,12 @@
 # MnM — Make no Mistake
 
 ```
-███╗   ███╗          ███╗   ███╗
-████╗ ████║  █████╗  ████╗ ████║
-██╔████╔██║ ██╔══██╗ ██╔████╔██║
-██║╚██╔╝██║ ██║  ██║ ██║╚██╔╝██║
-██║ ╚═╝ ██║ ██║  ██║ ██║ ╚═╝ ██║
-╚═╝     ╚═╝ ╚═╝  ╚═╝ ╚═╝     ╚═╝
+███╗   ███╗       █████╗       ███╗   ███╗
+████╗ ████║      ██╔══██╗      ████╗ ████║
+██╔████╔██║      ██║  ██║      ██╔████╔██║
+██║╚██╔╝██║      ██║  ██║      ██║╚██╔╝██║
+██║ ╚═╝ ██║      ██║  ██║      ██║ ╚═╝ ██║
+╚═╝     ╚═╝ake   ╚═╝  ╚═╝o     ╚═╝     ╚═╝istake
 ```
 
 > **Cockpit de supervision B2B pour orchestrer des equipes completes d'agents IA — dev, infra, PO, PM, marketing, DSI, CEO et au-dela.**
@@ -43,7 +43,7 @@ MnM n'est pas un outil de dev. C'est **une plateforme de pilotage pour des equip
 
 L'ambition : chaque role de l'entreprise a ses agents, ses workflows, ses outils. MnM orchestre le tout avec isolation, gouvernance et visibilite. L'humain passe de l'execution a la supervision strategique — 80% reflexion, 20% execution.
 
-**5 piliers de valeur :**
+**Piliers de valeur :**
 
 1. **Orchestrateur d'agents IA** — Modele Kubernetes-for-agents : isolation, scheduling, health monitoring. Pas limite au code — n'importe quel metier peut avoir ses agents (marketing, ops, finance, RH...)
 2. **Fin du handoff lossy** — Contexte partage et requetable entre tous les roles. Le PO, le dev, le QA, le DSI, le CEO voient la meme realite, enrichie par les agents
@@ -54,300 +54,40 @@ L'ambition : chaque role de l'entreprise a ses agents, ses workflows, ses outils
 
 ---
 
-## Stack technique
+## Ce que MnM fait
 
-```
-React 18 + TypeScript (shadcn/ui + Tailwind)
-  ↓
-Express.js API (35+ routes, auth middleware, rate limiting)
-  ↓
-71 Services backend (RBAC, orchestrateur, containers, audit, chat, drift, A2A, config layers)
-  ↓
-PostgreSQL 17 (51 tables, RLS sur 41) + Redis 7 (cache, pub/sub) + WebSocket (live events, chat)
-  ↓
-Agent Runtime (adapters, Docker containers, credential proxy, heartbeat)
-```
-
-**Monorepo Bun workspaces** avec 13 packages typechecked.
+- **RBAC dynamique & isolation par tags** — chaque utilisateur ne voit que les agents et les donnees de son perimetre. Roles et permissions sont configures depuis l'UI, pas dans le code.
+- **Agents IA en sandbox** — chaque utilisateur dispose de son propre container Docker isole. Les credentials sont injectes par run, jamais persistes sur le disque.
+- **CAO — Chief Agent Officer** — un agent systeme qui supervise l'orchestration, detecte les problemes en mode watchdog, et repond aux `@cao` en mode interactif.
+- **Pipeline de traces Bronze → Silver → Gold** — les executions d'agents sont enrichies automatiquement par un LLM et presentees comme une timeline scoree et annotee, pas comme un dump JSON.
+- **Config Layers** — configuration des agents structuree, versionee, mergee par priorite. Plus de JSONB opaque, plus de conflits silencieux.
+- **Chat collaboratif temps reel** — discussions 1-1 avec les agents, artifacts versiones avec preview, documents + RAG via pgvector, dossiers partages, slash commands, `@mentions`.
+- **Workflows BMAD** — machine a etats formelle pour piloter Brief → PRD → Architecture → Stories → Dev → Test, avec validation HITL aux points critiques.
+- **Serveur MCP** — MnM expose 68 tools et 10 resources via le Model Context Protocol. N'importe quel client compatible (Claude Code, Cursor, Claude Desktop) peut piloter la plateforme via OAuth 2.1 avec consentement granulaire.
+- **Audit immutable** — chaque action critique genere un evenement audit non modifiable, consultable dans l'UI avec filtres et export.
+- **Feature Traceability (en cours)** — chaque fonctionnalite est un node reliee a ses specs, son code, ses tests et sa coverage.
 
 ---
 
-## Features implementees
-
-### RBAC & Multi-tenant (15 stories)
-- 4 roles dynamiques (Admin, Lead, Member, Viewer) stockes en DB
-- 20+ permissions granulaires, matrice de permissions UI
-- **Isolation par tags** : les utilisateurs ne voient que les agents/issues partageant au moins 1 tag
-- RLS PostgreSQL sur 41 tables
-- Invitations par email, import CSV bulk, inscription sur invitation uniquement
-
-### Orchestration & Agents (5 stories)
-- **CAO (Chief Agent Officer)** : agent systeme auto-cree, watchdog silencieux + interactif via @cao
-- Machine a etats XState (12 transitions), WorkflowEnforcer, validation HITL
-- Workflow templates BMAD (Brief -> PRD -> Architecture -> Stories -> Dev -> Test)
-- Editeur visuel de workflows
-
-### Sandbox & Securite (5 stories)
-- Container Docker persistant par utilisateur
-- 5 couches de securite : ephemere, read-only, mount allowlist, credential proxy, reseaux isoles
-- Token OAuth Claude injecte par run (pas de credentials sur le filesystem sandbox)
-- `docker exec` avec rewrite automatique localhost -> host.docker.internal
-
-### Pipeline de Traces (8 stories)
-- **Gold** (vue par defaut) : timeline intelligente, phases scorees, annotees, contextualisees
-- **Silver** : observations groupees avec resumes
-- **Bronze** : blocs JSON bruts (debug)
-- Auto-generation a la completion du trace (pas de clic manuel)
-- Enrichissement LLM hierarchique : global -> workflow -> agent -> issue
-
-### Config Layers (5 stories)
-- 8 tables DB, 22+ routes API, 6 services backend, 10+ composants frontend
-- Types d'items : MCP Servers, Skills, Hooks, Settings — chacun avec editeur dedie
-- Merge par priorite : Company enforced (999) > Base layer (500) > Additional (0-498)
-- Detection de conflits avec advisory locks PostgreSQL
-- OAuth2 PKCE pour credentials MCP (chiffrement AES-256-GCM)
-- Historique de revisions avec snapshots
-
-### Chat Collaboratif (18 stories)
-- Chat temps reel 1-1 avec agents IA via WebSocket
-- **Artifacts** : versiones, preview HTML dans side panel, CRUD via tools
-- **Documents & RAG** : upload, ingestion pipeline, embeddings pgvector, recherche par similarite cosinus
-- **Dossiers** : visibilite par tags (prive/public + tags directs), auto-save artifacts
-- Slash commands, @mentions, streaming
-- 8 tables DB, 13 nouvelles permissions
-
-### Observabilite & Audit
-- Table `audit_events` immutable (protegee par TRIGGER, partitionnee par mois)
-- Auto-emission sur actions critiques
-- UI AuditLog avec filtres et export
-- Dashboard role-based avec cartes configurables, updates WebSocket temps reel
-
-### Communication Agent-to-Agent
-- Bus de communication A2A avec regles de permissions
-- Trail d'audit pour chaque echange
-- Connecteurs MCP
-
-### Drift Detection
-- Detection automatique de derive entre specs et code
-- UI diff viewer side-by-side
-- Persistence en DB
-
-### Dual-Speed Workflow
-- Curseurs d'automation (Manual/Assisted/Auto x 4 niveaux)
-- Slider visuel UI + enforcement
-
----
-
-## Architecture du repo
-
-```
-server/              Express backend (routes, services, middleware, realtime, auth)
-ui/                  React frontend (pages, components, hooks, api)
-packages/
-  db/                Drizzle ORM schema, migrations (51 tables)
-  shared/            Types partages (modeles B2B)
-  adapters/          Adaptateurs agents (claude-local, cursor-local, codex-local, etc.)
-  adapter-utils/     Utilitaires communs aux adaptateurs
-  test-utils/        Factories et helpers de test
-cli/                 CLI MnM (@mnm/cli, publie sur npm)
-skills/              Skills Claude Code (mnm, mnm-create-agent, para-memory-files)
-e2e/                 Tests Playwright E2E (70+ fichiers)
-docs/                Plans d'implementation et specs
-_bmad/               Framework BMAD (templates, NE PAS MODIFIER)
-_bmad-output/        Artifacts de planning, brainstorms, reviews, stories
-_research/           Recherches techniques (orchestration, OpenClaw, dashboard UX)
-```
-
----
-
-## Demarrage rapide
+## Essayer MnM
 
 ```bash
 # Prerequis : Bun >= 1.3, Node >= 20, Docker
-
-# Installation
 bun install
-
-# Dev (embedded PostgreSQL, pas besoin de Docker pour la DB)
 bun run dev
-
-# Ou avec PostgreSQL + Redis externes
-bun run dev:docker:up    # Lance PG + Redis
-bun run dev              # Lance le serveur
 ```
 
-### Production (Docker Compose)
+Ca lance un serveur + UI avec PostgreSQL embarque — aucun setup externe necessaire pour tester.
 
-```bash
-docker compose build server
-docker compose up -d --wait
-# Server sur http://127.0.0.1:3100 (mode authenticated, 41 tables RLS)
-```
-
-### Deploiement Dokploy
-
-```bash
-docker compose -f docker-compose.dokploy.yml up -d
-```
+Pour un deploiement production (Docker Compose, Dokploy) et le get started dev complet, voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## CLI
+## Aller plus loin
 
-```bash
-npx @mnm/cli configure   # Configuration initiale
-npx @mnm/cli onboard     # Onboarding interactif
-npx @mnm/cli doctor       # Diagnostic de l'installation
-npx @mnm/cli run          # Lancer le serveur
-npx @mnm/cli db-backup   # Backup de la base
-```
-
----
-
-## Commandes dev
-
-```bash
-bun install          # Installer les dependances
-bun run dev          # Lancer en dev (server + ui, embedded postgres)
-bun run build        # Build tous les packages
-bun run typecheck    # Verification TypeScript (13/13 packages)
-bun run test:e2e     # Tests Playwright E2E
-```
-
-## GitNexus — Code Intelligence
-
-Le codebase est indexe par [GitNexus](https://github.com/abhigyanpatwari/GitNexus) (knowledge graph du code source). Cela donne aux agents et aux developpeurs une comprehension architecturale du projet : call chains, dependances, clusters fonctionnels, blast radius avant modification.
-
-```bash
-# Re-indexer apres des changements importants
-npx gitnexus analyze
-
-# Lancer le MCP server (expose le knowledge graph aux agents/IDEs)
-npx gitnexus mcp
-
-# Queries utiles
-npx gitnexus query "auth validation"          # Trouver des execution flows
-npx gitnexus context "validateUser"            # Vue 360 d'un symbole
-npx gitnexus impact "SessionManager" --direction upstream  # Blast radius
-```
-
-**Setup pour un nouveau dev :**
-1. `npx gitnexus setup` — configure le MCP pour ton IDE (Cursor, Claude Code, VSCode)
-2. `npx gitnexus analyze` — indexe le repo (~23s)
-3. Le MCP est disponible dans ton IDE — pose des questions sur l'architecture
-
-L'index est stocke dans `.gitnexus/` (gitignored). Les skills Claude Code sont dans `.claude/skills/gitnexus/`.
-
----
-
-## MCP Server
-
-MnM expose un **serveur MCP** (Model Context Protocol) qui permet a n'importe quel client compatible — Claude Code, Cursor, Claude Desktop... — de piloter la plateforme (agents, issues, projects, chat, config layers, traces, workflows, sandbox, documents, artifacts, a2a, admin). **68 tools + 10 resources** sur 14 domaines, filtres dynamiquement selon les permissions reelles de l'utilisateur.
-
-**Transport :** Streamable HTTP (recommande) ou SSE legacy.
-**Auth :** OAuth 2.1 avec PKCE, Dynamic Client Registration, ecran de consentement granulaire par domaine (read/write/admin).
-
-### Ajouter MnM a Claude Code
-
-```bash
-claude mcp add --transport http mnm http://localhost:3001/mcp
-```
-
-Au premier appel, Claude Code declenche automatiquement le flow OAuth : une page s'ouvre dans le navigateur, tu te connectes a MnM, tu valides les permissions sur l'ecran de consentement, et c'est pret. Pour une instance distante, remplace par `https://<ton-domaine>/mcp`.
-
-### Endpoints exposes
-
-| Endpoint | Role |
-|---|---|
-| `POST/GET/DELETE /mcp` | Transport Streamable HTTP |
-| `GET /mcp/sse` | Transport SSE legacy |
-| `/.well-known/oauth-protected-resource` | Metadata resource server |
-| `/.well-known/oauth-authorization-server` | Metadata AS |
-| `/oauth/register`, `/oauth/authorize`, `/oauth/token` | OAuth 2.1 AS |
-
-Details techniques et progression : `_bmad-output/specs/plans/mcp-progress.md`.
-
----
-
-## Decisions architecturales cles
-
-| Decision | Justification |
-|---|---|
-| **Zero polling** | Tous les updates temps reel via SSE/WebSocket. Jamais de `setInterval` ou `refetchInterval`. |
-| **Single-tenant** | 1 instance = 1 entreprise. `company_id` auto-injecte, jamais expose en UI. |
-| **RBAC dynamique** | Roles et permissions en DB, jamais de constantes hardcodees. |
-| **Tags > Teams** | Les tags sont additifs et flexibles. Score 8/8 sur le test CBA vs 5/8 pour Roles+Teams. |
-| **Config Layers > JSONB** | Config structuree, mergeable, versionee, avec detection de conflits. |
-| **Trace Gold par defaut** | L'utilisateur voit la synthese intelligente, pas le bruit brut. |
-| **Container par user** | Isolation securisee, credentials injectees par run, pas persistees sur disque. |
-
----
-
-## Chronologie du projet
-
-| Date | Jalon |
-|---|---|
-| **Fev 2026** | Fork de Paperclip, premieres sessions de brainstorming |
-| **19 fev** | Brainstorm Cross-Document Drift Detection (architecture fondatrice) |
-| **21 fev** | Brainstorm IDE for Agent-Driven Dev — 45 idees, changement de paradigme |
-| **Mar 2026** | Pivot B2B enterprise, migration PostgreSQL |
-| **12 mar** | Brainstorm B2B Transformation — 5 piliers de valeur identifies |
-| **16 mar** | Brainstorm Distributed Tracing — trace-as-context |
-| **20-21 mar** | Decision architecture Roles+Tags, definition du CAO |
-| **22 mar** | Sprint Roles+Tags termine (132 SP, tous P1 complete) |
-| **23 mar** | Review architecture — 92% d'alignement avec les specs |
-| **2 avr** | Epic Config Layers termine (5 stories, 47 SP) |
-| **3 avr** | Epic Chat Collaboratif termine (18 stories, 80 SP) |
-| **4 avr** | **69/69 stories B2B completees** — MVP enterprise ready |
-| **5-6 avr** | Blocks Platform (View Presets, Dashboard CAO, Agent Forms, Inbox) — 8 stories livrees |
-| **6 avr** | GitNexus integre (8752 nodes, 21K edges). Brainstorm Projects v2 — vision Feature Map & Traceability |
-
----
-
-## Metriques
-
-- **292 commits** sur la branche B2B
-- **503 fichiers** modifies
-- **~194 000 lignes** ajoutees
-- **69/69 stories** implementees (16 epics)
-- **51 tables** PostgreSQL (41 avec RLS)
-- **71 services** backend
-- **35+ routes** API
-- **99+ composants** React
-- **70+ fichiers** de tests E2E
-- **13 packages** typechecked
-
----
-
-## Ce qui reste
-
-| Item | Priorite | Description |
-|---|---|---|
-| **Projects v2 — Feature Map & Traceability** | P0 | Arbre de nodes generique (features, ACs, requirements) + entity_links (graph de liens). Feature Map comme vue centrale du projet. Coverage structurelle par feature. Voir `_bmad-output/vision-projects-v2-2026-04-06.md` |
-| **GitNexus MCP par repo** | P0 | 1 MCP server par codebase exposant le knowledge graph du code. Agents + humains peuvent query l'architecture sans cloner. |
-| **Handoff Chat → Production** | P1 | Agent extracteur qui distille un brainstorm chat en document structure pour les equipes prod. |
-| Validation E2E complete | P1 | Deploy test instance, smoke test 8 scenarios CBA |
-| Import Jira intelligent | P1 | Mapping semantique Jira -> MnM, dry-run preview |
-| "Drive the Agent" Live UX | P1 | Split view code+chat, quick-actions, historique navigable |
-| Distributed Tracing avance | P2 | OpenTelemetry, correlation trace/audit/drift, alertes |
-| Drift Auto-Remediation | P2 | Politiques configurables, kill+relance automatique |
-| Auto-Generated Connectors | P2 | Agent analyse API/codebase, genere un MCP server |
-| MnM Self-Modifying | P3 | Les agents modifient MnM lui-meme |
-| Agent Communication Proxies | P3 | Echange de contexte machine-to-machine |
-| AI Auto-Brainstorming | P3 | Detection de problemes, proposition de solutions |
-
----
-
-## Sessions de brainstorming
-
-Le projet a ete construit sur une reflexion approfondie documentee dans `_bmad-output/` :
-
-- **Cross-Document Drift** (fev 19) — Detection de derive hierarchique entre documents de specs
-- **IDE for Agent-Driven Dev** (fev 21) — 45 idees via assumption-reversal, morphological analysis, cross-pollination. Paradigme : superviser, pas coder.
-- **B2B Transformation** (mar 12) — 24 idees via role-playing et what-if scenarios. 5 noyaux de valeur.
-- **Distributed Tracing** (mar 16) — Trace-as-context, vision Langfuse-native
-- **Enterprise Architecture** (mar 20-21) — Modele hybride Roles+Tags, CAO, pods Docker, task pools
-- **Projects v2 — Feature Map & Traceability** (avr 6) — Vision complete : nodes generiques + entity_links, Feature Map comme vue centrale, AC tracking, compliance traceability, GitNexus MCP par repo, handoff chat → production
+- 📖 [**CONTRIBUTING.md**](CONTRIBUTING.md) — Get started pour les developpeurs : installation, commandes, structure du repo, conventions, comment contribuer
+- 🏛️ [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) — Stack technique et decisions architecturales cles
+- 📅 [**docs/HISTORY.md**](docs/HISTORY.md) — Chronologie du projet, sessions de brainstorming, metriques, roadmap
 
 ---
 
