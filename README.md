@@ -240,6 +240,35 @@ L'index est stocke dans `.gitnexus/` (gitignored). Les skills Claude Code sont d
 
 ---
 
+## MCP Server
+
+MnM expose un **serveur MCP** (Model Context Protocol) qui permet a n'importe quel client compatible — Claude Code, Cursor, Claude Desktop... — de piloter la plateforme (agents, issues, projects, chat, config layers, traces, workflows, sandbox, documents, artifacts, a2a, admin). **68 tools + 10 resources** sur 14 domaines, filtres dynamiquement selon les permissions reelles de l'utilisateur.
+
+**Transport :** Streamable HTTP (recommande) ou SSE legacy.
+**Auth :** OAuth 2.1 avec PKCE, Dynamic Client Registration, ecran de consentement granulaire par domaine (read/write/admin).
+
+### Ajouter MnM a Claude Code
+
+```bash
+claude mcp add --transport http mnm http://localhost:3001/mcp
+```
+
+Au premier appel, Claude Code declenche automatiquement le flow OAuth : une page s'ouvre dans le navigateur, tu te connectes a MnM, tu valides les permissions sur l'ecran de consentement, et c'est pret. Pour une instance distante, remplace par `https://<ton-domaine>/mcp`.
+
+### Endpoints exposes
+
+| Endpoint | Role |
+|---|---|
+| `POST/GET/DELETE /mcp` | Transport Streamable HTTP |
+| `GET /mcp/sse` | Transport SSE legacy |
+| `/.well-known/oauth-protected-resource` | Metadata resource server |
+| `/.well-known/oauth-authorization-server` | Metadata AS |
+| `/oauth/register`, `/oauth/authorize`, `/oauth/token` | OAuth 2.1 AS |
+
+Details techniques et progression : `_bmad-output/specs/plans/mcp-progress.md`.
+
+---
+
 ## Decisions architecturales cles
 
 | Decision | Justification |
