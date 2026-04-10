@@ -443,7 +443,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 5. Token Endpoint ────────────────────────────────────────────────
 
-  router.post("/oauth/token", oauthTokenLimiter, async (req: Request, res: Response) => {
+  router.post("/oauth/token", express.urlencoded({ extended: false }), oauthTokenLimiter, async (req: Request, res: Response) => {
     const { grant_type } = req.body ?? {};
 
     if (grant_type === "authorization_code") {
