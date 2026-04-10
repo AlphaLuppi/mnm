@@ -114,7 +114,8 @@ export function LayerItemList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [apiKeyItemId, setApiKeyItemId] = useState<string | null>(null);
   const [apiKeyItemName, setApiKeyItemName] = useState("");
-  const [apiKeyMode, setApiKeyMode] = useState<"env" | "pat">("env");
+  const [apiKeyMode, setApiKeyMode] = useState<"env" | "pat" | "credential">("env");
+  const [apiKeyEnvVar, setApiKeyEnvVar] = useState<string | undefined>();
 
   const filtered = items.filter((it) => it.itemType === itemType);
 
@@ -317,7 +318,16 @@ export function LayerItemList({
                       onClick={() => {
                         setApiKeyItemId(it.id);
                         setApiKeyItemName(it.displayName ?? it.name);
-                        setApiKeyMode(isGitProvider && !isCredential ? "pat" : "env");
+                        if (isCredential) {
+                          setApiKeyMode("credential");
+                          setApiKeyEnvVar((it.configJson as any)?.envVar);
+                        } else if (isGitProvider) {
+                          setApiKeyMode("pat");
+                          setApiKeyEnvVar(undefined);
+                        } else {
+                          setApiKeyMode("env");
+                          setApiKeyEnvVar(undefined);
+                        }
                       }}
                     >
                       <KeyRound className="h-3 w-3 mr-1" />
@@ -403,6 +413,7 @@ export function LayerItemList({
           itemName={apiKeyItemName}
           companyId={companyId}
           mode={apiKeyMode}
+          envVarName={apiKeyEnvVar}
         />
       )}
     </div>
