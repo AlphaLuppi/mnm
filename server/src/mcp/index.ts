@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { Db } from "@mnm/db";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
@@ -149,17 +150,25 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
     });
     if (limited) return;
 
-    // Existing session — route to transport
+    // Existing session — route to the transport owning it
     if (sessionId) {
       const session = sessionManager.getSession(sessionId);
       if (!session) {
         res.status(404).json({ error: "Session not found or expired" });
         return;
       }
-      // Streamable HTTP sessions use handleRequest.
-      // Pass req.body explicitly — express.json() has already consumed the stream.
       const transport = session.transport as StreamableHTTPServerTransport;
       await transport.handleRequest(req, res, req.body);
+      return;
+    }
+
+    // No session id — only an `initialize` request is allowed here
+    if (!isInitializeRequest(req.body)) {
+      res.status(400).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Bad Request: No valid session ID provided" },
+        id: null,
+      });
       return;
     }
 
@@ -183,34 +192,46 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
       return;
     }
 
-    // Create new MCP server + transport for this session
+    if (sessionManager.atCapacity()) {
+      res.status(503).json({ error: "Too many active sessions" });
+      return;
+    }
+
+    // Actor is mutated with the real session id inside onsessioninitialized —
+    // mcpSessionId is only used as log metadata by tool handlers.
+    const actor: McpActor = { ...verifiedActor, mcpSessionId: "" };
+
     try {
-      const transport = new StreamableHTTPServerTransport({
+      const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (mcpSessionId: string) => {
+          actor.mcpSessionId = mcpSessionId;
+          sessionManager.createSession(
+            mcpSessionId,
+            transport,
+            actor.type,
+            actorPrincipalId(actor),
+          );
+          logger.info({ mcpSessionId, actorType: actor.type }, "mcp.session.initialized");
+        },
       });
 
-      const mcpSessionId = transport.sessionId!;
-      const actor: McpActor = { ...verifiedActor, mcpSessionId };
+      transport.onclose = () => {
+        const sid = transport.sessionId;
+        if (sid) sessionManager.removeSession(sid);
+      };
+
       const { mcpServer, toolCount } = createConfiguredMcpServer(actor);
-
-      // Check session capacity BEFORE connecting to avoid resource leaks
-      if (!sessionManager.createSession(mcpSessionId, transport, actor.type, actorPrincipalId(actor))) {
-        res.status(503).json({ error: "Too many active sessions" });
-        return;
-      }
-
       await mcpServer.connect(transport);
 
-      logger.info(
-        { mcpSessionId, actorType: actor.type, tools: toolCount },
-        "mcp.session.initialized",
-      );
+      logger.debug({ actorType: actor.type, tools: toolCount }, "mcp.session.connecting");
 
-      // Pass req.body explicitly — express.json() has already consumed the stream.
       await transport.handleRequest(req, res, req.body);
     } catch (err) {
       logger.error({ err }, "mcp.session.init-error");
-      res.status(500).json({ error: "Failed to initialize MCP session" });
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to initialize MCP session" });
+      }
     }
   });
 
