@@ -156,9 +156,10 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
         res.status(404).json({ error: "Session not found or expired" });
         return;
       }
-      // Streamable HTTP sessions use handleRequest
+      // Streamable HTTP sessions use handleRequest.
+      // Pass req.body explicitly — express.json() has already consumed the stream.
       const transport = session.transport as StreamableHTTPServerTransport;
-      await transport.handleRequest(req, res);
+      await transport.handleRequest(req, res, req.body);
       return;
     }
 
@@ -205,7 +206,8 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
         "mcp.session.initialized",
       );
 
-      await transport.handleRequest(req, res);
+      // Pass req.body explicitly — express.json() has already consumed the stream.
+      await transport.handleRequest(req, res, req.body);
     } catch (err) {
       logger.error({ err }, "mcp.session.init-error");
       res.status(500).json({ error: "Failed to initialize MCP session" });

@@ -305,7 +305,8 @@ export async function createApp(
 
   // ── MCP Server (Streamable HTTP + OAuth 2.1 AS) ────────────────────────
   // MUST be mounted AFTER /api routes but BEFORE SPA fallback.
-  // express.json() is NOT applied — the MCP SDK handles its own body parsing.
+  // express.json() is applied globally above; the router passes req.body
+  // to transport.handleRequest() explicitly since the stream is already consumed.
   const mcpRouter = createMcpRouter({
     db,
     services: buildMcpServices(db),
