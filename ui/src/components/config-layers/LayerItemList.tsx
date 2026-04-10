@@ -144,14 +144,41 @@ export function LayerItemList({
     });
   };
 
+  // Helper to store a credential secret after item create/update
+  async function storeSecretIfNeeded(
+    itemId: string,
+    config: Record<string, unknown>,
+  ) {
+    const secret = config.__secretValue as string | undefined;
+    if (!secret || !companyId) return;
+    const envVarKey =
+      (config.envVar as string) ||
+      ((config.name as string) ?? "SECRET").replace(/[^a-zA-Z0-9_]/g, "_").toUpperCase();
+    await configLayersApi.storeApiKey(companyId, itemId, {
+      env: { [envVarKey]: secret },
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.configLayers.credentials(companyId),
+    });
+  }
+
+  // Strip internal fields before sending to API
+  function cleanConfig(config: Record<string, unknown>) {
+    const { __secretValue, ...rest } = config;
+    return rest;
+  }
+
   const addMutation = useMutation({
-    mutationFn: (config: Record<string, unknown>) =>
-      configLayersApi.addItem(layerId, {
+    mutationFn: async (config: Record<string, unknown>) => {
+      const item = await configLayersApi.addItem(layerId, {
         itemType,
         name: (config.name as string) ?? itemType,
-        configJson: config,
+        configJson: cleanConfig(config),
         enabled: true,
-      }),
+      });
+      await storeSecretIfNeeded(item.id, config);
+      return item;
+    },
     onSuccess: () => {
       invalidate();
       setEditingId(null);
@@ -159,17 +186,20 @@ export function LayerItemList({
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       itemId,
       config,
     }: {
       itemId: string;
       config: Record<string, unknown>;
-    }) =>
-      configLayersApi.updateItem(layerId, itemId, {
+    }) => {
+      const item = await configLayersApi.updateItem(layerId, itemId, {
         name: (config.name as string) ?? undefined,
-        configJson: config,
-      }),
+        configJson: cleanConfig(config),
+      });
+      await storeSecretIfNeeded(itemId, config);
+      return item;
+    },
     onSuccess: () => {
       invalidate();
       setEditingId(null);

@@ -4,6 +4,7 @@ import { CREDENTIAL_TYPES } from "@mnm/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ export function CredentialItemEditor({ item, onSave, onCancel }: Props) {
     existing?.credentialType ?? "custom",
   );
   const [envVar, setEnvVar] = useState(existing?.envVar ?? "");
+  const [secretValue, setSecretValue] = useState("");
 
   function handleSave() {
     const trimmedName = name.trim();
@@ -45,8 +47,11 @@ export function CredentialItemEditor({ item, onSave, onCancel }: Props) {
       name: trimmedName,
       credentialType,
       ...(envVar.trim() ? { envVar: envVar.trim() } : {}),
+      ...(secretValue ? { __secretValue: secretValue } : {}),
     });
   }
+
+  const isNew = !item;
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-3">
@@ -90,6 +95,27 @@ export function CredentialItemEditor({ item, onSave, onCancel }: Props) {
         <p className="text-xs text-muted-foreground">
           If set, the secret value will be injected as this environment variable
           at runtime.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>
+          Secret value{" "}
+          {!isNew && (
+            <span className="text-muted-foreground font-normal">
+              (leave empty to keep current)
+            </span>
+          )}
+        </Label>
+        <Textarea
+          value={secretValue}
+          onChange={(e) => setSecretValue(e.target.value)}
+          placeholder="Paste your secret key, token, or credential here…"
+          rows={4}
+          className="font-mono text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Stored encrypted (AES-256-GCM) and injected at runtime.
         </p>
       </div>
 
