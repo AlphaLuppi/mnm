@@ -154,7 +154,7 @@ export function TauriPreviewGate({ children }: TauriPreviewGateProps) {
               className="text-[11px] uppercase tracking-[0.2em] text-stone-400"
               style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
             >
-              v0.1.0 — developer preview
+              v0.1.1 — developer preview
             </span>
           </div>
 

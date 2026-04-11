@@ -76,7 +76,7 @@ export class TauriErrorBoundary extends Component<Props, State> {
                   color: "#a8a29e",
                 }}
               >
-                v0.1.0 — developer preview
+                v0.1.1 — developer preview
               </span>
             </div>
 
