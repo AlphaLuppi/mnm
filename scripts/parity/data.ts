@@ -503,16 +503,9 @@ export const parityData: ParityData = {
           id: "profile-storage",
           name: "Connection profile CRUD (add / edit / remove / list)",
           description:
-            "Stored in app data dir (~/Library/Application Support/com.mnm.desktop/profiles.json). Each profile = { id, displayName, apiBaseUrl, authMode }. A user can have multiple (e.g. Local / Work / Side project).",
+            "Stored in app data dir (~/Library/Application Support/com.mnm.desktop/profiles.json) via atomic writes. Rust owns 6 Tauri commands (profile_list/get_active/add/update/remove/set_active) with UUID generation + URL validation + corrupt-file backup recovery. TS layer: initActiveProfile() at boot, cached active profile, apiBase() reads from it in packaged builds, NoProfileGate pre-mount UI for first-launch.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            code: [
-              "Rust: Tauri commands profile_list / profile_add / profile_remove / profile_set_active",
-              "UI: profiles settings page + form validation",
-            ],
-            tests: ["Unit tests on profile serialization round-trip"],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "profile-keychain-secrets",
