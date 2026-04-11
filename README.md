@@ -9,27 +9,27 @@
 ╚═╝     ╚═╝ake   ╚═╝  ╚═╝o     ╚═╝     ╚═╝istake
 ```
 
-> Le management plane pour l'IA coding en entreprise. Superviser les équipes qui bossent avec Claude Code, Cursor ou Codex, sans les remplacer.
+> Le cockpit de supervision pour les équipes qui conçoivent, développent et livrent avec des agents IA. Piloter, gouverner et mesurer ce que font Claude Code, Cursor, Codex et les autres dans ta boîte — sans remplacer personne.
 
-MnM est une plateforme self-hosted qui orchestre et supervise les agents IA que tes devs utilisent déjà. Ce n'est pas un IDE, pas un framework, et ça ne remplace pas Claude Code ou Cursor. C'est le cockpit au-dessus. Une sorte de Kubernetes pour l'IA coding : tu gardes tes outils, MnM apporte la confiance, le contrôle et la transparence qui manquent quand équipes pluri-disciplinaires lancent des agents chacun dans leur coin.
+MnM est une plateforme self-hosted qui orchestre et supervise les agents IA utilisés par toute ta chaîne produit : dev, PO, PM, infra, QA, compliance, direction. Ce n'est pas un IDE, pas un framework, et ça ne remplace pas Claude Code, Cursor ou Codex. C'est la couche au-dessus — pilotage, gouvernance, transparence. Tu gardes tes outils, MnM apporte la confiance, le contrôle et la visibilité qui manquent quand des dizaines de personnes lancent des agents chacune dans leur coin, sans supervision ni mémoire partagée.
 
 Fait par Studio Manifeste. Client pilote : EnterpriseCustomer (50+ devs multi-métiers).
 
 ## Le problème
 
-L'IA coding s'est installée partout en entreprise sans que personne ne supervise vraiment ce qui se passe. Concrètement :
+Le développement et la conception assistés par agents IA se sont installés partout en entreprise sans que personne ne supervise vraiment ce qui se passe. Concrètement :
 
 - Personne ne sait ce que font les agents, ni combien ça coûte.
 - Pas d'audit, pas de standards partagés, pas de gouvernance.
-- Chaque dev bosse seul avec ses prompts. Les bonnes pratiques ne circulent pas.
-- Le QA découvre les bugs en production parce qu'il n'y a aucun gate avant.
-- Impossible de dire si l'équipe s'améliore avec l'IA, ou si elle régresse.
+- Chaque personne bosse seule avec ses prompts. Les bonnes pratiques ne circulent pas entre équipes ni entre métiers.
+- Les bugs et les dérives arrivent en production parce qu'il n'y a aucun gate de qualité avant.
+- Impossible de dire si les équipes s'améliorent avec l'IA, ou si elles régressent.
 
-La conviction derrière MnM : les boîtes ne veulent pas remplacer leurs devs par des agents autonomes. Elles veulent que leurs devs utilisent des agents sous supervision.
+La conviction derrière MnM : les boîtes ne veulent pas remplacer leurs équipes par des agents autonomes. Elles veulent que leurs équipes utilisent des agents sous supervision.
 
 ## Les 3 piliers
 
-### Confiance — l'agent prouve qu'il mérite l'autonomie, le dev est juge
+### Confiance — l'agent prouve qu'il mérite l'autonomie, l'humain est juge
 
 Chaque exécution d'agent est scorée selon des dimensions configurées par l'entreprise : coverage, conventions, sécurité, perf, ce que tu veux. Un panel d'agents reviewers tourne en parallèle et donne un verdict multi-dimensionnel. Les gate reviews humaines s'appuient là-dessus, pas sur du feeling.
 
@@ -43,12 +43,12 @@ Le CEO regarde les coûts et les tendances. Le CTO regarde la gouvernance et la 
 
 ## Pour qui
 
-- CTO et DSI qui ont besoin de gouvernance, d'audit et de visibilité cross-équipes sur l'IA coding.
+- CTO et DSI qui ont besoin de gouvernance, d'audit et de visibilité cross-équipes sur l'usage des agents IA.
 - Lead Dev et Tech Lead IA qui pilotent une équipe avec des agents et veulent mesurer si ça s'améliore vraiment.
 - Développeurs qui veulent un environnement où leurs agents tournent en sécurité, avec du feedback objectif.
-- PM, PO, QA et compliance qui veulent voir ce qui est livré, testé et conforme sans harceler les devs.
+- PM, PO, QA et compliance qui veulent voir ce qui est livré, testé et conforme sans harceler les équipes.
 
-Taille cible : équipes de 5 à 500 devs. Au-delà ça reste utilisable (multi-squads via tags), mais on n'a pas optimisé pour les mégacorps.
+Taille cible : équipes produit de 5 à 500 personnes (dev, PO, PM, infra, QA, compliance). Au-delà ça reste utilisable (multi-squads via tags), mais on n'a pas optimisé pour les mégacorps.
 
 ## MnM vs Paperclip
 
@@ -56,8 +56,8 @@ MnM est un fork de [Paperclip](https://github.com/paperclipai/paperclip). Les de
 
 | | Paperclip | MnM |
 |---|---|---|
-| Philosophie | "Run autonomous AI companies" : l'agent est l'employé, Paperclip est la boîte | Management plane pour l'IA coding : l'humain reste au centre, l'agent est un outil supervisé |
-| Cible | Solo entrepreneurs, portfolios de boîtes autonomes | Équipes 5-500 devs qui utilisent déjà Claude Code ou Cursor |
+| Philosophie | "Run autonomous AI companies" : l'agent est l'employé, Paperclip est la boîte | Cockpit de supervision pour les équipes qui travaillent avec des agents IA : l'humain reste au centre, l'agent est un outil supervisé |
+| Cible | Solo entrepreneurs, portfolios de boîtes autonomes | Équipes produit 5–500 personnes (dev, PO, PM, infra, QA, compliance) qui utilisent déjà Claude Code, Cursor ou Codex |
 | Modèle | Multi-company (plusieurs boîtes par déploiement) | Single-tenant (1 instance = 1 entreprise, isolation interne par tags) |
 | Isolation | Par company | Par tags additifs (cross-métier, multi-équipes) |
 | Agents | Heartbeats, org charts, délégation, goal alignment | Sandbox Docker par utilisateur, credentials injectées par run |
