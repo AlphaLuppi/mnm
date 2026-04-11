@@ -1,8 +1,9 @@
-import { StrictMode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "@/lib/router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
+import { NoProfileGate } from "./components/NoProfileGate";
 import { TauriPreviewGate } from "./components/TauriPreviewGate";
 import { TauriErrorBoundary } from "./components/TauriErrorBoundary";
 import { CompanyProvider } from "./context/CompanyContext";
@@ -15,6 +16,11 @@ import { DocumentViewerProvider } from "./components/ui/document-viewer";
 import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { isTauri } from "@/lib/runtime";
+import {
+  getCachedActiveProfile,
+  initActiveProfile,
+} from "@/lib/profile-client";
 import "@mdxeditor/editor/style.css";
 import "react-grid-layout/css/styles.css";
 import "./index.css";
@@ -86,36 +92,53 @@ if (typeof (window as any).__dismissMnmLoader === "function") {
 // 8s watchdog doesn't fire even if the first React render is slow.
 (window as unknown as { __mnmMounted?: boolean }).__mnmMounted = true;
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <TauriErrorBoundary>
-      <TauriPreviewGate>
-        <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <CompanyProvider>
-            <ToastProvider>
-              <LiveUpdatesProvider>
-                <BrowserRouter>
-                  <TooltipProvider>
-                    <BreadcrumbProvider>
-                      <SidebarProvider>
-                        <PanelProvider>
-                          <DialogProvider>
-                            <DocumentViewerProvider>
-                              <App />
-                            </DocumentViewerProvider>
-                          </DialogProvider>
-                        </PanelProvider>
-                      </SidebarProvider>
-                    </BreadcrumbProvider>
-                  </TooltipProvider>
-                </BrowserRouter>
-              </LiveUpdatesProvider>
-            </ToastProvider>
-          </CompanyProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </TauriPreviewGate>
-    </TauriErrorBoundary>
-  </StrictMode>
-);
+function renderTree(children: ReactNode): void {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <TauriErrorBoundary>
+        <TauriPreviewGate>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <CompanyProvider>
+                <ToastProvider>
+                  <LiveUpdatesProvider>
+                    <BrowserRouter>
+                      <TooltipProvider>
+                        <BreadcrumbProvider>
+                          <SidebarProvider>
+                            <PanelProvider>
+                              <DialogProvider>
+                                <DocumentViewerProvider>
+                                  {children}
+                                </DocumentViewerProvider>
+                              </DialogProvider>
+                            </PanelProvider>
+                          </SidebarProvider>
+                        </BreadcrumbProvider>
+                      </TooltipProvider>
+                    </BrowserRouter>
+                  </LiveUpdatesProvider>
+                </ToastProvider>
+              </CompanyProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </TauriPreviewGate>
+      </TauriErrorBoundary>
+    </StrictMode>,
+  );
+}
+
+// Boot sequence: populate the profile cache BEFORE mounting React so that
+// `apiBase()` has a valid URL on first render in packaged desktop builds.
+// In web mode `initActiveProfile()` is a no-op and the regular app mounts.
+void (async () => {
+  try {
+    await initActiveProfile();
+  } catch {
+    // Swallow profile-bridge errors at boot so the UI still mounts — the
+    // profile gate will re-surface the problem if no active profile is set.
+  }
+  const showProfileGate =
+    isTauri() && !import.meta.env.DEV && getCachedActiveProfile() === null;
+  renderTree(showProfileGate ? <NoProfileGate /> : <App />);
+})();

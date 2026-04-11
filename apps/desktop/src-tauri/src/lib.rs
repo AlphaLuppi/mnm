@@ -1,12 +1,23 @@
 mod commands;
+mod profile;
+
+use std::sync::Mutex;
 
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = Builder::<tauri::Wry>::new()
-        .commands(collect_commands![commands::ping, commands::app_info]);
+    let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+        commands::ping,
+        commands::app_info,
+        commands::profile_list,
+        commands::profile_get_active,
+        commands::profile_add,
+        commands::profile_update,
+        commands::profile_remove,
+        commands::profile_set_active,
+    ]);
 
     // In debug builds, export TS bindings on every compile.
     // In release builds, the bindings file is committed and used as-is.
@@ -22,6 +33,16 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
+
+            // Load or initialize the profile store and manage it behind a Mutex.
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("app_data_dir unavailable: {e}"))?;
+            std::fs::create_dir_all(&app_data_dir).ok();
+            let store = commands::load_profile_store(&app_data_dir);
+            app.manage(Mutex::new(store));
+
             if let Some(window) = app.get_webview_window("main") {
                 window.open_devtools();
             }

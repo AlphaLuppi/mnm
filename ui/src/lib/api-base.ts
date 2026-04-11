@@ -1,17 +1,29 @@
 /// <reference types="vite/client" />
 import { isTauri } from "./runtime";
+import { getCachedActiveProfile } from "./profile-client";
 
 /**
  * Returns the base URL for backend API calls.
  * - Web build: empty string → all calls use relative /api/... paths
  *   handled by Vite dev proxy or same-origin in production.
- * - Desktop build (Sprint 1): also empty — desktop dev runs through
- *   Vite proxy at localhost:5173. Sprint 2 will introduce
- *   VITE_MNM_API_BASE for packaged DMG to talk to a configurable backend.
+ * - Desktop dev build: `VITE_MNM_API_BASE` if set, otherwise empty (Vite
+ *   dev proxy at localhost:5173). The connection-profile system does NOT
+ *   kick in during dev so the iterative dev loop stays untouched.
+ * - Desktop packaged build: reads the active connection profile's
+ *   `apiBaseUrl` from `profile-client`. `initActiveProfile()` must have
+ *   been awaited in `main.tsx` before any API call happens; otherwise
+ *   this returns an empty string and the call will hit an unset origin.
  */
 export const apiBase = (): string => {
   if (isTauri()) {
-    return import.meta.env.VITE_MNM_API_BASE ?? "";
+    // In dev mode, keep the Vite proxy flow untouched — profile system
+    // only kicks in for packaged builds.
+    if (import.meta.env.DEV) {
+      return import.meta.env.VITE_MNM_API_BASE ?? "";
+    }
+    // In packaged builds, the URL comes from the active connection profile.
+    // Must have been initialized by main.tsx before any api call happens.
+    return getCachedActiveProfile()?.apiBaseUrl ?? "";
   }
   return "";
 };
