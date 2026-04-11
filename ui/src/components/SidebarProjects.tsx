@@ -1,17 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { NavLink, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus } from "lucide-react";
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  type DragEndEvent,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
@@ -28,7 +18,7 @@ import {
 } from "@/components/ui/collapsible";
 import type { Project } from "@mnm/shared";
 
-function SortableProjectItem({
+function ProjectItem({
   activeProjectRef,
   isMobile,
   project,
@@ -39,48 +29,27 @@ function SortableProjectItem({
   project: Project;
   setSidebarOpen: (open: boolean) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: project.id });
-
   const routeRef = projectRouteRef(project);
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 10 : undefined,
+    <NavLink
+      to={`/projects/${routeRef}/issues`}
+      onClick={() => {
+        if (isMobile) setSidebarOpen(false);
       }}
-      className={cn(isDragging && "opacity-80")}
-      {...attributes}
-      {...listeners}
+      className={cn(
+        "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
+        activeProjectRef === routeRef || activeProjectRef === project.id
+          ? "bg-accent text-foreground"
+          : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
+      )}
     >
-      <NavLink
-        to={`/projects/${routeRef}/issues`}
-        onClick={() => {
-          if (isMobile) setSidebarOpen(false);
-        }}
-        className={cn(
-          "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
-          activeProjectRef === routeRef || activeProjectRef === project.id
-            ? "bg-accent text-foreground"
-            : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
-        )}
-      >
-        <span
-          className="shrink-0 h-3.5 w-3.5 rounded-sm"
-          style={{ backgroundColor: project.color ?? "#6366f1" }}
-        />
-        <span className="flex-1 truncate">{project.name}</span>
-      </NavLink>
-    </div>
+      <span
+        className="shrink-0 h-3.5 w-3.5 rounded-sm"
+        style={{ backgroundColor: project.color ?? "#6366f1" }}
+      />
+      <span className="flex-1 truncate">{project.name}</span>
+    </NavLink>
   );
 }
 
@@ -109,7 +78,7 @@ export function SidebarProjects() {
     () => (projects ?? []).filter((project: Project) => !project.archivedAt),
     [projects],
   );
-  const { orderedProjects, persistOrder } = useProjectOrder({
+  const { orderedProjects } = useProjectOrder({
     projects: visibleProjects,
     companyId: selectedCompanyId,
     userId: currentUserId,
@@ -117,27 +86,6 @@ export function SidebarProjects() {
 
   const projectMatch = location.pathname.match(/^\/(?:[^/]+\/)?projects\/([^/]+)/);
   const activeProjectRef = projectMatch?.[1] ?? null;
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-
-      const ids = orderedProjects.map((project) => project.id);
-      const oldIndex = ids.indexOf(active.id as string);
-      const newIndex = ids.indexOf(over.id as string);
-      if (oldIndex === -1 || newIndex === -1) return;
-
-      persistOrder(arrayMove(ids, oldIndex, newIndex));
-    },
-    [orderedProjects, persistOrder],
-  );
-
   return (
     <Collapsible open={open} onOpenChange={setOpen} data-testid="rbac-s05-section-projects">
       <div className="group">
@@ -170,28 +118,17 @@ export function SidebarProjects() {
       </div>
 
       <CollapsibleContent>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={orderedProjects.map((project) => project.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              {orderedProjects.map((project: Project) => (
-                <SortableProjectItem
-                  key={project.id}
-                  activeProjectRef={activeProjectRef}
-                  isMobile={isMobile}
-                  project={project}
-                  setSidebarOpen={setSidebarOpen}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <div className="flex flex-col gap-0.5 mt-0.5">
+          {orderedProjects.map((project: Project) => (
+            <ProjectItem
+              key={project.id}
+              activeProjectRef={activeProjectRef}
+              isMobile={isMobile}
+              project={project}
+              setSidebarOpen={setSidebarOpen}
+            />
+          ))}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
