@@ -58,14 +58,19 @@ export interface ParityData {
 /**
  * Shared blocker tags — reference these in `blockers` arrays instead of
  * repeating the same free-text string across dozens of features.
+ *
+ * Architectural note (2026-04-11): the desktop DMG ships as a thin client.
+ * It never bundles or spawns a backend — users install the backend separately
+ * from the (private) repo (docker compose / bun). Sandbox stays colocated
+ * with the backend (heartbeat → `docker exec`), never on the desktop user's
+ * machine. The desktop's job is purely: pick a profile, store creds in
+ * Keychain, talk to the chosen instance.
  */
 const BLOCKERS = {
-  "desktop-backend-connectivity":
-    "Packaged DMG cannot reach the backend — needs Tauri-side API base URL config + CSP allowance. Fixed in dev via Vite proxy only.",
-  "desktop-auth-storage":
-    "Desktop needs secure token storage (Keychain via tauri-plugin-keyring) instead of cookies/localStorage.",
+  "desktop-connection-profiles":
+    "Desktop needs a connection-profile system (URL config per profile + session token in Keychain + strict CSP resolved from the active profile). Blocks every feature that talks to a backend in a packaged DMG. Tracked in the `connection-profiles` domain.",
   "desktop-sse-connectivity":
-    "Live events (SSE/WebSocket) not yet verified in packaged build — relies on backend connectivity fix first.",
+    "Live events (SSE/WebSocket) not yet verified inside a packaged DMG — unblocks once connection-profiles lands.",
   "desktop-packaged-verification":
     "Feature works in `bun run dev:desktop` (Vite proxy) but has never been exercised inside a signed/packaged DMG.",
   "desktop-codesign-notarization":
@@ -76,23 +81,14 @@ const BLOCKERS = {
 const BACKEND: PlatformState = {
   status: "dev-only",
   since: "0.1.1",
-  blockers: ["desktop-backend-connectivity", "desktop-packaged-verification"],
+  blockers: ["desktop-connection-profiles", "desktop-packaged-verification"],
 };
 const BACKEND_SSE: PlatformState = {
   status: "dev-only",
   since: "0.1.1",
   blockers: [
-    "desktop-backend-connectivity",
+    "desktop-connection-profiles",
     "desktop-sse-connectivity",
-    "desktop-packaged-verification",
-  ],
-};
-const BACKEND_AUTH: PlatformState = {
-  status: "dev-only",
-  since: "0.1.1",
-  blockers: [
-    "desktop-backend-connectivity",
-    "desktop-auth-storage",
     "desktop-packaged-verification",
   ],
 };
@@ -117,38 +113,34 @@ export const parityData: ParityData = {
           description:
             "Better Auth databaseHooks auto-promotes the first signup (SANDBOX-AUTH-AUTOBOOTSTRAP).",
           web: WEB_DONE,
-          desktop: BACKEND_AUTH,
+          desktop: BACKEND,
           todo: {
-            code: [
-              "Expose API base URL via Tauri command or build-time env",
-              "Store session token in macOS Keychain (tauri-plugin-keyring)",
-            ],
-            tests: ["E2E: signup → auto-admin inside packaged DMG"],
+            tests: ["E2E: signup → auto-admin inside packaged DMG against a real instance"],
           },
         },
         {
           id: "signin-signout",
           name: "Sign in / sign out",
           web: WEB_DONE,
-          desktop: BACKEND_AUTH,
+          desktop: BACKEND,
         },
         {
           id: "onboarding-wizard",
           name: "Onboarding wizard (dual-mode, invite, progress)",
           web: WEB_DONE,
-          desktop: BACKEND_AUTH,
+          desktop: BACKEND,
         },
         {
           id: "invite-landing",
           name: "Invite landing page (magic link)",
           web: WEB_DONE,
-          desktop: BACKEND_AUTH,
+          desktop: BACKEND,
         },
         {
           id: "board-claim",
           name: "Board claim flow (public token → join)",
           web: WEB_DONE,
-          desktop: BACKEND_AUTH,
+          desktop: BACKEND,
         },
         {
           id: "sso-config",
@@ -483,31 +475,131 @@ export const parityData: ParityData = {
           id: "claude-token-setup",
           name: "Claude OAuth token setup UI (Settings → Claude)",
           description:
-            "Token injected via env var on each run from user_pods.claude_oauth_token.",
+            "Token stored in backend DB (user_pods.claude_oauth_token) and injected via env var on each run by the heartbeat. `copyClaudeCredentials` is removed — DB-stored setup-token is the only approach. Desktop-side smart pickup is tracked separately in `desktop-native → smart-claude-token-pickup`.",
           web: WEB_DONE,
-          desktop: BACKEND_AUTH,
-          todo: {
-            code: [
-              "Decide: store token in desktop Keychain vs reuse server-side DB path",
-            ],
-          },
+          desktop: BACKEND,
         },
         {
           id: "user-sandbox-docker",
           name: "Per-user Docker sandbox (claude_local adapter)",
+          description:
+            "Decision (2026-04-11): sandbox stays colocated with whichever machine runs the backend (solo laptop or enterprise server). The desktop app never spawns a sandbox — enterprise deployments host N containers for N users on the backend server. A hypothetical reverse-tunnel sandbox-on-desktop runner is explicitly out of scope.",
           web: WEB_DONE,
           desktop: BACKEND,
-          todo: {
-            notes: [
-              "Desktop may eventually spawn a local sandbox without backend round-trip — design decision pending",
-            ],
-          },
         },
         {
           id: "live-events-ws",
           name: "Live events (SSE/WebSocket via /events/ws)",
           web: WEB_DONE,
           desktop: BACKEND_SSE,
+        },
+      ],
+    },
+    {
+      id: "connection-profiles",
+      name: "Connection Profiles (desktop-only, Chantier 1)",
+      features: [
+        {
+          id: "profile-storage",
+          name: "Connection profile CRUD (add / edit / remove / list)",
+          description:
+            "Stored in app data dir (~/Library/Application Support/com.mnm.desktop/profiles.json). Each profile = { id, displayName, apiBaseUrl, authMode }. A user can have multiple (e.g. Local / Work / Side project).",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            code: [
+              "Rust: Tauri commands profile_list / profile_add / profile_remove / profile_set_active",
+              "UI: profiles settings page + form validation",
+            ],
+            tests: ["Unit tests on profile serialization round-trip"],
+          },
+        },
+        {
+          id: "profile-keychain-secrets",
+          name: "Session token in macOS Keychain per profile",
+          description:
+            "Uses tauri-plugin-keyring so session tokens never hit disk in plaintext. Keyed by profile id.",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            config: ["Add tauri-plugin-keyring to Cargo.toml + capabilities"],
+            code: [
+              "Wrap keyring in a small secrets module (get/set/delete by profile id)",
+              "Wire session cookies/tokens from @mnm/ui through the secrets module instead of localStorage",
+            ],
+          },
+        },
+        {
+          id: "profile-dynamic-csp",
+          name: "Strict CSP resolved from the active profile",
+          description:
+            "Replace the current `null` CSP with a strict one whose connect-src is derived from the active profile's apiBaseUrl. Regenerate on profile switch.",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            code: [
+              "Rust helper: build_csp(profile) → CSP header string",
+              "Apply via tauri runtime CSP or per-window config on profile switch",
+            ],
+          },
+        },
+        {
+          id: "profile-health-check",
+          name: "Backend health check + clear error UI",
+          description:
+            "Before rendering @mnm/ui, ping `/health` on the active profile. Show a dedicated state if backend is unreachable (with button to switch profile / retry / open docs for backend setup).",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            code: [
+              "Pre-mount health check in index.html early handler (already have the hook)",
+              "Friendly error screen with actionable buttons",
+            ],
+          },
+        },
+        {
+          id: "profile-switcher-ui",
+          name: "Title bar profile switcher (Slack-style)",
+          description:
+            "Compact switcher in the title bar showing the active profile + dropdown to switch. Company logo / color per profile for instant recognition.",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+        },
+        {
+          id: "first-run-wizard",
+          name: "First-run wizard: Local vs Remote instance",
+          description:
+            "Welcome screen on first launch. Explains the two modes and gates users without a backend toward the private repo (via `backend-setup-link`).",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+        },
+        {
+          id: "backend-setup-link",
+          name: "Backend setup link (gated by private repo access)",
+          description:
+            "A UI action that guides users without a backend to request access to the private repo + follow the README setup. This is the product funnel for enterprise adoption.",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            notes: [
+              "Confirm final URL / contact form with the go-to-market side before wiring it up",
+            ],
+          },
+        },
+        {
+          id: "api-version-compat",
+          name: "API version compatibility check",
+          description:
+            "Desktop sends `X-MnM-Client-Version` on every request. Backend responds with a compatibility header; desktop surfaces a non-blocking warning banner when the client is below the minimum supported version.",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            code: [
+              "UI: interceptor to inject version header on every fetch/WS connection",
+              "Backend: min-supported-client header on /health (or similar)",
+              "UI: banner with 'update desktop app' CTA pointing to the releases page",
+            ],
+          },
         },
       ],
     },
@@ -526,6 +618,27 @@ export const parityData: ParityData = {
           name: "Type-safe IPC bindings (tauri-specta)",
           web: WEB_NA,
           desktop: { status: "done", since: "0.1.0" },
+        },
+        {
+          id: "smart-claude-token-pickup",
+          name: "Smart Claude Code token pickup from local machine",
+          description:
+            "On first connection to an instance, if Tauri detects a valid local Claude Code OAuth token (e.g. in ~/.claude/ or equivalent), offer to push it to the backend's user_pods.claude_oauth_token in one click. Zero-friction onboarding for users who already ran `claude setup-token`. Falls back to the manual paste flow if no local token is found. Never touches the backend's 'no credentials on sandbox FS' invariant — token still goes through the DB → env var injection path.",
+          web: WEB_NA,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            config: [
+              "Scope Tauri fs capability to read ~/.claude/* (read-only, explicit path whitelist)",
+            ],
+            code: [
+              "Rust command: detect_local_claude_token() → Option<String>",
+              "UI: Settings → Claude card 'Found a local token — use it for this instance?'",
+              "Rotation: watcher / manual re-import when the local token changes",
+            ],
+            notes: [
+              "Document clearly in the UI: token is posted to the connected instance's DB (encrypted), not kept solely in Keychain",
+            ],
+          },
         },
         {
           id: "dmg-codesign",
