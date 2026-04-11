@@ -2,7 +2,6 @@ import { Router } from "express";
 import type { Db } from "@mnm/db";
 import { PERMISSIONS, createCostEventSchema, updateBudgetSchema } from "@mnm/shared";
 import { validate } from "../middleware/validate.js";
-import { requireTagScope } from "../middleware/tag-scope.js";
 import { costService, companyService, agentService, emitAudit, logActivity } from "../services/index.js";
 import { tagFilterService } from "../services/tag-filter.js";
 import { requirePermission } from "../middleware/require-permission.js";
@@ -53,20 +52,9 @@ export function costRoutes(db: Db) {
   router.get("/companies/:companyId/costs/summary", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const tagScope = requireTagScope(req);
     const range = parseDateRange(req.query);
-
-    // For non-admin users, compute summary only for visible agents
-    if (!tagScope.bypassTagFilter) {
-      const visibleAgents = await tagFilter.listAgentsFiltered(companyId, tagScope);
-      const byAgentRows = await costs.byAgent(companyId, range);
-      const visibleIds = new Set(visibleAgents.map((a) => a.id));
-      const filtered = byAgentRows.filter((r: any) => r.agentId && visibleIds.has(r.agentId));
-      const spendCents = filtered.reduce((sum: number, r: any) => sum + (r.costCents || 0), 0);
-      res.json({ companyId, spendCents, budgetCents: 0, utilizationPercent: 0 });
-      return;
-    }
-
+    // Cost summary is a company-wide metric shown to all members (matches dashboard behaviour).
+    // Tag-scope filtering is not applied here — per-agent breakdowns are filtered in /by-agent.
     const summary = await costs.summary(companyId, range);
     res.json(summary);
   });
@@ -74,12 +62,13 @@ export function costRoutes(db: Db) {
   router.get("/companies/:companyId/costs/by-agent", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const tagScope = requireTagScope(req);
     const range = parseDateRange(req.query);
     let rows = await costs.byAgent(companyId, range);
 
-    // Tag isolation: filter costs to only visible agents
-    if (!tagScope.bypassTagFilter) {
+    // Tag isolation: filter per-agent rows to only agents visible to the requester.
+    // Only applies to board users with an active tag scope; agents and bypass roles see all.
+    const tagScope = req.tagScope;
+    if (tagScope && !tagScope.bypassTagFilter) {
       const visibleAgents = await tagFilter.listAgentsFiltered(companyId, tagScope);
       const visibleIds = new Set(visibleAgents.map((a) => a.id));
       rows = rows.filter((r: any) => r.agentId && visibleIds.has(r.agentId));
