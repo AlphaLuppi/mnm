@@ -92,7 +92,7 @@ export class TauriErrorBoundary extends Component<Props, State> {
                 color: "#fafaf9",
               }}
             >
-              Backend not detected.
+              Something went wrong.
             </h1>
 
             <p
@@ -105,92 +105,114 @@ export class TauriErrorBoundary extends Component<Props, State> {
                 maxWidth: "36rem",
               }}
             >
-              This build of MnM Desktop is a{" "}
-              <strong style={{ color: "#fafaf9", fontWeight: 500 }}>
-                developer preview
-              </strong>
-              . It needs a locally running MnM backend to function. Follow the
-              setup steps below, then reload.
+              MnM Desktop hit an unexpected error while starting up. This often
+              means the backend is not reachable or is returning invalid data.
+              The backend runs separately — either on your company&apos;s
+              server, or locally on your machine.
             </p>
 
-            {/* Setup steps */}
-            <ol style={{ margin: 0, padding: 0, listStyle: "none" }}>
-              {[
-                {
-                  step: "01",
-                  title: "Clone the repository",
-                  cmd: "git clone git@github.com:AlphaLuppi/mnm.git",
-                },
-                {
-                  step: "02",
-                  title: "Install dependencies",
-                  cmd: "cd mnm && bun install",
-                },
-                {
-                  step: "03",
-                  title: "Start the backend (keep this terminal open)",
-                  cmd: "bun run dev:server",
-                },
-                {
-                  step: "04",
-                  title: "Come back here and click Retry",
-                  cmd: null,
-                },
-              ].map((s) => (
-                <li
-                  key={s.step}
+            {/* Two paths */}
+            <div
+              style={{
+                display: "grid",
+                gap: "1px",
+                backgroundColor: "#292524",
+                border: "1px solid #292524",
+                marginBottom: "2rem",
+              }}
+            >
+              <div style={{ backgroundColor: "#0c0a09", padding: "1.5rem" }}>
+                <p
                   style={{
-                    display: "flex",
-                    gap: "1.25rem",
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    fontSize: "11px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.2em",
+                    color: "#78716c",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  Already have a backend
+                </p>
+                <p
+                  style={{
+                    color: "#d6d3d1",
+                    fontSize: "0.875rem",
+                    fontWeight: 300,
+                    lineHeight: 1.6,
                     marginBottom: "1.25rem",
                   }}
                 >
-                  <span
+                  Make sure it is running. The desktop app currently expects it
+                  at{" "}
+                  <code
                     style={{
+                      backgroundColor: "#1c1917",
+                      border: "1px solid #292524",
+                      padding: "0.125rem 0.375rem",
+                      borderRadius: "0.25rem",
+                      fontSize: "0.75rem",
+                      color: "#fafaf9",
                       fontFamily:
-                        "ui-monospace, SFMono-Regular, Menlo, monospace",
-                      fontSize: "11px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.2em",
-                      color: "#78716c",
-                      paddingTop: "0.25rem",
-                      width: "2.5rem",
-                      flexShrink: 0,
+                        "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
                     }}
                   >
-                    {s.step}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
-                      style={{
-                        color: "#e7e5e4",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      {s.title}
-                    </p>
-                    {s.cmd && (
-                      <pre
-                        style={{
-                          backgroundColor: "#1c1917",
-                          border: "1px solid #292524",
-                          borderRadius: "0.375rem",
-                          padding: "0.75rem 1rem",
-                          fontSize: "0.875rem",
-                          color: "#d6d3d1",
-                          overflowX: "auto",
-                          fontFamily:
-                            "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-                          margin: 0,
-                        }}
-                      >
-                        <code>{s.cmd}</code>
-                      </pre>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
+                    http://localhost:3100
+                  </code>
+                  .
+                </p>
+              </div>
+
+              <div style={{ backgroundColor: "#0c0a09", padding: "1.5rem" }}>
+                <p
+                  style={{
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    fontSize: "11px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.2em",
+                    color: "#78716c",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  Don&apos;t have the backend yet
+                </p>
+                <p
+                  style={{
+                    color: "#d6d3d1",
+                    fontSize: "0.875rem",
+                    fontWeight: 300,
+                    lineHeight: 1.6,
+                    marginBottom: "1.25rem",
+                  }}
+                >
+                  The MnM backend is distributed on request. Visit the setup
+                  guide to learn how to deploy it.
+                </p>
+                <a
+                  href="https://mnm.alphaluppi.fr/#setup"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.625rem 1.25rem",
+                    border: "1px solid #57534e",
+                    color: "#fafaf9",
+                    fontSize: "0.8125rem",
+                    fontWeight: 500,
+                    letterSpacing: "0.025em",
+                    borderRadius: "0.375rem",
+                    textDecoration: "none",
+                  }}
+                >
+                  Open setup guide
+                  <span style={{ fontSize: "0.625rem", opacity: 0.6 }}>↗</span>
+                </a>
+              </div>
+            </div>
 
             {/* Error details */}
             <details

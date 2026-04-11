@@ -26,6 +26,38 @@ interface TauriPreviewGateProps {
 export function TauriPreviewGate({ children }: TauriPreviewGateProps) {
   const [status, setStatus] = useState<GateStatus>("idle");
   const [dismissed, setDismissed] = useState<boolean>(false);
+  const [loaderGone, setLoaderGone] = useState<boolean>(
+    () => typeof document !== "undefined" && !document.getElementById("app-loader"),
+  );
+
+  // Wait for the HTML splash loader to finish its dissolve animation and
+  // actually remove itself from the DOM before rendering the gate UI. Both
+  // the loader and this gate use z-index 9999, but React mounts its output
+  // inside #root which comes after #app-loader in document order — so the
+  // gate's error screen would otherwise paint over the still-running loader
+  // animation instead of appearing once it fades out.
+  useEffect(() => {
+    if (loaderGone) return;
+    if (typeof document === "undefined") return;
+
+    const loader = document.getElementById("app-loader");
+    if (!loader) {
+      setLoaderGone(true);
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById("app-loader")) {
+        setLoaderGone(true);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: false });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loaderGone]);
 
   useEffect(() => {
     // Only gate when running in Tauri. Web build is always fine.
@@ -41,10 +73,30 @@ export function TauriPreviewGate({ children }: TauriPreviewGateProps) {
       try {
         const res = await fetch("/api/health", {
           cache: "no-store",
+          headers: { Accept: "application/json" },
           signal: AbortSignal.timeout(4000),
         });
         if (cancelled) return;
-        setStatus(res.ok ? "ok" : "down");
+        if (!res.ok) {
+          setStatus("down");
+          return;
+        }
+        // In a packaged Tauri DMG, the custom protocol serves index.html
+        // as a fallback for any missing path (including /api/*). A naive
+        // res.ok check would false-positive and let the app through, where
+        // downstream JSON.parse crashes with a cryptic WebKit error. We
+        // must therefore verify the response is an actual JSON health
+        // payload from the backend, not the SPA fallback HTML.
+        const contentType = res.headers.get("content-type") ?? "";
+        if (!contentType.toLowerCase().includes("application/json")) {
+          setStatus("down");
+          return;
+        }
+        const payload = (await res.json().catch(() => null)) as
+          | { status?: string }
+          | null;
+        if (cancelled) return;
+        setStatus(payload?.status === "ok" ? "ok" : "down");
       } catch {
         if (cancelled) return;
         setStatus("down");
@@ -64,6 +116,13 @@ export function TauriPreviewGate({ children }: TauriPreviewGateProps) {
 
   // Still checking → render nothing (the HTML loader is already visible)
   if (status === "idle" || status === "checking") {
+    return null;
+  }
+
+  // Status known but the splash loader animation is still running → hold
+  // rendering until it has dissolved so the user sees the intro animation
+  // first, then the error screen (or the app) underneath.
+  if (status === "down" && !loaderGone) {
     return null;
   }
 
@@ -104,86 +163,77 @@ export function TauriPreviewGate({ children }: TauriPreviewGateProps) {
             className="text-4xl md:text-5xl leading-[1.05] tracking-tight mb-6 text-stone-50"
             style={{ fontFamily: "ui-serif, Georgia, serif", fontWeight: 500 }}
           >
-            Backend not detected.
+            Backend not reachable.
           </h1>
 
           <p className="text-lg text-stone-300 font-light leading-relaxed mb-10 max-w-xl">
-            This build of MnM Desktop is a <strong className="text-stone-100 font-medium">developer preview</strong>.
-            It relies on a locally running MnM backend. Follow the setup steps below
-            to connect, then click <em>Retry</em>.
+            MnM Desktop is a client for the MnM backend. The backend runs
+            separately — either on your company&apos;s server, or locally on your
+            machine.
           </p>
 
-          {/* Setup steps */}
-          <ol className="space-y-5 mb-10">
-            {[
-              {
-                step: "01",
-                title: "Clone the repository",
-                cmd: "git clone git@github.com:AlphaLuppi/mnm.git",
-              },
-              {
-                step: "02",
-                title: "Install dependencies",
-                cmd: "cd mnm && bun install",
-              },
-              {
-                step: "03",
-                title: "Start the backend (keep this terminal open)",
-                cmd: "bun run dev:server",
-              },
-              {
-                step: "04",
-                title: "Come back here and click Retry",
-                cmd: null,
-              },
-            ].map((s) => (
-              <li key={s.step} className="flex gap-5">
-                <span
-                  className="text-[11px] uppercase tracking-[0.2em] text-stone-500 pt-1 w-10 flex-shrink-0"
-                  style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+          {/* Two paths */}
+          <div className="grid gap-px bg-stone-800 border border-stone-800 mb-10">
+            <div className="bg-stone-950 p-6">
+              <p
+                className="text-[11px] uppercase tracking-[0.2em] text-stone-500 mb-3"
+                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+              >
+                Already have a backend
+              </p>
+              <p className="text-stone-300 text-sm font-light leading-relaxed mb-5">
+                Make sure it is running. The desktop app currently expects it at{" "}
+                <code
+                  className="text-stone-100 bg-stone-900 border border-stone-800 px-1.5 py-0.5 rounded text-xs"
+                  style={{
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+                  }}
                 >
-                  {s.step}
-                </span>
-                <div className="flex-1">
-                  <p className="text-stone-200 mb-2">{s.title}</p>
-                  {s.cmd && (
-                    <pre
-                      className="bg-stone-900 border border-stone-800 rounded-md px-4 py-3 text-sm text-stone-300 overflow-x-auto"
-                      style={{
-                        fontFamily:
-                          "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-                      }}
-                    >
-                      <code>{s.cmd}</code>
-                    </pre>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
+                  http://localhost:3100
+                </code>
+                . Configurable backend URL is coming in a future update.
+              </p>
+              <button
+                type="button"
+                onClick={retry}
+                className="inline-flex items-center gap-3 px-6 py-3 bg-stone-50 text-stone-950 text-sm font-medium tracking-wide hover:bg-white transition-colors rounded-md"
+              >
+                Retry connection
+                <span className="text-xs opacity-60">↻</span>
+              </button>
+            </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-6 border-t border-stone-800">
-            <button
-              type="button"
-              onClick={retry}
-              className="inline-flex items-center gap-3 px-7 py-4 bg-stone-50 text-stone-950 text-sm font-medium tracking-wide hover:bg-white transition-colors rounded-md"
-            >
-              Retry connection
-              <span className="text-xs opacity-60">↻</span>
-            </button>
-            <a
-              href="https://mnm.alphaluppi.fr#download"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-stone-400 hover:text-stone-100 transition-colors"
-            >
-              Read the setup guide ↗
-            </a>
+            <div className="bg-stone-950 p-6">
+              <p
+                className="text-[11px] uppercase tracking-[0.2em] text-stone-500 mb-3"
+                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+              >
+                Don&apos;t have the backend yet
+              </p>
+              <p className="text-stone-300 text-sm font-light leading-relaxed mb-5">
+                The MnM backend is distributed on request. Visit the setup guide
+                to learn how to deploy it on your company&apos;s server or your
+                own machine.
+              </p>
+              <a
+                href="https://mnm.alphaluppi.fr/#setup"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-6 py-3 border border-stone-600 text-stone-100 text-sm font-medium tracking-wide hover:bg-stone-900 transition-colors rounded-md"
+              >
+                Open setup guide
+                <span className="text-xs opacity-60">↗</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Bottom row */}
+          <div className="flex items-center justify-end pt-4 border-t border-stone-800">
             <button
               type="button"
               onClick={() => setDismissed(true)}
-              className="text-sm text-stone-500 hover:text-stone-300 transition-colors ml-auto"
+              className="text-sm text-stone-500 hover:text-stone-300 transition-colors"
             >
               Continue anyway
             </button>
