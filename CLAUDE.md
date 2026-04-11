@@ -42,6 +42,33 @@ Language: French for planning documents. See README.md for full project docs.
 - adapter_type="claude_local", metadata.isCAO=true, auto-created, has all tags, Admin role.
 - Runs in admin's sandbox. Watchdog mode auto-comments on failures. Interactive via @cao mentions.
 
+## Web/Desktop Parity Tracking
+
+MnM ships as both a web app (`@mnm/ui`) and a Tauri desktop app (`apps/desktop`). To keep visibility on what's live where, we maintain a **typed parity tracker** at `scripts/parity/data.ts`.
+
+**You MUST update `scripts/parity/data.ts` whenever you:**
+- Add a new user-facing feature (page, panel, significant component, IPC command, or desktop-native capability)
+- Change the status of an existing feature on either platform (e.g. verify it in a packaged DMG, fix a blocker, add desktop polish)
+- Discover a new cross-platform gap or blocker
+
+**How to update:**
+1. Find the relevant domain in `scripts/parity/data.ts` (`auth`, `agents`, `traces`, `desktop-native`, etc.) or add a new one.
+2. Add/edit the `Feature` entry with `web` and `desktop` `PlatformState` objects. Status values: `done | dev-only | partial | missing | n/a`.
+3. For features that need work, fill the `todo` object (`code`, `config`, `tests`, `notes`) so remaining work is explicit.
+4. If a blocker is shared across features, reference an existing key from `sharedBlockers` rather than repeating the description.
+5. Run `bun run parity` to verify the report renders cleanly, and `bun run parity --missing` to see the updated gap list.
+
+**Parity commands:**
+```bash
+bun run parity                   # Full report
+bun run parity --missing         # Features done on web but not on desktop
+bun run parity --todo            # Features with open todo items
+bun run parity --domain=agents   # Filter to one domain
+bun run parity --json            # Raw JSON (for tooling)
+```
+
+**Rule of thumb:** any PR touching `ui/src/pages/`, `ui/src/components/`, `apps/desktop/src-tauri/`, or adding a new IPC command **should also touch `scripts/parity/data.ts`**. If you genuinely don't need to, mention it in the PR body so reviewers know it was considered.
+
 ## Git Rules
 
 - **Always atomic commit + push** — Every commit must be immediately pushed. Never leave unpushed commits.
