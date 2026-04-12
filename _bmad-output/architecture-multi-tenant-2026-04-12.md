@@ -559,7 +559,7 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 ## 12. Checklist de Validation
 
 - [x] TOUTES les routes company-scoped ont `/companies/:companyId` (Sprint 1-3 ✅)
-- [ ] Le URL rewrite middleware est supprimé (fallback temporaire en place, supprimé quand tout migré)
+- [x] Le URL rewrite middleware est supprimé ✅
 - [x] `assertCompanyMembership` middleware est en place (Sprint 1 ✅)
 - [x] `tagScopeMiddleware` est dans le router `api` (pas app level) (Sprint 1 ✅)
 - [x] Frontend utilise `companyApi()` factory (Sprint 1 ✅)
@@ -569,4 +569,4 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 - [x] `singleTenantCompanyId` cache est supprimé (Sprint 1 ✅)
 - [ ] E2E tests couvrent le multi-tenant (Sprint 4)
 - [ ] `CLAUDE.md` et `docs/ARCHITECTURE.md` mis à jour (Sprint 4)
-- [ ] Aucune route n'utilise l'auto-injection de companyId (en cours, fallback temporaire)
+- [x] Aucune route n'utilise l'auto-injection de companyId ✅

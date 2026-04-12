@@ -226,33 +226,6 @@ export async function createApp(
   api.use(apiRateLimiter);
   api.use(boardMutationGuard());
 
-  // MULTI-TENANT: URL rewrite fallback for routes not yet migrated to /companies/:companyId/ prefix.
-  // Routes in agents.ts and issues.ts are already migrated. This rewrite covers remaining route files
-  // (activity, approvals, workflows, etc.) until they are migrated in Sprint 2+.
-  // TODO: Remove once ALL route files use /companies/:companyId/ prefix.
-  api.use((req, _res, next) => {
-    if (req.path.startsWith("/companies/")) {
-      next();
-      return;
-    }
-    if (req.path.startsWith("/health") || req.path.startsWith("/auth/") ||
-        req.path.startsWith("/companies") || req.path === "/") {
-      next();
-      return;
-    }
-    // Resolve companyId from actor (since tenantContextMiddleware no longer injects into params)
-    let companyId: string | undefined;
-    if (req.actor?.type === "agent" && req.actor.companyId) {
-      companyId = req.actor.companyId;
-    } else if (req.actor?.type === "board" && req.actor.companyIds?.length) {
-      companyId = req.actor.companyIds[0];
-    }
-    if (companyId) {
-      req.url = `/companies/${companyId}${req.path}${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`;
-    }
-    next();
-  });
-
   // MULTI-TENANT: assertCompanyMembership verifies the actor belongs to the company in the path.
   // Must run BEFORE tenantContextMiddleware so membership is verified before setting the RLS context.
   api.use("/companies/:companyId", assertCompanyMembership());
