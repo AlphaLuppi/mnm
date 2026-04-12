@@ -1710,7 +1710,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
 
   const { data: touchedIssues } = useQuery({
     queryKey: queryKeys.runIssues(run.id),
-    queryFn: () => activityApi.issuesForRun(run.id),
+    queryFn: () => activityApi.issuesForRun(run.companyId, run.id),
   });
   const touchedIssueIds = useMemo(
     () => Array.from(new Set((touchedIssues ?? []).map((issue) => issue.issueId))),

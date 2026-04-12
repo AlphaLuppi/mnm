@@ -29,21 +29,21 @@ export function ApprovalDetail() {
 
   const { data: approval, isLoading } = useQuery({
     queryKey: queryKeys.approvals.detail(approvalId!),
-    queryFn: () => approvalsApi.get(approvalId!),
-    enabled: !!approvalId,
+    queryFn: () => approvalsApi.get(selectedCompanyId!, approvalId!),
+    enabled: !!approvalId && !!selectedCompanyId,
   });
   const resolvedCompanyId = approval?.companyId ?? selectedCompanyId;
 
   const { data: comments } = useQuery({
     queryKey: queryKeys.approvals.comments(approvalId!),
-    queryFn: () => approvalsApi.listComments(approvalId!),
-    enabled: !!approvalId,
+    queryFn: () => approvalsApi.listComments(resolvedCompanyId!, approvalId!),
+    enabled: !!approvalId && !!resolvedCompanyId,
   });
 
   const { data: linkedIssues } = useQuery({
     queryKey: queryKeys.approvals.issues(approvalId!),
-    queryFn: () => approvalsApi.listIssues(approvalId!),
-    enabled: !!approvalId,
+    queryFn: () => approvalsApi.listIssues(resolvedCompanyId!, approvalId!),
+    enabled: !!approvalId && !!resolvedCompanyId,
   });
 
   const { data: agents } = useQuery({
@@ -85,7 +85,7 @@ export function ApprovalDetail() {
   };
 
   const approveMutation = useMutation({
-    mutationFn: () => approvalsApi.approve(approvalId!),
+    mutationFn: () => approvalsApi.approve(resolvedCompanyId!, approvalId!),
     onSuccess: () => {
       setError(null);
       refresh();
@@ -95,7 +95,7 @@ export function ApprovalDetail() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => approvalsApi.reject(approvalId!),
+    mutationFn: () => approvalsApi.reject(resolvedCompanyId!, approvalId!),
     onSuccess: () => {
       setError(null);
       refresh();
@@ -104,7 +104,7 @@ export function ApprovalDetail() {
   });
 
   const revisionMutation = useMutation({
-    mutationFn: () => approvalsApi.requestRevision(approvalId!),
+    mutationFn: () => approvalsApi.requestRevision(resolvedCompanyId!, approvalId!),
     onSuccess: () => {
       setError(null);
       refresh();
@@ -113,7 +113,7 @@ export function ApprovalDetail() {
   });
 
   const resubmitMutation = useMutation({
-    mutationFn: () => approvalsApi.resubmit(approvalId!),
+    mutationFn: () => approvalsApi.resubmit(resolvedCompanyId!, approvalId!),
     onSuccess: () => {
       setError(null);
       refresh();
@@ -122,7 +122,7 @@ export function ApprovalDetail() {
   });
 
   const addCommentMutation = useMutation({
-    mutationFn: () => approvalsApi.addComment(approvalId!, commentBody.trim()),
+    mutationFn: () => approvalsApi.addComment(resolvedCompanyId!, approvalId!, commentBody.trim()),
     onSuccess: () => {
       setCommentBody("");
       setError(null);

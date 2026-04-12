@@ -488,25 +488,25 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 
 | # | Tâche | Effort | Fichiers |
 |---|-------|--------|----------|
-| 1.1 | Créer middleware `assertCompanyMembership` | S | `server/src/middleware/company-access.ts` |
-| 1.2 | Déplacer `tagScopeMiddleware` dans le router `api` (FAIT) | XS | `server/src/app.ts` |
-| 1.3 | Supprimer le URL rewrite middleware | S | `server/src/app.ts` |
-| 1.4 | Simplifier `tenantContextMiddleware` (plus d'injection params) | S | `server/src/middleware/tenant-context.ts` |
-| 1.5 | Créer `companyApi()` factory côté frontend | S | `ui/src/api/client.ts` |
-| 1.6 | Créer hook `useCompanyApi()` | XS | `ui/src/hooks/useCompanyApi.ts` |
-| 1.7 | Migrer `agents.ts` routes (23 routes) | L | `server/src/routes/agents.ts` + `ui/src/api/agents.ts` |
-| 1.8 | Migrer `issues.ts` routes (15 routes) | L | `server/src/routes/issues.ts` + `ui/src/api/issues.ts` |
+| 1.1 | ✅ Créer middleware `assertCompanyMembership` | S | `server/src/middleware/company-access.ts` |
+| 1.2 | ✅ Déplacer `tagScopeMiddleware` dans le router `api` | XS | `server/src/app.ts` |
+| 1.3 | ✅ URL rewrite → fallback temporaire (supprimé quand tout migré) | S | `server/src/app.ts` |
+| 1.4 | ✅ Simplifier `tenantContextMiddleware` (plus d'injection params) | S | `server/src/middleware/tenant-context.ts` |
+| 1.5 | ✅ Créer `companyApi()` factory côté frontend | S | `ui/src/api/client.ts` |
+| 1.6 | ✅ Créer hook `useCompanyApi()` | XS | `ui/src/hooks/useCompanyApi.ts` |
+| 1.7 | ✅ Migrer `agents.ts` routes (28 routes) + heartbeats + frontend | L | Backend + `ui/src/api/agents.ts` + `heartbeats.ts` |
+| 1.8 | ✅ Migrer `issues.ts` routes (17 routes) + frontend | L | Backend + `ui/src/api/issues.ts` |
 
 ### Sprint 2 — Core Features (3-5j)
 
 | # | Tâche | Effort | Fichiers |
 |---|-------|--------|----------|
-| 2.1 | Migrer `approvals.ts` (7 routes) | M | Backend + frontend |
-| 2.2 | Migrer `workflows.ts` + `stages.ts` (7 routes) | M | Backend + frontend |
-| 2.3 | Migrer `config-layers.ts` (~12 routes) | L | Backend + frontend |
-| 2.4 | Migrer `projects.ts` + `workspace-context.ts` (14 routes) | M | Backend + frontend |
-| 2.5 | Migrer `drift.ts` (7 routes) | M | Backend + frontend |
-| 2.6 | Migrer `heartbeats.ts` (5 routes frontend) | S | Frontend only (backend déjà OK?) |
+| 2.1 | ✅ Migrer `approvals.ts` (8 routes) | M | Backend + frontend |
+| 2.2 | ✅ Migrer `workflows.ts` + `stages.ts` (9 routes) | M | Backend + frontend |
+| 2.3 | ✅ Migrer `config-layers.ts` (12 routes) | L | Backend + frontend |
+| 2.4 | ✅ Migrer `projects.ts` + `workspace-context.ts` (17 routes) | M | Backend + frontend |
+| 2.5 | ✅ Migrer `drift.ts` (7 routes) | M | Backend + frontend |
+| 2.6 | ✅ Migrer `activity.ts` (3 routes) + `heartbeats.ts` frontend | S | Backend + frontend |
 
 ### Sprint 3 — Remaining + Multi-Company (3-5j)
 
@@ -558,15 +558,15 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 
 ## 12. Checklist de Validation
 
-- [ ] TOUTES les routes company-scoped ont `/companies/:companyId`
-- [ ] Le URL rewrite middleware est supprimé
-- [ ] `assertCompanyMembership` middleware est en place
-- [ ] `tagScopeMiddleware` est dans le router `api` (pas app level)
-- [ ] Frontend utilise `companyApi()` factory
-- [ ] MCP tokens encodent le companyId
-- [ ] Rate limiting est per-tenant
-- [ ] Redis keys sont namespaced par company
-- [ ] `singleTenantCompanyId` cache est supprimé
-- [ ] E2E tests couvrent le multi-tenant
-- [ ] `CLAUDE.md` et `docs/ARCHITECTURE.md` mis à jour
-- [ ] Aucune route n'utilise l'auto-injection de companyId
+- [ ] TOUTES les routes company-scoped ont `/companies/:companyId` (Sprint 1: agents+issues ✅, reste Sprint 2-3)
+- [ ] Le URL rewrite middleware est supprimé (fallback temporaire en place, supprimé quand tout migré)
+- [x] `assertCompanyMembership` middleware est en place (Sprint 1 ✅)
+- [x] `tagScopeMiddleware` est dans le router `api` (pas app level) (Sprint 1 ✅)
+- [x] Frontend utilise `companyApi()` factory (Sprint 1 ✅)
+- [ ] MCP tokens encodent le companyId (Sprint 4)
+- [ ] Rate limiting est per-tenant (Sprint 3)
+- [ ] Redis keys sont namespaced par company (Sprint 4)
+- [x] `singleTenantCompanyId` cache est supprimé (Sprint 1 ✅)
+- [ ] E2E tests couvrent le multi-tenant (Sprint 4)
+- [ ] `CLAUDE.md` et `docs/ARCHITECTURE.md` mis à jour (Sprint 4)
+- [ ] Aucune route n'utilise l'auto-injection de companyId (en cours, fallback temporaire)

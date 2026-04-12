@@ -177,14 +177,14 @@ export function IssueDetail() {
 
   const { data: activity } = useQuery({
     queryKey: queryKeys.issues.activity(selectedCompanyId!, issueId!),
-    queryFn: () => activityApi.forIssue(issueId!),
-    enabled: !!issueId,
+    queryFn: () => activityApi.forIssue(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: linkedRuns } = useQuery({
     queryKey: queryKeys.issues.runs(selectedCompanyId!, issueId!),
-    queryFn: () => activityApi.runsForIssue(issueId!),
-    enabled: !!issueId,
+    queryFn: () => activityApi.runsForIssue(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: linkedApprovals } = useQuery({

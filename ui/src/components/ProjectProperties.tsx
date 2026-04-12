@@ -120,7 +120,7 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
   };
 
   const createWorkspace = useMutation({
-    mutationFn: (data: Record<string, unknown>) => projectsApi.createWorkspace(project.id, data),
+    mutationFn: (data: Record<string, unknown>) => projectsApi.createWorkspace(selectedCompanyId!, project.id, data),
     onSuccess: () => {
       setWorkspaceCwd("");
       setWorkspaceRepoUrl("");
@@ -131,12 +131,12 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
   });
 
   const removeWorkspace = useMutation({
-    mutationFn: (workspaceId: string) => projectsApi.removeWorkspace(project.id, workspaceId),
+    mutationFn: (workspaceId: string) => projectsApi.removeWorkspace(selectedCompanyId!, project.id, workspaceId),
     onSuccess: invalidateProject,
   });
   const updateWorkspace = useMutation({
     mutationFn: ({ workspaceId, data }: { workspaceId: string; data: Record<string, unknown> }) =>
-      projectsApi.updateWorkspace(project.id, workspaceId, data),
+      projectsApi.updateWorkspace(selectedCompanyId!, project.id, workspaceId, data),
     onSuccess: invalidateProject,
   });
 
@@ -149,7 +149,7 @@ export function ProjectProperties({ project, onUpdate }: ProjectPropertiesProps)
 
   const onboardMutation = useMutation({
     mutationFn: () =>
-      projectsApi.onboard(project.id, onboardAgentId ? { agentId: onboardAgentId } : {}, selectedCompanyId!),
+      projectsApi.onboard(selectedCompanyId!, project.id, onboardAgentId ? { agentId: onboardAgentId } : {}),
     onSuccess: ({ issueId, identifier }) => {
       setOnboardOpen(false);
       navigate(`/issues/${identifier ?? issueId}`);
@@ -624,7 +624,7 @@ export function DeleteProjectFooter({ project }: { project: Project }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const deleteProjectMutation = useMutation({
-    mutationFn: () => projectsApi.remove(project.id, selectedCompanyId!),
+    mutationFn: () => projectsApi.remove(selectedCompanyId!, project.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(selectedCompanyId!) });
       navigate("/projects");

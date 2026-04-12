@@ -39,12 +39,12 @@ export function WorkspaceAgentSync({ projectId, companyId }: WorkspaceAgentSyncP
 
   const { data: discoveredData, isLoading } = useQuery({
     queryKey: ["workspace-agents-discovery", projectId],
-    queryFn: () => workspaceContextApi.getAgents(projectId, companyId),
+    queryFn: () => workspaceContextApi.getAgents(companyId, projectId),
   });
 
   const { data: savedAssignmentsData } = useQuery({
     queryKey: ["workspace-assignments", projectId],
-    queryFn: () => workspaceContextApi.getAssignments(projectId, companyId),
+    queryFn: () => workspaceContextApi.getAssignments(companyId, projectId),
   });
 
   const workspaceId = savedAssignmentsData?.workspaceId ?? null;
@@ -184,18 +184,18 @@ export function WorkspaceAgentSync({ projectId, companyId }: WorkspaceAgentSyncP
 
       // Create workspace-scoped agents
       if (workspaceSlugs.length > 0) {
-        const result = await workspaceContextApi.importAgents(projectId, workspaceSlugs, workspaceId, companyId);
+        const result = await workspaceContextApi.importAgents(companyId, projectId, workspaceSlugs, workspaceId);
         Object.assign(allAssignments, result.assignments);
       }
 
       // Create new global agents (workspaceId: null → no scope)
       if (newGlobalSlugs.length > 0) {
-        const result = await workspaceContextApi.importAgents(projectId, newGlobalSlugs, null, companyId);
+        const result = await workspaceContextApi.importAgents(companyId, projectId, newGlobalSlugs, null);
         Object.assign(allAssignments, result.assignments);
       }
 
       // Persist all assignments
-      await workspaceContextApi.saveAssignments(projectId, allAssignments, companyId);
+      await workspaceContextApi.saveAssignments(companyId, projectId, allAssignments);
 
       // Persist workspace-specific agent configs if any
       if (workspaceId && Object.keys(workspaceConfigs).length > 0) {
@@ -203,9 +203,9 @@ export function WorkspaceAgentSync({ projectId, companyId }: WorkspaceAgentSyncP
         void project;
         // We patch via the assignments endpoint's workspace metadata; use updateWorkspace
         const existingMeta = (savedAssignmentsData as unknown as { metadata?: Record<string, unknown> })?.metadata ?? {};
-        await projectsApi.updateWorkspace(projectId, workspaceId, {
+        await projectsApi.updateWorkspace(companyId, projectId, workspaceId, {
           metadata: { ...existingMeta, agentWorkspaceConfigs: workspaceConfigs },
-        }, companyId);
+        });
       }
     },
     onSuccess: () => {
