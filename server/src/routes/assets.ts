@@ -131,11 +131,11 @@ export function assetRoutes(db: Db, storage: StorageService) {
       createdByUserId: asset.createdByUserId,
       createdAt: asset.createdAt,
       updatedAt: asset.updatedAt,
-      contentPath: `/api/assets/${asset.id}/content`,
+      contentPath: `/api/companies/${companyId}/assets/${asset.id}/content`,
     });
   });
 
-  router.get("/assets/:assetId/content", async (req, res, next) => {
+  router.get("/companies/:companyId/assets/:assetId/content", async (req, res, next) => {
     const assetId = req.params.assetId as string;
     const asset = await svc.getById(assetId);
     if (!asset) {

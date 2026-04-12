@@ -72,7 +72,7 @@ export function secretRoutes(db: Db) {
     res.status(201).json(created);
   });
 
-  router.post("/secrets/:id/rotate", validate(rotateSecretSchema), async (req, res) => {
+  router.post("/companies/:companyId/secrets/:id/rotate", validate(rotateSecretSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -113,7 +113,7 @@ export function secretRoutes(db: Db) {
     res.json(rotated);
   });
 
-  router.patch("/secrets/:id", validate(updateSecretSchema), async (req, res) => {
+  router.patch("/companies/:companyId/secrets/:id", validate(updateSecretSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -156,7 +156,7 @@ export function secretRoutes(db: Db) {
     res.json(updated);
   });
 
-  router.delete("/secrets/:id", async (req, res) => {
+  router.delete("/companies/:companyId/secrets/:id", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
