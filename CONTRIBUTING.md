@@ -27,20 +27,63 @@ bun install
 
 ## Lancer en dev
 
+### Quick start (zero config)
+
 MnM utilise un PostgreSQL embarque par defaut — pas besoin de Docker pour demarrer :
 
 ```bash
 bun run dev         # Lance server + ui + embedded postgres
 ```
 
-Si tu preferes un PostgreSQL + Redis externes :
+Les donnees sont stockees dans `~/.mnm/` et sont perdues si le PG embarque plante ou se reinitialise. Suffisant pour tester, pas pour bosser au quotidien.
+
+### Setup local recommande (Docker infra + app native)
+
+Le setup stable pour travailler au quotidien avec ta propre souscription Claude :
 
 ```bash
-bun run dev:docker:up    # Lance PG + Redis via Docker Compose
-bun run dev              # Lance le serveur contre ces services
+bun run local       # Lance tout (Docker infra + serveur + UI)
 ```
 
-Par defaut, l'UI est servie sur `http://localhost:5173` (Vite) et l'API sur `http://localhost:3001`.
+Ce que ca fait :
+
+1. Demarre PostgreSQL + Redis dans des containers Docker (donnees persistees dans des volumes)
+2. Verifie que l'infra est healthy
+3. Lance le serveur MnM + l'UI Vite sur ta machine
+
+**Pourquoi ce setup existe :** en production (ex. chez EnterpriseCustomer), la database, le backend et Redis vivent sur des serveurs d'infrastructure, et chaque utilisateur consomme MnM via un client local — UI web, app desktop Tauri, ou MCP depuis Claude Code / Cursor. Ce setup reproduit cette topologie localement : Docker simule l'infra (PG + Redis), l'app tourne nativement pour que l'adapter `claude_local` appelle directement ta CLI Claude, sans credential forwarding ni Docker-in-Docker. Tu utilises ta propre souscription Claude, point.
+
+#### Prerequis
+
+- Docker Desktop lance
+- `.env` avec `DATABASE_URL` et `REDIS_URL` (copie `.env.example` si pas encore fait)
+
+#### Commandes
+
+```bash
+bun run local          # Demarre l'infra Docker + l'app locale
+bun run local:down     # Arrete les containers Docker (donnees conservees)
+bun run local:reset    # Detruit les volumes et repart de zero
+```
+
+#### Ports
+
+| Service    | URL                        |
+|------------|----------------------------|
+| UI (Vite)  | http://localhost:5173      |
+| API        | http://localhost:3100      |
+| PostgreSQL | 127.0.0.1:5432             |
+| Redis      | 127.0.0.1:6379             |
+
+#### Clients supportes
+
+L'app locale sert de backend pour trois modes de consommation :
+
+- **UI web** — `http://localhost:5173`, le cockpit de supervision complet
+- **App desktop** — le build Tauri se connecte au meme backend local
+- **MCP** — `claude mcp add --transport http mnm http://localhost:3100/mcp` pour piloter MnM depuis Claude Code, Cursor, ou n'importe quel client MCP
+
+Les trois utilisent ton Claude local. Les agents heritent de ta souscription via l'adapter `claude_local` qui appelle la CLI directement.
 
 ---
 
