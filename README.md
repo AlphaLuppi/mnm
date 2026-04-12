@@ -107,14 +107,22 @@ MnM en production chez CBA (50+ devs multi-métiers), les 3 piliers opérationne
 ## Essayer MnM
 
 ```bash
-# Prerequis : Bun >= 1.3, Node >= 20, Docker
+# Prerequis : Bun >= 1.3, Node >= 20
 bun install
-bun run dev
+bun run dev        # Quick start avec PostgreSQL embarqué
 ```
 
-Un serveur et une UI avec PostgreSQL embarqué. Aucun setup externe pour tester en local.
+Pour bosser au quotidien avec des donnees persistantes et ta souscription Claude locale :
 
-Pour le déploiement prod (Docker Compose, Dokploy), le get started dev complet et le guide pour brancher un client MCP, voir [CONTRIBUTING.md](CONTRIBUTING.md).
+```bash
+# Prerequis : Docker
+cp .env.example .env   # decommenter DATABASE_URL + REDIS_URL
+bun run local          # Docker (PG + Redis) + app native
+```
+
+Le setup local reproduit la topologie de production : l'infra tourne dans Docker, l'app tourne nativement pour acceder directement a ta CLI Claude. Tu peux ensuite consommer MnM via l'UI web, l'app desktop, ou en MCP depuis Claude Code / Cursor.
+
+Pour le deploiement prod (Docker Compose, Dokploy), le get started dev complet et le guide pour brancher un client MCP, voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Aller plus loin
 
