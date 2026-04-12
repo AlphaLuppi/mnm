@@ -261,10 +261,15 @@ export async function runChildProcess(
 
   return new Promise<RunProcessResult>((resolve, reject) => {
     const mergedEnv = ensurePathInEnv({ ...process.env, ...opts.env });
-    const child = spawn(command, args, {
+    // On Windows, force UTF-8 codepage (65001) before running the command.
+    // Without this, subprocesses (bash, curl) inherit the system codepage (cp1252 on
+    // French Windows), mangling accented characters in HTTP bodies and stdin/stdout.
+    const isWindows = process.platform === "win32";
+    const spawnCommand = isWindows ? `chcp 65001 >nul && ${command}` : command;
+    const child = spawn(spawnCommand, args, {
       cwd: opts.cwd,
       env: mergedEnv,
-      shell: false,
+      shell: isWindows,
       stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
     }) as ChildProcessWithEvents;
 
