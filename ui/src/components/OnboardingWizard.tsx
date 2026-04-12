@@ -364,13 +364,15 @@ export function OnboardingWizard() {
 
   async function handleRemoveTag(tagId: string) {
     if (!createdCompanyId) return;
+    const removed = createdTags.find((t) => t.id === tagId);
     // Optimistic: remove from UI immediately
     setCreatedTags((prev) => prev.filter((t) => t.id !== tagId));
     try {
       await tagsApi.delete(createdCompanyId, tagId);
       queryClient.invalidateQueries({ queryKey: queryKeys.tags.list(createdCompanyId) });
     } catch {
-      // API delete failed (likely permission timing during onboarding) — UI already updated
+      // Rollback optimistic removal on failure
+      if (removed) setCreatedTags((prev) => [...prev, removed]);
     }
   }
 
