@@ -269,7 +269,7 @@ export async function runChildProcess(
     }) as ChildProcessWithEvents;
 
     if (opts.stdin != null && child.stdin) {
-      child.stdin.write(opts.stdin);
+      child.stdin.write(opts.stdin, "utf8");
       child.stdin.end();
     }
 
@@ -399,7 +399,7 @@ async function runInDocker(
     }) as ChildProcessWithEvents;
 
     if (opts.stdin != null && child.stdin) {
-      child.stdin.write(opts.stdin);
+      child.stdin.write(opts.stdin, "utf8");
       child.stdin.end();
     }
 
