@@ -1,9 +1,10 @@
 import { StrictMode, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { BrowserRouter } from "@/lib/router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { NoProfileGate } from "./components/NoProfileGate";
+import { BackendUnreachable } from "./components/BackendUnreachable";
 import { TauriPreviewGate } from "./components/TauriPreviewGate";
 import { TauriErrorBoundary } from "./components/TauriErrorBoundary";
 import { CompanyProvider } from "./context/CompanyContext";
@@ -21,6 +22,8 @@ import {
   getCachedActiveProfile,
   initActiveProfile,
 } from "@/lib/profile-client";
+import { checkBackendHealth } from "@/lib/health-check";
+import type { HealthResult } from "@/lib/health-check";
 import "@mdxeditor/editor/style.css";
 import "react-grid-layout/css/styles.css";
 import "./index.css";
@@ -92,8 +95,14 @@ if (typeof (window as any).__dismissMnmLoader === "function") {
 // 8s watchdog doesn't fire even if the first React render is slow.
 (window as unknown as { __mnmMounted?: boolean }).__mnmMounted = true;
 
+// Single React root — created once, re-rendered on retry/switch flows.
+let root: Root | null = null;
+
 function renderTree(children: ReactNode): void {
-  createRoot(document.getElementById("root")!).render(
+  if (root === null) {
+    root = createRoot(document.getElementById("root")!);
+  }
+  root.render(
     <StrictMode>
       <TauriErrorBoundary>
         <TauriPreviewGate>
@@ -128,6 +137,40 @@ function renderTree(children: ReactNode): void {
   );
 }
 
+/**
+ * Renders the BackendUnreachable gate with retry and switch-profile flows.
+ * On retry, re-runs the health check; on success, replaces with <App />.
+ * On switch-profile, replaces with <NoProfileGate />.
+ */
+function renderUnreachable(result: HealthResult & { ok: false }): void {
+  const profile = getCachedActiveProfile()!;
+
+  const handleRetry = async (): Promise<void> => {
+    const retryResult = await checkBackendHealth(profile.apiBaseUrl);
+    if (retryResult.ok) {
+      renderTree(<App />);
+    } else {
+      // Re-render with the new error details
+      renderUnreachable(retryResult);
+    }
+  };
+
+  const handleSwitchProfile = (): void => {
+    renderTree(<NoProfileGate />);
+  };
+
+  renderTree(
+    <BackendUnreachable
+      profileName={profile.displayName}
+      apiBaseUrl={profile.apiBaseUrl}
+      reason={result.reason}
+      message={result.message}
+      onRetry={() => void handleRetry()}
+      onSwitchProfile={handleSwitchProfile}
+    />,
+  );
+}
+
 // Boot sequence: populate the profile cache BEFORE mounting React so that
 // `apiBase()` has a valid URL on first render in packaged desktop builds.
 // In web mode `initActiveProfile()` is a no-op and the regular app mounts.
@@ -138,7 +181,24 @@ void (async () => {
     // Swallow profile-bridge errors at boot so the UI still mounts — the
     // profile gate will re-surface the problem if no active profile is set.
   }
-  const showProfileGate =
-    isTauri() && !import.meta.env.DEV && getCachedActiveProfile() === null;
-  renderTree(showProfileGate ? <NoProfileGate /> : <App />);
+
+  // Gate 1: no profile at all → show profile creation form
+  if (isTauri() && !import.meta.env.DEV && getCachedActiveProfile() === null) {
+    renderTree(<NoProfileGate />);
+    return;
+  }
+
+  // Gate 2: profile exists but backend unreachable → show error screen
+  if (isTauri() && !import.meta.env.DEV && getCachedActiveProfile() !== null) {
+    const healthResult = await checkBackendHealth(
+      getCachedActiveProfile()!.apiBaseUrl,
+    );
+    if (!healthResult.ok) {
+      renderUnreachable(healthResult);
+      return;
+    }
+  }
+
+  // All gates passed — render the app
+  renderTree(<App />);
 })();
