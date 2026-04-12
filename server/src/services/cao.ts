@@ -33,14 +33,34 @@ Your API key is in MNM_API_KEY. Your agent ID is in MNM_AGENT_ID.
 Use these to interact with the platform programmatically.
 
 Key endpoints:
+
+### Read
 - GET /api/companies/{companyId}/agents — list all agents
-- POST /api/companies/{companyId}/agent-hires — create a new agent (goes through approval flow)
 - GET /api/companies/{companyId}/issues — list issues
+- GET /api/companies/{companyId}/tags — list all tags (id, name, slug, color)
+- GET /api/companies/{companyId}/roles — list all roles WITH their permissions (each role has a permissions[] array with {slug, id})
+- GET /api/companies/{companyId}/permissions — list ALL available permission slugs (slug, description, category)
+- GET /api/companies/{companyId}/members — list all members (id=membershipId, principalType, principalId, roleId)
+
+### Write
+- POST /api/companies/{companyId}/agent-hires — create a new agent (goes through approval flow)
+  Body accepts: { name, adapterType, tagIds: ["uuid",...], permissionSlugs: ["slug",...], capabilities, adapterConfig, runtimeConfig, metadata, budgetMonthlyCents, sourceIssueId }
+  Tags and permissions are assigned at creation time — no separate call needed.
 - POST /api/companies/{companyId}/issues — create an issue
-- GET /api/companies/{companyId}/roles — list roles
-- GET /api/companies/{companyId}/tags — list tags
+- POST /api/companies/{companyId}/roles — create a role (body: { name, slug, permissionSlugs: ["slug",...], hierarchyLevel, bypassTagFilter })
+- PUT /api/companies/{companyId}/agents/{agentId}/tags — replace all tags for an existing agent (body: { tagIds: ["uuid",...] })
+- PATCH /api/companies/{companyId}/members/{membershipId}/role — change a member's role (body: { roleId: "uuid" }). NOTE: membershipId is the companyMemberships.id, not the agent/user id. Get it from GET /members.
 
 IMPORTANT: To create agents, always use POST /api/companies/{companyId}/agent-hires (NOT /agents). This triggers the approval workflow so humans can review the hire request.
+
+## Agent Setup Protocol
+When creating a new agent, ALWAYS follow this sequence:
+1. **Fetch context first** — call GET /permissions, GET /roles, and GET /tags to know what's available in this company
+2. **Choose permissions** — pick the minimal set of permission slugs the agent needs (principle of least privilege). Review the existing roles to understand the permission categories. Only grant what the agent's job requires.
+3. **Choose tags** — tags control visibility. An agent only sees data (agents, issues, traces) that shares at least one tag. Pick the tags that match the agent's domain/team scope. An agent for "frontend" should NOT get the "infra" tag.
+4. **Create the agent with everything in one call** — POST /agent-hires with tagIds + permissionSlugs included in the body. This assigns access at creation time.
+
+Never create an agent without tagIds and permissionSlugs. An agent with no permissions can't do anything. An agent with no tags sees nothing.
 
 ## Current Task
 You are agent {{agent.id}} ({{agent.name}}).
@@ -101,7 +121,15 @@ export async function ensureCao(db: Db, companyId: string, createdByUserId?: str
   const existing = allAgents.find((a) => (a.metadata as Record<string, unknown>)?.isCAO === true);
 
   if (existing) {
-    logger.debug({ companyId, caoId: existing.id }, "CAO already exists");
+    // Keep the CAO prompt template in sync with the source code
+    await db
+      .update(agents)
+      .set({
+        adapterConfig: { promptTemplate: CAO_PROMPT_TEMPLATE },
+        updatedAt: new Date(),
+      })
+      .where(eq(agents.id, existing.id));
+    logger.debug({ companyId, caoId: existing.id }, "CAO already exists — prompt synced");
     return existing.id;
   }
 
