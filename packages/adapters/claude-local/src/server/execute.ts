@@ -205,7 +205,13 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =
     typeof envConfig.MNM_API_KEY === "string" && envConfig.MNM_API_KEY.trim().length > 0;
-  const env: Record<string, string> = { ...buildMnMEnv(agent) };
+  const env: Record<string, string> = {
+    // Force UTF-8 encoding for child processes (prevents cp1252 mangling on Windows)
+    LANG: "C.UTF-8",
+    LC_ALL: "C.UTF-8",
+    PYTHONIOENCODING: "utf-8",
+    ...buildMnMEnv(agent),
+  };
   env.MNM_RUN_ID = runId;
 
   const wakeTaskId =
