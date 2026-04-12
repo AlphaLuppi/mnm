@@ -410,8 +410,8 @@ Continue your MnM work. Check for assigned issues and tasks.
     config.promptTemplate,
     defaultPromptTemplate,
   );
-  const model = asString(config.model, "");
-  const effort = asString(config.effort, "");
+  const model = asString(config.model, "claude-opus-4-6");
+  const effort = asString(config.effort, "high");
   const chrome = asBoolean(config.chrome, false);
   const maxTurns = asNumber(config.maxTurnsPerRun, 0);
   const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, true);
