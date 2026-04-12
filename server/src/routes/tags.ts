@@ -223,16 +223,13 @@ export function tagsRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       const tagId = req.params.tagId as string;
 
-      const [count] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(tagAssignments)
-        .where(and(eq(tagAssignments.companyId, companyId), eq(tagAssignments.tagId, tagId)));
-
-      if ((count?.count ?? 0) > 0) {
-        throw badRequest("Cannot delete a tag with active assignments. Archive it instead.");
-      }
-
-      await db.delete(tags).where(and(eq(tags.id, tagId), eq(tags.companyId, companyId)));
+      await db.transaction(async (tx) => {
+        // Remove all assignments first (cascade delete)
+        await tx.delete(tagAssignments).where(
+          and(eq(tagAssignments.companyId, companyId), eq(tagAssignments.tagId, tagId)),
+        );
+        await tx.delete(tags).where(and(eq(tags.id, tagId), eq(tags.companyId, companyId)));
+      });
 
       const actorId = req.actor.type === "board" ? (req.actor.userId ?? "system") : "system";
       await audit.emit({
