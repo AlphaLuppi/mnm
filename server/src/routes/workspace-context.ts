@@ -217,8 +217,8 @@ export function workspaceContextRoutes(db: Db) {
     return project.primaryWorkspace?.cwd ?? null;
   }
 
-  // GET /projects/:id/workspace-context — full workspace context structure
-  router.get("/projects/:id/workspace-context", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/workspace-context — full workspace context structure
+  router.get("/companies/:companyId/projects/:id/workspace-context", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -242,8 +242,8 @@ export function workspaceContextRoutes(db: Db) {
     res.json(result);
   });
 
-  // GET /projects/:id/workspace-context/workflows — list all workflows from IDE commands
-  router.get("/projects/:id/workspace-context/workflows", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/workspace-context/workflows — list all workflows from IDE commands
+  router.get("/companies/:companyId/projects/:id/workspace-context/workflows", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -275,8 +275,8 @@ export function workspaceContextRoutes(db: Db) {
     res.json({ workflows: enriched });
   });
 
-  // GET /projects/:id/workspace-context/agents — discover workspace agents
-  router.get("/projects/:id/workspace-context/agents", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/workspace-context/agents — discover workspace agents
+  router.get("/companies/:companyId/projects/:id/workspace-context/agents", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -290,8 +290,8 @@ export function workspaceContextRoutes(db: Db) {
     res.json({ agents });
   });
 
-  // POST /projects/:id/workspace-context/import-agents — create workspace-scoped MnM agents from discovered agents
-  router.post("/projects/:id/workspace-context/import-agents", async (req, res) => {
+  // POST /companies/:companyId/projects/:id/workspace-context/import-agents — create workspace-scoped MnM agents from discovered agents
+  router.post("/companies/:companyId/projects/:id/workspace-context/import-agents", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -362,8 +362,8 @@ export function workspaceContextRoutes(db: Db) {
     res.status(201).json({ created, assignments: newAssignments });
   });
 
-  // GET /projects/:id/workspace-context/assignments — reads from primary workspace metadata
-  router.get("/projects/:id/workspace-context/assignments", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/workspace-context/assignments — reads from primary workspace metadata
+  router.get("/companies/:companyId/projects/:id/workspace-context/assignments", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -374,8 +374,8 @@ export function workspaceContextRoutes(db: Db) {
     res.json({ assignments, workspaceId: project.primaryWorkspace?.id ?? null });
   });
 
-  // POST /projects/:id/workspace-context/assignments — saves to primary workspace metadata
-  router.post("/projects/:id/workspace-context/assignments", async (req, res) => {
+  // POST /companies/:companyId/projects/:id/workspace-context/assignments — saves to primary workspace metadata
+  router.post("/companies/:companyId/projects/:id/workspace-context/assignments", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -400,8 +400,8 @@ export function workspaceContextRoutes(db: Db) {
     res.json({ ok: true });
   });
 
-  // GET /projects/:id/workspace-context/command?name=<commandname> — serves a file from IDE command directories
-  router.get("/projects/:id/workspace-context/command", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/workspace-context/command?name=<commandname> — serves a file from IDE command directories
+  router.get("/companies/:companyId/projects/:id/workspace-context/command", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -421,8 +421,8 @@ export function workspaceContextRoutes(db: Db) {
     res.status(404).json({ error: "Command not found" });
   });
 
-  // POST /projects/:id/workspace-context/drift-check — check drift between two workspace artifacts
-  router.post("/projects/:id/workspace-context/drift-check", async (req, res) => {
+  // POST /companies/:companyId/projects/:id/workspace-context/drift-check — check drift between two workspace artifacts
+  router.post("/companies/:companyId/projects/:id/workspace-context/drift-check", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -448,8 +448,8 @@ export function workspaceContextRoutes(db: Db) {
     res.json(report);
   });
 
-  // GET /projects/:id/workspace-context/file?path=<relative-path> — raw markdown content
-  router.get("/projects/:id/workspace-context/file", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/workspace-context/file?path=<relative-path> — raw markdown content
+  router.get("/companies/:companyId/projects/:id/workspace-context/file", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }

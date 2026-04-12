@@ -27,7 +27,7 @@ export function workflowRoutes(db: Db) {
     res.json(templates);
   });
 
-  router.get("/workflow-templates/:id", async (req, res) => {
+  router.get("/companies/:companyId/workflow-templates/:id", async (req, res) => {
     const template = await svc.getTemplate(req.params.id as string);
     assertCompanyAccess(req, template.companyId);
     await assertCompanyPermission(db, req, template.companyId, PERMISSIONS.WORKFLOWS_READ);
@@ -67,7 +67,7 @@ export function workflowRoutes(db: Db) {
   );
 
   router.patch(
-    "/workflow-templates/:id",
+    "/companies/:companyId/workflow-templates/:id",
     validate(updateWorkflowTemplateSchema),
     async (req, res) => {
       const existing = await svc.getTemplate(req.params.id as string);
@@ -87,7 +87,7 @@ export function workflowRoutes(db: Db) {
     },
   );
 
-  router.delete("/workflow-templates/:id", async (req, res) => {
+  router.delete("/companies/:companyId/workflow-templates/:id", async (req, res) => {
     const existing = await svc.getTemplate(req.params.id as string);
     assertCompanyAccess(req, existing.companyId);
     await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.WORKFLOWS_CREATE);
@@ -130,7 +130,7 @@ export function workflowRoutes(db: Db) {
     res.json(instances);
   });
 
-  router.get("/workflows/:id", async (req, res) => {
+  router.get("/companies/:companyId/workflows/:id", async (req, res) => {
     const instance = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, instance.companyId);
     await assertCompanyPermission(db, req, instance.companyId, PERMISSIONS.WORKFLOWS_READ);
@@ -190,7 +190,7 @@ export function workflowRoutes(db: Db) {
   );
 
   router.patch(
-    "/workflows/:id",
+    "/companies/:companyId/workflows/:id",
     validate(updateWorkflowInstanceSchema),
     async (req, res) => {
       const existing = await svc.getInstance(req.params.id as string);
@@ -210,7 +210,7 @@ export function workflowRoutes(db: Db) {
     },
   );
 
-  router.delete("/workflows/:id", async (req, res) => {
+  router.delete("/companies/:companyId/workflows/:id", async (req, res) => {
     const existing = await svc.getInstance(req.params.id as string);
     assertCompanyAccess(req, existing.companyId);
     await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.WORKFLOWS_CREATE);

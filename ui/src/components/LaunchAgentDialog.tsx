@@ -67,7 +67,7 @@ export function LaunchAgentDialog({
 
   const { data: assignmentsData } = useQuery({
     queryKey: ["workspace-assignments", projectId],
-    queryFn: () => workspaceContextApi.getAssignments(projectId!, companyId),
+    queryFn: () => workspaceContextApi.getAssignments(companyId, projectId!),
     enabled: open && !!projectId,
   });
 
@@ -87,14 +87,14 @@ export function LaunchAgentDialog({
 
   const { data: workflowsData } = useQuery({
     queryKey: ["workspace-workflows", projectId ?? companyId],
-    queryFn: () => workspaceContextApi.getWorkflows(projectId!, companyId),
+    queryFn: () => workspaceContextApi.getWorkflows(companyId, projectId!),
     enabled: open && !!projectId,
   });
 
   // Fetch discovered workspace agents for ghost agent creation details
   const { data: discoveredData } = useQuery({
     queryKey: ["workspace-agents-discovery", projectId],
-    queryFn: () => workspaceContextApi.getAgents(projectId!, companyId),
+    queryFn: () => workspaceContextApi.getAgents(companyId, projectId!),
     enabled: open && !!projectId,
   });
   const discoveredAgents = discoveredData?.agents ?? [];
@@ -201,7 +201,7 @@ export function LaunchAgentDialog({
         actualAgentId = newAgent.id;
 
         // Persist assignment so next launch uses this scoped agent directly
-        await workspaceContextApi.saveAssignments(projectId, { ...bmadAssignments, [selectedWsSlug]: newAgent.id }, companyId);
+        await workspaceContextApi.saveAssignments(companyId, projectId, { ...bmadAssignments, [selectedWsSlug]: newAgent.id });
         queryClient.invalidateQueries({ queryKey: agentQueryKey });
         queryClient.invalidateQueries({ queryKey: ["workspace-assignments", projectId] });
       }
@@ -209,8 +209,8 @@ export function LaunchAgentDialog({
       let wsCtxPrefix = "";
       if (selectedWsSlug && projectId) {
         const [personaResult, workflowResult] = await Promise.allSettled([
-          workspaceContextApi.getCommand(projectId, `bmad-agent-${selectedWsSlug}`, companyId),
-          workspaceContextApi.getCommand(projectId, `bmad-${workflowType}`, companyId),
+          workspaceContextApi.getCommand(companyId, projectId, `bmad-agent-${selectedWsSlug}`),
+          workspaceContextApi.getCommand(companyId, projectId, `bmad-${workflowType}`),
         ]);
         const parts: string[] = [];
         if (personaResult.status === "fulfilled") parts.push(personaResult.value);

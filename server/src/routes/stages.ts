@@ -9,13 +9,13 @@ export function stageRoutes(db: Db) {
   const router = Router();
   const svc = stageService(db);
 
-  router.get("/stages/:id", async (req, res) => {
+  router.get("/companies/:companyId/stages/:id", async (req, res) => {
     const stage = await svc.getStage(req.params.id as string);
     assertCompanyAccess(req, stage.companyId);
     res.json(stage);
   });
 
-  router.post("/stages/:id/transition", validate(transitionStageSchema), async (req, res) => {
+  router.post("/companies/:companyId/stages/:id/transition", validate(transitionStageSchema), async (req, res) => {
     const stage = await svc.getStage(req.params.id as string);
     assertCompanyAccess(req, stage.companyId);
     const updated = await svc.transitionStage(stage.id, req.body.status, {
@@ -45,7 +45,7 @@ export function stageRoutes(db: Db) {
     res.json(updated);
   });
 
-  router.patch("/stages/:id", validate(updateStageSchema), async (req, res) => {
+  router.patch("/companies/:companyId/stages/:id", validate(updateStageSchema), async (req, res) => {
     const stage = await svc.getStage(req.params.id as string);
     assertCompanyAccess(req, stage.companyId);
     const updated = await svc.updateStage(stage.id, req.body);

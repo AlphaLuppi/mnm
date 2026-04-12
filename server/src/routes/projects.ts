@@ -77,7 +77,7 @@ export function projectRoutes(db: Db) {
     res.json(result);
   });
 
-  router.get("/projects/:id", async (req, res) => {
+  router.get("/companies/:companyId/projects/:id", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) {
@@ -136,7 +136,7 @@ export function projectRoutes(db: Db) {
     res.status(201).json(hydratedProject ?? project);
   });
 
-  router.patch("/projects/:id", validate(updateProjectSchema), async (req, res) => {
+  router.patch("/companies/:companyId/projects/:id", validate(updateProjectSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -175,7 +175,7 @@ export function projectRoutes(db: Db) {
     res.json(project);
   });
 
-  router.post("/projects/:id/onboard", async (req, res) => {
+  router.post("/companies/:companyId/projects/:id/onboard", async (req, res) => {
     const id = req.params.id as string;
     const project = await svc.getById(id);
     if (!project) { res.status(404).json({ error: "Project not found" }); return; }
@@ -472,7 +472,7 @@ Reply A or B.`;
     res.status(201).json({ issueId: issue.id, identifier: issue.identifier });
   });
 
-  router.get("/projects/:id/workspaces", async (req, res) => {
+  router.get("/companies/:companyId/projects/:id/workspaces", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -485,7 +485,7 @@ Reply A or B.`;
     res.json(workspaces);
   });
 
-  router.post("/projects/:id/workspaces", validate(createProjectWorkspaceSchema), async (req, res) => {
+  router.post("/companies/:companyId/projects/:id/workspaces", validate(createProjectWorkspaceSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -530,7 +530,7 @@ Reply A or B.`;
   });
 
   router.patch(
-    "/projects/:id/workspaces/:workspaceId",
+    "/companies/:companyId/projects/:id/workspaces/:workspaceId",
     validate(updateProjectWorkspaceSchema),
     async (req, res) => {
       const id = req.params.id as string;
@@ -581,7 +581,7 @@ Reply A or B.`;
     },
   );
 
-  router.delete("/projects/:id/workspaces/:workspaceId", async (req, res) => {
+  router.delete("/companies/:companyId/projects/:id/workspaces/:workspaceId", async (req, res) => {
     const id = req.params.id as string;
     const workspaceId = req.params.workspaceId as string;
     const existing = await svc.getById(id);
@@ -624,7 +624,7 @@ Reply A or B.`;
     res.json(workspace);
   });
 
-  router.delete("/projects/:id", async (req, res) => {
+  router.delete("/companies/:companyId/projects/:id", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {

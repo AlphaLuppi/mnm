@@ -38,7 +38,7 @@ export function LayerEditor({ companyId, layerId, readOnly, onClose }: Props) {
 
   const { data: layer, isLoading } = useQuery({
     queryKey: queryKeys.configLayers.detail(layerId),
-    queryFn: () => configLayersApi.get(layerId),
+    queryFn: () => configLayersApi.get(companyId!, layerId),
     enabled: !!layerId,
   });
 
