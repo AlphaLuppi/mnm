@@ -117,7 +117,7 @@ function ProjectIssuesList({ projectId, companyId }: { projectId: string; compan
 
   const updateIssue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      issuesApi.update(id, data),
+      issuesApi.update(companyId, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId, projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });

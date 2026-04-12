@@ -876,7 +876,7 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
 
   const updateIssue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      import("../api/issues").then((m) => m.issuesApi.update(id, data)),
+      import("../api/issues").then((m) => m.issuesApi.update(companyId!, id, data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId ?? "", projectId ?? "") });
     },

@@ -29,19 +29,19 @@ export const heartbeatsApi = {
     const qs = searchParams.toString();
     return api.get<HeartbeatRun[]>(`/companies/${companyId}/heartbeat-runs${qs ? `?${qs}` : ""}`);
   },
-  events: (runId: string, afterSeq = 0, limit = 200) =>
+  events: (companyId: string, runId: string, afterSeq = 0, limit = 200) =>
     api.get<HeartbeatRunEvent[]>(
-      `/heartbeat-runs/${runId}/events?afterSeq=${encodeURIComponent(String(afterSeq))}&limit=${encodeURIComponent(String(limit))}`,
+      `/companies/${companyId}/heartbeat-runs/${runId}/events?afterSeq=${encodeURIComponent(String(afterSeq))}&limit=${encodeURIComponent(String(limit))}`,
     ),
-  log: (runId: string, offset = 0, limitBytes = 256000) =>
+  log: (companyId: string, runId: string, offset = 0, limitBytes = 256000) =>
     api.get<{ runId: string; store: string; logRef: string; content: string; nextOffset?: number }>(
-      `/heartbeat-runs/${runId}/log?offset=${encodeURIComponent(String(offset))}&limitBytes=${encodeURIComponent(String(limitBytes))}`,
+      `/companies/${companyId}/heartbeat-runs/${runId}/log?offset=${encodeURIComponent(String(offset))}&limitBytes=${encodeURIComponent(String(limitBytes))}`,
     ),
-  cancel: (runId: string) => api.post<void>(`/heartbeat-runs/${runId}/cancel`, {}),
-  liveRunsForIssue: (issueId: string) =>
-    api.get<LiveRunForIssue[]>(`/issues/${issueId}/live-runs`),
-  activeRunForIssue: (issueId: string) =>
-    api.get<ActiveRunForIssue | null>(`/issues/${issueId}/active-run`),
+  cancel: (companyId: string, runId: string) => api.post<void>(`/companies/${companyId}/heartbeat-runs/${runId}/cancel`, {}),
+  liveRunsForIssue: (companyId: string, issueId: string) =>
+    api.get<LiveRunForIssue[]>(`/companies/${companyId}/issues/${issueId}/live-runs`),
+  activeRunForIssue: (companyId: string, issueId: string) =>
+    api.get<ActiveRunForIssue | null>(`/companies/${companyId}/issues/${issueId}/active-run`),
   liveRunsForCompany: (companyId: string, minCount?: number) =>
     api.get<LiveRunForIssue[]>(`/companies/${companyId}/live-runs${minCount ? `?minCount=${minCount}` : ""}`),
 };
