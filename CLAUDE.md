@@ -19,11 +19,12 @@ Language: French for planning documents. See README.md for full project docs.
 ## Architecture Decisions
 
 ### Multi-Tenant Middleware Chain
-- **Order**: `actorMiddleware` → `tenantContextMiddleware` → `api` Router → `assertCompanyMembership` → `tagScopeMiddleware` → route handlers.
-- `tagScopeMiddleware` is mounted on `api.use("/companies/:companyId", ...)` so Express parses the param BEFORE the middleware reads it. NEVER mount it at app level.
-- `assertCompanyMembership` verifies the actor belongs to the company in the path. Board users check `actor.companyIds`, agents check `actor.companyId`.
-- The "Simplified API" URL rewrite middleware is REMOVED. All routes must be explicit.
-- `tenantContextMiddleware` sets PostgreSQL RLS context (`app.current_company_id`) but does NOT inject `req.params.companyId`.
+- **Order**: `actorMiddleware` (app level) → `api` Router → `assertCompanyMembership` → `tenantContextMiddleware` → `tagScopeMiddleware` → route handlers.
+- ALL three company middlewares are mounted on `api.use("/companies/:companyId", ...)` so Express parses the param BEFORE they run. NEVER mount at app level.
+- `assertCompanyMembership` verifies the actor belongs to the company in the path. Board users check `actor.companyIds`, agents check `actor.companyId`. Validates UUID format. Fail-closed for unknown actor types.
+- `tenantContextMiddleware` sets PostgreSQL RLS context (`app.current_company_id`) from `req.params.companyId`. Does NOT inject into params.
+- The URL rewrite middleware is REMOVED. All company-scoped routes have explicit `/companies/:companyId/` prefix.
+- Rate limiting is per-tenant: key = `{companyId}:{actorId}`.
 
 ### Trace Pipeline
 - **Gold** = DEFAULT view (scored phases, annotations, verdicts). **Silver** = grouped detail. **Bronze** = raw JSON debug.

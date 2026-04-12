@@ -523,13 +523,13 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 
 | # | Tâche | Effort | Fichiers |
 |---|-------|--------|----------|
-| 4.1 | MCP token avec companyId | M | `server/src/mcp/` |
-| 4.2 | MCP tools : passer companyId aux services | L | `server/src/mcp/tools/` |
-| 4.3 | Supprimer `singleTenantCompanyId` cache | XS | `tenant-context.ts` |
-| 4.4 | Redis namespacing par company | M | Services utilisant Redis |
-| 4.5 | E2E tests multi-tenant | L | `e2e/` |
-| 4.6 | Mettre à jour `CLAUDE.md` — supprimer "Single-tenant" | XS | `CLAUDE.md` |
-| 4.7 | Mettre à jour `docs/ARCHITECTURE.md` | M | `docs/ARCHITECTURE.md` |
+| 4.1 | ✅ MCP token avec companyId | M | Deja en place — token OAuth inclut `company_id` claim |
+| 4.2 | ✅ MCP tools : passer companyId aux services | L | Deja en place — tous les tools passent `actor.companyId` |
+| 4.3 | ✅ Supprimer `singleTenantCompanyId` cache | XS | Fait Sprint 1 |
+| 4.4 | ✅ Redis namespacing par company | M | Deja en place — cache keys incluent companyId |
+| 4.5 | E2E tests multi-tenant | L | `e2e/` — a faire separement |
+| 4.6 | ✅ Mettre à jour `CLAUDE.md` | XS | Middleware chain corrigee, URL rewrite documente comme supprime |
+| 4.7 | ✅ Mettre à jour `docs/ARCHITECTURE.md` | M | Middleware chain et note multi-tenant a jour |
 
 ---
 
@@ -563,10 +563,10 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 - [x] `assertCompanyMembership` middleware est en place (Sprint 1 ✅)
 - [x] `tagScopeMiddleware` est dans le router `api` (pas app level) (Sprint 1 ✅)
 - [x] Frontend utilise `companyApi()` factory (Sprint 1 ✅)
-- [ ] MCP tokens encodent le companyId (Sprint 4)
-- [ ] Rate limiting est per-tenant (Sprint 3)
-- [ ] Redis keys sont namespaced par company (Sprint 4)
+- [x] MCP tokens encodent le companyId ✅ (deja en place)
+- [x] Rate limiting est per-tenant ✅ (key = companyId:actorId)
+- [x] Redis keys sont namespaced par company ✅ (deja en place)
 - [x] `singleTenantCompanyId` cache est supprimé (Sprint 1 ✅)
-- [ ] E2E tests couvrent le multi-tenant (Sprint 4)
-- [ ] `CLAUDE.md` et `docs/ARCHITECTURE.md` mis à jour (Sprint 4)
+- [ ] E2E tests couvrent le multi-tenant (a faire separement)
+- [x] `CLAUDE.md` et `docs/ARCHITECTURE.md` mis à jour ✅
 - [x] Aucune route n'utilise l'auto-injection de companyId ✅

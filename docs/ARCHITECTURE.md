@@ -46,14 +46,16 @@ MnM supporte deux modes de deploiement :
 
 ```
 app.use(actorMiddleware)           → Resout l'actor (board/agent/none)
-app.use(tenantContextMiddleware)   → Resout companyId → set RLS PostgreSQL
 app.use("/api", api)
-  ├─ rateLimiter                   → Rate limit (per-tenant en multi-company)
+  ├─ rateLimiter                   → Rate limit per-tenant (key = companyId:actorId)
   ├─ boardMutationGuard            → CSRF protection
-  ├─ assertCompanyMembership       → Verifie que l'actor appartient a la company du path
+  ├─ assertCompanyMembership       → Verifie que l'actor appartient a la company du path (UUID validated, fail-closed)
+  ├─ tenantContextMiddleware       → Set RLS PostgreSQL (app.current_company_id) depuis req.params.companyId
   ├─ tagScopeMiddleware            → Resout tagScope (monte sur /companies/:companyId)
   └─ route handlers
 ```
+
+> Note : les 3 middlewares company (assertCompanyMembership, tenantContextMiddleware, tagScopeMiddleware) sont montes sur `api.use("/companies/:companyId", ...)` pour qu'Express parse le param AVANT l'execution. Le URL rewrite middleware a ete supprime — toutes les routes ont un prefix explicite.
 
 ### Couches de securite (defense in depth)
 
