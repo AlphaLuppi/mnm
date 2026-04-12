@@ -10,6 +10,7 @@ import type { StorageService } from "./storage/types.js";
 import type { RedisState } from "./redis.js";
 import { httpLogger, errorHandler, createRateLimiter, tenantContextMiddleware } from "./middleware/index.js";
 import { tagScopeMiddleware } from "./middleware/tag-scope.js";
+import { assertCompanyMembership } from "./middleware/company-access.js";
 import { rolesRoutes } from "./routes/roles.js";
 import { permissionsRoutes } from "./routes/permissions.js";
 import { tagsRoutes } from "./routes/tags.js";
@@ -89,6 +90,25 @@ import { buildMcpServices } from "./mcp/build-mcp-services.js";
 
 type UiMode = "none" | "static" | "vite-dev";
 
+/** Check if a buffer contains valid UTF-8 byte sequences. */
+function isValidUtf8(buf: Buffer): boolean {
+  for (let i = 0; i < buf.length; i++) {
+    const b = buf[i]!;
+    if (b <= 0x7F) continue; // ASCII
+    let remaining: number;
+    if ((b & 0xE0) === 0xC0) remaining = 1;
+    else if ((b & 0xF0) === 0xE0) remaining = 2;
+    else if ((b & 0xF8) === 0xF0) remaining = 3;
+    else return false; // invalid start byte
+    if (i + remaining >= buf.length) return false; // truncated
+    for (let j = 1; j <= remaining; j++) {
+      if ((buf[i + j]! & 0xC0) !== 0x80) return false; // bad continuation byte
+    }
+    i += remaining;
+  }
+  return true;
+}
+
 export async function createApp(
   db: Db,
   opts: {
@@ -107,7 +127,31 @@ export async function createApp(
 ) {
   const app = express();
 
-  app.use(express.json());
+  // JSON body parser with cp1252→UTF-8 fallback for Windows agents.
+  // On French Windows, Claude Code's shell subprocesses may send request bodies
+  // encoded in cp1252 instead of UTF-8, turning 'tâche' into 't�che'.
+  // We read the raw bytes first, detect invalid UTF-8, re-decode as cp1252 if needed.
+  app.use(express.raw({ type: "application/json", limit: "10mb" }));
+  app.use((req, _res, next) => {
+    if (Buffer.isBuffer(req.body) && req.body.length > 0) {
+      const buf = req.body as Buffer;
+      let text: string;
+      if (isValidUtf8(buf)) {
+        text = buf.toString("utf8");
+      } else {
+        text = new TextDecoder("windows-1252").decode(buf);
+      }
+      try {
+        req.body = JSON.parse(text);
+      } catch {
+        // Invalid JSON — leave raw buffer, downstream error handling will deal with it
+        req.body = {};
+      }
+    } else if (req.body === undefined || (Buffer.isBuffer(req.body) && req.body.length === 0)) {
+      req.body = {};
+    }
+    next();
+  });
   app.use(httpLogger);
   const privateHostnameGateEnabled =
     opts.deploymentMode === "authenticated" && opts.deploymentExposure === "private";
@@ -128,7 +172,8 @@ export async function createApp(
       resolveSession: opts.resolveSession,
     }),
   );
-  app.use(tenantContextMiddleware(db));
+  // tenantContextMiddleware is mounted inside the api Router (after URL rewrite + assertCompanyMembership)
+  // so that req.params.companyId is correctly parsed by Express before setting the RLS context.
   app.get("/api/auth/get-session", async (req, res) => {
     if (req.actor.type !== "board" || !req.actor.userId) {
       res.status(401).json({ error: "Unauthorized" });
@@ -181,30 +226,42 @@ export async function createApp(
   api.use(apiRateLimiter);
   api.use(boardMutationGuard());
 
-  // TENANT-02: Rewrite routes without /companies/:companyId/ prefix
-  // Agents and simplified API calls use /api/issues, /api/agents, etc.
-  // This middleware rewrites them to /api/companies/:companyId/... using the auto-injected companyId.
+  // MULTI-TENANT: URL rewrite fallback for routes not yet migrated to /companies/:companyId/ prefix.
+  // Routes in agents.ts and issues.ts are already migrated. This rewrite covers remaining route files
+  // (activity, approvals, workflows, etc.) until they are migrated in Sprint 2+.
+  // TODO: Remove once ALL route files use /companies/:companyId/ prefix.
   api.use((req, _res, next) => {
-    const companyId = req.params.companyId;
-    if (companyId && req.path.startsWith("/companies/")) {
-      // Already has companies prefix — pass through
+    if (req.path.startsWith("/companies/")) {
       next();
       return;
     }
-    // Skip paths that don't need rewriting
     if (req.path.startsWith("/health") || req.path.startsWith("/auth/") ||
         req.path.startsWith("/companies") || req.path === "/") {
       next();
       return;
     }
-    // Rewrite: /agents/xxx → /companies/:companyId/agents/xxx
+    // Resolve companyId from actor (since tenantContextMiddleware no longer injects into params)
+    let companyId: string | undefined;
+    if (req.actor?.type === "agent" && req.actor.companyId) {
+      companyId = req.actor.companyId;
+    } else if (req.actor?.type === "board" && req.actor.companyIds?.length) {
+      companyId = req.actor.companyIds[0];
+    }
     if (companyId) {
       req.url = `/companies/${companyId}${req.path}${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`;
     }
     next();
   });
 
-  // TagScope must run AFTER URL rewrite so req.params.companyId is parsed by Express.
+  // MULTI-TENANT: assertCompanyMembership verifies the actor belongs to the company in the path.
+  // Must run BEFORE tenantContextMiddleware so membership is verified before setting the RLS context.
+  api.use("/companies/:companyId", assertCompanyMembership());
+
+  // RLS tenant context: sets PostgreSQL app.current_company_id from req.params.companyId.
+  // Mounted AFTER URL rewrite + assertCompanyMembership so Express has parsed the :companyId param.
+  api.use("/companies/:companyId", tenantContextMiddleware(db));
+
+  // TagScope resolves user's visible tags for the company.
   // Mounting on "/companies/:companyId" ensures Express extracts the param before the middleware reads it.
   api.use("/companies/:companyId", tagScopeMiddleware(db));
 
