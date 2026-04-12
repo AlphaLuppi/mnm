@@ -511,16 +511,9 @@ export const parityData: ParityData = {
           id: "profile-keychain-secrets",
           name: "Session token in macOS Keychain per profile",
           description:
-            "Uses tauri-plugin-keyring so session tokens never hit disk in plaintext. Keyed by profile id.",
+            "Uses tauri-plugin-keyring + keyring crate (apple-native). Rust: secrets.rs with secret_set/get/delete commands, cascade delete on profile_remove. TS: secrets-client.ts with in-memory token cache, initSessionToken() at boot. Auth flow: signIn/signUp extract session.token → keychain, signOut clears. API client injects Authorization: Bearer header from cache. All URLs resolved via apiBase() for cross-origin packaged builds.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            config: ["Add tauri-plugin-keyring to Cargo.toml + capabilities"],
-            code: [
-              "Wrap keyring in a small secrets module (get/set/delete by profile id)",
-              "Wire session cookies/tokens from @mnm/ui through the secrets module instead of localStorage",
-            ],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "profile-dynamic-csp",
@@ -540,15 +533,9 @@ export const parityData: ParityData = {
           id: "profile-health-check",
           name: "Backend health check + clear error UI",
           description:
-            "Before rendering @mnm/ui, ping `/health` on the active profile. Show a dedicated state if backend is unreachable (with button to switch profile / retry / open docs for backend setup).",
+            "Gate 2 in main.tsx boot sequence: after profile loads, checkBackendHealth() pings apiBaseUrl/api/health with 8s timeout + JSON content-type validation (catches Tauri SPA fallback). BackendUnreachable.tsx: full-screen dark-stone error with reason-specific icons (Clock/WifiOff/ServerCrash), profile info card, collapsible error details, Retry (with loading state) / Switch Profile / Setup Backend buttons. Single React root pattern enables re-render on retry without leaking roots.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            code: [
-              "Pre-mount health check in index.html early handler (already have the hook)",
-              "Friendly error screen with actionable buttons",
-            ],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "profile-switcher-ui",
