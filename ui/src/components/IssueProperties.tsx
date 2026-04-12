@@ -149,11 +149,11 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   });
 
   const deleteLabel = useMutation({
-    mutationFn: (labelId: string) => issuesApi.deleteLabel(labelId),
+    mutationFn: (labelId: string) => issuesApi.deleteLabel(companyId!, labelId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.labels(companyId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId!) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issue.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(companyId!, issue.id) });
     },
   });
 
