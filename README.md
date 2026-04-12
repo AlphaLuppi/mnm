@@ -11,7 +11,9 @@
 
 > Le cockpit de supervision pour les équipes qui conçoivent, développent et livrent avec des agents IA. Piloter, gouverner et mesurer ce que font Claude Code, Cursor, Codex et les autres dans ta boîte — sans remplacer personne.
 
-MnM est une plateforme self-hosted qui orchestre et supervise les agents IA utilisés par toute ta chaîne produit : dev, PO, PM, infra, QA, compliance, direction. Ce n'est pas un IDE, pas un framework, et ça ne remplace pas Claude Code, Cursor ou Codex. C'est la couche au-dessus — pilotage, gouvernance, transparence. Tu gardes tes outils, MnM apporte la confiance, le contrôle et la visibilité qui manquent quand des dizaines de personnes lancent des agents chacune dans leur coin, sans supervision ni mémoire partagée.
+MnM est une plateforme qui orchestre et supervise les agents IA utilisés par toute ta chaîne produit : dev, PO, PM, infra, QA, compliance, direction. Ce n'est pas un IDE, pas un framework, et ça ne remplace pas Claude Code, Cursor ou Codex. C'est la couche au-dessus — pilotage, gouvernance, transparence. Tu gardes tes outils, MnM apporte la confiance, le contrôle et la visibilité qui manquent quand des dizaines de personnes lancent des agents chacune dans leur coin, sans supervision ni mémoire partagée.
+
+Trois modes de déploiement : full local pour les devs solo, self-hosted single company pour les équipes, ou backend hébergé multi-company pour distribuer à grande échelle. Le compute agent se fait côté client (MCP, Desktop, CLI locale) — le serveur est un API/data/orchestration layer.
 
 Fait par Studio Manifeste. Client pilote : EnterpriseCustomer (50+ devs multi-métiers).
 
@@ -58,9 +60,9 @@ MnM est un fork de [Paperclip](https://github.com/paperclipai/paperclip). Les de
 |---|---|---|
 | Philosophie | "Run autonomous AI companies" : l'agent est l'employé, Paperclip est la boîte | Cockpit de supervision pour les équipes qui travaillent avec des agents IA : l'humain reste au centre, l'agent est un outil supervisé |
 | Cible | Solo entrepreneurs, portfolios de boîtes autonomes | Équipes produit 5–500 personnes (dev, PO, PM, infra, QA, compliance) qui utilisent déjà Claude Code, Cursor ou Codex |
-| Modèle | Multi-company (plusieurs boîtes par déploiement) | Single-tenant (1 instance = 1 entreprise, isolation interne par tags) |
+| Modèle | Multi-company (plusieurs boîtes par déploiement) | Multi-tenant (shared DB + RLS, isolation par company + tags) |
 | Isolation | Par company | Par tags additifs (cross-métier, multi-équipes) |
-| Agents | Heartbeats, org charts, délégation, goal alignment | Sandbox Docker par utilisateur, credentials injectées par run |
+| Agents | Heartbeats, org charts, délégation, goal alignment | Compute côté client (MCP/Desktop/CLI), sandbox Docker optionnel |
 | Traces | Tool-call tracing + audit log | Pipeline Bronze/Silver/Gold avec enrichissement LLM hiérarchique |
 | Communication | Ticketing threadé + goals | Chat collaboratif temps réel, artifacts, RAG, dossiers, @mentions |
 | Orchestration | Heartbeats + skills manager + scheduled routines | Workflows BMAD (XState) + CAO + HITL |
@@ -76,7 +78,7 @@ Les deux peuvent coexister. MnM s'adresse aux boîtes qui veulent garder leurs d
 ### Livré et en production
 
 - RBAC dynamique et isolation par tags : 91 permissions granulaires, rôles en DB, RLS PostgreSQL sur 41 tables, tags additifs cross-métier.
-- Sandbox Docker par utilisateur : isolation, credentials injectées par run, proxy credential, rewrite automatique localhost → host.docker.internal.
+- Architecture multi-tenant : shared DB + RLS, toutes les routes API scopées par `/companies/:companyId/`, middleware chain defense-in-depth (auth → company membership → permissions → tag scope → RLS).
 - Pipeline de traces Bronze → Silver → Gold : capture raw logs, phase detection déterministe, enrichissement LLM hiérarchique (global → workflow → agent → issue), UI timeline inspirée de Langfuse.
 - Config Layers : configuration agent structurée, mergée par priorité (Company enforced > Base > Additional), versionée, avec détection de conflits et advisory locks PostgreSQL.
 - Chat collaboratif : discussions temps réel avec agents, artifacts versionés, documents et RAG pgvector, dossiers partagés, slash commands, @mentions.
@@ -106,13 +108,15 @@ MnM en production chez EnterpriseCustomer (50+ devs multi-métiers), les 3 pilie
 
 ## Essayer MnM
 
+### Full local (dev solo)
+
 ```bash
 # Prerequis : Bun >= 1.3, Node >= 20
 bun install
-bun run dev        # Quick start avec PostgreSQL embarqué
+bun run dev        # Quick start avec PostgreSQL embarqué, zero auth
 ```
 
-Pour bosser au quotidien avec des donnees persistantes et ta souscription Claude locale :
+### Local avec infra Docker (usage quotidien)
 
 ```bash
 # Prerequis : Docker
@@ -121,6 +125,14 @@ bun run local          # Docker (PG + Redis) + app native
 ```
 
 Le setup local reproduit la topologie de production : l'infra tourne dans Docker, l'app tourne nativement pour acceder directement a ta CLI Claude. Tu peux ensuite consommer MnM via l'UI web, l'app desktop, ou en MCP depuis Claude Code / Cursor.
+
+### Self-hosted ou heberge multi-company (production)
+
+```bash
+docker compose up      # 1 company = self-hosted, N companies = heberge
+```
+
+Le meme code, la meme DB — seule la config change (`MNM_DEPLOYMENT_MODE=authenticated`). Chaque company est isolee par RLS PostgreSQL.
 
 Pour le deploiement prod (Docker Compose, Dokploy), le get started dev complet et le guide pour brancher un client MCP, voir [CONTRIBUTING.md](CONTRIBUTING.md).
 

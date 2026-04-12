@@ -129,7 +129,6 @@ export async function createApp(
     }),
   );
   app.use(tenantContextMiddleware(db));
-  app.use(tagScopeMiddleware(db));
   app.get("/api/auth/get-session", async (req, res) => {
     if (req.actor.type !== "board" || !req.actor.userId) {
       res.status(401).json({ error: "Unauthorized" });
@@ -204,6 +203,11 @@ export async function createApp(
     }
     next();
   });
+
+  // TagScope must run AFTER URL rewrite so req.params.companyId is parsed by Express.
+  // Mounting on "/companies/:companyId" ensures Express extracts the param before the middleware reads it.
+  api.use("/companies/:companyId", tagScopeMiddleware(db));
+
   api.use(
     "/health",
     healthRoutes(db, {
