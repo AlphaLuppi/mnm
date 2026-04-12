@@ -3,8 +3,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Db } from "@mnm/db";
-import { authUsers } from "@mnm/db";
-import { eq } from "drizzle-orm";
+import { authUsers, companies } from "@mnm/db";
+import { eq, inArray } from "drizzle-orm";
 import type { DeploymentExposure, DeploymentMode } from "@mnm/shared";
 import type { StorageService } from "./storage/types.js";
 import type { RedisState } from "./redis.js";
@@ -197,6 +197,17 @@ export async function createApp(
       name = "Local Board";
     }
 
+    // Resolve company list with names for multi-company selector
+    const companyIds = req.actor.companyIds ?? [];
+    let userCompanies: { id: string; name: string }[] = [];
+    if (companyIds.length > 0) {
+      const rows = await db
+        .select({ id: companies.id, name: companies.name })
+        .from(companies)
+        .where(inArray(companies.id, companyIds));
+      userCompanies = rows;
+    }
+
     res.json({
       session: {
         id: `mnm:${req.actor.source}:${req.actor.userId}`,
@@ -206,6 +217,8 @@ export async function createApp(
         id: req.actor.userId,
         email,
         name,
+        companyIds,
+        companies: userCompanies,
       },
     });
   });
@@ -214,11 +227,20 @@ export async function createApp(
   }
   app.use(llmRoutes(db));
 
-  // Rate limiting
+  // Rate limiting — per tenant + per actor for multi-tenant isolation
   const apiRateLimiter = createRateLimiter({
     redisState: opts.redisState ?? null,
     windowMs: 60_000,
-    max: 1000,
+    max: 500,
+    keyGenerator: (req) => {
+      const companyId = req.params.companyId ?? "global";
+      const actorId = req.actor?.type === "agent"
+        ? req.actor.agentId ?? req.ip ?? "unknown"
+        : req.actor?.type === "board"
+          ? req.actor.userId ?? req.ip ?? "unknown"
+          : req.ip ?? "unknown";
+      return `${companyId}:${actorId}`;
+    },
   });
 
   // Mount API routes
