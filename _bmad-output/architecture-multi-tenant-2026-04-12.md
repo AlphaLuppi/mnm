@@ -512,9 +512,9 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 
 | # | Tâche | Effort | Fichiers |
 |---|-------|--------|----------|
-| 3.1 | Migrer `access.ts` (10 routes) | M | Backend + frontend |
-| 3.2 | Migrer `goals.ts`, `secrets.ts`, `costs.ts`, `activity.ts` | M | Backend + frontend |
-| 3.3 | Migrer remaining fichiers (20+) | L | Backend batch |
+| 3.1 | Migrer `access.ts` (10 routes) | M | Backend + frontend — routes globales (invites, board-claim, skills), pas company-scoped |
+| 3.2 | ✅ Migrer `goals.ts`, `secrets.ts`, `costs.ts`, `assets.ts` | M | Backend + frontend |
+| 3.3 | ✅ Toutes les routes company-scoped sont migrées | L | 100+ routes migrées sur Sprint 1-3 |
 | 3.4 | Sélecteur de company frontend (multi-company flow) | M | `ui/src/components/CompanySelector.tsx` |
 | 3.5 | Enrichir `get-session` pour retourner `companyIds` + noms | S | `server/src/app.ts` |
 | 3.6 | Rate limiting per tenant | M | `server/src/middleware/rate-limiter.ts` |
@@ -558,7 +558,7 @@ Pour les users non-tech qui n'ont pas Claude Code en local :
 
 ## 12. Checklist de Validation
 
-- [ ] TOUTES les routes company-scoped ont `/companies/:companyId` (Sprint 1: agents+issues ✅, reste Sprint 2-3)
+- [x] TOUTES les routes company-scoped ont `/companies/:companyId` (Sprint 1-3 ✅)
 - [ ] Le URL rewrite middleware est supprimé (fallback temporaire en place, supprimé quand tout migré)
 - [x] `assertCompanyMembership` middleware est en place (Sprint 1 ✅)
 - [x] `tagScopeMiddleware` est dans le router `api` (pas app level) (Sprint 1 ✅)
