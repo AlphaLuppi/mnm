@@ -204,7 +204,7 @@ export function ConfigLayersPage() {
 
   const archiveMutation = useMutation({
     mutationFn: (layerId: string) =>
-      configLayersApi.archive(layerId),
+      configLayersApi.archive(selectedCompanyId!, layerId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.configLayers.list(selectedCompanyId!, scopeFilter),

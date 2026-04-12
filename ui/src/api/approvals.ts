@@ -8,17 +8,20 @@ export const approvalsApi = {
     ),
   create: (companyId: string, data: Record<string, unknown>) =>
     api.post<Approval>(`/companies/${companyId}/approvals`, data),
-  get: (id: string) => api.get<Approval>(`/approvals/${id}`),
-  approve: (id: string, decisionNote?: string) =>
-    api.post<Approval>(`/approvals/${id}/approve`, { decisionNote }),
-  reject: (id: string, decisionNote?: string) =>
-    api.post<Approval>(`/approvals/${id}/reject`, { decisionNote }),
-  requestRevision: (id: string, decisionNote?: string) =>
-    api.post<Approval>(`/approvals/${id}/request-revision`, { decisionNote }),
-  resubmit: (id: string, payload?: Record<string, unknown>) =>
-    api.post<Approval>(`/approvals/${id}/resubmit`, { payload }),
-  listComments: (id: string) => api.get<ApprovalComment[]>(`/approvals/${id}/comments`),
-  addComment: (id: string, body: string) =>
-    api.post<ApprovalComment>(`/approvals/${id}/comments`, { body }),
-  listIssues: (id: string) => api.get<Issue[]>(`/approvals/${id}/issues`),
+  get: (companyId: string, id: string) =>
+    api.get<Approval>(`/companies/${companyId}/approvals/${id}`),
+  approve: (companyId: string, id: string, decisionNote?: string) =>
+    api.post<Approval>(`/companies/${companyId}/approvals/${id}/approve`, { decisionNote }),
+  reject: (companyId: string, id: string, decisionNote?: string) =>
+    api.post<Approval>(`/companies/${companyId}/approvals/${id}/reject`, { decisionNote }),
+  requestRevision: (companyId: string, id: string, decisionNote?: string) =>
+    api.post<Approval>(`/companies/${companyId}/approvals/${id}/request-revision`, { decisionNote }),
+  resubmit: (companyId: string, id: string, payload?: Record<string, unknown>) =>
+    api.post<Approval>(`/companies/${companyId}/approvals/${id}/resubmit`, { payload }),
+  listComments: (companyId: string, id: string) =>
+    api.get<ApprovalComment[]>(`/companies/${companyId}/approvals/${id}/comments`),
+  addComment: (companyId: string, id: string, body: string) =>
+    api.post<ApprovalComment>(`/companies/${companyId}/approvals/${id}/comments`, { body }),
+  listIssues: (companyId: string, id: string) =>
+    api.get<Issue[]>(`/companies/${companyId}/approvals/${id}/issues`),
 };

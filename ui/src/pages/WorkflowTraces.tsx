@@ -25,8 +25,8 @@ export function WorkflowTraces() {
 
   const { data: workflow } = useQuery({
     queryKey: queryKeys.workflows.detail(workflowId!),
-    queryFn: () => workflowsApi.get(workflowId!),
-    enabled: !!workflowId,
+    queryFn: () => workflowsApi.get(selectedCompanyId!, workflowId!),
+    enabled: !!workflowId && !!selectedCompanyId,
   });
 
   const { data: tracesData, isLoading } = useQuery({

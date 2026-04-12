@@ -170,7 +170,7 @@ export function LayerItemList({
 
   const addMutation = useMutation({
     mutationFn: async (config: Record<string, unknown>) => {
-      const item = await configLayersApi.addItem(layerId, {
+      const item = await configLayersApi.addItem(companyId!, layerId, {
         itemType,
         name: (config.name as string) ?? itemType,
         configJson: cleanConfig(config),
@@ -193,7 +193,7 @@ export function LayerItemList({
       itemId: string;
       config: Record<string, unknown>;
     }) => {
-      const item = await configLayersApi.updateItem(layerId, itemId, {
+      const item = await configLayersApi.updateItem(companyId!, layerId, itemId, {
         name: (config.name as string) ?? undefined,
         configJson: cleanConfig(config),
       });
@@ -208,7 +208,7 @@ export function LayerItemList({
 
   const removeMutation = useMutation({
     mutationFn: (itemId: string) =>
-      configLayersApi.removeItem(layerId, itemId),
+      configLayersApi.removeItem(companyId!, layerId, itemId),
     onSuccess: () => invalidate(),
   });
 

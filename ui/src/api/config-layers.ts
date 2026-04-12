@@ -70,27 +70,27 @@ export const configLayersApi = {
     const qs = params.toString();
     return api.get<ConfigLayer[]>(`/companies/${companyId}/config-layers${qs ? `?${qs}` : ""}`);
   },
-  get: (layerId: string) => api.get<ConfigLayerDetail>(`/config-layers/${layerId}`),
+  get: (companyId: string, layerId: string) => api.get<ConfigLayerDetail>(`/companies/${companyId}/config-layers/${layerId}`),
   create: (companyId: string, input: CreateLayerInput) =>
     api.post<ConfigLayer>(`/companies/${companyId}/config-layers`, input as unknown as Record<string, unknown>),
-  update: (layerId: string, input: Record<string, unknown>) =>
-    api.patch<ConfigLayer>(`/config-layers/${layerId}`, input),
-  archive: (layerId: string) => api.delete<ConfigLayer>(`/config-layers/${layerId}`),
-  revisions: (layerId: string) => api.get<ConfigLayerRevision[]>(`/config-layers/${layerId}/revisions`),
+  update: (companyId: string, layerId: string, input: Record<string, unknown>) =>
+    api.patch<ConfigLayer>(`/companies/${companyId}/config-layers/${layerId}`, input),
+  archive: (companyId: string, layerId: string) => api.delete<ConfigLayer>(`/companies/${companyId}/config-layers/${layerId}`),
+  revisions: (companyId: string, layerId: string) => api.get<ConfigLayerRevision[]>(`/companies/${companyId}/config-layers/${layerId}/revisions`),
 
   // Item CRUD
-  addItem: (layerId: string, input: Record<string, unknown>) =>
-    api.post<ConfigLayerItem>(`/config-layers/${layerId}/items`, input),
-  updateItem: (layerId: string, itemId: string, input: Record<string, unknown>) =>
-    api.patch<ConfigLayerItem>(`/config-layers/${layerId}/items/${itemId}`, input),
-  removeItem: (layerId: string, itemId: string) =>
-    api.delete<void>(`/config-layers/${layerId}/items/${itemId}`),
+  addItem: (companyId: string, layerId: string, input: Record<string, unknown>) =>
+    api.post<ConfigLayerItem>(`/companies/${companyId}/config-layers/${layerId}/items`, input),
+  updateItem: (companyId: string, layerId: string, itemId: string, input: Record<string, unknown>) =>
+    api.patch<ConfigLayerItem>(`/companies/${companyId}/config-layers/${layerId}/items/${itemId}`, input),
+  removeItem: (companyId: string, layerId: string, itemId: string) =>
+    api.delete<void>(`/companies/${companyId}/config-layers/${layerId}/items/${itemId}`),
 
   // Files
-  addFile: (layerId: string, itemId: string, input: { path: string; content: string }) =>
-    api.post<ConfigLayerFile>(`/config-layers/${layerId}/items/${itemId}/files`, input),
-  removeFile: (layerId: string, itemId: string, fileId: string) =>
-    api.delete<void>(`/config-layers/${layerId}/items/${itemId}/files/${fileId}`),
+  addFile: (companyId: string, layerId: string, itemId: string, input: { path: string; content: string }) =>
+    api.post<ConfigLayerFile>(`/companies/${companyId}/config-layers/${layerId}/items/${itemId}/files`, input),
+  removeFile: (companyId: string, layerId: string, itemId: string, fileId: string) =>
+    api.delete<void>(`/companies/${companyId}/config-layers/${layerId}/items/${itemId}/files/${fileId}`),
 
   // Agent Attachment
   listAgentLayers: (companyId: string, agentId: string) =>
@@ -105,11 +105,11 @@ export const configLayersApi = {
     api.get<{ items: MergePreviewItem[]; layerSources: MergePreviewLayerSource[] }>(`/companies/${companyId}/agents/${agentId}/config-layers/preview`),
 
   // Promotion
-  promote: (layerId: string) => api.post<ConfigLayer>(`/config-layers/${layerId}/promote`, {}),
-  approvePromotion: (layerId: string, input: { expectedContentHash: string }) =>
-    api.post<ConfigLayer>(`/config-layers/${layerId}/promotion/approve`, input),
-  rejectPromotion: (layerId: string, input: { reason: string }) =>
-    api.post<ConfigLayer>(`/config-layers/${layerId}/promotion/reject`, input),
+  promote: (companyId: string, layerId: string) => api.post<ConfigLayer>(`/companies/${companyId}/config-layers/${layerId}/promote`, {}),
+  approvePromotion: (companyId: string, layerId: string, input: { expectedContentHash: string }) =>
+    api.post<ConfigLayer>(`/companies/${companyId}/config-layers/${layerId}/promotion/approve`, input),
+  rejectPromotion: (companyId: string, layerId: string, input: { reason: string }) =>
+    api.post<ConfigLayer>(`/companies/${companyId}/config-layers/${layerId}/promotion/reject`, input),
 
   // Credentials
   listCredentials: (companyId: string) =>

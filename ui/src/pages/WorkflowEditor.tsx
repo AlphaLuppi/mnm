@@ -110,7 +110,7 @@ export function WorkflowEditor() {
   // Update template
   const updateMutation = useMutation({
     mutationFn: (data: { name: string; description: string; stages: StageDef[] }) =>
-      workflowTemplatesApi.update(templateId!, {
+      workflowTemplatesApi.update(selectedCompanyId!, templateId!, {
         name: data.name,
         description: data.description || null,
         stages: data.stages.map((s, i) => ({ ...s, order: i + 1 })),
@@ -123,7 +123,7 @@ export function WorkflowEditor() {
 
   // Delete template
   const deleteMutation = useMutation({
-    mutationFn: () => workflowTemplatesApi.remove(templateId!),
+    mutationFn: () => workflowTemplatesApi.remove(selectedCompanyId!, templateId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.templates(selectedCompanyId!) });
       navigate("/workflows");
