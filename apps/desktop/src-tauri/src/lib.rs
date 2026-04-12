@@ -1,5 +1,6 @@
 mod commands;
 mod profile;
+mod secrets;
 
 use std::sync::Mutex;
 
@@ -17,6 +18,9 @@ pub fn run() {
         commands::profile_update,
         commands::profile_remove,
         commands::profile_set_active,
+        secrets::secret_set,
+        secrets::secret_get,
+        secrets::secret_delete,
     ]);
 
     // In debug builds, export TS bindings on every compile.
@@ -30,6 +34,7 @@ pub fn run() {
         .expect("Failed to export TypeScript bindings");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_keyring::init())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

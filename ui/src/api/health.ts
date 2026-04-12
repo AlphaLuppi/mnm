@@ -1,3 +1,5 @@
+import { apiBase } from "@/lib/api-base";
+
 export type HealthStatus = {
   status: "ok";
   deploymentMode?: "local_trusted" | "authenticated";
@@ -12,7 +14,9 @@ export type HealthStatus = {
 
 export const healthApi = {
   get: async (): Promise<HealthStatus> => {
-    const res = await fetch("/api/health", {
+    const base = apiBase();
+    const url = base ? `${base}/api/health` : "/api/health";
+    const res = await fetch(url, {
       credentials: "include",
       headers: { Accept: "application/json" },
     });

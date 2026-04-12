@@ -1,7 +1,15 @@
+import { apiBase } from "@/lib/api-base";
+import { getCachedSessionToken, setSessionToken, clearSessionToken } from "@/lib/secrets-client";
+
 export type AuthSession = {
   session: { id: string; userId: string };
   user: { id: string; email: string | null; name: string | null };
 };
+
+function authUrl(path: string): string {
+  const base = apiBase();
+  return base ? `${base}/api/auth${path}` : `/api/auth${path}`;
+}
 
 function toSession(value: unknown): AuthSession | null {
   if (!value || typeof value !== "object") return null;
@@ -24,11 +32,31 @@ function toSession(value: unknown): AuthSession | null {
   };
 }
 
+function extractSessionToken(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  if (typeof record.token === "string") return record.token;
+  if (record.session && typeof record.session === "object") {
+    const session = record.session as Record<string, unknown>;
+    if (typeof session.token === "string") return session.token;
+  }
+  return null;
+}
+
+function authHeaders(): HeadersInit {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = getCachedSessionToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function authPost(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`/api/auth${path}`, {
+  const res = await fetch(authUrl(path), {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   });
   const payload = await res.json().catch(() => null);
@@ -45,9 +73,14 @@ async function authPost(path: string, body: Record<string, unknown>) {
 
 export const authApi = {
   getSession: async (): Promise<AuthSession | null> => {
-    const res = await fetch("/api/auth/get-session", {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    const token = getCachedSessionToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const res = await fetch(authUrl("/get-session"), {
       credentials: "include",
-      headers: { Accept: "application/json" },
+      headers,
     });
     if (res.status === 401) return null;
     const payload = await res.json().catch(() => null);
@@ -61,14 +94,23 @@ export const authApi = {
   },
 
   signInEmail: async (input: { email: string; password: string }) => {
-    await authPost("/sign-in/email", input);
+    const payload = await authPost("/sign-in/email", input);
+    const token = extractSessionToken(payload);
+    if (token) {
+      await setSessionToken(token);
+    }
   },
 
   signUpEmail: async (input: { name: string; email: string; password: string }) => {
-    await authPost("/sign-up/email", input);
+    const payload = await authPost("/sign-up/email", input);
+    const token = extractSessionToken(payload);
+    if (token) {
+      await setSessionToken(token);
+    }
   },
 
   signOut: async () => {
     await authPost("/sign-out", {});
+    await clearSessionToken();
   },
 };

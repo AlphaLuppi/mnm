@@ -24,6 +24,7 @@ import {
 } from "@/lib/profile-client";
 import { checkBackendHealth } from "@/lib/health-check";
 import type { HealthResult } from "@/lib/health-check";
+import { initSessionToken } from "@/lib/secrets-client";
 import "@mdxeditor/editor/style.css";
 import "react-grid-layout/css/styles.css";
 import "./index.css";
@@ -197,6 +198,10 @@ void (async () => {
       renderUnreachable(healthResult);
       return;
     }
+
+    // Backend reachable — load session token from Keychain into memory
+    // so the API client can inject it as a Bearer header.
+    await initSessionToken();
   }
 
   // All gates passed — render the app

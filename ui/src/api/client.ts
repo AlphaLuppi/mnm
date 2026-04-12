@@ -1,4 +1,10 @@
-const BASE = "/api";
+import { apiBase } from "@/lib/api-base";
+import { getCachedSessionToken } from "@/lib/secrets-client";
+
+function resolveUrl(path: string): string {
+  const base = apiBase();
+  return base ? `${base}/api${path}` : `/api${path}`;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -19,7 +25,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${BASE}${path}`, {
+  const token = getCachedSessionToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const res = await fetch(resolveUrl(path), {
     headers,
     credentials: "include",
     ...init,
@@ -39,7 +50,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestText(path: string): Promise<string> {
-  const res = await fetch(`${BASE}${path}`, { credentials: "include" });
+  const headers = new Headers();
+  const token = getCachedSessionToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  const res = await fetch(resolveUrl(path), { headers, credentials: "include" });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => null);
     throw new ApiError(

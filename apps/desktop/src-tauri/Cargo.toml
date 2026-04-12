@@ -25,6 +25,8 @@ tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 url = "2"
 chrono = { version = "0.4", features = ["serde"] }
+tauri-plugin-keyring = "0.1"
+keyring = { version = "3", features = ["apple-native"] }
 
 [dev-dependencies]
 tempfile = "3"

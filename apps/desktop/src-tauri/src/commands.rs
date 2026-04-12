@@ -124,6 +124,10 @@ pub fn profile_remove(
     let next = guard.remove(&id)?;
     persist(&app, &next)?;
     *guard = next;
+
+    // Cascade: wipe any keychain entries associated with this profile.
+    crate::secrets::secret_delete(id)?;
+
     Ok(())
 }
 
