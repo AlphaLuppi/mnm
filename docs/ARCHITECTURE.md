@@ -27,20 +27,52 @@ Agent Runtime (adapters, Docker containers, credential proxy, heartbeat)
 | Decision | Justification |
 |---|---|
 | **Zero polling** | Tous les updates temps reel via SSE/WebSocket. Jamais de `setInterval` ou `refetchInterval`. |
-| **Single-tenant** | 1 instance = 1 entreprise. `company_id` auto-injecte, jamais expose en UI. |
+| **Multi-tenant** | 1 backend sert N companies. Shared DB + RLS PostgreSQL (fail-closed). Toutes les routes ont `/companies/:companyId/` explicite. |
 | **RBAC dynamique** | Roles et permissions en DB, jamais de constantes hardcodees. |
 | **Tags > Teams** | Les tags sont additifs et flexibles. Score 8/8 sur le test CBA vs 5/8 pour Roles+Teams. |
 | **Config Layers > JSONB** | Config structuree, mergeable, versionee, avec detection de conflits. |
 | **Trace Gold par defaut** | L'utilisateur voit la synthese intelligente, pas le bruit brut. |
-| **Container par user** | Isolation securisee, credentials injectees par run, pas persistees sur disque. |
+| **Compute cote client** | L'execution agent se fait sur la machine de l'utilisateur (MCP, Desktop, CLI locale). Le serveur est un API/data/orchestration layer. |
 
 ---
 
-## Sandbox Auth
+## Multi-Tenant & Middleware Chain
 
-- **Token injection via env var** — `claude setup-token` → stocke dans `user_pods.claude_oauth_token` (migration 0051)
-- **Per-run injection** — Heartbeat passe `CLAUDE_CODE_OAUTH_TOKEN` via `docker exec`. Pas de credentials sur le filesystem sandbox.
-- `copyClaudeCredentials` est supprime. Le setup-token stocke en DB est la seule approche.
+MnM supporte deux modes de deploiement :
+- **`local_trusted`** : Dev local, zero auth, single company auto-creee. `bun run dev` ou `bun run local`.
+- **`authenticated`** : Production, BetterAuth sessions + OAuth 2.1, multi-company. Docker Compose ou serveur heberge.
+
+### Middleware chain (ordre)
+
+```
+app.use(actorMiddleware)           → Resout l'actor (board/agent/none)
+app.use(tenantContextMiddleware)   → Resout companyId → set RLS PostgreSQL
+app.use("/api", api)
+  ├─ rateLimiter                   → Rate limit (per-tenant en multi-company)
+  ├─ boardMutationGuard            → CSRF protection
+  ├─ assertCompanyMembership       → Verifie que l'actor appartient a la company du path
+  ├─ tagScopeMiddleware            → Resout tagScope (monte sur /companies/:companyId)
+  └─ route handlers
+```
+
+### Couches de securite (defense in depth)
+
+```
+Layer 1: AUTH         → Qui es-tu ? (BetterAuth session / OAuth token / Agent JWT)
+Layer 2: COMPANY      → A quelle company ? (companyId dans le path, verifie contre l'actor)
+Layer 3: PERMISSION   → As-tu le droit ? (requirePermission, 91 permissions)
+Layer 4: TAG SCOPE    → Que peux-tu VOIR ? (tagScopeMiddleware, tags du user)
+Layer 5: RLS          → Filet de securite DB (PostgreSQL RLS, fail-closed)
+```
+
+### Auth par type de client
+
+| Client | Auth | Company Resolution |
+|--------|------|-------------------|
+| UI Web (navigateur) | BetterAuth session cookie | `actor.companyIds` → user choisit → dans le path |
+| Desktop Tauri | BetterAuth session cookie | Idem |
+| MCP Client | OAuth 2.1 PKCE token | Token encode `company_id` |
+| Agent (heartbeat) | Agent JWT / API key | `actor.companyId` du token |
 
 ---
 
@@ -77,12 +109,14 @@ Agent Runtime (adapters, Docker containers, credential proxy, heartbeat)
 
 ---
 
-## Sandbox architecture
+## Sandbox architecture (optionnel)
 
-- Container Docker persistant par utilisateur.
-- 5 couches de securite : ephemere, read-only, mount allowlist, credential proxy, reseaux isoles.
+Le compute agent se fait principalement cote client (MCP, Desktop, CLI locale). Les Docker sandboxes restent disponibles pour les utilisateurs non-tech qui n'ont pas Claude Code en local.
+
+- Container Docker persistant par utilisateur (optionnel).
+- Si LLM server-side necessaire : SDK Anthropic/OpenAI direct, pas Docker sandboxe par user.
 - `docker exec` avec rewrite automatique localhost → host.docker.internal.
-- `runChildProcess` supporte l'option `dockerContainerId`. Les env vars avec URLs localhost sont reecrites vers `host.docker.internal`.
+- `runChildProcess` supporte l'option `dockerContainerId`.
 
 ---
 
@@ -104,14 +138,16 @@ Voir [CONTRIBUTING.md](../CONTRIBUTING.md#mcp-server-pour-les-devs) pour le get 
 ## Agent permissions
 
 - Les agents heritent des permissions de leur createur (`createdByUserId`).
-- Routes travaillent avec ou sans prefixe `/companies/:companyId/`. Le middleware reecrit automatiquement.
+- TOUTES les routes company-scoped ont le prefixe `/companies/:companyId/`. Pas de rewrite automatique.
 - Agent JWT hardenees : TTL court, jti, fail-fast, `aud` claim validation.
 
 ---
 
-## API simplifiee
+## API
 
-- Les routes travaillent avec ou sans le prefixe `/companies/:companyId/` — un middleware reecrit automatiquement. Le code agent/client n'a jamais a connaitre le `company_id`.
+- TOUTES les routes accedant a des donnees company-scoped ont le prefixe `/companies/:companyId/`.
+- Le `companyId` est explicite dans chaque appel API — cote frontend via `companyApi(companyId)` factory, cote MCP via le token OAuth.
+- Routes sans company scope : `/health`, `/api/auth/*`, `/api/companies` (CRUD global), `/oauth/*`, `/sso/discover/*`.
 
 ---
 
