@@ -164,51 +164,51 @@ export function IssueDetail() {
   const lastMarkedReadIssueIdRef = useRef<string | null>(null);
 
   const { data: issue, isLoading, error } = useQuery({
-    queryKey: queryKeys.issues.detail(issueId!),
-    queryFn: () => issuesApi.get(issueId!),
-    enabled: !!issueId,
+    queryKey: queryKeys.issues.detail(selectedCompanyId!, issueId!),
+    queryFn: () => issuesApi.get(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: comments } = useQuery({
-    queryKey: queryKeys.issues.comments(issueId!),
-    queryFn: () => issuesApi.listComments(issueId!),
-    enabled: !!issueId,
+    queryKey: queryKeys.issues.comments(selectedCompanyId!, issueId!),
+    queryFn: () => issuesApi.listComments(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: activity } = useQuery({
-    queryKey: queryKeys.issues.activity(issueId!),
+    queryKey: queryKeys.issues.activity(selectedCompanyId!, issueId!),
     queryFn: () => activityApi.forIssue(issueId!),
     enabled: !!issueId,
   });
 
   const { data: linkedRuns } = useQuery({
-    queryKey: queryKeys.issues.runs(issueId!),
+    queryKey: queryKeys.issues.runs(selectedCompanyId!, issueId!),
     queryFn: () => activityApi.runsForIssue(issueId!),
     enabled: !!issueId,
   });
 
   const { data: linkedApprovals } = useQuery({
-    queryKey: queryKeys.issues.approvals(issueId!),
-    queryFn: () => issuesApi.listApprovals(issueId!),
-    enabled: !!issueId,
+    queryKey: queryKeys.issues.approvals(selectedCompanyId!, issueId!),
+    queryFn: () => issuesApi.listApprovals(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: attachments } = useQuery({
-    queryKey: queryKeys.issues.attachments(issueId!),
-    queryFn: () => issuesApi.listAttachments(issueId!),
-    enabled: !!issueId,
+    queryKey: queryKeys.issues.attachments(selectedCompanyId!, issueId!),
+    queryFn: () => issuesApi.listAttachments(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: liveRuns } = useQuery({
-    queryKey: queryKeys.issues.liveRuns(issueId!),
-    queryFn: () => heartbeatsApi.liveRunsForIssue(issueId!),
-    enabled: !!issueId,
+    queryKey: queryKeys.issues.liveRuns(selectedCompanyId!, issueId!),
+    queryFn: () => heartbeatsApi.liveRunsForIssue(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const { data: activeRun } = useQuery({
-    queryKey: queryKeys.issues.activeRun(issueId!),
-    queryFn: () => heartbeatsApi.activeRunForIssue(issueId!),
-    enabled: !!issueId,
+    queryKey: queryKeys.issues.activeRun(selectedCompanyId!, issueId!),
+    queryFn: () => heartbeatsApi.activeRunForIssue(selectedCompanyId!, issueId!),
+    enabled: !!issueId && !!selectedCompanyId,
   });
 
   const hasLiveRuns = (liveRuns ?? []).length > 0 || !!activeRun;
@@ -389,13 +389,13 @@ export function IssueDetail() {
   }, [linkedRuns]);
 
   const invalidateIssue = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId!) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(issueId!) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(issueId!) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.approvals(issueId!) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.attachments(issueId!) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(issueId!) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(selectedCompanyId!, issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(selectedCompanyId!, issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(selectedCompanyId!, issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.approvals(selectedCompanyId!, issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.attachments(selectedCompanyId!, issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(selectedCompanyId!, issueId!) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(selectedCompanyId!, issueId!) });
     if (selectedCompanyId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId) });
@@ -405,7 +405,7 @@ export function IssueDetail() {
   };
 
   const markIssueRead = useMutation({
-    mutationFn: (id: string) => issuesApi.markRead(id),
+    mutationFn: (id: string) => issuesApi.markRead(selectedCompanyId!, id),
     onSuccess: () => {
       if (selectedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId) });
@@ -416,7 +416,7 @@ export function IssueDetail() {
   });
 
   const updateIssue = useMutation({
-    mutationFn: (data: Record<string, unknown>) => issuesApi.update(issueId!, data),
+    mutationFn: (data: Record<string, unknown>) => issuesApi.update(selectedCompanyId!, issueId!, data),
     onSuccess: () => {
       invalidateIssue();
     },
@@ -424,10 +424,10 @@ export function IssueDetail() {
 
   const addComment = useMutation({
     mutationFn: ({ body, reopen }: { body: string; reopen?: boolean }) =>
-      issuesApi.addComment(issueId!, body, reopen),
+      issuesApi.addComment(selectedCompanyId!, issueId!, body, reopen),
     onSuccess: () => {
       invalidateIssue();
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(issueId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(selectedCompanyId!, issueId!) });
     },
   });
 
@@ -441,7 +441,7 @@ export function IssueDetail() {
       reopen?: boolean;
       reassignment: CommentReassignment;
     }) =>
-      issuesApi.update(issueId!, {
+      issuesApi.update(selectedCompanyId!, issueId!, {
         comment: body,
         assigneeAgentId: reassignment.assigneeAgentId,
         assigneeUserId: reassignment.assigneeUserId,
@@ -449,7 +449,7 @@ export function IssueDetail() {
       }),
     onSuccess: () => {
       invalidateIssue();
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(issueId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(selectedCompanyId!, issueId!) });
     },
   });
 
@@ -460,7 +460,7 @@ export function IssueDetail() {
     },
     onSuccess: () => {
       setAttachmentError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.attachments(issueId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.attachments(selectedCompanyId!, issueId!) });
       invalidateIssue();
     },
     onError: (err) => {
@@ -469,10 +469,10 @@ export function IssueDetail() {
   });
 
   const deleteAttachment = useMutation({
-    mutationFn: (attachmentId: string) => issuesApi.deleteAttachment(attachmentId),
+    mutationFn: (attachmentId: string) => issuesApi.deleteAttachment(selectedCompanyId!, attachmentId),
     onSuccess: () => {
       setAttachmentError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.attachments(issueId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.attachments(selectedCompanyId!, issueId!) });
       invalidateIssue();
     },
     onError: (err) => {

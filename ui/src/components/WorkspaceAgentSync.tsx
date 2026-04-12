@@ -164,7 +164,7 @@ export function WorkspaceAgentSync({ projectId, companyId }: WorkspaceAgentSyncP
             const existingBmad = (existingMeta.bmad ?? {}) as Record<string, unknown>;
             const existingRoles = (existingBmad.roles ?? []) as Array<{ slug: string }>;
             if (!existingRoles.some((r) => r.slug === slug)) {
-              await agentsApi.update(mapping.agentId, {
+              await agentsApi.update(companyId, mapping.agentId, {
                 metadata: {
                   ...existingMeta,
                   bmad: {
@@ -172,7 +172,7 @@ export function WorkspaceAgentSync({ projectId, companyId }: WorkspaceAgentSyncP
                     roles: [...existingRoles, { slug, personaName: wsAgent.personaName, capabilities: wsAgent.capabilities, icon: wsAgent.icon }],
                   },
                 },
-              }, companyId);
+              });
             }
           }
         } else if (mapping.mode === "workspace") {

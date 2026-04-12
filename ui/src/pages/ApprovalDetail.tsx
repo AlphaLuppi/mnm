@@ -132,7 +132,7 @@ export function ApprovalDetail() {
   });
 
   const deleteAgentMutation = useMutation({
-    mutationFn: (agentId: string) => agentsApi.remove(agentId),
+    mutationFn: (agentId: string) => agentsApi.remove(resolvedCompanyId!, agentId),
     onSuccess: () => {
       setError(null);
       refresh();

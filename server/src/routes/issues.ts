@@ -55,10 +55,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1 },
   });
 
-  function withContentPath<T extends { id: string }>(attachment: T) {
+  function withContentPath<T extends { id: string; companyId: string }>(attachment: T) {
     return {
       ...attachment,
-      contentPath: `/api/attachments/${attachment.id}/content`,
+      contentPath: `/api/companies/${attachment.companyId}/attachments/${attachment.id}/content`,
     };
   }
 
@@ -83,7 +83,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(403).json({ error: "Forbidden" });
       return false;
     }
-    if (Boolean(actorAgent.permissions?.canCreateAgents) || Boolean(actorAgent.permissions?.canCreateAgents)) return true;
+    const allowedByGrant = await access.hasPermission(companyId, "agent", actorAgent.id, "agents:create");
+    if (allowedByGrant || Boolean(actorAgent.permissions?.canCreateAgents)) return true;
     res.status(403).json({ error: "Missing permission to link approvals" });
     return false;
   }
@@ -199,13 +200,6 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
   });
 
-  // Common malformed path when companyId is empty in "/api/companies/{companyId}/issues".
-  router.get("/issues", (_req, res) => {
-    res.status(400).json({
-      error: "Missing companyId in path. Use /api/companies/{companyId}/issues.",
-    });
-  });
-
   router.get("/companies/:companyId/issues", requirePermission(db, PERMISSIONS.ISSUES_READ), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
@@ -318,7 +312,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.status(201).json(label);
   });
 
-  router.delete("/labels/:labelId", async (req, res) => {
+  router.delete("/companies/:companyId/labels/:labelId", async (req, res) => {
     const labelId = req.params.labelId as string;
     const existing = await svc.getLabelById(labelId);
     if (!existing) {
@@ -355,7 +349,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(removed);
   });
 
-  router.get("/issues/:id", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -405,7 +399,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json({ ...issue, ancestors, project: project ?? null, goal: goal ?? null, mentionedProjects });
   });
 
-  router.post("/issues/:id/read", async (req, res) => {
+  router.post("/companies/:companyId/issues/:id/read", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -441,7 +435,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(readState);
   });
 
-  router.get("/issues/:id/approvals", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id/approvals", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -457,7 +451,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(approvals);
   });
 
-  router.post("/issues/:id/approvals", validate(linkIssueApprovalSchema), async (req, res) => {
+  router.post("/companies/:companyId/issues/:id/approvals", validate(linkIssueApprovalSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -492,7 +486,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.status(201).json(approvals);
   });
 
-  router.delete("/issues/:id/approvals/:approvalId", async (req, res) => {
+  router.delete("/companies/:companyId/issues/:id/approvals/:approvalId", async (req, res) => {
     const id = req.params.id as string;
     const approvalId = req.params.approvalId as string;
     const issue = await svc.getById(id);
@@ -580,7 +574,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.status(201).json(issue);
   });
 
-  router.patch("/issues/:id", validate(updateIssueSchema), async (req, res) => {
+  router.patch("/companies/:companyId/issues/:id", validate(updateIssueSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -794,7 +788,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json({ ...issue, comment });
   });
 
-  router.delete("/issues/:id", async (req, res) => {
+  router.delete("/companies/:companyId/issues/:id", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -847,7 +841,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(issue);
   });
 
-  router.post("/issues/:id/checkout", validate(checkoutIssueSchema), async (req, res) => {
+  router.post("/companies/:companyId/issues/:id/checkout", validate(checkoutIssueSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -915,7 +909,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(updated);
   });
 
-  router.post("/issues/:id/release", async (req, res) => {
+  router.post("/companies/:companyId/issues/:id/release", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -964,7 +958,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(released);
   });
 
-  router.get("/issues/:id/comments", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id/comments", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -981,7 +975,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(comments);
   });
 
-  router.get("/issues/:id/comments/:commentId", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id/comments/:commentId", async (req, res) => {
     const id = req.params.id as string;
     const commentId = req.params.commentId as string;
     const issue = await svc.getById(id);
@@ -1002,7 +996,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(comment);
   });
 
-  router.post("/issues/:id/comments", validate(addIssueCommentSchema), async (req, res) => {
+  router.post("/companies/:companyId/issues/:id/comments", validate(addIssueCommentSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
     if (!issue) {
@@ -1224,7 +1218,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.status(201).json(comment);
   });
 
-  router.get("/issues/:id/attachments", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id/attachments", async (req, res) => {
     const issueId = req.params.id as string;
     const issue = await svc.getById(issueId);
     if (!issue) {
@@ -1335,7 +1329,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.status(201).json(withContentPath(attachment));
   });
 
-  router.get("/attachments/:attachmentId/content", async (req, res, next) => {
+  router.get("/companies/:companyId/attachments/:attachmentId/content", async (req, res, next) => {
     const attachmentId = req.params.attachmentId as string;
     const attachment = await svc.getAttachmentById(attachmentId);
     if (!attachment) {
@@ -1357,7 +1351,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     object.stream.pipe(res);
   });
 
-  router.delete("/attachments/:attachmentId", async (req, res) => {
+  router.delete("/companies/:companyId/attachments/:attachmentId", async (req, res) => {
     const attachmentId = req.params.attachmentId as string;
     const attachment = await svc.getAttachmentById(attachmentId);
     if (!attachment) {
