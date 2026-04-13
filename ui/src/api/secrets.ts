@@ -15,11 +15,12 @@ export const secretsApi = {
       externalRef?: string | null;
     },
   ) => api.post<CompanySecret>(`/companies/${companyId}/secrets`, data),
-  rotate: (id: string, data: { value: string; externalRef?: string | null }) =>
-    api.post<CompanySecret>(`/secrets/${id}/rotate`, data),
+  rotate: (companyId: string, id: string, data: { value: string; externalRef?: string | null }) =>
+    api.post<CompanySecret>(`/companies/${companyId}/secrets/${id}/rotate`, data),
   update: (
+    companyId: string,
     id: string,
     data: { name?: string; description?: string | null; externalRef?: string | null },
-  ) => api.patch<CompanySecret>(`/secrets/${id}`, data),
-  remove: (id: string) => api.delete<{ ok: true }>(`/secrets/${id}`),
+  ) => api.patch<CompanySecret>(`/companies/${companyId}/secrets/${id}`, data),
+  remove: (companyId: string, id: string) => api.delete<{ ok: true }>(`/companies/${companyId}/secrets/${id}`),
 };

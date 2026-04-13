@@ -120,9 +120,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── GET /config-layers/:id ── Layer detail
+  // ── GET /companies/:companyId/config-layers/:id ── Layer detail
   router.get(
-    "/config-layers/:id",
+    "/companies/:companyId/config-layers/:id",
     async (req, res) => {
       const layerId = req.params.id as string;
       const layer = await svc.getLayer(layerId);
@@ -133,9 +133,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── PATCH /config-layers/:id ── Update layer metadata
+  // ── PATCH /companies/:companyId/config-layers/:id ── Update layer metadata
   router.patch(
-    "/config-layers/:id",
+    "/companies/:companyId/config-layers/:id",
     async (req, res) => {
       const layerId = req.params.id as string;
 
@@ -157,9 +157,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── DELETE /config-layers/:id ── Archive (soft-delete)
+  // ── DELETE /companies/:companyId/config-layers/:id ── Archive (soft-delete)
   router.delete(
-    "/config-layers/:id",
+    "/companies/:companyId/config-layers/:id",
     async (req, res) => {
       const layerId = req.params.id as string;
 
@@ -178,9 +178,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── GET /config-layers/:id/revisions ── Revision history
+  // ── GET /companies/:companyId/config-layers/:id/revisions ── Revision history
   router.get(
-    "/config-layers/:id/revisions",
+    "/companies/:companyId/config-layers/:id/revisions",
     async (req, res) => {
       const layerId = req.params.id as string;
 
@@ -209,9 +209,9 @@ export function configLayerRoutes(db: Db) {
     return { layer, userId };
   }
 
-  // ── POST /config-layers/:id/items ── Add item
+  // ── POST /companies/:companyId/config-layers/:id/items ── Add item
   router.post(
-    "/config-layers/:id/items",
+    "/companies/:companyId/config-layers/:id/items",
     async (req, res) => {
       const layerId = req.params.id as string;
 
@@ -225,9 +225,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── PATCH /config-layers/:id/items/:itemId ── Update item
+  // ── PATCH /companies/:companyId/config-layers/:id/items/:itemId ── Update item
   router.patch(
-    "/config-layers/:id/items/:itemId",
+    "/companies/:companyId/config-layers/:id/items/:itemId",
     async (req, res) => {
       const layerId = req.params.id as string;
       const itemId = req.params.itemId as string;
@@ -242,9 +242,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── DELETE /config-layers/:id/items/:itemId ── Remove item
+  // ── DELETE /companies/:companyId/config-layers/:id/items/:itemId ── Remove item
   router.delete(
-    "/config-layers/:id/items/:itemId",
+    "/companies/:companyId/config-layers/:id/items/:itemId",
     async (req, res) => {
       const layerId = req.params.id as string;
       const itemId = req.params.itemId as string;
@@ -255,9 +255,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── POST /config-layers/:id/items/:itemId/files ── Upload file
+  // ── POST /companies/:companyId/config-layers/:id/items/:itemId/files ── Upload file
   router.post(
-    "/config-layers/:id/items/:itemId/files",
+    "/companies/:companyId/config-layers/:id/items/:itemId/files",
     async (req, res) => {
       const layerId = req.params.id as string;
       const itemId = req.params.itemId as string;
@@ -272,9 +272,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── DELETE /config-layers/:id/items/:itemId/files/:fileId ── Remove file
+  // ── DELETE /companies/:companyId/config-layers/:id/items/:itemId/files/:fileId ── Remove file
   router.delete(
-    "/config-layers/:id/items/:itemId/files/:fileId",
+    "/companies/:companyId/config-layers/:id/items/:itemId/files/:fileId",
     async (req, res) => {
       const layerId = req.params.id as string;
       const itemId = req.params.itemId as string;
@@ -451,9 +451,9 @@ export function configLayerRoutes(db: Db) {
   // 6.5 PROMOTION
   // ═══════════════════════════════════════════════════════════
 
-  // ── POST /config-layers/:id/promote ── Propose promotion
+  // ── POST /companies/:companyId/config-layers/:id/promote ── Propose promotion
   router.post(
-    "/config-layers/:id/promote",
+    "/companies/:companyId/config-layers/:id/promote",
     async (req, res) => {
       const layerId = req.params.id as string;
 
@@ -466,9 +466,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── POST /config-layers/:id/promotion/approve ── Approve promotion
+  // ── POST /companies/:companyId/config-layers/:id/promotion/approve ── Approve promotion
   router.post(
-    "/config-layers/:id/promotion/approve",
+    "/companies/:companyId/config-layers/:id/promotion/approve",
     async (req, res) => {
       const layerId = req.params.id as string;
 
@@ -488,9 +488,9 @@ export function configLayerRoutes(db: Db) {
     },
   );
 
-  // ── POST /config-layers/:id/promotion/reject ── Reject promotion
+  // ── POST /companies/:companyId/config-layers/:id/promotion/reject ── Reject promotion
   router.post(
-    "/config-layers/:id/promotion/reject",
+    "/companies/:companyId/config-layers/:id/promotion/reject",
     async (req, res) => {
       const layerId = req.params.id as string;
 

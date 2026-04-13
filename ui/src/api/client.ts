@@ -64,3 +64,24 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+
+/**
+ * Company-scoped API client factory.
+ * All paths are prefixed with `/companies/:companyId`.
+ */
+export function companyApi(companyId: string) {
+  const prefix = `/companies/${companyId}`;
+  return {
+    get: <T>(path: string) => request<T>(`${prefix}${path}`),
+    getText: (path: string) => requestText(`${prefix}${path}`),
+    post: <T>(path: string, body: unknown) =>
+      request<T>(`${prefix}${path}`, { method: "POST", body: JSON.stringify(body) }),
+    postForm: <T>(path: string, body: FormData) =>
+      request<T>(`${prefix}${path}`, { method: "POST", body }),
+    put: <T>(path: string, body: unknown) =>
+      request<T>(`${prefix}${path}`, { method: "PUT", body: JSON.stringify(body) }),
+    patch: <T>(path: string, body: unknown) =>
+      request<T>(`${prefix}${path}`, { method: "PATCH", body: JSON.stringify(body) }),
+    delete: <T>(path: string) => request<T>(`${prefix}${path}`, { method: "DELETE" }),
+  };
+}

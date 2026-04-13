@@ -149,15 +149,13 @@ export function agentRoutes(db: Db) {
   }
 
   async function resolveCompanyIdForAgentReference(req: Request): Promise<string | null> {
-    const companyIdQuery = req.query.companyId;
-    const requestedCompanyId =
-      typeof companyIdQuery === "string" && companyIdQuery.trim().length > 0
-        ? companyIdQuery.trim()
-        : null;
-    if (requestedCompanyId) {
-      assertCompanyAccess(req, requestedCompanyId);
-      return requestedCompanyId;
+    // Path param is now the primary source (all routes have /companies/:companyId/)
+    const pathCompanyId = req.params.companyId as string | undefined;
+    if (pathCompanyId) {
+      assertCompanyAccess(req, pathCompanyId);
+      return pathCompanyId;
     }
+    // Fallback for agent actors
     if (req.actor.type === "agent" && req.actor.companyId) {
       return req.actor.companyId;
     }
@@ -497,7 +495,7 @@ export function agentRoutes(db: Db) {
     res.json(rows.map((row) => redactAgentConfiguration(row)));
   });
 
-  router.get("/agents/me", async (req, res) => {
+  router.get("/companies/:companyId/agents/me", async (req, res) => {
     if (req.actor.type !== "agent" || !req.actor.agentId) {
       res.status(401).json({ error: "Agent authentication required" });
       return;
@@ -511,7 +509,7 @@ export function agentRoutes(db: Db) {
     res.json({ ...agent, chainOfCommand });
   });
 
-  router.get("/agents/:id", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
@@ -536,7 +534,7 @@ export function agentRoutes(db: Db) {
     res.json({ ...agent, chainOfCommand });
   });
 
-  router.get("/agents/:id/configuration", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/configuration", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
@@ -551,7 +549,7 @@ export function agentRoutes(db: Db) {
     res.json(redactAgentConfiguration(agent));
   });
 
-  router.get("/agents/:id/config-revisions", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/config-revisions", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
@@ -567,7 +565,7 @@ export function agentRoutes(db: Db) {
     res.json(revisions.map((revision) => redactConfigRevision(revision)));
   });
 
-  router.get("/agents/:id/config-revisions/:revisionId", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/config-revisions/:revisionId", async (req, res) => {
     const id = req.params.id as string;
     const revisionId = req.params.revisionId as string;
     const agent = await svc.getById(id);
@@ -588,7 +586,7 @@ export function agentRoutes(db: Db) {
     res.json(redactConfigRevision(revision));
   });
 
-  router.post("/agents/:id/config-revisions/:revisionId/rollback", async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/config-revisions/:revisionId/rollback", async (req, res) => {
     const id = req.params.id as string;
     const revisionId = req.params.revisionId as string;
     const existing = await svc.getById(id);
@@ -635,7 +633,7 @@ export function agentRoutes(db: Db) {
     res.json(updated);
   });
 
-  router.get("/agents/:id/runtime-state", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/runtime-state", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
@@ -654,7 +652,7 @@ export function agentRoutes(db: Db) {
     res.json(state);
   });
 
-  router.get("/agents/:id/task-sessions", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/task-sessions", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
@@ -678,7 +676,7 @@ export function agentRoutes(db: Db) {
     );
   });
 
-  router.post("/agents/:id/runtime-state/reset-session", validate(resetAgentSessionSchema), async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/runtime-state/reset-session", validate(resetAgentSessionSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
@@ -918,7 +916,7 @@ export function agentRoutes(db: Db) {
     res.status(201).json(agent);
   });
 
-  router.get("/agents/:id/direct-permissions", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/direct-permissions", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -935,7 +933,7 @@ export function agentRoutes(db: Db) {
     res.json({ permissionSlugs: slugs });
   });
 
-  router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
+  router.patch("/companies/:companyId/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -995,7 +993,7 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
-  router.patch("/agents/:id/instructions-path", validate(updateAgentInstructionsPathSchema), async (req, res) => {
+  router.patch("/companies/:companyId/agents/:id/instructions-path", validate(updateAgentInstructionsPathSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -1084,7 +1082,7 @@ export function agentRoutes(db: Db) {
     });
   });
 
-  router.patch("/agents/:id", validate(updateAgentSchema), async (req, res) => {
+  router.patch("/companies/:companyId/agents/:id", validate(updateAgentSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -1183,7 +1181,7 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
-  router.post("/agents/:id/pause", async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/pause", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -1211,7 +1209,7 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
-  router.post("/agents/:id/resume", async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/resume", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -1237,7 +1235,7 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
-  router.post("/agents/:id/terminate", async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/terminate", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -1265,7 +1263,7 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
-  router.delete("/agents/:id", async (req, res) => {
+  router.delete("/companies/:companyId/agents/:id", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -1305,7 +1303,7 @@ export function agentRoutes(db: Db) {
     res.json({ ok: true });
   });
 
-  router.get("/agents/:id/keys", async (req, res) => {
+  router.get("/companies/:companyId/agents/:id/keys", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
@@ -1316,7 +1314,7 @@ export function agentRoutes(db: Db) {
     res.json(keys);
   });
 
-  router.post("/agents/:id/keys", validate(createAgentKeySchema), async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/keys", validate(createAgentKeySchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agentForPermCheck = await svc.getById(id);
@@ -1350,7 +1348,7 @@ export function agentRoutes(db: Db) {
     res.status(201).json(key);
   });
 
-  router.delete("/agents/:id/keys/:keyId", async (req, res) => {
+  router.delete("/companies/:companyId/agents/:id/keys/:keyId", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
@@ -1366,7 +1364,7 @@ export function agentRoutes(db: Db) {
     res.json({ ok: true });
   });
 
-  router.post("/agents/:id/wakeup", validate(wakeAgentSchema), async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/wakeup", validate(wakeAgentSchema), async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
@@ -1427,7 +1425,7 @@ export function agentRoutes(db: Db) {
     res.status(202).json(run);
   });
 
-  router.post("/agents/:id/heartbeat/invoke", async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/heartbeat/invoke", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
@@ -1480,7 +1478,7 @@ export function agentRoutes(db: Db) {
     res.status(202).json(run);
   });
 
-  router.post("/agents/:id/claude-login", async (req, res) => {
+  router.post("/companies/:companyId/agents/:id/claude-login", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
@@ -1606,13 +1604,19 @@ export function agentRoutes(db: Db) {
     res.json(liveRuns);
   });
 
-  router.post("/heartbeat-runs/:runId/cancel", async (req, res) => {
+  router.post("/companies/:companyId/heartbeat-runs/:runId/cancel", async (req, res) => {
     assertBoard(req);
     const runId = req.params.runId as string;
+    // Verify company access BEFORE performing the cancellation mutation
+    const existing = await heartbeat.getRun(runId);
+    if (!existing) {
+      res.json(null);
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
     const run = await heartbeat.cancelRun(runId);
 
     if (run) {
-      assertCompanyAccess(req, run.companyId);
       await logActivity(db, {
         companyId: run.companyId,
         actorType: "user",
@@ -1627,7 +1631,7 @@ export function agentRoutes(db: Db) {
     res.json(run);
   });
 
-  router.get("/heartbeat-runs/:runId/events", async (req, res) => {
+  router.get("/companies/:companyId/heartbeat-runs/:runId/events", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
     if (!run) {
@@ -1646,7 +1650,7 @@ export function agentRoutes(db: Db) {
     res.json(redactedEvents);
   });
 
-  router.get("/heartbeat-runs/:runId/log", async (req, res) => {
+  router.get("/companies/:companyId/heartbeat-runs/:runId/log", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
     if (!run) {
@@ -1665,7 +1669,7 @@ export function agentRoutes(db: Db) {
     res.json(result);
   });
 
-  router.get("/issues/:issueId/live-runs", async (req, res) => {
+  router.get("/companies/:companyId/issues/:issueId/live-runs", async (req, res) => {
     const rawId = req.params.issueId as string;
     const issueSvc = issueService(db);
     const isIdentifier = /^[A-Z]+-\d+$/i.test(rawId);
@@ -1707,7 +1711,7 @@ export function agentRoutes(db: Db) {
     res.json(liveRuns);
   });
 
-  router.get("/issues/:issueId/active-run", async (req, res) => {
+  router.get("/companies/:companyId/issues/:issueId/active-run", async (req, res) => {
     const rawId = req.params.issueId as string;
     const issueSvc = issueService(db);
     const isIdentifier = /^[A-Z]+-\d+$/i.test(rawId);

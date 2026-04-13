@@ -57,12 +57,14 @@ export interface StageInstance {
 export const workflowTemplatesApi = {
   list: (companyId: string) =>
     api.get<WorkflowTemplate[]>(`/companies/${companyId}/workflow-templates`),
-  get: (id: string) => api.get<WorkflowTemplate>(`/workflow-templates/${id}`),
+  get: (companyId: string, id: string) =>
+    api.get<WorkflowTemplate>(`/companies/${companyId}/workflow-templates/${id}`),
   create: (companyId: string, data: Record<string, unknown>) =>
     api.post<WorkflowTemplate>(`/companies/${companyId}/workflow-templates`, data),
-  update: (id: string, data: Record<string, unknown>) =>
-    api.patch<WorkflowTemplate>(`/workflow-templates/${id}`, data),
-  remove: (id: string) => api.delete<void>(`/workflow-templates/${id}`),
+  update: (companyId: string, id: string, data: Record<string, unknown>) =>
+    api.patch<WorkflowTemplate>(`/companies/${companyId}/workflow-templates/${id}`, data),
+  remove: (companyId: string, id: string) =>
+    api.delete<void>(`/companies/${companyId}/workflow-templates/${id}`),
   ensureBmad: (companyId: string) =>
     api.post<WorkflowTemplate>(`/companies/${companyId}/workflow-templates/ensure-bmad`, {}),
 };
@@ -77,18 +79,20 @@ export const workflowsApi = {
       `/companies/${companyId}/workflows${qs ? `?${qs}` : ""}`,
     );
   },
-  get: (id: string) => api.get<WorkflowInstance>(`/workflows/${id}`),
+  get: (companyId: string, id: string) =>
+    api.get<WorkflowInstance>(`/companies/${companyId}/workflows/${id}`),
   create: (companyId: string, data: Record<string, unknown>) =>
     api.post<WorkflowInstance>(`/companies/${companyId}/workflows`, data),
-  update: (id: string, data: Record<string, unknown>) =>
-    api.patch<WorkflowInstance>(`/workflows/${id}`, data),
-  remove: (id: string) => api.delete<void>(`/workflows/${id}`),
+  update: (companyId: string, id: string, data: Record<string, unknown>) =>
+    api.patch<WorkflowInstance>(`/companies/${companyId}/workflows/${id}`, data),
+  remove: (companyId: string, id: string) =>
+    api.delete<void>(`/companies/${companyId}/workflows/${id}`),
 };
 
 export const stagesApi = {
-  get: (id: string) => api.get<StageInstance>(`/stages/${id}`),
-  transition: (id: string, data: { status: string; agentId?: string; outputArtifacts?: string[] }) =>
-    api.post<StageInstance>(`/stages/${id}/transition`, data),
-  update: (id: string, data: Record<string, unknown>) =>
-    api.patch<StageInstance>(`/stages/${id}`, data),
+  get: (companyId: string, id: string) => api.get<StageInstance>(`/companies/${companyId}/stages/${id}`),
+  transition: (companyId: string, id: string, data: { status: string; agentId?: string; outputArtifacts?: string[] }) =>
+    api.post<StageInstance>(`/companies/${companyId}/stages/${id}/transition`, data),
+  update: (companyId: string, id: string, data: Record<string, unknown>) =>
+    api.patch<StageInstance>(`/companies/${companyId}/stages/${id}`, data),
 };

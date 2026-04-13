@@ -117,7 +117,7 @@ function ProjectIssuesList({ projectId, companyId }: { projectId: string; compan
 
   const updateIssue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      issuesApi.update(id, data),
+      issuesApi.update(companyId, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId, projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
@@ -145,7 +145,7 @@ function ProjectAgentsTab({ projectId, companyId }: { projectId: string; company
 
   const { data: assignmentsData } = useQuery({
     queryKey: ["workspace-assignments", projectId],
-    queryFn: () => workspaceContextApi.getAssignments(projectId, companyId),
+    queryFn: () => workspaceContextApi.getAssignments(companyId, projectId),
   });
   const workspaceId = assignmentsData?.workspaceId ?? null;
   const savedAssignments = assignmentsData?.assignments ?? {};
@@ -262,12 +262,12 @@ function ProjectWorkflowsTab({ projectId, companyId }: { projectId: string; comp
 
   const { data: workflowsData } = useQuery({
     queryKey: ["workspace-workflows", projectId],
-    queryFn: () => workspaceContextApi.getWorkflows(projectId, companyId),
+    queryFn: () => workspaceContextApi.getWorkflows(companyId, projectId),
   });
 
   const { data: assignmentsData } = useQuery({
     queryKey: ["workspace-assignments", projectId],
-    queryFn: () => workspaceContextApi.getAssignments(projectId, companyId),
+    queryFn: () => workspaceContextApi.getAssignments(companyId, projectId),
   });
 
   const workflows = workflowsData?.workflows ?? [];
@@ -409,7 +409,7 @@ export function ProjectDetail() {
 
   const { data: project, isLoading, error } = useQuery({
     queryKey: [...queryKeys.projects.detail(routeProjectRef), lookupCompanyId ?? null],
-    queryFn: () => projectsApi.get(routeProjectRef, lookupCompanyId),
+    queryFn: () => projectsApi.get(lookupCompanyId!, routeProjectRef),
     enabled: canFetchProject,
   });
   const canonicalProjectRef = project ? projectRouteRef(project) : routeProjectRef;
@@ -431,7 +431,7 @@ export function ProjectDetail() {
 
   const updateProject = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      projectsApi.update(projectLookupRef, data, resolvedCompanyId ?? lookupCompanyId),
+      projectsApi.update((resolvedCompanyId ?? lookupCompanyId)!, projectLookupRef, data),
     onSuccess: invalidateProject,
   });
 

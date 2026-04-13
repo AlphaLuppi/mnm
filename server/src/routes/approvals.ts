@@ -45,7 +45,7 @@ export function approvalRoutes(db: Db) {
     res.json(result.map((approval) => redactApprovalPayload(approval)));
   });
 
-  router.get("/approvals/:id", async (req, res) => {
+  router.get("/companies/:companyId/approvals/:id", async (req, res) => {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
@@ -127,7 +127,7 @@ export function approvalRoutes(db: Db) {
     res.status(201).json(redactApprovalPayload(approval));
   });
 
-  router.get("/approvals/:id/issues", async (req, res) => {
+  router.get("/companies/:companyId/approvals/:id/issues", async (req, res) => {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
@@ -139,7 +139,7 @@ export function approvalRoutes(db: Db) {
     res.json(issues);
   });
 
-  router.post("/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
+  router.post("/companies/:companyId/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -239,7 +239,7 @@ export function approvalRoutes(db: Db) {
     res.json(redactApprovalPayload(approval));
   });
 
-  router.post("/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
+  router.post("/companies/:companyId/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -270,7 +270,7 @@ export function approvalRoutes(db: Db) {
   });
 
   router.post(
-    "/approvals/:id/request-revision",
+    "/companies/:companyId/approvals/:id/request-revision",
     validate(requestApprovalRevisionSchema),
     async (req, res) => {
       assertBoard(req);
@@ -307,7 +307,7 @@ export function approvalRoutes(db: Db) {
     },
   );
 
-  router.post("/approvals/:id/resubmit", validate(resubmitApprovalSchema), async (req, res) => {
+  router.post("/companies/:companyId/approvals/:id/resubmit", validate(resubmitApprovalSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -354,7 +354,7 @@ export function approvalRoutes(db: Db) {
     res.json(redactApprovalPayload(approval));
   });
 
-  router.get("/approvals/:id/comments", async (req, res) => {
+  router.get("/companies/:companyId/approvals/:id/comments", async (req, res) => {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
@@ -366,7 +366,7 @@ export function approvalRoutes(db: Db) {
     res.json(comments);
   });
 
-  router.post("/approvals/:id/comments", validate(addApprovalCommentSchema), async (req, res) => {
+  router.post("/companies/:companyId/approvals/:id/comments", validate(addApprovalCommentSchema), async (req, res) => {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {

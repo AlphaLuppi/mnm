@@ -54,7 +54,7 @@ export function Workflows() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => workflowTemplatesApi.remove(id),
+    mutationFn: (id: string) => workflowTemplatesApi.remove(selectedCompanyId!, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.templates(selectedCompanyId!) });
       setDeleteTarget(null);

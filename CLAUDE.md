@@ -8,21 +8,23 @@ Language: French for planning documents. See README.md for full project docs.
 
 - **NEVER use polling (setInterval, refetchInterval)** — ALL real-time updates MUST use SSE/WebSocket via the live-events system (`/events/ws`).
 - **Always use UI library components** — Never create custom/inline implementations of standard UI primitives (Switch, Button, Dialog, Checkbox, etc.). Always use `ui/src/components/ui/`. If a component doesn't exist, create it there first.
-- **Single-tenant** — 1 instance = 1 company. `company_id` is auto-injected, never exposed in UI.
+- **Multi-tenant** — 1 backend serves N companies. ALL company-scoped routes MUST have `/companies/:companyId/` prefix. No auto-injection, no URL rewrite. `company_id` is explicit in every API call, verified by `assertCompanyMembership` middleware, and enforced by PostgreSQL RLS (fail-closed).
 - **Dynamic RBAC** — Roles and permissions are in DB (`roles`, `permissions`, `role_permissions`), NOT hardcoded. No `BUSINESS_ROLES`, `AGENT_ROLES`, or `PERMISSION_KEYS` constants.
-- **Tag-based isolation** — Tags control visibility. Users only see agents/issues/traces sharing at least 1 tag. Enforced via `TagScope` middleware.
-- **Sandbox** — Each user has a personal Docker container. All agents run via `claude_local` adapter. No adapter choice needed.
+- **Tag-based isolation** — Tags control visibility within a company. Users only see agents/issues/traces sharing at least 1 tag. Enforced via `TagScope` middleware (mounted on `api.use("/companies/:companyId", ...)` — NOT at app level).
 - **Agent permissions** — Agents inherit permissions from their creator (createdByUserId).
-- **Simplified API** — Routes work with or without `/companies/:companyId/` prefix. Middleware rewrites automatically.
-- **Docker exec** — `runChildProcess` supports `dockerContainerId` option. Env vars with localhost URLs are rewritten to `host.docker.internal`.
+- **Client-side compute** — Agent execution happens on the user's machine (MCP, Desktop, local CLI). The server is an API/data/orchestration layer. Docker sandboxes are optional for non-tech users.
+- **Deployment modes** — `local_trusted` (dev, zero auth, single company auto-created) or `authenticated` (prod, BetterAuth + OAuth 2.1, multi-company).
 - **`_bmad/`** — BMAD framework. Do NOT modify.
 
 ## Architecture Decisions
 
-### Sandbox Auth
-- Token injection via env var — `claude setup-token` → stored in `user_pods.claude_oauth_token` (migration 0051)
-- Per-run injection — Heartbeat passes `CLAUDE_CODE_OAUTH_TOKEN` via `docker exec`. No credentials on sandbox filesystem.
-- `copyClaudeCredentials` is removed. DB-stored setup-token is the only approach.
+### Multi-Tenant Middleware Chain
+- **Order**: `actorMiddleware` (app level) → `api` Router → `assertCompanyMembership` → `tenantContextMiddleware` → `tagScopeMiddleware` → route handlers.
+- ALL three company middlewares are mounted on `api.use("/companies/:companyId", ...)` so Express parses the param BEFORE they run. NEVER mount at app level.
+- `assertCompanyMembership` verifies the actor belongs to the company in the path. Board users check `actor.companyIds`, agents check `actor.companyId`. Validates UUID format. Fail-closed for unknown actor types.
+- `tenantContextMiddleware` sets PostgreSQL RLS context (`app.current_company_id`) from `req.params.companyId`. Does NOT inject into params.
+- The URL rewrite middleware is REMOVED. All company-scoped routes have explicit `/companies/:companyId/` prefix.
+- Rate limiting is per-tenant: key = `{companyId}:{actorId}`.
 
 ### Trace Pipeline
 - **Gold** = DEFAULT view (scored phases, annotations, verdicts). **Silver** = grouped detail. **Bronze** = raw JSON debug.
@@ -40,7 +42,7 @@ Language: French for planning documents. See README.md for full project docs.
 
 ### CAO (Chief Agent Officer)
 - adapter_type="claude_local", metadata.isCAO=true, auto-created, has all tags, Admin role.
-- Runs in admin's sandbox. Watchdog mode auto-comments on failures. Interactive via @cao mentions.
+- Watchdog mode auto-comments on failures. Interactive via @cao mentions.
 
 ## Web/Desktop Parity Tracking
 

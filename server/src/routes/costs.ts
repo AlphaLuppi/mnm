@@ -115,7 +115,7 @@ export function costRoutes(db: Db) {
     res.json(company);
   });
 
-  router.patch("/agents/:agentId/budgets", validate(updateBudgetSchema), async (req, res) => {
+  router.patch("/companies/:companyId/agents/:agentId/budgets", validate(updateBudgetSchema), async (req, res) => {
     const agentId = req.params.agentId as string;
     const agent = await agents.getById(agentId);
     if (!agent) {
