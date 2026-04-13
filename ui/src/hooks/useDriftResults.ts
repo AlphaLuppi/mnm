@@ -7,11 +7,11 @@ export function useDriftResults(projectId: string | undefined, companyId?: strin
   return useQuery({
     queryKey: queryKeys.drift.results(projectId!),
     queryFn: async () => {
-      const result = await driftApi.getResults(projectId!, companyId);
+      const result = await driftApi.getResults(companyId!, projectId!);
       // Return the data array for backward compatibility with existing consumers
       return result.data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && !!companyId,
   });
 }
 
@@ -20,7 +20,7 @@ export function useDriftCheck(projectId: string | undefined, companyId?: string)
 
   return useMutation({
     mutationFn: (body: DriftCheckRequest) =>
-      driftApi.check(projectId!, body, companyId),
+      driftApi.check(companyId!, projectId!, body),
     onSuccess: () => {
       if (projectId) {
         qc.invalidateQueries({ queryKey: queryKeys.drift.results(projectId) });
@@ -34,7 +34,7 @@ export function useDriftResolve(projectId: string | undefined, companyId?: strin
 
   return useMutation({
     mutationFn: ({ driftId, ...body }: DriftResolveRequest & { driftId: string }) =>
-      driftApi.resolve(projectId!, driftId, body, companyId),
+      driftApi.resolve(companyId!, projectId!, driftId, body),
     onSuccess: () => {
       if (projectId) {
         qc.invalidateQueries({ queryKey: queryKeys.drift.results(projectId) });
@@ -46,8 +46,8 @@ export function useDriftResolve(projectId: string | undefined, companyId?: strin
 export function useDriftScanStatus(projectId: string | undefined, companyId?: string) {
   return useQuery({
     queryKey: queryKeys.drift.status(projectId!),
-    queryFn: () => driftApi.getStatus(projectId!, companyId),
-    enabled: !!projectId,
+    queryFn: () => driftApi.getStatus(companyId!, projectId!),
+    enabled: !!projectId && !!companyId,
     refetchInterval: (query) => {
       // Poll every 2s while scanning, stop when done
       return query.state.data?.scanning ? 2000 : false;
@@ -60,7 +60,7 @@ export function useDriftScan(projectId: string | undefined, companyId?: string) 
 
   return useMutation({
     mutationFn: (body: DriftScanRequest) =>
-      driftApi.scan(projectId!, body, companyId),
+      driftApi.scan(companyId!, projectId!, body),
     onSuccess: () => {
       if (projectId) {
         qc.invalidateQueries({ queryKey: queryKeys.drift.status(projectId) });
@@ -73,7 +73,7 @@ export function useDriftCancelScan(projectId: string | undefined, companyId?: st
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: () => driftApi.cancelScan(projectId!, companyId),
+    mutationFn: () => driftApi.cancelScan(companyId!, projectId!),
     onSuccess: () => {
       if (projectId) {
         qc.invalidateQueries({ queryKey: queryKeys.drift.status(projectId) });

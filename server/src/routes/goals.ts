@@ -17,7 +17,7 @@ export function goalRoutes(db: Db) {
     res.json(result);
   });
 
-  router.get("/goals/:id", async (req, res) => {
+  router.get("/companies/:companyId/goals/:id", async (req, res) => {
     const id = req.params.id as string;
     const goal = await svc.getById(id);
     if (!goal) {
@@ -55,7 +55,7 @@ export function goalRoutes(db: Db) {
     res.status(201).json(goal);
   });
 
-  router.patch("/goals/:id", validate(updateGoalSchema), async (req, res) => {
+  router.patch("/companies/:companyId/goals/:id", validate(updateGoalSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -93,7 +93,7 @@ export function goalRoutes(db: Db) {
     res.json(goal);
   });
 
-  router.delete("/goals/:id", async (req, res) => {
+  router.delete("/companies/:companyId/goals/:id", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {

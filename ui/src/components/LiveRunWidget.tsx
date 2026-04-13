@@ -243,9 +243,9 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
   const handleCancelRun = async (runId: string) => {
     setCancellingRunIds((prev) => new Set(prev).add(runId));
     try {
-      await heartbeatsApi.cancel(runId);
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(issueId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(issueId) });
+      await heartbeatsApi.cancel(companyId!, runId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(companyId!, issueId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(companyId!, issueId) });
     } finally {
       setCancellingRunIds((prev) => {
         const next = new Set(prev);
@@ -256,14 +256,14 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
   };
 
   const { data: liveRuns } = useQuery({
-    queryKey: queryKeys.issues.liveRuns(issueId),
-    queryFn: () => heartbeatsApi.liveRunsForIssue(issueId),
+    queryKey: queryKeys.issues.liveRuns(companyId!, issueId),
+    queryFn: () => heartbeatsApi.liveRunsForIssue(companyId!, issueId),
     enabled: !!issueId,
   });
 
   const { data: activeRun } = useQuery({
-    queryKey: queryKeys.issues.activeRun(issueId),
-    queryFn: () => heartbeatsApi.activeRunForIssue(issueId),
+    queryKey: queryKeys.issues.activeRun(companyId!, issueId),
+    queryFn: () => heartbeatsApi.activeRunForIssue(companyId!, issueId),
     enabled: !!issueId,
   });
 
@@ -384,7 +384,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
     const readRunLog = async (run: LiveRunForIssue) => {
       const offset = logOffsetByRunRef.current.get(run.id) ?? 0;
       try {
-        const result = await heartbeatsApi.log(run.id, offset, LOG_READ_LIMIT_BYTES);
+        const result = await heartbeatsApi.log(companyId!, run.id, offset, LOG_READ_LIMIT_BYTES);
         if (cancelled) return;
 
         const rows = parsePersistedLogContent(run.id, result.content, pendingLogRowsByRunRef.current);

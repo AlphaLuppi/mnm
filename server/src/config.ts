@@ -215,9 +215,13 @@ export function loadConfig(): Config {
     databaseMode: fileDatabaseMode,
     databaseUrl: process.env.DATABASE_URL ?? fileDbUrl,
     embeddedPostgresDataDir: resolveHomeAwarePath(
-      fileConfig?.database.embeddedPostgresDataDir ?? resolveDefaultEmbeddedPostgresDir(),
+      process.env.MNM_EMBEDDED_POSTGRES_DATA_DIR ??
+      fileConfig?.database.embeddedPostgresDataDir ??
+      resolveDefaultEmbeddedPostgresDir(),
     ),
-    embeddedPostgresPort: fileConfig?.database.embeddedPostgresPort ?? 54329,
+    embeddedPostgresPort:
+      Number(process.env.MNM_EMBEDDED_POSTGRES_PORT) ||
+      (fileConfig?.database.embeddedPostgresPort ?? 54329),
     databaseBackupEnabled,
     databaseBackupIntervalMinutes,
     databaseBackupRetentionDays,

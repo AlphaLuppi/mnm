@@ -199,7 +199,7 @@ function FailedRunCard({
         if (typeof context.taskId === "string" && context.taskId) payload.taskId = context.taskId;
         if (typeof context.taskKey === "string" && context.taskKey) payload.taskKey = context.taskKey;
       }
-      const result = await agentsApi.wakeup(run.agentId, {
+      const result = await agentsApi.wakeup(run.companyId, run.agentId, {
         source: "on_demand",
         triggerDetail: "manual",
         reason: "retry_failed_run",
@@ -496,7 +496,7 @@ export function Inbox() {
   };
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => approvalsApi.approve(id),
+    mutationFn: (id: string) => approvalsApi.approve(selectedCompanyId!, id),
     onSuccess: (_approval, id) => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
@@ -508,7 +508,7 @@ export function Inbox() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) => approvalsApi.reject(id),
+    mutationFn: (id: string) => approvalsApi.reject(selectedCompanyId!, id),
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
@@ -549,7 +549,7 @@ export function Inbox() {
   const [fadingOutIssues, setFadingOutIssues] = useState<Set<string>>(new Set());
 
   const markReadMutation = useMutation({
-    mutationFn: (id: string) => issuesApi.markRead(id),
+    mutationFn: (id: string) => issuesApi.markRead(selectedCompanyId!, id),
     onMutate: (id) => {
       setFadingOutIssues((prev) => new Set(prev).add(id));
     },

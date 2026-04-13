@@ -43,8 +43,8 @@ export function driftRoutes(db: Db) {
     return project;
   }
 
-  // POST /projects/:id/drift/check
-  router.post("/projects/:id/drift/check", async (req, res) => {
+  // POST /companies/:companyId/projects/:id/drift/check
+  router.post("/companies/:companyId/projects/:id/drift/check", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
@@ -66,8 +66,8 @@ export function driftRoutes(db: Db) {
     res.json(report);
   });
 
-  // GET /projects/:id/drift/results — with pagination support
-  router.get("/projects/:id/drift/results", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/drift/results — with pagination support
+  router.get("/companies/:companyId/projects/:id/drift/results", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
@@ -85,8 +85,8 @@ export function driftRoutes(db: Db) {
     res.json(result);
   });
 
-  // GET /projects/:id/drift/items — list drift items with filters
-  router.get("/projects/:id/drift/items", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/drift/items — list drift items with filters
+  router.get("/companies/:companyId/projects/:id/drift/items", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
@@ -112,8 +112,8 @@ export function driftRoutes(db: Db) {
     res.json(result);
   });
 
-  // POST /projects/:id/drift/scan — trigger a full drift scan
-  router.post("/projects/:id/drift/scan", async (req, res) => {
+  // POST /companies/:companyId/projects/:id/drift/scan — trigger a full drift scan
+  router.post("/companies/:companyId/projects/:id/drift/scan", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
@@ -139,8 +139,8 @@ export function driftRoutes(db: Db) {
     res.json({ started: true, status: scanStatus });
   });
 
-  // GET /projects/:id/drift/status — get scan status
-  router.get("/projects/:id/drift/status", async (req, res) => {
+  // GET /companies/:companyId/projects/:id/drift/status — get scan status
+  router.get("/companies/:companyId/projects/:id/drift/status", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
@@ -150,8 +150,8 @@ export function driftRoutes(db: Db) {
     res.json(scanStatus);
   });
 
-  // DELETE /projects/:id/drift/scan — cancel ongoing scan
-  router.delete("/projects/:id/drift/scan", async (req, res) => {
+  // DELETE /companies/:companyId/projects/:id/drift/scan — cancel ongoing scan
+  router.delete("/companies/:companyId/projects/:id/drift/scan", async (req, res) => {
     const project = await resolveProject(req, res);
     if (!project) return;
     assertCompanyAccess(req, project.companyId);
@@ -167,7 +167,7 @@ export function driftRoutes(db: Db) {
     remediationNote: z.string().optional(),
   });
 
-  router.patch("/projects/:id/drift/:driftId", async (req, res) => {
+  router.patch("/companies/:companyId/projects/:id/drift/:driftId", async (req, res) => {
     const { id, driftId } = req.params;
     const project = await svc.getById(id as string);
     if (!project) {

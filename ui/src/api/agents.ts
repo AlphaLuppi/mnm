@@ -45,14 +45,9 @@ export interface AgentHireResponse {
   approval: Approval | null;
 }
 
-function withCompanyScope(path: string, companyId?: string) {
-  if (!companyId) return path;
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}companyId=${encodeURIComponent(companyId)}`;
-}
-
-function agentPath(id: string, companyId?: string, suffix = "") {
-  return withCompanyScope(`/agents/${encodeURIComponent(id)}${suffix}`, companyId);
+/** Build the path for a company-scoped agent endpoint */
+function agentPath(companyId: string, id: string, suffix = "") {
+  return `/companies/${companyId}/agents/${encodeURIComponent(id)}${suffix}`;
 }
 
 export const agentsApi = {
@@ -66,16 +61,15 @@ export const agentsApi = {
   org: (companyId: string) => api.get<OrgNode[]>(`/companies/${companyId}/org`),
   listConfigurations: (companyId: string) =>
     api.get<Record<string, unknown>[]>(`/companies/${companyId}/agent-configurations`),
-  get: async (id: string, companyId?: string) => {
+  get: async (companyId: string, id: string) => {
     try {
-      return await api.get<Agent>(agentPath(id, companyId));
+      return await api.get<Agent>(agentPath(companyId, id));
     } catch (error) {
       // Backward-compat fallback: if backend shortname lookup reports ambiguity,
       // resolve using company agent list while ignoring terminated agents.
       if (
         !(error instanceof ApiError) ||
         error.status !== 409 ||
-        !companyId ||
         isUuidLike(id)
       ) {
         throw error;
@@ -89,42 +83,42 @@ export const agentsApi = {
         (agent) => agent.status !== "terminated" && normalizeAgentUrlKey(agent.urlKey) === urlKey,
       );
       if (matches.length !== 1) throw error;
-      return api.get<Agent>(agentPath(matches[0]!.id, companyId));
+      return api.get<Agent>(agentPath(companyId, matches[0]!.id));
     }
   },
-  getConfiguration: (id: string, companyId?: string) =>
-    api.get<Record<string, unknown>>(agentPath(id, companyId, "/configuration")),
-  listConfigRevisions: (id: string, companyId?: string) =>
-    api.get<AgentConfigRevision[]>(agentPath(id, companyId, "/config-revisions")),
-  getConfigRevision: (id: string, revisionId: string, companyId?: string) =>
-    api.get<AgentConfigRevision>(agentPath(id, companyId, `/config-revisions/${revisionId}`)),
-  rollbackConfigRevision: (id: string, revisionId: string, companyId?: string) =>
-    api.post<Agent>(agentPath(id, companyId, `/config-revisions/${revisionId}/rollback`), {}),
+  getConfiguration: (companyId: string, id: string) =>
+    api.get<Record<string, unknown>>(agentPath(companyId, id, "/configuration")),
+  listConfigRevisions: (companyId: string, id: string) =>
+    api.get<AgentConfigRevision[]>(agentPath(companyId, id, "/config-revisions")),
+  getConfigRevision: (companyId: string, id: string, revisionId: string) =>
+    api.get<AgentConfigRevision>(agentPath(companyId, id, `/config-revisions/${revisionId}`)),
+  rollbackConfigRevision: (companyId: string, id: string, revisionId: string) =>
+    api.post<Agent>(agentPath(companyId, id, `/config-revisions/${revisionId}/rollback`), {}),
   create: (companyId: string, data: Record<string, unknown>) =>
     api.post<Agent>(`/companies/${companyId}/agents`, data),
   hire: (companyId: string, data: Record<string, unknown>) =>
     api.post<AgentHireResponse>(`/companies/${companyId}/agent-hires`, data),
-  update: (id: string, data: Record<string, unknown>, companyId?: string) =>
-    api.patch<Agent>(agentPath(id, companyId), data),
-  updatePermissions: (id: string, data: { canCreateAgents?: boolean; permissionSlugs?: string[] }, companyId?: string) =>
-    api.patch<Agent>(agentPath(id, companyId, "/permissions"), data),
-  getDirectPermissions: (id: string, companyId?: string) =>
-    api.get<{ permissionSlugs: string[] }>(agentPath(id, companyId, "/direct-permissions")),
-  pause: (id: string, companyId?: string) => api.post<Agent>(agentPath(id, companyId, "/pause"), {}),
-  resume: (id: string, companyId?: string) => api.post<Agent>(agentPath(id, companyId, "/resume"), {}),
-  terminate: (id: string, companyId?: string) => api.post<Agent>(agentPath(id, companyId, "/terminate"), {}),
-  remove: (id: string, companyId?: string) => api.delete<{ ok: true }>(agentPath(id, companyId)),
-  listKeys: (id: string, companyId?: string) => api.get<AgentKey[]>(agentPath(id, companyId, "/keys")),
-  createKey: (id: string, name: string, companyId?: string) =>
-    api.post<AgentKeyCreated>(agentPath(id, companyId, "/keys"), { name }),
-  revokeKey: (agentId: string, keyId: string, companyId?: string) =>
-    api.delete<{ ok: true }>(agentPath(agentId, companyId, `/keys/${encodeURIComponent(keyId)}`)),
-  runtimeState: (id: string, companyId?: string) =>
-    api.get<AgentRuntimeState>(agentPath(id, companyId, "/runtime-state")),
-  taskSessions: (id: string, companyId?: string) =>
-    api.get<AgentTaskSession[]>(agentPath(id, companyId, "/task-sessions")),
-  resetSession: (id: string, taskKey?: string | null, companyId?: string) =>
-    api.post<void>(agentPath(id, companyId, "/runtime-state/reset-session"), { taskKey: taskKey ?? null }),
+  update: (companyId: string, id: string, data: Record<string, unknown>) =>
+    api.patch<Agent>(agentPath(companyId, id), data),
+  updatePermissions: (companyId: string, id: string, data: { canCreateAgents?: boolean; permissionSlugs?: string[] }) =>
+    api.patch<Agent>(agentPath(companyId, id, "/permissions"), data),
+  getDirectPermissions: (companyId: string, id: string) =>
+    api.get<{ permissionSlugs: string[] }>(agentPath(companyId, id, "/direct-permissions")),
+  pause: (companyId: string, id: string) => api.post<Agent>(agentPath(companyId, id, "/pause"), {}),
+  resume: (companyId: string, id: string) => api.post<Agent>(agentPath(companyId, id, "/resume"), {}),
+  terminate: (companyId: string, id: string) => api.post<Agent>(agentPath(companyId, id, "/terminate"), {}),
+  remove: (companyId: string, id: string) => api.delete<{ ok: true }>(agentPath(companyId, id)),
+  listKeys: (companyId: string, id: string) => api.get<AgentKey[]>(agentPath(companyId, id, "/keys")),
+  createKey: (companyId: string, id: string, name: string) =>
+    api.post<AgentKeyCreated>(agentPath(companyId, id, "/keys"), { name }),
+  revokeKey: (companyId: string, agentId: string, keyId: string) =>
+    api.delete<{ ok: true }>(agentPath(companyId, agentId, `/keys/${encodeURIComponent(keyId)}`)),
+  runtimeState: (companyId: string, id: string) =>
+    api.get<AgentRuntimeState>(agentPath(companyId, id, "/runtime-state")),
+  taskSessions: (companyId: string, id: string) =>
+    api.get<AgentTaskSession[]>(agentPath(companyId, id, "/task-sessions")),
+  resetSession: (companyId: string, id: string, taskKey?: string | null) =>
+    api.post<void>(agentPath(companyId, id, "/runtime-state/reset-session"), { taskKey: taskKey ?? null }),
   adapterModels: (companyId: string, type: string) =>
     api.get<AdapterModel[]>(
       `/companies/${encodeURIComponent(companyId)}/adapters/${encodeURIComponent(type)}/models`,
@@ -138,8 +132,9 @@ export const agentsApi = {
       `/companies/${companyId}/adapters/${type}/test-environment`,
       data,
     ),
-  invoke: (id: string, companyId?: string) => api.post<HeartbeatRun>(agentPath(id, companyId, "/heartbeat/invoke"), {}),
+  invoke: (companyId: string, id: string) => api.post<HeartbeatRun>(agentPath(companyId, id, "/heartbeat/invoke"), {}),
   wakeup: (
+    companyId: string,
     id: string,
     data: {
       source?: "timer" | "assignment" | "on_demand" | "automation";
@@ -148,8 +143,7 @@ export const agentsApi = {
       payload?: Record<string, unknown> | null;
       idempotencyKey?: string | null;
     },
-    companyId?: string,
-  ) => api.post<HeartbeatRun | { status: "skipped" }>(agentPath(id, companyId, "/wakeup"), data),
-  loginWithClaude: (id: string, companyId?: string) =>
-    api.post<ClaudeLoginResult>(agentPath(id, companyId, "/claude-login"), {}),
+  ) => api.post<HeartbeatRun | { status: "skipped" }>(agentPath(companyId, id, "/wakeup"), data),
+  loginWithClaude: (companyId: string, id: string) =>
+    api.post<ClaudeLoginResult>(agentPath(companyId, id, "/claude-login"), {}),
 };

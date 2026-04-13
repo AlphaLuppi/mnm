@@ -1,26 +1,15 @@
 import type { DriftReport, DriftCheckRequest, DriftResolveRequest, DriftItem, DriftScanRequest, DriftScanStatus, DriftItemFilters, DriftAlert, DriftMonitorStatus, DriftMonitorConfig } from "@mnm/shared";
 import { api } from "./client";
 
-function withCompanyScope(path: string, companyId?: string) {
-  if (!companyId) return path;
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}companyId=${encodeURIComponent(companyId)}`;
-}
-
-function projectDriftPath(projectId: string) {
-  return `/projects/${encodeURIComponent(projectId)}/drift`;
-}
-
 export const driftApi = {
-  check: (projectId: string, body: DriftCheckRequest, companyId?: string) =>
+  check: (companyId: string, projectId: string, body: DriftCheckRequest) =>
     api.post<DriftReport>(
-      withCompanyScope(`${projectDriftPath(projectId)}/check`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/drift/check`,
       body,
     ),
-  getResults: (projectId: string, companyId?: string, options?: { limit?: number; offset?: number; status?: string }) => {
-    let url = `${projectDriftPath(projectId)}/results`;
+  getResults: (companyId: string, projectId: string, options?: { limit?: number; offset?: number; status?: string }) => {
+    let url = `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/drift/results`;
     const params = new URLSearchParams();
-    if (companyId) params.set("companyId", companyId);
     if (options?.limit != null) params.set("limit", String(options.limit));
     if (options?.offset != null) params.set("offset", String(options.offset));
     if (options?.status) params.set("status", options.status);
@@ -28,26 +17,23 @@ export const driftApi = {
     if (qs) url += `?${qs}`;
     return api.get<{ data: DriftReport[]; total: number }>(url);
   },
-  resolve: (projectId: string, driftId: string, body: DriftResolveRequest, companyId?: string) =>
+  resolve: (companyId: string, projectId: string, driftId: string, body: DriftResolveRequest) =>
     api.patch<DriftItem>(
-      withCompanyScope(
-        `${projectDriftPath(projectId)}/${encodeURIComponent(driftId)}`,
-        companyId,
-      ),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/drift/${encodeURIComponent(driftId)}`,
       body,
     ),
-  scan: (projectId: string, body: DriftScanRequest, companyId?: string) =>
+  scan: (companyId: string, projectId: string, body: DriftScanRequest) =>
     api.post<{ started: boolean; status: DriftScanStatus }>(
-      withCompanyScope(`${projectDriftPath(projectId)}/scan`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/drift/scan`,
       body,
     ),
-  getStatus: (projectId: string, companyId?: string) =>
+  getStatus: (companyId: string, projectId: string) =>
     api.get<DriftScanStatus>(
-      withCompanyScope(`${projectDriftPath(projectId)}/status`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/drift/status`,
     ),
-  cancelScan: (projectId: string, companyId?: string) =>
+  cancelScan: (companyId: string, projectId: string) =>
     api.delete<{ cancelled: boolean }>(
-      withCompanyScope(`${projectDriftPath(projectId)}/scan`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/drift/scan`,
     ),
 };
 
