@@ -1,34 +1,35 @@
 #!/usr/bin/env node
 /**
- * MnM — Isolated E2E Test Runner
+ * MnM — Isolated E2E Test Runner (no Docker required)
  *
- * Spins up a completely isolated test environment:
- *   1. Starts ephemeral PostgreSQL + Redis via docker-compose.test.yml (tmpfs, no persistence)
- *   2. Starts a dedicated MnM server on port 3101 pointing to the test DB
- *   3. Runs Playwright E2E tests
- *   4. Stops and DESTROYS everything (docker down -v)
+ * Spins up a completely isolated test environment using embedded PostgreSQL:
+ *   1. Starts the MnM server with its own embedded postgres on port 54331,
+ *      data stored in a temp directory (completely separate from dev DB)
+ *   2. Runs Playwright E2E tests against this isolated server on port 3101
+ *   3. Kills the server and DELETES the temp data directory
  *
  * Usage:
- *   node scripts/e2e-runner.mjs              # run all tests
- *   node scripts/e2e-runner.mjs --headed     # run with browser visible
- *   node scripts/e2e-runner.mjs --grep "tenant"  # filter tests
- *   node scripts/e2e-runner.mjs --project browser # only browser tests
+ *   node scripts/e2e-runner.mjs                        # run all tests
+ *   node scripts/e2e-runner.mjs --headed               # browser visible
+ *   node scripts/e2e-runner.mjs --grep "tenant"        # filter tests
+ *   node scripts/e2e-runner.mjs --project browser      # only browser tests
  *
- * The dev database on port 54329/5432 is NEVER touched.
+ * The dev database (port 54329 / ~/.mnm/instances/default) is NEVER touched.
  */
 
 import { spawn, execSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 const TEST_PORT = 3101;
-const TEST_DB_URL = "postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test";
-const TEST_REDIS_URL = "redis://127.0.0.1:6380";
+const TEST_PG_PORT = 54331;
 const TEST_BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
 const HEALTH_URL = `${TEST_BASE_URL}/api/health`;
-const COMPOSE_FILE = "docker-compose.test.yml";
+const TEST_DATA_DIR = path.join(os.tmpdir(), `mnm-e2e-${Date.now()}`);
 
 const playwrightArgs = process.argv.slice(2);
-
 let serverProcess = null;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -42,12 +43,7 @@ function logError(msg) {
   console.error(`\x1b[31m[e2e ERROR]\x1b[0m ${msg}`);
 }
 
-function run(cmd, opts = {}) {
-  log(`$ ${cmd}`);
-  return execSync(cmd, { stdio: "inherit", ...opts });
-}
-
-async function waitForHealth(url, maxWaitMs = 60_000) {
+async function waitForHealth(url, maxWaitMs = 120_000) {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     try {
@@ -56,25 +52,45 @@ async function waitForHealth(url, maxWaitMs = 60_000) {
     } catch {
       // not ready yet
     }
-    await sleep(1000);
+    await sleep(2000);
   }
   return false;
 }
 
-async function waitForPostgres(maxWaitMs = 30_000) {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    try {
-      execSync(
-        `docker compose -f ${COMPOSE_FILE} exec -T db-test pg_isready -U mnm_test -d mnm_test`,
-        { stdio: "pipe" },
-      );
-      return true;
-    } catch {
-      await sleep(1000);
+function killProcessTree(pid) {
+  try {
+    if (process.platform === "win32") {
+      execSync(`taskkill /F /T /PID ${pid} 2>NUL`, { stdio: "pipe" });
+    } else {
+      process.kill(-pid, "SIGKILL");
     }
+  } catch { /* already dead */ }
+}
+
+function killPortProcesses(port) {
+  try {
+    if (process.platform === "win32") {
+      const out = execSync(`netstat -ano | findstr :${port}`, {
+        stdio: "pipe",
+        encoding: "utf8",
+      }).trim();
+      const pids = new Set(
+        out.split("\n").map((l) => l.trim().split(/\s+/).pop()).filter(Boolean),
+      );
+      for (const pid of pids) {
+        try { execSync(`taskkill /F /PID ${pid} 2>NUL`, { stdio: "pipe" }); } catch {}
+      }
+    }
+  } catch { /* nothing listening */ }
+}
+
+function rmrf(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 });
+    log(`Deleted ${dir}`);
+  } catch (err) {
+    logError(`Could not fully remove ${dir}: ${err.message}`);
   }
-  return false;
 }
 
 // ── Main ────────────────────────────────────────────────────────────────
@@ -82,122 +98,104 @@ async function waitForPostgres(maxWaitMs = 30_000) {
 async function main() {
   let exitCode = 1;
 
+  log("╔══════════════════════════════════════════════════════════╗");
+  log("║  MnM E2E — Isolated Test Runner (embedded postgres)    ║");
+  log("╚══════════════════════════════════════════════════════════╝");
+  log(`Server:   ${TEST_BASE_URL}`);
+  log(`Postgres: embedded on port ${TEST_PG_PORT}`);
+  log(`Data dir: ${TEST_DATA_DIR} (temp, destroyed after tests)`);
+  log("");
+
   try {
-    // ── Step 1: Start test infrastructure ────────────────────────────
-    log("Starting ephemeral test database (docker-compose.test.yml)...");
-    run(`docker compose -f ${COMPOSE_FILE} down -v 2>/dev/null || true`);
-    run(`docker compose -f ${COMPOSE_FILE} up -d --wait`);
+    // ── Step 1: Ensure test port is free ─────────────────────────────
+    killPortProcesses(TEST_PORT);
+    killPortProcesses(TEST_PG_PORT);
 
-    log("Waiting for PostgreSQL to be ready...");
-    const pgReady = await waitForPostgres();
-    if (!pgReady) {
-      throw new Error("Test PostgreSQL failed to start within 30s");
-    }
-    log("PostgreSQL ready on port 5433");
-
-    // ── Step 2: Start dedicated MnM server ──────────────────────────
-    log(`Starting MnM test server on port ${TEST_PORT}...`);
+    // ── Step 2: Start MnM server with isolated embedded postgres ────
+    log("Starting MnM server with isolated embedded postgres...");
+    fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 
     const serverEnv = {
       ...process.env,
-      DATABASE_URL: TEST_DB_URL,
-      REDIS_URL: TEST_REDIS_URL,
       PORT: String(TEST_PORT),
+      MNM_EMBEDDED_POSTGRES_PORT: String(TEST_PG_PORT),
+      MNM_EMBEDDED_POSTGRES_DATA_DIR: TEST_DATA_DIR,
       MNM_E2E_SEED: "true",
       MNM_MIGRATION_AUTO_APPLY: "true",
-      MNM_UI_DEV_MIDDLEWARE: "true",
       MNM_AGENT_JWT_SECRET: "mnm-e2e-test-secret",
-      // Don't start embedded postgres — we're using external docker
-      // The server detects DATABASE_URL and skips embedded postgres
     };
+    // Ensure no DATABASE_URL so the server uses embedded postgres
+    delete serverEnv.DATABASE_URL;
+    // Remove NODE_OPTIONS that could interfere with bun/tsx worker threads
+    delete serverEnv.NODE_OPTIONS;
 
-    serverProcess = spawn("bun", ["run", "--cwd", "server", "dev"], {
+    const bunBin = process.platform === "win32" ? "bun.exe" : "bun";
+    serverProcess = spawn(bunBin, ["run", "--cwd", "server", "dev"], {
       env: serverEnv,
       stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
+      shell: process.platform === "win32",
     });
 
-    // Stream server output with prefix
     serverProcess.stdout?.on("data", (data) => {
-      const lines = data.toString().split("\n").filter(Boolean);
-      for (const line of lines) {
-        if (line.includes("listening on") || line.includes("error") || line.includes("migration")) {
-          log(`[server] ${line}`);
+      for (const line of data.toString().split("\n").filter(Boolean)) {
+        if (/listen|error|migrat|embedded|postgres/i.test(line)) {
+          log(`[server] ${line.trim()}`);
         }
       }
     });
     serverProcess.stderr?.on("data", (data) => {
-      const lines = data.toString().split("\n").filter(Boolean);
-      for (const line of lines) {
-        if (!line.includes("ExperimentalWarning")) {
-          logError(`[server] ${line}`);
+      for (const line of data.toString().split("\n").filter(Boolean)) {
+        if (!/ExperimentalWarning|DeprecationWarning/.test(line)) {
+          logError(`[server] ${line.trim()}`);
         }
       }
     });
 
-    log("Waiting for server health check...");
-    const serverReady = await waitForHealth(HEALTH_URL, 60_000);
-    if (!serverReady) {
-      throw new Error(`MnM server failed to start on ${TEST_BASE_URL} within 60s`);
-    }
-    log(`Server ready at ${TEST_BASE_URL}`);
+    log("Waiting for server (postgres init + 71 migrations)...");
+    const ready = await waitForHealth(HEALTH_URL, 120_000);
+    if (!ready) throw new Error(`Server failed to start at ${TEST_BASE_URL} within 120s`);
+    log(`Server ready at ${TEST_BASE_URL}\n`);
 
-    // ── Step 3: Run Playwright tests ────────────────────────────────
-    log("Running Playwright E2E tests...");
+    // ── Step 3: Run Playwright ──────────────────────────────────────
+    log("Running Playwright E2E tests...\n");
 
-    const pwArgs = ["npx", "playwright", "test", ...playwrightArgs];
-    const pwEnv = {
-      ...process.env,
-      MNM_BASE_URL: TEST_BASE_URL,
-      MNM_E2E_SEED: "true",
-    };
-
-    const result = spawn(pwArgs[0], pwArgs.slice(1), {
-      env: pwEnv,
-      stdio: "inherit",
-      shell: true,
-    });
+    // Use the playwright executable directly (bun can't load .ts configs via playwright)
+    const pwBin = process.platform === "win32"
+      ? "node_modules/.bin/playwright.exe"
+      : "node_modules/.bin/playwright";
+    const result = spawn(
+      pwBin,
+      ["test", ...playwrightArgs],
+      {
+        env: { ...process.env, MNM_BASE_URL: TEST_BASE_URL, MNM_E2E_SEED: "true" },
+        stdio: "inherit",
+      },
+    );
 
     exitCode = await new Promise((resolve) => {
       result.on("close", (code) => resolve(code ?? 1));
     });
 
-    if (exitCode === 0) {
-      log("All E2E tests passed!");
-    } else {
-      logError(`E2E tests failed with exit code ${exitCode}`);
-    }
+    log(exitCode === 0 ? "\nAll E2E tests passed!" : `\nTests finished with exit code ${exitCode}`);
   } catch (err) {
     logError(err.message);
   } finally {
-    // ── Step 4: Cleanup — DESTROY everything ────────────────────────
-    log("Cleaning up...");
+    // ── Step 4: DESTROY everything ──────────────────────────────────
+    log("\nCleaning up...");
 
-    // Kill server process
-    if (serverProcess) {
+    if (serverProcess && !serverProcess.killed) {
       log("Stopping test server...");
-      try {
-        // On Windows, spawn with shell=true creates a cmd.exe wrapper.
-        // Kill the entire process tree.
-        if (process.platform === "win32") {
-          execSync(`taskkill /F /T /PID ${serverProcess.pid} 2>NUL`, { stdio: "pipe" });
-        } else {
-          serverProcess.kill("SIGTERM");
-        }
-      } catch {
-        // already dead
-      }
+      killProcessTree(serverProcess.pid);
+      await sleep(2000);
     }
 
-    // Destroy docker containers + volumes (ephemeral data wiped)
-    log("Destroying test database and containers...");
-    try {
-      run(`docker compose -f ${COMPOSE_FILE} down -v`);
-    } catch {
-      logError("Failed to stop docker containers (may need manual cleanup)");
-    }
+    killPortProcesses(TEST_PG_PORT);
+    await sleep(1000);
 
-    log("Cleanup complete. Your dev database was never touched.");
+    log(`Destroying test data: ${TEST_DATA_DIR}`);
+    rmrf(TEST_DATA_DIR);
+
+    log("Done. Your dev database was never touched.\n");
   }
 
   process.exit(exitCode);

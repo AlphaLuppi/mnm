@@ -187,7 +187,7 @@ async function setupLocalTrusted(): Promise<void> {
   }
   console.log("[e2e-setup] Empty storage states saved for all roles.");
 
-  // Try to seed data via API (use plain request, no auth needed)
+  // Seed data via API (use plain request, no auth needed in local_trusted)
   const ctx = await request.newContext({
     baseURL: BASE_URL,
     extraHTTPHeaders: { Origin: BASE_URL },
@@ -200,6 +200,27 @@ async function setupLocalTrusted(): Promise<void> {
       console.log(`[e2e-setup] Basic seed: userId=${seed.userId}, companiesJoined=${seed.companiesJoined}`);
     } else {
       console.log(`[e2e-setup] Seed endpoint returned ${seedRes.status()} — OK for local_trusted.`);
+    }
+
+    // Also seed multi-tenant data (companies, agents, projects) for tenant isolation tests
+    const seedMultiRes = await ctx.post("/api/e2e-seed/ensure-multi-role-access", {
+      data: {
+        users: [],
+        companies: COMPANIES,
+        agents: AGENTS,
+        projects: PROJECTS,
+        goals: GOALS,
+        workflowTemplates: WORKFLOW_TEMPLATES,
+        containerProfiles: CONTAINER_PROFILES,
+        automationCursors: AUTOMATION_CURSORS,
+        auditEvents: SAMPLE_AUDIT_EVENTS,
+      },
+    });
+    if (seedMultiRes.ok()) {
+      const seedData = await seedMultiRes.json();
+      console.log(`[e2e-setup] Multi-tenant seed complete:`, JSON.stringify(seedData).slice(0, 200));
+    } else {
+      console.warn(`[e2e-setup] Multi-tenant seed returned ${seedMultiRes.status()}: ${await seedMultiRes.text()}`);
     }
   } finally {
     await ctx.dispose();
