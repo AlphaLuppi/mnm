@@ -185,7 +185,7 @@ export function NewProjectDialog() {
         });
       }
       for (const workspacePayload of workspacePayloads) {
-        await projectsApi.createWorkspace(created.id, {
+        await projectsApi.createWorkspace(selectedCompanyId, created.id, {
           ...workspacePayload,
         });
       }

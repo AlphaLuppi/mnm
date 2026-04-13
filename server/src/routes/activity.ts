@@ -87,7 +87,7 @@ export function activityRoutes(db: Db) {
     }
   });
 
-  router.get("/issues/:id/activity", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id/activity", async (req, res) => {
     const id = req.params.id as string;
     const issue = await issueSvc.getById(id);
     if (!issue) {
@@ -110,7 +110,7 @@ export function activityRoutes(db: Db) {
     res.json(result);
   });
 
-  router.get("/issues/:id/runs", async (req, res) => {
+  router.get("/companies/:companyId/issues/:id/runs", async (req, res) => {
     const id = req.params.id as string;
     const issue = await issueSvc.getById(id);
     if (!issue) {
@@ -133,7 +133,7 @@ export function activityRoutes(db: Db) {
     res.json(result);
   });
 
-  router.get("/heartbeat-runs/:runId/issues", async (req, res) => {
+  router.get("/companies/:companyId/heartbeat-runs/:runId/issues", async (req, res) => {
     const runId = req.params.runId as string;
     const result = await svc.issuesForRun(runId);
     res.json(result);

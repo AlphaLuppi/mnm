@@ -221,7 +221,7 @@ function SpecViewer({
 
   const driftMutation = useMutation({
     mutationFn: (targetDoc: string) =>
-      workspaceContextApi.driftCheck(projectId, path, targetDoc, companyId),
+      workspaceContextApi.driftCheck(companyId!, projectId, path, targetDoc),
     onSuccess: (report) => {
       setDriftReport(report);
       setDriftOpen(false);
@@ -704,7 +704,7 @@ function OnboardBanner({ projectId, companyId, hasWorkspace }: { projectId?: str
 
   const onboardMutation = useMutation({
     mutationFn: (agentId: string | null) =>
-      projectsApi.onboard(projectId!, agentId ? { agentId } : {}, companyId),
+      projectsApi.onboard(companyId!, projectId!, agentId ? { agentId } : {}),
     onSuccess: (data) => {
       navigate(`/issues/${data.identifier ?? data.issueId}`);
     },
@@ -816,7 +816,7 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
 
   const { data: assignmentsData } = useQuery({
     queryKey: ["workspace-assignments", projectId ?? ""],
-    queryFn: () => workspaceContextApi.getAssignments(projectId!, companyId!),
+    queryFn: () => workspaceContextApi.getAssignments(companyId!, projectId!),
     enabled: !!projectId && !!companyId,
   });
   const workspaceId = assignmentsData?.workspaceId ?? null;
@@ -876,7 +876,7 @@ function ProjectAgentsDashboard({ projectId, companyId }: { projectId?: string; 
 
   const updateIssue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      import("../api/issues").then((m) => m.issuesApi.update(id, data)),
+      import("../api/issues").then((m) => m.issuesApi.update(companyId!, id, data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId ?? "", projectId ?? "") });
     },

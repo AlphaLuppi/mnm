@@ -20,58 +20,49 @@ export interface DiscoveredWorkspaceAgent {
   workflows: string[];
 }
 
-function withCompanyScope(path: string, companyId?: string) {
-  if (!companyId) return path;
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}companyId=${encodeURIComponent(companyId)}`;
-}
-
 export const workspaceContextApi = {
-  getProject: (projectId: string, companyId?: string) =>
+  getProject: (companyId: string, projectId: string) =>
     api.get<WorkspaceContext>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context`,
     ),
-  getWorkflows: (projectId: string, companyId?: string) =>
+  getWorkflows: (companyId: string, projectId: string) =>
     api.get<{ workflows: WorkspaceWorkflow[] }>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/workflows`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/workflows`,
     ),
-  getAgents: (projectId: string, companyId?: string) =>
+  getAgents: (companyId: string, projectId: string) =>
     api.get<{ agents: DiscoveredWorkspaceAgent[] }>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/agents`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/agents`,
     ),
   importAgents: (
+    companyId: string,
     projectId: string,
     slugs: string[],
     workspaceId: string | null | undefined,
-    companyId?: string,
   ) =>
     api.post<{ created: unknown[]; assignments: Record<string, string> }>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/import-agents`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/import-agents`,
       { slugs, workspaceId: workspaceId === undefined ? undefined : workspaceId },
     ),
-  getFile: (projectId: string, filePath: string, companyId?: string) =>
+  getFile: (companyId: string, projectId: string, filePath: string) =>
     api.getText(
-      withCompanyScope(
-        `/projects/${encodeURIComponent(projectId)}/workspace-context/file?path=${encodeURIComponent(filePath)}`,
-        companyId,
-      ),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/file?path=${encodeURIComponent(filePath)}`,
     ),
-  driftCheck: (projectId: string, sourceDoc: string, targetDoc: string, companyId?: string) =>
+  driftCheck: (companyId: string, projectId: string, sourceDoc: string, targetDoc: string) =>
     api.post<DriftReport>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/drift-check`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/drift-check`,
       { sourceDoc, targetDoc },
     ),
-  getAssignments: (projectId: string, companyId?: string) =>
+  getAssignments: (companyId: string, projectId: string) =>
     api.get<{ assignments: Record<string, string>; workspaceId: string | null }>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/assignments`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/assignments`,
     ),
-  saveAssignments: (projectId: string, assignments: Record<string, string>, companyId?: string) =>
+  saveAssignments: (companyId: string, projectId: string, assignments: Record<string, string>) =>
     api.post<{ ok: true }>(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/assignments`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/assignments`,
       { assignments },
     ),
-  getCommand: (projectId: string, name: string, companyId?: string) =>
+  getCommand: (companyId: string, projectId: string, name: string) =>
     api.getText(
-      withCompanyScope(`/projects/${encodeURIComponent(projectId)}/workspace-context/command?name=${encodeURIComponent(name)}`, companyId),
+      `/companies/${companyId}/projects/${encodeURIComponent(projectId)}/workspace-context/command?name=${encodeURIComponent(name)}`,
     ),
 };

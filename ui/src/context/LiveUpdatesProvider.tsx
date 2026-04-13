@@ -70,7 +70,7 @@ function resolveIssueQueryRefs(
   details: Record<string, unknown> | null,
 ): string[] {
   const refs = new Set<string>([issueId]);
-  const detailIssue = queryClient.getQueryData<Issue>(queryKeys.issues.detail(issueId));
+  const detailIssue = queryClient.getQueryData<Issue>(queryKeys.issues.detail(companyId, issueId));
   const listIssues = queryClient.getQueryData<Issue[]>(queryKeys.issues.list(companyId));
   const detailsIdentifier =
     readString(details?.identifier) ??
@@ -101,7 +101,7 @@ function resolveIssueToastContext(
 ): IssueToastContext {
   const issueRefs = resolveIssueQueryRefs(queryClient, companyId, issueId, details);
   const detailIssue = issueRefs
-    .map((ref) => queryClient.getQueryData<Issue>(queryKeys.issues.detail(ref)))
+    .map((ref) => queryClient.getQueryData<Issue>(queryKeys.issues.detail(companyId, ref)))
     .find((issue): issue is Issue => !!issue);
   const listIssue = queryClient
     .getQueryData<Issue[]>(queryKeys.issues.list(companyId))
@@ -342,15 +342,15 @@ function invalidateHeartbeatQueries(
 
   const agentId = readString(payload.agentId);
   if (agentId) {
-    queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(companyId, agentId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(companyId, agentId) });
   }
 
   const issueId = readString(payload.issueId);
   if (issueId) {
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(issueId) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(issueId) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(issueId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(companyId, issueId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(companyId, issueId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(companyId, issueId) });
   }
 }
 
@@ -372,12 +372,12 @@ function invalidateActivityQueries(
       const details = readRecord(payload.details);
       const issueRefs = resolveIssueQueryRefs(queryClient, companyId, entityId, details);
       for (const ref of issueRefs) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(ref) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(ref) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(ref) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(ref) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(ref) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(ref) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(companyId, ref) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(companyId, ref) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(companyId, ref) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(companyId, ref) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(companyId, ref) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(companyId, ref) });
       }
     }
     return;
@@ -387,7 +387,7 @@ function invalidateActivityQueries(
     queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.org(companyId) });
     if (entityId) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(entityId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(companyId, entityId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(companyId, entityId) });
     }
     return;
@@ -500,7 +500,7 @@ function handleLiveEvent(
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(expectedCompanyId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.org(expectedCompanyId) });
     const agentId = readString(payload.agentId);
-    if (agentId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentId) });
+    if (agentId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(expectedCompanyId, agentId) });
     const toast = buildAgentStatusToast(payload, nameOf, queryClient, expectedCompanyId);
     if (toast) gatedPushToast(gate, pushToast, "agent-status", toast);
     return;

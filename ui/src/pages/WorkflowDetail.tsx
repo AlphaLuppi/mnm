@@ -142,8 +142,8 @@ export function WorkflowDetail() {
 
   const { data: workflow, isLoading, error } = useQuery({
     queryKey: queryKeys.workflows.detail(workflowId!),
-    queryFn: () => workflowsApi.get(workflowId!),
-    enabled: !!workflowId,
+    queryFn: () => workflowsApi.get(selectedCompanyId!, workflowId!),
+    enabled: !!workflowId && !!selectedCompanyId,
   });
 
   useEffect(() => {
@@ -155,7 +155,7 @@ export function WorkflowDetail() {
 
   const transitionMutation = useMutation({
     mutationFn: ({ stageId, status }: { stageId: string; status: string }) =>
-      stagesApi.transition(stageId, { status }),
+      stagesApi.transition(selectedCompanyId!, stageId, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(workflowId!) });
       if (selectedCompanyId) {

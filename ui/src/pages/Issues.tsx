@@ -77,7 +77,7 @@ export function Issues() {
 
   const updateIssue = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      issuesApi.update(id, data),
+      issuesApi.update(selectedCompanyId!, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId!) });
     },
@@ -86,7 +86,7 @@ export function Issues() {
   // "Take" action: self-assign a pool issue to the current user
   const takeIssue = useMutation({
     mutationFn: (issueId: string) =>
-      issuesApi.update(issueId, { assigneeUserId: "me", status: "todo" }),
+      issuesApi.update(selectedCompanyId!, issueId, { assigneeUserId: "me", status: "todo" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId!) });
     },

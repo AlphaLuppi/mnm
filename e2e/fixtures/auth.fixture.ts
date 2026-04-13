@@ -1,15 +1,17 @@
 /**
  * Auth Fixture — Extends Playwright's base test with role-based authenticated pages.
  *
- * Provides 4 page fixtures, each pre-authenticated with stored browser state:
- *   - adminPage:       admin@novatech.test (admin role, full permissions)
- *   - managerPage:     manager@novatech.test (manager role, 14/20 permissions)
- *   - contributorPage: contributor@novatech.test (contributor role, 5/20 permissions)
- *   - viewerPage:      viewer@novatech.test (viewer role, 2/20 permissions — read only)
+ * Provides 5 page fixtures, each pre-authenticated with stored browser state:
+ *   - adminPage:        admin@novatech.test (admin role, full permissions)
+ *   - managerPage:      manager@novatech.test (manager role, 14/20 permissions)
+ *   - contributorPage:  contributor@novatech.test (contributor role, 5/20 permissions)
+ *   - viewerPage:       viewer@novatech.test (viewer role, 2/20 permissions — read only)
+ *   - atelierAdminPage: admin@atelier.test (Atelier Numerique admin — cross-tenant isolation)
  *
  * Usage:
  *   import { test, expect } from "../fixtures/auth.fixture";
  *   test("admin can see settings", async ({ adminPage }) => { ... });
+ *   test("tenant isolation", async ({ adminPage, atelierAdminPage }) => { ... });
  */
 import { test as base, expect, type Page, type BrowserContext } from "@playwright/test";
 import { AUTH_STATES } from "./seed-data";
@@ -21,10 +23,12 @@ type RoleFixtures = {
   managerPage: Page;
   contributorPage: Page;
   viewerPage: Page;
+  atelierAdminPage: Page;
   adminContext: BrowserContext;
   managerContext: BrowserContext;
   contributorContext: BrowserContext;
   viewerContext: BrowserContext;
+  atelierAdminContext: BrowserContext;
 };
 
 // ─── Helper: Create authenticated context + page ────────────────────────────
@@ -96,6 +100,20 @@ export const test = base.extend<RoleFixtures>({
   },
   viewerPage: async ({ viewerContext }, use) => {
     const page = await viewerContext.newPage();
+    await use(page);
+    await page.close();
+  },
+
+  // Atelier Admin — cross-tenant isolation (Atelier Numerique company)
+  atelierAdminContext: async ({ browser }, use) => {
+    const context = await browser.newContext({
+      storageState: AUTH_STATES.atelierAdmin,
+    });
+    await use(context);
+    await context.close();
+  },
+  atelierAdminPage: async ({ atelierAdminContext }, use) => {
+    const page = await atelierAdminContext.newPage();
     await use(page);
     await page.close();
   },

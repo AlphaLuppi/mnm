@@ -275,8 +275,8 @@ export function AgentDetail() {
   const setCancelConfigAction = useCallback((fn: (() => void) | null) => { cancelConfigActionRef.current = fn; }, []);
 
   const { data: agent, isLoading, error } = useQuery({
-    queryKey: [...queryKeys.agents.detail(routeAgentRef), lookupCompanyId ?? null],
-    queryFn: () => agentsApi.get(routeAgentRef, lookupCompanyId),
+    queryKey: [...queryKeys.agents.detail(lookupCompanyId ?? "", routeAgentRef), lookupCompanyId ?? null],
+    queryFn: () => agentsApi.get(lookupCompanyId!, routeAgentRef),
     enabled: canFetchAgent,
   });
   const resolvedCompanyId = agent?.companyId ?? selectedCompanyId;
@@ -285,8 +285,8 @@ export function AgentDetail() {
   const resolvedAgentId = agent?.id ?? null;
 
   const { data: runtimeState } = useQuery({
-    queryKey: queryKeys.agents.runtimeState(resolvedAgentId ?? routeAgentRef),
-    queryFn: () => agentsApi.runtimeState(resolvedAgentId!, resolvedCompanyId ?? undefined),
+    queryKey: queryKeys.agents.runtimeState(resolvedCompanyId ?? "", resolvedAgentId ?? routeAgentRef),
+    queryFn: () => agentsApi.runtimeState(resolvedCompanyId!, resolvedAgentId!),
     enabled: Boolean(resolvedAgentId),
   });
 
@@ -353,18 +353,18 @@ export function AgentDetail() {
     mutationFn: async (action: "invoke" | "pause" | "resume" | "terminate") => {
       if (!agentLookupRef) return Promise.reject(new Error("No agent reference"));
       switch (action) {
-        case "invoke": return agentsApi.invoke(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "pause": return agentsApi.pause(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "resume": return agentsApi.resume(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "terminate": return agentsApi.terminate(agentLookupRef, resolvedCompanyId ?? undefined);
+        case "invoke": return agentsApi.invoke(resolvedCompanyId!, agentLookupRef);
+        case "pause": return agentsApi.pause(resolvedCompanyId!, agentLookupRef);
+        case "resume": return agentsApi.resume(resolvedCompanyId!, agentLookupRef);
+        case "terminate": return agentsApi.terminate(resolvedCompanyId!, agentLookupRef);
       }
     },
     onSuccess: (data, action) => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(agentLookupRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(resolvedCompanyId ?? "", routeAgentRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(resolvedCompanyId ?? "", agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(resolvedCompanyId ?? "", agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(resolvedCompanyId ?? "", agentLookupRef) });
       if (resolvedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
         if (agent?.id) {
@@ -381,10 +381,10 @@ export function AgentDetail() {
   });
 
   const updateIcon = useMutation({
-    mutationFn: (icon: string) => agentsApi.update(agentLookupRef, { icon }, resolvedCompanyId ?? undefined),
+    mutationFn: (icon: string) => agentsApi.update(resolvedCompanyId!, agentLookupRef, { icon }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(resolvedCompanyId ?? "", routeAgentRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(resolvedCompanyId ?? "", agentLookupRef) });
       if (resolvedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
       }
@@ -393,11 +393,11 @@ export function AgentDetail() {
 
   const resetTaskSession = useMutation({
     mutationFn: (taskKey: string | null) =>
-      agentsApi.resetSession(agentLookupRef, taskKey, resolvedCompanyId ?? undefined),
+      agentsApi.resetSession(resolvedCompanyId!, agentLookupRef, taskKey),
     onSuccess: () => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(agentLookupRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(resolvedCompanyId ?? "", agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(resolvedCompanyId ?? "", agentLookupRef) });
     },
     onError: (err) => {
       setActionError(err instanceof Error ? err.message : "Failed to reset session");
@@ -406,11 +406,11 @@ export function AgentDetail() {
 
   const updatePermissions = useMutation({
     mutationFn: (data: { canCreateAgents?: boolean; permissionSlugs?: string[] }) =>
-      agentsApi.updatePermissions(agentLookupRef, data, resolvedCompanyId ?? undefined),
+      agentsApi.updatePermissions(resolvedCompanyId!, agentLookupRef, data),
     onSuccess: () => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(resolvedCompanyId ?? "", routeAgentRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(resolvedCompanyId ?? "", agentLookupRef) });
       queryClient.invalidateQueries({ queryKey: ["agent-direct-permissions", agentLookupRef] });
       if (resolvedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
@@ -1133,16 +1133,16 @@ function AgentConfigurePage({
   const [revisionsOpen, setRevisionsOpen] = useState(false);
 
   const { data: configRevisions } = useQuery({
-    queryKey: queryKeys.agents.configRevisions(agent.id),
-    queryFn: () => agentsApi.listConfigRevisions(agent.id, companyId),
+    queryKey: queryKeys.agents.configRevisions(companyId ?? "", agent.id),
+    queryFn: () => agentsApi.listConfigRevisions(companyId!, agent.id),
   });
 
   const rollbackConfig = useMutation({
-    mutationFn: (revisionId: string) => agentsApi.rollbackConfigRevision(agent.id, revisionId, companyId),
+    mutationFn: (revisionId: string) => agentsApi.rollbackConfigRevision(companyId!, agent.id, revisionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(agent.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(companyId ?? "", agent.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(companyId ?? "", agent.urlKey) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(companyId ?? "", agent.id) });
     },
   });
 
@@ -1268,7 +1268,7 @@ function ConfigurationTab({
 
   const { data: directPermsData } = useQuery({
     queryKey: ["agent-direct-permissions", agent.id],
-    queryFn: () => agentsApi.getDirectPermissions(agent.id, companyId),
+    queryFn: () => agentsApi.getDirectPermissions(companyId!, agent.id),
     enabled: Boolean(companyId),
   });
 
@@ -1319,11 +1319,11 @@ function ConfigurationTab({
   const resolvedTagIds = selectedTagIds ?? (agentTags?.map((t) => t.id) ?? []);
 
   const updateAgent = useMutation({
-    mutationFn: (data: Record<string, unknown>) => agentsApi.update(agent.id, data, companyId),
+    mutationFn: (data: Record<string, unknown>) => agentsApi.update(companyId!, agent.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(agent.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(companyId ?? "", agent.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(companyId ?? "", agent.urlKey) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(companyId ?? "", agent.id) });
       if (companyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.tags.forAgent(companyId, agent.id) });
       }
@@ -1616,7 +1616,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
   }, [run.id]);
 
   const cancelRun = useMutation({
-    mutationFn: () => heartbeatsApi.cancel(run.id),
+    mutationFn: () => heartbeatsApi.cancel(run.companyId, run.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
     },
@@ -1640,12 +1640,12 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
   }, [run.contextSnapshot, run.id]);
   const resumeRun = useMutation({
     mutationFn: async () => {
-      const result = await agentsApi.wakeup(run.agentId, {
+      const result = await agentsApi.wakeup(run.companyId, run.agentId, {
         source: "on_demand",
         triggerDetail: "manual",
         reason: "resume_process_lost_run",
         payload: resumePayload,
-      }, run.companyId);
+      });
       if (!("id" in result)) {
         throw new Error("Resume request was skipped because the agent is not currently invokable.");
       }
@@ -1672,12 +1672,12 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
   }, [run.contextSnapshot]);
   const retryRun = useMutation({
     mutationFn: async () => {
-      const result = await agentsApi.wakeup(run.agentId, {
+      const result = await agentsApi.wakeup(run.companyId, run.agentId, {
         source: "on_demand",
         triggerDetail: "manual",
         reason: "retry_failed_run",
         payload: retryPayload,
-      }, run.companyId);
+      });
       if (!("id" in result)) {
         throw new Error("Retry was skipped because the agent is not currently invokable.");
       }
@@ -1710,7 +1710,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
 
   const { data: touchedIssues } = useQuery({
     queryKey: queryKeys.runIssues(run.id),
-    queryFn: () => activityApi.issuesForRun(run.id),
+    queryFn: () => activityApi.issuesForRun(run.companyId, run.id),
   });
   const touchedIssueIds = useMemo(
     () => Array.from(new Set((touchedIssues ?? []).map((issue) => issue.issueId))),
@@ -1734,18 +1734,18 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
   const clearSessionsForTouchedIssues = useMutation({
     mutationFn: async () => {
       if (touchedIssueIds.length === 0) return 0;
-      await Promise.all(touchedIssueIds.map((issueId) => agentsApi.resetSession(run.agentId, issueId, run.companyId)));
+      await Promise.all(touchedIssueIds.map((issueId) => agentsApi.resetSession(run.companyId, run.agentId, issueId)));
       return touchedIssueIds.length;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(run.agentId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(run.agentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(run.companyId, run.agentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(run.companyId, run.agentId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.runIssues(run.id) });
     },
   });
 
   const runClaudeLogin = useMutation({
-    mutationFn: () => agentsApi.loginWithClaude(run.agentId, run.companyId),
+    mutationFn: () => agentsApi.loginWithClaude(run.companyId, run.agentId),
     onSuccess: (data) => {
       setClaudeLoginResult(data);
     },
@@ -2144,7 +2144,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
   // Fetch events
   const { data: initialEvents } = useQuery({
     queryKey: ["run-events", run.id],
-    queryFn: () => heartbeatsApi.events(run.id, 0, 200),
+    queryFn: () => heartbeatsApi.events(run.companyId, run.id, 0, 200),
   });
 
   useEffect(() => {
@@ -2261,7 +2261,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
         let offset = 0;
         let first = true;
         while (!cancelled) {
-          const result = await heartbeatsApi.log(run.id, offset, first ? firstLimit : 256_000);
+          const result = await heartbeatsApi.log(run.companyId, run.id, offset, first ? firstLimit : 256_000);
           if (cancelled) break;
           appendLogContent(result.content, result.nextOffset === undefined);
           const next = result.nextOffset ?? offset + result.content.length;
@@ -2295,7 +2295,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     const interval = setInterval(async () => {
       const maxSeq = events.length > 0 ? Math.max(...events.map((e) => e.seq)) : 0;
       try {
-        const newEvents = await heartbeatsApi.events(run.id, maxSeq, 100);
+        const newEvents = await heartbeatsApi.events(run.companyId, run.id, maxSeq, 100);
         if (newEvents.length > 0) {
           setEvents((prev) => [...prev, ...newEvents]);
         }
@@ -2311,7 +2311,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     if (!isLive || isStreamingConnected) return;
     const interval = setInterval(async () => {
       try {
-        const result = await heartbeatsApi.log(run.id, logOffset, 256_000);
+        const result = await heartbeatsApi.log(run.companyId, run.id, logOffset, 256_000);
         if (result.content) {
           appendLogContent(result.content, result.nextOffset === undefined);
         }
@@ -2772,24 +2772,24 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
   const [copied, setCopied] = useState(false);
 
   const { data: keys, isLoading } = useQuery({
-    queryKey: queryKeys.agents.keys(agentId),
-    queryFn: () => agentsApi.listKeys(agentId, companyId),
+    queryKey: queryKeys.agents.keys(companyId ?? "", agentId),
+    queryFn: () => agentsApi.listKeys(companyId!, agentId),
   });
 
   const createKey = useMutation({
-    mutationFn: () => agentsApi.createKey(agentId, newKeyName.trim() || "Default", companyId),
+    mutationFn: () => agentsApi.createKey(companyId!, agentId, newKeyName.trim() || "Default"),
     onSuccess: (data) => {
       setNewToken(data.token);
       setTokenVisible(true);
       setNewKeyName("");
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(companyId ?? "", agentId) });
     },
   });
 
   const revokeKey = useMutation({
-    mutationFn: (keyId: string) => agentsApi.revokeKey(agentId, keyId, companyId),
+    mutationFn: (keyId: string) => agentsApi.revokeKey(companyId!, agentId, keyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(companyId ?? "", agentId) });
     },
   });
 

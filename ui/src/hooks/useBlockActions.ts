@@ -54,7 +54,7 @@ export function useBlockActions({ surface, surfaceId, isActioned }: UseBlockActi
         queryClient.invalidateQueries({ queryKey: queryKeys.inboxItems.list(selectedCompanyId) });
       }
       if (surface === "issue" && surfaceId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(surfaceId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(selectedCompanyId!, surfaceId) });
       }
     },
     onError: (err) => {
