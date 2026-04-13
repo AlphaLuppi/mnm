@@ -5,7 +5,7 @@
  *   1. Wait for server health check
  *   2. Register 5 test users via Better Auth sign-up (or sign-in if exists)
  *   3. Seed companies, memberships, agents, projects, workflows via e2e-seed API
- *   4. Save 4 role-based auth states (admin, manager, contributor, viewer)
+ *   4. Save 5 role-based auth states (admin, manager, contributor, viewer, atelierAdmin)
  *   5. Save legacy auth state for backward compatibility with existing browser tests
  *
  * Requires:
@@ -230,6 +230,7 @@ export default async function globalSetup(): Promise<void> {
     novaTechManager: AUTH_STATES.manager,
     novaTechContributor: AUTH_STATES.contributor,
     novaTechViewer: AUTH_STATES.viewer,
+    atelierAdmin: AUTH_STATES.atelierAdmin,
   };
 
   for (const [userKey, userDef] of Object.entries(USERS)) {
@@ -295,6 +296,7 @@ export default async function globalSetup(): Promise<void> {
   process.env.E2E_MANAGER_USER_ID = userResults.novaTechManager?.userId ?? "";
   process.env.E2E_CONTRIBUTOR_USER_ID = userResults.novaTechContributor?.userId ?? "";
   process.env.E2E_VIEWER_USER_ID = userResults.novaTechViewer?.userId ?? "";
+  process.env.E2E_ATELIER_ADMIN_USER_ID = userResults.atelierAdmin?.userId ?? "";
 
   console.log("[e2e-setup] Global setup complete.");
 }

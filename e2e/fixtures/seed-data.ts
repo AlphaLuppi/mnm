@@ -1002,6 +1002,7 @@ export const AUTH_STATES = {
   manager: `${AUTH_STATE_DIR}/managerStorageState.json`,
   contributor: `${AUTH_STATE_DIR}/contributorStorageState.json`,
   viewer: `${AUTH_STATE_DIR}/viewerStorageState.json`,
+  atelierAdmin: `${AUTH_STATE_DIR}/atelierAdminStorageState.json`,
   // Legacy compatibility (used by existing browser tests)
   default: `${AUTH_STATE_DIR}/storageState.json`,
 } as const;
