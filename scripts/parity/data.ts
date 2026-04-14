@@ -543,9 +543,9 @@ export const parityData: ParityData = {
           id: "first-run-wizard",
           name: "First-run wizard: Local vs Remote instance",
           description:
-            "Welcome screen on first launch. Explains the two modes and gates users without a backend toward the private repo (via `backend-setup-link`).",
+            "NoProfileGate replaced by a two-step wizard. Step 1 (Welcome): MnM masthead + two ModeCards (HardDrive icon → Local, Server icon → Remote) + footer link to the setup guide (mnm.alphaluppi.fr/#setup) for users without a backend. Step 2 (Connect): mode-aware form — Local pre-fills name=Local and URL=http://localhost:3100, Remote starts empty with admin hint + example URL hint under the field. Back button returns to Welcome. Submit calls addProfile() → window.location.reload() so main.tsx re-runs its boot gate. WizardShell is a full-screen draggable region so the window stays moveable on every step even before DesktopTitleBar mounts.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "backend-setup-link",
