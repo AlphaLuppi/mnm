@@ -240,6 +240,15 @@
   html.tauri-shell body {
     padding-top: 36px;
   }
+  /*
+   * Client-version warning banner sits immediately below the title bar
+   * when a min-version mismatch is detected. The banner component toggles
+   * the `tauri-banner-visible` class on <html> so we can reserve an extra
+   * 36px without the banner overlapping page content.
+   */
+  html.tauri-shell.tauri-banner-visible body {
+    padding-top: 72px;
+  }
   .font-mono, code, pre, kbd, samp {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }

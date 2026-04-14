@@ -564,16 +564,9 @@ export const parityData: ParityData = {
           id: "api-version-compat",
           name: "API version compatibility check",
           description:
-            "Desktop sends `X-MnM-Client-Version` on every request. Backend responds with a compatibility header; desktop surfaces a non-blocking warning banner when the client is below the minimum supported version.",
+            "Backend: /api/health now returns a `minClientVersion` field (null when unset). Configurable via the `MNM_MIN_CLIENT_VERSION` env var; threads through `createApp` → `healthRoutes`. We chose a JSON field over a response header so desktops see the value without any CORS expose-headers plumbing. Desktop: `client-version.ts` module caches the client version (read from Tauri `app_info()` at boot) and the last-seen `minClientVersion`, exposes a `useSyncExternalStore`-friendly subscribe API, and a `compareClientVersion` that only parses MAJOR.MINOR.PATCH (malformed inputs never trigger the banner). `ClientVersionBanner` (amber strip under the title bar, fixed z-59, 36px) surfaces when the desktop is strictly below the minimum; per-min-version dismissal stored in sessionStorage; CTA deep-links to the GitHub releases page. Main.tsx parallelises `initActiveProfile()` + `initClientVersion()` and forwards `healthResult.data.minClientVersion` to the store after the pre-mount health check. `html.tauri-banner-visible` class toggles an additional 36px body padding in index.css so the banner never overlaps content. Out of scope (follow-ups): per-request `X-MnM-Client-Version` header injection (needs CORS work) and WebSocket version negotiation.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            code: [
-              "UI: interceptor to inject version header on every fetch/WS connection",
-              "Backend: min-supported-client header on /health (or similar)",
-              "UI: banner with 'update desktop app' CTA pointing to the releases page",
-            ],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
       ],
     },

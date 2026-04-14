@@ -511,6 +511,12 @@ const redisState = createRedisClient(config.redisUrl);
 
 const uiMode = config.uiDevMiddleware ? "vite-dev" : config.serveUi ? "static" : "none";
 const storageService = createStorageServiceFromConfig(config);
+// MNM_MIN_CLIENT_VERSION gates old desktop builds. Empty / unset → no
+// minimum enforced; the /api/health response ships `minClientVersion:null`
+// and desktops never show the update banner.
+const rawMinClientVersion = (process.env.MNM_MIN_CLIENT_VERSION ?? "").trim();
+const minClientVersion = rawMinClientVersion.length > 0 ? rawMinClientVersion : null;
+
 const app = await createApp(db as any, {
   uiMode,
   storageService,
@@ -523,6 +529,7 @@ const app = await createApp(db as any, {
   redisState,
   betterAuthHandler,
   resolveSession,
+  minClientVersion,
 });
 const server = createServer(app as unknown as Parameters<typeof createServer>[0]);
 const listenPort = await detectPort(config.port);

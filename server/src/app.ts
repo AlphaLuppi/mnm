@@ -101,6 +101,12 @@ export async function createApp(
     redisState?: RedisState | null;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
+    /**
+     * Minimum desktop client version the backend still accepts. Surfaced
+     * via /api/health so out-of-date desktop builds can show an update
+     * banner. `null` means no minimum is enforced.
+     */
+    minClientVersion?: string | null;
   },
 ) {
   const app = express();
@@ -210,6 +216,7 @@ export async function createApp(
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
       redisState: opts.redisState ?? null,
+      minClientVersion: opts.minClientVersion ?? null,
     }),
   );
   api.use("/companies", companyRoutes(db));

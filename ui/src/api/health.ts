@@ -10,6 +10,14 @@ export type HealthStatus = {
   features?: {
     companyDeletionEnabled?: boolean;
   };
+  /**
+   * Minimum desktop-client version this backend still accepts. `null`
+   * means no minimum is enforced. Desktop builds below this version
+   * surface a non-blocking update banner; older backends that do not
+   * know the field leave it undefined, which the desktop treats the
+   * same as `null` (never outdated).
+   */
+  minClientVersion?: string | null;
 };
 
 export const healthApi = {

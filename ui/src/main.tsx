@@ -8,6 +8,7 @@ import { BackendUnreachable } from "./components/BackendUnreachable";
 import { TauriPreviewGate } from "./components/TauriPreviewGate";
 import { TauriErrorBoundary } from "./components/TauriErrorBoundary";
 import { DesktopTitleBar } from "./components/desktop/DesktopTitleBar";
+import { ClientVersionBanner } from "./components/desktop/ClientVersionBanner";
 import { CompanyProvider } from "./context/CompanyContext";
 import { LiveUpdatesProvider } from "./context/LiveUpdatesProvider";
 import { BreadcrumbProvider } from "./context/BreadcrumbContext";
@@ -27,6 +28,10 @@ import { checkBackendHealth } from "@/lib/health-check";
 import type { HealthResult } from "@/lib/health-check";
 import { initSessionToken } from "@/lib/secrets-client";
 import { applyDynamicCsp } from "@/lib/csp-client";
+import {
+  initClientVersion,
+  setMinClientVersion,
+} from "@/lib/client-version";
 import "@mdxeditor/editor/style.css";
 import "react-grid-layout/css/styles.css";
 import "./index.css";
@@ -129,6 +134,7 @@ function renderTree(children: ReactNode): void {
                               <DialogProvider>
                                 <DocumentViewerProvider>
                                   <DesktopTitleBar />
+                                  <ClientVersionBanner />
                                   {children}
                                 </DocumentViewerProvider>
                               </DialogProvider>
@@ -187,7 +193,11 @@ function renderUnreachable(result: HealthResult & { ok: false }): void {
 // In web mode `initActiveProfile()` is a no-op and the regular app mounts.
 void (async () => {
   try {
-    await initActiveProfile();
+    // Profile cache and client version can be resolved in parallel — the
+    // client version does not depend on any profile and we want it cached
+    // before the first render so the ClientVersionBanner can flip to its
+    // visible state the moment the /api/health response lands.
+    await Promise.all([initActiveProfile(), initClientVersion()]);
   } catch {
     // Swallow profile-bridge errors at boot so the UI still mounts — the
     // profile gate will re-surface the problem if no active profile is set.
@@ -212,6 +222,12 @@ void (async () => {
       renderUnreachable(healthResult);
       return;
     }
+
+    // Capture the backend's minimum supported client version so the
+    // ClientVersionBanner can flip on if we're below it. Unknown
+    // (undefined) or null both clear any stale minimum from a previous
+    // profile switch.
+    setMinClientVersion(healthResult.data.minClientVersion ?? null);
 
     // Backend reachable — load session token from Keychain into memory
     // so the API client can inject it as a Bearer header.
