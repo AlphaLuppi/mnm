@@ -7,6 +7,7 @@ import { NoProfileGate } from "./components/NoProfileGate";
 import { BackendUnreachable } from "./components/BackendUnreachable";
 import { TauriPreviewGate } from "./components/TauriPreviewGate";
 import { TauriErrorBoundary } from "./components/TauriErrorBoundary";
+import { DesktopTitleBar } from "./components/desktop/DesktopTitleBar";
 import { CompanyProvider } from "./context/CompanyContext";
 import { LiveUpdatesProvider } from "./context/LiveUpdatesProvider";
 import { BreadcrumbProvider } from "./context/BreadcrumbContext";
@@ -97,6 +98,13 @@ if (typeof (window as any).__dismissMnmLoader === "function") {
 // 8s watchdog doesn't fire even if the first React render is slow.
 (window as unknown as { __mnmMounted?: boolean }).__mnmMounted = true;
 
+// Flag the shell so `index.css` reserves 36px at the top of <body> for the
+// DesktopTitleBar overlay. We only do this in packaged Tauri — dev and
+// web keep their original chrome.
+if (isTauri() && !import.meta.env.DEV) {
+  document.documentElement.classList.add("tauri-shell");
+}
+
 // Single React root — created once, re-rendered on retry/switch flows.
 let root: Root | null = null;
 
@@ -120,6 +128,7 @@ function renderTree(children: ReactNode): void {
                             <PanelProvider>
                               <DialogProvider>
                                 <DocumentViewerProvider>
+                                  <DesktopTitleBar />
                                   {children}
                                 </DocumentViewerProvider>
                               </DialogProvider>

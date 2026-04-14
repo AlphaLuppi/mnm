@@ -230,6 +230,16 @@
     height: 100%;
     overflow: hidden;
   }
+  /*
+   * Packaged desktop shell: the DesktopTitleBar component owns the top
+   * 36px of the window for drag region + profile switcher. Push the app
+   * content below it so the switcher never overlaps meaningful UI.
+   * Class is stamped on <html> by main.tsx — it is NOT set in web or
+   * Tauri dev, so HMR and the web build keep their original chrome.
+   */
+  html.tauri-shell body {
+    padding-top: 36px;
+  }
   .font-mono, code, pre, kbd, samp {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }

@@ -535,9 +535,9 @@ export const parityData: ParityData = {
           id: "profile-switcher-ui",
           name: "Title bar profile switcher (Slack-style)",
           description:
-            "Compact switcher in the title bar showing the active profile + dropdown to switch. Company logo / color per profile for instant recognition.",
+            "DesktopTitleBar fixed overlay (36px, z-60) owns the top strip under Tauri's titleBarStyle=Overlay: draggable region + 76px reserved for macOS traffic lights + embedded ProfileSwitcher (colored initial avatar + name + chevron). Dropdown lists every profile with active indicator, click to switch triggers setActiveProfile + window.location.reload() so the boot sequence rebuilds CSP and re-hydrates Keychain secrets for the new backend. Deterministic branding via profile-branding.ts (FNV-1a hash → 12-hue palette, first-letter initial). AddProfileDialog reuses addProfile() from profile-client. html.tauri-shell class on <html> drives the 36px body padding in index.css. Only renders in packaged Tauri (no-op in dev/web).",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "first-run-wizard",
