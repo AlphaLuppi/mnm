@@ -25,6 +25,7 @@ import {
 import { checkBackendHealth } from "@/lib/health-check";
 import type { HealthResult } from "@/lib/health-check";
 import { initSessionToken } from "@/lib/secrets-client";
+import { applyDynamicCsp } from "@/lib/csp-client";
 import "@mdxeditor/editor/style.css";
 import "react-grid-layout/css/styles.css";
 import "./index.css";
@@ -189,8 +190,12 @@ void (async () => {
     return;
   }
 
-  // Gate 2: profile exists but backend unreachable → show error screen
+  // Gate 2: profile exists but backend unreachable → show error screen.
+  // Before touching the network, lock down connect-src via a dynamic CSP
+  // derived from the active profile, so even the health check below is
+  // constrained by the policy. In dev mode this is a no-op.
   if (isTauri() && !import.meta.env.DEV && getCachedActiveProfile() !== null) {
+    await applyDynamicCsp();
     const healthResult = await checkBackendHealth(
       getCachedActiveProfile()!.apiBaseUrl,
     );

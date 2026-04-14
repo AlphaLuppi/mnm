@@ -519,15 +519,9 @@ export const parityData: ParityData = {
           id: "profile-dynamic-csp",
           name: "Strict CSP resolved from the active profile",
           description:
-            "Replace the current `null` CSP with a strict one whose connect-src is derived from the active profile's apiBaseUrl. Regenerate on profile switch.",
+            "Rust `csp.rs` module builds a strict CSP from the active profile's apiBaseUrl: pure `build_csp()` + `derive_ws_origin()` (http→ws, https→wss) + Tauri command `csp_for_active_profile`. Connect-src pinned to the profile's REST origin, derived WS origin, and Tauri internal schemes (ipc:, http://ipc.localhost, tauri:, asset:). Strict defaults: default-src 'self', frame-src 'none', object-src 'none', base-uri 'self', form-action 'self'. TS `csp-client.ts` injects a `<meta http-equiv=\"Content-Security-Policy\">` at boot in `main.tsx` BEFORE `checkBackendHealth()` so even the health check is under policy. Profile switch reloads the window (NoProfileGate) which rebuilds CSP from scratch. No-op in dev mode (Vite HMR would conflict).",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            code: [
-              "Rust helper: build_csp(profile) → CSP header string",
-              "Apply via tauri runtime CSP or per-window config on profile switch",
-            ],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "profile-health-check",

@@ -1,4 +1,5 @@
 mod commands;
+mod csp;
 mod profile;
 mod secrets;
 
@@ -21,6 +22,7 @@ pub fn run() {
         secrets::secret_set,
         secrets::secret_get,
         secrets::secret_delete,
+        csp::csp_for_active_profile,
     ]);
 
     // In debug builds, export TS bindings on every compile.
