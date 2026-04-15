@@ -3,6 +3,7 @@ import { Link } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import type { Issue, LiveEvent } from "@mnm/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
+import { resolveWsUrl } from "../lib/api-base";
 import { issuesApi } from "../api/issues";
 import { getUIAdapter } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
@@ -292,8 +293,9 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(companyId)}/events/ws`;
+      const url = resolveWsUrl(
+        `/api/companies/${encodeURIComponent(companyId)}/events/ws`,
+      );
       socket = new WebSocket(url);
 
       socket.onmessage = (message) => {

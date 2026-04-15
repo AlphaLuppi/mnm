@@ -8,6 +8,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  componentStack: string | null;
 }
 
 /**
@@ -18,10 +19,10 @@ interface State {
  * throws, it re-throws to let the normal web error handling kick in.
  */
 export class TauriErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+  state: State = { hasError: false, error: null, componentStack: null };
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, componentStack: null };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -29,6 +30,7 @@ export class TauriErrorBoundary extends Component<Props, State> {
       // eslint-disable-next-line no-console
       console.error("[TauriErrorBoundary]", error, info.componentStack);
     }
+    this.setState({ componentStack: info.componentStack ?? null });
   }
 
   private handleRetry = (): void => {
@@ -47,6 +49,7 @@ export class TauriErrorBoundary extends Component<Props, State> {
     }
 
     const errorMessage = this.state.error?.message ?? "Unknown error";
+    const componentStack = this.state.componentStack ?? "(no component stack)";
 
     return (
       <div
@@ -84,31 +87,48 @@ export class TauriErrorBoundary extends Component<Props, State> {
             <h1
               style={{
                 fontFamily: "ui-serif, Georgia, 'Times New Roman', serif",
-                fontSize: "3rem",
+                fontSize: "2rem",
                 fontWeight: 500,
                 lineHeight: 1.05,
                 letterSpacing: "-0.02em",
-                marginBottom: "1.5rem",
+                marginBottom: "1rem",
                 color: "#fafaf9",
               }}
             >
               Something went wrong.
             </h1>
 
+            {/* Error message rendered front-and-center so it is readable
+                without expanding collapsed panels. */}
+            <pre
+              style={{
+                fontSize: "0.875rem",
+                color: "#fca5a5",
+                backgroundColor: "#1c1917",
+                border: "1px solid #7f1d1d",
+                borderRadius: "0.375rem",
+                padding: "0.875rem 1rem",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                fontFamily:
+                  "ui-monospace, SFMono-Regular, Menlo, monospace",
+                marginBottom: "1.5rem",
+              }}
+            >
+              {errorMessage}
+            </pre>
+
             <p
               style={{
-                fontSize: "1.125rem",
+                fontSize: "0.9rem",
                 color: "#d6d3d1",
                 fontWeight: 300,
                 lineHeight: 1.6,
-                marginBottom: "2.5rem",
+                marginBottom: "1.5rem",
                 maxWidth: "36rem",
               }}
             >
-              MnM Desktop hit an unexpected error while starting up. This often
-              means the backend is not reachable or is returning invalid data.
-              The backend runs separately — either on your company&apos;s
-              server, or locally on your machine.
+              MnM Desktop hit an unexpected error while starting up.
             </p>
 
             {/* Two paths */}
@@ -214,8 +234,10 @@ export class TauriErrorBoundary extends Component<Props, State> {
               </div>
             </div>
 
-            {/* Error details */}
+            {/* Error details — open by default so users can paste the
+                message into a bug report without hunting for it */}
             <details
+              open
               style={{
                 marginTop: "2rem",
                 padding: "1rem",
@@ -249,6 +271,21 @@ export class TauriErrorBoundary extends Component<Props, State> {
                 }}
               >
                 {errorMessage}
+              </pre>
+              <pre
+                style={{
+                  marginTop: "0.75rem",
+                  fontSize: "0.7rem",
+                  color: "#a8a29e",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  maxHeight: "16rem",
+                  overflowY: "auto",
+                }}
+              >
+                {componentStack}
               </pre>
             </details>
 

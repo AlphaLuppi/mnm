@@ -6,6 +6,7 @@ import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { getUIAdapter } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
 import { queryKeys } from "../lib/queryKeys";
+import { resolveWsUrl } from "../lib/api-base";
 import { cn, relativeTime, formatDateTime } from "../lib/utils";
 import { ExternalLink, Square } from "lucide-react";
 import { Identity } from "./Identity";
@@ -454,8 +455,9 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(companyId)}/events/ws`;
+      const url = resolveWsUrl(
+        `/api/companies/${encodeURIComponent(companyId)}/events/ws`,
+      );
       socket = new WebSocket(url);
 
       socket.onopen = () => {
