@@ -220,11 +220,18 @@ function ConnectStep({
       // button stays locked during the reload window.
     } catch (err: unknown) {
       setIsSubmitting(false);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to save the connection profile.",
-      );
+      // Tauri 2 rejects invoke() with a bare string, not an Error. Cover
+      // every shape so the real message bubbles up to the user instead
+      // of the generic fallback.
+      let message: string;
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === "string") {
+        message = err;
+      } else {
+        message = `Failed to save the connection profile: ${String(err)}`;
+      }
+      setError(message);
     }
   }
 

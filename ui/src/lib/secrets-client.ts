@@ -8,26 +8,11 @@
  * a synchronous copy of the session token for the active profile so the API
  * client can inject it into every request without awaiting IPC.
  */
+import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./runtime";
 import { getCachedActiveProfile } from "./profile-client";
 
-type InvokeFn = <T>(
-  command: string,
-  args?: Record<string, unknown>,
-) => Promise<T>;
-
-let cachedInvoke: InvokeFn | null = null;
 let cachedSessionToken: string | null = null;
-
-async function getInvoke(): Promise<InvokeFn> {
-  if (cachedInvoke) return cachedInvoke;
-  const specifier = "@tauri-apps/api/core";
-  const mod = (await import(/* @vite-ignore */ specifier)) as {
-    invoke: InvokeFn;
-  };
-  cachedInvoke = mod.invoke;
-  return cachedInvoke;
-}
 
 /**
  * Returns the in-memory session token. Synchronous — safe to call from the
@@ -48,8 +33,7 @@ export async function initSessionToken(): Promise<void> {
   const profile = getCachedActiveProfile();
   if (!profile) return;
   try {
-    const invoke = await getInvoke();
-    const token = await invoke<string | null>("secret_get", {
+const token = await invoke<string | null>("secret_get", {
       profileId: profile.id,
       key: "session_token",
     });
@@ -67,7 +51,6 @@ export async function setSessionToken(token: string): Promise<void> {
   if (!isTauri() || import.meta.env.DEV) return;
   const profile = getCachedActiveProfile();
   if (!profile) return;
-  const invoke = await getInvoke();
   await invoke<void>("secret_set", {
     profileId: profile.id,
     key: "session_token",
@@ -86,8 +69,7 @@ export async function clearSessionToken(): Promise<void> {
   const profile = getCachedActiveProfile();
   if (!profile) return;
   try {
-    const invoke = await getInvoke();
-    await invoke<void>("secret_delete", { profileId: profile.id });
+await invoke<void>("secret_delete", { profileId: profile.id });
   } catch {
     // Best-effort cleanup — don't block sign-out on keychain errors.
   }

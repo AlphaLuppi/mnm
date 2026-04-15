@@ -111,6 +111,43 @@ export async function createApp(
 ) {
   const app = express();
 
+  // CORS for the packaged Tauri desktop client. The webview loads from
+  // `tauri://localhost` (macOS/Linux) or `http://tauri.localhost` (Windows)
+  // and talks to the backend cross-origin. Express alone doesn't ship
+  // CORS headers, so without this the desktop app can't reach any
+  // endpoint. Better Auth handles its own /api/auth/* routes via
+  // trustedOrigins — this middleware covers every other path.
+  const DESKTOP_CORS_ORIGINS = new Set([
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+  ]);
+  app.use((req, res, next) => {
+    const origin = req.header("origin");
+    if (origin && DESKTOP_CORS_ORIGINS.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type, X-MnM-Client-Version",
+      );
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      );
+      res.setHeader(
+        "Access-Control-Expose-Headers",
+        "X-MnM-Deployment",
+      );
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.use(express.json());
   app.use(httpLogger);
   const privateHostnameGateEnabled =

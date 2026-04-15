@@ -15,7 +15,7 @@
     },
     "apps/desktop": {
       "name": "@mnm/desktop",
-      "version": "0.1.0-poc",
+      "version": "0.1.1",
       "dependencies": {
         "@tauri-apps/api": "^2",
       },
@@ -231,6 +231,7 @@
         "@tailwindcss/typography": "^0.5.19",
         "@tanstack/react-query": "^5.90.21",
         "@tanstack/react-virtual": "^3.13.23",
+        "@tauri-apps/api": "^2",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",

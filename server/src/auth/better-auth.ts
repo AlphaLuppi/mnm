@@ -47,6 +47,15 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
   const trustedOrigins = new Set<string>();
 
+  // Packaged Tauri desktop origins. The webview loads from `tauri://localhost`
+  // on macOS/Linux and `http://tauri.localhost` on Windows — both must be
+  // trusted so Better Auth emits Access-Control-Allow-Origin when the
+  // desktop client hits /api/auth/*. Without these entries every sign-in
+  // / get-session call from a packaged DMG fails preflight.
+  trustedOrigins.add("tauri://localhost");
+  trustedOrigins.add("http://tauri.localhost");
+  trustedOrigins.add("https://tauri.localhost");
+
   if (baseUrl) {
     try {
       trustedOrigins.add(new URL(baseUrl).origin);

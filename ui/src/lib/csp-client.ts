@@ -14,24 +14,8 @@
  * mutate the tag in place. Trying to "update" a meta CSP at runtime is a
  * well-known footgun: browsers only enforce the first CSP they see.
  */
+import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./runtime";
-
-type InvokeFn = <T>(
-  command: string,
-  args?: Record<string, unknown>,
-) => Promise<T>;
-
-let cachedInvoke: InvokeFn | null = null;
-
-async function getInvoke(): Promise<InvokeFn> {
-  if (cachedInvoke) return cachedInvoke;
-  const specifier = "@tauri-apps/api/core";
-  const mod = (await import(/* @vite-ignore */ specifier)) as {
-    invoke: InvokeFn;
-  };
-  cachedInvoke = mod.invoke;
-  return cachedInvoke;
-}
 
 /** Identifier for the injected meta tag so we never stack duplicates. */
 const CSP_META_ID = "mnm-dynamic-csp";
@@ -57,7 +41,6 @@ export async function applyDynamicCsp(): Promise<void> {
   if (document.getElementById(CSP_META_ID)) return;
 
   try {
-    const invoke = await getInvoke();
     const csp = await invoke<string>("csp_for_active_profile");
     stampCspMeta(csp);
   } catch {

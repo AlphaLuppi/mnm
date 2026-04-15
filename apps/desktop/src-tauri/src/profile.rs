@@ -27,6 +27,7 @@ pub const PROFILES_BACKUP_PREFIX: &str = "profiles.json.bak.";
 pub const STORE_VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct Profile {
     pub id: String,
     pub display_name: String,
@@ -36,6 +37,7 @@ pub struct Profile {
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ProfileStore {
     pub version: u32,
     pub active_profile_id: Option<String>,
@@ -53,12 +55,14 @@ impl Default for ProfileStore {
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ProfileCreateInput {
     pub display_name: String,
     pub api_base_url: String,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ProfilePatch {
     pub display_name: Option<String>,
     pub api_base_url: Option<String>,

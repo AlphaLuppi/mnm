@@ -12,12 +12,8 @@
  * version header injection, and backend gate-enforcement. Those are
  * tracked as follow-ups in the `api-version-compat` parity entry.
  */
+import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./runtime";
-
-type InvokeFn = <T>(
-  command: string,
-  args?: Record<string, unknown>,
-) => Promise<T>;
 
 type AppInfo = {
   name: string;
@@ -25,22 +21,11 @@ type AppInfo = {
   tauri_version: string;
 };
 
-let cachedInvoke: InvokeFn | null = null;
 let cachedClientVersion: string | null = null;
 let cachedMinVersion: string | null = null;
 let initialized = false;
 
 const listeners = new Set<() => void>();
-
-async function getInvoke(): Promise<InvokeFn> {
-  if (cachedInvoke) return cachedInvoke;
-  const specifier = "@tauri-apps/api/core";
-  const mod = (await import(/* @vite-ignore */ specifier)) as {
-    invoke: InvokeFn;
-  };
-  cachedInvoke = mod.invoke;
-  return cachedInvoke;
-}
 
 /**
  * Loads the client version from the Tauri bundle into the in-memory
@@ -53,7 +38,6 @@ export async function initClientVersion(): Promise<void> {
   initialized = true;
   if (!isTauri()) return;
   try {
-    const invoke = await getInvoke();
     const info = await invoke<AppInfo>("app_info");
     cachedClientVersion = info.version;
   } catch {
