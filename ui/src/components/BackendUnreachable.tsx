@@ -65,7 +65,7 @@ export function BackendUnreachable({
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-stone-950 text-stone-100 p-6">
+    <div className="fixed inset-0 flex items-center justify-center bg-stone-950 text-stone-100 p-6 pt-12">
       <div className="w-full max-w-lg">
         {/* Icon + badge */}
         <div className="flex items-center gap-3 mb-8">

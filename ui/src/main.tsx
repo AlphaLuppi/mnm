@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { NoProfileGate } from "./components/NoProfileGate";
 import { BackendUnreachable } from "./components/BackendUnreachable";
-import { TauriPreviewGate } from "./components/TauriPreviewGate";
 import { TauriErrorBoundary } from "./components/TauriErrorBoundary";
 import { DesktopTitleBar } from "./components/desktop/DesktopTitleBar";
 import { ClientVersionBanner } from "./components/desktop/ClientVersionBanner";
@@ -120,8 +119,7 @@ function renderTree(children: ReactNode): void {
   root.render(
     <StrictMode>
       <TauriErrorBoundary>
-        <TauriPreviewGate>
-          <QueryClientProvider client={queryClient}>
+        <QueryClientProvider client={queryClient}>
             <ThemeProvider>
               <CompanyProvider>
                 <ToastProvider>
@@ -147,8 +145,7 @@ function renderTree(children: ReactNode): void {
                 </ToastProvider>
               </CompanyProvider>
             </ThemeProvider>
-          </QueryClientProvider>
-        </TauriPreviewGate>
+        </QueryClientProvider>
       </TauriErrorBoundary>
     </StrictMode>,
   );

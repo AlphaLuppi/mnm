@@ -57,11 +57,8 @@ interface WizardShellProps {
  */
 function WizardShell({ children, onBack }: WizardShellProps): ReactElement {
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-background p-6"
-      data-tauri-drag-region
-    >
-      <div className="w-full max-w-2xl" data-tauri-drag-region="false">
+    <div className="fixed inset-0 flex items-center justify-center bg-background p-6 pt-12">
+      <div className="w-full max-w-2xl">
         <div className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-muted-foreground" />
