@@ -21,6 +21,11 @@ export function projectRoutes(db: Db) {
   const svc = projectService(db);
 
   async function resolveCompanyIdForProjectReference(req: Request) {
+    // Prefer the path param (e.g. /companies/:companyId/projects/:id)
+    const pathCompanyId = req.params.companyId;
+    if (typeof pathCompanyId === "string" && pathCompanyId.trim().length > 0) {
+      return pathCompanyId.trim();
+    }
     const companyIdQuery = req.query.companyId;
     const requestedCompanyId =
       typeof companyIdQuery === "string" && companyIdQuery.trim().length > 0
