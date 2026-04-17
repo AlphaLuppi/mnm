@@ -407,8 +407,578 @@ steps:
 ### Proposition par défaut
 - **C1.c + C2.a + C2.d + C3.d** : hybride commentaire/issue, `max_retries: 3` par défaut, CAO monitore les boucles, humain choisit granularité cascade.
 
+## Décisions Round 3
+
+### C2 — Budget re-runs : pas de limite + feedback obligatoire + CAO watchdog
+- Pas de limite sur les re-runs manuels du dev.
+- **Règle** : tout re-run DOIT être accompagné d'un commentaire/feedback (pas de "relance silencieuse").
+- **Mécanisme** : le commentaire sur l'issue qui re-déclenche le run est le feedback obligatoire.
+- **CAO watchdog** : monitore les runs qui bouclent. Si pattern "dev relance toute la journée sans converger" détecté → CAO alerte le Sensei → Sensei aide le dev ("ton workflow est mal fait", "tes skills sont pas assez ciblés", etc.).
+- Pas de `max_retries` dans le YAML (au moins pour le MVP).
+
+### C1 — Matérialisation des runs : Issue MnM = conteneur top-level
+**Proposition retenue** : un workflow lancé crée une **issue MnM** qui sert de tracker unifié.
+
+```
+Issue MnM "Refait la créa d'ordo" (status: in_progress)
+├── Workflow Run #1 (refonte-feature) → status: running
+│   ├── Step: discover-legacy (completed)
+│   ├── Step: extract-rules (completed)
+│   ├── Sub-workflow Run #2 (extract-prd)
+│   │   ├── Step: enrich-prd-pm (waiting_human)
+│   │   └── Step: enrich-prd-qa (pending)
+│   ├── Sub-workflow Run #3 (dev-frontend)
+│   │   └── ...
+│   └── ...
+├── Commentaires (thread conversationnel)
+│   ├── CAO: "step extract-rules terminé, voici le résumé..."
+│   ├── PM: "manque la gestion des mutuelles dans le PRD" ← relance
+│   ├── CAO: "relance du sub-workflow extract-prd avec ce feedback"
+│   └── ...
+└── Artifacts liés (PRs, docs, tests)
+```
+
+**Propriétés** :
+- **1 issue = 1 besoin utilisateur** ("refait la créa d'ordo"). Durée de vie = jusqu'à convergence finale.
+- **N workflow runs par issue** : re-run = nouveau run lié à la même issue (historique préservé).
+- **Sous-workflow runs** = nestés, chaque sous-workflow run pointe vers son parent step + parent run.
+- **Commentaires** = sur l'issue (unique fil, pas threadé par step pour le MVP).
+- **Entrées commentaires** :
+  - Via **UI MnM** (PM/QA depuis inbox ou page issue)
+  - Via **MCP MnM** depuis Claude Code (dev qui commente sans changer de contexte)
+  - Backend : même endpoint `POST /companies/:companyId/issues/:id/comments`
+- **Assignees** : humains requis par les steps (PM, QA) + CAO (watchdog auto-assigné).
+- **Mentions** : `@pm`, `@qa`, `@cao`, `@sensei` via les commentaires déclenchent actions.
+
+### C3 — Ciblage re-run : cascade par défaut
+**Clarification du sens de "ciblage"** : quand un humain commente pour déclencher un re-run, **quel scope** est re-tourné ?
+
+**Exemple concret** :
+```
+Workflow: A → B → C → D → E (tous ont fini sauf E)
+PM commente: "le PRD (output de B) a oublié la gestion des mutuelles"
+```
+
+**Options** :
+- Relance B seul → mais C, D (basés sur l'ancien PRD) restent invalides. Nonsense.
+- **Relance B + invalide C, D** → cascade logique (proposition par défaut).
+- Relance tout depuis A → inutile, A est bon.
+
+**Règle proposée** : **cascade automatique par défaut**.
+- Commentaire sur step X → X re-run + tous les descendants (dépendants directs et transitifs) ré-invalidés et re-lancés dans l'ordre du DAG.
+- UI peut proposer override ("relance juste X sans cascade") pour cas où le dev sait que les downstream sont immunes au changement.
+- Sur un sous-workflow : commentaire sur le sous-workflow entier → re-run complet du sous-workflow.
+
+## Questions ouvertes pour Round 4
+
+- **Granularité commentaires** : un seul fil par issue, OU possibilité d'attacher un commentaire à un step précis (pour que l'UI scroll/highlight) ?
+- **Mentions + MCP** : `@cao` dans un commentaire déclenche un appel auto au CAO qui poste une réponse ?
+- **Re-run cascade UX** : quand dev commente → on lui montre avant l'exécution "voici ce qui va être re-run : B, C, D. OK ?" ?
+- **Archéologue = déjà un agent MnM** ou on crée les agents dédiés au fur et à mesure ?
+- **Sous-issue vs nested run** : besoin réel de "sous-issue" dédiée pour un sous-workflow ou le nested run suffit ?
+
+## Décisions finales Round 3
+
+### Ciblage cascade
+- **Défaut = cascade (Option B)**.
+- **Override possible par le gate** : un gate peut déclarer "mon re-run ne cascade pas sur les downstream" (ex: gate de vérif non-bloquant qui n'invalide pas les dépendants).
+- → Le gate a donc un champ optionnel `cascade_on_rerun: boolean | "auto"` (par défaut auto = cascade).
+
+### Commentaires
+- **Un seul fil conversationnel** par issue.
+- Au moment du post, l'UI présente un **sélecteur de ciblage** :
+  - Toute l'issue
+  - Un step précis
+  - Un workflow/sous-workflow
+  - Un agent
+  - etc.
+- Le commentaire est enregistré avec une ref `target: { type, id }`.
+- Un commentaire sans cible = pure conversation (pas de re-run).
+
+### Re-run cascade UX
+- Quand un commentaire déclenche un re-run, **preview explicite** :
+  - "Ce commentaire va re-lancer : **step extract-rules** + cascade sur [step-1, step-2, step-3]. OK ?"
+- Confirmation requise avant exécution.
+- Liste complète des steps affectés (calcul auto via DAG).
+
+### Sous-issues
+- **Utiliser la notion de sous-issue MnM existante**.
+- Un sous-workflow run → crée une **sous-issue** enfant de l'issue principale.
+- Avantages : nesting natif UI MnM, assignees distincts possibles, statut indépendant.
+- Convention : l'issue principale = le goal, les sous-issues = les sous-workflows ou steps majeurs.
+
+## Round 4 — MCP primitives architecture hybride
+
+### Principe
+- **Serveur MnM** = control plane : catalogue workflows, state machine, gates, issues, commentaires, nightly sync.
+- **Claude Code local** (chez le dev) = exécution : lance les agents/steps local, reporte au serveur.
+- **Communication** : Claude Code ↔ MCP MnM (exposé par le serveur).
+- **Discovery-first** : Claude Code interroge avant d'agir.
+
+### Bloc 1 — Discovery (read-only)
+
+```
+listWorkflows(filters?)
+  → compact list des workflows disponibles pour cette company
+    [{ name, version, description, triggers, tags }]
+
+getWorkflow(name, version?)
+  → spec complète d'un workflow (steps, gates, YAML parsé, compact)
+
+listIssues(filters?)
+  → issues en cours / historiques
+    [{ id, title, status, currentRun, waitingOn }]
+
+getIssue(issueId)
+  → détail issue : workflow run tree, steps status, commentaires récents
+
+getIssueContext(issueId)
+  → contexte accumulé (outputs des steps précédents, artifacts, feedback)
+
+getRunState(runId)
+  → état du DAG : { running, completed, failed, waiting } par step
+
+getNextStep(issueId)
+  → prochain step à exécuter (basé sur DAG + ce qui est complété)
+    "discovery-first" : Claude Code demande "quoi faire maintenant"
+```
+
+### Bloc 2 — Execution (write)
+
+```
+createIssueFromWorkflow(workflowName, inputs, context?)
+  → lance un workflow, crée l'issue top-level, retourne { issueId, runId }
+
+launchStep(runId, stepId, agentContext?)
+  → signale au serveur "je vais exécuter ce step"
+    serveur: crée le step_execution, active le gate entry
+
+submitStepOutput(runId, stepId, output, artifacts?)
+  → Claude Code remonte l'output une fois le step local terminé
+    serveur: enregistre, lance les gates exit, calcule le next step
+
+reportStepProgress(runId, stepId, progress)
+  → optionnel, pour UI live (% avancement, sous-actions en cours)
+
+failStep(runId, stepId, error, recoverable?)
+  → signale échec explicite, serveur décide (retry, escalade, stop)
+
+addComment(issueId, body, target?, mentions?)
+  → poster un commentaire, optionnellement ciblé (déclenche re-run si target)
+
+requestHumanInput(runId, stepId, prompt, assignees)
+  → un step local a besoin d'un humain, bloque localement
+    serveur: crée inbox entry, notifie
+```
+
+### Bloc 3 — Events / waiting
+
+```
+waitForGate(runId, stepId, timeoutMs?)
+  → Claude Code attend que le gate exit passe (ou fail)
+    serveur: long-poll ou WebSocket
+
+subscribeToIssue(issueId)
+  → stream d'events (comments, step status changes, feedback)
+    serveur: SSE/WS
+
+waitForHumanApproval(stepId, timeoutMs?)
+  → attend résolution du step humain
+```
+
+### Ce qui reste SERVEUR-only (pas MCP)
+
+- **Exécution des gates** : toujours serveur. Le gate lit le step_output de DB, décide.
+- **Orchestration DAG** : serveur calcule l'ordre, parallélisme, cascade re-run.
+- **Nightly sync git** : routine serveur.
+- **CAO watchdog** : agent serveur qui monitore les issues en boucle.
+- **Appels SDK Anthropic pour gates LLM** : serveur appelle l'API directement.
+
+### Flow type (exemple "dev lance /refonte-feature")
+
+```
+1. Dev dans Claude Code :
+   /refonte-feature "refait la créa d'ordo"
+
+2. Claude Code → MCP MnM :
+   createIssueFromWorkflow("refonte-feature", { feature: "créa d'ordo" })
+   ← { issueId: "iss_123", runId: "run_456" }
+
+3. Claude Code → MCP MnM :
+   getNextStep("iss_123")
+   ← { stepId: "discover-legacy", agent: "archeologue",
+       context: { repos: [...], mockups: [...] } }
+
+4. Claude Code lance l'agent archeologue LOCAL :
+   claude -p --agent archeologue --context ...
+
+5. Agent archeologue termine, Claude Code :
+   submitStepOutput("run_456", "discover-legacy", { endpoints, models, ... })
+
+6. MnM serveur exécute le gate exit :
+   → gate passe, DAG avance, next step calculé
+
+7. Claude Code → MCP MnM :
+   getNextStep("iss_123")
+   ← { stepId: "extract-rules", ... }
+
+8. ... boucle jusqu'à :
+   ← { stepId: "enrich-prd-pm", type: "human_wait",
+       message: "PM doit enrichir le PRD" }
+
+9. Claude Code :
+   waitForHumanApproval("enrich-prd-pm", 86400000)
+   ← bloqué jusqu'à ce que PM commente/approve dans l'UI MnM
+
+10. PM dans UI MnM commente → serveur débloque → Claude Code reprend
+```
+
+### Décisions finales Round 4
+
+#### Primitives OK
+- La liste est validée. Ajustements possibles au fur et à mesure.
+
+#### Transport
+- **WebSocket** pour `waitForGate`, `subscribeToIssue`, `waitForHumanApproval`.
+- MnM a déjà le système `live-events` (`/events/ws`), réutiliser.
+
+#### Contexte ET directive d'exécution (CLÉ)
+- **MnM pré-compose** un contexte indicatif.
+- **Claude Code reconstitue** depuis les primitives (Claude Code a accès à Read, Grep, etc.).
+- **MAIS MnM pilote aussi le COMMENT** : chaque step peut imposer :
+  - Un **état de contexte** requis (session fresh, contexte vide, etc.)
+  - Un **mode d'exécution** (main agent, sub-agent, nouvelle session)
+  - Des **restrictions d'outils** (allowed/denied tools)
+  - Des **skills/plugins obligatoires** (ex: `team-dev-frontend` doit être loaded)
+  - Des **hooks** à vérifier/installer
+
+#### Execution Directive (NOUVEAU concept)
+
+Chaque step retourné par `getNextStep` a un bloc `execution` :
+
+```yaml
+execution:
+  mode: fresh_session | sub_agent | current_session
+  required_context_state: empty | any | specific_tools_loaded
+  allowed_tools: [Read, Grep, WebFetch]
+  denied_tools: [Bash, Write]
+  required_skills: [team-dev-frontend:extract-rules]
+  required_plugins: [team-dev-frontend]
+  hooks:
+    pre_step: [validate-context.sh]
+    post_step: [report-back.sh]
+```
+
+#### Exemples concrets
+
+**Exemple 1 — `extract-rules` doit être neutre**
+- `discover-legacy` a chargé 50k tokens de code legacy dans la session.
+- `extract-rules` doit analyser à froid, sans biais.
+- Directive : `mode: fresh_session` + `required_context_state: empty`.
+- Claude Code reçoit "next step", voit directive, doit lancer en sub-agent ou nouvelle session.
+- Un **hook `UserPromptSubmit`** côté Claude Code vérifie avant d'exécuter : "la session est-elle vide ?" Si non, bloque et propose "ouvre une nouvelle session ou spawn un sub-agent".
+
+**Exemple 2 — `dev-front-angular` en sub-agent spécialisé**
+- Directive : `mode: sub_agent`, `required_plugins: [team-dev-frontend]`, `allowed_tools: [Read, Write, Edit, Bash]`.
+- Claude Code spawn un sub-agent via son outil Agent avec les params.
+
+**Exemple 3 — `extract-rules` avec outils restreints**
+- Directive : `allowed_tools: [Read, Grep, WebFetch]`, `denied_tools: [Bash, Write, Edit]`.
+- Claude Code applique les restrictions (via permissions ou hooks de blocage).
+
+### Leviers Claude Code exploitables par MnM
+
+1. **Hooks** (PreToolUse, PostToolUse, UserPromptSubmit, SessionStart, etc.) — MnM peut installer/activer via settings ou via commande MCP dynamique.
+2. **Sub-agents** via Agent tool — MnM impose un type de sub-agent pour isolation contexte.
+3. **Skills/plugins** — MnM requiert un plugin précis loaded.
+4. **Permission mode** (plan / acceptEdits / bypass) — MnM peut suggérer un mode.
+5. **Allowed/denied tools** — restriction fine-grain.
+6. **Worktrees** — MnM peut demander l'exécution dans un worktree isolé.
+
+### Gate d'entry sur contexte d'exécution
+
+Nouveau type de gate :
+- Pas sur l'output d'un step (comme gate d'exit)
+- Sur l'**état de la session Claude Code** avant de lancer le step
+- Exemples :
+  - `context-must-be-empty` : vérifie via hook que la session n'a pas déjà exécuté de tools
+  - `plugin-must-be-loaded` : vérifie que `team-dev-frontend` est disponible
+  - `worktree-required` : vérifie qu'on est dans un worktree git
+- Implémentation : hook `UserPromptSubmit` ou `PreToolUse` qui appelle MCP MnM pour valider, bloque si invalide.
+
+### Authentification MCP
+- Tokens par dev (chaque dev a sa clé MCP MnM).
+- Token lié à un actor (dev identifié). `assertCompanyMembership` s'applique.
+- Possibilité d'impersonation admin (Sensei peut voir toutes les issues).
+
+### Périmètre connaissance Claude Code
+- **Confirmé** : Claude Code voit seulement "next step + execution directive".
+- Le DAG complet reste serveur. Simplicité pour l'agent local.
+- Dev peut demander à voir le DAG via UI MnM si curieux.
+
+### Décisions finales Round 4 (complément)
+
+#### Hooks : installés côté dev via plugins company-wide
+- **PAS de distribution dynamique** des hooks par MnM.
+- Les hooks vivent dans des **plugins Claude Code pré-installés company-wide** (ex: plugin `team-dev-workflows` installé sur tous les postes EnterpriseCustomer).
+- MnM **vérifie** la présence des hooks mais ne les installe pas.
+- Rationale : isolation, sécurité, versionning géré par le mécanisme plugin Claude Code standard.
+
+#### Violation de directive = infraction loggée + CAO
+- Claude Code exécute malgré directive non respectée (ex: pas de `fresh_session`).
+- `submitStepOutput` → MnM détecte infraction → refuse OU accepte avec warning.
+- Infraction loggée dans access_logs.
+- CAO alerté, peut réagir (commentaire, alerte au lead, escalade).
+
+#### Distribution des agents (NOUVEAU — Round 5)
+
+**Concept** : un agent MnM = **artifact versionné** téléchargeable.
+
+Un agent bundle contient :
+- `agent.yml` (metadata, adapter_type, version)
+- `prompts/system.md` + prompts templates
+- Skills refs (ou inline)
+- Hooks refs (ou inline)
+- Config layers référencés (par nom/version, résolus à l'exécution)
+- MCP config
+- Git credentials refs (pas les secrets, juste les refs — résolus local avec creds dev)
+
+**Protocole** :
+1. MnM dit à Claude Code : "exécute step X avec agent `dev-angular-cba@2.3.1`".
+2. Claude Code vérifie cache local : ai-je `dev-angular-cba@2.3.1` ?
+   - **Oui** → utilise direct.
+   - **Non** → télécharge depuis MnM : `GET /companies/:companyId/agents/dev-angular-cba/2.3.1/bundle`.
+3. Claude Code unpack dans cache local, exécute.
+
+**Cache local Claude Code** :
+- `~/.claude-code-cache/mnm/<company>/agents/<name>/<version>/`
+- TTL : probablement infini (bundles immuables par version), invalidé uniquement si MnM annonce nouvelle version.
+
+**Versioning** :
+- SemVer sur les agents.
+- Bundle immuable par version (publié une fois, figé).
+- MnM calcule l'agent référencé par le workflow (ex: workflow demande `^2.3` → MnM résout à `2.3.1`).
+
+**Source de vérité** :
+- Runtime live : DB MnM (versions, configs layers actives, skills).
+- Portable / résilience : git (nightly sync).
+- Distribution au runtime : bundles servis par MnM (compilés depuis DB).
+
+### Primitives MCP additionnelles pour agents
+
+```
+resolveAgent(name, versionConstraint)
+  → { name, version, bundleUrl, checksum }
+    MnM résout la contrainte (^2.3 → 2.3.1)
+
+downloadAgentBundle(name, version)
+  → binary bundle (tar.gz ou zip)
+
+listInstalledAgents()
+  → liste des agents en cache local (Claude Code interne, utilitaire)
+
+checkAgentIntegrity(name, version, checksum)
+  → valide que le bundle local n'est pas corrompu
+```
+
+## Questions Round 5
+
+### Distribution agents
+- **Format bundle** : tar.gz ? zip ? JSON unique avec fichiers embeds ? Préférence ?
+- **Secrets** : git credentials, API keys → gérés par Claude Code local (via OS keychain ou config dev) et agent fait refs. MnM ne voit jamais les secrets. Confirmé ?
+- **Bundle signé** ? (integrity + source auth)
+
+### Format repo agent
+- Proposition :
+  ```
+  agents/dev-angular-cba/              ← 1 repo git
+    agent.yml                          ← metadata, version, refs
+    prompts/
+      system.md
+      user-templates/
+        extract-rules.md
+    skills/                            ← inline OU refs externes
+      scaffold-component.md
+    hooks/
+      ref: plugin:team-dev-workflows    ← hooks vivent dans le plugin
+    config-layers:
+      - ref: base-stack@^1.0
+      - ref: angular-stack@^2.3
+    mcp:
+      servers:
+        - figma-mcp
+        - gitlab-mcp
+  ```
+- OK avec cette structure ?
+
+### Nightly sync git
+- Routine `governance-sync` tourne à 03:00 UTC/company
+- Pour chaque agent modifié en DB dans la journée :
+  - Génère markdown + yml à jour
+  - Diff avec repo git
+  - Commit + push avec message `chore(sync): agent <name> updated by <actor> at <ts>`
+- Pour chaque config layer modifié → idem
+- Rollback : restore depuis git tag en cas de problème DB
+
+## Décisions finales Round 5
+
+### Bundle agent = simple archive
+- Format : **tar.gz** (simple, supporté partout, léger).
+- Pas de signature cryptographique pour le MVP. **SHA256 checksum** suffit pour intégrité.
+- Signature PGP/sigstore à considérer si on ouvre la distribution cross-company plus tard.
+
+### Credentials / auth — côté dev, MnM vérifie via hook
+- MnM a déjà un système de credentials (pour ses propres creds internes).
+- Pour les credentials côté poste dev (git SSH keys, MCP tokens, API keys) : **gérés localement par le dev**, MnM ne les voit jamais.
+- **Détection** : au début d'un step, MnM peut demander à Claude Code (via hook ou commande) de vérifier :
+  - "MCP figma configuré ?" → hook liste les MCP actifs
+  - "MCP gitlab configuré ?" → idem
+  - Credentials git SSH pour gitlab-cba ? → test connexion
+- Si check fail → MnM poste un commentaire sur l'issue : "Configure MCP figma sur ton poste avant de lancer ce step".
+- **Primitive proposée** : `verifyLocalSetup(stepId)` → Claude Code exécute un check via hook, retourne status.
+
+### Structure agent FINAL simplifiée
+- Un agent ne duplique PAS ce que ses config layers contiennent.
+- **Agent = refs vers config layers + metadata**.
+- Les config layers contiennent skills, hooks, MCP config, prompts.
+- Si les config layers sont aussi versionnés sur GitLab → on verra après (pas bloqueur MVP).
+
+```yaml
+# agents/dev-angular-cba/agent.yml
+name: dev-angular-cba
+version: 2.3.1
+adapter_type: claude_local
+description: "Dev front Angular spécialisé EnterpriseCustomer <external-stakeholder>"
+
+config_layers:
+  - ref: base-stack@^1.0
+  - ref: angular-stack@^2.3
+  - ref: prompts-dev-frontend@^1.2
+
+# Optionnel : overrides locaux si besoin ponctuel
+overrides: {}
+```
+
+### Nightly sync git — validé
+
+```
+03:00 UTC quotidien :
+Routine governance-sync (pour chaque company)
+  For each agent modified today:
+    → compile agent config depuis DB (avec config layers résolus)
+    → diff avec git repo <company>-mnm-config/agents/<name>/
+    → si diff → commit + push avec message "chore(sync): agent X updated by Y at Z"
+  For each config_layer modified today:
+    → idem dans git repo <company>-mnm-config/config-layers/
+  For each workflow run terminé today:
+    → rien en git, juste archivage DB (runs = pas portables)
+```
+
+## Recap complet du design EnterpriseCustomer
+
+### Architecture d'exécution
+- **Serveur MnM** = control plane (DB, MCP server, gates, nightly sync, CAO).
+- **Poste dev** = exécution (Claude Code + plugins company-wide + cache agents).
+- **Communication** : MCP MnM (WebSocket pour events long-running).
+
+### Lancement type d'un workflow
+1. Dev : `/refonte-feature "créa d'ordo"` dans Claude Code.
+2. Claude Code → MCP : `createIssueFromWorkflow(...)` → issue + run.
+3. Loop : `getNextStep(issueId)` → step + execution directive + agent ref.
+4. Claude Code vérifie cache agent, télécharge si absent, applique execution directive.
+5. Hook vérifie contexte (session fresh, MCPs présents, etc.).
+6. Exécute agent local, `submitStepOutput`.
+7. MnM gate exit → avance DAG → next step.
+8. Step humain → `waitForHumanApproval` bloque, PM/QA commente via inbox/UI.
+9. Feedback loop : commentaire cible un step → re-run cascade.
+10. Convergence → workflow DONE → issue closed.
+
+### Composants MnM à construire (bloqueurs POC)
+
+**Backend**
+1. Moteur DAG + gates runtime (XState pour state machine).
+2. Schema YAML workflow + parser/validator.
+3. Infra GitProvider (GitLab self-hosted).
+4. MCP server étendu :
+   - Discovery : listWorkflows, getWorkflow, getNextStep, getIssueContext
+   - Execution : createIssueFromWorkflow, submitStepOutput, addComment
+   - Events (WS) : waitForGate, waitForHumanApproval, subscribeToIssue
+   - Agents : resolveAgent, downloadAgentBundle, verifyLocalSetup
+5. Agent bundle compiler (DB + config layers → tar.gz).
+6. Routine nightly governance-sync.
+7. CAO watchdog (monitoring boucles, infractions).
+
+**Frontend MnM**
+8. Page "Workflows live" (liste runs en cours).
+9. Page "Issue run" (timeline DAG + commentaires + artifacts).
+10. Sélecteur ciblage au post de commentaire.
+11. Preview cascade avant confirmation re-run.
+12. Inbox enrichie : step humain en attente.
+
+**Côté dev / Claude Code**
+13. Plugin `team-dev-workflows` (hooks de validation contexte, pre/post step).
+14. Plugin `team-dev-frontend` (skills existantes à refactorer en agent MnM).
+15. Plugin `team-dev-backend` (idem).
+
+**Agents à créer pour le workflow refonte-feature**
+16. `archeologue-legacy` (discover legacy)
+17. `business-analyst` (extract rules)
+18. `prd-completeness-judge` (gate PM)
+19. `reglementary-coverage-judge` (gate QA)
+20. `prd-consolidator`
+21. `ux-specifier` (avec MCP Figma)
+22. `backend-analyzer`
+23. `dev-backend` (existe via plugin team-dev-backend)
+24. `dev-angular-cba` (existe via plugin team-dev-frontend)
+25. `tech-debt-judge` (adversarial)
+26. `capacitor-compat-judge`
+27. `qa-automaton` (génération E2E)
+28. `ac-coverage-judge`
+29. `tech-writer`
+
+## Round 6 — Roadmap POC EnterpriseCustomer (à venir)
+
+### Proposition scope réduit POC
+
+**Objectif POC** : valider end-to-end le workflow sur UN scénario minimal avant de scaler.
+
+**Scope** :
+- 1 feature pilote : **"Refonte écran patient simple"** (moins complexe que "créa d'ordo")
+- Sous-workflows réduits :
+  - `extract-prd` uniquement (pas de dev front/back)
+  - 3 steps : discover-legacy → extract-rules → enrich-prd-pm
+  - 1 gate LLM (prd-completeness-judge)
+  - 1 human step (enrich PM)
+- Pas de cascade re-run (MVP sans cascade)
+- Pas de Nightly Synthesis
+- Pas de CAO watchdog
+- 1 agent seulement : `archeologue-legacy` + `business-analyst`
+
+**Delivrables POC** :
+- Workflow `extract-prd` en YAML dans repo gitlab-cba
+- Agents en DB MnM avec 1 config layer par agent
+- MCP primitives : createIssueFromWorkflow, getNextStep, submitStepOutput, addComment, waitForHumanApproval, resolveAgent
+- UI MnM : page issue + timeline steps + commentaire simple
+- Plugin `team-dev-workflows` minimal (hook pre-step check MCP)
+- Test end-to-end : dev lance, archéologue scan legacy, BA extrait, PM commente, prd consolidé.
+
+**Ce qui est reporté post-POC** :
+- Fan-out / parallélisme multi-steps
+- Cascade re-run
+- Feedback loop complet
+- CAO watchdog
+- Nightly sync git
+- Workflow adversarial gates
+- Sous-workflows composition (`uses:`)
+
+### Questions pour Round 6
+
+- OK avec ce scope POC ? Trop restreint ? Trop ambitieux ?
+- Combien de temps on alloue au POC (timeline) ?
+- Qui code quoi (Tom + Gab dispos ?) ?
+- Priorité : démo fonctionnelle vs robustesse ?
+
 ## Prochains rounds
 
-- Round 3 : trancher options C (feedback loop) + spec MCP primitives architecture hybride
-- Round 4 : spec format repo agent + config layer + routine nightly sync
-- Round 5 : roadmap POC minimal EnterpriseCustomer (1 feature pilote <external-stakeholder>, scope réduit)
+- Round 5 : format repo agent + config layer + routine nightly sync
+- Round 6 : roadmap POC minimal EnterpriseCustomer (1 feature pilote <external-stakeholder>)
