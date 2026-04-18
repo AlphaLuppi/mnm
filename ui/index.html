@@ -199,7 +199,12 @@
           var loader = document.getElementById("app-loader");
           if (!loader) return;
           var elapsed = performance.now() - window.__MNM_LOADER_START;
-          var delay = Math.max(0, MIN_DISPLAY - elapsed);
+          // Easter egg: shrink the mandatory display delay at 2× speed,
+          // stretch it at 0.5× speed. Reverse mode keeps the baseline so
+          // users can read the flipped animation.
+          var __mult = __speedMult();
+          var __displayScale = __mult === 2 ? 0.5 : __mult === 0.5 ? 2 : 1;
+          var delay = Math.max(0, MIN_DISPLAY * __displayScale - elapsed);
           setTimeout(function() {
             dissolving = true;
             dissolveStart = performance.now();
@@ -231,6 +236,28 @@
         let lastFrame = 0;
         const startTime = performance.now();
         const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Easter egg: modifier keys while the splash plays change playback.
+        //   Shift alone             → 2× speed
+        //   Cmd (or Ctrl) alone     → 0.5× speed
+        //   Shift + Cmd/Ctrl        → play in reverse
+        // The state is live-sampled each frame, so users can press/release
+        // during the animation and the effect snaps instantly.
+        let __shiftHeld = false, __cmdHeld = false;
+        function __speedMult() {
+          if (__shiftHeld && __cmdHeld) return -1;
+          if (__shiftHeld) return 2;
+          if (__cmdHeld) return 0.5;
+          return 1;
+        }
+        window.addEventListener("keydown", function (e) {
+          if (e.key === "Shift") __shiftHeld = true;
+          else if (e.key === "Meta" || e.key === "Control") __cmdHeld = true;
+        });
+        window.addEventListener("keyup", function (e) {
+          if (e.key === "Shift") __shiftHeld = false;
+          else if (e.key === "Meta" || e.key === "Control") __cmdHeld = false;
+        });
 
         function resize() {
           const nc = Math.max(1, Math.floor(pre.clientWidth / cw));
@@ -283,12 +310,21 @@
 
           const dt = lastFrame ? Math.min(3, (time - lastFrame) / 16.667) : 1;
           lastFrame = time;
-          tick += dt;
+          // Easter egg sampled per frame: ambient waves speed up / slow
+          // down / reverse based on held modifiers. |mult| drives the
+          // dissolve timing; the sign drives direction.
+          const __mult = __speedMult();
+          const __absMult = Math.abs(__mult);
+          const __reversed = __mult < 0;
+          tick += dt * __mult;
           const elapsed = time - startTime;
 
           // Dissolve: fade overlay after chars dissolved
           if (dissolving) {
-            const dElapsed = time - dissolveStart;
+            // Scale dissolve wall-clock by the absolute multiplier so
+            // shift → 2× speed, cmd → 0.5× speed both feel consistent
+            // with the ambient animation.
+            const dElapsed = (time - dissolveStart) * __absMult;
             if (dElapsed > 1100) {
               const fadeP = Math.min(1, (dElapsed - 1100) / 400);
               loader.style.opacity = String(1 - fadeP);
@@ -312,9 +348,14 @@
               if (lc) {
                 if (dissolving) {
                   // === DISSOLVE: edges first, center last ===
-                  const dElapsed = time - dissolveStart;
+                  // Easter egg reverse flips the schedule so the center
+                  // crumbles first and edges hold on — visually a true
+                  // "rewind" of the outward-to-inward reveal.
+                  const dElapsed = (time - dissolveStart) * __absMult;
                   const normDist = Math.min(1, lc.dist / 0.55);
-                  const dissolveAt = (1 - normDist) * 700;
+                  const dissolveAt = __reversed
+                    ? normDist * 700
+                    : (1 - normDist) * 700;
                   if (dElapsed < dissolveAt) {
                     out += lc.ch;
                   } else if (dElapsed < dissolveAt + 200) {
