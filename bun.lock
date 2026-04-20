@@ -125,6 +125,17 @@
         "vitest": "^3.0.5",
       },
     },
+    "packages/governed-workflows": {
+      "name": "@mnm/governed-workflows",
+      "version": "0.1.0",
+      "dependencies": {
+        "zod": "^3.24.2",
+      },
+      "devDependencies": {
+        "typescript": "^5.7.3",
+        "vitest": "^3.0.5",
+      },
+    },
     "packages/shared": {
       "name": "@mnm/shared",
       "version": "0.2.7",
@@ -731,6 +742,8 @@
     "@mnm/adapter-utils": ["@mnm/adapter-utils@workspace:packages/adapter-utils"],
 
     "@mnm/db": ["@mnm/db@workspace:packages/db"],
+
+    "@mnm/governed-workflows": ["@mnm/governed-workflows@workspace:packages/governed-workflows"],
 
     "@mnm/server": ["@mnm/server@workspace:server"],
 
