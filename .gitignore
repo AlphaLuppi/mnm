@@ -42,3 +42,6 @@ coverage/
 playwright-report/
 test-results/
 .gitnexus
+
+# Claude Code / Superpowers ephemeral state
+.superpowers/
