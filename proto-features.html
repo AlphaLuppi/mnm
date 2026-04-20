@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MnM — Feature Showcase</title>
+<style>
+  :root {
+    --bg: #09090b;
+    --surface: #18181b;
+    --surface-hover: #27272a;
+    --border: #27272a;
+    --text: #fafafa;
+    --text-muted: #a1a1aa;
+    --accent: #6d28d9;
+    --accent-light: #8b5cf6;
+    --accent-glow: rgba(139, 92, 246, .15);
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --pink: #ec4899;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  a { color: var(--accent-light); text-decoration: none; }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, var(--accent-glow), transparent 70%);
+    top: -200px; left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: .4rem 1rem; font-size: .8rem;
+    color: var(--text-muted); margin-bottom: 1.5rem;
+    animation: fadeIn .8s ease;
+  }
+  .hero-badge span { color: var(--green); font-weight: 600; }
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+    animation: fadeUp .8s ease;
+  }
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p {
+    max-width: 600px;
+    color: var(--text-muted);
+    font-size: 1.15rem;
+    margin-bottom: 2rem;
+    animation: fadeUp .8s ease .15s both;
+  }
+  .hero-cta {
+    display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp .8s ease .3s both;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .75rem 1.5rem;
+    border-radius: var(--radius);
+    font-size: .95rem; font-weight: 600;
+    border: none; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 8px 24px var(--accent-glow); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface); border-color: var(--accent-light); }
+
+  /* ── Pillars ── */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    max-width: 1100px;
+    margin: -4rem auto 0;
+    padding: 0 2rem 4rem;
+    position: relative;
+    z-index: 2;
+  }
+  .pillar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    transition: all .25s;
+  }
+  .pillar:hover { border-color: var(--accent-light); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  .pillar-icon {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .pillar h3 { font-size: 1.2rem; margin-bottom: .5rem; }
+  .pillar p { color: var(--text-muted); font-size: .9rem; }
+
+  /* ── Sections ── */
+  section { padding: 5rem 2rem; max-width: 1200px; margin: 0 auto; }
+  .section-label {
+    display: inline-block;
+    font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent-light);
+    margin-bottom: .5rem;
+  }
+  section > h2 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    margin-bottom: .75rem;
+  }
+  section > p.subtitle {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    max-width: 640px;
+    margin-bottom: 3rem;
+  }
+
+  /* ── Feature Grid ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+  }
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    transition: all .25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card:hover { border-color: var(--accent-light); transform: translateY(-2px); }
+  .feature-card::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-light), transparent);
+    opacity: 0; transition: opacity .3s;
+  }
+  .feature-card:hover::after { opacity: 1; }
+  .feature-header { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; }
+  .feature-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .feature-card h4 { font-size: 1rem; font-weight: 600; }
+  .feature-card p { color: var(--text-muted); font-size: .85rem; }
+  .feature-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
+  .tag {
+    font-size: .7rem; font-weight: 600;
+    padding: .2rem .55rem;
+    border-radius: 6px;
+    background: rgba(139, 92, 246, .1);
+    color: var(--accent-light);
+    border: 1px solid rgba(139, 92, 246, .2);
+  }
+  .tag.green { background: rgba(34,197,94,.1); color: var(--green); border-color: rgba(34,197,94,.2); }
+  .tag.blue { background: rgba(59,130,246,.1); color: var(--blue); border-color: rgba(59,130,246,.2); }
+  .tag.amber { background: rgba(245,158,11,.1); color: var(--amber); border-color: rgba(245,158,11,.2); }
+  .tag.cyan { background: rgba(6,182,212,.1); color: var(--cyan); border-color: rgba(6,182,212,.2); }
+  .tag.pink { background: rgba(236,72,153,.1); color: var(--pink); border-color: rgba(236,72,153,.2); }
+
+  /* ── Autonomy Levels ── */
+  .autonomy { margin-top: 3rem; }
+  .autonomy-track {
+    display: flex;
+    gap: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .autonomy-level {
+    flex: 1;
+    padding: 1.25rem 1rem;
+    text-align: center;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    transition: all .3s;
+    cursor: default;
+  }
+  .autonomy-level:last-child { border-right: none; }
+  .autonomy-level:hover { background: var(--surface-hover); }
+  .autonomy-level .level-num {
+    font-size: .7rem; font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin-bottom: .3rem;
+  }
+  .autonomy-level .level-name { font-weight: 700; font-size: .85rem; }
+  .autonomy-level .level-desc { font-size: .72rem; color: var(--text-muted); margin-top: .25rem; }
+  .autonomy-bar {
+    height: 4px;
+    background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  /* ── Architecture Diagram ── */
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: .8rem;
+    overflow-x: auto;
+  }
+  .arch-row {
+    display: flex;
+    gap: 1rem;
+    align-items: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .arch-box {
+    padding: .75rem 1.25rem;
+    border-radius: 8px;
+    border: 1px solid;
+    text-align: center;
+    min-width: 120px;
+  }
+  .arch-box.purple { border-color: var(--accent-light); background: rgba(139,92,246,.08); color: var(--accent-light); }
+  .arch-box.blue { border-color: var(--blue); background: rgba(59,130,246,.08); color: var(--blue); }
+  .arch-box.green { border-color: var(--green); background: rgba(34,197,94,.08); color: var(--green); }
+  .arch-box.amber { border-color: var(--amber); background: rgba(245,158,11,.08); color: var(--amber); }
+  .arch-box.cyan { border-color: var(--cyan); background: rgba(6,182,212,.08); color: var(--cyan); }
+  .arch-box.pink { border-color: var(--pink); background: rgba(236,72,153,.08); color: var(--pink); }
+  .arch-arrow { color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+
+  /* ── Stats ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 3rem 0;
+  }
+  .stat {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .stat-num {
+    font-size: 2rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-label { font-size: .8rem; color: var(--text-muted); margin-top: .25rem; }
+
+  /* ── Stack ── */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .stack-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+  .stack-item h5 { font-size: .85rem; margin-bottom: .5rem; color: var(--text); }
+  .stack-item ul { list-style: none; }
+  .stack-item li {
+    font-size: .8rem; color: var(--text-muted);
+    padding: .2rem 0;
+    display: flex; align-items: center; gap: .4rem;
+  }
+  .stack-item li::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent-light); flex-shrink: 0; }
+
+  /* ── MCP Tools ── */
+  .mcp-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+  .mcp-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: .4rem .9rem;
+    font-size: .75rem;
+    color: var(--text-muted);
+    transition: all .2s;
+  }
+  .mcp-pill:hover { border-color: var(--accent-light); color: var(--text); }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-muted);
+    font-size: .85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 4rem;
+  }
+  footer strong { color: var(--text); }
+
+  /* ── Animations ── */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .autonomy-track { flex-direction: column; }
+    .autonomy-level { border-right: none; border-bottom: 1px solid var(--border); }
+    .autonomy-level:last-child { border-bottom: none; }
+    .arch-row { flex-direction: column; align-items: center; }
+    .pillars { margin-top: -2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ HERO ══════════ -->
+<header class="hero">
+  <div class="hero-badge">
+    <span>&#9679;</span> Open Source &middot; Enterprise Ready
+  </div>
+  <h1><em>Make no Mistake</em><br>AI Agent Supervision</h1>
+  <p>Cockpit B2B pour orchestrer, superviser et gouverner vos agents IA en equipe. Confiance, controle, transparence.</p>
+  <div class="hero-cta">
+    <a href="#features" class="btn btn-primary">&#9889; Decouvrir les features</a>
+    <a href="#architecture" class="btn btn-ghost">&#128736; Architecture</a>
+  </div>
+</header>
+
+<!-- ══════════ 3 PILIERS ══════════ -->
+<div class="pillars">
+  <div class="pillar">
+    <div class="pillar-icon" style="background:rgba(34,197,94,.12); color:var(--green)">&#128737;</div>
+    <h3>Trust</h3>
+    <p>Scoring multi-dimensionnel des executions (couverture, conventions, securite, perf). Panels de reviewers IA pour chaque trace.</p>
+  </div>
+  <div class="pillar">
+    <div class="pillar-icon" style="background:rgba(245,158,11,.12); color:var(--amber)">&#127918;</div>
+    <h3>Control</h3>
+    <p>Continuum d'autonomie en 6 niveaux (Manuel &rarr; Autonome). Progression basee sur les KPI, gates d'approbation humaine.</p>
+  </div>
+  <div class="pillar">
+    <div class="pillar-icon" style="background:rgba(59,130,246,.12); color:var(--blue)">&#128065;</div>
+    <h3>Transparency</h3>
+    <p>Dashboards role-based (CEO, CTO, Tech Lead, Dev, QA). Audit trail immutable. Traçabilite complete Bronze/Silver/Gold.</p>
+  </div>
+</div>
+
+<!-- ══════════ STATS ══════════ -->
+<section>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num">82</div><div class="stat-label">Tables DB</div></div>
+    <div class="stat"><div class="stat-num">68</div><div class="stat-label">MCP Tools</div></div>
+    <div class="stat"><div class="stat-num">91</div><div class="stat-label">Permissions</div></div>
+    <div class="stat"><div class="stat-num">54</div><div class="stat-label">Pages UI</div></div>
+    <div class="stat"><div class="stat-num">6</div><div class="stat-label">Adapter Types</div></div>
+    <div class="stat"><div class="stat-num">41</div><div class="stat-label">Tables RLS</div></div>
+  </div>
+</section>
+
+<!-- ══════════ FEATURES ══════════ -->
+<section id="features">
+  <span class="section-label">Features</span>
+  <h2>Tout ce qu'il faut pour piloter vos agents</h2>
+  <p class="subtitle">De l'orchestration au suivi qualite, MnM couvre l'ensemble du cycle de vie des agents IA en entreprise.</p>
+
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(139,92,246,.12); color:var(--accent-light)">&#129302;</div>
+        <h4>Agent Management</h4>
+      </div>
+      <p>Creez, configurez et monitorez vos agents IA. 6 types d'adaptateurs (Claude, Codex, Cursor, OpenCode, Pi, HTTP). OrgChart hierarchique.</p>
+      <div class="feature-tags">
+        <span class="tag">CRUD</span>
+        <span class="tag green">Config Layers</span>
+        <span class="tag blue">OrgChart</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(6,182,212,.12); color:var(--cyan)">&#128200;</div>
+        <h4>Trace Pipeline</h4>
+      </div>
+      <p>3 niveaux de traçabilite : Bronze (raw JSON), Silver (grouped), Gold (scored + verdicts). Enrichissement LLM automatique a la completion.</p>
+      <div class="feature-tags">
+        <span class="tag cyan">Bronze</span>
+        <span class="tag amber">Silver</span>
+        <span class="tag pink">Gold</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(34,197,94,.12); color:var(--green)">&#128101;</div>
+        <h4>Multi-Tenant & RBAC</h4>
+      </div>
+      <p>1 backend, N entreprises. PostgreSQL RLS sur 41 tables. 91 permissions granulaires dynamiques. Tags d'isolation intra-company.</p>
+      <div class="feature-tags">
+        <span class="tag green">RLS</span>
+        <span class="tag">91 Permissions</span>
+        <span class="tag blue">Tag Scope</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(245,158,11,.12); color:var(--amber)">&#9881;</div>
+        <h4>Config Layers</h4>
+      </div>
+      <p>Configuration structuree avec merge par priorite. Company enforced (999) &gt; Base (500) &gt; Additionnel. MCP Servers, Skills, Hooks, Settings.</p>
+      <div class="feature-tags">
+        <span class="tag amber">Priority Merge</span>
+        <span class="tag">Advisory Locks</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(236,72,153,.12); color:var(--pink)">&#128172;</div>
+        <h4>Chat & Collaboration</h4>
+      </div>
+      <p>Chat temps reel avec les agents. Channels, artefacts versiones, documents RAG (pgvector), slash commands, @mentions, A2A messaging.</p>
+      <div class="feature-tags">
+        <span class="tag pink">Real-time</span>
+        <span class="tag cyan">RAG</span>
+        <span class="tag">A2A</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(59,130,246,.12); color:var(--blue)">&#128203;</div>
+        <h4>Workflows BMAD</h4>
+      </div>
+      <p>Orchestration XState avec templates multi-stages (Brief &rarr; PRD &rarr; Archi &rarr; Stories &rarr; Dev &rarr; Test). Config layers par stage.</p>
+      <div class="feature-tags">
+        <span class="tag blue">XState</span>
+        <span class="tag">Templates</span>
+        <span class="tag green">Routines</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(239,68,68,.12); color:var(--red)">&#128274;</div>
+        <h4>Security & Auth</h4>
+      </div>
+      <p>OAuth 2.1 + PKCE. BetterAuth sessions + Agent JWT. Credentials AES-256-GCM. Rate limiting per-tenant. Audit trail immutable partitionne.</p>
+      <div class="feature-tags">
+        <span class="tag amber">OAuth 2.1</span>
+        <span class="tag">AES-256</span>
+        <span class="tag green">Audit</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(139,92,246,.12); color:var(--accent-light)">&#129520;</div>
+        <h4>MCP Server</h4>
+      </div>
+      <p>68 tools + 10 resources sur 14 domaines. Transport Streamable HTTP + SSE. Consent granulaire par domaine. Semaphore DB (15 concurrent).</p>
+      <div class="feature-tags">
+        <span class="tag">68 Tools</span>
+        <span class="tag cyan">Streamable HTTP</span>
+        <span class="tag pink">Consent</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(34,197,94,.12); color:var(--green)">&#127919;</div>
+        <h4>Approvals & Quality</h4>
+      </div>
+      <p>Quality Profiles multi-dimensions. Agent Review Panel (N agents scorent chaque execution). Gate Reviews humaines. Feedback voting.</p>
+      <div class="feature-tags">
+        <span class="tag green">Quality Gates</span>
+        <span class="tag">Review Panel</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(245,158,11,.12); color:var(--amber)">&#128176;</div>
+        <h4>Cost Tracking</h4>
+      </div>
+      <p>Suivi des depenses LLM par agent et par workflow. Dashboards de tendances et d'optimisation des couts.</p>
+      <div class="feature-tags">
+        <span class="tag amber">LLM Spend</span>
+        <span class="tag">Per Agent</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(6,182,212,.12); color:var(--cyan)">&#128187;</div>
+        <h4>CAO (Chief Agent Officer)</h4>
+      </div>
+      <p>Agent systeme auto-cree. Mode watchdog (auto-commente les echecs) + mode interactif (@cao mentions). Admin role, tous les tags.</p>
+      <div class="feature-tags">
+        <span class="tag cyan">Watchdog</span>
+        <span class="tag pink">@cao</span>
+        <span class="tag">Auto-created</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon" style="background:rgba(236,72,153,.12); color:var(--pink)">&#128470;</div>
+        <h4>Drift Detection</h4>
+      </div>
+      <p>Detection automatique des ecarts entre specs et code. Rapports de drift avec items detailles et resolution tracking.</p>
+      <div class="feature-tags">
+        <span class="tag pink">Spec vs Code</span>
+        <span class="tag">Reports</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════ AUTONOMY LEVELS ══════════ -->
+<section>
+  <span class="section-label">Control</span>
+  <h2>Continuum d'autonomie en 6 niveaux</h2>
+  <p class="subtitle">Progression basee sur les KPI. L'humain reste central a chaque etape.</p>
+
+  <div class="autonomy">
+    <div class="autonomy-track">
+      <div class="autonomy-level">
+        <div class="level-num">Level 0</div>
+        <div class="level-name">Manuel</div>
+        <div class="level-desc">Humain fait tout</div>
+      </div>
+      <div class="autonomy-level">
+        <div class="level-num">Level 1</div>
+        <div class="level-name">Assisté</div>
+        <div class="level-desc">Agent suggere</div>
+      </div>
+      <div class="autonomy-level">
+        <div class="level-num">Level 2</div>
+        <div class="level-name">Semi-auto</div>
+        <div class="level-desc">Approbation requise</div>
+      </div>
+      <div class="autonomy-level">
+        <div class="level-num">Level 3</div>
+        <div class="level-name">Conditionnel</div>
+        <div class="level-desc">Auto si KPI OK</div>
+      </div>
+      <div class="autonomy-level">
+        <div class="level-num">Level 4</div>
+        <div class="level-name">Haute auto</div>
+        <div class="level-desc">Veto humain</div>
+      </div>
+      <div class="autonomy-level">
+        <div class="level-num">Level 5</div>
+        <div class="level-name">Autonome</div>
+        <div class="level-desc">Supervision passive</div>
+      </div>
+    </div>
+    <div class="autonomy-bar"></div>
+  </div>
+</section>
+
+<!-- ══════════ MCP TOOLS ══════════ -->
+<section>
+  <span class="section-label">MCP Server</span>
+  <h2>68 tools, 14 domaines</h2>
+  <p class="subtitle">Chaque outil expose une capability precise. Consent granulaire par domaine (read/write/admin).</p>
+  <div class="mcp-bar">
+    <span class="mcp-pill">agents:list</span>
+    <span class="mcp-pill">agents:create</span>
+    <span class="mcp-pill">agents:heartbeat</span>
+    <span class="mcp-pill">traces:get</span>
+    <span class="mcp-pill">traces:gold</span>
+    <span class="mcp-pill">issues:list</span>
+    <span class="mcp-pill">issues:create</span>
+    <span class="mcp-pill">chat:send</span>
+    <span class="mcp-pill">chat:channels</span>
+    <span class="mcp-pill">workflows:start</span>
+    <span class="mcp-pill">workflows:advance</span>
+    <span class="mcp-pill">config:layers</span>
+    <span class="mcp-pill">config:merge</span>
+    <span class="mcp-pill">approvals:vote</span>
+    <span class="mcp-pill">approvals:gate</span>
+    <span class="mcp-pill">docs:search</span>
+    <span class="mcp-pill">docs:rag</span>
+    <span class="mcp-pill">drift:report</span>
+    <span class="mcp-pill">costs:summary</span>
+    <span class="mcp-pill">audit:log</span>
+    <span class="mcp-pill">admin:roles</span>
+    <span class="mcp-pill">admin:tags</span>
+    <span class="mcp-pill">routines:schedule</span>
+    <span class="mcp-pill">cao:interact</span>
+  </div>
+</section>
+
+<!-- ══════════ ARCHITECTURE ══════════ -->
+<section id="architecture">
+  <span class="section-label">Architecture</span>
+  <h2>Stack & architecture</h2>
+  <p class="subtitle">Monorepo Bun workspaces. Client-side compute. Le serveur est API/data/orchestration.</p>
+
+  <div class="arch-diagram">
+    <div class="arch-row">
+      <div class="arch-box purple">React 18 + Vite<br><small>54 pages, shadcn/ui</small></div>
+      <div class="arch-box pink">Tauri Desktop<br><small>Web + Desktop parity</small></div>
+      <div class="arch-box cyan">MCP Clients<br><small>Claude, Cursor, etc.</small></div>
+    </div>
+    <div class="arch-arrow">&darr;&darr;&darr;</div>
+    <div class="arch-row">
+      <div class="arch-box blue">Express 5 API<br><small>54 routes, Zod validation</small></div>
+      <div class="arch-box blue">WebSocket / SSE<br><small>Live events</small></div>
+      <div class="arch-box blue">MCP Server<br><small>68 tools, OAuth 2.1</small></div>
+    </div>
+    <div class="arch-arrow">&darr;&darr;&darr;</div>
+    <div class="arch-row">
+      <div class="arch-box amber">Auth Middleware<br><small>BetterAuth + JWT</small></div>
+      <div class="arch-box amber">Company Membership<br><small>Multi-tenant guard</small></div>
+      <div class="arch-box amber">Tag Scope<br><small>Visibility filter</small></div>
+      <div class="arch-box amber">RLS Context<br><small>pg SET app.company</small></div>
+    </div>
+    <div class="arch-arrow">&darr;&darr;&darr;</div>
+    <div class="arch-row">
+      <div class="arch-box green">PostgreSQL 17<br><small>82 tables, RLS, pgvector</small></div>
+      <div class="arch-box green">Redis 7<br><small>Cache, pub/sub, BullMQ</small></div>
+      <div class="arch-box green">Drizzle ORM<br><small>Type-safe queries</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TECH STACK ══════════ -->
+<section>
+  <span class="section-label">Stack</span>
+  <h2>Technologies</h2>
+  <p class="subtitle">Stack moderne, type-safe, optimise pour les equipes enterprise.</p>
+
+  <div class="stack-grid">
+    <div class="stack-item">
+      <h5>Frontend</h5>
+      <ul>
+        <li>React 18 + TypeScript</li>
+        <li>Vite 6</li>
+        <li>Tailwind CSS 4 + shadcn/ui</li>
+        <li>TanStack Query 5</li>
+        <li>React Router 7</li>
+        <li>Recharts + Mermaid</li>
+      </ul>
+    </div>
+    <div class="stack-item">
+      <h5>Backend</h5>
+      <ul>
+        <li>Express.js 5</li>
+        <li>TypeScript 5.7</li>
+        <li>Bun 1.3+ (runtime)</li>
+        <li>Zod (validation)</li>
+        <li>Pino (logging)</li>
+        <li>XState 5 (workflows)</li>
+      </ul>
+    </div>
+    <div class="stack-item">
+      <h5>Data</h5>
+      <ul>
+        <li>PostgreSQL 17</li>
+        <li>Drizzle ORM 0.38</li>
+        <li>pgvector (RAG)</li>
+        <li>Redis 7 + ioredis</li>
+        <li>BullMQ 5 (jobs)</li>
+        <li>Embedded PG (dev)</li>
+      </ul>
+    </div>
+    <div class="stack-item">
+      <h5>Security</h5>
+      <ul>
+        <li>BetterAuth 1.4</li>
+        <li>OAuth 2.1 + PKCE</li>
+        <li>AES-256-GCM</li>
+        <li>RLS (41 tables)</li>
+        <li>Rate limiting</li>
+        <li>Audit partitionne</li>
+      </ul>
+    </div>
+    <div class="stack-item">
+      <h5>Testing</h5>
+      <ul>
+        <li>Playwright (E2E)</li>
+        <li>Vitest 3 (unit)</li>
+        <li>Supertest (API)</li>
+      </ul>
+    </div>
+    <div class="stack-item">
+      <h5>Desktop</h5>
+      <ul>
+        <li>Tauri 2</li>
+        <li>Web/Desktop parity</li>
+        <li>IPC commands</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <strong>MnM</strong> &mdash; Make no Mistake &middot; Studio Manifeste &middot; Enterprise AI Agent Supervision<br>
+  <small style="color:var(--text-muted)">React + Express + PostgreSQL + Drizzle &middot; Monorepo Bun</small>
+</footer>
+
+</body>
+</html>

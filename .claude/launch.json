@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mnm-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev-runner.mjs", "watch"],
+      "port": 3100
+    },
+    {
+      "name": "mnm-server",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "server", "dev"],
+      "port": 3100
+    },
+    {
+      "name": "mnm-ui",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "ui", "dev"],
+      "port": 5173
+    }
+  ]
+}
