@@ -92,6 +92,8 @@ describe("governed_workflow_definitions table", () => {
 describe("governed_workflow_runs table", () => {
   it("creates the table with the expected columns and FKs", () => {
     expect(sql).toMatch(/CREATE TABLE "governed_workflow_runs" \(/);
+    expect(sql).toMatch(/"id" uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+    expect(sql).toMatch(/"company_id" uuid NOT NULL REFERENCES "companies"\("id"\)/);
     expect(sql).toMatch(
       /"workflow_def_id" uuid NOT NULL REFERENCES "governed_workflow_definitions"\("id"\)/,
     );
@@ -139,6 +141,8 @@ describe("governed_workflow_runs table", () => {
 describe("governed_step_executions table", () => {
   it("creates the table with the expected columns", () => {
     expect(sql).toMatch(/CREATE TABLE "governed_step_executions" \(/);
+    expect(sql).toMatch(/"id" uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+    expect(sql).toMatch(/"company_id" uuid NOT NULL REFERENCES "companies"\("id"\)/);
     expect(sql).toMatch(
       /"run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"\("id"\) ON DELETE CASCADE/,
     );
@@ -185,6 +189,8 @@ describe("governed_step_executions table", () => {
 describe("gate_results table", () => {
   it("creates the table with the expected columns", () => {
     expect(sql).toMatch(/CREATE TABLE "gate_results" \(/);
+    expect(sql).toMatch(/"id" uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+    expect(sql).toMatch(/"company_id" uuid NOT NULL REFERENCES "companies"\("id"\)/);
     expect(sql).toMatch(
       /"run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"\("id"\) ON DELETE CASCADE/,
     );
