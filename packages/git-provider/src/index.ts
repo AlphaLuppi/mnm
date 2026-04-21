@@ -17,3 +17,8 @@ export type {
 } from "./types.js";
 
 export { ShaCache, type ShaCacheOptions } from "./sha-cache.js";
+
+export {
+  LocalBareRepoProvider,
+  type LocalBareRepoProviderOptions,
+} from "./local-bare-repo-provider.js";
