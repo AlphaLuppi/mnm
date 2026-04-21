@@ -15,3 +15,5 @@ export type {
   CommitFileArgs,
   CommitFileResult,
 } from "./types.js";
+
+export { ShaCache, type ShaCacheOptions } from "./sha-cache.js";
