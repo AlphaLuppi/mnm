@@ -73,4 +73,30 @@ ALTER TABLE "governed_workflow_runs" ENABLE ROW LEVEL SECURITY;--> statement-bre
 ALTER TABLE "governed_workflow_runs" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "governed_workflow_runs" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
+-- 2c. governed_step_executions — one row per step per run.
+-- ON DELETE CASCADE on run_id so a cancelled/purged run cleans up its steps.
+-- launched_by_actor_* are nullable because a pending step has not been launched yet.
+CREATE TABLE "governed_step_executions" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" uuid NOT NULL REFERENCES "companies"("id"),
+  "run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"("id") ON DELETE CASCADE,
+  "step_id_in_json" text NOT NULL,
+  "state" text NOT NULL DEFAULT 'pending' CHECK ("state" IN ('pending', 'running', 'gate_eval', 'succeeded', 'failed')),
+  "started_at" timestamptz,
+  "completed_at" timestamptz,
+  "artifacts_json" jsonb,
+  "launched_by_actor_type" text CHECK ("launched_by_actor_type" IN ('user', 'agent', 'system')),
+  "launched_by_actor_id" text,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);--> statement-breakpoint
+CREATE UNIQUE INDEX "governed_step_executions_run_step_uq"
+  ON "governed_step_executions"("run_id", "step_id_in_json");--> statement-breakpoint
+CREATE INDEX "governed_step_executions_run_state_idx"
+  ON "governed_step_executions"("run_id", "state");--> statement-breakpoint
+
+ALTER TABLE "governed_step_executions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "governed_step_executions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "governed_step_executions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
+
 -- All subsequent DDL added in later tasks of this plan.
