@@ -131,3 +131,47 @@ describe("governed_workflow_runs table", () => {
     );
   });
 });
+
+describe("governed_step_executions table", () => {
+  it("creates the table with the expected columns", () => {
+    expect(sql).toContain('CREATE TABLE "governed_step_executions" (');
+    expect(sql).toMatch(
+      /"run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"\("id"\) ON DELETE CASCADE/,
+    );
+    expect(sql).toMatch(/"step_id_in_json" text NOT NULL/);
+    expect(sql).toMatch(
+      /"state" text NOT NULL DEFAULT 'pending' CHECK \("state" IN \('pending', 'running', 'gate_eval', 'succeeded', 'failed'\)\)/,
+    );
+    expect(sql).toMatch(/"started_at" timestamptz/);
+    expect(sql).toMatch(/"completed_at" timestamptz/);
+    expect(sql).toMatch(/"artifacts_json" jsonb/);
+    expect(sql).toMatch(
+      /"launched_by_actor_type" text CHECK \("launched_by_actor_type" IN \('user', 'agent', 'system'\)\)/,
+    );
+    expect(sql).toMatch(/"launched_by_actor_id" text/);
+  });
+
+  it("has a unique index on (run_id, step_id_in_json)", () => {
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX "governed_step_executions_run_step_uq"\s+ON "governed_step_executions"\("run_id", "step_id_in_json"\);/,
+    );
+  });
+
+  it("indexes pending+running states for the scheduler", () => {
+    expect(sql).toMatch(
+      /CREATE INDEX "governed_step_executions_run_state_idx"\s+ON "governed_step_executions"\("run_id", "state"\);/,
+    );
+  });
+
+  it("enables + forces RLS with tenant_isolation policy", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE "governed_step_executions" ENABLE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /ALTER TABLE "governed_step_executions" FORCE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /CREATE POLICY "tenant_isolation" ON "governed_step_executions" AS RESTRICTIVE FOR ALL USING \(company_id = current_setting\('app\.current_company_id', true\)::uuid\);/,
+    );
+  });
+});
