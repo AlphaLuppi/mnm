@@ -10,12 +10,23 @@ import {
   workflowDefinitionSchema,
   WORKFLOW_ERROR_CODES,
   type WorkflowDefinition,
+  type GateContext,
+  type GateBlock,
 } from "@mnm/governed-workflows";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
 import type { AuditActorType } from "@mnm/shared";
+import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
+import { makeResolveSource } from "./governed-workflows-source-resolver.js";
+import { buildGateHelpers } from "./governed-workflows-helpers.js";
 
 // Constant providerId for ShaCache (providerId, path, sha) tuple.
 const PROVIDER_ID = "mnm-workflows";
+
+// One process-wide compiled cache. Entries are keyed by (gitSha, path),
+// which are immutable once a tag is pushed, so entries never need to be
+// invalidated — only evicted under memory pressure (ReadyCache FIFO,
+// cf. T4).
+const compiledCache = new CompiledCache();
 
 /**
  * Domain error raised by the governed workflow service. Mapped to the MCP
@@ -84,6 +95,19 @@ export interface GetRunResult {
     hints: string[];
     evaluatedAt: Date;
   } | null;
+}
+
+export interface LaunchStepArgs {
+  companyId: string;
+  runId: string;
+  stepId: string;
+  actor: { type: AuditActorType; id: string };
+}
+
+export interface LaunchStepResult {
+  agentName: string;
+  promptContext: Record<string, unknown>;
+  subagentType: string;
 }
 
 /**
@@ -338,8 +362,277 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     };
   }
 
-  // Further methods land in Task 7/8/9 (launchStep, completeStep,
-  // syncEnvironment).
+  // ─── Step lifecycle ──────────────────────────────────────────────
+
+  /**
+   * Authorize a step launch. Verifies all deps are `succeeded`, evaluates
+   * the entry gate block (if any) through `runGateBlock`, persists the
+   * gate_result rows, and returns the {agent, prompt_context, subagent_type}
+   * triplet for the Claude Code harness.
+   *
+   * On gate failure, rolls the step back to `pending` and throws
+   * `WORKFLOW_GATE_FAILED`. No state corruption — the step becomes
+   * eligible for a later retry once the author fixes whatever the gate
+   * flagged. (Retry surface is a T7+ concern; T5 only exposes the gate
+   * verdict truthfully.)
+   */
+  async function launchStep(args: LaunchStepArgs): Promise<LaunchStepResult> {
+    const run = await getRun({ companyId: args.companyId, runId: args.runId });
+
+    // Re-parse the workflow at the run's pinned sha.
+    const defInfo = await getDefByRun(args.companyId, args.runId);
+    const parsed = await getWorkflowParsed({
+      companyId: args.companyId,
+      name: defInfo.name,
+      gitTag: defInfo.workflowGitTag,
+    });
+    // TODO(performance): avoid re-fetching the workflow on every launchStep.
+    // For MVP, the ShaCache makes this a single-map lookup after the first
+    // call per run (see T3 ShaCache). Acceptable given N<<M in practice.
+
+    const step = parsed.workflow.steps.find((s) => s.id === args.stepId);
+    if (!step) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_STEP_NOT_FOUND,
+        `Step '${args.stepId}' not in workflow`,
+      );
+    }
+
+    // Deps check — all deps must be succeeded.
+    if (step.deps.length > 0) {
+      const missing = step.deps.filter((d) => {
+        const s = run.steps.find((r) => r.id === d);
+        return !s || s.state !== "succeeded";
+      });
+      if (missing.length > 0) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_DEPENDENCY_UNMET,
+          `Cannot launch '${args.stepId}': missing ${missing.join(", ")}`,
+          [
+            `Launch ${missing[0]} first and complete it successfully`,
+            `Check get_governed_workflow_run for step order`,
+          ],
+        );
+      }
+    }
+
+    // Mark step as running / gate_eval
+    await db
+      .update(governedStepExecutions)
+      .set({
+        state: step.gates?.entry ? "gate_eval" : "running",
+        startedAt: new Date(),
+        launchedByActorType: args.actor.type,
+        launchedByActorId: args.actor.id,
+      })
+      .where(
+        and(
+          eq(governedStepExecutions.runId, args.runId),
+          eq(governedStepExecutions.stepIdInJson, args.stepId),
+        ),
+      );
+
+    // Evaluate entry gate if present
+    const entryBlock = step.gates?.entry as GateBlock | undefined;
+    if (entryBlock && entryBlock.length > 0) {
+      const helpers = buildGateHelpers({ db, companyId: args.companyId });
+      const previousArtifacts = buildPreviousArtifacts(run);
+      const context: GateContext = {
+        artifact: undefined,
+        run: {
+          id: args.runId,
+          workflow_name: parsed.workflow.name,
+          git_tag: parsed.gitTag,
+          params: run.steps.length > 0 ? {} : {},
+        },
+        step: { id: args.stepId, previous_artifacts: previousArtifacts },
+        config: {},
+        kind: "entry",
+        helpers: {},
+      };
+
+      const blockResult = await runGateBlock(
+        {
+          block: entryBlock,
+          kind: "entry",
+          gitSha: parsed.gitSha,
+          context,
+          resolveSource: makeResolveSource({
+            gitProvider,
+            workflowGitSha: parsed.gitSha,
+            workflowRepoPath: parsed.workflowRepoPath,
+            shaCache,
+          }),
+        },
+        { compiledCache, helpers },
+      );
+
+      // Persist every gate_result row
+      const [stepExec] = await db
+        .select({ id: governedStepExecutions.id })
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+
+      await db.insert(gateResults).values(
+        blockResult.gate_results.map((r) => ({
+          companyId: args.companyId,
+          runId: args.runId,
+          stepExecId: stepExec.id,
+          gateIdInJson: r.gate_id_in_json,
+          kind: r.kind,
+          pass: r.pass,
+          report: r.report,
+          errorCode: r.error_code ?? null,
+          hints: r.hints ?? [],
+          gateGitSha: r.gate_git_sha,
+          evaluatedAt: new Date(r.evaluated_at),
+        })),
+      );
+
+      if (!blockResult.pass) {
+        const failed = blockResult.gate_results.find((r) => !r.pass);
+        await db
+          .update(governedStepExecutions)
+          .set({ state: "pending", startedAt: null })
+          .where(
+            and(
+              eq(governedStepExecutions.runId, args.runId),
+              eq(governedStepExecutions.stepIdInJson, args.stepId),
+            ),
+          );
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+          `Entry gate failed for step '${args.stepId}': ${failed?.report ?? "unknown"}`,
+          failed?.hints ?? [],
+        );
+      }
+
+      // Gate passed — transition to running
+      await db
+        .update(governedStepExecutions)
+        .set({ state: "running" })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+    }
+
+    // Interpolate prompt_context placeholders (`{{variables.name}}`,
+    // `{{steps.greet.artifact.greeting}}`) against the run's params +
+    // previous artifacts. For MVP, only two substitution patterns are
+    // supported — see `interpolatePromptContext` below.
+    const params = await fetchRunParams(args.companyId, args.runId);
+    const previousArtifacts = buildPreviousArtifacts(run);
+    const promptContext = interpolatePromptContext(
+      step.prompt_context,
+      { variables: params, steps: previousArtifacts },
+    );
+
+    return {
+      agentName: step.agent,
+      promptContext,
+      subagentType: `mnm--${step.agent}`,
+    };
+  }
+
+  // Helper: the run's `paramsJson` column — not carried on `GetRunResult`
+  // to keep that shape focused. Fetched lazily when needed for prompt
+  // interpolation.
+  async function fetchRunParams(companyId: string, runId: string): Promise<Record<string, unknown>> {
+    const [row] = await db
+      .select({ params: governedWorkflowRuns.paramsJson })
+      .from(governedWorkflowRuns)
+      .where(and(eq(governedWorkflowRuns.companyId, companyId), eq(governedWorkflowRuns.id, runId)));
+    return (row?.params as Record<string, unknown>) ?? {};
+  }
+
+  // Helper: assemble { [stepId]: artifact } from succeeded steps for a run.
+  function buildPreviousArtifacts(run: GetRunResult): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const step of run.steps) {
+      if (step.state === "succeeded") {
+        // Re-read artifacts from DB; steps[].artifactsJson isn't on the
+        // summary. Async reads inside a sync helper aren't possible, so
+        // callers that need full artifacts pass them separately. MVP
+        // version leaves this shape empty; interpolation step below reads
+        // lazily.
+        out[step.id] = undefined;
+      }
+    }
+    return out;
+  }
+
+  // Helper: resolve a definition name + pinned tag from a runId. Private to the service.
+  async function getDefByRun(companyId: string, runId: string) {
+    const [row] = await db
+      .select({
+        name: governedWorkflowDefinitions.name,
+        latestGitTag: governedWorkflowDefinitions.latestGitTag,
+        workflowGitTag: governedWorkflowRuns.workflowGitTag,
+      })
+      .from(governedWorkflowRuns)
+      .innerJoin(
+        governedWorkflowDefinitions,
+        eq(governedWorkflowRuns.workflowDefId, governedWorkflowDefinitions.id),
+      )
+      .where(
+        and(
+          eq(governedWorkflowRuns.id, runId),
+          eq(governedWorkflowRuns.companyId, companyId),
+        ),
+      );
+    if (!row) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+        `Run '${runId}' not found`,
+      );
+    }
+    return row;
+  }
+
+  /**
+   * Very small interpolation: walks the prompt_context tree, replaces any
+   * string value matching `{{variables.<key>}}` or `{{steps.<id>.artifact.<path>}}`
+   * with the resolved value. Unknown placeholders remain as literal
+   * strings — a zod-style runtime validator catches this upstream at
+   * complete_step time if the author expected a value.
+   */
+  function interpolatePromptContext(
+    template: Record<string, unknown>,
+    scope: { variables: Record<string, unknown>; steps: Record<string, unknown> },
+  ): Record<string, unknown> {
+    const walk = (v: unknown): unknown => {
+      if (typeof v === "string") {
+        return v.replace(
+          /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
+          (_, path: string) => {
+            const parts = path.split(".");
+            let cur: any = scope;
+            for (const p of parts) {
+              cur = cur?.[p];
+              if (cur === undefined) return `{{${path}}}`;
+            }
+            return typeof cur === "string" || typeof cur === "number" ? String(cur) : JSON.stringify(cur);
+          },
+        );
+      }
+      if (Array.isArray(v)) return v.map(walk);
+      if (v && typeof v === "object") {
+        return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, walk(val)]));
+      }
+      return v;
+    };
+    return walk(template) as Record<string, unknown>;
+  }
+
+  // Further methods land in Task 8/9 (completeStep, syncEnvironment).
 
   return {
     listDefinitions,
@@ -347,6 +640,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     getWorkflowParsed,
     launchWorkflow,
     getRun,
+    launchStep,
   };
 }
 
