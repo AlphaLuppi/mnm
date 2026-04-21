@@ -19,7 +19,22 @@
       "Bash(timeout 30 npx vitest --list)",
       "Bash(git ls-tree *)",
       "Bash(echo \"exit=$?\")",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(mkdir -p /tmp/csa-review)",
+      "Read(//tmp/**)",
+      "Bash(unzip -o \"/c/Users/tom.andrieu/Downloads/claude-skill-analyzer.zip\")",
+      "Read(//c/Users/tom.andrieu/.claude/**)",
+      "Read(//c/Users/tom.andrieu/.claude/projects/**)",
+      "Bash(xargs -I{} head -1 \"{}\")",
+      "Bash(xargs -I{} bash -c 'jq -c \"keys\" \"{}\" 2>/dev/null | sort -u')",
+      "Bash(xargs -I{} bash -c 'jq -c \".type + \\\\\"|\\\\\" + \\(.message.role // \\\\\"?\\\\\"\\) + \\\\\"|\\\\\" + \\(.message.content | type\\)\" \"{}\" | sort -u')",
+      "Bash(date -d \"@$\\(\\(1759142974284/1000\\)\\)\" +%Y-%m-%d)",
+      "Bash(chmod +x ~/.claude/skills/session-pattern-analyzer/scripts/digest-sessions.sh)",
+      "Bash(bash ~/.claude/skills/session-pattern-analyzer/scripts/digest-sessions.sh)",
+      "Bash(wait)",
+      "Bash(bash ~/.claude/skills/session-pattern-analyzer/scripts/digest-sessions.sh 2026-04-17)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }
