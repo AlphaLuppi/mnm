@@ -48,3 +48,27 @@ describe("gateOutputSchema", () => {
     ).toThrow();
   });
 });
+
+describe("gateOutputSchema strict mode", () => {
+  it("rejects unknown keys alongside valid fields", () => {
+    const result = gateOutputSchema.safeParse({
+      pass: true,
+      report: "ok",
+      sneaky_extra: "bad",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.code === "unrecognized_keys")).toBe(true);
+    }
+  });
+
+  it("still accepts the documented optional fields", () => {
+    const result = gateOutputSchema.safeParse({
+      pass: false,
+      report: "missing greeting",
+      error_code: "MISSING_GREETING",
+      hints: ["Return {greeting} from the greeter sub-agent"],
+    });
+    expect(result.success).toBe(true);
+  });
+});
