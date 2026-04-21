@@ -1,16 +1,20 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
+  governedWorkflowRuns,
+  governedStepExecutions,
   type Db,
 } from "@mnm/db";
-
-const PROVIDER_ID = "mnm-workflows";
 import {
   workflowDefinitionSchema,
   WORKFLOW_ERROR_CODES,
   type WorkflowDefinition,
 } from "@mnm/governed-workflows";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
+import type { AuditActorType } from "@mnm/shared";
+
+// Constant providerId for ShaCache (providerId, path, sha) tuple.
+const PROVIDER_ID = "mnm-workflows";
 
 /**
  * Domain error raised by the governed workflow service. Mapped to the MCP
@@ -39,6 +43,21 @@ export interface GetWorkflowParsedResult {
   gitSha: string;
   /** Repo-relative path to the workflow.json in the workflows repo. */
   workflowRepoPath: string;
+}
+
+export interface LaunchWorkflowArgs {
+  companyId: string;
+  name: string;
+  gitTag?: string;
+  params: Record<string, unknown>;
+  actor: { type: AuditActorType; id: string };
+}
+
+export interface LaunchWorkflowResult {
+  runId: string;
+  firstStep: string;
+  gitTag: string;
+  gitSha: string;
 }
 
 /**
@@ -149,13 +168,95 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     };
   }
 
-  // Further methods land in Task 5/6/7/8/9 (launchWorkflow, getRun,
-  // launchStep, completeStep, syncEnvironment).
+  /**
+   * Launch a governed workflow run. Fetches + parses the workflow at the
+   * pinned tag, takes a PG advisory-xact lock keyed on the definition id
+   * (to serialise concurrent launches of the same workflow — prevents
+   * interleaved step inserts), and inserts one `governed_workflow_runs`
+   * row + one `governed_step_executions` row per step (state=pending).
+   *
+   * The lock is released at TX commit/rollback. Key = hashtext of
+   * 'mnm:launch:<def_id>' so the namespace is disjoint from other
+   * advisory locks in the codebase.
+   *
+   * `firstStep` is the id of the first step with empty `deps` in parse
+   * order. Workflows with multiple zero-dep steps get the FIRST one —
+   * gates and/or dep ordering are the author's responsibility beyond
+   * that.
+   */
+  async function launchWorkflow(args: LaunchWorkflowArgs): Promise<LaunchWorkflowResult> {
+    const parsed = await getWorkflowParsed({
+      companyId: args.companyId,
+      name: args.name,
+      gitTag: args.gitTag,
+    });
+
+    const def = await getDefinition({ companyId: args.companyId, name: args.name });
+    // def cannot be null here — getWorkflowParsed already validated existence.
+    if (!def) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND,
+        `Workflow '${args.name}' vanished between parse and launch`,
+      );
+    }
+
+    const firstStep = parsed.workflow.steps.find((s) => s.deps.length === 0);
+    if (!firstStep) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND,
+        `Workflow '${args.name}' has no step with empty deps — cannot launch`,
+      );
+    }
+
+    return await db.transaction(async (tx) => {
+      // Advisory lock: disambiguate namespace with a prefix so we don't
+      // collide with other lock users. Scope per-definition so unrelated
+      // workflows can launch concurrently.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:launch:" + def.id}))`,
+      );
+
+      const [run] = await tx
+        .insert(governedWorkflowRuns)
+        .values({
+          companyId: args.companyId,
+          workflowDefId: def.id,
+          workflowGitTag: parsed.gitTag,
+          workflowGitSha: parsed.gitSha,
+          initiatedByActorType: args.actor.type,
+          initiatedByActorId: args.actor.id,
+          status: "active",
+          startedAt: new Date(),
+          paramsJson: args.params,
+        })
+        .returning({ id: governedWorkflowRuns.id });
+
+      await tx.insert(governedStepExecutions).values(
+        parsed.workflow.steps.map((s) => ({
+          companyId: args.companyId,
+          runId: run.id,
+          stepIdInJson: s.id,
+          state: "pending" as const,
+        })),
+      );
+
+      return {
+        runId: run.id,
+        firstStep: firstStep.id,
+        gitTag: parsed.gitTag,
+        gitSha: parsed.gitSha,
+      };
+    });
+  }
+
+  // Further methods land in Task 6/7/8/9 (getRun, launchStep,
+  // completeStep, syncEnvironment).
 
   return {
     listDefinitions,
     getDefinition,
     getWorkflowParsed,
+    launchWorkflow,
   };
 }
 
