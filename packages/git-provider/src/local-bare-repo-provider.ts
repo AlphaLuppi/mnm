@@ -18,10 +18,17 @@ import type {
 const execFileAsync = promisify(execFile);
 
 export interface LocalBareRepoProviderOptions {
+  /** Stable id used for cache keys and error messages (e.g. `local:/path/to/repo.git`). */
   providerId: string;
+  /** Absolute path to the `--bare` repo (the `.git` dir or a `--bare` clone). */
   repoDir: string;
 }
 
+/**
+ * GitProvider backed by a local `--bare` repo accessed through the `git` CLI.
+ * Used by tests and by the single-dev local mode. Not production-grade — every
+ * call spawns `git`.
+ */
 export class LocalBareRepoProvider implements GitProvider {
   readonly providerId: string;
   private readonly repoDir: string;
@@ -36,8 +43,12 @@ export class LocalBareRepoProvider implements GitProvider {
       const { stdout } = await execFileAsync(
         "git",
         ["--git-dir", this.repoDir, "cat-file", "-p", `${args.ref}:${args.path}`],
+        // 16 MB — workflow files are small; binary blobs are not supported.
         { maxBuffer: 1024 * 1024 * 16 },
       );
+      // `git cat-file -p` appends a trailing newline for text blobs, but
+      // preserves binary content byte-for-byte. Surface verbatim — callers
+      // parse JSON/TS which are byte-exact.
       return stdout;
     } catch (cause) {
       throw this.classifyGitError(cause, "fetchBlob", { path: args.path, ref: args.ref });
@@ -83,6 +94,8 @@ export class LocalBareRepoProvider implements GitProvider {
   }
 
   async pathExists(args: PathExistsArgs): Promise<boolean> {
+    // Verify the ref first so we can distinguish "missing ref" (error) from
+    // "missing path at valid ref" (boolean false).
     await this.resolveRef({ ref: args.ref });
     try {
       await execFileAsync(
@@ -152,8 +165,19 @@ export class LocalBareRepoProvider implements GitProvider {
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k}=${String(v)}`)
       .join(" ");
+    // Push-failure patterns → conflict (non-fast-forward, lock contention).
+    // Callers (T4/T5) can retry after re-reading state.
+    if (/rejected|non-fast-forward|cannot lock ref|failed to push/i.test(msg)) {
+      return new GitProviderError(
+        "conflict",
+        `git ${op} conflict (${ctxStr}): ${msg}`,
+        { cause },
+      );
+    }
+    // git's stderr for missing refs/paths always includes one of these markers.
+    // Case-insensitive /i means "not a valid" subsumes "Not a valid object".
     if (
-      /unknown revision|not a valid|does not exist|Not a valid object|bad revision|Needed a single revision|invalid object name/i.test(
+      /unknown revision|not a valid|does not exist|bad revision|Needed a single revision|invalid object name/i.test(
         msg,
       )
     ) {

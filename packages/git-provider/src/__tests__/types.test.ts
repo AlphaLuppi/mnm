@@ -32,8 +32,8 @@ describe("GitProvider interface", () => {
     expectTypeOf<Tag>().toEqualTypeOf<{ name: string; sha: string }>();
   });
 
-  it("CommitFileArgs requires author identity", () => {
-    expectTypeOf<CommitFileArgs>().toMatchTypeOf<{
+  it("CommitFileArgs exposes exactly the 6 expected fields", () => {
+    expectTypeOf<CommitFileArgs>().toEqualTypeOf<{
       path: string;
       content: string;
       message: string;

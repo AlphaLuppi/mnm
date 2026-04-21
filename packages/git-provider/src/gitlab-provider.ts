@@ -11,11 +11,17 @@ import type {
 } from "./types.js";
 
 export interface GitlabProviderOptions {
+  /** Stable id used for cache keys and error messages (e.g. `gitlab:12345`). */
   providerId: string;
+  /** API root, e.g. `https://gitlab.example.com`. No trailing slash required. */
   baseUrl: string;
+  /** Numeric or URL-encoded project id (GitLab accepts both). */
   projectId: string;
+  /** Bot token (`glpat-...`). Sent as `PRIVATE-TOKEN` header. */
   token: string;
+  /** Per-request timeout, default 10s. */
   timeoutMs?: number;
+  /** Max retries on 5xx/429, default 2 (so 3 attempts total). */
   maxRetries?: number;
 }
 
@@ -144,9 +150,11 @@ export class GitlabProvider implements GitProvider {
     init: RequestInit,
     op: string,
   ): Promise<Response> {
+    // Caller headers first, PRIVATE-TOKEN last — class-owned token must win
+    // over any accidental or malicious caller-provided PRIVATE-TOKEN header.
     const headers: Record<string, string> = {
-      "PRIVATE-TOKEN": this.token,
       ...(init.headers as Record<string, string> | undefined),
+      "PRIVATE-TOKEN": this.token,
     };
     const attempts = this.maxRetries + 1;
     let lastError: GitProviderError | undefined;
@@ -156,6 +164,7 @@ export class GitlabProvider implements GitProvider {
         const res = await fetch(url, {
           ...init,
           headers,
+          // Per-attempt timeout, not cumulative. Worst case = attempts × timeoutMs.
           signal: AbortSignal.timeout(this.timeoutMs),
         });
 

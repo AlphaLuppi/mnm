@@ -6,6 +6,9 @@
  * cache lives at the consumer boundary (T4 gate runner, T5 MCP loader) so every
  * process reuse of the same workflow version is free.
  *
+ * Assumes small blobs (kB scale — workflow.json, agent.md, gate.ts files).
+ * No per-value size limit in MVP; `maxEntries=500` × small blobs stays bounded.
+ *
  * Eviction is FIFO by insertion order (JS `Map` iteration order) bounded by
  * `maxEntries`. Good enough for MVP — MnM runs are short-lived and the working
  * set is small (typically <50 files per active workflow revision).
@@ -25,7 +28,9 @@ export class ShaCache {
   }
 
   private key(providerId: string, path: string, sha: string): string {
-    return `${providerId}|${path}|${sha}`;
+    // JSON encoding prevents separator-collision attacks when a `path` contains
+    // the previous `|` separator (e.g. ("p","a|b",s) vs ("p|a","b",s)).
+    return JSON.stringify([providerId, path, sha]);
   }
 
   get(providerId: string, path: string, sha: string): string | undefined {
