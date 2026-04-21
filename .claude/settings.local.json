@@ -14,7 +14,12 @@
       "Bash(git pull *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(bun install *)",
+      "Bash(timeout 30 npx vitest --list)",
+      "Bash(git ls-tree *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(git commit *)"
     ]
   }
 }
