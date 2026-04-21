@@ -1,0 +1,33 @@
+{
+  "apiVersion": "mnm/v1",
+  "kind": "GovernedWorkflow",
+  "name": "hello-world",
+  "description": "Demo MVP — 2 steps, sub-agents + gates TS",
+  "variables": {
+    "name": { "type": "string", "required": true }
+  },
+  "steps": [
+    {
+      "id": "greet",
+      "deps": [],
+      "agent": "greeter",
+      "prompt_context": { "name": "{{variables.name}}" },
+      "gates": {
+        "exit": [
+          { "id": "greeting-ok", "source": "./gates/greet-exit.gate.ts" }
+        ]
+      }
+    },
+    {
+      "id": "shout",
+      "deps": ["greet"],
+      "agent": "shouter",
+      "prompt_context": { "greeting": "{{steps.greet.artifact.greeting}}" },
+      "gates": {
+        "exit": [
+          { "id": "uppercase-ok", "source": "./gates/shout-exit.gate.ts" }
+        ]
+      }
+    }
+  ]
+}
