@@ -14,3 +14,4 @@ export {
 } from "./classify-isolate-error.js";
 export { runSingleGate, type RunSingleGateDeps } from "./run-single-gate.js";
 export { runGateBlock } from "./run-gate-block.js";
+export { installHelpers } from "./isolate-helpers.js";
