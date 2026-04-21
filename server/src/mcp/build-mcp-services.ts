@@ -3,6 +3,8 @@
  * Each property corresponds to a `services.xxx` call in tool files.
  */
 import type { Db } from "@mnm/db";
+import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
+import { governedWorkflowService } from "../services/governed-workflows.js";
 import { projectService } from "../services/projects.js";
 import { agentService } from "../services/agents.js";
 import { issueService } from "../services/issues.js";
@@ -27,7 +29,23 @@ import { a2aPermissionsService } from "../services/a2a-permissions.js";
 import { heartbeatService } from "../services/heartbeat.js";
 import type { McpServices } from "./registry/types.js";
 
+function resolveGitProvider(): GitProvider {
+  const mode = process.env.MNM_GIT_PROVIDER ?? "gitlab";
+  if (mode === "local") {
+    const repoDir = process.env.MNM_GIT_LOCAL_PATH ?? "./_fixtures/mnm-workflows-bare";
+    return new LocalBareRepoProvider({ providerId: "local:mnm-workflows", repoDir });
+  }
+  return new GitlabProvider({
+    providerId: "gitlab:mnm-workflows",
+    baseUrl: process.env.GITLAB_BASE_URL!,
+    projectId: process.env.GITLAB_PROJECT_ID!,
+    token: process.env.GITLAB_TOKEN!,
+  });
+}
+
 export function buildMcpServices(db: Db): McpServices {
+  const gitProvider = resolveGitProvider();
+  const shaCache = new ShaCache();
   return {
     db,
     projects: projectService(db),
@@ -52,5 +70,6 @@ export function buildMcpServices(db: Db): McpServices {
     a2aBus: a2aBusService(db),
     a2aPermissions: a2aPermissionsService(db),
     heartbeat: heartbeatService(db),
+    governedWorkflows: governedWorkflowService(db, { gitProvider, shaCache }),
   };
 }
