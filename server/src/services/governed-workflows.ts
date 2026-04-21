@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
   governedStepExecutions,
   gateResults,
+  agents,
   type Db,
 } from "@mnm/db";
 import {
@@ -121,6 +123,28 @@ export interface CompleteStepArgs {
 export interface CompleteStepResult {
   stepState: "succeeded";
   runStatus: "active" | "completed";
+}
+
+export interface SyncEnvironmentArgs {
+  companyId: string;
+  lastSyncedSha?: string;
+}
+
+export interface SyncedAgent {
+  name: string;
+  mdContent: string;
+  configMerged: {
+    mcp: unknown[];
+    hook: unknown[];
+    setting: unknown[];
+    env_ref: unknown[];
+  };
+}
+
+export interface SyncEnvironmentResult {
+  agents: SyncedAgent[];
+  newSha: string;
+  hasChanges: boolean;
 }
 
 /**
@@ -832,7 +856,68 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     return out;
   }
 
-  // Further methods land in Task 9 (syncEnvironment).
+  /**
+   * Returns the full environment payload the SessionStart hook (T6) will
+   * stage in `~/.mnm/cache/<company>/` and apply to `~/.claude/`. The
+   * `newSha` field is a content hash (sha256 of the sorted `<name>:<tag>`
+   * pairs). `hasChanges` compares against `lastSyncedSha` for a cheap
+   * short-circuit on the client.
+   *
+   * The method does NOT push secrets — see spec §5. `env_ref` items are
+   * required-env-var markers, not values.
+   */
+  async function syncEnvironment(args: SyncEnvironmentArgs): Promise<SyncEnvironmentResult> {
+    // 1. Read all enabled agents for the company
+    const rows = await db
+      .select()
+      .from(agents)
+      .where(
+        and(
+          eq(agents.companyId, args.companyId),
+          eq(agents.enabled, true),
+        ),
+      );
+
+    // 2. Compute the content-hash sha
+    const shaPayload = rows
+      .map((r) => `${r.name}:${r.latestGitTag ?? ""}`)
+      .sort()
+      .join("\n");
+    const newSha = createHash("sha256").update(shaPayload).digest("hex");
+
+    if (args.lastSyncedSha === newSha) {
+      return { agents: [], newSha, hasChanges: false };
+    }
+
+    // 3. For each agent: fetch .md + merge config_layer_items
+    const synced: SyncedAgent[] = [];
+    for (const a of rows) {
+      if (!a.latestGitTag) continue;
+      const mdPath = `${a.name}/agent.md`;
+      // ShaCache exposes get/set rather than getOrFetch — use them directly.
+      const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
+      const mdContent = cached !== undefined
+        ? cached
+        : await (async () => {
+            const blob = await gitProvider.fetchBlob({ path: mdPath, ref: a.latestGitTag! });
+            shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
+            return blob;
+          })();
+      const configMerged = await mergeAgentConfig(a.id);
+      synced.push({ name: a.name, mdContent, configMerged });
+    }
+
+    return { agents: synced, newSha, hasChanges: true };
+  }
+
+  async function mergeAgentConfig(_agentId: string) {
+    // TODO: use `configLayerConflictService.mergePreview(companyId, agentId)`
+    // as the canonical merge path (it already implements priority-merge).
+    // For MVP, return empty buckets — tag-based isolation + real item
+    // lookup land when the hook tests demand it in T6. The field shape is
+    // stable.
+    return { mcp: [], hook: [], setting: [], env_ref: [] };
+  }
 
   return {
     listDefinitions,
@@ -842,6 +927,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     getRun,
     launchStep,
     completeStep,
+    syncEnvironment,
   };
 }
 
