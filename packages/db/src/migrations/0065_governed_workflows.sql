@@ -45,4 +45,32 @@ ALTER TABLE "governed_workflow_definitions" ENABLE ROW LEVEL SECURITY;--> statem
 ALTER TABLE "governed_workflow_definitions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "governed_workflow_definitions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
+-- 2b. governed_workflow_runs — one per launchWorkflow call. workflow_git_tag/sha
+-- are the immutable ref captured at trigger time (spec §2).
+-- initiated_by_actor_type aligns to AUDIT_ACTOR_TYPES canonical tuple.
+-- status uses text + CHECK (no pgEnum in this codebase).
+CREATE TABLE "governed_workflow_runs" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" uuid NOT NULL REFERENCES "companies"("id"),
+  "workflow_def_id" uuid NOT NULL REFERENCES "governed_workflow_definitions"("id"),
+  "workflow_git_tag" text NOT NULL,
+  "workflow_git_sha" text NOT NULL,
+  "initiated_by_actor_type" text NOT NULL CHECK ("initiated_by_actor_type" IN ('user', 'agent', 'system')),
+  "initiated_by_actor_id" text NOT NULL,
+  "status" text NOT NULL DEFAULT 'draft' CHECK ("status" IN ('draft', 'active', 'completed', 'failed')),
+  "started_at" timestamptz,
+  "completed_at" timestamptz,
+  "params_json" jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);--> statement-breakpoint
+CREATE INDEX "governed_workflow_runs_company_status_idx"
+  ON "governed_workflow_runs"("company_id", "status");--> statement-breakpoint
+CREATE INDEX "governed_workflow_runs_def_started_idx"
+  ON "governed_workflow_runs"("workflow_def_id", "started_at" DESC);--> statement-breakpoint
+
+ALTER TABLE "governed_workflow_runs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "governed_workflow_runs" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "governed_workflow_runs" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
+
 -- All subsequent DDL added in later tasks of this plan.

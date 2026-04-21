@@ -86,3 +86,48 @@ describe("governed_workflow_definitions table", () => {
     );
   });
 });
+
+describe("governed_workflow_runs table", () => {
+  it("creates the table with the expected columns and FKs", () => {
+    expect(sql).toContain('CREATE TABLE "governed_workflow_runs" (');
+    expect(sql).toMatch(
+      /"workflow_def_id" uuid NOT NULL REFERENCES "governed_workflow_definitions"\("id"\)/,
+    );
+    expect(sql).toMatch(/"workflow_git_tag" text NOT NULL/);
+    expect(sql).toMatch(/"workflow_git_sha" text NOT NULL/);
+    expect(sql).toMatch(
+      /"initiated_by_actor_type" text NOT NULL CHECK \("initiated_by_actor_type" IN \('user', 'agent', 'system'\)\)/,
+    );
+    expect(sql).toMatch(/"initiated_by_actor_id" text NOT NULL/);
+    expect(sql).toMatch(
+      /"status" text NOT NULL DEFAULT 'draft' CHECK \("status" IN \('draft', 'active', 'completed', 'failed'\)\)/,
+    );
+    expect(sql).toMatch(/"started_at" timestamptz/);
+    expect(sql).toMatch(/"completed_at" timestamptz/);
+    expect(sql).toMatch(/"params_json" jsonb NOT NULL DEFAULT '\{\}'::jsonb/);
+  });
+
+  it("indexes by (company_id, status) for listRuns queries", () => {
+    expect(sql).toMatch(
+      /CREATE INDEX "governed_workflow_runs_company_status_idx"\s+ON "governed_workflow_runs"\("company_id", "status"\);/,
+    );
+  });
+
+  it("indexes by (workflow_def_id, started_at DESC) for per-workflow history", () => {
+    expect(sql).toMatch(
+      /CREATE INDEX "governed_workflow_runs_def_started_idx"\s+ON "governed_workflow_runs"\("workflow_def_id", "started_at" DESC\);/,
+    );
+  });
+
+  it("enables + forces RLS with tenant_isolation policy", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE "governed_workflow_runs" ENABLE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /ALTER TABLE "governed_workflow_runs" FORCE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /CREATE POLICY "tenant_isolation" ON "governed_workflow_runs" AS RESTRICTIVE FOR ALL USING \(company_id = current_setting\('app\.current_company_id', true\)::uuid\);/,
+    );
+  });
+});
