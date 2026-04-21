@@ -638,15 +638,15 @@ User : "lance hello-world avec name=Tom"
 
 ### Tranches d'implémentation (7 PRs indépendants)
 
-| # | Tranche | Livre | Test de validation |
-|---|---|---|---|
-| **T1** | Package `@mnm/governed-workflows` (types + zod + `defineGate<Config>`, `defineWorkflow`) — inclut **type `GateBlock` nested-array** + `GateContext.config` générique | Package importable | Unit tests zod (valide workflow.json avec gates nested-arrays), type-check helpers |
-| **T2** | Migrations DB (4 tables + RLS + pg enums `status`/`state` + **`gate_results.kind` en text** + advisory locks + extension `config_layer_items`) | Schema en place | Migrations up/down, tests RLS cross-tenant |
-| **T3** | GitProvider (interface + GitlabProvider + LocalBareRepoProvider) | Serveur fetch blobs/tags | Tests intégration : commit author = user, read blob at sha |
-| **T4** | Gate runner générique (isolated-vm + esbuild + `runGateBlock(block, ctx, kind)` agnostique au kind + cache par sha + fail-closed) | Eval un `GateBlock` nested-array | Fake gates : pass, fail, throw, infinite-loop, invalid output, **composition parallel/sequential**, DAG interne |
-| **T5** | MCP tools (7 primitives) | MCP exposé | E2E scripted : lance workflow stub sans sub-agent réel |
-| **T6** | Hook SessionStart + cache client | User peut brancher Claude Code | Test manuel : SessionStart sync, fichiers écrits |
-| **T7** | Hello-world bootstrap + E2E | Démo fonctionnelle | Lance "hello-world name=Tom" → HELLO, TOM! |
+| # | Statut | Tranche | Livre | Test de validation |
+|---|---|---|---|---|
+| **T1** | ✅ shipped 2026-04-21 (`fb028ae..1c483e1`) | Package `@mnm/governed-workflows` (types + zod + `defineGate<Config>`, `defineWorkflow`) — inclut **type `GateBlock` nested-array** + `GateContext.config` générique | Package importable | Unit tests zod (valide workflow.json avec gates nested-arrays), type-check helpers |
+| **T2** | ⏳ pending | Migrations DB (4 tables + RLS + pg enums `status`/`state` + **`gate_results.kind` en text** + advisory locks + extension `config_layer_items`) | Schema en place | Migrations up/down, tests RLS cross-tenant |
+| **T3** | ⏳ pending | GitProvider (interface + GitlabProvider + LocalBareRepoProvider) | Serveur fetch blobs/tags | Tests intégration : commit author = user, read blob at sha |
+| **T4** | ⏳ pending (inclut les 3 follow-ups Important de T1 — cf. plan T1 completion report) | Gate runner générique (isolated-vm + esbuild + `runGateBlock(block, ctx, kind)` agnostique au kind + cache par sha + fail-closed) | Eval un `GateBlock` nested-array | Fake gates : pass, fail, throw, infinite-loop, invalid output, **composition parallel/sequential**, DAG interne |
+| **T5** | ⏳ pending | MCP tools (7 primitives) | MCP exposé | E2E scripted : lance workflow stub sans sub-agent réel |
+| **T6** | ⏳ pending | Hook SessionStart + cache client | User peut brancher Claude Code | Test manuel : SessionStart sync, fichiers écrits |
+| **T7** | ⏳ pending | Hello-world bootstrap + E2E | Démo fonctionnelle | Lance "hello-world name=Tom" → HELLO, TOM! |
 
 ### Ordre de merge
 
