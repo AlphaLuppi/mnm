@@ -6,15 +6,12 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { AUDIT_ACTOR_TYPES, type AuditActorType } from "@mnm/shared";
 import { companies } from "./companies.js";
 import { governedWorkflowDefinitions } from "./governed_workflow_definitions.js";
 
 export const GOVERNED_RUN_STATUSES = ["draft", "active", "completed", "failed"] as const;
 export type GovernedRunStatus = (typeof GOVERNED_RUN_STATUSES)[number];
-
-export const GOVERNED_RUN_INITIATED_ACTOR_TYPES = ["user", "agent", "system"] as const;
-export type GovernedRunInitiatedActorType = (typeof GOVERNED_RUN_INITIATED_ACTOR_TYPES)[number];
 
 export const governedWorkflowRuns = pgTable(
   "governed_workflow_runs",
@@ -24,12 +21,12 @@ export const governedWorkflowRuns = pgTable(
     workflowDefId: uuid("workflow_def_id").notNull().references(() => governedWorkflowDefinitions.id),
     workflowGitTag: text("workflow_git_tag").notNull(),
     workflowGitSha: text("workflow_git_sha").notNull(),
-    initiatedByActorType: text("initiated_by_actor_type").$type<GovernedRunInitiatedActorType>().notNull(),
+    initiatedByActorType: text("initiated_by_actor_type").$type<AuditActorType>().notNull(),
     initiatedByActorId: text("initiated_by_actor_id").notNull(),
     status: text("status").$type<GovernedRunStatus>().notNull().default("draft"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    paramsJson: jsonb("params_json").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    paramsJson: jsonb("params_json").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
