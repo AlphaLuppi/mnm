@@ -87,8 +87,56 @@ export class GitlabProvider implements GitProvider {
     }
   }
 
-  async commitFile(_args: CommitFileArgs): Promise<CommitFileResult> {
-    throw new GitProviderError("unknown", "commitFile not yet implemented");
+  async commitFile(args: CommitFileArgs): Promise<CommitFileResult> {
+    const exists = await this.pathExists({ path: args.path, ref: args.branch });
+    const action = exists ? "update" : "create";
+
+    const url = `${this.projectPath()}/repository/commits`;
+    const payload = {
+      branch: args.branch,
+      commit_message: args.message,
+      author_name: args.authorName,
+      author_email: args.authorEmail,
+      actions: [
+        {
+          action,
+          file_path: args.path,
+          content: args.content,
+        },
+      ],
+    };
+
+    let res: Response;
+    try {
+      res = await this.request(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        "commitFile",
+      );
+    } catch (err) {
+      // 400 from the commits endpoint is typically "file exists" / "branch conflict".
+      if (err instanceof GitProviderError && err.status === 400) {
+        throw new GitProviderError(
+          "conflict",
+          `GitLab commitFile conflict (${args.path}@${args.branch}): ${err.message}`,
+          { status: 400, cause: err },
+        );
+      }
+      throw err;
+    }
+
+    const body = (await res.json()) as { id?: string };
+    if (!body.id) {
+      throw new GitProviderError(
+        "unknown",
+        `GitLab commitFile returned no commit id for ${args.path}`,
+      );
+    }
+    return { sha: body.id };
   }
 
   private async request(
