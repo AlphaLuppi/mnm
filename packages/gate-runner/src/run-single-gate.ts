@@ -7,6 +7,7 @@ import {
 import { compileGateSource } from "./compile-gate.js";
 import { CompiledCache } from "./compiled-cache.js";
 import { classifyIsolateError } from "./classify-isolate-error.js";
+import { installHelpers } from "./isolate-helpers.js";
 import type {
   GateEvaluationResult,
   RunnerOptions,
@@ -19,14 +20,16 @@ import type {
  * wire in process-wide singletons without changing the signature.
  */
 export interface RunSingleGateDeps {
-  compiledCache: CompiledCache;
+  compiledCache?: CompiledCache;
   options?: RunnerOptions;
   /**
-   * Test-only seam. Production callers do not override this — the runner uses
-   * the internal isolated-vm implementation by default. Tests inject a mock
-   * to exercise the retry-once branch deterministically without relying on
-   * real memory-limit breaches (flaky on CI).
+   * Async host functions exposed inside the isolate as `ctx.helpers.<name>`.
+   * Each helper is called via an ivm.Reference bridge with a 3 s inner
+   * timeout (see `installHelpers`). Passing `undefined` or `{}` leaves
+   * `ctx.helpers` empty — matches T4 behaviour.
    */
+  helpers?: Record<string, (...args: any[]) => Promise<any>>;
+  /** Test-only seam — injected by unit tests to stub attemptEval. */
   attemptEval?: typeof attemptEvalInternal;
 }
 
@@ -73,16 +76,17 @@ export async function runSingleGate(
     deps.options?.retryOnSandboxCrash ?? DEFAULT_RETRY_ON_SANDBOX_CRASH;
 
   const started = Date.now();
-  const jsCode = await resolveCompiledJs(args, deps.compiledCache);
+  const jsCode = await resolveCompiledJs(args, deps.compiledCache ?? new CompiledCache());
   const attemptEval = deps.attemptEval ?? attemptEvalInternal;
 
-  let attempt = await attemptEval(jsCode, args, { timeoutMs, memoryLimitMb });
+  const helpers = deps?.helpers ?? {};
+  let attempt = await attemptEval(jsCode, args, { timeoutMs, memoryLimitMb }, helpers);
   if (
     !attempt.pass &&
     attempt.error_code === GATE_ERROR_CODES.GATE_SANDBOX_CRASH &&
     retryOnSandboxCrash
   ) {
-    attempt = await attemptEval(jsCode, args, { timeoutMs, memoryLimitMb });
+    attempt = await attemptEval(jsCode, args, { timeoutMs, memoryLimitMb }, helpers);
   }
 
   return stampResult(args, attempt, started);
@@ -110,6 +114,7 @@ async function attemptEvalInternal(
   jsCode: string,
   args: RunSingleGateArgs,
   limits: { timeoutMs: number; memoryLimitMb: number },
+  helpers: Record<string, (...args: any[]) => Promise<any>> = {},
 ): Promise<AttemptResult> {
   let isolate: ivm.Isolate | undefined;
   try {
@@ -137,25 +142,32 @@ async function attemptEvalInternal(
       filename: args.gateSourcePath,
     })).run(context);
 
-    // Invoker: pulls the default export, calls it with the supplied ctx,
-    // and stringifies the return so we can copy it across the isolate
-    // boundary without wrapping every nested value.
+    // Inject ctx on globalThis so installHelpers can attach ctx.helpers proxies.
+    const ctxJson = JSON.stringify(serializableContext(args));
+    await context.eval(`globalThis.ctx = JSON.parse(${JSON.stringify(ctxJson)});`);
+
+    // Wire async host helpers into the isolate if any were provided.
+    if (Object.keys(helpers).length > 0) {
+      await installHelpers(context, jail, helpers);
+    }
+
+    // Invoker: pulls the default export, calls it with the ctx already on
+    // globalThis (set above), and stringifies the return so we can copy it
+    // across the isolate boundary without wrapping every nested value.
     const invokerSource = `
-      globalThis.__invoke = async function (ctxJson) {
-        const ctx = JSON.parse(ctxJson);
+      globalThis.__invoke = async function () {
         const fn = globalThis.module && globalThis.module.exports && globalThis.module.exports.default;
         if (typeof fn !== "function") {
           throw new Error("gate source did not set module.exports.default to a function");
         }
-        const result = await fn(ctx);
+        const result = await fn(globalThis.ctx);
         return JSON.stringify(result === undefined ? null : result);
       };
     `;
     await (await isolate.compileScript(invokerSource)).run(context);
 
     const invoke = await jail.get("__invoke", { reference: true });
-    const ctxJson = JSON.stringify(serializableContext(args));
-    const returnedJson = (await invoke.apply(null, [ctxJson], {
+    const returnedJson = (await invoke.apply(null, [], {
       result: { promise: true, copy: true },
       timeout: limits.timeoutMs,
     })) as string;
