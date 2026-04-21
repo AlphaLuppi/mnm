@@ -1,0 +1,290 @@
+import { z } from "zod";
+import { PERMISSIONS } from "@mnm/shared";
+import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { GovernedWorkflowError } from "../../services/governed-workflows.js";
+import { setTenantContext } from "../../middleware/tenant-context.js";
+
+/**
+ * Map a GovernedWorkflowError to the MCP uniform error contract.
+ * Cf. spec §4 "Contrat d'erreur uniforme".
+ */
+function governedError(err: GovernedWorkflowError) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          error: err.message,
+          code: err.code,
+          hints: err.hints,
+          retryable: false,
+        }),
+      },
+    ],
+    isError: true,
+  };
+}
+
+/**
+ * Wrap a tool body so a thrown GovernedWorkflowError surfaces as the
+ * uniform MCP error contract, and other throws fall through to the
+ * registry's generic handler (INTERNAL_ERROR).
+ */
+async function wrap<T>(
+  actor: { companyId: string },
+  fn: () => Promise<T>,
+): Promise<
+  | { content: Array<{ type: "text"; text: string }>; isError?: boolean }
+  | T
+> {
+  // Every governed-workflow tool sets the tenant context before running
+  // its service call. This is defensive — the middleware chain should
+  // have set it already for HTTP requests, but MCP tool invocations
+  // happen inside a session and `app.current_company_id` needs to be
+  // re-asserted here so the RLS filter applies.
+  // (The existing MnM MCP wiring does NOT yet run tenantContextMiddleware
+  // for /mcp endpoints — this is where we make it explicit.)
+  try {
+    const result = await fn();
+    return result;
+  } catch (err) {
+    if (err instanceof GovernedWorkflowError) return governedError(err);
+    throw err;
+  }
+}
+
+export default defineMcpTools(({ tool, services }) => {
+  tool("list_governed_workflows", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] List governed-workflow definitions available to this actor's company. " +
+      "Returns [{name, description, latest_git_tag, enabled}]. Use get_governed_workflow for details.",
+    input: z.object({
+      enabled: z.boolean().optional().describe("Filter to enabled workflows only"),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const rows = await services.governedWorkflows.listDefinitions({
+          companyId: actor.companyId,
+          enabled: input.enabled,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify(
+              rows.map((r: any) => ({
+                name: r.name,
+                description: r.description,
+                latest_git_tag: r.latestGitTag,
+                enabled: r.enabled,
+              })),
+            ),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("get_governed_workflow", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] Fetch + parse a workflow at a given git tag (default: latest_git_tag). " +
+      "Returns the parsed workflow JSON plus {git_tag, git_sha}.",
+    input: z.object({
+      name: z.string().min(1),
+      git_tag: z.string().optional(),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.getWorkflowParsed({
+          companyId: actor.companyId,
+          name: input.name,
+          gitTag: input.git_tag,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              workflow: r.workflow,
+              git_tag: r.gitTag,
+              git_sha: r.gitSha,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("get_governed_workflow_run", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] Fetch the state of a run. Returns {status, steps:[{id,state,artifact_ok}], last_gate_result}.",
+    input: z.object({
+      run_id: z.string().uuid(),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.getRun({
+          companyId: actor.companyId,
+          runId: input.run_id,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              run_id: r.runId,
+              status: r.status,
+              started_at: r.startedAt,
+              completed_at: r.completedAt,
+              steps: r.steps.map((s: any) => ({
+                id: s.id,
+                state: s.state,
+                artifact_ok: s.artifactOk,
+                started_at: s.startedAt,
+                completed_at: s.completedAt,
+              })),
+              last_gate_result: r.lastGateResult,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("launch_governed_workflow", {
+    permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
+    description:
+      "[Governed Workflows] Launch a new run. Pins the git tag at call time, creates the run row + one step_executions per step (pending). Returns {run_id, first_step, git_tag, git_sha}.",
+    input: z.object({
+      name: z.string().min(1),
+      git_tag: z.string().optional(),
+      params: z.record(z.unknown()).default({}),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.launchWorkflow({
+          companyId: actor.companyId,
+          name: input.name,
+          gitTag: input.git_tag,
+          params: input.params,
+          actor: { type: actor.type, id: actor.userId ?? actor.agentId! },
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              run_id: r.runId,
+              first_step: r.firstStep,
+              git_tag: r.gitTag,
+              git_sha: r.gitSha,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("launch_governed_step", {
+    permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
+    description:
+      "[Governed Workflows] Authorize a step launch. Checks deps + evaluates the entry gate block if present. " +
+      "Returns {agent_name, prompt_context, subagent_type} for the harness to Task() into.",
+    input: z.object({
+      run_id: z.string().uuid(),
+      step_id: z.string().min(1),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.launchStep({
+          companyId: actor.companyId,
+          runId: input.run_id,
+          stepId: input.step_id,
+          actor: { type: actor.type, id: actor.userId ?? actor.agentId! },
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              agent_name: r.agentName,
+              prompt_context: r.promptContext,
+              subagent_type: r.subagentType,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("complete_governed_step", {
+    permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
+    description:
+      "[Governed Workflows] Finalise a step with its artifact. Evaluates the exit gate block. On pass: step=succeeded; if last step, run=completed.",
+    input: z.object({
+      run_id: z.string().uuid(),
+      step_id: z.string().min(1),
+      artifact: z.unknown(),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.completeStep({
+          companyId: actor.companyId,
+          runId: input.run_id,
+          stepId: input.step_id,
+          artifact: input.artifact,
+          actor: { type: actor.type, id: actor.userId ?? actor.agentId! },
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              step_state: r.stepState,
+              run_status: r.runStatus,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("sync_governed_environment", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] Return the agent + config payload to stage in ~/.mnm/cache/. " +
+      "Compares last_synced_sha to the server's current sha; returns agents[] only if changed.",
+    input: z.object({
+      last_synced_sha: z.string().optional(),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.syncEnvironment({
+          companyId: actor.companyId,
+          lastSyncedSha: input.last_synced_sha,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              agents: r.agents,
+              new_sha: r.newSha,
+              has_changes: r.hasChanges,
+            }),
+          }],
+        };
+      });
+    },
+  });
+});
