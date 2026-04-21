@@ -6,6 +6,7 @@ export default defineConfig({
       "packages/db",
       "packages/governed-workflows",
       "packages/git-provider",
+      "packages/gate-runner",
       "packages/adapters/opencode-local",
       "server",
       "ui",
