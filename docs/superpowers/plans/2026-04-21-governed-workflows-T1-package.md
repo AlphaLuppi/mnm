@@ -1513,11 +1513,84 @@ Expected: branch up to date on origin. Atomic commit + push per `CLAUDE.md` rule
 
 ## Post-T1 handoff checklist
 
-- [ ] `packages/governed-workflows` exists with all 10 source files + 10 test files + 1 fixture.
-- [ ] `@mnm/governed-workflows` is importable from another workspace as `import { defineGate } from "@mnm/governed-workflows"`.
-- [ ] `bun run test:run` is green across the whole repo.
-- [ ] `bun run typecheck` is green across the whole repo.
-- [ ] All tasks are committed as individual conventional-commit messages (12 commits).
-- [ ] `vitest.config.ts` at the repo root includes `packages/governed-workflows` in `test.projects`.
+- [x] `packages/governed-workflows` exists with all 10 source files + 10 test files + 1 fixture.
+- [x] `@mnm/governed-workflows` is importable from another workspace as `import { defineGate } from "@mnm/governed-workflows"`.
+- [x] `bun run test:run` is green for this package (52/52). Pre-existing Windows failures in `@mnm/server` + `@mnm/adapter-opencode-local` unchanged.
+- [x] `bun run typecheck` is green for this package. Pre-existing root `mnm` `embedded-postgres-windows` failure unchanged.
+- [x] All tasks are committed as individual conventional-commit messages (11 feature commits + 1 chore cleanup; Task 12 was verification-only, no commit).
+- [x] `vitest.config.ts` at the repo root includes `packages/governed-workflows` in `test.projects`.
 
-T2 (DB migrations) and T3 (GitProvider) can now proceed in parallel. T4 (gate runner) will depend on this package for `GateContext`, `GateOutput`, `GateBlock`, and `gateOutputSchema`.
+---
+
+## Completion report — T1 shipped 2026-04-21
+
+### Shipped commits (chronological)
+
+```
+90eb159 chore(workflows): bootstrap @mnm/governed-workflows package      Task 1
+6e476e0 feat(workflows): add gate + workflow error code constants        Task 2
+547cb8e chore: permission grants accrued during T1 Tasks 1-2             (non-impl)
+50889b6 feat(workflows): add GateOutput zod schema                       Task 3
+9a19374 feat(workflows): add GateItem zod schema                         Task 4
+881ca71 feat(workflows): add GateBlock nested-array schema               Task 5
+225f16f feat(workflows): add GateContext interface + defineGate helper   Task 6
+fef8814 feat(workflows): add WorkflowStep zod schema                     Task 7
+68c1ce5 feat(workflows): add Workflow zod schema with cross-step vali..  Task 8
+5f236c6 feat(workflows): add defineWorkflow helper                       Task 9
+ed6c22a test(workflows): integration test with hello-world fixture       Task 10
+1c483e1 feat(workflows): expose public API via barrel                    Task 11
+```
+
+Range `fb028ae..1c483e1`. All pushed to `origin/master`.
+
+### Metrics
+
+| Category | Count |
+|---|---|
+| Source files | 10 (`errors`, `gate-output`, `gate-item`, `gate-block`, `gate-context`, `define-gate`, `workflow-step`, `workflow`, `define-workflow`, `index`) |
+| Test files | 10 (sibling `.test.ts` for each source + `integration.test.ts`) |
+| Fixtures | 1 (`__fixtures__/hello-world.workflow.json`) |
+| Total tests | 52, all passing |
+| Package dist output (on `bun run build`) | 20 files (`.js` + `.d.ts` pair per module) |
+| Public runtime exports | 9 |
+| Public type-only exports | 8 |
+
+### Review outcome
+
+Each task passed both a **spec compliance review** and a **code quality review** during execution. A **tranche-level final review** (`superpowers:code-reviewer`) after Task 12 verdict:
+
+> **Ready to merge T1 as a whole? Yes, with the 3 Important fixes recommended before T4 begins consumption.**
+>
+> The tranche delivers exactly the spec's T1 row — no more, no less — with disciplined file decomposition, 52 passing tests, zero downstream coupling, and a public barrel that reads like one designed surface. Nothing Critical and no plan deviations.
+
+### Deferred follow-ups (to address in T4's first PR)
+
+The final reviewer flagged three Important items. None block T1 shipping, but **all three should be applied in T4's first PR** — they are only actually exercised when T4's gate runner and T5's MCP tools start consuming this package.
+
+| # | Item | File | Rationale |
+|---|------|------|-----------|
+| 1 | Add `.strict()` to `gateOutputSchema` | `src/gate-output.ts:8-13` | Strip-mode silently drops typos like `hits` instead of `hints`. Fail-loudly at the sandbox-to-server boundary where debuggability matters most. Add one positive test `"rejects output with unknown keys"`. Two-line change, no API breakage. |
+| 2 | JSDoc disambiguating `WORKFLOW_STEP_NOT_FOUND` vs `WORKFLOW_DEPENDENCY_UNMET` | `src/errors.ts:18-24` | These codes are the public contract with the Claude Code harness. T5 authors must know which to emit when (step id doesn't exist vs. exists but upstream deps not succeeded yet). Add `@remarks` per constant. No runtime change. |
+| 3 | Integration coverage for `config` payloads in a full workflow parse | `src/__fixtures__/` or `src/workflow.test.ts` | `config` is unit-tested at `gateItemSchema` level but never exercised through a full `workflow.json` → `WorkflowDefinition` roundtrip. T4 will read `workflow.steps[i].gates.exit[j].config` — regression here only caught when T4 lands. Add one fixture or one test case. |
+
+### Backlog (minor, not required for any specific tranche)
+
+| Item | File | Notes |
+|---|------|-------|
+| Style alignment: `Object.freeze({...} as const)` vs the `@mnm/shared` pattern (`[...] as const`) | `src/errors.ts:5, 18` | Plan-prescribed; accepted for T1. Decide repo-wide in a separate ADR. |
+| JSDoc "cycle detection deferred to T5 orchestrator" | `src/workflow.ts:23-46` | Consumer expectation management. One line. |
+| `Readonly<>` hardening of `GateContext` passed to gate functions | `src/gate-context.ts` / `src/define-gate.ts` | Gates should not mutate ctx. JS interfaces don't enforce this; isolated-vm will freeze at runtime in T4. |
+| `Gate<Artifact, Config>` type alias | Package-level | Would DRY the `(ctx: GateContext<A,C>) => Promise<GateOutput> \| GateOutput` signature used in `defineGate`. Lift when T4's runner also wants to type imported gates. |
+| Type-level assertions via `expectTypeOf` | `src/define-gate.test.ts`, `src/define-workflow.test.ts` | Pin inferred generic narrowing. Adds resilience if zod's inference semantics change. |
+
+### Next steps
+
+**T1 unblocks the next three tranches to proceed in parallel**:
+
+1. **T2 — DB migrations** (4 new tables + RLS + pg enums + `config_layer_items` extension). Independent of T1. Can consume `GateErrorCode`/`WorkflowErrorCode` as a type-level sanity check on the `gate_results.error_code TEXT` column, but must not add a `pgEnum` — spec keeps the column as open text.
+2. **T3 — GitProvider** (GitlabProvider + LocalBareRepoProvider for fetching workflow.json, gates, agents at a pinned sha). Independent of T1.
+3. **T4 — Gate runner** (isolated-vm + esbuild + `runGateBlock(block, ctx, kind)` generic runner with cache-by-sha + fail-closed). Depends on T1 (`GateContext`, `GateOutput`, `GateBlock`, `gateOutputSchema`) AND on T2 (for writing `gate_results` rows) AND on T3 (for fetching gate sources).
+
+Recommended order: kick off **T2 + T3 in parallel** next. Then **T4** once both land. The three deferred Important items above should land in T4's first PR.
+
+**After T4**: T5 (MCP tools), T6 (hook SessionStart + client cache), T7 (hello-world bootstrap + E2E demo).
