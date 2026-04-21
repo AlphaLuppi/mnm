@@ -1,0 +1,37 @@
+import {
+  pgTable,
+  uuid,
+  text,
+  boolean,
+  timestamp,
+  index,
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { companies } from "./companies.js";
+import { governedWorkflowRuns } from "./governed_workflow_runs.js";
+import { governedStepExecutions } from "./governed_step_executions.js";
+
+export const gateResults = pgTable(
+  "gate_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    runId: uuid("run_id").notNull().references(() => governedWorkflowRuns.id, { onDelete: "cascade" }),
+    stepExecId: uuid("step_exec_id").notNull().references(() => governedStepExecutions.id, { onDelete: "cascade" }),
+    gateIdInJson: text("gate_id_in_json").notNull(),
+    kind: text("kind").notNull(),
+    pass: boolean("pass").notNull(),
+    report: text("report").notNull(),
+    errorCode: text("error_code"),
+    hints: text("hints").array().notNull().default(sql`'{}'::text[]`),
+    gateGitSha: text("gate_git_sha").notNull(),
+    evaluatedAt: timestamp("evaluated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    // DESC on evaluated_at lives only in the SQL (see governed_workflow_runs comment).
+    stepKindEvaluatedIdx: index("gate_results_step_kind_evaluated_idx")
+      .on(table.stepExecId, table.kind, table.evaluatedAt),
+    companyKindIdx: index("gate_results_company_kind_idx")
+      .on(table.companyId, table.kind),
+  }),
+);

@@ -175,3 +175,48 @@ describe("governed_step_executions table", () => {
     );
   });
 });
+
+describe("gate_results table", () => {
+  it("creates the table with the expected columns", () => {
+    expect(sql).toContain('CREATE TABLE "gate_results" (');
+    expect(sql).toMatch(
+      /"run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"\("id"\) ON DELETE CASCADE/,
+    );
+    expect(sql).toMatch(
+      /"step_exec_id" uuid NOT NULL REFERENCES "governed_step_executions"\("id"\) ON DELETE CASCADE/,
+    );
+    expect(sql).toMatch(/"gate_id_in_json" text NOT NULL/);
+    expect(sql).toMatch(/"kind" text NOT NULL/);
+    expect(sql).not.toMatch(/"kind" text NOT NULL CHECK/); // kind is open text, no CHECK
+    expect(sql).toMatch(/"pass" boolean NOT NULL/);
+    expect(sql).toMatch(/"report" text NOT NULL/);
+    expect(sql).toMatch(/"error_code" text/);
+    expect(sql).toMatch(/"hints" text\[\] NOT NULL DEFAULT '\{\}'::text\[\]/);
+    expect(sql).toMatch(/"gate_git_sha" text NOT NULL/);
+    expect(sql).toMatch(/"evaluated_at" timestamptz NOT NULL DEFAULT now\(\)/);
+  });
+
+  it("indexes by (step_exec_id, kind, evaluated_at DESC) for per-step lookup", () => {
+    expect(sql).toMatch(
+      /CREATE INDEX "gate_results_step_kind_evaluated_idx"\s+ON "gate_results"\("step_exec_id", "kind", "evaluated_at" DESC\);/,
+    );
+  });
+
+  it("indexes by (company_id, kind) for admin queries", () => {
+    expect(sql).toMatch(
+      /CREATE INDEX "gate_results_company_kind_idx"\s+ON "gate_results"\("company_id", "kind"\);/,
+    );
+  });
+
+  it("enables + forces RLS with tenant_isolation policy", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE "gate_results" ENABLE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /ALTER TABLE "gate_results" FORCE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /CREATE POLICY "tenant_isolation" ON "gate_results" AS RESTRICTIVE FOR ALL USING \(company_id = current_setting\('app\.current_company_id', true\)::uuid\);/,
+    );
+  });
+});
