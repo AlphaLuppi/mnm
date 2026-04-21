@@ -20,12 +20,16 @@ describe("0065_governed_workflows migration — file exists", () => {
   });
 });
 
-describe("0065_governed_workflows migration — agents table extensions", () => {
-  it("adds latest_git_tag column to agents", () => {
-    expect(sql).toMatch(/ALTER\s+TABLE\s+agents\s+ADD\s+COLUMN\s+latest_git_tag\s+TEXT/i);
+describe("agents table extension", () => {
+  it("adds latest_git_tag column (nullable text)", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "latest_git_tag" text;/,
+    );
   });
 
-  it("adds enabled column to agents with NOT NULL DEFAULT true", () => {
-    expect(sql).toMatch(/ALTER\s+TABLE\s+agents\s+ADD\s+COLUMN\s+enabled\s+BOOLEAN\s+NOT\s+NULL\s+DEFAULT\s+true/i);
+  it("adds enabled column (boolean NOT NULL DEFAULT true)", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "enabled" boolean NOT NULL DEFAULT true;/,
+    );
   });
 });
