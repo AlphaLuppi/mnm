@@ -22,3 +22,5 @@ export {
   LocalBareRepoProvider,
   type LocalBareRepoProviderOptions,
 } from "./local-bare-repo-provider.js";
+
+export { GitlabProvider, type GitlabProviderOptions } from "./gitlab-provider.js";
