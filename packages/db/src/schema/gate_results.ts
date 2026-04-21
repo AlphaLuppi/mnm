@@ -19,6 +19,9 @@ export const gateResults = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").notNull().references(() => companies.id),
+    // runId is denormalized: cascade-delete from governed_workflow_runs would already cascade
+    // via step_exec_id → governed_step_executions → run_id, but keeping the direct FK + cascade
+    // enables run-scoped gate queries (per-run aggregate reports) without a 2-table join.
     runId: uuid("run_id").notNull().references(() => governedWorkflowRuns.id, { onDelete: "cascade" }),
     stepExecId: uuid("step_exec_id").notNull().references(() => governedStepExecutions.id, { onDelete: "cascade" }),
     gateIdInJson: text("gate_id_in_json").notNull(),
