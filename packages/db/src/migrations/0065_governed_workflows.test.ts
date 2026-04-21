@@ -51,3 +51,38 @@ describe("config_layer_items CHECK extension", () => {
     expect(sql).not.toMatch(/'mcp_server'/);
   });
 });
+
+describe("governed_workflow_definitions table", () => {
+  it("creates the table with the expected columns", () => {
+    expect(sql).toContain('CREATE TABLE "governed_workflow_definitions" (');
+    expect(sql).toMatch(/"id" uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+    expect(sql).toMatch(/"company_id" uuid NOT NULL REFERENCES "companies"\("id"\)/);
+    expect(sql).toMatch(/"name" text NOT NULL/);
+    expect(sql).toMatch(/"description" text/);
+    expect(sql).toMatch(/"latest_git_tag" text/);
+    expect(sql).toMatch(
+      /"enabled" boolean NOT NULL DEFAULT true/,
+    );
+  });
+
+  it("has a unique index on (company_id, name)", () => {
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX "governed_workflow_definitions_company_name_uq"\s+ON "governed_workflow_definitions"\("company_id", "name"\);/,
+    );
+  });
+
+  it("enables + forces RLS", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE "governed_workflow_definitions" ENABLE ROW LEVEL SECURITY;/,
+    );
+    expect(sql).toMatch(
+      /ALTER TABLE "governed_workflow_definitions" FORCE ROW LEVEL SECURITY;/,
+    );
+  });
+
+  it("has a tenant_isolation RESTRICTIVE policy", () => {
+    expect(sql).toMatch(
+      /CREATE POLICY "tenant_isolation" ON "governed_workflow_definitions" AS RESTRICTIVE FOR ALL USING \(company_id = current_setting\('app\.current_company_id', true\)::uuid\);/,
+    );
+  });
+});
