@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
 import { promisify } from "node:util";
 import { GitProviderError } from "./errors.js";
 import type {
@@ -92,8 +95,51 @@ export class LocalBareRepoProvider implements GitProvider {
     }
   }
 
-  async commitFile(_args: CommitFileArgs): Promise<CommitFileResult> {
-    throw new GitProviderError("unknown", "commitFile not yet implemented");
+  async commitFile(args: CommitFileArgs): Promise<CommitFileResult> {
+    const work = await mkdtemp(join(tmpdir(), "mnm-git-provider-work-"));
+    try {
+      await execFileAsync(
+        "git",
+        ["clone", "--quiet", "--branch", args.branch, "--single-branch", this.repoDir, work],
+      );
+
+      const abs = join(work, args.path);
+      await mkdir(dirname(abs), { recursive: true });
+      await writeFile(abs, args.content, "utf8");
+
+      await execFileAsync("git", ["-C", work, "add", "--", args.path]);
+      await execFileAsync(
+        "git",
+        [
+          "-C",
+          work,
+          "-c",
+          `user.name=${args.authorName}`,
+          "-c",
+          `user.email=${args.authorEmail}`,
+          "commit",
+          "-m",
+          args.message,
+          "--author",
+          `${args.authorName} <${args.authorEmail}>`,
+        ],
+      );
+
+      await execFileAsync("git", ["-C", work, "push", "origin", args.branch]);
+
+      const { stdout } = await execFileAsync(
+        "git",
+        ["--git-dir", this.repoDir, "rev-parse", `refs/heads/${args.branch}`],
+      );
+      return { sha: stdout.trim() };
+    } catch (cause) {
+      throw this.classifyGitError(cause, "commitFile", {
+        path: args.path,
+        branch: args.branch,
+      });
+    } finally {
+      await rm(work, { recursive: true, force: true });
+    }
   }
 
   private classifyGitError(
