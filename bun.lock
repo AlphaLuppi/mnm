@@ -196,6 +196,9 @@
         "@mnm/adapter-pi-local": "workspace:*",
         "@mnm/adapter-utils": "workspace:*",
         "@mnm/db": "workspace:*",
+        "@mnm/gate-runner": "workspace:*",
+        "@mnm/git-provider": "workspace:*",
+        "@mnm/governed-workflows": "workspace:*",
         "@mnm/shared": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.29.0",
         "better-auth": "1.4.18",
@@ -220,6 +223,7 @@
         "zod": "^3.24.2",
       },
       "devDependencies": {
+        "@mnm/test-utils": "workspace:*",
         "@types/dockerode": "^4.0.1",
         "@types/express": "^5.0.0",
         "@types/express-serve-static-core": "^5.0.0",
