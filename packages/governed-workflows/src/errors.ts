@@ -34,6 +34,9 @@ export type GateErrorCode = (typeof GATE_ERROR_CODES)[keyof typeof GATE_ERROR_CO
  *
  * - `WORKFLOW_NOT_FOUND` — `getWorkflow` / `launchWorkflow` with an unknown
  *   name (or unknown `git_tag` at that name).
+ * - `WORKFLOW_RUN_NOT_FOUND` — `getWorkflowRun` / `launchStep` / `completeStep`
+ *   called with a `runId` not visible to the actor's company (or absent).
+ *   Returned instead of `404` so cross-tenant existence is never leaked.
  * - `WORKFLOW_DEPENDENCY_UNMET` — `launchStep` called on a step whose `deps`
  *   are not all `succeeded`.
  * - `WORKFLOW_STEP_NOT_FOUND` — `launchStep` / `completeStep` with a `stepId`
@@ -42,17 +45,24 @@ export type GateErrorCode = (typeof GATE_ERROR_CODES)[keyof typeof GATE_ERROR_CO
  *   step's exit-gate block flagged as invalid in a deterministic pre-check
  *   (distinct from a gate verdict — this is malformed data, not a failed
  *   business rule).
+ * - `WORKFLOW_GATE_FAILED` — a gate block returned `pass:false`. Distinct from
+ *   `WORKFLOW_INVALID_ARTIFACT` (malformed) and `GATE_*` codes (runner
+ *   failures). The returned payload carries the failed `gate_result` so the
+ *   harness can surface the author's `report` + `hints` to the user.
  * - `WORKFLOW_ALREADY_COMPLETED` — mutation attempted on a run already in
- *   `completed` or `failed` status.
+ *   `completed` or `failed` status (or on a step already in `succeeded` /
+ *   `failed`).
  *
  * These codes are produced ONLY by the orchestrator. Gate runner code must
  * use `GATE_ERROR_CODES` instead.
  */
 export const WORKFLOW_ERROR_CODES = Object.freeze({
   WORKFLOW_NOT_FOUND: "WORKFLOW_NOT_FOUND",
+  WORKFLOW_RUN_NOT_FOUND: "WORKFLOW_RUN_NOT_FOUND",
   WORKFLOW_DEPENDENCY_UNMET: "WORKFLOW_DEPENDENCY_UNMET",
   WORKFLOW_STEP_NOT_FOUND: "WORKFLOW_STEP_NOT_FOUND",
   WORKFLOW_INVALID_ARTIFACT: "WORKFLOW_INVALID_ARTIFACT",
+  WORKFLOW_GATE_FAILED: "WORKFLOW_GATE_FAILED",
   WORKFLOW_ALREADY_COMPLETED: "WORKFLOW_ALREADY_COMPLETED",
 } as const);
 
