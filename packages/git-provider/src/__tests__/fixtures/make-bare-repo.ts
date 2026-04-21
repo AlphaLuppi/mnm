@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -34,6 +34,9 @@ export interface BareRepoHandle {
 export async function makeBareRepo(
   options: MakeBareRepoOptions,
 ): Promise<BareRepoHandle> {
+  if (Object.keys(options.seedFiles).length === 0) {
+    throw new Error("makeBareRepo: seedFiles must have >= 1 entry");
+  }
   const branch = options.branch ?? "main";
   const root = await mkdtemp(join(tmpdir(), "mnm-git-provider-"));
   const bareDir = join(root, "repo.git");
@@ -56,7 +59,7 @@ export async function makeBareRepo(
 
   for (const [relPath, content] of Object.entries(options.seedFiles)) {
     const abs = join(workDir, relPath);
-    await mkdir(join(abs, ".."), { recursive: true });
+    await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, content, "utf8");
   }
 
