@@ -102,7 +102,7 @@ CREATE POLICY "tenant_isolation" ON "governed_step_executions" AS RESTRICTIVE FO
 -- 2d. gate_results — one row per evaluated gate. kind is open text (NOT an enum)
 -- per spec §2 extensibility rule — adding a new gate type (on-failure, mid, ...)
 -- must NOT require a migration. Hints stored as text[] to match the GateOutput
--- contract hints?: string[].
+-- contract hints?: string[]. Both FKs cascade: a cancelled run deletes all its gates.
 CREATE TABLE "gate_results" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),

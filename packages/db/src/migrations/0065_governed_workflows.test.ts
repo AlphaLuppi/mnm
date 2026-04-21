@@ -54,7 +54,7 @@ describe("config_layer_items CHECK extension", () => {
 
 describe("governed_workflow_definitions table", () => {
   it("creates the table with the expected columns", () => {
-    expect(sql).toContain('CREATE TABLE "governed_workflow_definitions" (');
+    expect(sql).toMatch(/CREATE TABLE "governed_workflow_definitions" \(/);
     expect(sql).toMatch(/"id" uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
     expect(sql).toMatch(/"company_id" uuid NOT NULL REFERENCES "companies"\("id"\)/);
     expect(sql).toMatch(/"name" text NOT NULL/);
@@ -63,6 +63,8 @@ describe("governed_workflow_definitions table", () => {
     expect(sql).toMatch(
       /"enabled" boolean NOT NULL DEFAULT true/,
     );
+    expect(sql).toMatch(/"created_at" timestamptz NOT NULL DEFAULT now\(\)/);
+    expect(sql).toMatch(/"updated_at" timestamptz NOT NULL DEFAULT now\(\)/);
   });
 
   it("has a unique index on (company_id, name)", () => {
@@ -89,7 +91,7 @@ describe("governed_workflow_definitions table", () => {
 
 describe("governed_workflow_runs table", () => {
   it("creates the table with the expected columns and FKs", () => {
-    expect(sql).toContain('CREATE TABLE "governed_workflow_runs" (');
+    expect(sql).toMatch(/CREATE TABLE "governed_workflow_runs" \(/);
     expect(sql).toMatch(
       /"workflow_def_id" uuid NOT NULL REFERENCES "governed_workflow_definitions"\("id"\)/,
     );
@@ -105,6 +107,8 @@ describe("governed_workflow_runs table", () => {
     expect(sql).toMatch(/"started_at" timestamptz/);
     expect(sql).toMatch(/"completed_at" timestamptz/);
     expect(sql).toMatch(/"params_json" jsonb NOT NULL DEFAULT '\{\}'::jsonb/);
+    expect(sql).toMatch(/"created_at" timestamptz NOT NULL DEFAULT now\(\)/);
+    expect(sql).toMatch(/"updated_at" timestamptz NOT NULL DEFAULT now\(\)/);
   });
 
   it("indexes by (company_id, status) for listRuns queries", () => {
@@ -134,7 +138,7 @@ describe("governed_workflow_runs table", () => {
 
 describe("governed_step_executions table", () => {
   it("creates the table with the expected columns", () => {
-    expect(sql).toContain('CREATE TABLE "governed_step_executions" (');
+    expect(sql).toMatch(/CREATE TABLE "governed_step_executions" \(/);
     expect(sql).toMatch(
       /"run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"\("id"\) ON DELETE CASCADE/,
     );
@@ -149,6 +153,8 @@ describe("governed_step_executions table", () => {
       /"launched_by_actor_type" text CHECK \("launched_by_actor_type" IN \('user', 'agent', 'system'\)\)/,
     );
     expect(sql).toMatch(/"launched_by_actor_id" text/);
+    expect(sql).toMatch(/"created_at" timestamptz NOT NULL DEFAULT now\(\)/);
+    expect(sql).toMatch(/"updated_at" timestamptz NOT NULL DEFAULT now\(\)/);
   });
 
   it("has a unique index on (run_id, step_id_in_json)", () => {
@@ -178,7 +184,7 @@ describe("governed_step_executions table", () => {
 
 describe("gate_results table", () => {
   it("creates the table with the expected columns", () => {
-    expect(sql).toContain('CREATE TABLE "gate_results" (');
+    expect(sql).toMatch(/CREATE TABLE "gate_results" \(/);
     expect(sql).toMatch(
       /"run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"\("id"\) ON DELETE CASCADE/,
     );
