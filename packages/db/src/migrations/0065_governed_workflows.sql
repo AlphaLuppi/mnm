@@ -22,4 +22,27 @@ ALTER TABLE config_layer_items DROP CONSTRAINT IF EXISTS config_layer_items_item
 ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check
   CHECK (item_type IN ('mcp', 'skill', 'hook', 'setting', 'git_provider', 'credential', 'env_ref'));--> statement-breakpoint
 
+-- ===============================================================
+-- 2. NEW TABLES
+-- ===============================================================
+
+-- 2a. governed_workflow_definitions — metadata only. No parsed workflow.json
+-- cached here; the serveur fetches by git_sha on demand (spec §2 fetch-on-demand).
+CREATE TABLE "governed_workflow_definitions" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" uuid NOT NULL REFERENCES "companies"("id"),
+  "name" text NOT NULL,
+  "description" text,
+  "latest_git_tag" text,
+  "enabled" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);--> statement-breakpoint
+CREATE UNIQUE INDEX "governed_workflow_definitions_company_name_uq"
+  ON "governed_workflow_definitions"("company_id", "name");--> statement-breakpoint
+
+ALTER TABLE "governed_workflow_definitions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "governed_workflow_definitions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "governed_workflow_definitions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
+
 -- All subsequent DDL added in later tasks of this plan.
