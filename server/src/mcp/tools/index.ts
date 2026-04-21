@@ -13,5 +13,6 @@ import documentsTools from "./documents.tool.js";
 import foldersTools from "./folders.tool.js";
 import artifactsTools from "./artifacts.tool.js";
 import projectTools from "./projects.tool.js";
+import governedWorkflowTools from "./governed-workflows.tool.js";
 
-export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, workflowTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools];
+export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, workflowTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools];
