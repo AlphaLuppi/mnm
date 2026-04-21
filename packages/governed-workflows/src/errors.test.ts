@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest";
+import { GATE_ERROR_CODES, WORKFLOW_ERROR_CODES } from "./errors.js";
+
+describe("GATE_ERROR_CODES", () => {
+  it("exposes the MVP gate error codes", () => {
+    expect(GATE_ERROR_CODES).toEqual({
+      GATE_TIMEOUT: "GATE_TIMEOUT",
+      GATE_EXCEPTION: "GATE_EXCEPTION",
+      GATE_INVALID_OUTPUT: "GATE_INVALID_OUTPUT",
+      GATE_SANDBOX_CRASH: "GATE_SANDBOX_CRASH",
+    });
+  });
+
+  it("is frozen at runtime", () => {
+    expect(Object.isFrozen(GATE_ERROR_CODES)).toBe(true);
+  });
+});
+
+describe("WORKFLOW_ERROR_CODES", () => {
+  it("exposes the MVP workflow error codes", () => {
+    expect(WORKFLOW_ERROR_CODES).toEqual({
+      WORKFLOW_NOT_FOUND: "WORKFLOW_NOT_FOUND",
+      WORKFLOW_DEPENDENCY_UNMET: "WORKFLOW_DEPENDENCY_UNMET",
+      WORKFLOW_STEP_NOT_FOUND: "WORKFLOW_STEP_NOT_FOUND",
+      WORKFLOW_INVALID_ARTIFACT: "WORKFLOW_INVALID_ARTIFACT",
+      WORKFLOW_ALREADY_COMPLETED: "WORKFLOW_ALREADY_COMPLETED",
+    });
+  });
+
+  it("is frozen at runtime", () => {
+    expect(Object.isFrozen(WORKFLOW_ERROR_CODES)).toBe(true);
+  });
+});
