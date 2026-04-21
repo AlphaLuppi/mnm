@@ -21,6 +21,13 @@ import type {
 export interface RunSingleGateDeps {
   compiledCache: CompiledCache;
   options?: RunnerOptions;
+  /**
+   * Test-only seam. Production callers do not override this — the runner uses
+   * the internal isolated-vm implementation by default. Tests inject a mock
+   * to exercise the retry-once branch deterministically without relying on
+   * real memory-limit breaches (flaky on CI).
+   */
+  attemptEval?: typeof attemptEvalInternal;
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -67,6 +74,7 @@ export async function runSingleGate(
 
   const started = Date.now();
   const jsCode = await resolveCompiledJs(args, deps.compiledCache);
+  const attemptEval = deps.attemptEval ?? attemptEvalInternal;
 
   let attempt = await attemptEval(jsCode, args, { timeoutMs, memoryLimitMb });
   if (
@@ -98,7 +106,7 @@ interface AttemptResult {
   hints?: string[];
 }
 
-async function attemptEval(
+async function attemptEvalInternal(
   jsCode: string,
   args: RunSingleGateArgs,
   limits: { timeoutMs: number; memoryLimitMb: number },
