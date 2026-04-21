@@ -34,6 +34,7 @@
     "@mnm/adapter-claude-local": "workspace:*",
     "@mnm/gate-runner": "workspace:*",
     "@mnm/git-provider": "workspace:*",
+    "@mnm/governed-workflows": "workspace:*",
     "@mnm/adapter-codex-local": "workspace:*",
     "@mnm/adapter-cursor-local": "workspace:*",
     "@mnm/adapter-opencode-local": "workspace:*",
@@ -64,6 +65,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@mnm/test-utils": "workspace:*",
     "@types/dockerode": "^4.0.1",
     "@types/express": "^5.0.0",
     "@types/express-serve-static-core": "^5.0.0",
