@@ -159,4 +159,51 @@ describe("runSingleGate", () => {
     );
     expect(() => new Date(result.evaluated_at).toISOString()).not.toThrow();
   });
+
+  it("retries once on GATE_SANDBOX_CRASH and returns the second attempt's verdict when it passes", async () => {
+    let calls = 0;
+    const fakeAttemptEval = async () => {
+      calls += 1;
+      if (calls === 1) {
+        return { pass: false, report: "crashed", error_code: "GATE_SANDBOX_CRASH" };
+      }
+      return { pass: true, report: "ok on retry" };
+    };
+    const result = await runSingleGate(
+      { ...BASE, source: PASSING, context: ctx() },
+      { compiledCache: new CompiledCache(), attemptEval: fakeAttemptEval },
+    );
+    expect(calls).toBe(2);
+    expect(result.pass).toBe(true);
+    expect(result.report).toBe("ok on retry");
+  });
+
+  it("surfaces GATE_SANDBOX_CRASH when both attempts crash", async () => {
+    let calls = 0;
+    const fakeAttemptEval = async () => {
+      calls += 1;
+      return { pass: false, report: "crashed again", error_code: "GATE_SANDBOX_CRASH" };
+    };
+    const result = await runSingleGate(
+      { ...BASE, source: PASSING, context: ctx() },
+      { compiledCache: new CompiledCache(), attemptEval: fakeAttemptEval },
+    );
+    expect(calls).toBe(2);
+    expect(result.pass).toBe(false);
+    expect(result.error_code).toBe("GATE_SANDBOX_CRASH");
+  });
+
+  it("does NOT retry on GATE_TIMEOUT", async () => {
+    let calls = 0;
+    const fakeAttemptEval = async () => {
+      calls += 1;
+      return { pass: false, report: "timed out", error_code: "GATE_TIMEOUT" };
+    };
+    const result = await runSingleGate(
+      { ...BASE, source: PASSING, context: ctx() },
+      { compiledCache: new CompiledCache(), attemptEval: fakeAttemptEval },
+    );
+    expect(calls).toBe(1);
+    expect(result.error_code).toBe("GATE_TIMEOUT");
+  });
 });
