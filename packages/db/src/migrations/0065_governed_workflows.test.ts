@@ -33,3 +33,21 @@ describe("agents table extension", () => {
     );
   });
 });
+
+describe("config_layer_items CHECK extension", () => {
+  it("drops the previous item_type check (IF EXISTS)", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE config_layer_items DROP CONSTRAINT IF EXISTS config_layer_items_item_type_check;/,
+    );
+  });
+
+  it("re-adds the check including env_ref (and keeping existing values)", () => {
+    expect(sql).toMatch(
+      /ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check\s+CHECK \(item_type IN \('mcp', 'skill', 'hook', 'setting', 'git_provider', 'credential', 'env_ref'\)\);/,
+    );
+  });
+
+  it("does not introduce mcp_server (merged into existing 'mcp' per 2026-04-21 decision)", () => {
+    expect(sql).not.toMatch(/'mcp_server'/);
+  });
+});
