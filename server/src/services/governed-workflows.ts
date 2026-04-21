@@ -1,8 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
   governedStepExecutions,
+  gateResults,
   type Db,
 } from "@mnm/db";
 import {
@@ -58,6 +59,31 @@ export interface LaunchWorkflowResult {
   firstStep: string;
   gitTag: string;
   gitSha: string;
+}
+
+export interface RunStepSummary {
+  id: string;
+  state: string;
+  artifactOk: boolean;
+  startedAt: Date | null;
+  completedAt: Date | null;
+}
+
+export interface GetRunResult {
+  runId: string;
+  status: string;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  steps: RunStepSummary[];
+  lastGateResult: {
+    gateIdInJson: string;
+    kind: string;
+    pass: boolean;
+    report: string;
+    errorCode: string | null;
+    hints: string[];
+    evaluatedAt: Date;
+  } | null;
 }
 
 /**
@@ -249,14 +275,78 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     });
   }
 
-  // Further methods land in Task 6/7/8/9 (getRun, launchStep,
-  // completeStep, syncEnvironment).
+  /**
+   * Return the state of a single run. RLS is already enforced by the
+   * active tenant context, but we double-check companyId in the WHERE
+   * clause for defense-in-depth. Cross-tenant lookups MUST return
+   * WORKFLOW_RUN_NOT_FOUND (not a 403) so existence is never leaked.
+   */
+  async function getRun(args: { companyId: string; runId: string }): Promise<GetRunResult> {
+    const [run] = await db
+      .select()
+      .from(governedWorkflowRuns)
+      .where(
+        and(
+          eq(governedWorkflowRuns.id, args.runId),
+          eq(governedWorkflowRuns.companyId, args.companyId),
+        ),
+      );
+    if (!run) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+        `Run '${args.runId}' not found`,
+        [`Verify runId via list_governed_workflows + launchWorkflow`],
+      );
+    }
+
+    const steps = await db
+      .select()
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId))
+      .orderBy(governedStepExecutions.createdAt);
+
+    const [lastGate] = await db
+      .select()
+      .from(gateResults)
+      .where(eq(gateResults.runId, args.runId))
+      .orderBy(desc(gateResults.evaluatedAt))
+      .limit(1);
+
+    return {
+      runId: run.id,
+      status: run.status,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt,
+      steps: steps.map((s) => ({
+        id: s.stepIdInJson,
+        state: s.state,
+        artifactOk: s.state === "succeeded",
+        startedAt: s.startedAt,
+        completedAt: s.completedAt,
+      })),
+      lastGateResult: lastGate
+        ? {
+            gateIdInJson: lastGate.gateIdInJson,
+            kind: lastGate.kind,
+            pass: lastGate.pass,
+            report: lastGate.report,
+            errorCode: lastGate.errorCode,
+            hints: lastGate.hints ?? [],
+            evaluatedAt: lastGate.evaluatedAt,
+          }
+        : null,
+    };
+  }
+
+  // Further methods land in Task 7/8/9 (launchStep, completeStep,
+  // syncEnvironment).
 
   return {
     listDefinitions,
     getDefinition,
     getWorkflowParsed,
     launchWorkflow,
+    getRun,
   };
 }
 
