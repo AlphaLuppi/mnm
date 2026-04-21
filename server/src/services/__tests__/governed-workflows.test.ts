@@ -197,3 +197,71 @@ describe("governedWorkflowService — launchWorkflow", () => {
     expect(firstStep).toBe("greet");
   });
 });
+
+describe("governedWorkflowService — getRun", () => {
+  let db: Db;
+  const companyA = "00000000-0000-0000-0000-000000000a03";
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      gitProvider: stubProvider as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyA}, 'RunCo', 'GWTR')`);
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyA}, 'hello-world', 'v1.0.0')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("returns run with steps + last gate_result", async () => {
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "hello-world", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    const run = await svc.getRun({ companyId: companyA, runId });
+    expect(run.runId).toBe(runId);
+    expect(run.status).toBe("active");
+    expect(run.steps).toHaveLength(1);
+    expect(run.steps[0]).toMatchObject({ id: "greet", state: "pending", artifactOk: false });
+    expect(run.lastGateResult).toBeNull();
+  });
+
+  it("returns WORKFLOW_RUN_NOT_FOUND for unknown runId", async () => {
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    await expect(
+      svc.getRun({ companyId: companyA, runId: "00000000-0000-0000-0000-000000000999" }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND });
+  });
+
+  it("hides cross-tenant runs behind WORKFLOW_RUN_NOT_FOUND (not 403)", async () => {
+    const companyB = "00000000-0000-0000-0000-000000000b03";
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyB}, 'RunCoB', 'GWRB') ON CONFLICT DO NOTHING`);
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyB}, 'hello-world', 'v1.0.0') ON CONFLICT DO NOTHING`);
+
+    const svc = mkSvc();
+    // Launch under B
+    await setTenantContext(db, companyB);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyB, name: "hello-world", params: {}, actor: { type: "user", id: "u-B" },
+    });
+
+    // Fetch as A
+    await setTenantContext(db, companyA);
+    await expect(
+      svc.getRun({ companyId: companyA, runId }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND });
+  });
+});
