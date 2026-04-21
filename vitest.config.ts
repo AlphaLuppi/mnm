@@ -5,6 +5,7 @@ export default defineConfig({
     projects: [
       "packages/db",
       "packages/governed-workflows",
+      "packages/git-provider",
       "packages/adapters/opencode-local",
       "server",
       "ui",
