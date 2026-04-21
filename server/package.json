@@ -32,6 +32,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.888.0",
     "@mnm/adapter-claude-local": "workspace:*",
+    "@mnm/gate-runner": "workspace:*",
+    "@mnm/git-provider": "workspace:*",
     "@mnm/adapter-codex-local": "workspace:*",
     "@mnm/adapter-cursor-local": "workspace:*",
     "@mnm/adapter-opencode-local": "workspace:*",
