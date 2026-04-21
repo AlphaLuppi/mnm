@@ -12,7 +12,7 @@ export interface ClassifiedIsolateError {
  * Deterministic mapping from an isolated-vm (or esbuild) thrown value to a
  * `GATE_ERROR_CODES` member. Substring matches are exact and case-sensitive;
  * the reference strings are the verbatim messages emitted by `isolated-vm`
- * 5.x as smoke-tested in the team-lead session on 2026-04-21:
+ * 6.x as smoke-tested in the team-lead session on 2026-04-21:
  *
  *   - "Script execution timed out."
  *       → GATE_TIMEOUT
