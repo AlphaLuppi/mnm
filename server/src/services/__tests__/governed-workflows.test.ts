@@ -423,3 +423,164 @@ describe("governedWorkflowService — launchStep", () => {
     });
   });
 });
+
+describe("governedWorkflowService — completeStep", () => {
+  let db: Db;
+  const companyA = "00000000-0000-0000-0000-000000000a05";
+
+  // Reuses the two-step fixture from launchStep tests.
+  const TWO_STEP_WORKFLOW = {
+    apiVersion: "mnm/v1",
+    kind: "GovernedWorkflow",
+    name: "two-step",
+    variables: {},
+    steps: [
+      { id: "greet", deps: [], agent: "greeter", prompt_context: {}, gates: {} },
+      {
+        id: "shout",
+        deps: ["greet"],
+        agent: "shouter",
+        prompt_context: {},
+        gates: {
+          exit: [
+            { id: "post-shout", source: "./gates/post-shout.gate.ts" },
+          ],
+        },
+      },
+    ],
+  };
+
+  function mkProviderWithGate(gateSource: string, sha = "cs-sha") {
+    return {
+      fetchBlob: async ({ path }: { path: string }) => {
+        if (path.endsWith("workflow.json")) return JSON.stringify(TWO_STEP_WORKFLOW);
+        if (path.endsWith(".gate.ts")) return gateSource;
+        throw new Error(`unexpected path ${path}`);
+      },
+      resolveRef: async () => sha,
+      listTags: async () => [],
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+  }
+
+  const PASSING_GATE = `
+    import { defineGate } from "@mnm/governed-workflows";
+    export default defineGate(async () => ({ pass: true, report: "ok" }));
+  `;
+  const FAILING_GATE = `
+    import { defineGate } from "@mnm/governed-workflows";
+    export default defineGate(async () => ({ pass: false, report: "bad artifact", error_code: "BAD", hints: ["fix it"] }));
+  `;
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyA}, 'CompleteStepCo', 'GWCS')`);
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyA}, 'two-step', 'v1.0.0')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("no exit gate → step becomes succeeded directly", async () => {
+    const svc = governedWorkflowService(db, {
+      gitProvider: mkProviderWithGate(PASSING_GATE) as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "two-step", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    // "greet" has no exit gate
+    await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='greet'`);
+    const result = await svc.completeStep({
+      companyId: companyA, runId, stepId: "greet", artifact: { greeting: "hi" }, actor: { type: "user", id: "u-1" },
+    });
+    expect(result).toMatchObject({ stepState: "succeeded", runStatus: "active" });
+  });
+
+  it("exit gate passes → step=succeeded", async () => {
+    const svc = governedWorkflowService(db, {
+      gitProvider: mkProviderWithGate(PASSING_GATE, "cs-pass-sha") as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "two-step", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    // Mark greet succeeded so shout can run
+    await db.execute(sql`UPDATE governed_step_executions SET state='succeeded', completed_at=now() WHERE run_id=${runId} AND step_id_in_json='greet'`);
+    await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='shout'`);
+    const result = await svc.completeStep({
+      companyId: companyA, runId, stepId: "shout", artifact: { output: "HELLO" }, actor: { type: "user", id: "u-1" },
+    });
+    expect(result).toMatchObject({ stepState: "succeeded", runStatus: "completed" });
+  });
+
+  it("exit gate fails → step back to running + WORKFLOW_GATE_FAILED", async () => {
+    const svc = governedWorkflowService(db, {
+      gitProvider: mkProviderWithGate(FAILING_GATE, "cs-fail-sha") as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "two-step", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    await db.execute(sql`UPDATE governed_step_executions SET state='succeeded', completed_at=now() WHERE run_id=${runId} AND step_id_in_json='greet'`);
+    await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='shout'`);
+    await expect(
+      svc.completeStep({ companyId: companyA, runId, stepId: "shout", artifact: { output: "HELLO" }, actor: { type: "user", id: "u-1" } }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+      hints: expect.arrayContaining(["fix it"]),
+    });
+  });
+
+  it("all steps done → run status=completed", async () => {
+    const svc = governedWorkflowService(db, {
+      gitProvider: mkProviderWithGate(PASSING_GATE, "cs-done-sha") as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "two-step", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    // Complete greet (no exit gate) → active
+    await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='greet'`);
+    const r1 = await svc.completeStep({
+      companyId: companyA, runId, stepId: "greet", artifact: {}, actor: { type: "user", id: "u-1" },
+    });
+    expect(r1.runStatus).toBe("active");
+    // Complete shout (has passing exit gate) → completed
+    await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='shout'`);
+    const r2 = await svc.completeStep({
+      companyId: companyA, runId, stepId: "shout", artifact: { output: "HELLO" }, actor: { type: "user", id: "u-1" },
+    });
+    expect(r2.runStatus).toBe("completed");
+  });
+
+  it("calling on already-succeeded step → WORKFLOW_ALREADY_COMPLETED", async () => {
+    const svc = governedWorkflowService(db, {
+      gitProvider: mkProviderWithGate(PASSING_GATE, "cs-idem-sha") as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "two-step", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='greet'`);
+    await svc.completeStep({
+      companyId: companyA, runId, stepId: "greet", artifact: {}, actor: { type: "user", id: "u-1" },
+    });
+    // Second call on same step
+    await expect(
+      svc.completeStep({ companyId: companyA, runId, stepId: "greet", artifact: {}, actor: { type: "user", id: "u-1" } }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_ALREADY_COMPLETED });
+  });
+});

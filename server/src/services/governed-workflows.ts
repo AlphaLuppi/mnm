@@ -110,6 +110,19 @@ export interface LaunchStepResult {
   subagentType: string;
 }
 
+export interface CompleteStepArgs {
+  companyId: string;
+  runId: string;
+  stepId: string;
+  artifact: unknown;
+  actor: { type: AuditActorType; id: string };
+}
+
+export interface CompleteStepResult {
+  stepState: "succeeded";
+  runStatus: "active" | "completed";
+}
+
 /**
  * Domain service for Governed Workflows. All reads are RLS-scoped — the
  * caller must have set `app.current_company_id` via `setTenantContext`
@@ -632,7 +645,194 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     return walk(template) as Record<string, unknown>;
   }
 
-  // Further methods land in Task 8/9 (completeStep, syncEnvironment).
+  /**
+   * Finalise a step. Persists the artifact, evaluates the exit gate block
+   * (if any), and on pass transitions the step to `succeeded`. If every
+   * step on the run is now `succeeded`, the run status transitions to
+   * `completed`.
+   *
+   * Idempotency: calling on a step already in `succeeded` or `failed`
+   * rejects with WORKFLOW_ALREADY_COMPLETED. This is conservative — the
+   * spec does not define retry semantics, and allowing a second complete
+   * would overwrite the artifact + re-run the gate, muddying audit
+   * history.
+   */
+  async function completeStep(args: CompleteStepArgs): Promise<CompleteStepResult> {
+    // Serialize per-step completion to avoid races where two harness
+    // replies race on the same step.
+    return await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:complete:" + args.runId + ":" + args.stepId}))`,
+      );
+
+      const [stepExec] = await tx
+        .select()
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+            eq(governedStepExecutions.companyId, args.companyId),
+          ),
+        );
+      if (!stepExec) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_STEP_NOT_FOUND,
+          `Step '${args.stepId}' not in run`,
+        );
+      }
+      if (stepExec.state === "succeeded" || stepExec.state === "failed") {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_ALREADY_COMPLETED,
+          `Step '${args.stepId}' is already ${stepExec.state}`,
+        );
+      }
+
+      // Re-parse workflow for the exit gate block (cached by ShaCache).
+      const def = await getDefByRun(args.companyId, args.runId);
+      const parsed = await getWorkflowParsed({
+        companyId: args.companyId,
+        name: def.name,
+        gitTag: def.workflowGitTag,
+      });
+      const step = parsed.workflow.steps.find((s) => s.id === args.stepId);
+      if (!step) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_STEP_NOT_FOUND,
+          `Step '${args.stepId}' not in workflow`,
+        );
+      }
+
+      // Persist artifact immediately (even before gate eval). If gate
+      // fails we'll still have the last attempt's artifact on the step
+      // execution for audit.
+      await tx
+        .update(governedStepExecutions)
+        .set({
+          state: step.gates?.exit ? "gate_eval" : "running",
+          artifactsJson: args.artifact as Record<string, unknown>,
+        })
+        .where(eq(governedStepExecutions.id, stepExec.id));
+
+      const exitBlock = step.gates?.exit as GateBlock | undefined;
+      if (exitBlock && exitBlock.length > 0) {
+        const helpers = buildGateHelpers({ db, companyId: args.companyId });
+        const previousArtifacts = await fetchSucceededArtifacts(tx as unknown as Db, args.runId);
+        const context: GateContext = {
+          artifact: args.artifact,
+          run: {
+            id: args.runId,
+            workflow_name: parsed.workflow.name,
+            git_tag: parsed.gitTag,
+            params: await fetchRunParams(args.companyId, args.runId),
+          },
+          step: { id: args.stepId, previous_artifacts: previousArtifacts },
+          config: {},
+          kind: "exit",
+          helpers: {},
+        };
+
+        const blockResult = await runGateBlock(
+          {
+            block: exitBlock,
+            kind: "exit",
+            gitSha: parsed.gitSha,
+            context,
+            resolveSource: makeResolveSource({
+              gitProvider,
+              workflowGitSha: parsed.gitSha,
+              workflowRepoPath: parsed.workflowRepoPath,
+              shaCache,
+            }),
+          },
+          { compiledCache, helpers },
+        );
+
+        await tx.insert(gateResults).values(
+          blockResult.gate_results.map((r) => ({
+            companyId: args.companyId,
+            runId: args.runId,
+            stepExecId: stepExec.id,
+            gateIdInJson: r.gate_id_in_json,
+            kind: r.kind,
+            pass: r.pass,
+            report: r.report,
+            errorCode: r.error_code ?? null,
+            hints: r.hints ?? [],
+            gateGitSha: r.gate_git_sha,
+            evaluatedAt: new Date(r.evaluated_at),
+          })),
+        );
+
+        if (!blockResult.pass) {
+          const failed = blockResult.gate_results.find((r) => !r.pass);
+          await tx
+            .update(governedStepExecutions)
+            .set({ state: "running" })
+            .where(eq(governedStepExecutions.id, stepExec.id));
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+            `Exit gate failed for step '${args.stepId}': ${failed?.report ?? "unknown"}`,
+            failed?.hints ?? [],
+          );
+        }
+      }
+
+      // Transition to succeeded
+      await tx
+        .update(governedStepExecutions)
+        .set({ state: "succeeded", completedAt: new Date() })
+        .where(eq(governedStepExecutions.id, stepExec.id));
+
+      // Check whether the whole run is done
+      const pending = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            sql`state != 'succeeded'`,
+          ),
+        );
+      const allDone = pending[0]!.count === 0;
+      if (allDone) {
+        await tx
+          .update(governedWorkflowRuns)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(eq(governedWorkflowRuns.id, args.runId));
+      }
+
+      return {
+        stepState: "succeeded" as const,
+        runStatus: allDone ? ("completed" as const) : ("active" as const),
+      };
+    });
+  }
+
+  async function fetchSucceededArtifacts(
+    tx: Db,
+    runId: string,
+  ): Promise<Record<string, unknown>> {
+    const rows = await tx
+      .select({
+        stepId: governedStepExecutions.stepIdInJson,
+        artifacts: governedStepExecutions.artifactsJson,
+      })
+      .from(governedStepExecutions)
+      .where(
+        and(
+          eq(governedStepExecutions.runId, runId),
+          sql`state = 'succeeded'`,
+        ),
+      );
+    const out: Record<string, unknown> = {};
+    for (const r of rows) {
+      out[r.stepId] = { artifact: r.artifacts };
+    }
+    return out;
+  }
+
+  // Further methods land in Task 9 (syncEnvironment).
 
   return {
     listDefinitions,
@@ -641,6 +841,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     launchWorkflow,
     getRun,
     launchStep,
+    completeStep,
   };
 }
 
