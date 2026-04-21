@@ -99,4 +99,31 @@ ALTER TABLE "governed_step_executions" ENABLE ROW LEVEL SECURITY;--> statement-b
 ALTER TABLE "governed_step_executions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "governed_step_executions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
+-- 2d. gate_results — one row per evaluated gate. kind is open text (NOT an enum)
+-- per spec §2 extensibility rule — adding a new gate type (on-failure, mid, ...)
+-- must NOT require a migration. Hints stored as text[] to match the GateOutput
+-- contract hints?: string[].
+CREATE TABLE "gate_results" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" uuid NOT NULL REFERENCES "companies"("id"),
+  "run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"("id") ON DELETE CASCADE,
+  "step_exec_id" uuid NOT NULL REFERENCES "governed_step_executions"("id") ON DELETE CASCADE,
+  "gate_id_in_json" text NOT NULL,
+  "kind" text NOT NULL,
+  "pass" boolean NOT NULL,
+  "report" text NOT NULL,
+  "error_code" text,
+  "hints" text[] NOT NULL DEFAULT '{}'::text[],
+  "gate_git_sha" text NOT NULL,
+  "evaluated_at" timestamptz NOT NULL DEFAULT now()
+);--> statement-breakpoint
+CREATE INDEX "gate_results_step_kind_evaluated_idx"
+  ON "gate_results"("step_exec_id", "kind", "evaluated_at" DESC);--> statement-breakpoint
+CREATE INDEX "gate_results_company_kind_idx"
+  ON "gate_results"("company_id", "kind");--> statement-breakpoint
+
+ALTER TABLE "gate_results" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "gate_results" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "gate_results" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
+
 -- All subsequent DDL added in later tasks of this plan.
