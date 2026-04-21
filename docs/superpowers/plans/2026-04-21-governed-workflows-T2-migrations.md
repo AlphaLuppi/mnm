@@ -1092,40 +1092,87 @@ Nothing left to confirm — ready to execute.
 
 ---
 
-## Completion report — T2 shipped YYYY-MM-DD
+## Completion report — T2 shipped 2026-04-21
 
-(Populate after final review.)
+Range `dd8fc01..f438256`, all pushed to `origin/master`.
 
-### Shipped commits
+### Execution mode
+
+Persistent agent team `gw-t2` with 3 teammates — `impl` / `spec-rev` / `quality-rev` (respawned as `impl-2` / `spec-rev-2` / `quality-rev-2` after a mid-tranche PC reboot). Per-task flow: team-lead brief → impl ships → spec-rev verifies content → quality-rev evaluates craft → team-lead closes. All 9 tasks + 2 review cycles landed in this session.
+
+### Shipped commits (chronological)
 
 ```
-(populate with git log --oneline <before>..<after>)
+dd8fc01 chore(workflows): scaffold T2 migration 0065_governed_workflows            T2.1
+ba88ffa feat(workflows): T2.2 extend agents with latest_git_tag and enabled ...   T2.2 first attempt (superseded, off-spec)
+25cd6ad feat(workflows): add agents.latest_git_tag + agents.enabled                T2.2 correction
+29be800 feat(workflows): extend config_layer_items item_type with env_ref          T2.3
+faaf7b0 feat(workflows): add governed_workflow_definitions table + RLS             T2.4
+7496a5c feat(workflows): add governed_workflow_runs table + RLS                    T2.5
+3c3955e refactor(workflows): dedupe AUDIT_ACTOR_TYPES + use {} default ...         T2.5 fix
+fa83a3c chore(workflows): fix serveur typo in migration 0065 comment               T2.5 fix
+a89aecf feat(workflows): add governed_step_executions table + RLS                  T2.6
+5535f26 feat(workflows): add gate_results table + RLS                              T2.7
+1f4b1e9 chore(workflows): T2.9 — consolidate minors + cross-package checks         T2.9 (part 1, pre-T2.8)
+3c43a88 feat(workflows): expose T2 tables via @mnm/db barrel                       T2.8
+b26646d chore(workflows): add id/company_id assertions to T2 table tests           T2.9 (part 2)
+f438256 chore(workflows): T2.9 finalize sweep (...)                                T2.9 (part 3)
 ```
+
+13 commits total (14 incl. superseded `ba88ffa`). Feature commits: 7. Refactor: 1. Chore: 5. All conventional-commits `workflows` scope.
 
 ### Metrics
 
 | Category | Count |
 |---|---|
-| SQL statements in migration 0065 | |
-| New tables | 4 |
+| SQL statements in migration 0065 | 35 (CREATE TABLE × 4, CREATE INDEX × 7, ENABLE/FORCE RLS × 8, CREATE POLICY × 4, ALTER TABLE extensions × 4, CHECK drop+re-add × 2) |
+| New tables | 4 (`governed_workflow_definitions`, `governed_workflow_runs`, `governed_step_executions`, `gate_results`) |
+| Extended tables | 2 (`agents` += `latest_git_tag`, `enabled`; `config_layer_items` CHECK += `env_ref`) |
 | New Drizzle schema files | 4 |
-| Modified schema files | 2 (`agents`, `index`) |
-| Vitest assertions in 0065 test | |
-| Public exports added to `@mnm/db` | |
+| Modified schema files | 2 (`agents.ts`, `index.ts`) |
+| Modified infrastructure files | 1 (`packages/db/tsconfig.json` — exclude `*.test.ts`) |
+| Vitest assertions in 0065 test | 25 across 7 describe blocks (file-exists, agents-ext, config-layer-items-check, 4 table blocks, barrel exports) |
+| Public exports added to `@mnm/db` | 8 (4 tables + `GOVERNED_RUN_STATUSES` + `GOVERNED_STEP_STATES` + `GovernedRunStatus` type + `GovernedStepState` type) |
+| RLS invariant | 4 × 4 = 16 statements (company_id FK, ENABLE, FORCE, tenant_isolation policy) across 4 tables |
+| Negative-match assertions | 2 (no `'mcp_server'` in SQL; no CHECK on `gate_results.kind`) |
 
 ### Review outcome
 
-(Two-stage review per tranche: spec compliance + code quality.)
+Two-stage review per task (spec compliance then code quality) + tranche-level holistic final.
 
-### Deferred follow-ups (to address in T4 or T5)
+- **T2.1:** ✅ + Approved with follow-ups (packaging hygiene — deferred to T2.9).
+- **T2.2:** ✅ (after correction commit `25cd6ad`) + Approved with follow-ups (2 Important: commit bundling + non-atomic; 1 Minor: import order).
+- **T2.3:** ✅ + Approved (no follow-ups).
+- **T2.4:** ✅ + Approved with follow-ups (3 Minors — test coverage, toContain/toMatch, `serveur` typo).
+- **T2.5:** ✅ (after correction commits `3c3955e` + `fa83a3c`) + Approved (2 Important fixed in-cycle: `AUDIT_ACTOR_TYPES` duplication, JSONB default convention).
+- **T2.6:** ✅ + Approved (no follow-ups — T2.5 lessons fully absorbed).
+- **T2.7:** ✅ + Approved (3 Minors deferred to T2.9: run_id FK comment, text[] pattern documentation, silent-shipping process).
+- **T2.8:** ✅ + Approved with follow-ups (1 Minor: multi-line exports — swept in T2.9).
+- **T2.9:** ✅ + Approved (1 Minor: 2-commit split breaking atomic discipline — end state correct).
+- **T2.final (tranche-level holistic):** ⚠️ Ready with follow-ups. 8/8 certification checks pass. One residual: `.claude/settings.local.json` drift from `ba88ffa` not reverted.
 
-| # | Item | File | Rationale |
-|---|------|------|-----------|
-| 1 | Advisory lock in `launchWorkflow` | T5 service | Spec §2 mentions `pg_advisory_xact_lock` but it's a runtime concern, not DDL. |
-| 2 | | | |
+### Deferred follow-ups
+
+| # | Item | Owner | Rationale |
+|---|------|-------|-----------|
+| 1 | Advisory lock (`pg_advisory_xact_lock`) on `launchWorkflow` | T5 service | Runtime concern, not DDL. Spec §2 documents it; T5's `launchWorkflow` handler acquires it. |
+| 2 | Broaden `AUDIT_ACTOR_TYPES` with `system-nightly` if the nightly scheduler lands | T5 (if needed) | Cross-cutting change to `@mnm/shared`. T2 uses the canonical 3-tuple. |
+| 3 | Revert `.claude/settings.local.json` drift from `ba88ffa` | T3 prep | 15 unrelated permission grants landed with T2.2 first attempt and were not reverted by `25cd6ad`. User-local file, non-functional impact, but worth a dedicated cleanup commit before T3 so impl teammates don't inherit permissions they didn't opt into. |
+| 4 | Evaluate Drizzle `.desc()` helper if 0.40+ exposes a stable API | Future | T2 uses ascending-only in TS indexes with DESC in SQL (documented in `governed_workflow_runs.ts:36-38` and `gate_results.ts:37`). |
+
+### Process retrospective
+
+1. **Enforce staged-diff review on first commit of each task.** `ba88ffa` mixed schema changes with `.claude/settings.local.json` drift; the correction commit (`25cd6ad`) fixed the schema but left the drift on master. Pre-commit: `git diff --staged` with an explicit negative pass for `.claude/`, `node_modules/`, `dist/` paths.
+2. **Multi-Minor review responses = one fix commit.** T2.5's 2 fix commits (`3c3955e` bundled 2 Minors, `fa83a3c` took the typo solo) were acceptable only because the typo surfaced late. Going forward: N Minors → 1 fix commit with subject like `refactor(workflows): address T2.X review followups`.
+3. **Sweep tasks must be atomic.** T2.9 landed in 2 commits when 1 was possible — the test assertions had no dependency on the schema/code tweaks. `git add -p` or staging rebase before push for sweep tasks.
+4. **Persistent teammates accumulate context across tasks.** By T2.4 we saw `impl` ship off-spec SQL (needed `25cd6ad` correction); by T2.6 all T2.5 lessons were fully absorbed. Fresh-context-per-task is an overstated risk for well-briefed teammates with standing rule sets, as long as briefings are verbatim and reviewers are strict.
+5. **Task-list ownership must be treated as advisory, not triggering.** Several teammates interpreted `TaskUpdate owner=...` as a fire signal and tried to self-execute. Clarified mid-tranche: only `SendMessage` from team-lead triggers work. For the next tranche: consider separate task-lists per role or a no-self-claim standing order.
+6. **PC reboots kill in-process teammates.** Persistent `config.json` survives; running processes don't. Respawning with the same name auto-suffixes `-2`. Recovery is routine but breaks any in-flight task briefing (T2.7 had to be re-sent).
 
 ### Next steps
 
-- T3 (GitProvider) can run in parallel — independent of T2.
-- T4 (gate runner) depends on T2 + T3. The 3 deferred Important items from T1 land in T4's first PR.
-- T5 (MCP tools) depends on T2 + T4.
+- **T3 (GitProvider)** can start now — independent of T2. Recommend reverting the `.claude/settings.local.json` drift as the first commit of T3 prep.
+- **T4 (gate runner)** depends on T2 + T3 complete. The 3 deferred Important items from T1 land in T4's first PR.
+- **T5 (MCP tools)** depends on T2 complete + T4. Will acquire `pg_advisory_xact_lock` on `launchWorkflow`. May broaden `AUDIT_ACTOR_TYPES` if the nightly scheduler is in scope.
+- **T6 (SessionStart hook)** independent of T4/T5 but consumes T2's `config_layer_items.env_ref` item_type.
+- **T7 (hello-world E2E)** depends on T5 + T6.
