@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import { sql } from "drizzle-orm";
 import { setTenantContext, clearTenantContext } from "../../middleware/tenant-context.js";
 import { governedWorkflowService } from "../governed-workflows.js";
@@ -113,5 +113,87 @@ describe("governedWorkflowService — discovery", () => {
     });
     expect(capturedRef).toBe("v0.5.0");
     expect(parsed.gitSha).toBe("sha-of-v0.5.0");
+  });
+});
+
+describe("governedWorkflowService — launchWorkflow", () => {
+  let db: Db;
+  const companyA = "00000000-0000-0000-0000-000000000a02";
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      gitProvider: stubProvider as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyA}, 'LaunchCo', 'GWTL')`);
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyA}, 'hello-world', 'v1.0.0')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("creates a run + N step executions in pending state", async () => {
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    const { runId, firstStep } = await svc.launchWorkflow({
+      companyId: companyA,
+      name: "hello-world",
+      params: { name: "Tom" },
+      actor: { type: "user", id: "u-1" },
+    });
+    expect(firstStep).toBe("greet");
+
+    const steps = await db.execute(sql`SELECT step_id_in_json, state FROM governed_step_executions WHERE run_id = ${runId} ORDER BY step_id_in_json`);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatchObject({ step_id_in_json: "greet", state: "pending" });
+  });
+
+  it("throws WORKFLOW_NOT_FOUND for unknown name", async () => {
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    await expect(
+      svc.launchWorkflow({
+        companyId: companyA,
+        name: "absent",
+        params: {},
+        actor: { type: "user", id: "u-1" },
+      }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND });
+  });
+
+  it("serializes concurrent launches on the same definition", async () => {
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    const [r1, r2] = await Promise.all([
+      svc.launchWorkflow({ companyId: companyA, name: "hello-world", params: { name: "A" }, actor: { type: "user", id: "u-1" } }),
+      svc.launchWorkflow({ companyId: companyA, name: "hello-world", params: { name: "B" }, actor: { type: "user", id: "u-1" } }),
+    ]);
+    // Both succeed with different runIds; the advisory lock serialises
+    // ordering, preventing partial inserts — verified by both having
+    // their full complement of step_executions.
+    expect(r1.runId).not.toBe(r2.runId);
+    const counts = await db.execute(sql`SELECT run_id, COUNT(*) AS c FROM governed_step_executions WHERE run_id IN (${r1.runId}, ${r2.runId}) GROUP BY run_id`);
+    for (const row of counts) expect(Number((row as any).c)).toBe(1);
+  });
+
+  it("uses first step id from parsed workflow as firstStep (deps=[])", async () => {
+    // Already covered by the first test, but explicitly asserts the choice
+    // logic: firstStep = steps.find(s => s.deps.length === 0).id
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    const { firstStep } = await svc.launchWorkflow({
+      companyId: companyA, name: "hello-world", params: {}, actor: { type: "user", id: "u-1" },
+    });
+    expect(firstStep).toBe("greet");
   });
 });
