@@ -226,3 +226,19 @@ describe("gate_results table", () => {
     );
   });
 });
+
+describe("schema barrel exports", () => {
+  it("exposes the 4 new Drizzle tables", async () => {
+    const schema = await import("../schema/index.js");
+    expect(schema).toHaveProperty("governedWorkflowDefinitions");
+    expect(schema).toHaveProperty("governedWorkflowRuns");
+    expect(schema).toHaveProperty("governedStepExecutions");
+    expect(schema).toHaveProperty("gateResults");
+  });
+
+  it("exposes the state + status const tuples", async () => {
+    const { GOVERNED_RUN_STATUSES, GOVERNED_STEP_STATES } = await import("../schema/index.js");
+    expect(GOVERNED_RUN_STATUSES).toEqual(["draft", "active", "completed", "failed"]);
+    expect(GOVERNED_STEP_STATES).toEqual(["pending", "running", "gate_eval", "succeeded", "failed"]);
+  });
+});
