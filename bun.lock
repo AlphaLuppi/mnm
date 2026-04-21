@@ -125,6 +125,15 @@
         "vitest": "^3.0.5",
       },
     },
+    "packages/git-provider": {
+      "name": "@mnm/git-provider",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^24.6.0",
+        "typescript": "^5.7.3",
+        "vitest": "^3.0.5",
+      },
+    },
     "packages/governed-workflows": {
       "name": "@mnm/governed-workflows",
       "version": "0.1.0",
@@ -742,6 +751,8 @@
     "@mnm/adapter-utils": ["@mnm/adapter-utils@workspace:packages/adapter-utils"],
 
     "@mnm/db": ["@mnm/db@workspace:packages/db"],
+
+    "@mnm/git-provider": ["@mnm/git-provider@workspace:packages/git-provider"],
 
     "@mnm/governed-workflows": ["@mnm/governed-workflows@workspace:packages/governed-workflows"],
 
