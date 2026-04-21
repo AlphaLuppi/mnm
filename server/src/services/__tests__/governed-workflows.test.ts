@@ -584,3 +584,85 @@ describe("governedWorkflowService — completeStep", () => {
     ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_ALREADY_COMPLETED });
   });
 });
+
+describe("governedWorkflowService — syncEnvironment", () => {
+  let db: Db;
+  const companyA = "00000000-0000-0000-0000-000000000a06";
+
+  const stubProvider = {
+    fetchBlob: async ({ path }: { path: string }) => `# Agent MD for ${path}`,
+    resolveRef: async () => "agent-sha",
+    listTags: async () => [],
+    pathExists: async () => true,
+    commitFile: async () => ({ sha: "x" }),
+  };
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      gitProvider: stubProvider as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyA}, 'SyncEnvCo', 'GWSE')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("returns { hasChanges:false, agents:[] } when lastSyncedSha matches", async () => {
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES (${companyA}, 'greeter', 'claude_local', 'v1.0.0', true)
+      ON CONFLICT DO NOTHING
+    `);
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    // First call to obtain the real newSha
+    const first = await svc.syncEnvironment({ companyId: companyA });
+    expect(first.hasChanges).toBe(true);
+    // Second call with the same sha → short-circuit
+    const second = await svc.syncEnvironment({ companyId: companyA, lastSyncedSha: first.newSha });
+    expect(second).toMatchObject({ hasChanges: false, agents: [] });
+    expect(second.newSha).toBe(first.newSha);
+  });
+
+  it("returns populated agents when lastSyncedSha differs", async () => {
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES (${companyA}, 'greeter', 'claude_local', 'v1.0.0', true)
+      ON CONFLICT DO NOTHING
+    `);
+    const svc = mkSvc();
+    await setTenantContext(db, companyA);
+    const result = await svc.syncEnvironment({ companyId: companyA, lastSyncedSha: "stale-sha" });
+    expect(result.hasChanges).toBe(true);
+    expect(result.agents.length).toBeGreaterThan(0);
+    expect(result.agents[0]).toMatchObject({
+      name: "greeter",
+      mdContent: expect.any(String),
+      configMerged: { mcp: [], hook: [], setting: [], env_ref: [] },
+    });
+  });
+
+  it("returns { agents:[], hasChanges:true } when no enabled agents exist", async () => {
+    // Use a distinct company with no agents to avoid interference
+    const emptyCompany = "00000000-0000-0000-0000-000000000a07";
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${emptyCompany}, 'EmptyCo', 'GWEM') ON CONFLICT DO NOTHING`);
+    const svc = mkSvc();
+    await setTenantContext(db, emptyCompany);
+    const result = await svc.syncEnvironment({ companyId: emptyCompany });
+    // No agents → synced list is empty; lastSyncedSha is undefined so newSha never matches
+    expect(result.agents).toEqual([]);
+    expect(result.hasChanges).toBe(true);
+    expect(typeof result.newSha).toBe("string");
+  });
+});
