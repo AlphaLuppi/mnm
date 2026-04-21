@@ -11,6 +11,9 @@ import { companies } from "./companies.js";
 import { governedWorkflowRuns } from "./governed_workflow_runs.js";
 import { governedStepExecutions } from "./governed_step_executions.js";
 
+// NOTE: text[] columns with defaults require sql`'{}'::text[]` in Drizzle 0.38.
+// This is the ONLY place where sql`` is used for defaults — all other types use .default().
+
 export const gateResults = pgTable(
   "gate_results",
   {
