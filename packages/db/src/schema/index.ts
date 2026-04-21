@@ -98,17 +98,7 @@ export { inboxItems } from "./inbox_items.js";
 export { oauthClients } from "./oauth-clients.js";
 export { oauthRefreshTokens } from "./oauth-refresh-tokens.js";
 // GOVERNED-WORKFLOWS: T2 — definition/run/step/gate metadata
-export {
-  governedWorkflowDefinitions,
-} from "./governed_workflow_definitions.js";
-export {
-  governedWorkflowRuns,
-  GOVERNED_RUN_STATUSES,
-  type GovernedRunStatus,
-} from "./governed_workflow_runs.js";
-export {
-  governedStepExecutions,
-  GOVERNED_STEP_STATES,
-  type GovernedStepState,
-} from "./governed_step_executions.js";
+export { governedWorkflowDefinitions } from "./governed_workflow_definitions.js";
+export { governedWorkflowRuns, GOVERNED_RUN_STATUSES, type GovernedRunStatus } from "./governed_workflow_runs.js";
+export { governedStepExecutions, GOVERNED_STEP_STATES, type GovernedStepState } from "./governed_step_executions.js";
 export { gateResults } from "./gate_results.js";

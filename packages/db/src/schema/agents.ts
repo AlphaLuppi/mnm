@@ -4,10 +4,10 @@ import {
   uuid,
   text,
   integer,
+  boolean,
   timestamp,
   jsonb,
   index,
-  boolean,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { configLayers } from "./config_layers.js";

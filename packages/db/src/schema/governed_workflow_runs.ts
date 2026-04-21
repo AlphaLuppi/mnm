@@ -6,7 +6,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
-import { AUDIT_ACTOR_TYPES, type AuditActorType } from "@mnm/shared";
+import type { AuditActorType } from "@mnm/shared";
 import { companies } from "./companies.js";
 import { governedWorkflowDefinitions } from "./governed_workflow_definitions.js";
 
