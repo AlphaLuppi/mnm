@@ -27,7 +27,7 @@ ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check
 -- ===============================================================
 
 -- 2a. governed_workflow_definitions — metadata only. No parsed workflow.json
--- cached here; the serveur fetches by git_sha on demand (spec §2 fetch-on-demand).
+-- cached here; the server fetches by git_sha on demand (spec §2 fetch-on-demand).
 CREATE TABLE "governed_workflow_definitions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
