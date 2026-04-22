@@ -154,6 +154,8 @@ describe("createResolveGitProvider (integration)", () => {
     await expect(resolve(companyId)).rejects.toMatchObject({
       name: "GovernedWorkflowError",
       code: "GIT_PROVIDER_MISCONFIG",
+      message: expect.stringContaining("unknown kind"),
+      hints: [expect.stringContaining("'gitlab' and 'local'")],
     });
   });
 
@@ -163,6 +165,8 @@ describe("createResolveGitProvider (integration)", () => {
     await expect(resolve(companyId)).rejects.toMatchObject({
       name: "GovernedWorkflowError",
       code: "GIT_PROVIDER_MISCONFIG",
+      message: expect.stringContaining("gitlab"),
+      hints: [expect.stringContaining("providerId")],
     });
   });
 
@@ -172,6 +176,8 @@ describe("createResolveGitProvider (integration)", () => {
     await expect(resolve(companyId)).rejects.toMatchObject({
       name: "GovernedWorkflowError",
       code: "GIT_PROVIDER_MISCONFIG",
+      message: expect.stringContaining("local"),
+      hints: [expect.stringContaining("repoDir")],
     });
   });
 
