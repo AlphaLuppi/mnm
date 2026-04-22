@@ -65,6 +65,44 @@ function verifyPkceS256(codeVerifier: string, codeChallenge: string): boolean {
  *
  * The caller maps each throw to a standard OAuth error response.
  */
+/**
+ * Tagged error raised by resolveOAuthCompanyId when the multi-tenant boundary
+ * cannot be resolved deterministically. Callers `instanceof`-check this type
+ * so unrelated throws (DB connection loss, etc.) propagate as 500s instead of
+ * being misread as a tagged multi-company rejection.
+ */
+class MultiCompanyError extends Error {
+  constructor(
+    public readonly kind: "ambiguous" | "forbidden",
+    public readonly payload: { available?: string[]; companyId?: string },
+  ) {
+    super(`multi-company: ${kind}`);
+    this.name = "MultiCompanyError";
+  }
+}
+
+/**
+ * Map a MultiCompanyError to the matching OAuth error response. Centralizing
+ * the shape here keeps the GET and POST authorize handlers (defense-in-depth
+ * sites) from drifting apart.
+ */
+function sendOAuthCompanyError(res: Response, err: MultiCompanyError): void {
+  if (err.kind === "ambiguous") {
+    res.status(400).json({
+      error: "invalid_request",
+      error_description:
+        "User belongs to multiple companies; provide a company_id parameter on the authorize request.",
+      available_companies: err.payload.available ?? [],
+    });
+    return;
+  }
+  // err.kind === "forbidden"
+  res.status(403).json({
+    error: "access_denied",
+    error_description: `User is not a member of company ${err.payload.companyId ?? "(unknown)"}`,
+  });
+}
+
 async function resolveOAuthCompanyId(
   db: Db,
   userId: string,
@@ -86,21 +124,20 @@ async function resolveOAuthCompanyId(
   if (memberships.length === 1) {
     const only = memberships[0].companyId;
     if (requestedCompanyId && requestedCompanyId !== only) {
-      throw { kind: "forbidden" as const, companyId: requestedCompanyId };
+      throw new MultiCompanyError("forbidden", { companyId: requestedCompanyId });
     }
     return only;
   }
 
   // Multi-company user: explicit selection required.
   if (!requestedCompanyId) {
-    throw {
-      kind: "ambiguous" as const,
+    throw new MultiCompanyError("ambiguous", {
       available: memberships.map((m) => m.companyId),
-    };
+    });
   }
   const match = memberships.find((m) => m.companyId === requestedCompanyId);
   if (!match) {
-    throw { kind: "forbidden" as const, companyId: requestedCompanyId };
+    throw new MultiCompanyError("forbidden", { companyId: requestedCompanyId });
   }
   return match.companyId;
 }
@@ -352,22 +389,11 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     try {
       resolvedCompanyId = await resolveOAuthCompanyId(db, sessionResult.user.id, requestedCompanyId);
     } catch (e) {
-      const err = e as { kind: "ambiguous"; available: string[] } | { kind: "forbidden"; companyId: string };
-      if (err.kind === "ambiguous") {
-        res.status(400).json({
-          error: "invalid_request",
-          error_description:
-            "User belongs to multiple companies; add ?company_id=<uuid> to the authorize URL.",
-          available_companies: err.available,
-        });
+      if (e instanceof MultiCompanyError) {
+        sendOAuthCompanyError(res, e);
         return;
       }
-      // err.kind === "forbidden"
-      res.status(403).json({
-        error: "access_denied",
-        error_description: `User is not a member of company ${err.companyId}`,
-      });
-      return;
+      throw e;
     }
     if (!resolvedCompanyId) {
       res.status(403).json({ error: "access_denied", error_description: "User has no active company membership" });
@@ -461,30 +487,22 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
     // Accept company_id from either the form body (React SPA threads it from
     // the consent URL) or the query string (e.g. a direct POST from tooling).
-    const requestedCompanyIdRaw =
-      (typeof req.body?.company_id === "string" && req.body.company_id.length > 0 ? req.body.company_id : null) ??
-      (typeof req.query.company_id === "string" && req.query.company_id.length > 0 ? req.query.company_id : null);
-    const requestedCompanyId: string | null = requestedCompanyIdRaw;
+    const bodyCompanyId = typeof req.body?.company_id === "string" && req.body.company_id.length > 0
+      ? req.body.company_id
+      : null;
+    const queryCompanyId = typeof req.query.company_id === "string" && req.query.company_id.length > 0
+      ? req.query.company_id
+      : null;
+    const requestedCompanyId: string | null = bodyCompanyId ?? queryCompanyId;
     let companyId: string | null;
     try {
       companyId = await resolveOAuthCompanyId(db, userId, requestedCompanyId);
     } catch (e) {
-      const err = e as { kind: "ambiguous"; available: string[] } | { kind: "forbidden"; companyId: string };
-      if (err.kind === "ambiguous") {
-        res.status(400).json({
-          error: "invalid_request",
-          error_description:
-            "User belongs to multiple companies; add ?company_id=<uuid> to the authorize URL.",
-          available_companies: err.available,
-        });
+      if (e instanceof MultiCompanyError) {
+        sendOAuthCompanyError(res, e);
         return;
       }
-      // err.kind === "forbidden"
-      res.status(403).json({
-        error: "access_denied",
-        error_description: `User is not a member of company ${err.companyId}`,
-      });
-      return;
+      throw e;
     }
     if (!companyId) {
       res.status(403).json({ error: "access_denied", error_description: "User has no active company membership" });
