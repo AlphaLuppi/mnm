@@ -146,7 +146,7 @@ describe("governed-workflows.tool", () => {
   it("sync_governed_environment returns agents + new_sha + has_changes", async () => {
     const services = mkServices({
       syncEnvironment: vi.fn(async () => ({
-        agents: [{ name: "greeter", mdContent: "# Greeter", configMerged: {} }],
+        agents: [{ name: "greeter", mdContent: "# Greeter", configMerged: { mcp: [], hook: [], setting: [], credential: [] } }],
         newSha: "abc123",
         hasChanges: true,
       })),

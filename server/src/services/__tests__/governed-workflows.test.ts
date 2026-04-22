@@ -649,7 +649,7 @@ describe("governedWorkflowService — syncEnvironment", () => {
     expect(result.agents[0]).toMatchObject({
       name: "greeter",
       mdContent: expect.any(String),
-      configMerged: { mcp: [], hook: [], setting: [], env_ref: [] },
+      configMerged: { mcp: [], hook: [], setting: [], credential: [] },
     });
   });
 
@@ -958,5 +958,122 @@ describe("launchStep (T6 enrichment)", () => {
     });
     expect(result.agentName).toBeDefined();
     expect(result.subagentType).toBeDefined();
+  });
+});
+
+describe("mergeAgentConfig (real merge via mergePreview)", () => {
+  let db: Db;
+
+  const stubProvider = {
+    fetchBlob: async ({ path }: { path: string }) => `# Agent MD for ${path}`,
+    resolveRef: async () => "agent-sha",
+    listTags: async () => [],
+    pathExists: async () => true,
+    commitFile: async () => ({ sha: "x" }),
+  };
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  // Seed: 1 agent with 3 config_layer_items across 2 layers (enforced + base).
+  //  - mcp:"github-api"      priority=999 (enforced) — wins over base
+  //  - hook:"pre-commit"     priority=500 (base)
+  //  - credential:"GL_TOKEN" priority=500 (base)
+  async function seedAgentWithMergedConfig(): Promise<{
+    companyId: string;
+    agentId: string;
+  }> {
+    const companyId = crypto.randomUUID();
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const prefix = `T7D1${suffix}`;
+
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"DEF1-" + suffix}, ${prefix})`,
+    );
+
+    // Create layers first — the base layer requires is_base_layer=true for the
+    // CHECK (is_base_layer = false OR (scope='private' AND visibility='private')).
+    const enforcedRows = await db.execute(
+      sql`INSERT INTO config_layers
+            (company_id, name, scope, enforced, visibility, created_by_user_id)
+          VALUES
+            (${companyId}, ${"company-enforced-" + suffix}, 'company', true, 'public', 'test-user')
+          RETURNING id::text AS id`,
+    );
+    const enforcedLayerId = (enforcedRows as unknown as Array<{ id: string }>)[0]!.id;
+
+    const baseRows = await db.execute(
+      sql`INSERT INTO config_layers
+            (company_id, name, scope, enforced, visibility, is_base_layer, created_by_user_id)
+          VALUES
+            (${companyId}, ${"agent-base-" + suffix}, 'private', false, 'private', true, 'test-user')
+          RETURNING id::text AS id`,
+    );
+    const baseLayerId = (baseRows as unknown as Array<{ id: string }>)[0]!.id;
+
+    // Insert agent with base_layer_id set so the activeLayersCte picks up the
+    // base layer at its canonical priority=500. The enforced layer is picked
+    // up separately via the CTE's enforced branch at priority=999, so no
+    // attachment via agent_config_layers is needed (and the attachment table
+    // CHECKs priority IN [0, 498] anyway, which wouldn't fit 500/999).
+    const agentRows = await db.execute(
+      sql`INSERT INTO agents
+            (company_id, name, adapter_type, latest_git_tag, enabled, base_layer_id)
+          VALUES
+            (${companyId}, 't7-def1-agent', 'claude_local', 'v1.0.0', true, ${baseLayerId}::uuid)
+          RETURNING id::text AS id`,
+    );
+    const agentId = (agentRows as unknown as Array<{ id: string }>)[0]!.id;
+
+    // Items — note: "credential" is a valid ConfigLayerItemType (0062 migration).
+    const mcpCfg = JSON.stringify({ endpoint: "https://api.github.com" });
+    const hookCfg = JSON.stringify({ command: "bun lint" });
+    const credCfg = JSON.stringify({ credentialId: "cred-abc" });
+    await db.execute(
+      sql`INSERT INTO config_layer_items
+            (company_id, layer_id, item_type, name, config_json, enabled)
+          VALUES
+            (${companyId}, ${enforcedLayerId}::uuid, 'mcp', 'github-api', ${mcpCfg}::jsonb, true),
+            (${companyId}, ${baseLayerId}::uuid, 'hook', 'pre-commit', ${hookCfg}::jsonb, true),
+            (${companyId}, ${baseLayerId}::uuid, 'credential', 'GL_TOKEN', ${credCfg}::jsonb, true)`,
+    );
+
+    return { companyId, agentId };
+  }
+
+  it("partitions items by itemType into configMerged buckets", async () => {
+    const { companyId, agentId } = await seedAgentWithMergedConfig();
+
+    const service = governedWorkflowService(db, {
+      gitProvider: stubProvider as any,
+      shaCache: new ShaCache(),
+    });
+
+    await setTenantContext(db, companyId);
+    const { agents } = await service.syncEnvironment({ companyId });
+
+    // The seeded agent should be picked up (enabled=true, latest_git_tag set).
+    const found = agents.find((a) => a.name === "t7-def1-agent");
+    expect(found).toBeDefined();
+    const merged = found!.configMerged;
+    expect(merged.mcp).toHaveLength(1);
+    expect(merged.mcp[0]).toMatchObject({ name: "github-api", priority: 999 });
+    expect(merged.hook).toHaveLength(1);
+    expect(merged.hook[0]).toMatchObject({ name: "pre-commit", priority: 500 });
+    expect(merged.credential).toHaveLength(1);
+    expect(merged.credential[0]).toMatchObject({ name: "GL_TOKEN" });
+    expect(merged.setting).toHaveLength(0);
+
+    // Keep the agentId referenced so unused-var lint is satisfied in the stub.
+    expect(agentId).toEqual(expect.any(String));
   });
 });
