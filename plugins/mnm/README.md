@@ -65,3 +65,18 @@ content if stale. Claude writes the update, then retries the step.
 
 - **User agents** : `~/.claude/agents/mnm--*.md`
 - **Plugin cache** (session state, last-sync marker) : `~/.claude/plugins/data/mnm-<marketplace>/last-session.json`
+
+## Marketplace
+
+This plugin is published at the external marketplace repo
+[`mnm-platform/claude-plugins`](https://github.com/mnm-platform/claude-plugins).
+The manifest format and publication workflow are described in
+[`docs/superpowers/specs/T7-marketplace-manifest.md`](../../docs/superpowers/specs/T7-marketplace-manifest.md)
+in the upstream repo.
+
+Install via:
+
+```
+/plugin marketplace add https://github.com/mnm-platform/claude-plugins
+/plugin install mnm@mnm-platform
+```
