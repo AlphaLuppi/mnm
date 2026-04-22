@@ -15,6 +15,7 @@
     "dev:once": "node scripts/dev-runner.mjs dev",
     "dev:server": "bun run --cwd server dev",
     "dev:ui": "bun run --cwd ui dev",
+    "seed:hello-world": "node scripts/seed-hello-world-dev.mjs",
     "build": "bun run --filter '*' build",
     "typecheck": "bun run --filter '*' typecheck",
     "test": "vitest",
