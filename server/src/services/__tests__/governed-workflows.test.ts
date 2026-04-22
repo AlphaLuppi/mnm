@@ -729,6 +729,8 @@ describe("governedWorkflowService — setupWorkspace", () => {
 
   const service = {
     setupWorkspace: (args: { companyId: string }) => mkSvc().setupWorkspace(args),
+    pushLocalState: (args: Parameters<ReturnType<typeof mkSvc>["pushLocalState"]>[0]) =>
+      mkSvc().pushLocalState(args),
   };
 
   it("returns all enabled agents with content and sha, plus write instructions", async () => {
@@ -762,5 +764,26 @@ describe("governedWorkflowService — setupWorkspace", () => {
     const companyId = await seedCompanyWithAgents({ issuePrefix: "T6HL", agents: [] });
     const result = await service.setupWorkspace({ companyId });
     expect(result.agents).toEqual([]);
+  });
+
+  describe("pushLocalState", () => {
+    it("returns the local state payload + path for the harness to persist", async () => {
+      const companyId = await seedCompanyWithAgents({
+        issuePrefix: "T6HL",
+        agents: [{ name: "greeter", enabled: true }],
+      });
+      const result = await service.pushLocalState({
+        companyId,
+        agentsProvisioned: ["mnm--greeter"],
+        pluginVersion: "0.1.0",
+      });
+      expect(result.targetRelativePath).toBe("last-session.json");
+      expect(result.content.lastPluginVersion).toBe("0.1.0");
+      expect(result.content.agentNames).toEqual(["mnm--greeter"]);
+      expect(typeof result.content.lastSyncedSha).toBe("string");
+      expect(result.content.lastSyncedSha.length).toBeGreaterThan(0);
+      expect(typeof result.content.pendingRuns).toBe("number");
+      expect(typeof result.content.openIssues).toBe("number");
+    });
   });
 });
