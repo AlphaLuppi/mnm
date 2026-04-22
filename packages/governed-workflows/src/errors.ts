@@ -66,6 +66,11 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   WORKFLOW_ALREADY_COMPLETED: "WORKFLOW_ALREADY_COMPLETED",
   AGENTS_STALE: "AGENTS_STALE",
   MISSING_TOOLS: "MISSING_TOOLS",
+  // Emitted by resolveGitProvider when a company has a git_provider config
+  // layer item but its shape is invalid (unknown `kind`, missing required
+  // fields). Fail-closed: we never silently fall back to env vars when the
+  // company explicitly declared a provider.
+  GIT_PROVIDER_MISCONFIG: "GIT_PROVIDER_MISCONFIG",
 } as const);
 
 export type WorkflowErrorCode =

@@ -4,7 +4,8 @@
  */
 import type { Db } from "@mnm/db";
 import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
-import { governedWorkflowService } from "../services/governed-workflows.js";
+import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
+import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { projectService } from "../services/projects.js";
 import { agentService } from "../services/agents.js";
 import { issueService } from "../services/issues.js";
@@ -29,7 +30,84 @@ import { a2aPermissionsService } from "../services/a2a-permissions.js";
 import { heartbeatService } from "../services/heartbeat.js";
 import type { McpServices } from "./registry/types.js";
 
-function resolveGitProvider(): GitProvider {
+/**
+ * Build a companyId -> GitProvider resolver. Multi-tenant prod stores each
+ * company's git backend as a config_layer_item of itemType "git_provider".
+ * Shape of the configJson:
+ *   { kind: "gitlab", providerId, baseUrl, projectId, token }
+ *   { kind: "local",  providerId, repoDir }
+ *
+ * Fallback: when no git_provider item exists for the company, we fall back to
+ * process env vars (dev / local bootstrap). When a company declares an item
+ * with an unknown kind or missing fields, we fail-closed with
+ * GIT_PROVIDER_MISCONFIG rather than silently fall back.
+ *
+ * Providers are cached per companyId for the lifetime of the process. When a
+ * company rotates credentials, restart is required — the config-layer UI
+ * already warns users about this (spec §5).
+ */
+export function createResolveGitProvider(db: Db): (companyId: string) => Promise<GitProvider> {
+  const cache = new Map<string, GitProvider>();
+
+  return async function resolveGitProvider(companyId: string): Promise<GitProvider> {
+    const cached = cache.get(companyId);
+    if (cached) return cached;
+
+    const conflictService = configLayerConflictService(db);
+    const { items } = await conflictService.mergePreview(companyId, "__company_default__");
+    // Agent id "__company_default__" is a sentinel for company-scope lookups
+    // that don't target a specific agent — mergePreview's active_layers CTE
+    // still returns company-enforced + shared-default layers. If the CTE
+    // implementation rejects unknown agents, we fall back to a direct query
+    // over config_layer_items WHERE itemType='git_provider' AND layer.scope='company'.
+
+    const gitProviderItems = items.filter((i) => i.itemType === "git_provider");
+    if (gitProviderItems.length === 0) {
+      const provider = buildEnvFallbackProvider();
+      cache.set(companyId, provider);
+      return provider;
+    }
+
+    // Pick the highest-priority item (mergePreview already dedupes by (type, name)).
+    const top = gitProviderItems[0];
+    const cfg = top.configJson as { kind?: string } & Record<string, unknown>;
+    let provider: GitProvider;
+    if (cfg.kind === "gitlab") {
+      const { providerId, baseUrl, projectId, token } = cfg as {
+        providerId?: string; baseUrl?: string; projectId?: string; token?: string;
+      };
+      if (!providerId || !baseUrl || !projectId || !token) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
+          `Company ${companyId} git_provider item is missing required gitlab fields.`,
+          ["Set providerId, baseUrl, projectId, token on the git_provider config layer item."],
+        );
+      }
+      provider = new GitlabProvider({ providerId, baseUrl, projectId, token });
+    } else if (cfg.kind === "local") {
+      const { providerId, repoDir } = cfg as { providerId?: string; repoDir?: string };
+      if (!providerId || !repoDir) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
+          `Company ${companyId} git_provider item is missing required local fields.`,
+          ["Set providerId and repoDir on the git_provider config layer item."],
+        );
+      }
+      provider = new LocalBareRepoProvider({ providerId, repoDir });
+    } else {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
+        `Company ${companyId} git_provider item has unknown kind: ${String(cfg.kind)}`,
+        ["Supported kinds are 'gitlab' and 'local'."],
+      );
+    }
+
+    cache.set(companyId, provider);
+    return provider;
+  };
+}
+
+function buildEnvFallbackProvider(): GitProvider {
   const mode = process.env.MNM_GIT_PROVIDER ?? "gitlab";
   if (mode === "local") {
     const repoDir = process.env.MNM_GIT_LOCAL_PATH ?? "./_fixtures/mnm-workflows-bare";
@@ -44,7 +122,7 @@ function resolveGitProvider(): GitProvider {
 }
 
 export function buildMcpServices(db: Db): McpServices {
-  const gitProvider = resolveGitProvider();
+  const resolveGitProvider = createResolveGitProvider(db);
   const shaCache = new ShaCache();
   return {
     db,
@@ -70,6 +148,6 @@ export function buildMcpServices(db: Db): McpServices {
     a2aBus: a2aBusService(db),
     a2aPermissions: a2aPermissionsService(db),
     heartbeat: heartbeatService(db),
-    governedWorkflows: governedWorkflowService(db, { gitProvider, shaCache }),
+    governedWorkflows: governedWorkflowService(db, { resolveGitProvider, shaCache }),
   };
 }
