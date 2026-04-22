@@ -178,6 +178,31 @@ export interface SetupWorkspaceResult {
   instructions: string;
 }
 
+export interface PushLocalStateArgs {
+  companyId: string;
+  agentsProvisioned: string[];
+  pluginVersion: string;
+}
+
+/**
+ * Payload the harness should persist to
+ * `${CLAUDE_PLUGIN_DATA}/last-session.json` — read by the SessionStart hook.
+ */
+export interface PushLocalStatePayload {
+  lastSyncedSha: string;
+  syncedAt: string;
+  agentNames: string[];
+  pendingRuns: number;
+  openIssues: number;
+  lastPluginVersion: string;
+}
+
+export interface PushLocalStateResult {
+  /** Relative path under `${CLAUDE_PLUGIN_DATA}/` the harness should write to. */
+  targetRelativePath: string;
+  content: PushLocalStatePayload;
+}
+
 /**
  * Domain service for Governed Workflows. All reads are RLS-scoped — the
  * caller must have set `app.current_company_id` via `setTenantContext`
@@ -993,6 +1018,43 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     };
   }
 
+  /**
+   * Produces the payload the SessionStart hook will read next session.
+   * `lastSyncedSha` is the syncEnvironment sha recomputed so the hook knows
+   * whether remote state drifted since the last tool call. `pendingRuns`
+   * and `openIssues` are counted from the DB at call time.
+   */
+  async function pushLocalState(args: PushLocalStateArgs): Promise<PushLocalStateResult> {
+    const sync = await syncEnvironment({ companyId: args.companyId });
+
+    const pendingRows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(governedWorkflowRuns)
+      .where(
+        and(
+          eq(governedWorkflowRuns.companyId, args.companyId),
+          eq(governedWorkflowRuns.status, "active"),
+        ),
+      );
+    const pendingRuns = Number(pendingRows[0]?.count ?? 0);
+
+    // `openIssues` is out of scope for T6 MVP — issues aren't modelled in the
+    // governed-workflows surface yet. Return 0 as a stable placeholder.
+    const openIssues = 0;
+
+    return {
+      targetRelativePath: "last-session.json",
+      content: {
+        lastSyncedSha: sync.newSha,
+        syncedAt: new Date().toISOString(),
+        agentNames: args.agentsProvisioned,
+        pendingRuns,
+        openIssues,
+        lastPluginVersion: args.pluginVersion,
+      },
+    };
+  }
+
   async function mergeAgentConfig(_agentId: string) {
     // TODO: use `configLayerConflictService.mergePreview(companyId, agentId)`
     // as the canonical merge path (it already implements priority-merge).
@@ -1012,6 +1074,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     completeStep,
     syncEnvironment,
     setupWorkspace,
+    pushLocalState,
   };
 }
 
