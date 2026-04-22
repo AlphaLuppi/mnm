@@ -48,10 +48,29 @@ function verifyPkceS256(codeVerifier: string, codeChallenge: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-// ── Resolve user's companyId ────────────────────────────────────────────────
+// ── Resolve user's companyId for MCP OAuth ──────────────────────────────────
 
-async function getUserCompanyId(db: Db, userId: string): Promise<string | null> {
-  const [membership] = await db
+/**
+ * Multi-tenant boundary for MCP OAuth consent. Board users may belong to
+ * multiple active companies; we MUST NOT silently pick one on their behalf
+ * because the resulting JWT would scope MCP tool calls to the wrong tenant.
+ *
+ * Resolution rules:
+ *  - 0 memberships       -> null (caller emits 403 access_denied)
+ *  - 1 membership        -> return it (backward-compat for the common case)
+ *  - 2+ memberships:
+ *      - explicit company_id matching one -> return it
+ *      - explicit company_id not matching -> throw { kind: "forbidden", companyId }
+ *      - no explicit company_id           -> throw { kind: "ambiguous", available }
+ *
+ * The caller maps each throw to a standard OAuth error response.
+ */
+async function resolveOAuthCompanyId(
+  db: Db,
+  userId: string,
+  requestedCompanyId: string | null,
+): Promise<string | null> {
+  const memberships = await db
     .select({ companyId: companyMemberships.companyId })
     .from(companyMemberships)
     .where(
@@ -60,9 +79,30 @@ async function getUserCompanyId(db: Db, userId: string): Promise<string | null> 
         eq(companyMemberships.principalId, userId),
         eq(companyMemberships.status, "active"),
       ),
-    )
-    .limit(1);
-  return membership?.companyId ?? null;
+    );
+
+  if (memberships.length === 0) return null;
+
+  if (memberships.length === 1) {
+    const only = memberships[0].companyId;
+    if (requestedCompanyId && requestedCompanyId !== only) {
+      throw { kind: "forbidden" as const, companyId: requestedCompanyId };
+    }
+    return only;
+  }
+
+  // Multi-company user: explicit selection required.
+  if (!requestedCompanyId) {
+    throw {
+      kind: "ambiguous" as const,
+      available: memberships.map((m) => m.companyId),
+    };
+  }
+  const match = memberships.find((m) => m.companyId === requestedCompanyId);
+  if (!match) {
+    throw { kind: "forbidden" as const, companyId: requestedCompanyId };
+  }
+  return match.companyId;
 }
 
 // ── CSRF token store ───────────────────────────────────────────────────────
@@ -228,7 +268,19 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
     }
 
     const userId = sessionResult.user.id;
-    const userCompanyId = await getUserCompanyId(db, userId);
+    // Consent-data is a read-only UI helper; a multi-company user without an
+    // explicit selection simply gets an empty permission list (the strict
+    // boundary is enforced at /oauth/authorize GET and POST).
+    const requestedConsentCompanyId = typeof req.query.company_id === "string" && req.query.company_id.length > 0
+      ? req.query.company_id
+      : null;
+    let userCompanyId: string | null = null;
+    try {
+      userCompanyId = await resolveOAuthCompanyId(db, userId, requestedConsentCompanyId);
+    } catch {
+      // Ambiguous or forbidden -> degrade to empty permission list.
+      userCompanyId = null;
+    }
 
     let userPermissions: string[] = [];
     if (userCompanyId) {
@@ -290,12 +342,45 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
+    // Multi-company boundary: resolve (and fail-closed on) the caller's company
+    // BEFORE redirecting to the consent SPA. Failing here short-circuits the UX
+    // so the user doesn't click through consent only to be rejected at POST.
+    const requestedCompanyId = typeof req.query.company_id === "string" && req.query.company_id.length > 0
+      ? req.query.company_id
+      : null;
+    let resolvedCompanyId: string | null;
+    try {
+      resolvedCompanyId = await resolveOAuthCompanyId(db, sessionResult.user.id, requestedCompanyId);
+    } catch (e) {
+      const err = e as { kind: "ambiguous"; available: string[] } | { kind: "forbidden"; companyId: string };
+      if (err.kind === "ambiguous") {
+        res.status(400).json({
+          error: "invalid_request",
+          error_description:
+            "User belongs to multiple companies; add ?company_id=<uuid> to the authorize URL.",
+          available_companies: err.available,
+        });
+        return;
+      }
+      // err.kind === "forbidden"
+      res.status(403).json({
+        error: "access_denied",
+        error_description: `User is not a member of company ${err.companyId}`,
+      });
+      return;
+    }
+    if (!resolvedCompanyId) {
+      res.status(403).json({ error: "access_denied", error_description: "User has no active company membership" });
+      return;
+    }
+
     // Redirect to React SPA consent page
     const consentParams = new URLSearchParams({
       client_id,
       redirect_uri,
       code_challenge,
       code_challenge_method: code_challenge_method ?? "S256",
+      company_id: resolvedCompanyId,
       ...(state && { state }),
       ...(scope && { scope }),
       ...(resource && { resource }),
@@ -374,7 +459,33 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
       return;
     }
 
-    const companyId = await getUserCompanyId(db, userId);
+    // Accept company_id from either the form body (React SPA threads it from
+    // the consent URL) or the query string (e.g. a direct POST from tooling).
+    const requestedCompanyIdRaw =
+      (typeof req.body?.company_id === "string" && req.body.company_id.length > 0 ? req.body.company_id : null) ??
+      (typeof req.query.company_id === "string" && req.query.company_id.length > 0 ? req.query.company_id : null);
+    const requestedCompanyId: string | null = requestedCompanyIdRaw;
+    let companyId: string | null;
+    try {
+      companyId = await resolveOAuthCompanyId(db, userId, requestedCompanyId);
+    } catch (e) {
+      const err = e as { kind: "ambiguous"; available: string[] } | { kind: "forbidden"; companyId: string };
+      if (err.kind === "ambiguous") {
+        res.status(400).json({
+          error: "invalid_request",
+          error_description:
+            "User belongs to multiple companies; add ?company_id=<uuid> to the authorize URL.",
+          available_companies: err.available,
+        });
+        return;
+      }
+      // err.kind === "forbidden"
+      res.status(403).json({
+        error: "access_denied",
+        error_description: `User is not a member of company ${err.companyId}`,
+      });
+      return;
+    }
     if (!companyId) {
       res.status(403).json({ error: "access_denied", error_description: "User has no active company membership" });
       return;
