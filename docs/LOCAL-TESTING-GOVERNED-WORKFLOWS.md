@@ -45,7 +45,9 @@ Dans un nouveau terminal :
 bun run seed:hello-world
 ```
 
-Ce script :
+Le script est dans `server/scripts/` (il importe `postgres` qui est une dep du workspace `server`). L'npm script au root s'en charge, tu n'as rien à configurer.
+
+Actions :
 
 1. Crée un bare git repo à `~/.mnm/dev-workflows-bare/repo.git` avec `hello-world/workflow.json` + gates + `greeter/agent.md` + `shouter/agent.md`, taggé `v1.0.0`.
 2. Insère la ligne `governed_workflow_definitions` (hello-world) et les deux `agents` (greeter, shouter) pour la company par défaut.
@@ -55,6 +57,8 @@ Garde la sortie du script — tu en auras besoin juste après. Elle contient not
 
 - Ton **`company_id`** (UUID)
 - Le chemin absolu du bare repo (à passer via `MNM_GIT_LOCAL_PATH`)
+
+Le script est **idempotent** : tu peux le rerun autant que tu veux, il réutilise le bare repo existant et fait des upserts DB.
 
 ---
 
