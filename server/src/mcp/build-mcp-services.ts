@@ -2,7 +2,8 @@
  * Build the services object injected into all MCP tool & resource handlers.
  * Each property corresponds to a `services.xxx` call in tool files.
  */
-import type { Db } from "@mnm/db";
+import { and, eq, isNull } from "drizzle-orm";
+import { configLayerItems, configLayers, type Db } from "@mnm/db";
 import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
@@ -32,18 +33,29 @@ import type { McpServices } from "./registry/types.js";
 
 /**
  * Build a companyId -> GitProvider resolver. Multi-tenant prod stores each
- * company's git backend as a config_layer_item of itemType "git_provider".
- * Shape of the configJson:
+ * company's git backend as a `git_provider` config_layer_item in a
+ * company-scoped, enforced layer. Shape of the configJson:
  *   { kind: "gitlab", providerId, baseUrl, projectId, token }
  *   { kind: "local",  providerId, repoDir }
  *
- * Fallback: when no git_provider item exists for the company, we fall back to
- * process env vars (dev / local bootstrap). When a company declares an item
- * with an unknown kind or missing fields, we fail-closed with
+ * Lookup strategy: direct query over config_layer_items joined to
+ * config_layers, filtered to enforced company-scope non-archived layers.
+ * We intentionally do NOT route through configLayerConflictService.mergePreview
+ * here because mergePreview takes an agentId (cast to uuid inside its CTE)
+ * and this is a company-scoped lookup with no meaningful agent id.
+ *
+ * The config-layer system guarantees a company has at most one active
+ * git_provider item under the company-enforced layer (UI validation +
+ * `config_layers_company_name_scope_uq` + `config_layer_items_layer_name_uq`
+ * combined enforce the invariant).
+ *
+ * Fallback: when no git_provider item exists for the company, we fall back
+ * to process env vars (dev / local bootstrap). When a company declares an
+ * item with an unknown kind or missing fields, we fail-closed with
  * GIT_PROVIDER_MISCONFIG rather than silently fall back.
  *
- * Providers are cached per companyId for the lifetime of the process. When a
- * company rotates credentials, restart is required — the config-layer UI
+ * Providers are cached per companyId for the lifetime of the process. When
+ * a company rotates credentials, restart is required — the config-layer UI
  * already warns users about this (spec §5).
  */
 export function createResolveGitProvider(db: Db): (companyId: string) => Promise<GitProvider> {
@@ -53,24 +65,34 @@ export function createResolveGitProvider(db: Db): (companyId: string) => Promise
     const cached = cache.get(companyId);
     if (cached) return cached;
 
-    const conflictService = configLayerConflictService(db);
-    const { items } = await conflictService.mergePreview(companyId, "__company_default__");
-    // Agent id "__company_default__" is a sentinel for company-scope lookups
-    // that don't target a specific agent — mergePreview's active_layers CTE
-    // still returns company-enforced + shared-default layers. If the CTE
-    // implementation rejects unknown agents, we fall back to a direct query
-    // over config_layer_items WHERE itemType='git_provider' AND layer.scope='company'.
+    // Direct query over config_layer_items for company-enforced git_provider
+    // items. We intentionally do NOT route through mergePreview here because
+    // it takes an agentId and this is a company-scoped lookup. The
+    // config-layer system guarantees a company has at most one active
+    // git_provider item in the company-enforced layer.
+    const rows = await db
+      .select({ configJson: configLayerItems.configJson })
+      .from(configLayerItems)
+      .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+      .where(
+        and(
+          eq(configLayerItems.companyId, companyId),
+          eq(configLayerItems.itemType, "git_provider"),
+          eq(configLayerItems.enabled, true),
+          eq(configLayers.scope, "company"),
+          eq(configLayers.enforced, true),
+          isNull(configLayers.archivedAt),
+        ),
+      )
+      .limit(1);
 
-    const gitProviderItems = items.filter((i) => i.itemType === "git_provider");
-    if (gitProviderItems.length === 0) {
+    if (rows.length === 0) {
       const provider = buildEnvFallbackProvider();
       cache.set(companyId, provider);
       return provider;
     }
 
-    // Pick the highest-priority item (mergePreview already dedupes by (type, name)).
-    const top = gitProviderItems[0];
-    const cfg = top.configJson as { kind?: string } & Record<string, unknown>;
+    const cfg = rows[0]!.configJson as { kind?: string } & Record<string, unknown>;
     let provider: GitProvider;
     if (cfg.kind === "gitlab") {
       const { providerId, baseUrl, projectId, token } = cfg as {
