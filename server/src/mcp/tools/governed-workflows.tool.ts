@@ -16,8 +16,11 @@ function governedError(err: GovernedWorkflowError) {
         text: JSON.stringify({
           error: err.message,
           code: err.code,
+          error_code: err.code,
+          message: err.message,
           hints: err.hints,
           retryable: false,
+          ...(err.data ?? {}),
         }),
       },
     ],
@@ -200,6 +203,8 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({
       run_id: z.string().uuid(),
       step_id: z.string().min(1),
+      current_agents: z.record(z.string(), z.string()).optional(),
+      session_tools: z.array(z.string()).optional(),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
@@ -210,6 +215,8 @@ export default defineMcpTools(({ tool, services }) => {
           runId: input.run_id,
           stepId: input.step_id,
           actor: { type: actor.type, id: actor.userId ?? actor.agentId! },
+          currentAgents: input.current_agents,
+          sessionTools: input.session_tools,
         });
         return {
           content: [{
@@ -279,6 +286,38 @@ export default defineMcpTools(({ tool, services }) => {
             text: JSON.stringify({
               agents: r.agents,
               instructions: r.instructions,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("push_local_state", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] Returns the payload the harness MUST write to " +
+      "`${CLAUDE_PLUGIN_DATA}/last-session.json`. The SessionStart hook reads " +
+      "this cache to display the dashboard on next session.",
+    input: z.object({
+      agents_provisioned: z.array(z.string()),
+      plugin_version: z.string(),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.pushLocalState({
+          companyId: actor.companyId,
+          agentsProvisioned: input.agents_provisioned,
+          pluginVersion: input.plugin_version,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              target_relative_path: r.targetRelativePath,
+              content: r.content,
             }),
           }],
         };

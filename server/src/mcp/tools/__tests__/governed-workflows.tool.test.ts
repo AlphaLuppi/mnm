@@ -161,6 +161,79 @@ describe("governed-workflows.tool", () => {
   });
 });
 
+describe("push_local_state tool", () => {
+  it("returns the cache payload + relative path", async () => {
+    const services = mkServices({
+      pushLocalState: vi.fn(async () => ({
+        targetRelativePath: "last-session.json",
+        content: {
+          lastSyncedSha: "abc123",
+          syncedAt: "2026-04-22T00:00:00.000Z",
+          agentNames: ["mnm--greeter"],
+          pendingRuns: 0,
+          openIssues: 0,
+          lastPluginVersion: "0.1.0",
+        },
+      })),
+    });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const push = tools.find((t) => t.name === "push_local_state")!;
+    const r = await push.handler({
+      input: { agents_provisioned: ["mnm--greeter"], plugin_version: "0.1.0" },
+      actor: mkActor(),
+    });
+    const parsed = JSON.parse(r.content[0]!.text);
+    expect(parsed.target_relative_path).toBe("last-session.json");
+    expect(parsed.content.lastPluginVersion).toBe("0.1.0");
+    expect(parsed.content.agentNames).toContain("mnm--greeter");
+  });
+});
+
+describe("launch_governed_step tool (T6 enriched)", () => {
+  it("bubbles AGENTS_STALE with stale_agents[] in the error payload", async () => {
+    const staleAgents = [
+      { name: "mnm--greeter", sha: "fresh-sha", content: "# mnm--greeter\n\nHello." },
+    ];
+    const services = mkServices({
+      launchStep: vi.fn(async () => {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.AGENTS_STALE,
+          "Local agents are stale",
+          ["Re-call launchStep with the updated sha"],
+          { stale_agents: staleAgents },
+        );
+      }),
+    });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const launchStep = tools.find((t) => t.name === "launch_governed_step")!;
+    const r = await launchStep.handler({
+      input: {
+        run_id: "00000000-0000-0000-0000-000000000001",
+        step_id: "greet",
+        current_agents: { "mnm--greeter": "bogus-sha" },
+        session_tools: ["Task", "Write", "Read"],
+      },
+      actor: mkActor(),
+    });
+    expect(r.isError).toBe(true);
+    const payload = JSON.parse(r.content[0]!.text);
+    expect(payload.error_code).toBe("AGENTS_STALE");
+    expect(Array.isArray(payload.stale_agents)).toBe(true);
+    expect(payload.stale_agents[0]).toMatchObject({
+      name: "mnm--greeter",
+      sha: expect.any(String),
+      content: expect.any(String),
+    });
+    // Verify the tool passed through current_agents + session_tools to the service
+    expect(services.governedWorkflows.launchStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentAgents: { "mnm--greeter": "bogus-sha" },
+        sessionTools: ["Task", "Write", "Read"],
+      }),
+    );
+  });
+});
+
 describe("setup_workspace tool", () => {
   it("returns the agents payload and harness instructions", async () => {
     const services = mkServices({
