@@ -1,0 +1,23 @@
+{
+  "name": "mnm",
+  "version": "0.1.0",
+  "description": "MnM Governed Workflows — supervise AI agent orchestration for your company.",
+  "author": {
+    "name": "MnM Platform"
+  },
+  "keywords": ["mnm", "governed-workflows", "ai-orchestration"],
+  "userConfig": {
+    "company_id": {
+      "type": "string",
+      "title": "Company ID",
+      "description": "Your MnM company UUID. Ask your MnM admin.",
+      "required": true
+    },
+    "server_url": {
+      "type": "string",
+      "title": "MnM server URL",
+      "description": "Base URL of your MnM deployment (e.g. https://mnm.acme.com).",
+      "required": true
+    }
+  }
+}
