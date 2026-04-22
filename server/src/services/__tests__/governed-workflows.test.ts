@@ -666,3 +666,101 @@ describe("governedWorkflowService — syncEnvironment", () => {
     expect(typeof result.newSha).toBe("string");
   });
 });
+
+describe("governedWorkflowService — setupWorkspace", () => {
+  let db: Db;
+
+  // In-memory git content map keyed by `path:ref` — mimics the T5 pattern.
+  const blobs = new Map<string, string>();
+
+  const stubProvider = {
+    fetchBlob: async ({ path, ref }: { path: string; ref: string }) => {
+      const key = `${path}:${ref}`;
+      const hit = blobs.get(key);
+      if (hit !== undefined) return hit;
+      // Default: return a canonical agent.md for any `<name>/agent.md` path.
+      return `---\nname: ${path}\n---\n\n# Agent body for ${path} @ ${ref}\n`;
+    },
+    resolveRef: async ({ ref }: { ref: string }) => `sha-${ref}`,
+    listTags: async () => [],
+    pathExists: async () => true,
+    commitFile: async () => ({ sha: "x" }),
+  };
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      gitProvider: stubProvider as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  // Seed a company + agents for a test. Uses `T6HL` prefix with random suffix
+  // so concurrent test runs don't collide on the unique `issue_prefix`.
+  async function seedCompanyWithAgents(opts: {
+    issuePrefix: string;
+    agents: Array<{ name: string; enabled: boolean }>;
+  }): Promise<string> {
+    const companyId = crypto.randomUUID();
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const prefix = `${opts.issuePrefix}${suffix}`;
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"Setup-" + suffix}, ${prefix}) ON CONFLICT (id) DO NOTHING`,
+    );
+    for (const a of opts.agents) {
+      await db.execute(sql`
+        INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+        VALUES (${companyId}, ${a.name}, 'claude_local', 'v0.0.1', ${a.enabled})
+      `);
+    }
+    return companyId;
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  const service = {
+    setupWorkspace: (args: { companyId: string }) => mkSvc().setupWorkspace(args),
+  };
+
+  it("returns all enabled agents with content and sha, plus write instructions", async () => {
+    // Arrange: seed 2 enabled agents for the test company.
+    const companyId = await seedCompanyWithAgents({
+      issuePrefix: "T6HL",
+      agents: [
+        { name: "greeter", enabled: true },
+        { name: "shouter", enabled: true },
+        { name: "disabled-one", enabled: false },
+      ],
+    });
+
+    // Act
+    const result = await service.setupWorkspace({ companyId });
+
+    // Assert — disabled agents excluded, mnm-- prefix applied in output name.
+    expect(result.agents.map((a) => a.name).sort()).toEqual([
+      "mnm--greeter",
+      "mnm--shouter",
+    ]);
+    for (const agent of result.agents) {
+      expect(agent.content.length).toBeGreaterThan(0);
+      expect(agent.sha.length).toBeGreaterThan(0);
+      expect(agent.targetPath).toMatch(/^~\/\.claude\/agents\/mnm--[a-z0-9-]+\.md$/);
+    }
+    expect(result.instructions).toContain("Write");
+  });
+
+  it("returns an empty array if the company has no enabled agents", async () => {
+    const companyId = await seedCompanyWithAgents({ issuePrefix: "T6HL", agents: [] });
+    const result = await service.setupWorkspace({ companyId });
+    expect(result.agents).toEqual([]);
+  });
+});

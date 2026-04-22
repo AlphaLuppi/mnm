@@ -147,6 +147,37 @@ export interface SyncEnvironmentResult {
   hasChanges: boolean;
 }
 
+export interface SetupWorkspaceArgs {
+  companyId: string;
+}
+
+/**
+ * Agent record returned by setupWorkspace for the harness to materialize
+ * at user scope. The `name` is pre-prefixed with `mnm--` to avoid name
+ * collisions with user-defined agents in `~/.claude/agents/`. `targetPath`
+ * uses `~` placeholder — the harness is responsible for resolving home.
+ */
+export interface SetupWorkspaceAgent {
+  /** Namespaced agent name, e.g. "mnm--greeter". */
+  name: string;
+  /** Full agent.md content (frontmatter + body). */
+  content: string;
+  /** Git sha of the content for stale-detection on subsequent launchStep calls. */
+  sha: string;
+  /** Instruction-style path hint: `~/.claude/agents/mnm--<name>.md`. */
+  targetPath: string;
+}
+
+export interface SetupWorkspaceResult {
+  agents: SetupWorkspaceAgent[];
+  /**
+   * Human-readable directive for the harness. The harness should Write each
+   * `agent.content` to `agent.targetPath`. Emitted as a plain string so the
+   * MCP tool can bubble it to the Claude Code session.
+   */
+  instructions: string;
+}
+
 /**
  * Domain service for Governed Workflows. All reads are RLS-scoped — the
  * caller must have set `app.current_company_id` via `setTenantContext`
@@ -910,6 +941,58 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     return { agents: synced, newSha, hasChanges: true };
   }
 
+  /**
+   * Returns the full set of agents this company expects a newly-bootstrapped
+   * user session to have in `~/.claude/agents/`. Called once by the harness
+   * when the user asks "Set me up for MnM" (onboarding flow — spec §T6).
+   *
+   * Agent names are prefixed with `mnm--` so they cannot collide with
+   * user-defined agents. The content is fetched via the git provider and
+   * cached in the shaCache. Disabled agents are skipped.
+   */
+  async function setupWorkspace(args: SetupWorkspaceArgs): Promise<SetupWorkspaceResult> {
+    const rows = await db
+      .select()
+      .from(agents)
+      .where(
+        and(
+          eq(agents.companyId, args.companyId),
+          eq(agents.enabled, true),
+        ),
+      );
+
+    const out: SetupWorkspaceAgent[] = [];
+    for (const a of rows) {
+      if (!a.latestGitTag) continue;
+      const mdPath = `${a.name}/agent.md`;
+      const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
+      const content = cached !== undefined
+        ? cached
+        : await (async () => {
+            const blob = await gitProvider.fetchBlob({
+              path: mdPath,
+              ref: a.latestGitTag!,
+            });
+            shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
+            return blob;
+          })();
+      const sha = createHash("sha256").update(content).digest("hex");
+      out.push({
+        name: `mnm--${a.name}`,
+        content,
+        sha,
+        targetPath: `~/.claude/agents/mnm--${a.name}.md`,
+      });
+    }
+
+    return {
+      agents: out,
+      instructions:
+        "Write each agent.content to its targetPath (resolving ~ to the user home " +
+        "directory). After all writes, tell the user to run /reload-plugins once.",
+    };
+  }
+
   async function mergeAgentConfig(_agentId: string) {
     // TODO: use `configLayerConflictService.mergePreview(companyId, agentId)`
     // as the canonical merge path (it already implements priority-merge).
@@ -928,6 +1011,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     launchStep,
     completeStep,
     syncEnvironment,
+    setupWorkspace,
   };
 }
 
