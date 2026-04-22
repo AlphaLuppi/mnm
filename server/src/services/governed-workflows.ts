@@ -40,6 +40,11 @@ export class GovernedWorkflowError extends Error {
     public readonly code: (typeof WORKFLOW_ERROR_CODES)[keyof typeof WORKFLOW_ERROR_CODES],
     message: string,
     public readonly hints: string[] = [],
+    /**
+     * Optional structured data to include in the MCP error response. Used
+     * for AGENTS_STALE (fresh content) and MISSING_TOOLS (which tools).
+     */
+    public readonly data?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "GovernedWorkflowError";
@@ -104,6 +109,18 @@ export interface LaunchStepArgs {
   runId: string;
   stepId: string;
   actor: { type: AuditActorType; id: string };
+  /**
+   * Map of locally-materialized agent name → content sha. Passed by the
+   * harness so the server can detect stale agents and return AGENTS_STALE
+   * with fresh content (see spec §T6 "self-correction").
+   */
+  currentAgents?: Record<string, string>;
+  /**
+   * List of tool names currently available in the Claude Code session. Used
+   * by the entry gate to short-circuit with MISSING_TOOLS when a required
+   * MCP/skill/hook is absent. Optional — undefined means "no check".
+   */
+  sessionTools?: string[];
 }
 
 export interface LaunchStepResult {
@@ -509,6 +526,58 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       }
     }
 
+    // ── T6 self-correction: detect stale local agents ──────────────────
+    // Every step references exactly one agent (step.agent). Compare its
+    // canonical sha against what the harness reports in currentAgents.
+    // Mismatch -> short-circuit with AGENTS_STALE; harness writes the
+    // updated content and retries.
+    if (args.currentAgents !== undefined) {
+      const required = step.agent;
+      const namespacedName = `mnm--${required}`;
+      const canonical = await loadCanonicalAgent(args.companyId, required);
+      const provided = args.currentAgents[namespacedName];
+      if (canonical !== null && provided !== canonical.sha) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.AGENTS_STALE,
+          `Local agent '${namespacedName}' is stale; harness must update.`,
+          [
+            `Write the returned content to ~/.claude/agents/${namespacedName}.md`,
+            "Re-call launchStep with the updated sha",
+          ],
+          {
+            stale_agents: [
+              {
+                name: namespacedName,
+                content: canonical.content,
+                sha: canonical.sha,
+                target_path: `~/.claude/agents/${namespacedName}.md`,
+              },
+            ],
+          },
+        );
+      }
+    }
+
+    // ── T6 self-correction: detect missing session tools ───────────────
+    // step.required_tools (optional) lists tool names that MUST be in the
+    // harness's sessionTools. Typical values: "Task", "Write",
+    // "mcp__<server>__<tool>". If any missing, short-circuit with
+    // MISSING_TOOLS and hint how to install.
+    if (args.sessionTools !== undefined && step.required_tools !== undefined) {
+      const missing = step.required_tools.filter((t) => !args.sessionTools!.includes(t));
+      if (missing.length > 0) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.MISSING_TOOLS,
+          `Session missing required tools: ${missing.join(", ")}`,
+          [
+            "Install the associated plugins/MCPs and run /reload-plugins",
+            "Then re-call launchStep",
+          ],
+          { required: missing },
+        );
+      }
+    }
+
     // Mark step as running / gate_eval
     await db
       .update(governedStepExecutions)
@@ -633,6 +702,42 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       promptContext,
       subagentType: `mnm--${step.agent}`,
     };
+  }
+
+  /**
+   * Fetches the canonical agent.md content + computed sha for the given
+   * company+agent-name, using the shaCache to avoid repeated git fetches.
+   * Returns null if no such agent or the agent has no latestGitTag yet.
+   */
+  async function loadCanonicalAgent(
+    companyId: string,
+    agentName: string,
+  ): Promise<{ content: string; sha: string } | null> {
+    const [row] = await db
+      .select()
+      .from(agents)
+      .where(
+        and(
+          eq(agents.companyId, companyId),
+          eq(agents.name, agentName),
+          eq(agents.enabled, true),
+        ),
+      );
+    if (!row || !row.latestGitTag) return null;
+    const mdPath = `${row.name}/agent.md`;
+    const cached = shaCache.get(PROVIDER_ID, mdPath, row.latestGitTag);
+    const content = cached !== undefined
+      ? cached
+      : await (async () => {
+          const blob = await gitProvider.fetchBlob({
+            path: mdPath,
+            ref: row.latestGitTag!,
+          });
+          shaCache.set(PROVIDER_ID, mdPath, row.latestGitTag!, blob);
+          return blob;
+        })();
+    const sha = createHash("sha256").update(content).digest("hex");
+    return { content, sha };
   }
 
   // Helper: the run's `paramsJson` column — not carried on `GetRunResult`
