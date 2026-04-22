@@ -160,3 +160,29 @@ describe("governed-workflows.tool", () => {
     expect(body.agents).toHaveLength(1);
   });
 });
+
+describe("setup_workspace tool", () => {
+  it("returns the agents payload and harness instructions", async () => {
+    const services = mkServices({
+      setupWorkspace: vi.fn(async () => ({
+        agents: [
+          {
+            name: "mnm--greeter",
+            content: "# mnm--greeter\n\nHello world agent.",
+            sha: "sha-1",
+            targetPath: "~/.claude/agents/mnm--greeter.md",
+          },
+        ],
+        instructions:
+          "Write each agent.content to its targetPath, then call push_local_state.",
+      })),
+    });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const setup = tools.find((t) => t.name === "setup_workspace")!;
+    const r = await setup.handler({ input: {}, actor: mkActor() });
+    const parsed = JSON.parse(r.content[0]!.text);
+    expect(parsed.agents.length).toBeGreaterThan(0);
+    expect(parsed.agents[0].name).toMatch(/^mnm--/);
+    expect(parsed.instructions).toContain("Write");
+  });
+});

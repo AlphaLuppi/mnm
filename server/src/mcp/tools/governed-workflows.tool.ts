@@ -258,6 +258,34 @@ export default defineMcpTools(({ tool, services }) => {
     },
   });
 
+  tool("setup_workspace", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] Returns every agent the company expects to have " +
+      "materialized in ~/.claude/agents/mnm--*.md. The harness MUST Write each " +
+      "agent.content to its targetPath, then call push_local_state to persist " +
+      "cache metadata.",
+    input: z.object({}),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.setupWorkspace({
+          companyId: actor.companyId,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              agents: r.agents,
+              instructions: r.instructions,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
   tool("sync_governed_environment", {
     permissions: [PERMISSIONS.WORKFLOWS_READ],
     description:
