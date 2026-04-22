@@ -199,7 +199,11 @@ describe("launch_governed_step tool (T6 enriched)", () => {
         throw new GovernedWorkflowError(
           WORKFLOW_ERROR_CODES.AGENTS_STALE,
           "Local agents are stale",
-          ["Re-call launchStep with the updated sha"],
+          [
+            "Write the returned content to ~/.claude/agents/mnm--greeter.md",
+            "Run /reload-plugins in Claude Code so the new agent becomes dispatchable",
+            "Re-call launchStep with the updated sha",
+          ],
           { stale_agents: staleAgents },
         );
       }),
@@ -224,6 +228,11 @@ describe("launch_governed_step tool (T6 enriched)", () => {
       sha: expect.any(String),
       content: expect.any(String),
     });
+    expect(payload.hints).toEqual([
+      expect.stringContaining("Write the returned content"),
+      expect.stringContaining("/reload-plugins"),
+      expect.stringContaining("Re-call launchStep"),
+    ]);
     // Verify the tool passed through current_agents + session_tools to the service
     expect(services.governedWorkflows.launchStep).toHaveBeenCalledWith(
       expect.objectContaining({

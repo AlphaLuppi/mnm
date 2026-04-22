@@ -556,6 +556,11 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           `Local agent '${namespacedName}' is stale; harness must update.`,
           [
             `Write the returned content to ~/.claude/agents/${namespacedName}.md`,
+            // Claude Code does NOT hot-reload user-level agents; the in-session
+            // subagent registry is frozen at SessionStart. After the Write, the
+            // user must run /reload-plugins (or restart Claude Code) before the
+            // next dispatch — see T6 hot-reload spike.
+            "Run /reload-plugins in Claude Code so the new agent becomes dispatchable",
             "Re-call launchStep with the updated sha",
           ],
           {
