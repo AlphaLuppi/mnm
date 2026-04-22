@@ -2010,3 +2010,63 @@ git push origin master
 - [ ] All new tests are green; no `.skip`, no `.only`.
 - [ ] Conventional commit scope is `workflows` for every T6 commit.
 - [ ] README reflects the final behavior (adjust if the hot-reload spike finding changes it).
+
+---
+
+## Completion report
+
+**Date** : 2026-04-22
+**Planning commits** : `f77a9b7` (spec), `9b574d0` (plan)
+**Implementation commits (T6)** :
+- `2e31baa` feat(workflows): scaffold @mnm/plugin package
+- `320db15` feat(workflows): atomic write util for plugin hook
+- `788e5fb` feat(workflows): plugin hook types
+- `c086dd2` feat(workflows): SessionStart hook binary (+ Windows entry-point fix deviation)
+- `8109563` build(workflows): compile SessionStart hook binary
+- `7a21d2e` feat(workflows): plugin manifest + .mcp.json + SessionStart hook config
+- `c6659cf` docs(workflows): plugin README
+- `6573aee` feat(workflows): setupWorkspace service returns agents + write instructions
+- `007a48e` feat(workflows): pushLocalState service returns cache payload for hook
+- `6f42880` feat(workflows): launchStep self-correction — AGENTS_STALE + MISSING_TOOLS
+- `39d34ca` feat(workflows): setup_workspace MCP tool
+- `e177765` feat(workflows): push_local_state MCP tool + enriched launch_governed_step
+- `790739e` test(workflows): E2E bootstrap + launch with stale-correction
+- `e0ffc49` docs(workflows): T6 hot-reload spike protocol
+- `7acdb8a` docs(workflows): update MVP design — §5 superseded by T6, T6 shipped
+
+### What shipped
+
+- `packages/mnm-plugin/` — TS source for the SessionStart hook binary + atomic-write util + vitest tests (all green).
+- `plugins/mnm/` — Claude Code plugin: `plugin.json`, `.mcp.json` (HTTP + OAuth 2.1), `hooks/hooks.json`, `bin/mnm-session-start` (compiled), `README.md`.
+- `setup_workspace` MCP tool — returns all enabled agents for the company, namespaced `mnm--*`, with content + sha + target path + harness write instructions.
+- `push_local_state` MCP tool — returns `last-session.json` payload (sha, timestamp, agent list, pending runs, plugin version).
+- `launch_governed_step` enriched with `current_agents` (stale detection → `AGENTS_STALE` with fresh content) and `session_tools` (missing detection → `MISSING_TOOLS` with hints).
+- `GovernedWorkflowError.data` — optional structured payload bubbled through the MCP error contract.
+- E2E test at `server/src/__tests__/t6-bootstrap-and-launch.e2e.test.ts` — covers setup → launch stale → retry pass → push cache.
+- Parent spec §5 marked superseded; §7 table updated with T6 shipped row.
+
+### Deviations from plan
+
+1. **Windows entry-point fix in Task 5** — subagent found that the idiomatic `import.meta.url === \`file://${process.argv[1]}\`` check doesn't match on Windows (triple-slash vs double-slash `file://` URL). Replaced with `pathToFileURL(process.argv[1]).href`. Critical for cross-platform: without this the compiled binary's main guard never fires on Windows, so the hook would be a no-op.
+2. **Added `plugins/mnm/bin/.gitattributes`** (Task 5) — forces LF on the bundled binary to protect the shebang on Linux/macOS clones when the cloner has `core.autocrlf=true`.
+3. **Task 13 E2E harness** — did not invent a `setupE2EHarness` abstraction; followed the existing T5 inline-wiring pattern and extended the canonical bare-repo seed fixture to include `greeter/agent.md` + `shouter/agent.md` blobs.
+4. **Task 11/12 tool tests** used the mock-based pattern (`collectTools` + mocked service) rather than a hypothetical `setupToolHarness`, matching the rest of `governed-workflows.tool.test.ts`.
+
+### What remains
+
+- Hot-reload spike protocol is WRITTEN but EXECUTION requires Tom to run it in a live Claude Code session (morning task).
+- `docs/superpowers/specs/T6-hot-reload-spike-result.md` Results section to fill based on empirical findings.
+- README guidance on `/reload-plugins` to adjust post-spike if hot-reload works silently.
+- **T5-DEF-1** — wire `mergeAgentConfig` in `governedWorkflowService` to `configLayerConflictService.mergePreview` (currently returns empty buckets; OK for T6 MVP since `configMerged` is not consumed by the SessionStart hook).
+- **T5-DEF-4** — `resolveGitProvider` per-company (multi-tenant prod).
+- **T5-DEF-9** — board users multi-company handling in MCP tools.
+- Plugin marketplace (`mnm-platform/claude-plugins`) + test install via `/plugin marketplace add ...`.
+- Onboarding skill `mnm--onboard` that guides the user through first-run setup.
+
+### Process lessons (for T7 retro + memory)
+
+- **Pre-flight schema validation worked**: every server-side task confirmed DB columns before writing SQL. Zero column-name mismatches across T6 (vs several in T5).
+- **Plan comments verbatim**: 0 stripped JSDoc across 15 code commits — the "copy plan comments as-is" rule held.
+- **Fresh subagent per task + task-reading-from-plan-file pattern** saved controller context by ~50-70%. Trade-off: slightly larger subagent startup cost, acceptable overnight.
+- **Windows nuances**: `import.meta.url` vs `process.argv[1]` path-URL comparison surfaced only via a subagent's careful self-review. Worth documenting in project memory for future compiled-binary builds.
+- **T5-DEF-1 (mergeAgentConfig stub)** deliberately kept as empty buckets — OK for T6 MVP since the SessionStart hook does not consume `configMerged`. T7 will wire `configLayerConflictService.mergePreview`.
