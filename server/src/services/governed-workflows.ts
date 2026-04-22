@@ -16,10 +16,11 @@ import {
   type GateBlock,
 } from "@mnm/governed-workflows";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
-import type { AuditActorType } from "@mnm/shared";
+import type { AuditActorType, MergedConfigItem } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
+import { configLayerConflictService } from "./config-layer-conflict.js";
 
 // Constant providerId for ShaCache (providerId, path, sha) tuple.
 const PROVIDER_ID = "mnm-workflows";
@@ -150,11 +151,19 @@ export interface SyncEnvironmentArgs {
 export interface SyncedAgent {
   name: string;
   mdContent: string;
+  /**
+   * Merged config items partitioned by itemType. The four buckets map to
+   * CONFIG_LAYER_ITEM_TYPES with two exclusions:
+   *  - "skill"        — skills live as plugin artifacts, not per-agent config
+   *  - "git_provider" — resolved by resolveGitProvider per-company (see T2)
+   * Items within a bucket are priority-merged: one entry per `name`, winning
+   * item comes from the highest-priority layer (company-enforced beats base).
+   */
   configMerged: {
-    mcp: unknown[];
-    hook: unknown[];
-    setting: unknown[];
-    env_ref: unknown[];
+    mcp: MergedConfigItem[];
+    hook: MergedConfigItem[];
+    setting: MergedConfigItem[];
+    credential: MergedConfigItem[];
   };
 }
 
@@ -1064,7 +1073,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
             shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
             return blob;
           })();
-      const configMerged = await mergeAgentConfig(a.id);
+      const configMerged = await mergeAgentConfig(args.companyId, a.id);
       synced.push({ name: a.name, mdContent, configMerged });
     }
 
@@ -1160,13 +1169,32 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     };
   }
 
-  async function mergeAgentConfig(_agentId: string) {
-    // TODO: use `configLayerConflictService.mergePreview(companyId, agentId)`
-    // as the canonical merge path (it already implements priority-merge).
-    // For MVP, return empty buckets — tag-based isolation + real item
-    // lookup land when the hook tests demand it in T6. The field shape is
-    // stable.
-    return { mcp: [], hook: [], setting: [], env_ref: [] };
+  async function mergeAgentConfig(
+    companyId: string,
+    agentId: string,
+  ): Promise<SyncedAgent["configMerged"]> {
+    // Delegates to the canonical priority-merge path. `mergePreview` returns a
+    // flat `items[]` deduplicated by (itemType, name) with the highest-priority
+    // layer winning — we just partition by itemType. Items of type "skill" and
+    // "git_provider" are intentionally dropped from this envelope (see the
+    // SyncedAgent.configMerged JSDoc).
+    const conflictService = configLayerConflictService(db);
+    const { items } = await conflictService.mergePreview(companyId, agentId);
+
+    const buckets: SyncedAgent["configMerged"] = {
+      mcp: [],
+      hook: [],
+      setting: [],
+      credential: [],
+    };
+    for (const item of items) {
+      if (item.itemType === "mcp") buckets.mcp.push(item);
+      else if (item.itemType === "hook") buckets.hook.push(item);
+      else if (item.itemType === "setting") buckets.setting.push(item);
+      else if (item.itemType === "credential") buckets.credential.push(item);
+      // "skill" and "git_provider" fall through by design.
+    }
+    return buckets;
   }
 
   return {
