@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mnm": {
+      "type": "http",
+      "url": "${user_config.server_url}/mcp",
+      "oauth": {
+        "authServerMetadataUrl": "${user_config.server_url}/.well-known/oauth-authorization-server"
+      }
+    }
+  }
+}
