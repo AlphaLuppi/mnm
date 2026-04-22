@@ -20,15 +20,24 @@
 
 ## Results
 
+Executed 2026-04-22, Claude Code on Windows 11, session with 14 agents loaded at start.
+
 | Scenario | Outcome | Notes |
 |---|---|---|
-| Fresh write, dispatch immediately | TBD | |
-| After /reload-plugins | TBD | |
-| After full restart | TBD | |
+| Fresh write, dispatch immediately | FAIL | `Agent type 't6-spike' not found. Available agents: angular-reviewer, ...` — the in-session subagent registry is frozen at SessionStart; `Write` does not invalidate it. |
+| After `/reload-plugins` | PASS | Reload reported `15 agents` (was 14). Immediate `Task(subagent_type: "t6-spike")` returned `spike works` in 1.4s. |
+| After full restart | NOT TESTED | Transitively implied: if `/reload-plugins` re-scans `~/.claude/agents/` successfully, a full restart (which replays SessionStart) does too. Skipped to preserve live session state. |
+
+Step 8 (namespace-prefixed `mnm--t6-spike`) was skipped: for user-level agents, the frontmatter `name` field is the dispatch key — filename prefix is only a convention to avoid collisions. The prefix adds no new behavior to test.
 
 ## Conclusion
 
-TBD — either:
-- **Hot-reload works** : document that user-level agents are picked up immediately, no friction. Update plugin README to remove the "run /reload-plugins once" note.
-- **Hot-reload requires /reload-plugins** : keep the guidance in README, harness instructs user to run it after Write.
-- **Requires restart** : adopt fallback "dispatch inline" pattern (Task with subagent_type: "general-purpose" + prompt that assumes the persona). Document in spec §6 "Fallback dispatch mode".
+**Hot-reload requires an explicit user action (`/reload-plugins` or restart).** The Claude Code harness does not watch `~/.claude/agents/` for changes mid-session. Frontend-side, `Write` completing successfully gives zero signal that the agent is dispatchable.
+
+### Implications for T7
+
+1. **Plugin README** — keep the "run `/reload-plugins` once after first launch" guidance; make it prominent. Add a short troubleshooting section: "If `Task(subagent_type: "mnm--...")` returns `agent not found`, run `/reload-plugins`."
+2. **`launch_governed_step` stale-correction flow** (T6 §5, already shipped) — when the MCP tool returns `AGENTS_STALE` with `freshContent`, the harness instructs Claude to `Write` the file *and then prompts the user to run `/reload-plugins`* before retrying the Task dispatch. The current error payload should carry that instruction text.
+3. **Onboarding skill (`mnm--onboard`, T7 item 6)** — after calling `setup_workspace` and writing all agent files, the skill must end with: "Run `/reload-plugins` now, then retry your last command."
+4. **No fallback dispatch pattern needed** — `/reload-plugins` is fast (observed sub-second reload of 15 agents), user-visible, and reliable. A "dispatch inline via general-purpose + persona prompt" fallback would add complexity without benefit; reject that option.
+5. **Future consideration** — if Anthropic adds a filesystem watcher in Claude Code, we can drop the manual reload step. Not worth lobbying for now; one-shot action is acceptable UX.
