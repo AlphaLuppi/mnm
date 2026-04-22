@@ -46,7 +46,7 @@ describe("governed-workflows E2E via MCP tools", () => {
       repoDir: repo.repoDir,
     });
     const shaCache = new ShaCache();
-    const svc = governedWorkflowService(db, { gitProvider, shaCache });
+    const svc = governedWorkflowService(db, { resolveGitProvider: async () => gitProvider, shaCache });
 
     tools = collectTools(governedWorkflowTools, { db, governedWorkflows: svc } as any, db);
   });

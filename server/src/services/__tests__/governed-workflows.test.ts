@@ -50,7 +50,7 @@ describe("governedWorkflowService — discovery", () => {
 
   it("listDefinitions returns only this company's definitions (RLS)", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
     await setTenantContext(db, companyA);
@@ -61,7 +61,7 @@ describe("governedWorkflowService — discovery", () => {
   it("listDefinitions { enabled: true } excludes disabled rows", async () => {
     await db.execute(sql`UPDATE governed_workflow_definitions SET enabled = false WHERE company_id = ${companyA} AND name = 'goodbye'`);
     const svc = governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
     await setTenantContext(db, companyA);
@@ -71,7 +71,7 @@ describe("governedWorkflowService — discovery", () => {
 
   it("getWorkflowParsed returns parsed workflow + sha for a known name", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
     await setTenantContext(db, companyA);
@@ -86,7 +86,7 @@ describe("governedWorkflowService — discovery", () => {
 
   it("getWorkflowParsed throws WORKFLOW_NOT_FOUND for unknown name", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
     await setTenantContext(db, companyA);
@@ -99,11 +99,12 @@ describe("governedWorkflowService — discovery", () => {
 
   it("getWorkflowParsed uses explicit git_tag when provided", async () => {
     let capturedRef = "";
+    const customProvider = {
+      ...stubProvider,
+      resolveRef: async ({ ref }: { ref: string }) => { capturedRef = ref; return `sha-of-${ref}`; },
+    };
     const svc = governedWorkflowService(db, {
-      gitProvider: {
-        ...stubProvider,
-        resolveRef: async ({ ref }: { ref: string }) => { capturedRef = ref; return `sha-of-${ref}`; },
-      } as any,
+      resolveGitProvider: (async () => customProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
     await setTenantContext(db, companyA);
@@ -123,7 +124,7 @@ describe("governedWorkflowService — launchWorkflow", () => {
 
   function mkSvc() {
     return governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
   }
@@ -205,7 +206,7 @@ describe("governedWorkflowService — getRun", () => {
 
   function mkSvc() {
     return governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
   }
@@ -336,7 +337,7 @@ describe("governedWorkflowService — launchStep", () => {
 
   it("WORKFLOW_STEP_NOT_FOUND for an unknown stepId", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE) as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE)) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -350,7 +351,7 @@ describe("governedWorkflowService — launchStep", () => {
 
   it("WORKFLOW_DEPENDENCY_UNMET when a dep isn't succeeded", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE) as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE)) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -365,7 +366,7 @@ describe("governedWorkflowService — launchStep", () => {
 
   it("returns triplet without gate eval when step has no entry gate", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE) as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE)) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -385,7 +386,7 @@ describe("governedWorkflowService — launchStep", () => {
 
   it("returns triplet when entry gate passes", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE) as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE)) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -406,7 +407,7 @@ describe("governedWorkflowService — launchStep", () => {
 
   it("returns WORKFLOW_GATE_FAILED + gate_result when entry gate fails", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(FAILING_GATE, "two-step-failing-sha") as any,
+      resolveGitProvider: (async () => mkProviderWithGate(FAILING_GATE, "two-step-failing-sha")) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -490,7 +491,7 @@ describe("governedWorkflowService — completeStep", () => {
 
   it("no exit gate → step becomes succeeded directly", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE) as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE)) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -507,7 +508,7 @@ describe("governedWorkflowService — completeStep", () => {
 
   it("exit gate passes → step=succeeded", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE, "cs-pass-sha") as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE, "cs-pass-sha")) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -525,7 +526,7 @@ describe("governedWorkflowService — completeStep", () => {
 
   it("exit gate fails → step back to running + WORKFLOW_GATE_FAILED", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(FAILING_GATE, "cs-fail-sha") as any,
+      resolveGitProvider: (async () => mkProviderWithGate(FAILING_GATE, "cs-fail-sha")) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -544,7 +545,7 @@ describe("governedWorkflowService — completeStep", () => {
 
   it("all steps done → run status=completed", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE, "cs-done-sha") as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE, "cs-done-sha")) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -567,7 +568,7 @@ describe("governedWorkflowService — completeStep", () => {
 
   it("calling on already-succeeded step → WORKFLOW_ALREADY_COMPLETED", async () => {
     const svc = governedWorkflowService(db, {
-      gitProvider: mkProviderWithGate(PASSING_GATE, "cs-idem-sha") as any,
+      resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE, "cs-idem-sha")) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyA);
@@ -599,7 +600,7 @@ describe("governedWorkflowService — syncEnvironment", () => {
 
   function mkSvc() {
     return governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
   }
@@ -689,7 +690,7 @@ describe("governedWorkflowService — setupWorkspace", () => {
 
   function mkSvc() {
     return governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: { get: () => undefined, set: () => undefined } as any,
     });
   }
@@ -859,7 +860,7 @@ describe("launchStep (T6 enrichment)", () => {
 
     const provider = mkProvider({ requiredTools: opts.requiredTools });
     const svc = governedWorkflowService(db, {
-      gitProvider: provider as any,
+      resolveGitProvider: (async () => provider) as any,
       shaCache: new ShaCache(),
     });
     await setTenantContext(db, companyId);
@@ -888,7 +889,7 @@ describe("launchStep (T6 enrichment)", () => {
   // `loadCanonicalAgent` sees the same blob content (thus the same sha).
   function mkSvc(provider: ReturnType<typeof mkProvider>) {
     return governedWorkflowService(db, {
-      gitProvider: provider as any,
+      resolveGitProvider: (async () => provider) as any,
       shaCache: new ShaCache(),
     });
   }
@@ -1054,7 +1055,7 @@ describe("mergeAgentConfig (real merge via mergePreview)", () => {
     const { companyId, agentId } = await seedAgentWithMergedConfig();
 
     const service = governedWorkflowService(db, {
-      gitProvider: stubProvider as any,
+      resolveGitProvider: (async () => stubProvider) as any,
       shaCache: new ShaCache(),
     });
 

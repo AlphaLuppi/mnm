@@ -72,7 +72,7 @@ describe("T6 E2E — bootstrap + launch hello-world with stale-correction", () =
       repoDir: repo.repoDir,
     });
     const shaCache = new ShaCache();
-    const svc = governedWorkflowService(db, { gitProvider, shaCache });
+    const svc = governedWorkflowService(db, { resolveGitProvider: async () => gitProvider, shaCache });
 
     tools = collectTools(
       governedWorkflowTools,
