@@ -1,0 +1,3 @@
+# Hook binaries must retain LF line endings so the shebang is valid on
+# POSIX systems even when the repo is cloned on Windows with autocrlf=true.
+mnm-session-start text eol=lf
