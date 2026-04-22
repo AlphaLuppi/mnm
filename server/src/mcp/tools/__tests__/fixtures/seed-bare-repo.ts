@@ -68,6 +68,27 @@ export default defineGate(async (ctx) => {
 });
 `;
 
+// Agent markdown bodies referenced by loadCanonicalAgent (`<name>/agent.md`).
+// These are read by T6 launch_governed_step when it computes the canonical
+// sha for stale-agent detection.
+const GREETER_AGENT_MD = `---
+name: greeter
+description: Says hello
+---
+
+# Greeter agent
+Greet the user warmly.
+`;
+
+const SHOUTER_AGENT_MD = `---
+name: shouter
+description: Shouts in uppercase
+---
+
+# Shouter agent
+Uppercase the greeting.
+`;
+
 /**
  * Creates a throwaway bare git repo seeded with the hello-world workflow
  * (workflow.json + 2 gate files) and a v1.0.0 tag pointing at the seed
@@ -78,6 +99,10 @@ export async function seedBareRepo(): Promise<BareRepoSeed> {
     "hello-world/workflow.json": WORKFLOW_JSON,
     "hello-world/gates/greet-exit.gate.ts": GREET_GATE,
     "hello-world/gates/shout-exit.gate.ts": SHOUT_GATE,
+    // Canonical agent.md files (loadCanonicalAgent fetches `<name>/agent.md`
+    // at the agent row's `latest_git_tag`).
+    "greeter/agent.md": GREETER_AGENT_MD,
+    "shouter/agent.md": SHOUTER_AGENT_MD,
   };
 
   const branch = "main";
