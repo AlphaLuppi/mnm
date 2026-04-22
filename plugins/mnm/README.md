@@ -25,21 +25,26 @@ Claude Code will prompt you for:
 - **Company ID** — your MnM company UUID (from your admin).
 - **MnM server URL** — e.g. `https://mnm.acme.com`.
 
-## First run
+## First-run bootstrap
 
-After restarting Claude Code (or `/reload-plugins`), the SessionStart hook
-runs and tells you:
+1. Install the plugin (`/plugin install mnm@mnm-platform` — see Marketplace section below).
+2. Configure `company_id` and `server_url` in the plugin config dialog.
+3. Authenticate (the `mcp__mnm__authenticate` tool will prompt you through the OAuth flow).
+4. Run the **first** `launch_governed_step` for any workflow. The server returns an `AGENTS_STALE` error carrying the canonical agent content.
+5. Follow the harness prompt: `Write` each returned file to `~/.claude/agents/`, then **run `/reload-plugins`** in the Claude Code session. This step is required — Claude Code does not hot-reload user-level agents mid-session.
+6. Re-call `launch_governed_step`. The dispatch now succeeds.
 
-> MnM plugin v0.1.0. First run detected. To provision your workspace, ask:
-> "Set me up for MnM".
+> **Why `/reload-plugins`?** Claude Code freezes the list of available subagents at session start. Writing a new file to `~/.claude/agents/` does not invalidate that list; the only way to pick up new agents without restarting is `/reload-plugins`. This is a one-time action per agent set change.
 
-Type that prompt. Claude will trigger the `setup_workspace` MCP tool which
-returns the list of agents to materialize under `~/.claude/agents/`.
-Claude writes them via its Write tool. OAuth 2.1 login runs the first time
-(browser flow).
+## Troubleshooting
 
-After provisioning, you may need to run `/reload-plugins` once so Claude
-Code picks up the new agents.
+| Symptom | Fix |
+|---|---|
+| `Task(subagent_type: "mnm--X")` returns `agent not found` | Run `/reload-plugins`. If still failing, fully restart Claude Code. |
+| `launch_governed_step` keeps returning `AGENTS_STALE` after a `Write` | You skipped `/reload-plugins`. Run it, then retry. |
+| `MISSING_TOOLS` error | Install the plugin/MCP listed in `error.data.required[]`, then `/reload-plugins`. |
+| Authentication loop in browser | Check that `server_url` in plugin config points at an HTTPS endpoint serving `/.well-known/oauth-authorization-server`. |
+| `invalid_request` with `available_companies[]` during OAuth | Your board user belongs to multiple companies; retry the install with `company_id` set in plugin config. |
 
 ## Usage
 
@@ -60,10 +65,3 @@ content if stale. Claude writes the update, then retries the step.
 
 - **User agents** : `~/.claude/agents/mnm--*.md`
 - **Plugin cache** (session state, last-sync marker) : `~/.claude/plugins/data/mnm-<marketplace>/last-session.json`
-
-## Troubleshooting
-
-- **Hook does nothing on SessionStart** : ensure the plugin binary is
-  executable. Reinstall the plugin if corrupted.
-- **OAuth loop** : clear the credential with `claude mcp logout mnm`.
-- **Agent not found after `Write`** : run `/reload-plugins` once.
