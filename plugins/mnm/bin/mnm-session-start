@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+
+// src/session-start.ts
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+async function runSessionStart(params) {
+  let currentVersion;
+  try {
+    const manifestPath = join(params.root, ".claude-plugin", "plugin.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    currentVersion = typeof manifest.version === "string" ? manifest.version : "unknown";
+  } catch {
+    return {
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: ""
+      }
+    };
+  }
+  let state = null;
+  try {
+    const statePath = join(params.data, "last-session.json");
+    state = JSON.parse(await fs.readFile(statePath, "utf8"));
+  } catch {
+  }
+  if (state === null) {
+    return {
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: `MnM plugin v${currentVersion}. First run detected. To provision your workspace, ask: "Set me up for MnM".`
+      }
+    };
+  }
+  const lines = [];
+  lines.push(`MnM plugin v${currentVersion}`);
+  if (state.lastPluginVersion !== currentVersion) {
+    lines.push(
+      `Plugin updated from v${state.lastPluginVersion} \u2014 run "Set me up for MnM" to refresh agents.`
+    );
+  }
+  const runsLabel = state.pendingRuns === 1 ? "workflow" : "workflows";
+  const issuesLabel = state.openIssues === 1 ? "issue" : "issues";
+  lines.push(
+    `${state.pendingRuns} ${runsLabel} in progress, ${state.openIssues} ${issuesLabel} pending.`
+  );
+  if (state.syncedAt) {
+    lines.push(`Last sync: ${state.syncedAt}.`);
+  }
+  return {
+    hookSpecificOutput: {
+      hookEventName: "SessionStart",
+      additionalContext: lines.join(" ")
+    }
+  };
+}
+var isEntryPoint = process.argv[1] !== void 0 && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isEntryPoint) {
+  const root = process.env.CLAUDE_PLUGIN_ROOT;
+  const data = process.env.CLAUDE_PLUGIN_DATA;
+  if (!root || !data) {
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "SessionStart",
+          additionalContext: ""
+        }
+      })
+    );
+    process.exit(0);
+  }
+  runSessionStart({ root, data }).then((out) => {
+    process.stdout.write(JSON.stringify(out));
+    process.exit(0);
+  }).catch(() => {
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "SessionStart",
+          additionalContext: ""
+        }
+      })
+    );
+    process.exit(0);
+  });
+}
+export {
+  runSessionStart
+};
