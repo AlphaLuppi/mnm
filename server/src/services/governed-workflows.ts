@@ -53,7 +53,11 @@ export class GovernedWorkflowError extends Error {
 }
 
 export interface GovernedWorkflowServiceDeps {
-  gitProvider: GitProvider;
+  /**
+   * Per-company GitProvider resolver. The service caches nothing itself —
+   * the resolver owns the per-companyId instance cache (see T2).
+   */
+  resolveGitProvider: (companyId: string) => Promise<GitProvider>;
   shaCache: ShaCache;
 }
 
@@ -236,7 +240,7 @@ export interface PushLocalStateResult {
  * INSERT / WHERE clauses for defense-in-depth.
  */
 export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDeps) {
-  const { gitProvider, shaCache } = deps;
+  const { resolveGitProvider, shaCache } = deps;
 
   // ─── Discovery ──────────────────────────────────────────────────
 
@@ -298,6 +302,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     }
 
+    const gitProvider = await resolveGitProvider(args.companyId);
     const gitSha = await gitProvider.resolveRef({ ref });
     const workflowRepoPath = `${args.name}/workflow.json`;
 
@@ -606,6 +611,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     // Evaluate entry gate if present
     const entryBlock = step.gates?.entry as GateBlock | undefined;
     if (entryBlock && entryBlock.length > 0) {
+      const gitProvider = await resolveGitProvider(args.companyId);
       const helpers = buildGateHelpers({ db, companyId: args.companyId });
       const previousArtifacts = buildPreviousArtifacts(run);
       const context: GateContext = {
@@ -738,6 +744,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const content = cached !== undefined
       ? cached
       : await (async () => {
+          const gitProvider = await resolveGitProvider(companyId);
           const blob = await gitProvider.fetchBlob({
             path: mdPath,
             ref: row.latestGitTag!,
@@ -910,6 +917,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
 
       const exitBlock = step.gates?.exit as GateBlock | undefined;
       if (exitBlock && exitBlock.length > 0) {
+        const gitProvider = await resolveGitProvider(args.companyId);
         const helpers = buildGateHelpers({ db, companyId: args.companyId });
         const previousArtifacts = await fetchSucceededArtifacts(tx as unknown as Db, args.runId);
         const context: GateContext = {
@@ -1060,6 +1068,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     // 3. For each agent: fetch .md + merge config_layer_items
+    const gitProvider = await resolveGitProvider(args.companyId);
     const synced: SyncedAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
@@ -1100,6 +1109,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         ),
       );
 
+    const gitProvider = await resolveGitProvider(args.companyId);
     const out: SetupWorkspaceAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
