@@ -24,12 +24,17 @@
 import { execFile } from "node:child_process";
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import pg from "pg";
+import postgres from "postgres";
 
 const execFileAsync = promisify(execFile);
-const { Client } = pg;
+
+// Script lives in server/scripts/, so ../../ is the repo root. Used purely
+// to print the absolute plugin path in the final settings.json snippet.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT_PATH = resolve(__dirname, "..", "..");
 
 // ---------------------------------------------------------------------------
 // Config
@@ -199,63 +204,50 @@ async function seedBareRepo() {
 // ---------------------------------------------------------------------------
 
 async function seedDb() {
-  const client = new Client({ connectionString: DB_URL });
-  await client.connect();
+  const sql = postgres(DB_URL, { max: 1, onnotice: () => {} });
 
   try {
     // Pick the first company — in local_trusted mode there's exactly one
     // auto-created at server boot.
-    const companyRes = await client.query(
-      "SELECT id FROM companies ORDER BY created_at ASC LIMIT 1",
-    );
-    if (companyRes.rows.length === 0) {
+    const companyRows = await sql`SELECT id FROM companies ORDER BY created_at ASC LIMIT 1`;
+    if (companyRows.length === 0) {
       throw new Error(
         "No company found in DB. Start the server once with `bun run dev` " +
           "so the default company is auto-created, then re-run this script.",
       );
     }
-    const companyId = companyRes.rows[0].id;
+    const companyId = companyRows[0].id;
     log(`Using companyId = ${companyId}`);
 
     // Upsert hello-world workflow definition.
-    await client.query(
-      `
+    await sql`
       INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
-      VALUES ($1, 'hello-world', $2)
+      VALUES (${companyId}, 'hello-world', ${TAG})
       ON CONFLICT (company_id, name) DO UPDATE SET latest_git_tag = EXCLUDED.latest_git_tag
-      `,
-      [companyId, TAG],
-    );
+    `;
     ok("governed_workflow_definitions row ready (hello-world).");
 
     // Upsert greeter + shouter agent rows. We match on (company_id, name).
     for (const agentName of ["greeter", "shouter"]) {
-      const existing = await client.query(
-        "SELECT id FROM agents WHERE company_id = $1 AND name = $2",
-        [companyId, agentName],
-      );
-      if (existing.rows.length > 0) {
-        await client.query(
-          "UPDATE agents SET latest_git_tag = $1 WHERE id = $2",
-          [TAG, existing.rows[0].id],
-        );
+      const existing = await sql`
+        SELECT id FROM agents WHERE company_id = ${companyId} AND name = ${agentName}
+      `;
+      if (existing.length > 0) {
+        await sql`UPDATE agents SET latest_git_tag = ${TAG} WHERE id = ${existing[0].id}`;
       } else {
         // Minimal insert — adapter_type + metadata depend on schema; leave
         // at schema defaults where possible. Adjust if your schema rejects.
-        await client.query(
-          `
+        await sql`
           INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, created_at)
-          VALUES ($1, $2, 'claude_local', $3, NOW())
-          `,
-          [companyId, agentName, TAG],
-        );
+          VALUES (${companyId}, ${agentName}, 'claude_local', ${TAG}, NOW())
+        `;
       }
       ok(`agents row ready (${agentName}).`);
     }
 
     return companyId;
   } finally {
-    await client.end();
+    await sql.end();
   }
 }
 
@@ -289,7 +281,7 @@ async function seedDb() {
   console.log(`             "id": "mnm",`);
   console.log(`             "source": {`);
   console.log(`               "type": "local",`);
-  console.log(`               "path": "${process.cwd().replace(/\\/g, "/")}/plugins/mnm"`);
+  console.log(`               "path": "${REPO_ROOT_PATH.replace(/\\/g, "/")}/plugins/mnm"`);
   console.log(`             }`);
   console.log(`           }`);
   console.log(`         ]`);
