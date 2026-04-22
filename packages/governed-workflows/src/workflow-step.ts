@@ -13,6 +13,7 @@ export const workflowStepSchema = z.object({
   agent: z.string().min(1),
   prompt_context: z.record(z.unknown()).default({}),
   gates: z.record(z.string().min(1), gateBlockSchema).optional(),
+  required_tools: z.array(z.string()).optional(),
 });
 
 export type WorkflowStep = z.infer<typeof workflowStepSchema>;

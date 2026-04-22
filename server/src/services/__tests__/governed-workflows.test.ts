@@ -787,3 +787,176 @@ describe("governedWorkflowService — setupWorkspace", () => {
     });
   });
 });
+
+describe("launchStep (T6 enrichment)", () => {
+  let db: Db;
+
+  // Fixed canonical agent.md content so tests can compute the expected sha.
+  const AGENT_MD_CONTENT = "---\nname: greeter\n---\n\n# Greeter agent body\n";
+
+  // Build a stub git provider whose workflow.json has `required_tools` set
+  // on its single step when `requiredTools` is supplied. Content is stable
+  // across calls so the sha is deterministic.
+  function mkProvider(opts: { requiredTools?: string[] } = {}) {
+    const workflowJson = {
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "hello-world",
+      variables: {},
+      steps: [
+        {
+          id: "greet",
+          deps: [],
+          agent: "greeter",
+          prompt_context: {},
+          gates: {},
+          ...(opts.requiredTools ? { required_tools: opts.requiredTools } : {}),
+        },
+      ],
+    };
+    return {
+      fetchBlob: async ({ path }: { path: string }) => {
+        if (path.endsWith("workflow.json")) return JSON.stringify(workflowJson);
+        if (path.endsWith("/agent.md")) return AGENT_MD_CONTENT;
+        throw new Error(`unexpected path ${path}`);
+      },
+      resolveRef: async ({ ref }: { ref: string }) => `sha-${ref}`,
+      listTags: async () => [],
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+  }
+
+  // Inline helper: seeds a company + one agent + a hello-world workflow
+  // definition, launches the workflow, and returns coordinates the T6
+  // enrichment tests need. The expected agent name is the PREFIXED form
+  // (`mnm--greeter`) because the harness writes to `~/.claude/agents/mnm--*.md`.
+  async function seedHelloWorldRunAtFirstStep(opts: {
+    issuePrefix: string;
+    requiredTools?: string[];
+  }): Promise<{
+    companyId: string;
+    runId: string;
+    stepId: string;
+    expectedAgentName: string;
+    expectedAgentSha: string;
+    provider: ReturnType<typeof mkProvider>;
+  }> {
+    const companyId = crypto.randomUUID();
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const prefix = `${opts.issuePrefix}${suffix}`;
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"T6HL-" + suffix}, ${prefix}) ON CONFLICT (id) DO NOTHING`,
+    );
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES (${companyId}, 'greeter', 'claude_local', 'v1.0.0', true)
+    `);
+    await db.execute(sql`
+      INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
+      VALUES (${companyId}, 'hello-world', 'v1.0.0')
+    `);
+
+    const provider = mkProvider({ requiredTools: opts.requiredTools });
+    const svc = governedWorkflowService(db, {
+      gitProvider: provider as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyId);
+    const { runId, firstStep } = await svc.launchWorkflow({
+      companyId,
+      name: "hello-world",
+      params: {},
+      actor: { type: "user", id: "u-1" },
+    });
+
+    // Compute the canonical sha the same way the service does.
+    const { createHash } = await import("node:crypto");
+    const expectedAgentSha = createHash("sha256").update(AGENT_MD_CONTENT).digest("hex");
+
+    return {
+      companyId,
+      runId,
+      stepId: firstStep,
+      expectedAgentName: "mnm--greeter",
+      expectedAgentSha,
+      provider,
+    };
+  }
+
+  // Build a fresh service that shares the provider used by the seeder so
+  // `loadCanonicalAgent` sees the same blob content (thus the same sha).
+  function mkSvc(provider: ReturnType<typeof mkProvider>) {
+    return governedWorkflowService(db, {
+      gitProvider: provider as any,
+      shaCache: new ShaCache(),
+    });
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("returns agents_stale when currentAgents hash does not match the canonical sha", async () => {
+    const { companyId, runId, stepId, expectedAgentName, provider } =
+      await seedHelloWorldRunAtFirstStep({ issuePrefix: "T6HL" });
+    const service = mkSvc(provider);
+    await expect(
+      service.launchStep({
+        companyId,
+        runId,
+        stepId,
+        actor: { type: "user", id: "u-1" },
+        currentAgents: { [expectedAgentName]: "zzzzzzzzzz-bogus-sha" },
+        sessionTools: ["Task", "Write", "Read"],
+      }),
+    ).rejects.toMatchObject({
+      code: "AGENTS_STALE",
+    });
+  });
+
+  it("returns missing_tools when sessionTools lack a required tool", async () => {
+    const { companyId, runId, stepId, expectedAgentName, expectedAgentSha, provider } =
+      await seedHelloWorldRunAtFirstStep({
+        issuePrefix: "T6HL",
+        requiredTools: ["mcp__gitnexus__query"],
+      });
+    const service = mkSvc(provider);
+    await expect(
+      service.launchStep({
+        companyId,
+        runId,
+        stepId,
+        actor: { type: "user", id: "u-1" },
+        currentAgents: { [expectedAgentName]: expectedAgentSha },
+        sessionTools: ["Task", "Write", "Read"],
+      }),
+    ).rejects.toMatchObject({
+      code: "MISSING_TOOLS",
+    });
+  });
+
+  it("dispatches when currentAgents and sessionTools both match", async () => {
+    const { companyId, runId, stepId, expectedAgentName, expectedAgentSha, provider } =
+      await seedHelloWorldRunAtFirstStep({ issuePrefix: "T6HL" });
+    const service = mkSvc(provider);
+    const result = await service.launchStep({
+      companyId,
+      runId,
+      stepId,
+      actor: { type: "user", id: "u-1" },
+      currentAgents: { [expectedAgentName]: expectedAgentSha },
+      sessionTools: ["Task", "Write", "Read"],
+    });
+    expect(result.agentName).toBeDefined();
+    expect(result.subagentType).toBeDefined();
+  });
+});
