@@ -88,12 +88,21 @@ export function OAuthConsentPage() {
   const state = searchParams.get("state") ?? "";
   const scope = searchParams.get("scope") ?? "";
   const resource = searchParams.get("resource") ?? "";
+  // Multi-tenant: when the user belongs to multiple companies, the server
+  // threads this through the GET authorize redirect so the SPA can forward
+  // it on POST. Single-company users never see this param.
+  const companyId = searchParams.get("company_id") ?? "";
 
-  // Fetch consent data (client name + user permissions + CSRF token)
+  // Fetch consent data (client name + user permissions + CSRF token).
+  // companyId is forwarded so multi-company users see the correct permission
+  // set for the selected tenant (without it, the server returns an empty
+  // list because the boundary is ambiguous).
   const { data: consentData, isLoading, error } = useQuery<ConsentData>({
-    queryKey: ["oauth-consent-data", clientId],
+    queryKey: ["oauth-consent-data", clientId, companyId],
     queryFn: async () => {
-      const res = await fetch(`/oauth/consent-data?client_id=${encodeURIComponent(clientId)}`, {
+      const qs = new URLSearchParams({ client_id: clientId });
+      if (companyId) qs.set("company_id", companyId);
+      const res = await fetch(`/oauth/consent-data?${qs.toString()}`, {
         credentials: "include",
       });
       if (res.status === 401) {
@@ -241,6 +250,7 @@ export function OAuthConsentPage() {
       formData.set("code_challenge_method", codeChallengeMethod);
       if (state) formData.set("state", state);
       if (resource) formData.set("resource", resource);
+      if (companyId) formData.set("company_id", companyId);
       formData.set("csrf_token", consentData!.csrfToken);
       formData.set("consent", "approve");
       derivedScopes.split(",").filter(Boolean).forEach(s => formData.append("scopes", s));
