@@ -1365,3 +1365,73 @@ git push
 All three are internally consistent.
 
 **No spec gap found that lacks a task.**
+
+---
+
+## Completion Report (2026-04-22)
+
+### Shipped
+
+Commits `7c4a779..9a446e2` on `master` (10 commits total):
+
+| Commit | Task | Summary |
+|---|---|---|
+| `7c4a779` | T1 DEF-1 | Wire `mergeAgentConfig` to `configLayerConflictService.mergePreview`; rename `SyncedAgent.configMerged.env_ref` → `credential` |
+| `cfb132a` | T2 DEF-4 | Per-company GitProvider resolver (initial) |
+| `bb87403` | T2 DEF-4 fix | Replace `__company_default__` UUID sentinel with direct drizzle query (caught at halfway check-in) |
+| `69dc8c0` | T2 DEF-4 polish | Harden `GIT_PROVIDER_MISCONFIG` test assertions (message + hints) |
+| `746877e` | T3 DEF-9 | `resolveOAuthCompanyId` enforces explicit `company_id` for multi-membership users; GET/POST authorize + consent-data sites |
+| `1128833` | T3 DEF-9 SPA | `OAuthConsent.tsx` forwards `company_id` on consent-data fetch + POST body |
+| `0846e25` | T3 DEF-9 refactor | `MultiCompanyError` class + `sendOAuthCompanyError` helper (reviewer follow-ups) |
+| `42eafbe` | T4 | Plugin README bootstrap + troubleshooting; `AGENTS_STALE.hints` include `/reload-plugins` |
+| `a99a507` | T5 | `plugins/mnm/skills/mnm--onboard/SKILL.md` (first-run bootstrap skill) |
+| `9a446e2` | T6 | `docs/superpowers/specs/T7-marketplace-manifest.md` + README Marketplace section |
+
+### MVP status
+
+**MVP complete.** The governed workflows stack now supports the full hello-world happy path via the public plugin install flow: `/plugin marketplace add` → `/plugin install mnm@mnm-platform` → `/mnm--onboard` → `launch_governed_workflow` → `launch_governed_step`. The three T5 defects that would have blocked real multi-tenant prod (silent config merge, singleton git provider, silent first-company OAuth binding) are closed and tested.
+
+Remaining work before a public 1.0 release is all external or non-blocking:
+
+- **External action** — Create the `mnm-platform/claude-plugins` GitHub repo following `docs/superpowers/specs/T7-marketplace-manifest.md`. Verify `/plugin install mnm@mnm-platform` end-to-end in a fresh Claude Code session.
+- **Non-blocking follow-ups** — See list below.
+
+### Follow-ups (not blocking MVP)
+
+Server-side polish discovered during T7 code reviews:
+
+- **DEF-4 credential rotation** — `resolveGitProvider` cache is keyed by `companyId` only; a token rotation via the config-layer UI requires server restart to take effect. Add `git_provider.updatedAt` to the cache key for auto-invalidation. JSDoc already warns about this (`build-mcp-services.ts:57-59`).
+- **DEF-4 misconfig via zod** — Replace the manual "missing field" checks in `createResolveGitProvider` with a `GitProviderConfigSchema.safeParse(cfg)` to collapse the three misconfig branches into structured field-path errors.
+- **DEF-4 extraction** — `build-mcp-services.ts` grew from 75 → 175 lines; if a second resolver lands, extract to `server/src/mcp/resolvers/git-provider.ts`.
+- **DEF-9 consent-data UX** — When `consent-data` degrades to empty permissions for multi-company-no-selection, the SPA shows an empty list with no banner. Add `{companyStatus: "ambiguous" | "forbidden" | null}` to the response and render an informative message.
+- **Test harness** — `packages/test-utils` has `teardownTestDb` as a no-op. Tests work around this with random UUID suffixes; document or fix (proper per-test cleanup) to avoid silent cross-run pollution.
+
+Previous T5 defects still deferred (not touched in T7):
+
+- T5-DEF-3 (extended queryTraces filter)
+- T5-DEF-5 (workflow cache per-run)
+- T5-DEF-6 (GitLab webhook ingest)
+- T5-DEF-7 (audit emit)
+- T5-DEF-8 (helpers AbortController)
+- Marketplace automation (GitHub Action to mirror `plugins/mnm/` on master push)
+
+### Process lessons
+
+**Kept from T6:**
+1. **Pre-flight schema checks** — Before any test that seeds config_layer rows, read the actual CHECK constraints. Caught the `agent_config_layers.priority ∈ [0, 498]` constraint in T1 (prevented a false positive in the seed helper).
+2. **Plan comments = contract** — Every plan-specified JSDoc and inline comment was copied verbatim. Zero comment drift across the 10 commits.
+3. **Fresh subagent per task** — Again saved ~50-70% context controller side. Paid off most on T2 where the task was large (8 files touched, ~400 lines of changes).
+4. **Halfway check-in catches real bugs** — T2 implementer self-reported the UUID sentinel issue at the halfway report (`cfb132a`), which led directly to the `bb87403` fix. Without the halfway report the bug would have shipped latent.
+
+**New in T7:**
+5. **Spec reviewer + code quality reviewer per task catches different things** — T3 spec review found the SPA threading gap (server OK, client broken) — missed by the implementer's self-review. T3 code quality review found the tagged-throw fragility and the three-site drift risk — missed by both the implementer and the spec reviewer. The two reviews catch complementary classes of issue; don't skip either.
+6. **Reviewer "Ship it" can still surface `Important` issues worth fixing inline** — The T3 code quality review's `Important` items (`MultiCompanyError` class + `sendOAuthCompanyError` helper) were explicitly called out as "recommended before any other edit touches these sites." Applied inline as `0846e25` rather than deferred. Low cost, high durability.
+7. **Windows Bun + isolated-vm DLL** — `bun test` crashes with `LoadLibrary failed` on `isolated-vm` native module intermittently. The existing subagent execution env didn't hit it; the controller's did. For any future local verification step, try `typecheck` first (it uses a different code path) and trust implementer reports for test-suite confirmation.
+
+### Self-review of the T7 plan itself
+
+- **One plan error caught by implementer** — Task 1's seed helper sketched `attachLayerToAgent(priority=999/500)`, which would have violated the `agent_config_layers.priority ∈ [0, 498]` DB CHECK. Implementer correctly diverged to `config_layers.enforced=true` (CTE's 999 branch) + `agents.base_layer_id` (CTE's 500 branch). Plan would have been better with this discovered up-front via pre-flight schema read.
+- **One plan bug caught by implementer** — Task 2's resolver used `mergePreview(companyId, "__company_default__")` with a non-UUID sentinel; the CTE casts `agentId::uuid` and would throw in prod. Fixed via direct drizzle query in `bb87403`. Plan should have specified the direct-query approach from the start.
+- **One plan scope gap caught by spec reviewer** — Task 3 specified only server-side enforcement; the SPA fix needed to close the end-to-end happy path was a follow-up (`1128833`). Plan should have included a third file in T3's scope.
+
+Future plans: more pre-flight schema reads (esp. CHECK constraints + UUID casts) before prescribing seed helpers or SQL; think end-to-end through the UX layer, not just the server boundary.
