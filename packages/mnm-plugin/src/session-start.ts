@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { LastSession, SessionStartHookOutput } from "./types.js";
 
 /**
@@ -81,7 +82,11 @@ export async function runSessionStart(params: {
 // JSON result to stdout. Exits 0 on success — exits 0 even on unexpected
 // failures because SessionStart does not support blocking (exit 2 would
 // just print a warning in the transcript).
-const isEntryPoint = import.meta.url === `file://${process.argv[1]}`;
+// Use pathToFileURL to produce a normalized URL (file:///C:/… on Windows,
+// file:///… on POSIX) that matches import.meta.url regardless of platform.
+const isEntryPoint =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isEntryPoint) {
   const root = process.env.CLAUDE_PLUGIN_ROOT;
   const data = process.env.CLAUDE_PLUGIN_DATA;
