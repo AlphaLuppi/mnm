@@ -423,7 +423,16 @@ Tout le "quoi faire" vit dans `message` + `hints`. Le harness lit et agit.
 
 ---
 
-## Section 5 — Sync côté user (hook SessionStart)
+## Section 5 — Sync côté user (hook SessionStart) — REVISED IN T6
+
+> **This section is SUPERSEDED by** `docs/superpowers/specs/2026-04-22-governed-workflows-T6-plugin-design.md`.
+>
+> The original design (direct writes to `~/.claude/agents/mnm--*.md` with
+> manual merge of `mcp.json` / `settings.json`) predates Claude Code's
+> first-class plugin system. The T6 design replaces that approach: the
+> plugin is a minimal bootstrap wrapper, all dynamic artifacts are written
+> by the harness via Write tool on MCP instruction, and a single OAuth
+> 2.1 path covers auth.
 
 ### Layout filesystem
 
@@ -645,7 +654,7 @@ User : "lance hello-world avec name=Tom"
 | **T3** | ✅ shipped 2026-04-21 (`a0d9464..969dd6b`) | GitProvider (interface + GitlabProvider + LocalBareRepoProvider + ShaCache in-memory cache). 7 closed-set error codes. Retry/backoff/timeout in GitlabProvider. Zero runtime deps (native fetch + child_process). 60 vitest assertions, round-trip integration test end-to-end. 8 follow-ups deferred (GitlabProvider.pathExists ref-first, 400→conflict narrowing, RateLimit-Remaining pre-emptive backoff, `server_error` code, tsconfig.test.json, test gaps, author identity validation, webhook listener) — see plan completion report. | Serveur fetch blobs/tags + commit author=user | 60/60 vitest green (LocalBareRepo + mocked Gitlab + round-trip integration). 13/13 package typecheck green. |
 | **T4** | ✅ shipped 2026-04-21 (`7dec547..49d426f`) | Gate runner générique (`@mnm/gate-runner` — isolated-vm + esbuild + `runGateBlock(block, ctx, kind)` agnostique au kind + `CompiledCache` RAM par sha + fail-closed errors + retry-once sur sandbox crash). Inclut les 3 T1 follow-ups: `.strict()` sur gateOutputSchema, JSDoc disambiguation GATE_* vs WORKFLOW_*, integration test config non-vide. | Eval un `GateBlock` nested-array | 50/50 vitest green (scaffold + types + compiled-cache + compile-gate + classify-isolate-error + run-single-gate + run-gate-block + integration). Monorepo typecheck green. |
 | **T5** | ✅ shipped 2026-04-22 (`9a1cbe2..44de8d8`) | MCP tools (7 primitives) + gate runner helper bridge + advisory lock + E2E hello-world test. 13 commits. `governedWorkflowService` avec `listDefinitions`, `getWorkflowParsed`, `launchWorkflow` (pg_advisory_xact_lock), `launchStep` (entry gate eval), `completeStep` (exit gate + run cascade), `getRun` (RLS-scoped), `syncEnvironment` (agents + merged config). `buildGateHelpers` (`queryTraces` + `checkWorkflowExists` RLS-scoped). `installHelpers` bridge `ivm.Reference` pour sandbox. `makeResolveSource` factory. 7 MCP tools exposés via registry avec contrat erreur uniforme. WORKFLOW_RUN_NOT_FOUND + WORKFLOW_GATE_FAILED error codes. Node engines ≥22. | 54/54 gate-runner green, 6/6 helpers integration green, E2E hello-world green, typecheck green. |
-| **T6** | ⏳ pending | Hook SessionStart + cache client | User peut brancher Claude Code | Test manuel : SessionStart sync, fichiers écrits |
+| **T6** | ✅ shipped 2026-04-22 | Plugin MnM (bootstrap) + SessionStart hook + lazy agent materialization via launchStep | See design `2026-04-22-governed-workflows-T6-plugin-design.md` | E2E test `t6-bootstrap-and-launch.e2e.test.ts` |
 | **T7** | ⏳ pending | Hello-world bootstrap + E2E | Démo fonctionnelle | Lance "hello-world name=Tom" → HELLO, TOM! |
 
 ### Ordre de merge
