@@ -62,33 +62,10 @@ Le script est **idempotent** : tu peux le rerun autant que tu veux, il réutilis
 
 ---
 
-## Étape 3 — Redémarrer le serveur avec le provider local
+## Étape 3 — Installer le plugin MnM en local dans Claude Code
 
-Stoppe le serveur de l'étape 1 (`Ctrl+C`), puis relance-le en pointant sur le bare repo :
+> **Pas besoin de redémarrer le serveur** — en mode `local_trusted` (default dev), le provider git fallback pointe automatiquement sur `~/.mnm/dev-workflows-bare/repo.git`, exactement où le seed a écrit le bare repo. Si ton server tourne toujours depuis l'étape 1, il est prêt. Si tu l'as arrêté, un simple `bun run dev` suffit.
 
-Sur Git Bash / WSL :
-
-```bash
-MNM_GIT_PROVIDER=local \
-  MNM_GIT_LOCAL_PATH="$HOME/.mnm/dev-workflows-bare/repo.git" \
-  bun run dev
-```
-
-Sur PowerShell :
-
-```powershell
-$env:MNM_GIT_PROVIDER = "local"
-$env:MNM_GIT_LOCAL_PATH = "$HOME\.mnm\dev-workflows-bare\repo.git"
-bun run dev
-```
-
-Vérifie dans la console que `MNM_GIT_PROVIDER=local` est bien lu (tu devrais voir `LocalBareRepoProvider` au boot, ou au moins pas de tentative de connexion GitLab).
-
-> **Pourquoi cette étape ?** T2 a introduit la résolution per-company du git provider. Le fallback env-var n'est utilisé que quand la company n'a **pas** de `git_provider` config_layer_item. En dev on skip l'étape config-layer et on reste sur le fallback, donc ces deux variables doivent être dans l'env du serveur.
-
----
-
-## Étape 4 — Installer le plugin MnM en local dans Claude Code
 
 Ouvre `~/.claude/settings.json` et ajoute (ou merge) ce bloc :
 
@@ -132,7 +109,7 @@ Les outils MCP `mnm.*` doivent apparaître en autocomplete.
 
 ---
 
-## Étape 5 — Lancer le skill d'onboarding
+## Étape 4 — Lancer le skill d'onboarding
 
 Dans la nouvelle session Claude Code :
 
@@ -151,7 +128,7 @@ Le skill va :
 
 ---
 
-## Étape 6 — Lancer hello-world
+## Étape 5 — Lancer hello-world
 
 Accepte l'option 1 proposée par le skill, ou bien fais-le à la main :
 

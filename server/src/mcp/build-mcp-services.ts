@@ -2,6 +2,8 @@
  * Build the services object injected into all MCP tool & resource handlers.
  * Each property corresponds to a `services.xxx` call in tool files.
  */
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { and, eq, isNull } from "drizzle-orm";
 import { configLayerItems, configLayers, type Db } from "@mnm/db";
 import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
@@ -130,9 +132,19 @@ export function createResolveGitProvider(db: Db): (companyId: string) => Promise
 }
 
 function buildEnvFallbackProvider(): GitProvider {
-  const mode = process.env.MNM_GIT_PROVIDER ?? "gitlab";
+  // In local_trusted (dev) mode, default to a local bare repo at the seed
+  // script's canonical path (`~/.mnm/dev-workflows-bare/repo.git`). Devs can
+  // run `bun run seed:hello-world` and `bun run dev` without touching env
+  // vars. In authenticated (prod) mode the fallback path shouldn't be hit at
+  // all — companies are expected to declare a `git_provider` config_layer_item
+  // — but if one is missing we still default to gitlab so the startup crash
+  // happens at first fetch rather than silently binding to an empty repo.
+  const deploymentMode = process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted";
+  const defaultMode = deploymentMode === "local_trusted" ? "local" : "gitlab";
+  const mode = process.env.MNM_GIT_PROVIDER ?? defaultMode;
   if (mode === "local") {
-    const repoDir = process.env.MNM_GIT_LOCAL_PATH ?? "./_fixtures/mnm-workflows-bare";
+    const defaultRepoDir = join(homedir(), ".mnm", "dev-workflows-bare", "repo.git");
+    const repoDir = process.env.MNM_GIT_LOCAL_PATH ?? defaultRepoDir;
     return new LocalBareRepoProvider({ providerId: "local:mnm-workflows", repoDir });
   }
   return new GitlabProvider({
