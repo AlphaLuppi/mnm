@@ -14,7 +14,6 @@ import { agentService } from "../services/agents.js";
 import { issueService } from "../services/issues.js";
 import { configLayerService } from "../services/config-layer.js";
 import { configLayerConflictService } from "../services/config-layer-conflict.js";
-import { workflowService } from "../services/workflows.js";
 import { traceService } from "../services/trace-service.js";
 import { dashboardService } from "../services/dashboard.js";
 import { chatService } from "../services/chat.js";
@@ -165,7 +164,6 @@ export function buildMcpServices(db: Db): McpServices {
     issues: issueService(db),
     configLayers: configLayerService(db),
     configLayerConflict: configLayerConflictService(db),
-    workflows: workflowService(db),
     traces: traceService(db),
     dashboard: dashboardService(db),
     chat: chatService(db),

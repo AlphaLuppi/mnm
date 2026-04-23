@@ -13,7 +13,6 @@ import {
   costEvents,
   issues,
   projectWorkspaces,
-  stageInstances,
   activityLog,
   traces,
 } from "@mnm/db";
@@ -975,7 +974,6 @@ export function heartbeatService(db: Db) {
           message: errorMessage,
         });
         await releaseIssueExecutionAndPromote(updatedRun);
-        await maybeAdvanceLinkedStage(updatedRun, "interrupted");
       }
       await finalizeAgentStatus(run.agentId, "interrupted");
       await startNextQueuedRunForAgent(run.agentId);
@@ -1132,7 +1130,6 @@ export function heartbeatService(db: Db) {
       const failedRun = await getRun(runId);
       if (failedRun) {
         await releaseIssueExecutionAndPromote(failedRun);
-        await maybeAdvanceLinkedStage(failedRun, "failed");
       }
       return;
     }
@@ -1289,8 +1286,6 @@ export function heartbeatService(db: Db) {
           companyId: run.companyId,
           agentId: run.agentId,
           agentName: agent.name,
-          workflowInstanceId: (run as Record<string, unknown>).workflowInstanceId as string | undefined,
-          stageInstanceId: (run as Record<string, unknown>).stageInstanceId as string | undefined,
         });
       } catch (err) {
         logger.warn({ err, runId }, "Bronze trace capture failed to start — continuing without traces");
@@ -1577,7 +1572,6 @@ export function heartbeatService(db: Db) {
           },
         });
         await releaseIssueExecutionAndPromote(finalizedRun);
-        await maybeAdvanceLinkedStage(finalizedRun, outcome);
       }
 
       if (finalizedRun) {
@@ -1659,7 +1653,6 @@ export function heartbeatService(db: Db) {
           message,
         });
         await releaseIssueExecutionAndPromote(failedRun);
-        await maybeAdvanceLinkedStage(failedRun, "failed");
 
         await updateRuntimeState(agent, failedRun, {
           exitCode: null,
@@ -1841,34 +1834,6 @@ export function heartbeatService(db: Db) {
     });
 
     await startNextQueuedRunForAgent(promotedRun.agentId);
-  }
-
-  async function maybeAdvanceLinkedStage(
-    run: typeof heartbeatRuns.$inferSelect,
-    outcome: "succeeded" | "failed" | "cancelled" | "timed_out" | "interrupted",
-  ) {
-    // Interrupted runs are not a real outcome — leave the stage as-is so it can be retried.
-    if (outcome === "interrupted") return;
-
-    // Find any stage instance linked to this run via activeRunId
-    const linkedStage = await db
-      .select()
-      .from(stageInstances)
-      .where(eq(stageInstances.activeRunId, run.id))
-      .then((rows) => rows[0] ?? null);
-
-    if (!linkedStage || linkedStage.status !== "running") return;
-
-    const { stageService: stageSvc } = await import("./stages.js");
-    const svc = stageSvc(db);
-
-    if (outcome === "succeeded") {
-      await svc.transitionStage(linkedStage.id, "done");
-      logger.info({ runId: run.id, stageId: linkedStage.id }, "stage auto-advanced to done after run succeeded");
-    } else {
-      await svc.transitionStage(linkedStage.id, "failed");
-      logger.warn({ runId: run.id, stageId: linkedStage.id, outcome }, "stage marked failed after run finished");
-    }
   }
 
   async function enqueueWakeup(agentId: string, opts: WakeupOptions = {}) {
@@ -2532,7 +2497,6 @@ export function heartbeatService(db: Db) {
           message: "run cancelled",
         });
         await releaseIssueExecutionAndPromote(cancelled);
-        await maybeAdvanceLinkedStage(cancelled, "cancelled");
       }
 
       runningProcesses.delete(run.id);
@@ -2565,7 +2529,6 @@ export function heartbeatService(db: Db) {
           runningProcesses.delete(run.id);
         }
         await releaseIssueExecutionAndPromote(run);
-        await maybeAdvanceLinkedStage(run, "cancelled");
       }
 
       return runs.length;

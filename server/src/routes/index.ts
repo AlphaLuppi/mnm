@@ -12,15 +12,10 @@ export { dashboardRoutes } from "./dashboard.js";
 export { sidebarBadgeRoutes } from "./sidebar-badges.js";
 export { llmRoutes } from "./llms.js";
 export { accessRoutes } from "./access.js";
-export { workflowRoutes } from "./workflows.js";
-export { stageRoutes } from "./stages.js";
 export { workspaceContextRoutes } from "./workspace-context.js";
 export { driftRoutes } from "./drift.js";
 export { projectMembershipRoutes } from "./project-memberships.js";
 export { auditRoutes } from "./audit.js";
-export { orchestratorRoutes } from "./orchestrator.js";
-// comp-s01-barrel-route
-export { compactionRoutes } from "./compaction.js";
 // dual-s01-barrel-route
 export { automationCursorRoutes } from "./automation-cursors.js";
 // a2a-s01-barrel-route

@@ -56,8 +56,6 @@ export interface TraceGold {
 }
 import { agents } from "./agents.js";
 import { heartbeatRuns } from "./heartbeat_runs.js";
-import { workflowInstances } from "./workflow_instances.js";
-import { stageInstances } from "./stage_instances.js";
 
 // TRACE-01: traces — one container per agent run
 export const traces = pgTable(
@@ -66,8 +64,6 @@ export const traces = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").notNull().references(() => companies.id),
     heartbeatRunId: uuid("heartbeat_run_id").references(() => heartbeatRuns.id),
-    workflowInstanceId: uuid("workflow_instance_id").references(() => workflowInstances.id),
-    stageInstanceId: uuid("stage_instance_id").references(() => stageInstances.id),
     agentId: uuid("agent_id").notNull().references(() => agents.id),
     parentTraceId: uuid("parent_trace_id").references((): AnyPgColumn => traces.id),
     name: text("name").notNull(),
@@ -90,7 +86,6 @@ export const traces = pgTable(
     companyAgentIdx: index("traces_company_agent_idx").on(table.companyId, table.agentId),
     companyStatusIdx: index("traces_company_status_idx").on(table.companyId, table.status),
     heartbeatRunIdx: index("traces_heartbeat_run_idx").on(table.heartbeatRunId),
-    workflowInstanceIdx: index("traces_workflow_instance_idx").on(table.workflowInstanceId),
     parentTraceIdx: index("traces_parent_trace_idx").on(table.parentTraceId),
   }),
 );
@@ -158,7 +153,6 @@ export const traceLensResults = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     lensId: uuid("lens_id").notNull().references(() => traceLenses.id, { onDelete: "cascade" }),
     traceId: uuid("trace_id").references(() => traces.id, { onDelete: "cascade" }),
-    workflowInstanceId: uuid("workflow_instance_id").references(() => workflowInstances.id),
     companyId: uuid("company_id").notNull().references(() => companies.id),
     userId: text("user_id").notNull(),
     resultMarkdown: text("result_markdown").notNull(),
@@ -172,7 +166,6 @@ export const traceLensResults = pgTable(
   },
   (table) => ({
     lensTraceUniqueIdx: uniqueIndex("trace_lens_results_lens_trace_idx").on(table.lensId, table.traceId),
-    lensWorkflowIdx: index("trace_lens_results_lens_workflow_idx").on(table.lensId, table.workflowInstanceId),
     companyUserIdx: index("trace_lens_results_company_user_idx").on(table.companyId, table.userId),
   }),
 );

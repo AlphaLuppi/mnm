@@ -7,7 +7,6 @@ import {
   costEvents,
   issues,
   auditEvents,
-  workflowInstances,
   driftReports,
 } from "@mnm/db";
 import { notFound, badRequest } from "../errors.js";
@@ -233,27 +232,8 @@ export function dashboardService(db: Db) {
           ? (monthSpendCents / company.budgetMonthlyCents) * 100
           : 0;
 
-      // Workflow instances by state
-      const workflowRows = await db
-        .select({ state: workflowInstances.workflowState, count: sql<number>`count(*)` })
-        .from(workflowInstances)
-        .where(eq(workflowInstances.companyId, companyId))
-        .groupBy(workflowInstances.workflowState);
-
+      // Legacy workflow instance counts removed (legacy workflows nuked in U1).
       const workflowCounts = { active: 0, completed: 0, failed: 0, paused: 0, total: 0 };
-      for (const row of workflowRows) {
-        const count = Number(row.count);
-        workflowCounts.total += count;
-        if (row.state === "active" || row.state === "in_progress" || row.state === "draft") {
-          workflowCounts.active += count;
-        } else if (row.state === "completed") {
-          workflowCounts.completed += count;
-        } else if (row.state === "failed" || row.state === "terminated") {
-          workflowCounts.failed += count;
-        } else if (row.state === "paused") {
-          workflowCounts.paused += count;
-        }
-      }
 
       // Audit event counts
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -492,17 +472,7 @@ export function dashboardService(db: Db) {
         }
 
         case "workflows": {
-          const rows = await db
-            .select({ state: workflowInstances.workflowState, count: sql<number>`count(*)` })
-            .from(workflowInstances)
-            .where(eq(workflowInstances.companyId, companyId))
-            .groupBy(workflowInstances.workflowState);
-
-          for (const row of rows) {
-            const count = Number(row.count);
-            total += count;
-            items.push({ label: row.state, count });
-          }
+          // Legacy workflow instance breakdown removed (legacy workflows nuked in U1).
           break;
         }
 

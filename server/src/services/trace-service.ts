@@ -61,8 +61,6 @@ export function traceService(db: Db) {
       const [row] = await db.insert(traces).values({
         companyId,
         heartbeatRunId: input.heartbeatRunId ?? null,
-        workflowInstanceId: input.workflowInstanceId ?? null,
-        stageInstanceId: input.stageInstanceId ?? null,
         agentId: input.agentId,
         parentTraceId: input.parentTraceId ?? null,
         name: input.name,
@@ -103,7 +101,6 @@ export function traceService(db: Db) {
 
       if (filters.agentId) conditions.push(eq(traces.agentId, filters.agentId));
       if (filters.status) conditions.push(eq(traces.status, filters.status));
-      if (filters.workflowInstanceId) conditions.push(eq(traces.workflowInstanceId, filters.workflowInstanceId));
       if (filters.parentTraceId) {
         conditions.push(eq(traces.parentTraceId, filters.parentTraceId));
       }
@@ -502,7 +499,6 @@ export function traceService(db: Db) {
       input: {
         lensId: string;
         traceId?: string;
-        workflowInstanceId?: string;
         resultMarkdown: string;
         resultStructured?: Record<string, unknown>;
         modelUsed?: string;
@@ -514,7 +510,6 @@ export function traceService(db: Db) {
       const [row] = await db.insert(traceLensResults).values({
         lensId: input.lensId,
         traceId: input.traceId ?? null,
-        workflowInstanceId: input.workflowInstanceId ?? null,
         companyId,
         userId,
         resultMarkdown: input.resultMarkdown,
