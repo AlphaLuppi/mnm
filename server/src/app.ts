@@ -32,18 +32,14 @@ import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
-import { workflowRoutes } from "./routes/workflows.js";
-import { stageRoutes } from "./routes/stages.js";
 import { workspaceContextRoutes } from "./routes/workspace-context.js";
 import { driftRoutes } from "./routes/drift.js";
 import { projectMembershipRoutes } from "./routes/project-memberships.js";
 import { auditRoutes } from "./routes/audit.js";
-import { orchestratorRoutes } from "./routes/orchestrator.js";
 import { chatRoutes } from "./routes/chat.js";
 // CHAT-SHARING: Share links, fork, and context links
 import { chatSharingRoutes } from "./routes/chat-sharing.js";
 import { chatContextLinkRoutes } from "./routes/chat-context-links.js";
-import { compactionRoutes } from "./routes/compaction.js";
 import { automationCursorRoutes } from "./routes/automation-cursors.js";
 import { a2aRoutes } from "./routes/a2a.js";
 // sso-s01-barrel-app
@@ -282,18 +278,14 @@ export async function createApp(
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
-  api.use(workflowRoutes(db));
-  api.use(stageRoutes(db));
   api.use(workspaceContextRoutes(db));
   api.use(driftRoutes(db));
   api.use(projectMembershipRoutes(db));
   api.use(auditRoutes(db));
-  api.use(orchestratorRoutes(db));
   api.use(chatRoutes(db));
   // CHAT-SHARING: Share links, fork, and context links
   api.use(chatSharingRoutes(db));
   api.use(chatContextLinkRoutes(db));
-  api.use(compactionRoutes(db));
   api.use(automationCursorRoutes(db));
   api.use(a2aRoutes(db));
   // sso-s01-barrel-app

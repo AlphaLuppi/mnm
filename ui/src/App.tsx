@@ -25,10 +25,6 @@ import { CompanySettings } from "./pages/CompanySettings";
 import { DesignGuide } from "./pages/DesignGuide";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
-import { Workflows } from "./pages/Workflows";
-import { WorkflowDetail } from "./pages/WorkflowDetail";
-import { NewWorkflow } from "./pages/NewWorkflow";
-import { WorkflowEditor } from "./pages/WorkflowEditor";
 import { Members } from "./pages/Members";
 import AdminRoles from "./pages/AdminRoles";
 import AdminViewPresets from "./pages/AdminViewPresets";
@@ -41,14 +37,12 @@ import { Folders } from "./pages/Folders";
 import { FolderDetail } from "./pages/FolderDetail";
 import { FolderWorkspace } from "./pages/FolderWorkspace";
 import { SharedChat } from "./pages/SharedChat";
-import { AutomationCursors } from "./pages/AutomationCursors";
 import { SsoConfig } from "./pages/SsoConfig";
 import { JiraImport } from "./pages/JiraImport";
 import { Traces } from "./pages/Traces";
 import { TraceDetail } from "./pages/TraceDetail";
 import { TraceTimelineDemo } from "./pages/TraceTimelineDemo";
 import { TraceSettings } from "./pages/TraceSettings";
-import { WorkflowTraces } from "./pages/WorkflowTraces";
 // POD-06: Workspace page (deprecated — auth moved to Settings > Claude)
 // import { Workspace } from "./pages/Workspace";
 // DEPLOY-06: Deployments page
@@ -154,10 +148,6 @@ function boardRoutes() {
       <Route path="issues/done" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
       <Route path="issues/recent" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/issues" replace /></RequirePermission>} />
       <Route path="issues/:issueId" element={<RequirePermission permission="issues:read" showForbidden><IssueDetail /></RequirePermission>} />
-      <Route path="workflows" element={<RequirePermission permission="workflows:read" showForbidden><Workflows /></RequirePermission>} />
-      <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><NewWorkflow /></RequirePermission>} />
-      <Route path="workflows/:workflowId" element={<RequirePermission permission="workflows:read" showForbidden><WorkflowDetail /></RequirePermission>} />
-      <Route path="workflow-editor/:templateId" element={<RequirePermission permission="workflows:create" showForbidden><WorkflowEditor /></RequirePermission>} />
       <Route path="goals" element={<RequirePermission permission="projects:read" showForbidden><Goals /></RequirePermission>} />
       <Route path="goals/:goalId" element={<RequirePermission permission="projects:read" showForbidden><GoalDetail /></RequirePermission>} />
       <Route path="approvals" element={<RequirePermission permission="joins:approve" showForbidden><Navigate to="/approvals/pending" replace /></RequirePermission>} />
@@ -176,13 +166,11 @@ function boardRoutes() {
       <Route path="folders/:folderId" element={<RequirePermission permission="folders:read" showForbidden><FolderDetail /></RequirePermission>} />
       <Route path="folders/:folderId/chat/:channelId" element={<RequirePermission permission="folders:read" showForbidden><FolderWorkspace /></RequirePermission>} />
       <Route path="shared/chat/:token" element={<SharedChat />} />
-      <Route path="automation-cursors" element={<RequirePermission permission="workflows:enforce" showForbidden><AutomationCursors /></RequirePermission>} />
       <Route path="import/jira" element={<RequirePermission permission="projects:manage" showForbidden><JiraImport /></RequirePermission>} />
       <Route path="traces" element={<RequirePermission permission="traces:read" showForbidden><Traces /></RequirePermission>} />
       <Route path="traces/demo" element={<TraceTimelineDemo />} />
       <Route path="traces/:traceId" element={<RequirePermission permission="traces:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="settings/trace-lenses" element={<RequirePermission permission="traces:manage" showForbidden><TraceSettings /></RequirePermission>} />
-      <Route path="workflows/:workflowId/traces" element={<RequirePermission permission="traces:read" showForbidden><WorkflowTraces /></RequirePermission>} />
       <Route path="routines" element={<RequirePermission permission="routines:read" showForbidden><Routines /></RequirePermission>} />
       <Route path="routines/:id" element={<RequirePermission permission="routines:read" showForbidden><RoutineDetail /></RequirePermission>} />
       <Route path="feedback" element={<RequirePermission permission="feedback:read" showForbidden><FeedbackDashboard /></RequirePermission>} />
@@ -345,13 +333,8 @@ export function App() {
           <Route path="folders/:folderId" element={<UnprefixedBoardRedirect />} />
           <Route path="folders/:folderId/chat/:channelId" element={<UnprefixedBoardRedirect />} />
           <Route path="shared/chat/:token" element={<UnprefixedBoardRedirect />} />
-          <Route path="workflows" element={<UnprefixedBoardRedirect />} />
-          <Route path="workflows/new" element={<UnprefixedBoardRedirect />} />
-          <Route path="workflows/:workflowId" element={<UnprefixedBoardRedirect />} />
-          <Route path="workflow-editor/:templateId" element={<UnprefixedBoardRedirect />} />
           <Route path="goals" element={<UnprefixedBoardRedirect />} />
           <Route path="goals/:goalId" element={<UnprefixedBoardRedirect />} />
-          <Route path="automation-cursors" element={<UnprefixedBoardRedirect />} />
           <Route path="inbox" element={<UnprefixedBoardRedirect />} />
           <Route path="inbox/:tab" element={<UnprefixedBoardRedirect />} />
           <Route path="org" element={<UnprefixedBoardRedirect />} />

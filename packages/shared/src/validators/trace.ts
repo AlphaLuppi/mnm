@@ -4,8 +4,6 @@ import { TRACE_STATUSES, TRACE_OBSERVATION_TYPES, TRACE_OBSERVATION_STATUSES, GO
 // TRACE-02: Create trace
 export const createTraceSchema = z.object({
   heartbeatRunId: z.string().uuid().optional(),
-  workflowInstanceId: z.string().uuid().optional(),
-  stageInstanceId: z.string().uuid().optional(),
   agentId: z.string().uuid(),
   parentTraceId: z.string().uuid().optional(),
   name: z.string().min(1).max(500),
@@ -68,7 +66,6 @@ export type CompleteObservation = z.infer<typeof completeObservationSchema>;
 export const traceListFiltersSchema = z.object({
   agentId: z.string().uuid().optional(),
   status: z.enum(TRACE_STATUSES).optional(),
-  workflowInstanceId: z.string().uuid().optional(),
   parentTraceId: z.string().uuid().optional(),
   dateFrom: z.string().datetime({ offset: true }).optional(),
   dateTo: z.string().datetime({ offset: true }).optional(),

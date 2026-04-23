@@ -21,13 +21,10 @@ import {
   agents,
   projects,
   goals,
-  workflowTemplates,
   automationCursors,
   auditEvents,
   chatChannels,
   chatMessages,
-  workflowInstances,
-  stageInstances,
   ssoConfigurations,
   driftReports,
   driftItems,
@@ -173,15 +170,6 @@ export function e2eSeedRoutes(db: Db) {
           description?: string;
           level?: string;
           status?: string;
-        }>;
-        workflowTemplates?: Array<{
-          id: string;
-          companyId: string;
-          name: string;
-          description?: string;
-          isDefault?: boolean;
-          createdFrom?: string;
-          stages: unknown[];
         }>;
         automationCursors?: Array<{
           id: string;
@@ -388,24 +376,6 @@ export function e2eSeedRoutes(db: Db) {
         })));
       }
 
-      // ── 6. Seed workflow templates ────────────────────────────────────────
-      if (body.workflowTemplates) {
-        stats.workflowTemplatesCreated = await upsertById(
-          db,
-          workflowTemplates,
-          workflowTemplates.id,
-          body.workflowTemplates.map((wt) => ({
-            id: wt.id,
-            companyId: wt.companyId,
-            name: wt.name,
-            description: wt.description ?? null,
-            isDefault: wt.isDefault ?? false,
-            createdFrom: wt.createdFrom ?? "custom",
-            stages: wt.stages,
-          })),
-        );
-      }
-
       // ── 7. Seed automation cursors ────────────────────────────────────────
       if (body.automationCursors) {
         stats.automationCursorsCreated = await upsertById(
@@ -594,11 +564,6 @@ export function e2eSeedRoutes(db: Db) {
       stats.ssoConfigurations = await safeDelete(ssoConfigurations, ssoConfigurations.companyId);
       stats.chatMessages = await safeDelete(chatMessages, chatMessages.companyId);
       stats.chatChannels = await safeDelete(chatChannels, chatChannels.companyId);
-
-      // Stage instances before workflow instances
-      stats.stageInstances = await safeDelete(stageInstances, stageInstances.companyId);
-      stats.workflowInstances = await safeDelete(workflowInstances, workflowInstances.companyId);
-      stats.workflowTemplates = await safeDelete(workflowTemplates, workflowTemplates.companyId);
 
       // Projects (clear leadAgentId first)
       try {

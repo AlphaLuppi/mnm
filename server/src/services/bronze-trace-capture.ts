@@ -165,15 +165,11 @@ export function bronzeTraceCapture(db: Db) {
       companyId: string;
       agentId: string;
       agentName: string;
-      workflowInstanceId?: string | null;
-      stageInstanceId?: string | null;
     }): Promise<string> => {
       const row = await withTenantContext(db, opts.companyId, async (tx) => {
         const [r] = await tx.insert(traces).values({
           companyId: opts.companyId,
           heartbeatRunId: opts.runId,
-          workflowInstanceId: opts.workflowInstanceId ?? null,
-          stageInstanceId: opts.stageInstanceId ?? null,
           agentId: opts.agentId,
           name: `Run ${opts.runId.slice(0, 8)} — ${opts.agentName}`,
           status: "running",

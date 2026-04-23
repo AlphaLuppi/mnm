@@ -69,8 +69,6 @@ export interface Trace {
   id: string;
   companyId: string;
   heartbeatRunId: string | null;
-  workflowInstanceId: string | null;
-  stageInstanceId: string | null;
   agentId: string;
   parentTraceId: string | null;
   name: string;
@@ -174,7 +172,6 @@ export interface TraceLensResult {
   id: string;
   lensId: string;
   traceId: string | null;
-  workflowInstanceId: string | null;
   companyId: string;
   userId: string;
   resultMarkdown: string;
