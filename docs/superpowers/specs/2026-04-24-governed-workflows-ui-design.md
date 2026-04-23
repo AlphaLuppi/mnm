@@ -234,6 +234,26 @@ governedWorkflows: {
 
 ---
 
+## MCP tool parity (REST ↔ MCP)
+
+L'éditeur web expose create/update/archive via REST. Les sessions Claude Code, elles, parlent à MnM via MCP. Pour que la feature soit utilisable indifféremment UI / REST / MCP, on étend `server/src/mcp/tools/governed-workflows.tool.ts` (T5) avec **3 nouveaux tools** :
+
+| Tool MCP | Input | Comportement |
+|---|---|---|
+| `createGovernedWorkflow` | `{definition, commitMessage}` | Même logique que `POST /governed-workflows` : zod-validate → `saveDefinition` (commit + semver tag) → upsert DB row. |
+| `updateGovernedWorkflow` | `{name, definition, commitMessage}` | Même logique que `PUT /governed-workflows/:name` : vérifie existence + `name` match → `saveDefinition` → upsert DB row. |
+| `archiveGovernedWorkflow` | `{name}` | Même logique que `DELETE /governed-workflows/:name` : `archiveDefinition` (soft-delete DB, pas de delete git). |
+
+**Les 3 tools partagent les helpers de service** (`saveDefinition`, `archiveDefinition`, `resolveGitProvider`, `upsertDefinition`) avec les REST handlers — zéro duplication de logique, mêmes garanties RLS/tenant.
+
+**Error codes MCP** : réutilisent le contrat uniforme T5 (`isError`, `error_code`, `message`, `hints`). Codes nouveaux : `WORKFLOW_NAME_MISMATCH`, `WORKFLOW_VALIDATION`, `WORKFLOW_NOT_FOUND`, `GIT_PROVIDER_MISCONFIG`.
+
+**Actor identity** : lue depuis `ctx.actor` (déjà fourni par le MCP context T5). En mode MCP, l'actor est l'user authentifié via OAuth (ou le synthetic session `local_trusted` T6). `authorName` / `authorEmail` passés à `saveDefinition` viennent de là.
+
+**Pas de tool `launchGovernedRun` séparé** — le tool existant `launchWorkflow` (T5) couvre déjà le use-case launch run.
+
+---
+
 ## Live events serveur
 
 Émission depuis `governedWorkflowService` :
@@ -281,8 +301,9 @@ Loop end-to-end en `local_trusted` mode :
 | **U3** | **Live events** | Émission step_updated + gate_evaluated depuis service. Hook UI `useGovernedRunEvents`. | 2 tests émission + 1 test hook. |
 | **U4** | **API client + query keys + shared types** | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows.*` + row types `@mnm/shared`. | Typecheck vert + 1 smoke test client. |
 | **U5** | **4 pages UI** | `GovernedWorkflowsList.tsx`, `GovernedWorkflowEditor.tsx` (Monaco lazy-loaded, install `@monaco-editor/react` si absent), `GovernedWorkflowRuns.tsx`, `GovernedWorkflowRunDetail.tsx`. Routes `App.tsx`. Parity tracker `scripts/parity/data.ts` mis à jour. | 4 tests render + 1 passage manuel E2E local. |
+| **U6** | **MCP tool parity** | 3 nouveaux tools MCP (`createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow`) qui wrappent les mêmes helpers service que les REST (`saveDefinition`, `archiveDefinition`). Registration dans le MCP registry. | ~9 tests MCP (3 tools × happy + validation + error). |
 
-**Ordre de merge** : U1 → (U2 + U3 parallèles) → U4 → U5. U1 bloque U2 car `archived_at` vit dans la même migration.
+**Ordre de merge** : U1 → (U2 + U3 + U6 parallèles) → U4 → U5. U1 bloque U2 car `archived_at` vit dans la même migration. U6 dépend uniquement des helpers service introduits en U2.
 
 ---
 
