@@ -572,7 +572,30 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 5. Token Endpoint ────────────────────────────────────────────────
 
+  // Per RFC 6749 §2.3.1 confidential OAuth clients may authenticate via the
+  // HTTP Basic auth header instead of carrying client_id in the request body.
+  // Claude Code's MCP OAuth client uses Basic auth by default. We accept both
+  // and merge — body wins if both are present — then hand a normalized body
+  // to the grant handlers so they can keep their simple body-only reads.
+  function mergeClientAuthFromHeader(req: Request): void {
+    const authz = req.headers.authorization;
+    if (!authz || !authz.toLowerCase().startsWith("basic ")) return;
+    try {
+      const decoded = Buffer.from(authz.slice(6).trim(), "base64").toString("utf8");
+      const colonAt = decoded.indexOf(":");
+      if (colonAt < 0) return;
+      const clientId = decoded.slice(0, colonAt);
+      const clientSecret = decoded.slice(colonAt + 1);
+      req.body = req.body ?? {};
+      if (!req.body.client_id && clientId) req.body.client_id = clientId;
+      if (!req.body.client_secret && clientSecret) req.body.client_secret = clientSecret;
+    } catch {
+      // ignore malformed basic auth; handlers will emit their own invalid_request
+    }
+  }
+
   router.post("/oauth/token", express.urlencoded({ extended: false }), oauthTokenLimiter, async (req: Request, res: Response) => {
+    mergeClientAuthFromHeader(req);
     const { grant_type } = req.body ?? {};
 
     if (grant_type === "authorization_code") {
