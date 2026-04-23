@@ -367,7 +367,10 @@ export async function createApp(
     db,
     services: buildMcpServices(db),
     resolveSession: opts.resolveSession ?? (async () => null),
-    getPublicUrl: () => process.env.MNM_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 3001}`,
+    getPublicUrl: () =>
+      process.env.MNM_PUBLIC_URL
+      ?? process.env.MNM_API_URL
+      ?? `http://localhost:${process.env.MNM_LISTEN_PORT ?? process.env.PORT ?? 3100}`,
   });
   app.use(mcpRouter);
 
