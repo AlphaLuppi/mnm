@@ -1,0 +1,14 @@
+{
+  "name": "mnm-local",
+  "owner": {
+    "name": "MnM Dev (local)"
+  },
+  "plugins": [
+    {
+      "name": "mnm",
+      "source": "./mnm",
+      "description": "MnM Governed Workflows — supervise AI agent orchestration for your company.",
+      "version": "0.1.0"
+    }
+  ]
+}

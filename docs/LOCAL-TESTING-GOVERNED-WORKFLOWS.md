@@ -64,48 +64,54 @@ Le script est **idempotent** : tu peux le rerun autant que tu veux, il réutilis
 
 ## Étape 3 — Installer le plugin MnM en local dans Claude Code
 
-> **Pas besoin de redémarrer le serveur** — en mode `local_trusted` (default dev), le provider git fallback pointe automatiquement sur `~/.mnm/dev-workflows-bare/repo.git`, exactement où le seed a écrit le bare repo. Si ton server tourne toujours depuis l'étape 1, il est prêt. Si tu l'as arrêté, un simple `bun run dev` suffit.
+> **Pas besoin de redémarrer le serveur** — en mode `local_trusted` (default dev), le provider git fallback pointe automatiquement sur `~/.mnm/dev-workflows-bare/repo.git`, exactement où le seed a écrit le bare repo.
 
+Le plugin est distribué via un **marketplace local** pointant sur `plugins/` dans le repo.
 
-Ouvre `~/.claude/settings.json` et ajoute (ou merge) ce bloc :
+Ouvre `~/.claude/settings.json` et **merge** ces trois blocs (au niveau racine) :
 
 ```json
 {
-  "extraLocalPlugins": [
-    {
-      "id": "mnm",
+  "extraKnownMarketplaces": {
+    "mnm-local": {
       "source": {
-        "type": "local",
-        "path": "C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm/plugins/mnm"
+        "source": "directory",
+        "path": "C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm/plugins"
       }
     }
-  ]
+  },
+  "enabledPlugins": {
+    "mnm@mnm-local": true
+  },
+  "pluginConfigs": {
+    "mnm@mnm-local": {
+      "options": {
+        "company_id": "<colle la valeur UUID imprimée par seed:hello-world>",
+        "server_url": "http://127.0.0.1:3100"
+      }
+    }
+  }
 }
 ```
 
-> Adapte le `path` si ton repo est ailleurs. Utilise **forward slashes** même sur Windows.
+> **Note** : `path` doit pointer sur le **dossier `plugins/`** (qui contient `.claude-plugin/marketplace.json`), pas sur `plugins/mnm/`. Utilise forward slashes même sur Windows.
 
-Redémarre Claude Code complètement (pas juste `/reload-plugins` — le harness doit re-scanner `settings.json`).
+Redémarre Claude Code complètement.
 
-Au prochain démarrage, Claude Code devrait :
+Au prochain démarrage :
 
-- Détecter le plugin `mnm` dans `extraLocalPlugins`
-- Lire `plugins/mnm/.claude-plugin/plugin.json` et te demander de configurer `company_id` + `server_url`
-- Charger le MCP server depuis `plugins/mnm/.mcp.json`
-- Exécuter le SessionStart hook (`bin/mnm-session-start`)
+- Claude Code lit `extraKnownMarketplaces.mnm-local` → scanne `plugins/.claude-plugin/marketplace.json`
+- Trouve le plugin `mnm` pointant sur `./mnm` (= `plugins/mnm/`)
+- Charge la config MCP depuis `plugins/mnm/.mcp.json` avec les variables `user_config.company_id` + `user_config.server_url` déjà remplies via `pluginConfigs`
+- Exécute le SessionStart hook (`bin/mnm-session-start`)
 
-**Valeurs à rentrer quand Claude Code demande la config du plugin :**
-
-- `company_id` = la valeur UUID imprimée par `seed:hello-world`
-- `server_url` = `http://127.0.0.1:3100`
-
-Vérifie que le plugin est chargé :
+Vérifie :
 
 ```
 /plugin list
 ```
 
-Les outils MCP `mnm.*` doivent apparaître en autocomplete.
+Tu dois voir `mnm@mnm-local`. Les outils MCP `mnm.*` doivent apparaître en autocomplete.
 
 ---
 
