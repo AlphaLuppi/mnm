@@ -4,6 +4,18 @@ MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
 Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
 Language: French for planning documents. See README.md for full project docs.
 
+## ACTIVE OVERNIGHT RUN — Governed Workflows UI (started 2026-04-24)
+
+**If a session continues mid-flight (compact, crash, new session): RESUME the plan no matter what.**
+
+- Plan: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md`
+- Spec: `docs/superpowers/specs/2026-04-24-governed-workflows-ui-design.md`
+- Progress log: `docs/superpowers/plans/progress-2026-04-24-governed-workflows-ui.md`
+- Mode: full agent team (skill `superpowers:subagent-driven-development`). Sequential implementer per tranche, spec + quality review between tranches. Atomic commit + push per tranche. Conventional scope `workflows`. No emojis.
+- Scope pivot: nuke entire legacy Workflows feature (5 DB tables + 12 server files + 8 UI files + xstate dep); Governed becomes the only workflow standard (UI + REST + MCP parity). Pre-MVP = no data to migrate.
+- Resume rule: read progress log, run `git log --oneline -20`, continue next pending tranche. Keep all driving constraints listed in the progress log in every subagent prompt.
+- Remove this block once U6 is merged and the smoke test passes.
+
 ## Critical Rules
 
 - **NEVER use polling (setInterval, refetchInterval)** — ALL real-time updates MUST use SSE/WebSocket via the live-events system (`/events/ws`).
