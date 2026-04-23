@@ -465,6 +465,18 @@ let resolveSessionFromHeaders:
   | undefined;
 if (config.deploymentMode === "local_trusted") {
   await ensureLocalTrustedBoardPrincipal(db as any);
+  // In local_trusted mode there's no real OAuth — but the MCP OAuth router
+  // still wants a resolveSession to issue codes/tokens. We return a synthetic
+  // session for the local-board user so the MCP OAuth flow (consent page
+  // included) can complete without bouncing the browser to /auth.
+  resolveSession = async () => ({
+    session: { id: "local-implicit", userId: LOCAL_BOARD_USER_ID },
+    user: { id: LOCAL_BOARD_USER_ID, email: null, name: "Local Board" },
+  });
+  resolveSessionFromHeaders = async () => ({
+    session: { id: "local-implicit", userId: LOCAL_BOARD_USER_ID },
+    user: { id: LOCAL_BOARD_USER_ID, email: null, name: "Local Board" },
+  });
 }
 if (config.deploymentMode === "authenticated") {
   const {
