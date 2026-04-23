@@ -3,7 +3,7 @@
 /** Identifiers for navigation items in the sidebar */
 export type NavItemId =
   | "dashboard" | "inbox" | "issues" | "workflows" | "workflow-editor"
-  | "routines" | "goals" | "chat" | "folders" | "cursors" | "projects"
+  | "routines" | "goals" | "chat" | "folders" | "projects"
   | "agents" | "members" | "roles" | "tags" | "config-layers" | "feedback"
   | "org" | "costs" | "activity" | "audit" | "traces" | "containers"
   | "deployments" | "settings" | "sso" | "import-jira" | "view-presets"
@@ -148,7 +148,7 @@ export const DEFAULT_LAYOUT: ViewPresetLayout = {
         label: "Work",
         items: [
           "issues", "workflows", "workflow-editor", "routines",
-          "goals", "chat", "folders", "cursors",
+          "goals", "chat", "folders",
         ],
       },
       { label: "Projects", items: ["__projects__"] },

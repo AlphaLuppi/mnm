@@ -31,9 +31,6 @@ export { approvalComments } from "./approval_comments.js";
 export { activityLog } from "./activity_log.js";
 export { companySecrets } from "./company_secrets.js";
 export { companySecretVersions } from "./company_secret_versions.js";
-export { workflowTemplates, type WorkflowStageTemplateDef } from "./workflow_templates.js";
-export { workflowInstances, type WorkflowGold, type WorkflowGoldStage } from "./workflow_instances.js";
-export { stageInstances } from "./stage_instances.js";
 export { inboxDismissals } from "./inbox_dismissals.js";
 export { projectMemberships } from "./project_memberships.js";
 export { automationCursors } from "./automation_cursors.js";
@@ -79,8 +76,6 @@ export { configLayers } from "./config_layers.js";
 export { configLayerItems } from "./config_layer_items.js";
 export { configLayerFiles } from "./config_layer_files.js";
 export { agentConfigLayers } from "./agent_config_layers.js";
-export { workflowTemplateStageLayers } from "./workflow_template_stage_layers.js";
-export { workflowStageConfigLayers } from "./workflow_stage_config_layers.js";
 export { userCredentials } from "./user_credentials.js";
 export { configLayerRevisions } from "./config_layer_revisions.js";
 // ROUTINES: Recurring task definitions

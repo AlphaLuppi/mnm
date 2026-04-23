@@ -81,7 +81,7 @@ export function traceEmitter(db: Db) {
      * @param agentId - Agent ID
      * @param heartbeatRunId - Associated heartbeat run ID
      * @param stdout - Raw stdout from the adapter (stream-json lines)
-     * @param opts - Optional: workflowInstanceId, stageInstanceId, parentTraceId
+     * @param opts - Optional: parentTraceId, costUsd
      */
     processRun: async (
       companyId: string,
@@ -89,8 +89,6 @@ export function traceEmitter(db: Db) {
       heartbeatRunId: string,
       stdout: string,
       opts?: {
-        workflowInstanceId?: string;
-        stageInstanceId?: string;
         parentTraceId?: string;
         costUsd?: number | null;
       },
@@ -113,8 +111,6 @@ export function traceEmitter(db: Db) {
       const trace = await svc.create(companyId, {
         agentId,
         heartbeatRunId,
-        workflowInstanceId: opts?.workflowInstanceId,
-        stageInstanceId: opts?.stageInstanceId,
         parentTraceId: opts?.parentTraceId,
         name: `run-${heartbeatRunId.slice(0, 8)}`,
       });

@@ -7,10 +7,7 @@ export const compactionSnapshots = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").notNull().references(() => companies.id),
-    workflowInstanceId: uuid("workflow_instance_id").notNull(),
-    stageId: uuid("stage_id").notNull(),
     agentId: uuid("agent_id").notNull(),
-    stageOrder: integer("stage_order").notNull(),
     detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
     detectionPattern: text("detection_pattern").notNull(),
     detectionMessage: text("detection_message").notNull(),
@@ -29,8 +26,8 @@ export const compactionSnapshots = pgTable(
   (table) => ({
     // comp-s02-idx-company
     companyIdx: index("idx_compaction_snapshots_company_id").on(table.companyId),
-    // comp-s02-idx-agent-stage
-    agentStageIdx: index("idx_compaction_snapshots_agent_stage").on(table.agentId, table.stageId),
+    // comp-s02-idx-agent
+    agentIdx: index("idx_compaction_snapshots_agent").on(table.agentId),
     // comp-s02-idx-status
     statusIdx: index("idx_compaction_snapshots_status").on(table.status),
   }),

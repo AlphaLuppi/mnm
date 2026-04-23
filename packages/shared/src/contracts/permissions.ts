@@ -52,9 +52,7 @@ export const PERMISSIONS = {
   // Workflows
   WORKFLOWS_CREATE: "workflows:create",
   WORKFLOWS_READ: "workflows:read",
-  WORKFLOWS_DELETE: "workflows:delete",
   WORKFLOWS_ENFORCE: "workflows:enforce",
-  WORKFLOWS_MANAGE: "workflows:manage",
   // Traces / Observability
   TRACES_READ: "traces:read",
   TRACES_WRITE: "traces:write",
@@ -169,9 +167,7 @@ export const PERMISSION_META: Record<PermissionSlug, PermissionMeta> = {
   [PERMISSIONS.JOINS_APPROVE]: { category: "users", description: "Approuver les demandes d'adhésion", destructive: false },
   [PERMISSIONS.WORKFLOWS_CREATE]: { category: "workflows", description: "Créer un workflow template", destructive: false },
   [PERMISSIONS.WORKFLOWS_READ]: { category: "workflows", description: "Voir les workflows", destructive: false },
-  [PERMISSIONS.WORKFLOWS_DELETE]: { category: "workflows", description: "Supprimer des workflows", destructive: true },
   [PERMISSIONS.WORKFLOWS_ENFORCE]: { category: "workflows", description: "Activer/désactiver l'enforcement", destructive: false },
-  [PERMISSIONS.WORKFLOWS_MANAGE]: { category: "workflows", description: "Gérer TOUS les workflows", destructive: false },
   [PERMISSIONS.TRACES_READ]: { category: "traces", description: "Voir les traces", destructive: false },
   [PERMISSIONS.TRACES_WRITE]: { category: "traces", description: "Écrire des traces", destructive: false },
   [PERMISSIONS.TRACES_MANAGE]: { category: "traces", description: "Gérer les prompts gold, lenses", destructive: false },

@@ -23,7 +23,7 @@ Sequential implementer subagents per tranche. After each tranche: spec complianc
 
 | # | Tranche | Scope | Status | Commit(s) |
 |---|---------|-------|--------|-----------|
-| U1 | Nuke legacy | Migration 0066 + delete 5 DB tables, 12 server files, 8 UI files, xstate dep, dead perms, nav cleanup | pending | |
+| U1 | Nuke legacy | Migration 0066 + delete 5 DB tables, 12 server files, 8 UI files, xstate dep, dead perms, nav cleanup | done | (this commit) |
 | U2 | REST endpoints + service extensions | 10 endpoints, `computeNextTag`, `saveDefinition`, `archiveDefinition`, `listRuns`, `getRunWithSteps`, `GitProvider.createTag` | blocked by U1 | |
 | U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | blocked by U2 | |
 | U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | blocked by U2 | |
@@ -42,11 +42,11 @@ If the session is compacted or interrupted, resume by:
 ## Per-tranche log
 
 ### U1 — Nuke legacy workflows
-Status: pending
-Start:
-End:
-Commit:
-Notes:
+Status: done
+Start: 2026-04-24T00:00:00Z
+End: 2026-04-24T00:00:00Z
+Commit: (this commit)
+Notes: Deleted 25 files (5 DB schema, 4 server routes, 8 server services, 1 MCP tool, 6 UI pages/api/component). Added 2 migration files. Also touched: routes/index.ts, services/index.ts, mcp/build-mcp-services.ts, mcp/tools/index.ts, services/heartbeat.ts, services/dashboard.ts, services/cursor-enforcement.ts, services/hitl-validation.ts, services/drift-monitor.ts, services/gold-trace-enrichment.ts, services/bronze-trace-capture.ts, services/trace-emitter.ts, services/trace-service.ts, routes/e2e-seed.ts, shared/types/trace.ts, shared/validators/trace.ts, shared/contracts/permissions.ts, shared/types/view-preset.ts, ui/App.tsx, ui/nav-registry.ts, server/package.json. Pre-existing test failures (138 fails) confirmed identical on master HEAD before changes. Migration test: 6/6 pass. Typecheck: all 13 packages pass (embedded-postgres Windows type error pre-existing).
 
 ### U2 — REST + service extensions
 Status: blocked by U1

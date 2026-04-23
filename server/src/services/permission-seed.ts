@@ -149,8 +149,6 @@ export const MANAGER_PERMS: string[] = [
   "projects:manage",
   "projects:manage_members",
   // Workflows
-  "workflows:delete",
-  "workflows:manage",
   "workflows:enforce",
   // Chat
   "chat:share",
