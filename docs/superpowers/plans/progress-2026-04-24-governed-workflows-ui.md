@@ -106,8 +106,29 @@ Commits:
 Notes:
 
 ### U6 — MCP tool parity
-Status: blocked by U2
-Start:
-End:
-Commits:
-Notes:
+Status: done
+Start: 2026-04-24
+End: 2026-04-24
+Commits: e7933a1 feat(workflows): createGovernedWorkflow MCP tool
+Notes: |
+  All 3 tools (create/update/archive) implemented in a single commit because
+  they share the same tool file, test file, and infrastructure (errors.ts,
+  build-mcp-services.ts). Separate commits would have required split-staging
+  a single file, which would have left the file in a broken intermediate state.
+
+  Deviations from plan template:
+  - Tool names use snake_case (create_governed_workflow, update_governed_workflow,
+    archive_governed_workflow) to match the existing tool naming convention in
+    the file (list_governed_workflows, launch_governed_workflow, etc.).
+  - The plan template used camelCase (createGovernedWorkflow) but the file uses
+    snake_case — existing convention wins.
+  - Re-validation via workflowDefinitionSchema.safeParse in create handler is
+    needed because collectTools does not validate input before calling handler.
+  - resolveGitProvider added to buildMcpServices services object so tools can
+    call saveDefinition without importing createResolveGitProvider directly.
+  - No duplicate of saveDefinition/archiveDefinition logic — tools delegate to
+    service helpers from governed-workflows-extensions.ts.
+
+  Typecheck: 13/13 packages pass (pre-existing @embedded-postgres/windows-x64
+  error on Windows root package is unrelated).
+  Tests: 18/18 pass in governed-workflows.tool.test.ts (8 new tests for U6).
