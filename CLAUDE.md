@@ -4,9 +4,10 @@ MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
 Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
 Language: French for planning documents. See README.md for full project docs.
 
-## Governed Workflows UI — Status: landed 2026-04-24 — pending Tom's morning review.
+## Governed Workflows UI — Status: landed 2026-04-24 with U7 polish — pending Tom's morning smoke test.
 
 - All 6 tranches shipped (U1 nuke legacy, U2 REST, U3 live events, U4 UI API, U5 4 pages + routes + parity, U6 MCP tools).
+- U7 polish (10 commits): security regex, error_code alignment, archive correctness, listRuns sort+cap, editor save deadlock fix, AlertDialog, a11y, nav permission, status filter sentinel, dead code removal.
 - Completion report: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md` (end of file).
 - Progress log: `docs/superpowers/plans/progress-2026-04-24-governed-workflows-ui.md`
 - Remove this block after sign-off.
