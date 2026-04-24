@@ -84,6 +84,8 @@ import { blockCatalogueRoutes } from "./routes/block-catalogue.js";
 import { governedWorkflowUiRoutes } from "./routes/governed-workflows-ui.js";
 // GOVERNED-WORKFLOWS-FILES: Workflow Studio multi-file editor REST endpoints
 import { governedWorkflowFilesRoutes } from "./routes/governed-workflows-files.js";
+// GOVERNED-WORKFLOWS-AI: Workflow Studio AI assistant SSE endpoint
+import { governedWorkflowsAiRoutes } from "./routes/governed-workflows-ai.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 import { createMcpRouter, shutdownMcp } from "./mcp/index.js";
 import { buildMcpServices } from "./mcp/build-mcp-services.js";
@@ -339,6 +341,14 @@ export async function createApp(
   api.use(
     "/companies/:companyId/governed-workflows/:name/files",
     governedWorkflowFilesRoutes(db),
+  );
+  // GOVERNED-WORKFLOWS-AI: SSE chat endpoint for the Workflow Studio AI
+  // assistant. Mounted BEFORE the cockpit router (same reason as /files) so
+  // the more specific `/ai` path is matched before the cockpit's `/:name`
+  // wildcard can swallow it.
+  api.use(
+    "/companies/:companyId/governed-workflows/:name/ai",
+    governedWorkflowsAiRoutes(db),
   );
   // GOVERNED-WORKFLOWS-UI: cockpit REST endpoints
   api.use(
