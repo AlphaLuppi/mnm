@@ -26,6 +26,8 @@ import {
 } from "../services/governed-workflows-extensions.js";
 import { createResolveGitProvider } from "../mcp/build-mcp-services.js";
 import { ShaCache } from "@mnm/git-provider";
+import { configLayers, configLayerItems } from "@mnm/db";
+import { and, eq, isNull } from "drizzle-orm";
 
 // ── Error helpers ────────────────────────────────────────────────────────────
 
@@ -55,6 +57,25 @@ const launchBodySchema = z.object({
   params: z.record(z.unknown()).optional().default({}),
   gitTagPreference: z.enum(["latest", "HEAD"]).optional().default("latest"),
 });
+
+// Body for PUT /git-provider-config — sets the per-company git_provider
+// config_layer_item used by createResolveGitProvider (see build-mcp-services).
+// The config is idempotent: rerunning with new values updates the row in place.
+// Server restart required after change (resolveGitProvider cache is process-lifetime).
+const gitProviderConfigSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("gitlab"),
+    providerId: z.string().min(1).default("cba-lab"),
+    baseUrl: z.string().url(),
+    projectId: z.string().min(1),
+    token: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("local"),
+    providerId: z.string().min(1).default("local:dev"),
+    repoDir: z.string().min(1),
+  }),
+]);
 
 // ── Author identity from actor ───────────────────────────────────────────────
 
@@ -161,6 +182,117 @@ export function governedWorkflowUiRoutes(db: Db) {
           resolveGitProvider,
         });
         res.status(201).json(result);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── PUT /governed-workflows/git-provider-config ────────────────────────────
+  // Upsert the company-enforced git_provider config_layer_item. Defined BEFORE
+  // PUT /:name so Express matches the literal path first (otherwise "/:name"
+  // would capture "git-provider-config" as a workflow name).
+  // Idempotent: re-running with new values updates the existing row.
+  // Gated by workflows:create (admin-ish in local_trusted; prod should harden).
+  // Note: the resolveGitProvider cache is process-lifetime — restart dev after.
+  router.put(
+    "/git-provider-config",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_CREATE),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const parsed = gitProviderConfigSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return apiError(
+            res,
+            422,
+            "WORKFLOW_VALIDATION",
+            "Invalid git provider config",
+            parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+          );
+        }
+
+        // 1. Find or create a company-enforced config layer named "Git Provider".
+        const existingLayers = await db
+          .select({ id: configLayers.id })
+          .from(configLayers)
+          .where(
+            and(
+              eq(configLayers.companyId, companyId),
+              eq(configLayers.scope, "company"),
+              eq(configLayers.enforced, true),
+              eq(configLayers.name, "Git Provider"),
+              isNull(configLayers.archivedAt),
+            ),
+          )
+          .limit(1);
+
+        let layerId: string;
+        if (existingLayers.length > 0) {
+          layerId = existingLayers[0]!.id;
+        } else {
+          const actorUserId =
+            req.actor.type === "board" && req.actor.userId
+              ? req.actor.userId
+              : "system";
+          const [created] = await db
+            .insert(configLayers)
+            .values({
+              companyId,
+              name: "Git Provider",
+              description: "Per-company git backend for Governed Workflows",
+              scope: "company",
+              enforced: true,
+              createdByUserId: actorUserId,
+              ownerType: "company",
+              visibility: "public",
+            })
+            .returning({ id: configLayers.id });
+          layerId = created!.id;
+        }
+
+        // 2. Upsert the git_provider item in that layer.
+        const existingItems = await db
+          .select({ id: configLayerItems.id })
+          .from(configLayerItems)
+          .where(
+            and(
+              eq(configLayerItems.layerId, layerId),
+              eq(configLayerItems.itemType, "git_provider"),
+              eq(configLayerItems.name, "default"),
+            ),
+          )
+          .limit(1);
+
+        if (existingItems.length > 0) {
+          await db
+            .update(configLayerItems)
+            .set({
+              configJson: parsed.data,
+              enabled: true,
+              updatedAt: new Date(),
+            })
+            .where(eq(configLayerItems.id, existingItems[0]!.id));
+        } else {
+          await db.insert(configLayerItems).values({
+            companyId,
+            layerId,
+            itemType: "git_provider",
+            name: "default",
+            displayName: `Git Provider (${parsed.data.kind})`,
+            configJson: parsed.data,
+            enabled: true,
+          });
+        }
+
+        res.json({
+          ok: true,
+          kind: parsed.data.kind,
+          layerId,
+          restartRequired: true,
+          hint:
+            "The resolveGitProvider cache is process-lifetime — restart the MnM dev server once for this change to take effect.",
+        });
       } catch (err) {
         next(err);
       }
