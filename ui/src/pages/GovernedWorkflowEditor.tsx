@@ -26,10 +26,11 @@ const Monaco = lazy(() => import("@monaco-editor/react"));
 const DEFAULT_DEFINITION = JSON.stringify(
   {
     apiVersion: "mnm/v1",
-    kind: "Workflow",
-    metadata: { name: "my-workflow", description: "" },
+    kind: "GovernedWorkflow",
+    name: "my-workflow",
+    description: "",
     variables: {},
-    steps: [],
+    steps: [{ id: "step-1", deps: [], agent: "my-agent", prompt_context: {} }],
   } satisfies WorkflowDefinition,
   null,
   2,
@@ -76,7 +77,7 @@ export function GovernedWorkflowEditor() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Workflows gouvernés", to: "/workflows" },
+      { label: "Workflows gouvernés", href: "/workflows" },
       { label: isEdit ? name! : "Nouveau workflow" },
     ]);
   }, [setBreadcrumbs, isEdit, name]);
@@ -102,8 +103,8 @@ export function GovernedWorkflowEditor() {
   const createMutation = useMutation({
     mutationFn: (input: { definition: WorkflowDefinition; commitMessage: string }) =>
       governedWorkflowsApi.create(selectedCompanyId!, input),
-    onSuccess: (result) => {
-      const wfName = (parsed as WorkflowDefinition | null)?.metadata?.name ?? "workflow";
+    onSuccess: () => {
+      const wfName = (parsed as WorkflowDefinition | null)?.name ?? "workflow";
       setShowSaveDialog(false);
       navigate(`/workflows/${encodeURIComponent(wfName)}/runs`);
     },

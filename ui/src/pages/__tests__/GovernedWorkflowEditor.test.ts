@@ -56,14 +56,12 @@ describe("GovernedWorkflowEditor — validateDefinition", () => {
   it("returns parsed definition for valid minimal workflow", () => {
     const valid = {
       apiVersion: "mnm/v1",
-      kind: "Workflow",
-      metadata: { name: "hello-world" },
+      kind: "GovernedWorkflow",
+      name: "hello-world",
       steps: [
         {
           id: "step-1",
-          name: "First step",
-          kind: "claude_local",
-          prompt: "Do something",
+          agent: "my-agent",
         },
       ],
     };
@@ -82,9 +80,9 @@ describe("GovernedWorkflowEditor — validateDefinition", () => {
   it("saveValid is false when commitMessage is empty", () => {
     const valid = {
       apiVersion: "mnm/v1",
-      kind: "Workflow",
-      metadata: { name: "hello" },
-      steps: [{ id: "s1", name: "Step", kind: "claude_local", prompt: "p" }],
+      kind: "GovernedWorkflow",
+      name: "hello",
+      steps: [{ id: "s1", agent: "my-agent" }],
     };
     const { parsed } = validateDefinition(JSON.stringify(valid));
     const commitMessage = "";
