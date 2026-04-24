@@ -730,9 +730,9 @@ export const parityData: ParityData = {
         },
         {
           id: "governed-workflows-editor",
-          name: "Workflow definition editor (Monaco + zod live validation)",
+          name: "Workflow definition editor (Monaco + JSON schema autocomplete + zod live validation)",
           description:
-            "Create or edit a workflow JSON definition with Monaco in JSON mode and live zod validation feedback. Commit message dialog on save.",
+            "Create or edit a workflow JSON definition with Monaco in JSON mode. JSON Schema derived from zod workflowDefinitionSchema provides inline squiggles, autocomplete, and French hover tooltips via beforeMount. Side panel shows zod errors. Snippet toolbar: insert step, insert gate, format.",
           web: { status: "done", since: "2026-04-24" },
           desktop: {
             status: "missing",

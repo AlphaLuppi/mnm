@@ -28,7 +28,9 @@ Sequential implementer subagents per tranche. After each tranche: spec complianc
 | U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | done | 5a964f7, f11c201, c9d6775 |
 | U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | done | 6c72052 |
 | U5 | 4 pages UI | Monaco install + List / Editor / Runs / RunDetail + routes + parity + smoke | done | 4fc89a6, 87ff3b7, 7dfd246, f8b9219, 042dff9, 6b540f3, 36b07be |
-| U6 | MCP tool parity | `createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow` + registry check | blocked by U3 | |
+| U6 | MCP tool parity | `createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow` + registry check | done | e7933a1 |
+| U7 | Polish | Security regex, error_code, archive, listRuns sort, editor deadlock, AlertDialog, a11y, nav perm | done | 70fc10e, a094592, d89db26, 10684d9, 1188734, 8ec8156, c526b2c, 8dd8fe3, 44256eb |
+| U8 | Monaco autocomplete + JSON schema validation | zod-to-json-schema, field descriptions, beforeMount schema reg, toolbar snippets | done | 59b00f9, 1e31ac0, 1c996ce, 4cea2a7 |
 
 ## Session continuity
 
@@ -180,3 +182,43 @@ raw textarea for Textarea primitive in Runs launch dialog, added aria-labels for
 nav workflow-editor permission to workflows:create, fixed "__all__" status sentinel leaking into
 API queries, deleted 2 orphan legacy components (StageEditorCard/WorkflowEditorPreview), and
 removed the stale workflowInstanceId param from list_traces MCP tool (column dropped in m0066).
+
+### U8 — Monaco editor autocomplete + live JSON schema validation
+Status: done
+Date: 2026-04-24
+Commits:
+  - 59b00f9 feat(governed-workflows): add French field descriptions on workflow schema
+  - 1e31ac0 feat(governed-workflows): export workflowJsonSchema derived from zod
+  - 1c996ce feat(workflows): Monaco editor autocomplete via JSON schema
+  - 4cea2a7 feat(workflows): editor toolbar snippets — insert step/gate + format
+
+Summary:
+  - Installed zod-to-json-schema@3.25.2 in @mnm/governed-workflows (zero-dep, ~10KB).
+  - Enriched all zod schema fields with .describe() French annotations:
+    workflowDefinitionSchema (6 fields), workflowStepSchema (6 fields),
+    gateItemSchema (3 fields), variableDefSchema (2 fields).
+  - Exported workflowJsonSchema from @mnm/governed-workflows barrel via new
+    packages/governed-workflows/src/workflow.jsonschema.ts. Uses $refStrategy:"none"
+    (inline, no network calls) — Monaco resolves all refs client-side.
+  - Wired into GovernedWorkflowEditor via beforeMount prop: registers the schema
+    against URI "https://mnm.local/schemas/governed-workflow.json" with fileMatch:["*"].
+    Options: validate:true, enableSchemaRequest:false, quickSuggestions, folding,
+    suggestOnTriggerCharacters.
+  - Editor ref captured via onMount. Snippet toolbar (3 buttons): "Insérer une étape"
+    (step object at cursor), "Insérer une gate" (gate block at cursor), "Formater"
+    (editor.action.formatDocument trigger).
+  - Tests: 16 unit tests in workflow.jsonschema.test.ts (schema structure + descriptions
+    + pattern assertions), 8 tests in GovernedWorkflowEditor.test.ts (beforeMount spy
+    + workflowJsonSchema import), all 32 UI tests pass.
+  - Typecheck: 15/15 packages pass (root pre-existing @embedded-postgres/windows-x64).
+  - Live verification (chrome-devtools MCP):
+    - INVALID_NAME → Monaco marker severity=4 on line 4, message "String does not match
+      the pattern of ^[a-z0-9][a-z0-9_-]*$." — red squiggle confirmed in screenshot.
+    - Side zod panel shows error simultaneously, "Enregistrer" button disabled.
+    - Toolbar buttons render and fire (insert-step confirmed via screenshot).
+  - Screenshots: u8-baseline-editor.png, u8-invalid-name-squiggle.png, u8-insert-step.png
+  - No polling introduced. Monaco + schema remain lazy-loaded (import chain only resolves
+    after the lazy() boundary). Side zod validation panel unaffected.
+  - Deviation: $refStrategy:"none" wraps schema in { $ref, definitions:{GovernedWorkflow:{...}} }
+    instead of flat root — Monaco handles this natively, tests adapted to unwrap the definitions
+    key. The schema URI fileMatch:["*"] matches the in-memory model since it has no explicit URI.
