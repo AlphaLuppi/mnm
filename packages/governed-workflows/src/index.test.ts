@@ -13,6 +13,7 @@ describe("public barrel", () => {
       "gateItemSchema",
       "gateOutputSchema",
       "workflowDefinitionSchema",
+      "workflowJsonSchema",
       "workflowStepSchema",
     ]);
   });

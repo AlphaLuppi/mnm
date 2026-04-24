@@ -156,6 +156,7 @@
       "version": "0.1.0",
       "dependencies": {
         "zod": "^3.24.2",
+        "zod-to-json-schema": "^3.25.2",
       },
       "devDependencies": {
         "typescript": "^5.7.3",
