@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Play, GitBranch } from "lucide-react";
 import type { GovernedRunRow } from "@mnm/shared";
 
+const ALL_STATUSES_SENTINEL = "__all__";
 const STATUS_OPTIONS = ["", "draft", "active", "completed", "failed"] as const;
 
 const runStatusVariant: Record<string, string> = {
@@ -47,7 +48,7 @@ export function GovernedWorkflowRuns() {
   const navigate = useNavigate();
   const { setBreadcrumbs } = useBreadcrumbs();
 
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>(ALL_STATUSES_SENTINEL);
   const [initiatedByFilter, setInitiatedByFilter] = useState<string>("");
   const [startedAfter, setStartedAfter] = useState<string>("");
   const [startedBefore, setStartedBefore] = useState<string>("");
@@ -65,7 +66,7 @@ export function GovernedWorkflowRuns() {
   }, [setBreadcrumbs, name]);
 
   const filters = {
-    status: statusFilter || undefined,
+    status: (statusFilter && statusFilter !== ALL_STATUSES_SENTINEL) ? statusFilter : undefined,
     initiatedByActorId: initiatedByFilter || undefined,
     startedAfter: startedAfter || undefined,
     startedBefore: startedBefore || undefined,
@@ -150,7 +151,7 @@ export function GovernedWorkflowRuns() {
           </SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s} value={s || "_all"}>
+              <SelectItem key={s || ALL_STATUSES_SENTINEL} value={s || ALL_STATUSES_SENTINEL}>
                 {s || "Tous les statuts"}
               </SelectItem>
             ))}
