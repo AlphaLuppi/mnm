@@ -66,6 +66,7 @@ import { GovernedWorkflowsList } from "./pages/GovernedWorkflowsList";
 import { GovernedWorkflowEditor } from "./pages/GovernedWorkflowEditor";
 import { GovernedWorkflowRuns } from "./pages/GovernedWorkflowRuns";
 import { GovernedWorkflowRunDetail } from "./pages/GovernedWorkflowRunDetail";
+import { WorkflowStudio } from "./pages/workflows/WorkflowStudio";
 
 // SANDBOX-AUTH-AUTOBOOTSTRAP: no more CLI bootstrap page
 // First user signup auto-promotes to instance_admin via Better Auth databaseHooks
@@ -182,7 +183,7 @@ function boardRoutes() {
       <Route path="feedback" element={<RequirePermission permission="feedback:read" showForbidden><FeedbackDashboard /></RequirePermission>} />
       <Route path="workflows" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowsList /></RequirePermission>} />
       <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><GovernedWorkflowEditor /></RequirePermission>} />
-      <Route path="workflows/:name" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowEditor /></RequirePermission>} />
+      <Route path="workflows/:name" element={<RequirePermission permission="workflows:read" showForbidden><WorkflowStudio /></RequirePermission>} />
       <Route path="workflows/:name/runs" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowRuns /></RequirePermission>} />
       <Route path="workflows/:name/runs/:runId" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowRunDetail /></RequirePermission>} />
       <Route path="inbox" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/inbox/new" replace /></RequirePermission>} />
