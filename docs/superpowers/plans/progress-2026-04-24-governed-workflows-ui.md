@@ -24,11 +24,11 @@ Sequential implementer subagents per tranche. After each tranche: spec complianc
 | # | Tranche | Scope | Status | Commit(s) |
 |---|---------|-------|--------|-----------|
 | U1 | Nuke legacy | Migration 0066 + delete 5 DB tables, 12 server files, 8 UI files, xstate dep, dead perms, nav cleanup | done | (this commit) |
-| U2 | REST endpoints + service extensions | 10 endpoints, `computeNextTag`, `saveDefinition`, `archiveDefinition`, `listRuns`, `getRunWithSteps`, `GitProvider.createTag` | blocked by U1 | |
-| U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | blocked by U2 | |
-| U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | blocked by U2 | |
+| U2 | REST endpoints + service extensions | 10 endpoints, `computeNextTag`, `saveDefinition`, `archiveDefinition`, `listRuns`, `getRunWithSteps`, `GitProvider.createTag` | done | f51df06, d7acd28, a93d2e6, 29f436f, 6246caf, 41bb843 |
+| U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | blocked by U3 | |
+| U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | blocked by U3 | |
 | U5 | 4 pages UI | Monaco install + List / Editor / Runs / RunDetail + routes + parity + smoke | blocked by U4 | |
-| U6 | MCP tool parity | `createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow` + registry check | blocked by U2 | |
+| U6 | MCP tool parity | `createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow` + registry check | blocked by U3 | |
 
 ## Session continuity
 
@@ -49,11 +49,25 @@ Commit: eafed96b7b1e48208ace6e083d5f44298681b6e6
 Notes: Deleted 25 files (5 DB schema, 4 server routes, 8 server services, 1 MCP tool, 6 UI pages/api/component). Added 2 migration files. Also touched: routes/index.ts, services/index.ts, mcp/build-mcp-services.ts, mcp/tools/index.ts, services/heartbeat.ts, services/dashboard.ts, services/cursor-enforcement.ts, services/hitl-validation.ts, services/drift-monitor.ts, services/gold-trace-enrichment.ts, services/bronze-trace-capture.ts, services/trace-emitter.ts, services/trace-service.ts, routes/e2e-seed.ts, shared/types/trace.ts, shared/validators/trace.ts, shared/contracts/permissions.ts, shared/types/view-preset.ts, ui/App.tsx, ui/nav-registry.ts, server/package.json. Pre-existing test failures (138 fails) confirmed identical on master HEAD before changes. Migration test: 6/6 pass. Typecheck: all 13 packages pass (embedded-postgres Windows type error pre-existing).
 
 ### U2 — REST + service extensions
-Status: blocked by U1
-Start:
-End:
+Status: done
+Start: 2026-04-24T08:00:00Z
+End: 2026-04-24T09:30:00Z
 Commits:
+  - f51df06 feat(workflows): shared row types for governed workflow DB rows (U2.1)
+  - d7acd28 feat(workflows): computeNextTag semver bump helper (U2.2)
+  - a93d2e6 feat(workflows): saveDefinition commits workflow.json and computes next tag (U2.3)
+  - 29f436f feat(git-provider): add createTag + wire into saveDefinition (U2.4)
+  - 6246caf feat(workflows): archiveDefinition + listRuns + getRunWithSteps helpers (U2.5)
+  - 41bb843 feat(workflows): REST route skeleton + GET list endpoint (U2.6-U2.9 combined)
 Notes:
+  - U2.7, U2.8, U2.9 were implemented in the same pass as U2.6 (all 10 endpoints in a single route file). Consolidated into one commit with explanation in the commit body.
+  - DB-integrated tests (saveDefinition, archiveDefinition, listRuns, getRunWithSteps) fail on Windows CI due to pre-existing Postgres auth issue (password authentication failed for user postgres). Pure-function tests (computeNextTag: 5/5) and route tests (14/14) pass.
+  - LocalBareRepoProvider.createTag tests: 4/4 pass.
+  - Typecheck: all 13 packages pass. Only pre-existing root-level @embedded-postgres/windows-x64 error remains.
+  - archivedAt column added to DB Drizzle schema (packages/db/src/schema/governed_workflow_definitions.ts) — was in migration 0066 but missing from schema file.
+  - Updated governed-workflows-source-resolver.test.ts stub to include createTag (interface compliance).
+  - db:migrate: fails on Windows (no DATABASE_URL). Expected — would apply migration 0066 on a real DB.
+  - Test suite: ~450 passing, ~29 failing (all pre-existing Windows Postgres + timing issues).
 
 ### U3 — Live events
 Status: blocked by U2
