@@ -21,6 +21,11 @@ import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
 import { configLayerConflictService } from "./config-layer-conflict.js";
+import { publishLiveEvent } from "./live-events.js";
+import {
+  emitStepUpdated,
+  emitGateEvaluated,
+} from "../realtime/emitters/governed-run-events.js";
 
 // Constant providerId for ShaCache (providerId, path, sha) tuple.
 const PROVIDER_ID = "mnm-workflows";
@@ -613,6 +618,25 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         ),
       );
 
+    // Resolve stepExec id once for SSE emission (used below and in gate block).
+    const [launchStepExec] = await db
+      .select({ id: governedStepExecutions.id })
+      .from(governedStepExecutions)
+      .where(
+        and(
+          eq(governedStepExecutions.runId, args.runId),
+          eq(governedStepExecutions.stepIdInJson, args.stepId),
+        ),
+      );
+
+    // Emit step_updated so the UI can refresh the run detail panel.
+    emitStepUpdated({
+      publish: publishLiveEvent,
+      companyId: args.companyId,
+      runId: args.runId,
+      stepExecId: launchStepExec.id,
+    });
+
     // Evaluate entry gate if present
     const entryBlock = step.gates?.entry as GateBlock | undefined;
     if (entryBlock && entryBlock.length > 0) {
@@ -649,32 +673,36 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         { compiledCache, helpers },
       );
 
-      // Persist every gate_result row
-      const [stepExec] = await db
-        .select({ id: governedStepExecutions.id })
-        .from(governedStepExecutions)
-        .where(
-          and(
-            eq(governedStepExecutions.runId, args.runId),
-            eq(governedStepExecutions.stepIdInJson, args.stepId),
-          ),
-        );
+      // Persist every gate_result row (reuse launchStepExec resolved above)
+      const insertedGateResults = await db
+        .insert(gateResults)
+        .values(
+          blockResult.gate_results.map((r) => ({
+            companyId: args.companyId,
+            runId: args.runId,
+            stepExecId: launchStepExec.id,
+            gateIdInJson: r.gate_id_in_json,
+            kind: r.kind,
+            pass: r.pass,
+            report: r.report,
+            errorCode: r.error_code ?? null,
+            hints: r.hints ?? [],
+            gateGitSha: r.gate_git_sha,
+            evaluatedAt: new Date(r.evaluated_at),
+          })),
+        )
+        .returning({ id: gateResults.id });
 
-      await db.insert(gateResults).values(
-        blockResult.gate_results.map((r) => ({
+      // Emit gate_evaluated for each persisted gate result.
+      for (const gr of insertedGateResults) {
+        emitGateEvaluated({
+          publish: publishLiveEvent,
           companyId: args.companyId,
           runId: args.runId,
-          stepExecId: stepExec.id,
-          gateIdInJson: r.gate_id_in_json,
-          kind: r.kind,
-          pass: r.pass,
-          report: r.report,
-          errorCode: r.error_code ?? null,
-          hints: r.hints ?? [],
-          gateGitSha: r.gate_git_sha,
-          evaluatedAt: new Date(r.evaluated_at),
-        })),
-      );
+          stepExecId: launchStepExec.id,
+          gateResultId: gr.id,
+        });
+      }
 
       if (!blockResult.pass) {
         const failed = blockResult.gate_results.find((r) => !r.pass);
@@ -687,6 +715,13 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
               eq(governedStepExecutions.stepIdInJson, args.stepId),
             ),
           );
+        // Emit step_updated to reflect the rollback to pending.
+        emitStepUpdated({
+          publish: publishLiveEvent,
+          companyId: args.companyId,
+          runId: args.runId,
+          stepExecId: launchStepExec.id,
+        });
         throw new GovernedWorkflowError(
           WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
           `Entry gate failed for step '${args.stepId}': ${failed?.report ?? "unknown"}`,
@@ -704,6 +739,13 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
             eq(governedStepExecutions.stepIdInJson, args.stepId),
           ),
         );
+      // Emit step_updated for the running transition.
+      emitStepUpdated({
+        publish: publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        stepExecId: launchStepExec.id,
+      });
     }
 
     // Interpolate prompt_context placeholders (`{{variables.name}}`,
@@ -920,6 +962,14 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         })
         .where(eq(governedStepExecutions.id, stepExec.id));
 
+      // Emit step_updated to notify UI of the artifact + state change.
+      emitStepUpdated({
+        publish: publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        stepExecId: stepExec.id,
+      });
+
       const exitBlock = step.gates?.exit as GateBlock | undefined;
       if (exitBlock && exitBlock.length > 0) {
         const gitProvider = await resolveGitProvider(args.companyId);
@@ -955,21 +1005,35 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           { compiledCache, helpers },
         );
 
-        await tx.insert(gateResults).values(
-          blockResult.gate_results.map((r) => ({
+        const insertedExitGateResults = await tx
+          .insert(gateResults)
+          .values(
+            blockResult.gate_results.map((r) => ({
+              companyId: args.companyId,
+              runId: args.runId,
+              stepExecId: stepExec.id,
+              gateIdInJson: r.gate_id_in_json,
+              kind: r.kind,
+              pass: r.pass,
+              report: r.report,
+              errorCode: r.error_code ?? null,
+              hints: r.hints ?? [],
+              gateGitSha: r.gate_git_sha,
+              evaluatedAt: new Date(r.evaluated_at),
+            })),
+          )
+          .returning({ id: gateResults.id });
+
+        // Emit gate_evaluated for each exit gate result.
+        for (const gr of insertedExitGateResults) {
+          emitGateEvaluated({
+            publish: publishLiveEvent,
             companyId: args.companyId,
             runId: args.runId,
             stepExecId: stepExec.id,
-            gateIdInJson: r.gate_id_in_json,
-            kind: r.kind,
-            pass: r.pass,
-            report: r.report,
-            errorCode: r.error_code ?? null,
-            hints: r.hints ?? [],
-            gateGitSha: r.gate_git_sha,
-            evaluatedAt: new Date(r.evaluated_at),
-          })),
-        );
+            gateResultId: gr.id,
+          });
+        }
 
         if (!blockResult.pass) {
           const failed = blockResult.gate_results.find((r) => !r.pass);
@@ -977,6 +1041,13 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
             .update(governedStepExecutions)
             .set({ state: "running" })
             .where(eq(governedStepExecutions.id, stepExec.id));
+          // Emit step_updated to reflect the rollback to running.
+          emitStepUpdated({
+            publish: publishLiveEvent,
+            companyId: args.companyId,
+            runId: args.runId,
+            stepExecId: stepExec.id,
+          });
           throw new GovernedWorkflowError(
             WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
             `Exit gate failed for step '${args.stepId}': ${failed?.report ?? "unknown"}`,
@@ -990,6 +1061,14 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         .update(governedStepExecutions)
         .set({ state: "succeeded", completedAt: new Date() })
         .where(eq(governedStepExecutions.id, stepExec.id));
+
+      // Emit step_updated for the succeeded transition.
+      emitStepUpdated({
+        publish: publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        stepExecId: stepExec.id,
+      });
 
       // Check whether the whole run is done
       const pending = await tx
