@@ -26,6 +26,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useWorkflowFiles } from "@/hooks/useWorkflowFiles";
 import { FileTree } from "@/components/workflow-studio/FileTree";
 import { MonacoMultiEditor } from "@/components/workflow-studio/MonacoMultiEditor";
+import { AiAssistantPanel } from "@/components/workflow-studio/AiAssistantPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -286,10 +287,10 @@ export function WorkflowStudio() {
         </div>
       )}
 
-      {/* Main split: FileTree | Monaco */}
+      {/* Main split: FileTree | Monaco | AI Assistant */}
       <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
         <ResizablePanelGroup orientation="horizontal">
-          <ResizablePanel defaultSize={22} minSize={15} maxSize={40}>
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
             <div className="h-full bg-muted/20">
               {isLoadingTree ? (
                 <div className="flex flex-col gap-1 p-2">
@@ -311,21 +312,43 @@ export function WorkflowStudio() {
             </div>
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize={78} minSize={40}>
-            <div className="h-full min-h-0">
+          <ResizablePanel defaultSize={55} minSize={30}>
+            <div className="h-full min-h-0 relative">
               <MonacoMultiEditor
                 files={files}
                 activePath={activePath}
                 onChange={editFile}
                 readOnly={!canEdit}
               />
+              {/* ValidationBadge overlay lands in U14.5 */}
             </div>
           </ResizablePanel>
-          {/* TODO U14: AI Assistant Panel goes here as a 3rd column */}
+          <ResizableHandle />
+          <ResizablePanel defaultSize={25} minSize={18} maxSize={40}>
+            {selectedCompanyId && name ? (
+              <AiAssistantPanel
+                companyId={selectedCompanyId}
+                workflowName={name}
+                enabled={canEdit}
+                onApplyFile={(proposal) => {
+                  if (proposal.delete) return deleteFile(proposal.path);
+                  if (files[proposal.path]) {
+                    editFile(proposal.path, proposal.content ?? "");
+                  } else {
+                    addFile(proposal.path, proposal.content ?? "");
+                  }
+                }}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-muted-foreground p-3">
+                Assistant IA indisponible.
+              </div>
+            )}
+          </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 
-      {/* ValidationBadge placeholder (U14.5) */}
+      {/* Dirty-count status line */}
       <div className="flex-shrink-0 text-xs text-muted-foreground">
         {dirtyCount > 0
           ? `${dirtyCount} fichier(s) modifié(s) — pensez à enregistrer.`
