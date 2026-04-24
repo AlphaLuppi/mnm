@@ -1,0 +1,257 @@
+/**
+ * Unit tests for the Workflow Studio AI assistant service (U14.1).
+ *
+ * We mock out:
+ *   - governedWorkflowService (so we don't hit drizzle / a real git provider)
+ *   - listWorkflowFiles       (so the file tree is controllable per-test)
+ * The `anthropicStreaming` dep is already injection-friendly — tests stub it
+ * directly without mocking any module.
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// ── Mock dependencies ───────────────────────────────────────────────────────
+
+const getWorkflowParsedMock = vi.fn();
+const listWorkflowFilesMock = vi.fn();
+
+vi.mock("../governed-workflows.js", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../governed-workflows.js")>();
+  return {
+    ...orig,
+    governedWorkflowService: vi.fn(() => ({
+      getWorkflowParsed: getWorkflowParsedMock,
+    })),
+  };
+});
+
+vi.mock("../governed-workflow-files.js", () => ({
+  listWorkflowFiles: (...args: unknown[]) => listWorkflowFilesMock(...args),
+}));
+
+// Drizzle stub: `db.select().from().where().limit()` → resolves an array.
+let mockLatestGitTag: string | null = "hello-world/v1.0.0";
+function makeStubDb() {
+  const chain = {
+    from: () => chain,
+    where: () => chain,
+    limit: async () =>
+      mockLatestGitTag === null ? [] : [{ latestGitTag: mockLatestGitTag }],
+  };
+  return { select: () => chain } as any;
+}
+
+// ── Imports (after mocks) ───────────────────────────────────────────────────
+
+import {
+  streamWorkflowAiChat,
+  parseFileProposals,
+  buildSystemPrompt,
+  type AiAssistantDeps,
+  type AiAssistantEvent,
+  type AnthropicStreamingArgs,
+} from "../workflow-ai-assistant.js";
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function makeDeps(
+  anthropicStreaming: AiAssistantDeps["anthropicStreaming"],
+): AiAssistantDeps {
+  return {
+    resolveGitProvider: vi.fn(async () => ({}) as any),
+    shaCache: { get: () => undefined, set: () => undefined } as any,
+    anthropicStreaming,
+  };
+}
+
+async function collect(
+  gen: AsyncGenerator<AiAssistantEvent>,
+): Promise<AiAssistantEvent[]> {
+  const out: AiAssistantEvent[] = [];
+  for await (const ev of gen) out.push(ev);
+  return out;
+}
+
+beforeEach(() => {
+  getWorkflowParsedMock.mockReset();
+  listWorkflowFilesMock.mockReset();
+  mockLatestGitTag = "hello-world/v1.0.0";
+  getWorkflowParsedMock.mockResolvedValue({
+    workflow: { apiVersion: "v1", kind: "GovernedWorkflow", name: "hello-world", steps: [] },
+    gitTag: "hello-world/v1.0.0",
+    gitSha: "sha",
+    workflowRepoPath: "hello-world/workflow.json",
+  });
+  listWorkflowFilesMock.mockResolvedValue({ tree: [] });
+});
+
+// ── parseFileProposals ──────────────────────────────────────────────────────
+
+describe("parseFileProposals", () => {
+  it("parses a paired block and a self-closing delete block", () => {
+    const text =
+      'before <file path="a.ts">X</file> middle <file path="b.ts" delete="true" /> after';
+    const out = parseFileProposals(text);
+    expect(out).toEqual([
+      { path: "a.ts", content: "X" },
+      { path: "b.ts", delete: true },
+    ]);
+  });
+
+  it("does not confuse a `>` inside the content with the closing tag", () => {
+    const text = `<file path="workflow.json">{"foo": "> bar"}</file>`;
+    const out = parseFileProposals(text);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toEqual({ path: "workflow.json", content: '{"foo": "> bar"}' });
+  });
+
+  it("trims a single leading/trailing newline in the content", () => {
+    const text = `<file path="gates/lint.ts">\nexport const x = 1;\n</file>`;
+    const out = parseFileProposals(text);
+    expect(out).toEqual([
+      { path: "gates/lint.ts", content: "export const x = 1;" },
+    ]);
+  });
+
+  it("skips unterminated blocks without crashing", () => {
+    const text = `ok <file path="a.ts">never closed`;
+    expect(parseFileProposals(text)).toEqual([]);
+  });
+
+  it("skips blocks that don't have a path attribute", () => {
+    const text = `<file other="x">garbage</file><file path="b.ts">keep</file>`;
+    const out = parseFileProposals(text);
+    expect(out).toEqual([{ path: "b.ts", content: "keep" }]);
+  });
+});
+
+// ── buildSystemPrompt ───────────────────────────────────────────────────────
+
+describe("buildSystemPrompt", () => {
+  it("embeds the workflow JSON and the canonical gates section", () => {
+    const prompt = buildSystemPrompt({
+      workflow: { name: "hello" },
+      localGates: ["gates/lint.ts"],
+    });
+    expect(prompt).toContain("Tu es l'assistant éditeur de Governed Workflows MnM.");
+    expect(prompt).toContain("artifact-exists.gate.ts");
+    expect(prompt).toContain("artifacts-bundle.gate.ts");
+    expect(prompt).toContain("step-succeeded.gate.ts");
+    expect(prompt).toContain("review-pass.gate.ts");
+    expect(prompt).toContain('"name": "hello"');
+    expect(prompt).toContain("- gates/lint.ts");
+    expect(prompt).toContain("Tu NE COMMIT JAMAIS directement.");
+  });
+
+  it("renders a placeholder when no local gates exist", () => {
+    const prompt = buildSystemPrompt({
+      workflow: {},
+      localGates: [],
+    });
+    expect(prompt).toContain("(aucune gate locale pour ce workflow)");
+  });
+});
+
+// ── streamWorkflowAiChat ────────────────────────────────────────────────────
+
+describe("streamWorkflowAiChat", () => {
+  it("emits token deltas then file-proposals then done", async () => {
+    const fullText =
+      'Salut Tom voici une proposition:\n<file path="workflow.json">{"ok":true}</file>';
+    const anthropicStreaming = vi.fn(async (args: AnthropicStreamingArgs) => {
+      // Simulate 3 partial-text callbacks, then resolve with the full text.
+      args.onToken("Salut ");
+      args.onToken("Salut Tom ");
+      args.onToken(fullText);
+      return fullText;
+    });
+
+    const events = await collect(
+      streamWorkflowAiChat(makeStubDb(), makeDeps(anthropicStreaming), {
+        companyId: "c-1",
+        userId: "u-1",
+        workflowName: "hello-world",
+        messages: [{ role: "user", content: "Ajoute un step lint" }],
+      }),
+    );
+
+    const tokens = events.filter((e) => e.type === "token") as Extract<
+      AiAssistantEvent,
+      { type: "token" }
+    >[];
+    expect(tokens.length).toBeGreaterThanOrEqual(3);
+    expect(tokens[0].value).toBe("Salut ");
+    expect(tokens[1].value).toBe("Tom ");
+    // The 3rd onToken call delivers everything from "voici..." to end of file block.
+
+    const proposals = events.filter(
+      (e) => e.type === "file-proposal",
+    ) as Extract<AiAssistantEvent, { type: "file-proposal" }>[];
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].path).toBe("workflow.json");
+    expect(proposals[0].content).toBe('{"ok":true}');
+
+    expect(events[events.length - 1]).toEqual({ type: "done" });
+  });
+
+  it("emits a WORKFLOW_NOT_FOUND error when no ref and no latest tag", async () => {
+    mockLatestGitTag = null;
+    const anthropicStreaming = vi.fn(async () => "");
+    const events = await collect(
+      streamWorkflowAiChat(makeStubDb(), makeDeps(anthropicStreaming), {
+        companyId: "c-1",
+        userId: null,
+        workflowName: "missing",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    );
+    expect(anthropicStreaming).not.toHaveBeenCalled();
+    expect(events[0]).toMatchObject({
+      type: "error",
+      error_code: "WORKFLOW_NOT_FOUND",
+    });
+    expect(events[events.length - 1]).toEqual({ type: "done" });
+  });
+
+  it("maps a missing-key throw to ANTHROPIC_NOT_CONFIGURED and still emits done", async () => {
+    const anthropicStreaming = vi.fn(async () => {
+      throw new Error("ANTHROPIC_API_KEY is not set");
+    });
+    const events = await collect(
+      streamWorkflowAiChat(makeStubDb(), makeDeps(anthropicStreaming), {
+        companyId: "c-1",
+        userId: null,
+        workflowName: "hello-world",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    );
+    const err = events.find((e) => e.type === "error") as Extract<
+      AiAssistantEvent,
+      { type: "error" }
+    >;
+    expect(err).toBeDefined();
+    expect(err.error_code).toBe("ANTHROPIC_NOT_CONFIGURED");
+    expect(err.hints?.[0]).toMatch(/ANTHROPIC_API_KEY/);
+    expect(events[events.length - 1]).toEqual({ type: "done" });
+  });
+
+  it("maps a generic streaming failure to LLM_ERROR", async () => {
+    const anthropicStreaming = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const events = await collect(
+      streamWorkflowAiChat(makeStubDb(), makeDeps(anthropicStreaming), {
+        companyId: "c-1",
+        userId: null,
+        workflowName: "hello-world",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    );
+    const err = events.find((e) => e.type === "error") as Extract<
+      AiAssistantEvent,
+      { type: "error" }
+    >;
+    expect(err.error_code).toBe("LLM_ERROR");
+    expect(err.message).toContain("boom");
+  });
+});
