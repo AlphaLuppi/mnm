@@ -143,7 +143,7 @@ export function governedWorkflowUiRoutes(db: Db) {
         const companyId = req.params.companyId as string;
         const body = saveBodySchema.safeParse(req.body);
         if (!body.success) {
-          return apiError(res, 422, "VALIDATION_ERROR", body.error.message, [
+          return apiError(res, 422, "WORKFLOW_VALIDATION", body.error.message, [
             "Check the definition structure against the workflow schema",
           ]);
         }
@@ -179,7 +179,7 @@ export function governedWorkflowUiRoutes(db: Db) {
         const name = req.params.name as string;
         const body = saveBodySchema.safeParse(req.body);
         if (!body.success) {
-          return apiError(res, 422, "VALIDATION_ERROR", body.error.message, [
+          return apiError(res, 422, "WORKFLOW_VALIDATION", body.error.message, [
             "Check the definition structure against the workflow schema",
           ]);
         }
@@ -223,7 +223,7 @@ export function governedWorkflowUiRoutes(db: Db) {
         const name = req.params.name as string;
         const body = patchEnabledSchema.safeParse(req.body);
         if (!body.success) {
-          return apiError(res, 422, "VALIDATION_ERROR", "Field 'enabled' must be a boolean", [
+          return apiError(res, 422, "WORKFLOW_VALIDATION", "Field 'enabled' must be a boolean", [
             "Send { \"enabled\": true } or { \"enabled\": false }",
           ]);
         }
@@ -341,7 +341,7 @@ export function governedWorkflowUiRoutes(db: Db) {
         const name = req.params.name as string;
         const body = launchBodySchema.safeParse(req.body);
         if (!body.success) {
-          return apiError(res, 422, "VALIDATION_ERROR", body.error.message, [
+          return apiError(res, 422, "WORKFLOW_VALIDATION", body.error.message, [
             "Send { params: {}, gitTagPreference: 'latest' | 'HEAD' }",
           ]);
         }

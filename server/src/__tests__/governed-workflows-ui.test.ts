@@ -178,14 +178,14 @@ describe("GET /api/companies/:companyId/governed-workflows/:name", () => {
 });
 
 describe("POST /api/companies/:companyId/governed-workflows", () => {
-  it("returns 422 with VALIDATION_ERROR when definition is invalid", async () => {
+  it("returns 422 with WORKFLOW_VALIDATION when definition is invalid", async () => {
     const app = makeApp();
     const res = await request(app)
       .post("/api/companies/company-1/governed-workflows")
       .send({ definition: {}, commitMessage: "bad", branch: "main" })
       .expect(422);
     expect(res.body.isError).toBe(true);
-    expect(res.body.error_code).toBe("VALIDATION_ERROR");
+    expect(res.body.error_code).toBe("WORKFLOW_VALIDATION");
   });
 
   it("returns 201 with commit SHA when definition is valid", async () => {
@@ -255,7 +255,7 @@ describe("PATCH /api/companies/:companyId/governed-workflows/:name/enabled", () 
       .send({ enabled: "yes" })
       .expect(422);
     expect(res.body.isError).toBe(true);
-    expect(res.body.error_code).toBe("VALIDATION_ERROR");
+    expect(res.body.error_code).toBe("WORKFLOW_VALIDATION");
   });
 });
 
