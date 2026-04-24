@@ -247,3 +247,16 @@ not exercised here.
 
 Repo-wide `bun run typecheck` at HEAD: all 16 packages pass except the
 pre-existing `mnm` root `windows-x64` error (unrelated, per CLAUDE.md).
+
+### U13 — Workflow Studio (multi-file editor)
+
+- U12.1: 44e5b04 fix(workflows): surface git-fetch errors on GET /:name
+- U13.1: 87738c0 feat(git-provider): fetchTree + commitMultipleFiles
+- U13.2: 5d0d45f feat(workflows): workflow-files service
+- U13.3: 586cc39 feat(workflows): REST routes for workflow files
+- U13.4: b1367c3 feat(workflows): UI API client + query keys
+- U13.5: de33456 feat(workflows): FileTree component
+- U13.6: 6978154 feat(workflows): MonacoMultiEditor
+- U13.7: 1eac75c feat(workflows): useWorkflowFiles hook
+- U13.8: 68005cb feat(workflows): WorkflowStudio page
+- U13.9: 8e6aec4 feat(workflows): route /workflows/:name to WorkflowStudio
