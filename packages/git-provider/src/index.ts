@@ -16,6 +16,10 @@ export type {
   CommitFileResult,
   CreateTagArgs,
   CreateTagResult,
+  FetchTreeArgs,
+  TreeEntry,
+  CommitMultipleFilesArgs,
+  CommitMultipleFilesResult,
 } from "./types.js";
 
 export { ShaCache, type ShaCacheOptions } from "./sha-cache.js";
