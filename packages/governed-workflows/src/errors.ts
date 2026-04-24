@@ -77,6 +77,15 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // Emitted by updateGovernedWorkflow when input.name does not match
   // definition.name (guards against accidental cross-workflow overwrites).
   WORKFLOW_NAME_MISMATCH: "WORKFLOW_NAME_MISMATCH",
+  // Emitted by resolveSource (governed-workflows-source-resolver) when the
+  // GitProvider cannot find the gate source file at the pinned sha. Distinct
+  // from GIT_PROVIDER_ERROR — this is always a missing-file condition, never
+  // a network/auth issue, so the hints are specific to workflow authoring.
+  GATE_SOURCE_NOT_FOUND: "GATE_SOURCE_NOT_FOUND",
+  // Emitted by wrap() in governed-workflows.tool when a raw GitProviderError
+  // escapes resolveSource (e.g. auth failure, network error). Carries the
+  // underlying git error code in hints for diagnosis.
+  GIT_PROVIDER_ERROR: "GIT_PROVIDER_ERROR",
 } as const);
 
 export type WorkflowErrorCode =
