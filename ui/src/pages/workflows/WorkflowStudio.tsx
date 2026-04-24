@@ -175,6 +175,18 @@ export function WorkflowStudio() {
   const parseError = detailQuery.data?.parseError;
   const latestTag = detailQuery.data?.definition?.latestGitTag ?? null;
 
+  // Merge committed tree with locally-added files (from addFile / AI apply) so
+  // the FileTree surfaces pending creations immediately. Without this, a user
+  // who accepts an AI proposal for a new file sees it in Monaco but not in the
+  // tree — confusing enough to look broken.
+  const displayTree = useMemo(() => {
+    const committedPaths = new Set((tree ?? []).map((e) => e.path));
+    const extras = Object.keys(files)
+      .filter((p) => !committedPaths.has(p))
+      .map((p) => ({ path: p, type: "blob" as const, sha: "", size: null }));
+    return [...(tree ?? []), ...extras];
+  }, [tree, files]);
+
   const saveErrorBody = useMemo(() => extractErrorBody(saveError), [saveError]);
 
   async function handleSave() {
@@ -301,7 +313,7 @@ export function WorkflowStudio() {
                 </div>
               ) : (
                 <FileTree
-                  tree={tree ?? []}
+                  tree={displayTree}
                   activePath={activePath}
                   dirtyPaths={dirtyPaths}
                   onSelect={setActivePath}

@@ -116,7 +116,11 @@ export function MonacoMultiEditor(props: MonacoMultiEditorProps) {
     if (existing) return existing.model;
 
     const uri = monaco.Uri.parse(`file:///${path}`);
-    const model = monaco.editor.createModel(content, detectLanguage(path), uri);
+    // React 18 Strict Mode (and HMR) can double-mount us, so reuse any model
+    // Monaco already holds for this URI instead of throwing a duplicate error.
+    const model =
+      monaco.editor.getModel(uri) ??
+      monaco.editor.createModel(content, detectLanguage(path), uri);
 
     const sub = model.onDidChangeContent(() => {
       if (suppressChangeRef.current) return;
