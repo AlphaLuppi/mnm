@@ -301,12 +301,20 @@ export function WorkflowStudio() {
       )}
 
       {/* Main split: FileTree | Monaco | AI Assistant */}
+      {/* react-resizable-panels v4 requires string units (e.g. "20%");       */}
+      {/* numeric values are interpreted as pixels and produce layouts where  */}
+      {/* the editor swallows the side panels.                                */}
       <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
         <ResizablePanelGroup orientation="horizontal">
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-            <div className="h-full bg-muted/20">
+          <ResizablePanel
+            id="studio-files"
+            defaultSize="20%"
+            minSize="15%"
+            maxSize="35%"
+          >
+            <div className="h-full bg-muted/20 p-2">
               {isLoadingTree ? (
-                <div className="flex flex-col gap-1 p-2">
+                <div className="flex flex-col gap-1">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <Skeleton key={i} className="h-5 w-full" />
                   ))}
@@ -324,8 +332,8 @@ export function WorkflowStudio() {
               )}
             </div>
           </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={55} minSize={30}>
+          <ResizableHandle withHandle />
+          <ResizablePanel id="studio-editor" defaultSize="55%" minSize="30%">
             <div className="h-full min-h-0 relative">
               <MonacoMultiEditor
                 files={files}
@@ -343,27 +351,34 @@ export function WorkflowStudio() {
               </div>
             </div>
           </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={25} minSize={18} maxSize={40}>
-            {selectedCompanyId && name ? (
-              <AiAssistantPanel
-                companyId={selectedCompanyId}
-                workflowName={name}
-                enabled={canEdit}
-                onApplyFile={(proposal) => {
-                  if (proposal.delete) return deleteFile(proposal.path);
-                  if (files[proposal.path]) {
-                    editFile(proposal.path, proposal.content ?? "");
-                  } else {
-                    addFile(proposal.path, proposal.content ?? "");
-                  }
-                }}
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-muted-foreground p-3">
-                Assistant IA indisponible.
-              </div>
-            )}
+          <ResizableHandle withHandle />
+          <ResizablePanel
+            id="studio-ai"
+            defaultSize="25%"
+            minSize="18%"
+            maxSize="40%"
+          >
+            <div className="h-full p-2">
+              {selectedCompanyId && name ? (
+                <AiAssistantPanel
+                  companyId={selectedCompanyId}
+                  workflowName={name}
+                  enabled={canEdit}
+                  onApplyFile={(proposal) => {
+                    if (proposal.delete) return deleteFile(proposal.path);
+                    if (files[proposal.path]) {
+                      editFile(proposal.path, proposal.content ?? "");
+                    } else {
+                      addFile(proposal.path, proposal.content ?? "");
+                    }
+                  }}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                  Assistant IA indisponible.
+                </div>
+              )}
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
@@ -377,14 +392,14 @@ export function WorkflowStudio() {
 
       {/* Save dialog */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Enregistrer les modifications</DialogTitle>
             <DialogDescription>
               {dirtyCount} fichier(s) seront commités en une seule opération atomique.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-3">
+          <div className="space-y-3">
             <Textarea
               placeholder="ex: fix: correction de la gate de précondition"
               value={commitMessage}
@@ -431,7 +446,7 @@ export function WorkflowStudio() {
 
       {/* Add-file dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+        <DialogContent className="p-4 sm:p-6 gap-4 sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Créer un fichier</DialogTitle>
             <DialogDescription>
@@ -440,7 +455,7 @@ export function WorkflowStudio() {
                 : "Chemin relatif au workflow."}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2">
+          <div className="space-y-2">
             <Input
               placeholder="gates/my-check.gate.ts"
               value={addPath}
