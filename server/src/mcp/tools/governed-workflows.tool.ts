@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
+import { workflowDefinitionSchema, WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
 import { GovernedWorkflowError } from "../../services/governed-workflows.js";
+import {
+  saveDefinition,
+  archiveDefinition,
+} from "../../services/governed-workflows-extensions.js";
 import { setTenantContext } from "../../middleware/tenant-context.js";
 
 /**
@@ -349,6 +354,219 @@ export default defineMcpTools(({ tool, services }) => {
               new_sha: r.newSha,
               has_changes: r.hasChanges,
             }),
+          }],
+        };
+      });
+    },
+  });
+
+  // ── U6.1 — createGovernedWorkflow ────────────────────────────────────────
+
+  tool("create_governed_workflow", {
+    permissions: [PERMISSIONS.WORKFLOWS_CREATE],
+    description:
+      "[Governed Workflows] Create a new governed workflow. " +
+      "Commits workflow.json to the company's workflows git repo on main, " +
+      "creates an auto-semver tag (<name>/vX.Y.Z), and inserts a row in " +
+      "governed_workflow_definitions. Equivalent to the UI 'Nouveau workflow' flow.",
+    input: z.object({
+      definition: workflowDefinitionSchema,
+      commit_message: z.string().min(1).max(500),
+      branch: z.string().optional().default("main"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+
+        // Validate definition name is non-empty (workflowDefinitionSchema already
+        // enforces the shape, but we surface validation failures with WORKFLOW_VALIDATION).
+        const parsed = workflowDefinitionSchema.safeParse(input.definition);
+        if (!parsed.success) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                isError: true,
+                error_code: WORKFLOW_ERROR_CODES.WORKFLOW_VALIDATION,
+                message: parsed.error.message,
+                hints: ["Check the definition structure against the workflow schema"],
+              }),
+            }],
+            isError: true,
+          };
+        }
+
+        const definition = parsed.data;
+        const authorName = actor.userId
+          ? `user:${actor.userId}`
+          : actor.agentId
+            ? `agent:${actor.agentId}`
+            : "MnM MCP";
+        const authorEmail = actor.userId
+          ? `${actor.userId}@mnm.local`
+          : actor.agentId
+            ? `agent-${actor.agentId}@mnm.local`
+            : "mcp@mnm.local";
+
+        const result = await saveDefinition(services.db, {
+          companyId: actor.companyId,
+          name: definition.name,
+          description: (definition as Record<string, unknown>).description as string | null ?? null,
+          definitionContent: JSON.stringify(definition, null, 2),
+          commitMessage: input.commit_message,
+          branch: input.branch,
+          authorName,
+          authorEmail,
+          resolveGitProvider: services.resolveGitProvider,
+        });
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              commit_sha: result.commitSha,
+              new_git_tag: result.newGitTag,
+              created: result.created,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  // ── U6.2 — updateGovernedWorkflow ────────────────────────────────────────
+
+  tool("update_governed_workflow", {
+    permissions: [PERMISSIONS.WORKFLOWS_CREATE],
+    description:
+      "[Governed Workflows] Update an existing governed workflow definition. " +
+      "Bumps the patch version of the existing latestGitTag, commits the new " +
+      "workflow.json, and updates the governed_workflow_definitions row. " +
+      "Returns WORKFLOW_NOT_FOUND if the workflow has no DB row yet. " +
+      "Returns WORKFLOW_NAME_MISMATCH if input.name != definition.name.",
+    input: z.object({
+      name: z.string().min(1),
+      definition: workflowDefinitionSchema,
+      commit_message: z.string().min(1).max(500),
+      branch: z.string().optional().default("main"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+
+        // Guard: name in URL must match definition.name
+        if (input.name !== input.definition.name) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                isError: true,
+                error_code: WORKFLOW_ERROR_CODES.WORKFLOW_NAME_MISMATCH,
+                message: `input.name '${input.name}' does not match definition.name '${input.definition.name}'`,
+                hints: ["Set definition.name to match the input.name parameter"],
+              }),
+            }],
+            isError: true,
+          };
+        }
+
+        // Guard: workflow must already exist in the DB
+        const existing = await services.governedWorkflows.getDefinition({
+          companyId: actor.companyId,
+          name: input.name,
+        });
+        if (!existing) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                isError: true,
+                error_code: WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND,
+                message: `Workflow '${input.name}' not found`,
+                hints: ["Use create_governed_workflow to create a new workflow"],
+              }),
+            }],
+            isError: true,
+          };
+        }
+
+        const definition = input.definition;
+        const authorName = actor.userId
+          ? `user:${actor.userId}`
+          : actor.agentId
+            ? `agent:${actor.agentId}`
+            : "MnM MCP";
+        const authorEmail = actor.userId
+          ? `${actor.userId}@mnm.local`
+          : actor.agentId
+            ? `agent-${actor.agentId}@mnm.local`
+            : "mcp@mnm.local";
+
+        const result = await saveDefinition(services.db, {
+          companyId: actor.companyId,
+          name: definition.name,
+          description: (definition as Record<string, unknown>).description as string | null ?? null,
+          definitionContent: JSON.stringify(definition, null, 2),
+          commitMessage: input.commit_message,
+          branch: input.branch,
+          authorName,
+          authorEmail,
+          resolveGitProvider: services.resolveGitProvider,
+        });
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              commit_sha: result.commitSha,
+              new_git_tag: result.newGitTag,
+              created: result.created,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  // ── U6.3 — archiveGovernedWorkflow ───────────────────────────────────────
+
+  tool("archive_governed_workflow", {
+    permissions: [PERMISSIONS.WORKFLOWS_CREATE],
+    description:
+      "[Governed Workflows] Soft-delete a governed workflow. " +
+      "Sets archived_at=now() on the DB row. Does NOT delete anything in git " +
+      "(history is preserved). Equivalent to the UI 'Supprimer' action.",
+    input: z.object({
+      name: z.string().min(1),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const archived = await archiveDefinition(services.db, {
+          companyId: actor.companyId,
+          name: input.name,
+        });
+        if (!archived) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                isError: true,
+                error_code: WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND,
+                message: `Workflow '${input.name}' not found or already archived`,
+                hints: ["Use list_governed_workflows to see available workflows"],
+              }),
+            }],
+            isError: true,
+          };
+        }
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({ archived: true, name: input.name }),
           }],
         };
       });

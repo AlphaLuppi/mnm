@@ -159,6 +159,7 @@ export function buildMcpServices(db: Db): McpServices {
   const shaCache = new ShaCache();
   return {
     db,
+    resolveGitProvider,
     projects: projectService(db),
     agents: agentService(db),
     issues: issueService(db),

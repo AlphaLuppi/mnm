@@ -71,6 +71,12 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // fields). Fail-closed: we never silently fall back to env vars when the
   // company explicitly declared a provider.
   GIT_PROVIDER_MISCONFIG: "GIT_PROVIDER_MISCONFIG",
+  // Emitted by create/updateGovernedWorkflow when the definition body fails
+  // workflowDefinitionSchema validation before any git or DB operation.
+  WORKFLOW_VALIDATION: "WORKFLOW_VALIDATION",
+  // Emitted by updateGovernedWorkflow when input.name does not match
+  // definition.name (guards against accidental cross-workflow overwrites).
+  WORKFLOW_NAME_MISMATCH: "WORKFLOW_NAME_MISMATCH",
 } as const);
 
 export type WorkflowErrorCode =
