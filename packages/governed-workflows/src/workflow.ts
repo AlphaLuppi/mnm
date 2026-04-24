@@ -2,8 +2,8 @@ import { z } from "zod";
 import { workflowStepSchema } from "./workflow-step.js";
 
 const variableDefSchema = z.object({
-  type: z.enum(["string", "number", "boolean", "object"]),
-  required: z.boolean().optional(),
+  type: z.enum(["string", "number", "boolean", "object"]).describe("Type de la variable d'entrée"),
+  required: z.boolean().optional().describe("Si true, la variable est obligatoire à l'exécution"),
 });
 
 /**
@@ -13,15 +13,16 @@ const variableDefSchema = z.object({
  */
 export const workflowDefinitionSchema = z
   .object({
-    apiVersion: z.literal("mnm/v1"),
-    kind: z.literal("GovernedWorkflow"),
+    apiVersion: z.literal("mnm/v1").describe("Version du format, actuellement fixe à mnm/v1"),
+    kind: z.literal("GovernedWorkflow").describe("Type de document, doit être GovernedWorkflow"),
     name: z.string()
       .min(1)
       .max(100)
-      .regex(/^[a-z0-9][a-z0-9_-]*$/, "Workflow name must start with lowercase alphanumeric and contain only lowercase letters, digits, hyphens, and underscores"),
-    description: z.string().optional(),
-    variables: z.record(z.string().min(1), variableDefSchema).default({}),
-    steps: z.array(workflowStepSchema).min(1),
+      .regex(/^[a-z0-9][a-z0-9_-]*$/, "Workflow name must start with lowercase alphanumeric and contain only lowercase letters, digits, hyphens, and underscores")
+      .describe("Nom unique du workflow (kebab-case, alphanumérique)"),
+    description: z.string().optional().describe("Description courte affichée dans la liste des workflows"),
+    variables: z.record(z.string().min(1), variableDefSchema).default({}).describe("Variables d'entrée disponibles dans les prompt_context des étapes"),
+    steps: z.array(workflowStepSchema).min(1).describe("Séquence d'étapes exécutées par le workflow (au moins une)"),
   })
   .superRefine((wf, ctx) => {
     const seen = new Set<string>();
