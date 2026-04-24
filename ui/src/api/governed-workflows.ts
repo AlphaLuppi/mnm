@@ -43,6 +43,12 @@ export interface ListWorkflowsResult {
   total: number;
 }
 
+export interface WorkflowParseError {
+  error_code: string;
+  message: string;
+  hints: string[];
+}
+
 export interface WorkflowDetail {
   definition: GovernedWorkflowDefinitionRow;
   parsed: {
@@ -51,6 +57,7 @@ export interface WorkflowDetail {
     gitSha: string;
     workflowRepoPath: string;
   } | null;
+  parseError: WorkflowParseError | null;
 }
 
 export interface GitTag {

@@ -237,6 +237,27 @@ export function GovernedWorkflowEditor() {
         </Button>
       </div>
 
+      {isEdit && existing?.parseError && (
+        <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          <div className="font-medium text-destructive">
+            Impossible de charger le contenu depuis git : {existing.parseError.error_code}
+          </div>
+          <div className="text-muted-foreground mt-1 font-mono text-xs whitespace-pre-wrap">
+            {existing.parseError.message}
+          </div>
+          {existing.parseError.hints.length > 0 && (
+            <ul className="mt-2 list-disc pl-4 text-xs text-muted-foreground">
+              {existing.parseError.hints.map((h, i) => (
+                <li key={i}>{h}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Le template par défaut est affiché ci-dessous. Ne l'enregistrez pas tel quel — vous écraseriez le workflow existant.
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Editor pane */}
         <div className="flex-1 flex flex-col min-h-[60vh]">

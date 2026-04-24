@@ -15,7 +15,7 @@ import type { Db } from "@mnm/db";
 import { PERMISSIONS } from "@mnm/shared";
 import { workflowDefinitionSchema } from "@mnm/governed-workflows";
 import { requirePermission } from "../middleware/require-permission.js";
-import { governedWorkflowService } from "../services/governed-workflows.js";
+import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
 import {
   saveDefinition,
   archiveDefinition,
@@ -160,14 +160,19 @@ export function governedWorkflowUiRoutes(db: Db) {
         }
         const gitTag = (req.query.gitTag as string | undefined) ?? def.latestGitTag ?? undefined;
         let parsed = null;
+        let parseError: { error_code: string; message: string; hints: string[] } | null = null;
         if (gitTag) {
           try {
             parsed = await svc.getWorkflowParsed({ companyId, name, gitTag });
-          } catch {
-            // Parsed is optional — return def row even if git fetch fails
+          } catch (err) {
+            parseError = {
+              error_code: err instanceof GovernedWorkflowError ? err.code : "WORKFLOW_PARSE_FAILED",
+              message: err instanceof Error ? err.message : String(err),
+              hints: err instanceof GovernedWorkflowError ? err.hints : [],
+            };
           }
         }
-        res.json({ definition: def, parsed: parsed ?? null });
+        res.json({ definition: def, parsed, parseError });
       } catch (err) {
         next(err);
       }
