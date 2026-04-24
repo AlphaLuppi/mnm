@@ -71,4 +71,65 @@ export const authApi = {
   signOut: async () => {
     await authPost("/sign-out", {});
   },
+
+  listLinkedAccounts: async (): Promise<LinkedAccount[]> => {
+    const res = await fetch("/api/auth/list-accounts", {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`Failed to list accounts (${res.status})`);
+    const payload = await res.json().catch(() => null);
+    const rows = Array.isArray(payload)
+      ? payload
+      : payload && typeof payload === "object" && Array.isArray((payload as Record<string, unknown>).data)
+        ? ((payload as Record<string, unknown>).data as unknown[])
+        : [];
+    return rows
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+      .map((r) => ({
+        id: String(r.id ?? ""),
+        providerId: String(r.providerId ?? r.provider_id ?? ""),
+        accountId: String(r.accountId ?? r.account_id ?? ""),
+        scopes: Array.isArray(r.scopes)
+          ? (r.scopes as string[])
+          : typeof r.scopes === "string"
+            ? (r.scopes as string).split(",").map((s) => s.trim()).filter(Boolean)
+            : [],
+        accessTokenExpiresAt:
+          r.accessTokenExpiresAt != null
+            ? String(r.accessTokenExpiresAt)
+            : r.access_token_expires_at != null
+              ? String(r.access_token_expires_at)
+              : null,
+        createdAt: r.createdAt != null ? String(r.createdAt) : null,
+      }));
+  },
+
+  /**
+   * Start an OAuth flow to link a social provider to the current session.
+   * BetterAuth returns `{url, redirect: true}` — we navigate to `url`, the
+   * provider authenticates the user, then redirects back to `callbackURL`.
+   */
+  linkSocial: async (provider: "gitlab" | "microsoft", callbackURL: string) => {
+    const payload = await authPost("/link-social", { provider, callbackURL });
+    const url =
+      payload && typeof payload === "object" && typeof (payload as Record<string, unknown>).url === "string"
+        ? (payload as { url: string }).url
+        : null;
+    if (!url) throw new Error("Link flow did not return a redirect URL");
+    window.location.href = url;
+  },
+
+  unlinkAccount: async (providerId: string, accountId?: string) => {
+    await authPost("/unlink-account", accountId ? { providerId, accountId } : { providerId });
+  },
+};
+
+export type LinkedAccount = {
+  id: string;
+  providerId: string;
+  accountId: string;
+  scopes: string[];
+  accessTokenExpiresAt: string | null;
+  createdAt: string | null;
 };
