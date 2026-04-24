@@ -27,7 +27,7 @@ Sequential implementer subagents per tranche. After each tranche: spec complianc
 | U2 | REST endpoints + service extensions | 10 endpoints, `computeNextTag`, `saveDefinition`, `archiveDefinition`, `listRuns`, `getRunWithSteps`, `GitProvider.createTag` | done | f51df06, d7acd28, a93d2e6, 29f436f, 6246caf, 41bb843 |
 | U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | done | 5a964f7, f11c201, c9d6775 |
 | U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | done | 6c72052 |
-| U5 | 4 pages UI | Monaco install + List / Editor / Runs / RunDetail + routes + parity + smoke | blocked by U4 | |
+| U5 | 4 pages UI | Monaco install + List / Editor / Runs / RunDetail + routes + parity + smoke | done | 4fc89a6, 87ff3b7, 7dfd246, f8b9219, 042dff9, 6b540f3, 36b07be |
 | U6 | MCP tool parity | `createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow` + registry check | blocked by U3 | |
 
 ## Session continuity
@@ -99,11 +99,32 @@ Notes:
   - U4.1 was implemented before U3.3 (as the plan recommended) to resolve the forward reference to queryKeys.governedWorkflows.runDetail.
 
 ### U5 — 4 pages UI
-Status: blocked by U4
-Start:
-End:
+Status: done
+Start: 2026-04-24
+End: 2026-04-24
 Commits:
+  - 4fc89a6 chore(ui): add @monaco-editor/react + monaco-editor (U5.1)
+  - 87ff3b7 feat(workflows): GovernedWorkflowsList page (U5.2)
+  - 7dfd246 feat(workflows): GovernedWorkflowEditor page (Monaco + zod live) (U5.3)
+  - f8b9219 feat(workflows): GovernedWorkflowRuns page (U5.4)
+  - 042dff9 feat(workflows): GovernedWorkflowRunDetail page with SSE live updates (U5.5)
+  - 6b540f3 feat(workflows): wire governed workflow routes (U5.6)
+  - 36b07be chore(parity): track governed workflows UI features (U5.7)
 Notes:
+  - jsdom was not installed in the workspace; installed at root level as devDep.
+    All 26 new page unit tests pass (4 test files x 4–9 tests each).
+  - Breadcrumb interface uses `href` not `to` — pages corrected.
+  - WorkflowDefinition schema uses flat `name` + step fields `agent`/`prompt_context`
+    (no metadata.name, no kind/prompt). Default template corrected accordingly.
+  - Kind literal is "GovernedWorkflow" (not "Workflow").
+  - Tests are pure-logic (no React rendering) to avoid jsdom canvas for Monaco.
+  - Monaco lazy-loaded via React.lazy() + Suspense as planned.
+  - No setInterval/refetchInterval in any new code. SSE via useGovernedRunEvents.
+  - All primitives used from ui/src/components/ui/ (Tabs, Badge, Card, Switch,
+    Select, Dialog, Input, Textarea, Checkbox, Button).
+  - Typecheck: 15/15 individual packages pass. Root mnm pre-existing Windows error.
+  - Build: vite build succeeds in 31s with no new errors.
+  - Pre-existing failing tests: 18 files / 23 tests (unchanged from before U5).
 
 ### U6 — MCP tool parity
 Status: done
