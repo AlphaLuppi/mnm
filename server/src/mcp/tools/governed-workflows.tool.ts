@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { workflowDefinitionSchema, WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
+import { GitProviderError } from "@mnm/git-provider";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
 import { GovernedWorkflowError } from "../../services/governed-workflows.js";
 import {
@@ -57,6 +58,19 @@ async function wrap<T>(
     return result;
   } catch (err) {
     if (err instanceof GovernedWorkflowError) return governedError(err);
+    if (err instanceof GitProviderError) {
+      return governedError(
+        new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.GIT_PROVIDER_ERROR,
+          `Git provider failed: ${err.message}`,
+          [
+            `Underlying git error code: ${err.code}`,
+            "Check MnM server logs for full stack trace",
+            "Verify the workflow repository is accessible and the configured credentials are valid",
+          ],
+        ),
+      );
+    }
     throw err;
   }
 }
