@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { governedWorkflowsApi } from "../api/governed-workflows";
@@ -69,6 +69,7 @@ export function GovernedWorkflowEditor() {
   const isEdit = Boolean(name);
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { setBreadcrumbs } = useBreadcrumbs();
 
   const [jsonValue, setJsonValue] = useState<string>(DEFAULT_DEFINITION);
@@ -98,14 +99,18 @@ export function GovernedWorkflowEditor() {
 
   const { parsed, errors } = useMemo(() => validateDefinition(jsonValue), [jsonValue]);
 
-  const saveValid = parsed !== null && commitMessage.trim().length > 0;
+  // Outer button gate: JSON must be valid. commitMessage is entered INSIDE the dialog.
+  const jsonValid = parsed !== null;
+  // Inner confirm button gate: commitMessage must be non-empty.
+  const confirmEnabled = commitMessage.trim().length > 0;
 
   const createMutation = useMutation({
     mutationFn: (input: { definition: WorkflowDefinition; commitMessage: string }) =>
       governedWorkflowsApi.create(selectedCompanyId!, input),
     onSuccess: () => {
-      const wfName = (parsed as WorkflowDefinition | null)?.name ?? "workflow";
+      const wfName = parsed?.name ?? "workflow";
       setShowSaveDialog(false);
+      qc.invalidateQueries({ queryKey: queryKeys.governedWorkflows.list(selectedCompanyId!) });
       navigate(`/workflows/${encodeURIComponent(wfName)}/runs`);
     },
   });
@@ -114,8 +119,11 @@ export function GovernedWorkflowEditor() {
     mutationFn: (input: { definition: WorkflowDefinition; commitMessage: string }) =>
       governedWorkflowsApi.update(selectedCompanyId!, name!, input),
     onSuccess: () => {
+      const newName = parsed?.name ?? name!;
       setShowSaveDialog(false);
-      navigate(`/workflows/${encodeURIComponent(name!)}/runs`);
+      qc.invalidateQueries({ queryKey: queryKeys.governedWorkflows.list(selectedCompanyId!) });
+      qc.invalidateQueries({ queryKey: queryKeys.governedWorkflows.detail(selectedCompanyId!, newName) });
+      navigate(`/workflows/${encodeURIComponent(newName)}/runs`);
     },
   });
 
@@ -148,7 +156,7 @@ export function GovernedWorkflowEditor() {
         </h1>
         <Button
           onClick={() => setShowSaveDialog(true)}
-          disabled={!saveValid}
+          disabled={!jsonValid}
         >
           <Save className="h-4 w-4 mr-1.5" />
           Enregistrer
@@ -207,15 +215,18 @@ export function GovernedWorkflowEditor() {
               Ce message sera associé au commit git de la definition du workflow.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
             <Textarea
               placeholder="ex: fix: correction des gates de validation"
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
               rows={3}
             />
+            <p className="text-xs text-muted-foreground">
+              Le backend calculera le prochain patch-bump du tag (ex&nbsp;: <span className="font-mono">{parsed?.name ?? "workflow"}/vX.Y.Z</span>).
+            </p>
             {saveError && (
-              <p className="mt-2 text-xs text-destructive">
+              <p className="text-xs text-destructive">
                 {saveError instanceof Error ? saveError.message : "Erreur lors de la sauvegarde."}
               </p>
             )}
@@ -226,7 +237,7 @@ export function GovernedWorkflowEditor() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!commitMessage.trim() || isSaving}
+              disabled={!confirmEnabled || isSaving}
             >
               {isSaving ? "Enregistrement..." : "Confirmer"}
             </Button>
