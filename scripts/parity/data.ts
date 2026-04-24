@@ -763,6 +763,24 @@ export const parityData: ParityData = {
             blockers: ["desktop-connection-profiles", "desktop-sse-connectivity"],
           },
         },
+        {
+          id: "governed-workflows-studio-editor",
+          name: "Workflow Studio — multi-file editor with FileTree + Monaco multi-model",
+          description:
+            "Two-pane resizable editor (FileTree + Monaco) that lazy-loads each workflow file via useWorkflowFiles, tracks dirty buffers per path, and commits all changes atomically via batchCommitFiles. Add/delete/discard dialogs with French UX. Replaces the legacy single-file editor on /workflows/:name — create mode still uses the simpler editor.",
+          web: { status: "done", since: "2026-04-24" },
+          desktop: {
+            status: "missing",
+            notes:
+              "Desktop doesn't yet lazy-load Monaco multi-model — needs wrapper. Also blocked on connection-profiles for packaged DMG backend access.",
+            blockers: ["desktop-connection-profiles"],
+          },
+          todo: {
+            code: [
+              "Desktop doesn't yet lazy-load Monaco multi-model — needs wrapper",
+            ],
+          },
+        },
       ],
     },
   ],
