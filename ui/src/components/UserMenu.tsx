@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, User as UserIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { authApi } from "../api/auth";
@@ -67,6 +68,17 @@ export function UserMenu() {
             {user.email || user.name || "User"}
           </span>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link
+            to="/settings/profile"
+            data-testid="mu-s06-profile-link"
+            className="cursor-pointer"
+          >
+            <UserIcon className="h-4 w-4" />
+            Mon profil
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           data-testid="mu-s06-sign-out-button"

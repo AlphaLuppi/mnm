@@ -197,6 +197,16 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       requireEmailVerification: false,
       disableSignUp: config.authDisableSignUp,
     },
+    // Account linking lets users with an existing session (email+password or
+    // Microsoft) attach a GitLab identity from their profile page, and vice
+    // versa. Trusted providers auto-link when the email matches an existing
+    // user (prevents duplicate accounts across auth methods).
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["gitlab", "microsoft"],
+      },
+    },
     ...(gitlabProviderConfig || microsoftProviderConfig
       ? {
           socialProviders: {
