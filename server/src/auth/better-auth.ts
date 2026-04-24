@@ -13,6 +13,46 @@ import {
 import { sql } from "drizzle-orm";
 import type { Config } from "../config.js";
 
+// ── GitLab OIDC (self-hosted, federated to Azure AD upstream) ─────────────────
+// Only active when all three env vars are set. In local_trusted dev without
+// the vars, BetterAuth will NOT expose the GitLab login option — no fallback
+// to gitlab.com is ever attempted.
+//
+// BetterAuth's native `gitlab` provider uses `issuer` (the GitLab base URL)
+// to derive auth/token/userinfo endpoints:
+//   authorization → <issuer>/oauth/authorize
+//   token         → <issuer>/oauth/token
+//   userinfo      → <issuer>/api/v4/user
+//
+// The access_token obtained here is later reused by resolveGitProvider to
+// commit workflow definitions as the authenticated user (full audit chain).
+function buildGitlabProviderConfig(): {
+  clientId: string;
+  clientSecret: string;
+  issuer: string;
+  scope: string[];
+} | null {
+  const clientId = process.env.GITLAB_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GITLAB_OAUTH_CLIENT_SECRET;
+  // GITLAB_OAUTH_ISSUER_URL is the GitLab base URL, e.g.
+  // "https://lab.cbainfo.fr". BetterAuth appends /oauth/authorize etc.
+  const issuerUrl = process.env.GITLAB_OAUTH_ISSUER_URL;
+
+  if (!clientId || !clientSecret || !issuerUrl) {
+    return null;
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    issuer: issuerUrl,
+    // api + read_repository + write_repository enable commit-as-user for
+    // governed workflow definitions. openid / profile / email are the
+    // standard OIDC claims needed for session creation.
+    scope: ["openid", "profile", "email", "api", "read_repository", "write_repository"],
+  };
+}
+
 export type BetterAuthSessionUser = {
   id: string;
   email?: string | null;
@@ -87,6 +127,11 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
   // Disable rate limiting when running E2E tests (prevents "Too Many Requests" during parallel tests)
   const isE2eMode = process.env.MNM_E2E_SEED === "true";
 
+  // Conditionally add the GitLab OIDC provider — only when all three env vars
+  // are present. Guards against accidentally wiring an incomplete provider (e.g.
+  // missing secret) which would make BetterAuth throw at startup.
+  const gitlabProviderConfig = buildGitlabProviderConfig();
+
   const authConfig = {
     baseURL: baseUrl,
     secret,
@@ -105,6 +150,13 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       requireEmailVerification: false,
       disableSignUp: config.authDisableSignUp,
     },
+    ...(gitlabProviderConfig
+      ? {
+          socialProviders: {
+            gitlab: gitlabProviderConfig,
+          },
+        }
+      : {}),
     ...(isHttpOnly ? { advanced: { useSecureCookies: false } } : {}),
     ...(isE2eMode ? { rateLimit: { enabled: false } } : {}),
     // SANDBOX-AUTH-AUTOBOOTSTRAP: first user signup → auto instance_admin
