@@ -42,7 +42,7 @@ export const NAV_ITEM_REGISTRY: Record<NavItemId, NavItemDef> = {
   inbox:             { to: "/inbox",                icon: Inbox,               label: "Inbox",            permission: "issues:read" },
   issues:            { to: "/issues",               icon: CircleDot,           label: "Issues",           permission: "issues:read" },
   workflows:         { to: "/workflows",            icon: Workflow,            label: "Workflows",        permission: "workflows:read" },
-  "workflow-editor": { to: "/workflows/new",         icon: PenTool,             label: "Workflow Editor",  permission: "workflows:read" },
+  "workflow-editor": { to: "/workflows/new",         icon: PenTool,             label: "Workflow Editor",  permission: "workflows:create" },
   routines:          { to: "/routines",             icon: CalendarClock,       label: "Routines",         permission: "routines:read" },
   goals:             { to: "/goals",                icon: Target,              label: "Goals",            permission: "projects:read" },
   chat:              { to: "/chat",                 icon: MessageSquare,       label: "Chat",             permission: "chat:read" },
