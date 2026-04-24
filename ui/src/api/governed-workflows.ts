@@ -72,6 +72,35 @@ export interface LaunchRunResult {
   gitSha: string;
 }
 
+// ── Workflow Studio (multi-file editor) ──────────────────────────────────────
+
+export interface TreeEntry {
+  path: string;
+  type: "blob" | "tree";
+  sha: string;
+  size: number | null;
+}
+
+export interface ListWorkflowFilesResult {
+  tree: TreeEntry[];
+}
+
+export interface GetWorkflowFileResult {
+  content: string;
+  sha: string;
+}
+
+export interface BatchCommitResult {
+  commitSha: string;
+  newGitTag: string;
+}
+
+export interface WorkflowFileChange {
+  path: string;
+  content?: string;
+  delete?: boolean;
+}
+
 const BASE = (companyId: string) => `/companies/${companyId}/governed-workflows`;
 
 export const governedWorkflowsApi = {
@@ -183,6 +212,56 @@ export const governedWorkflowsApi = {
     return api.post<LaunchRunResult>(
       `${BASE(companyId)}/${encodeURIComponent(name)}/runs`,
       input ?? {},
+    );
+  },
+
+  // ── Workflow Studio file operations (U13.4) ───────────────────────────────
+
+  /**
+   * List every file under the workflow's subtree at the given ref (defaults to
+   * the DB's latestGitTag on the server side).
+   */
+  listFiles(companyId: string, name: string, opts?: { ref?: string }) {
+    const params: Record<string, string | undefined> = {};
+    if (opts?.ref) params.ref = opts.ref;
+    return api.get<ListWorkflowFilesResult>(
+      `${BASE(companyId)}/${encodeURIComponent(name)}/files${buildQuery(params)}`,
+    );
+  },
+
+  /**
+   * Fetch one workflow-relative file. `path` is encoded PER SEGMENT so nested
+   * paths like `gates/lint.ts` keep their slashes — `encodeURIComponent` would
+   * otherwise turn the `/` into `%2F` and break the Express wildcard.
+   */
+  getFile(companyId: string, name: string, path: string, opts?: { ref?: string }) {
+    const params: Record<string, string | undefined> = {};
+    if (opts?.ref) params.ref = opts.ref;
+    const encodedPath = path
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    return api.get<GetWorkflowFileResult>(
+      `${BASE(companyId)}/${encodeURIComponent(name)}/files/${encodedPath}${buildQuery(params)}`,
+    );
+  },
+
+  /**
+   * Atomic batch commit — creates/updates/deletes multiple files in a single
+   * commit and returns the new semver tag.
+   */
+  batchCommitFiles(
+    companyId: string,
+    name: string,
+    input: {
+      commitMessage: string;
+      branch?: string;
+      changes: WorkflowFileChange[];
+    },
+  ) {
+    return api.put<BatchCommitResult>(
+      `${BASE(companyId)}/${encodeURIComponent(name)}/files`,
+      input,
     );
   },
 };

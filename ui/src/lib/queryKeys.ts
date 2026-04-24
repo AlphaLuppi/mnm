@@ -245,6 +245,11 @@ export const queryKeys = {
       ["governed-workflows", "runs", companyId, name, filters ?? {}] as const,
     runDetail: (companyId: string, runId: string) =>
       ["governed-workflows", "runs", "detail", companyId, runId] as const,
+    // U13.4: Workflow Studio file listings + single-file reads
+    files: (companyId: string, name: string, ref?: string) =>
+      ["governed-workflows", "files", companyId, name, ref ?? "latest"] as const,
+    file: (companyId: string, name: string, path: string, ref?: string) =>
+      ["governed-workflows", "file", companyId, name, path, ref ?? "latest"] as const,
   },
   // CONFIG-LAYERS
   configLayers: {
