@@ -222,3 +222,28 @@ Summary:
   - Deviation: $refStrategy:"none" wraps schema in { $ref, definitions:{GovernedWorkflow:{...}} }
     instead of flat root — Monaco handles this natively, tests adapted to unwrap the definitions
     key. The schema URI fileMatch:["*"] matches the in-memory model since it has no explicit URI.
+
+### U15 — Canonical gates
+
+Four canonical gate implementations shipped to `packages/gate-runner/canonical/` as
+copy-ready source files (not imported at runtime — workflow repos paste them into
+their own `gates/` folder). Each gate is a pure `defineGate(async (ctx) => ...)`
+export that inspects `ctx.artifact` + `ctx.step.previous_artifacts` (no filesystem,
+gates run inside isolated-vm). Semantics deviate from the plan's initial sketch
+which assumed `ctx.workspace.readFile` — that API does not exist, so gates now
+validate structured artifact records (`{files: {...}}` or `{paths: [...]}`) against
+config. Full semantics documented at the top of each gate file.
+
+- U15.1: `f72102f` — `feat(gate-runner): canonical artifact-exists gate`
+- U15.2: `e962ce7` — `feat(gate-runner): canonical artifacts-bundle gate`
+- U15.3: `c30a33e` — `feat(gate-runner): canonical step-succeeded gate`
+- U15.4: `c8cb44e` — `feat(gate-runner): canonical review-pass gate`
+
+Tests (vitest): 32 total across 4 files, all passing. Per-gate counts —
+artifact-exists: 8, artifacts-bundle: 7, step-succeeded: 6, review-pass: 11.
+Tests import the gate default export directly (workspace resolves `.gate.js` via
+NodeNext + bun) and stub a `GateContext`-shaped object — the isolate runner is
+not exercised here.
+
+Repo-wide `bun run typecheck` at HEAD: all 16 packages pass except the
+pre-existing `mnm` root `windows-x64` error (unrelated, per CLAUDE.md).
