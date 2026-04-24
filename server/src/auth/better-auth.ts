@@ -147,6 +147,15 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
     if (publicUrl) {
       try { port = new URL(publicUrl).port || null; } catch { /* ignore */ }
     }
+    // MNM_EXTRA_TRUSTED_ORIGIN_PORTS: comma-separated list of extra ports that
+    // should be trusted alongside the public-URL port. Typical use: add 5173
+    // in dev so the Vite-served UI can hit BetterAuth cross-origin with
+    // credentials (needed for OAuth link flows — cookies must be set on the
+    // BetterAuth origin so GitLab's direct redirect back can find them).
+    const extraPorts = (process.env.MNM_EXTRA_TRUSTED_ORIGIN_PORTS ?? "")
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => /^\d+$/.test(p));
     for (const hostname of config.allowedHostnames) {
       const trimmed = hostname.trim().toLowerCase();
       if (!trimmed) continue;
@@ -155,6 +164,10 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
       if (port) {
         trustedOrigins.add(`https://${trimmed}:${port}`);
         trustedOrigins.add(`http://${trimmed}:${port}`);
+      }
+      for (const extra of extraPorts) {
+        trustedOrigins.add(`https://${trimmed}:${extra}`);
+        trustedOrigins.add(`http://${trimmed}:${extra}`);
       }
     }
   }
