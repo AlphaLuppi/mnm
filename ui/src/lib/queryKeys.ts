@@ -233,6 +233,19 @@ export const queryKeys = {
     summary: (companyId: string, filters?: Record<string, unknown>) =>
       ["feedback", companyId, "summary", filters] as const,
   },
+  // GOVERNED-WORKFLOWS
+  governedWorkflows: {
+    list: (companyId: string, filters?: Record<string, unknown>) =>
+      ["governed-workflows", companyId, filters ?? {}] as const,
+    detail: (companyId: string, name: string) =>
+      ["governed-workflows", "detail", companyId, name] as const,
+    tags: (companyId: string, name: string) =>
+      ["governed-workflows", "tags", companyId, name] as const,
+    runs: (companyId: string, name: string, filters?: Record<string, unknown>) =>
+      ["governed-workflows", "runs", companyId, name, filters ?? {}] as const,
+    runDetail: (companyId: string, runId: string) =>
+      ["governed-workflows", "runs", "detail", companyId, runId] as const,
+  },
   // CONFIG-LAYERS
   configLayers: {
     list: (companyId: string, scope?: string) =>
