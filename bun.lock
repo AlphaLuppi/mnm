@@ -266,6 +266,7 @@
         "@mnm/adapter-opencode-local": "workspace:*",
         "@mnm/adapter-pi-local": "workspace:*",
         "@mnm/adapter-utils": "workspace:*",
+        "@mnm/governed-workflows": "workspace:*",
         "@mnm/shared": "workspace:*",
         "@radix-ui/react-slot": "^1.2.4",
         "@tailwindcss/typography": "^0.5.19",
