@@ -17,6 +17,7 @@ export const governedWorkflowDefinitions = pgTable(
     description: text("description"),
     latestGitTag: text("latest_git_tag"),
     enabled: boolean("enabled").notNull().default(true),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
