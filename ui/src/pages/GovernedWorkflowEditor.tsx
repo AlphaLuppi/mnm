@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { governedWorkflowsApi } from "../api/governed-workflows";
 import { queryKeys } from "../lib/queryKeys";
-import { workflowDefinitionSchema } from "@mnm/governed-workflows";
+import { workflowDefinitionSchema, workflowJsonSchema } from "@mnm/governed-workflows";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,11 +17,36 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Save } from "lucide-react";
+import { AlertCircle, Save, Plus, GitBranchPlus, WrapText } from "lucide-react";
 import type { WorkflowDefinition } from "@mnm/governed-workflows";
+import type { OnMount, BeforeMount } from "@monaco-editor/react";
+import type { editor as MonacoEditorNS } from "monaco-editor";
 
 // Lazy-load Monaco to keep initial bundle small
 const Monaco = lazy(() => import("@monaco-editor/react"));
+
+/** JSON Schema URI used to register the governed workflow schema in Monaco */
+const WORKFLOW_SCHEMA_URI = "https://mnm.local/schemas/governed-workflow.json";
+
+/**
+ * Register the governed workflow JSON Schema with Monaco's JSON language service.
+ * Called once via the `beforeMount` prop — fires before the editor mounts,
+ * guaranteeing schema-backed validation from the first keystroke.
+ */
+const handleBeforeMount: BeforeMount = (monaco) => {
+  monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+    validate: true,
+    allowComments: false,
+    schemas: [
+      {
+        uri: WORKFLOW_SCHEMA_URI,
+        fileMatch: ["*"],
+        schema: workflowJsonSchema as object,
+      },
+    ],
+    enableSchemaRequest: false,
+  });
+};
 
 const DEFAULT_DEFINITION = JSON.stringify(
   {
@@ -64,6 +89,20 @@ function validateDefinition(raw: string): { parsed: WorkflowDefinition | null; e
   return { parsed: null, errors };
 }
 
+/** Snippet inserted by "Insérer une étape" */
+const STEP_SNIPPET = JSON.stringify(
+  { id: "nouvelle-etape", deps: [], agent: "claude_code", prompt_context: {} },
+  null,
+  2,
+);
+
+/** Snippet inserted by "Insérer une gate" */
+const GATE_SNIPPET = JSON.stringify(
+  [{ id: "gate-1", source: "gates/precondition.gate.ts" }],
+  null,
+  2,
+);
+
 export function GovernedWorkflowEditor() {
   const { name } = useParams<{ name?: string }>();
   const isEdit = Boolean(name);
@@ -71,6 +110,13 @@ export function GovernedWorkflowEditor() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { setBreadcrumbs } = useBreadcrumbs();
+
+  // Ref to the Monaco editor instance — used by toolbar snippet buttons
+  const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
+
+  const handleEditorMount: OnMount = useCallback((editor) => {
+    editorRef.current = editor;
+  }, []);
 
   const [jsonValue, setJsonValue] = useState<string>(DEFAULT_DEFINITION);
   const [commitMessage, setCommitMessage] = useState<string>("");
@@ -139,6 +185,34 @@ export function GovernedWorkflowEditor() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const saveError = createMutation.error ?? updateMutation.error;
 
+  /**
+   * Insert a snippet at the current cursor position in the Monaco editor.
+   * Falls back to appending at the end if no cursor is active.
+   */
+  function insertSnippet(text: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const selection = editor.getSelection();
+    const op = selection
+      ? { range: selection, text, forceMoveMarkers: true }
+      : { range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 }, text, forceMoveMarkers: true };
+    editor.executeEdits("snippet-insert", [op]);
+    editor.focus();
+  }
+
+  function handleInsertStep() {
+    insertSnippet(STEP_SNIPPET);
+  }
+
+  function handleInsertGate() {
+    insertSnippet(GATE_SNIPPET);
+  }
+
+  function handleFormat() {
+    editorRef.current?.trigger("toolbar", "editor.action.formatDocument", undefined);
+    editorRef.current?.focus();
+  }
+
   if (isEdit && loadingExisting) {
     return (
       <div className="space-y-4">
@@ -165,22 +239,61 @@ export function GovernedWorkflowEditor() {
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Editor pane */}
-        <div className="flex-1 min-h-[60vh] border rounded-md overflow-hidden">
-          <Suspense fallback={<Skeleton className="h-full w-full" />}>
-            <Monaco
-              height="60vh"
-              language="json"
-              value={jsonValue}
-              onChange={(v) => setJsonValue(v ?? "")}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                scrollBeyondLastLine: false,
-                wordWrap: "on",
-              }}
-              data-testid="monaco-editor"
-            />
-          </Suspense>
+        <div className="flex-1 flex flex-col min-h-[60vh]">
+          {/* Snippet toolbar */}
+          <div className="flex items-center gap-2 pb-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleInsertStep}
+              title="Insère un objet étape à la position du curseur"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Insérer une étape
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleInsertGate}
+              title="Insère un bloc gate à la position du curseur"
+            >
+              <GitBranchPlus className="h-3.5 w-3.5 mr-1" />
+              Insérer une gate
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleFormat}
+              title="Formater le JSON (Shift+Alt+F)"
+            >
+              <WrapText className="h-3.5 w-3.5 mr-1" />
+              Formater
+            </Button>
+          </div>
+          {/* Monaco editor */}
+          <div className="flex-1 border rounded-md overflow-hidden">
+            <Suspense fallback={<Skeleton className="h-full w-full" />}>
+              <Monaco
+                height="60vh"
+                language="json"
+                value={jsonValue}
+                onChange={(v) => setJsonValue(v ?? "")}
+                beforeMount={handleBeforeMount}
+                onMount={handleEditorMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "on",
+                  folding: true,
+                  lineNumbers: "on",
+                  quickSuggestions: { other: true, comments: false, strings: true },
+                  suggestOnTriggerCharacters: true,
+                }}
+                data-testid="monaco-editor"
+              />
+            </Suspense>
+          </div>
         </div>
 
         {/* Validation panel */}
