@@ -19,6 +19,9 @@ export {
   type WorkflowDefinition,
 } from "./workflow.js";
 
+// JSON Schema (for Monaco editor autocomplete + live validation)
+export { workflowJsonSchema } from "./workflow.jsonschema.js";
+
 // Authoring helpers
 export { defineGate } from "./define-gate.js";
 export { defineWorkflow } from "./define-workflow.js";
