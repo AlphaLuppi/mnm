@@ -712,5 +712,58 @@ export const parityData: ParityData = {
         },
       ],
     },
+    {
+      id: "governed-workflows",
+      name: "Governed Workflows",
+      features: [
+        {
+          id: "governed-workflows-list",
+          name: "Workflows list (enable/disable, archive, CTA)",
+          description:
+            "Table of all non-archived workflow definitions for the company. Toggle enabled state, archive with confirm dialog, link to runs.",
+          web: { status: "done", since: "2026-04-24" },
+          desktop: {
+            status: "missing",
+            notes: "Needs connection-profiles + backend access from packaged DMG.",
+            blockers: ["desktop-connection-profiles"],
+          },
+        },
+        {
+          id: "governed-workflows-editor",
+          name: "Workflow definition editor (Monaco + zod live validation)",
+          description:
+            "Create or edit a workflow JSON definition with Monaco in JSON mode and live zod validation feedback. Commit message dialog on save.",
+          web: { status: "done", since: "2026-04-24" },
+          desktop: {
+            status: "missing",
+            notes: "Monaco canvas requires Tauri webview — no known blocker beyond connection-profiles.",
+            blockers: ["desktop-connection-profiles"],
+          },
+        },
+        {
+          id: "governed-workflows-runs-list",
+          name: "Workflow runs list (filters, launch dialog)",
+          description:
+            "Paginated run history with status/date/actor filters. Launch-run dialog with variable params form and HEAD/latest toggle.",
+          web: { status: "done", since: "2026-04-24" },
+          desktop: {
+            status: "missing",
+            blockers: ["desktop-connection-profiles"],
+          },
+        },
+        {
+          id: "governed-workflows-run-detail",
+          name: "Run detail with live SSE step timeline and gate results",
+          description:
+            "Step-by-step timeline using useGovernedRunEvents (SSE via LiveUpdatesProvider). Tabs per step: Input / Output / Gates table.",
+          web: { status: "done", since: "2026-04-24" },
+          desktop: {
+            status: "missing",
+            notes: "Depends on SSE connectivity inside packaged DMG in addition to connection-profiles.",
+            blockers: ["desktop-connection-profiles", "desktop-sse-connectivity"],
+          },
+        },
+      ],
+    },
   ],
 };
