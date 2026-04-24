@@ -2961,3 +2961,17 @@ If no changes were needed (everything was already wired), skip this step.
 - **Follow repo conventions**: imports use `.js` extensions (TS paths → compiled JS), error pattern uses `error_code` + `hints`, permissions checked via `requirePermission` middleware.
 - **When a pattern is unclear**: grep first, don't guess. The plan calls out "adjust per repo convention" where the exact symbol name depends on what's currently in the tree.
 - **Fresh subagent per task**: this is a large plan; context will bloat otherwise. Use the subagent-driven-development skill.
+
+---
+
+## Completion report
+
+**Date:** 2026-04-24
+**Shipped:** 6 tranches (U1 nuke legacy, U2 REST endpoints + service helpers, U3 live events, U4 UI API client, U5 4 UI pages + routes + parity, U6 MCP tool parity).
+**Follow-ups / known gaps:**
+- `jsdom` was not installed in the workspace when U5 ran — tests failed to boot even though they don't use jsdom rendering. Installed as devDep at root level; all 26 new page unit tests now pass. Pre-existing test failures (DB integration, git-provider round-trip, E2E server tests) remain at 18 failing test files / 23 failing tests.
+- The root `mnm typecheck` fails on `@embedded-postgres/windows-x64` — pre-existing Windows-specific issue, unrelated to U5. All 15 individual package typechecks pass (including `@mnm/ui`).
+- Breadcrumb `Breadcrumb.href` used instead of `to` — the `BreadcrumbContext` interface uses `href?` not `to`; all page breadcrumbs fixed.
+- `WorkflowDefinition` schema uses flat `name` field and `agent` + `prompt_context` step fields (no `metadata.name`, no `kind`/`prompt`). Default template in GovernedWorkflowEditor corrected accordingly.
+- Manual browser smoke test to be done by Tom tomorrow.
+**Sign-off:** pending Tom's morning review.
