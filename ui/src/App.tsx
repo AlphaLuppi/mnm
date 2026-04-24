@@ -361,6 +361,7 @@ export function App() {
           <Route path="workflows/:name/runs" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows/:name/runs/:runId" element={<UnprefixedBoardRedirect />} />
           <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
+          <Route path="settings/profile" element={<UnprefixedBoardRedirect />} />
           <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
