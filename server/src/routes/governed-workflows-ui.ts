@@ -244,7 +244,7 @@ export function governedWorkflowUiRoutes(db: Db) {
               scope: "company",
               enforced: true,
               createdByUserId: actorUserId,
-              ownerType: "company",
+              ownerType: "system",
               visibility: "public",
             })
             .returning({ id: configLayers.id });
