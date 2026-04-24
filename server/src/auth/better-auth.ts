@@ -53,6 +53,52 @@ function buildGitlabProviderConfig(): {
   };
 }
 
+// ── Microsoft / Entra ID (Azure AD) ──────────────────────────────────────────
+// Direct-to-Azure provider, complementary to GitLab OIDC. Useful when a user
+// has a CBA identity but no GitLab access (ex: non-dev staff, external
+// collaborators with a guest Azure account). Login succeeds, but governed
+// workflow commits will then fall back to the company-level PAT — an Azure
+// token cannot sign commits on lab.cbainfo.fr.
+//
+// BetterAuth's native `microsoft` provider:
+//   authorization → https://login.microsoftonline.com/<tenantId>/oauth2/v2.0/authorize
+//   token         → https://login.microsoftonline.com/<tenantId>/oauth2/v2.0/token
+//   userinfo      → https://graph.microsoft.com/v1.0/me
+//
+// tenantId semantics:
+//   "common"        → any Azure AD tenant + personal accounts (dev default)
+//   "organizations" → any Azure AD tenant (no personal)
+//   "<uuid>"        → single tenant (recommended for prod — lock to CBA's tenant)
+function buildMicrosoftProviderConfig(): {
+  clientId: string;
+  clientSecret: string;
+  tenantId: string;
+  scope: string[];
+  prompt: "select_account";
+} | null {
+  const clientId = process.env.MICROSOFT_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.MICROSOFT_OAUTH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    // Default to "common" (any tenant) so dev works out of the box. In prod,
+    // set MICROSOFT_OAUTH_TENANT_ID to CBA's Entra tenant UUID so only CBA
+    // identities can sign in — guests from other tenants get a 401.
+    tenantId: process.env.MICROSOFT_OAUTH_TENANT_ID ?? "common",
+    // openid/profile/email = OIDC claims. User.Read = Graph API baseline
+    // (display name, email, UPN). We don't request any write scopes — MnM
+    // never acts on behalf of the user against Graph.
+    scope: ["openid", "profile", "email", "User.Read"],
+    // select_account forces the Microsoft account picker every login. Avoids
+    // silent auth as the wrong identity when a user has multiple tenants.
+    prompt: "select_account",
+  };
+}
+
 export type BetterAuthSessionUser = {
   id: string;
   email?: string | null;
@@ -127,10 +173,11 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
   // Disable rate limiting when running E2E tests (prevents "Too Many Requests" during parallel tests)
   const isE2eMode = process.env.MNM_E2E_SEED === "true";
 
-  // Conditionally add the GitLab OIDC provider — only when all three env vars
-  // are present. Guards against accidentally wiring an incomplete provider (e.g.
-  // missing secret) which would make BetterAuth throw at startup.
+  // Conditionally add social providers — only when their env vars are present.
+  // Guards against accidentally wiring an incomplete provider (e.g. missing
+  // secret) which would make BetterAuth throw at startup.
   const gitlabProviderConfig = buildGitlabProviderConfig();
+  const microsoftProviderConfig = buildMicrosoftProviderConfig();
 
   const authConfig = {
     baseURL: baseUrl,
@@ -150,10 +197,11 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       requireEmailVerification: false,
       disableSignUp: config.authDisableSignUp,
     },
-    ...(gitlabProviderConfig
+    ...(gitlabProviderConfig || microsoftProviderConfig
       ? {
           socialProviders: {
-            gitlab: gitlabProviderConfig,
+            ...(gitlabProviderConfig ? { gitlab: gitlabProviderConfig } : {}),
+            ...(microsoftProviderConfig ? { microsoft: microsoftProviderConfig } : {}),
           },
         }
       : {}),
