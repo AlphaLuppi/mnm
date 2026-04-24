@@ -26,7 +26,7 @@ import {
 } from "../services/governed-workflows-extensions.js";
 import { createResolveGitProvider } from "../mcp/build-mcp-services.js";
 import { ShaCache } from "@mnm/git-provider";
-import { configLayers, configLayerItems } from "@mnm/db";
+import { configLayers, configLayerItems, authUsers } from "@mnm/db";
 import { and, eq, isNull } from "drizzle-orm";
 
 // ── Error helpers ────────────────────────────────────────────────────────────
@@ -78,9 +78,29 @@ const gitProviderConfigSchema = z.discriminatedUnion("kind", [
 ]);
 
 // ── Author identity from actor ───────────────────────────────────────────────
+// Produces the {name, email} stamp written on each git commit the workflow
+// route triggers. In authenticated mode we look up the real BetterAuth user
+// record so commits in the GitLab history carry the user's real identity
+// (not an opaque uuid@mnm.local). Agents and local_trusted keep their
+// synthesized identities — those are never a real person.
 
-function resolveAuthor(req: import("express").Request): { name: string; email: string } {
+async function resolveAuthor(
+  db: Db,
+  req: import("express").Request,
+): Promise<{ name: string; email: string }> {
   if (req.actor.type === "board" && req.actor.userId) {
+    const [row] = await db
+      .select({ name: authUsers.name, email: authUsers.email })
+      .from(authUsers)
+      .where(eq(authUsers.id, req.actor.userId))
+      .limit(1);
+    if (row?.email) {
+      return {
+        name: row.name?.trim() || row.email,
+        email: row.email,
+      };
+    }
+    // BetterAuth user row missing — fallback to userId synthesis.
     return {
       name: req.actor.userId,
       email: `${req.actor.userId}@mnm.local`,
@@ -92,7 +112,7 @@ function resolveAuthor(req: import("express").Request): { name: string; email: s
       email: `agent-${req.actor.agentId}@mnm.local`,
     };
   }
-  // Fallback for local_trusted
+  // Fallback for local_trusted (no BetterAuth session at all).
   return { name: "MnM Dev", email: "dev@mnm.local" };
 }
 
@@ -169,7 +189,7 @@ export function governedWorkflowUiRoutes(db: Db) {
           ]);
         }
         const { definition, commitMessage, branch } = body.data;
-        const author = resolveAuthor(req);
+        const author = await resolveAuthor(db, req);
         const userId = req.actor.type === "board" ? req.actor.userId : null;
         const result = await saveDefinition(db, {
           companyId,
@@ -327,7 +347,7 @@ export function governedWorkflowUiRoutes(db: Db) {
             ["Set definition.name to match the URL :name parameter"],
           );
         }
-        const author = resolveAuthor(req);
+        const author = await resolveAuthor(db, req);
         const userId = req.actor.type === "board" ? req.actor.userId : null;
         const result = await upsertDefinition(db, {
           companyId,
