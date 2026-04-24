@@ -592,6 +592,28 @@ function handleLiveEvent(
     }
     return;
   }
+
+  // GOVERNED-WORKFLOWS: Run lifecycle events — invalidate run detail query
+  if (
+    event.type === "governed_run.step_updated" ||
+    event.type === "governed_run.gate_evaluated"
+  ) {
+    const runId = readString(payload.runId);
+    if (runId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.governedWorkflows.runDetail(expectedCompanyId, runId),
+      });
+      // Dispatch custom DOM event so useGovernedRunEvents hooks can react.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("governed_run:updated", {
+            detail: { companyId: expectedCompanyId, runId },
+          }),
+        );
+      }
+    }
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
