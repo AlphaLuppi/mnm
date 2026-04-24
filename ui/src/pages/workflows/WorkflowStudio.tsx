@@ -27,6 +27,7 @@ import { useWorkflowFiles } from "@/hooks/useWorkflowFiles";
 import { FileTree } from "@/components/workflow-studio/FileTree";
 import { MonacoMultiEditor } from "@/components/workflow-studio/MonacoMultiEditor";
 import { AiAssistantPanel } from "@/components/workflow-studio/AiAssistantPanel";
+import { ValidationBadge } from "@/components/workflow-studio/ValidationBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -320,7 +321,14 @@ export function WorkflowStudio() {
                 onChange={editFile}
                 readOnly={!canEdit}
               />
-              {/* ValidationBadge overlay lands in U14.5 */}
+              <div className="absolute bottom-2 right-2 z-10">
+                <ValidationBadge
+                  activePath={activePath}
+                  activeContent={
+                    activePath ? files[activePath]?.content : undefined
+                  }
+                />
+              </div>
             </div>
           </ResizablePanel>
           <ResizableHandle />
