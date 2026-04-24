@@ -289,7 +289,8 @@ export function governedWorkflowUiRoutes(db: Db) {
       try {
         const companyId = req.params.companyId as string;
         const name = req.params.name as string;
-        const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+        const rawLimit = parseInt(String(req.query.limit ?? ""), 10);
+        const limit = Math.min(isNaN(rawLimit) ? 50 : rawLimit, 100);
         const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : 0;
         const result = await listRuns(db, {
           companyId,
@@ -298,7 +299,7 @@ export function governedWorkflowUiRoutes(db: Db) {
           initiatedByActorId: req.query.initiatedByActorId as string | undefined,
           startedAfter: req.query.startedAfter as string | undefined,
           startedBefore: req.query.startedBefore as string | undefined,
-          limit: isNaN(limit) ? 20 : limit,
+          limit,
           offset: isNaN(offset) ? 0 : offset,
         });
         res.json(result);
