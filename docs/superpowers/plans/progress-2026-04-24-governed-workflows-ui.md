@@ -260,3 +260,27 @@ pre-existing `mnm` root `windows-x64` error (unrelated, per CLAUDE.md).
 - U13.7: 1eac75c feat(workflows): useWorkflowFiles hook
 - U13.8: 68005cb feat(workflows): WorkflowStudio page
 - U13.9: 8e6aec4 feat(workflows): route /workflows/:name to WorkflowStudio
+
+### U14 — AI Assistant for Workflow Studio
+
+Server side (U14.1) + UI integration (U14.3–U14.6) landed 2026-04-24.
+U14.2 (MCP tools stretch) intentionally skipped — out of scope.
+
+- U14.1a: 2e096a9 feat(workflows): workflow AI assistant service with Claude streaming
+- U14.1b: cb8951a feat(workflows): SSE endpoint POST /governed-workflows/:name/ai/chat
+- U14.1c: 4c2e9af chore(parity): add AI assistant server-side feature
+- U14.3:  b94655e feat(workflows): client SSE wrapper + useAiAssistant hook
+- U14.4:  80b683f feat(workflows): AiAssistantPanel wired into WorkflowStudio
+- U14.5:  8a6c7f9 feat(workflows): ValidationBadge + Sheet drawer
+- U14.6:  (this commit) chore(workflows): parity + CLAUDE.md + progress log for U14
+
+Notes:
+- Message history is session-only (hook state), lost on navigation — by design.
+- SSE uses fetch + ReadableStream.getReader() (EventSource can't POST); cross-
+  origin dev mirrors authApi.linkSocial (direct :3100 call with credentials).
+- File proposals render inline inside the assistant message that produced them;
+  Apply/Reject delegate to useWorkflowFiles addFile/editFile/deleteFile.
+- ValidationBadge only renders for workflow.json — other files are unvalidated
+  until commit-time isolated-vm probe runs.
+- 3-column layout: FileTree 20 / Monaco 55 / AI panel 25; all resizable.
+- Typecheck: all individual packages pass (root windows-x64 error pre-existing).

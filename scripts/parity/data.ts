@@ -785,24 +785,21 @@ export const parityData: ParityData = {
           id: "governed-workflows-ai-assistant",
           name: "Workflow Studio — AI assistant (SSE chat + file proposals)",
           description:
-            "Backend SSE endpoint POST /governed-workflows/:name/ai/chat that proxies Claude Sonnet with a French system prompt embedding the current workflow.json, the JSON schema, the canonical gate list, and the local gates/*.ts files. Emits typed events (token, file-proposal, error, done). Concurrency-limited to 3 in-flight requests per user. UI integration lands in U14.3+.",
+            "Full SSE chat pipeline — the backend endpoint POST /governed-workflows/:name/ai/chat proxies Claude Sonnet with a French system prompt embedding the current workflow.json, the JSON schema, the canonical gate list, and the local gates/*.ts files (typed events: token, file-proposal, error, done; concurrency-limited to 3 in-flight per user). The web UI wires a useAiAssistant hook on top of fetch+getReader() SSE parsing and renders AiAssistantPanel — Chat bubbles with streaming cursor, inline file-proposal cards with Appliquer/Rejeter buttons that call into useWorkflowFiles.",
           web: {
-            status: "partial",
+            status: "done",
             since: "2026-04-24",
             notes:
-              "Server-side SSE endpoint only; UI (AiAssistantPanel, useAiAssistant hook) lands in U14.3+",
+              "SSE stream + file-proposal UX in the Workflow Studio (3rd column). Session-only history — no persistence.",
           },
           desktop: {
             status: "missing",
             notes:
-              "Requires the web UI to land first, then the desktop wrapper to route the SSE stream through the packaged backend connection profile.",
+              "Needs the desktop wrapper to route the SSE stream through the packaged backend connection profile.",
             blockers: ["desktop-connection-profiles"],
           },
           todo: {
             code: [
-              "Implement useAiAssistant hook (U14.3)",
-              "Implement AiAssistantPanel component (U14.4)",
-              "Wire into WorkflowStudio right-third pane",
               "Desktop: route SSE through connection profile once web ships",
             ],
           },

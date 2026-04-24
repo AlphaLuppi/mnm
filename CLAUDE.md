@@ -4,12 +4,14 @@ MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
 Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
 Language: French for planning documents. See README.md for full project docs.
 
-## Governed Workflows UI — Status: landed 2026-04-24 with U8 Monaco autocomplete — pending Tom's morning review.
+## Governed Workflows UI — Status: Workflow Studio + AI Assistant landed 2026-04-24 — pending Tom's morning review.
 
-- All 8 tranches shipped (U1 nuke legacy, U2 REST, U3 live events, U4 UI API, U5 4 pages + routes + parity, U6 MCP tools, U7 polish, U8 Monaco autocomplete).
-- U8 (4 commits): zod-to-json-schema, French field descriptions, workflowJsonSchema export, Monaco beforeMount schema registration, inline squiggles + autocomplete, toolbar snippets (insert step/gate/format).
-- Completion report: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md` (end of file).
-- Progress log: `docs/superpowers/plans/progress-2026-04-24-governed-workflows-ui.md`
+- U1–U8: nuke legacy, REST endpoints, live events, UI API client, 4 canonical pages, MCP tool parity, polish, Monaco autocomplete + JSON schema.
+- U12.1: silent-fail fix on GET /:name (surfaces git-fetch errors).
+- U13: Workflow Studio — multi-file editor (FileTree + Monaco multi-model + useWorkflowFiles lazy loading + batch atomic commit). Replaces the legacy single-file editor on /workflows/:name; `/workflows/new` still uses the simpler create-mode editor.
+- U14: AI Assistant Panel — SSE `/ai/chat` streams Claude Sonnet with French system prompt (current workflow.json + JSON schema + canonical gates + local gates). UI: useAiAssistant hook + AiAssistantPanel (3rd column) with inline file-proposal cards (Appliquer/Rejeter → useWorkflowFiles) + ValidationBadge overlay with Sheet drawer.
+- U15: 4 canonical gates shipped to `packages/gate-runner/canonical/` (artifact-exists, artifacts-bundle, step-succeeded, review-pass).
+- Plans: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md` (U1–U8), `docs/superpowers/plans/2026-04-24-workflow-studio.md` (U12–U15), progress log at `docs/superpowers/plans/progress-2026-04-24-governed-workflows-ui.md`.
 - Remove this block after sign-off.
 
 ## Critical Rules
