@@ -1,4 +1,7 @@
+import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
+import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
+import { GovernedWorkflowError } from "./governed-workflows.js";
 
 // Constant providerId since T5 has one GitProvider per MCP service instance.
 // Separated from sha so ShaCache's (providerId, path, sha) tuple is used
@@ -58,7 +61,25 @@ export function makeResolveSource(args: {
       return { source: cached, gateSourcePath };
     }
 
-    const source = await gitProvider.fetchBlob({ path: gateSourcePath, ref: workflowGitSha });
+    let source: string;
+    try {
+      source = await gitProvider.fetchBlob({ path: gateSourcePath, ref: workflowGitSha });
+    } catch (err) {
+      if (err instanceof GitProviderError && err.code === "not_found") {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.GATE_SOURCE_NOT_FOUND,
+          `Gate source file '${gateSourcePath}' was not found in the workflow repository at sha ${workflowGitSha}`,
+          [
+            `Commit the gate script to your workflow repo at path '${gateSourcePath}'`,
+            "Or remove the gate entry from workflow.json and re-publish a new tag",
+            "Gates are declared in workflow.json under step.gates.{entry,exit}[].source — each 'source' must resolve to an existing file relative to the workflow.json",
+          ],
+        );
+      }
+      // Other GitProviderError codes (auth, network, rate-limit) bubble up
+      // to be caught by wrap() in governed-workflows.tool.ts.
+      throw err;
+    }
     shaCache.set(PROVIDER_ID, gateSourcePath, workflowGitSha, source);
 
     return { source, gateSourcePath };
