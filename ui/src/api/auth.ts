@@ -109,9 +109,37 @@ export const authApi = {
    * Start an OAuth flow to link a social provider to the current session.
    * BetterAuth returns `{url, redirect: true}` — we navigate to `url`, the
    * provider authenticates the user, then redirects back to `callbackURL`.
+   *
+   * IMPORTANT: this call must hit the BetterAuth origin DIRECTLY (not via
+   * the Vite proxy on :5173), otherwise the state/pkce cookies end up on
+   * :5173 and GitLab's post-auth redirect back to :3100 cannot find them
+   * → `state_security_mismatch`. We hard-code `http://localhost:3100` in
+   * dev (when the UI is on :5173); in prod UI + API share the same origin
+   * so we fall back to a relative URL.
    */
   linkSocial: async (provider: "gitlab" | "microsoft", callbackURL: string) => {
-    const payload = await authPost("/link-social", { provider, callbackURL });
+    const isViteDev =
+      typeof window !== "undefined" && window.location.port === "5173";
+    const target = isViteDev
+      ? "http://localhost:3100/api/auth/link-social"
+      : "/api/auth/link-social";
+    const res = await fetch(target, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, callbackURL }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(
+        (payload as { error?: { message?: string } | string } | null)?.error &&
+          typeof (payload as { error?: { message?: string } | string }).error === "object"
+          ? ((payload as { error?: { message?: string } }).error?.message ??
+              `link-social failed (${res.status})`)
+          : (payload as { error?: string } | null)?.error ??
+              `link-social failed (${res.status})`,
+      );
+    }
     const url =
       payload && typeof payload === "object" && typeof (payload as Record<string, unknown>).url === "string"
         ? (payload as { url: string }).url
