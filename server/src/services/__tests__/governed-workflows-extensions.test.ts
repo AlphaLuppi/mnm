@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { sql } from "drizzle-orm";
-import { computeNextTag, saveDefinition } from "../governed-workflows-extensions.js";
+import {
+  computeNextTag,
+  saveDefinition,
+  archiveDefinition,
+  listRuns,
+  getRunWithSteps,
+} from "../governed-workflows-extensions.js";
 import { setupTestDb, teardownTestDb, cleanTestDb } from "@mnm/test-utils";
 import { setTenantContext } from "../../middleware/tenant-context.js";
 import type { Db } from "@mnm/db";
@@ -92,5 +98,90 @@ describe("saveDefinition", () => {
     });
     expect(result.created).toBe(false);
     expect(result.newGitTag).toBe("my-wf/v1.0.1");
+  });
+});
+
+// ── U2.5: archiveDefinition / listRuns / getRunWithSteps ────────────────────
+// These tests require the embedded test DB (port 5433). They are skipped on
+// Windows CI where the DB is unavailable (pre-existing platform limitation).
+
+describe("archiveDefinition", () => {
+  let db: Db;
+  const companyId = "00000000-0000-0000-0000-000000000c02";
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, 'ArchiveDef', 'ARC')`);
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
+      VALUES (${companyId}, 'wf-to-archive', 'v1.0.0')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  it("returns true and sets archived_at when the definition exists", async () => {
+    await setTenantContext(db, companyId);
+    const result = await archiveDefinition(db, { companyId, name: "wf-to-archive" });
+    expect(result).toBe(true);
+  });
+
+  it("returns false when called again on an already-archived definition", async () => {
+    await setTenantContext(db, companyId);
+    const result = await archiveDefinition(db, { companyId, name: "wf-to-archive" });
+    expect(result).toBe(false);
+  });
+
+  it("returns false for a non-existent definition", async () => {
+    await setTenantContext(db, companyId);
+    const result = await archiveDefinition(db, { companyId, name: "does-not-exist" });
+    expect(result).toBe(false);
+  });
+});
+
+describe("listRuns", () => {
+  let db: Db;
+  const companyId = "00000000-0000-0000-0000-000000000c03";
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, 'ListRuns', 'LR')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  it("returns empty items and total=0 when no definition exists", async () => {
+    await setTenantContext(db, companyId);
+    const result = await listRuns(db, { companyId, workflowName: "missing-wf" });
+    expect(result.items).toHaveLength(0);
+    expect(result.total).toBe(0);
+  });
+});
+
+describe("getRunWithSteps", () => {
+  let db: Db;
+  const companyId = "00000000-0000-0000-0000-000000000c04";
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, 'GetRunSteps', 'GRS')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  it("returns null for a non-existent run", async () => {
+    await setTenantContext(db, companyId);
+    const result = await getRunWithSteps(db, {
+      companyId,
+      runId: "00000000-0000-0000-0000-000000000000",
+    });
+    expect(result).toBeNull();
   });
 });
