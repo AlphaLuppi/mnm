@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
@@ -250,7 +250,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   // ─── Discovery ──────────────────────────────────────────────────
 
   async function listDefinitions(args: { companyId: string; enabled?: boolean }) {
-    const conds = [eq(governedWorkflowDefinitions.companyId, args.companyId)];
+    const conds = [
+      eq(governedWorkflowDefinitions.companyId, args.companyId),
+      isNull(governedWorkflowDefinitions.archivedAt),
+    ];
     if (args.enabled !== undefined) {
       conds.push(eq(governedWorkflowDefinitions.enabled, args.enabled));
     }
