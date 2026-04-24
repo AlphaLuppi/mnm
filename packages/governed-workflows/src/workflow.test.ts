@@ -92,4 +92,40 @@ describe("workflowDefinitionSchema", () => {
     });
     expect(parsed.steps[1].deps).toEqual(["greet"]);
   });
+
+  // ── Name regex safety tests ──────────────────────────────────────────────────
+
+  it("accepts a valid name: hello-world", () => {
+    const parsed = workflowDefinitionSchema.parse({ ...minimalWorkflow, name: "hello-world" });
+    expect(parsed.name).toBe("hello-world");
+  });
+
+  it("accepts a valid name with underscore: my_workflow_1", () => {
+    const parsed = workflowDefinitionSchema.parse({ ...minimalWorkflow, name: "my_workflow_1" });
+    expect(parsed.name).toBe("my_workflow_1");
+  });
+
+  it("rejects path-traversal name: ../../../etc/passwd", () => {
+    expect(() =>
+      workflowDefinitionSchema.parse({ ...minimalWorkflow, name: "../../../etc/passwd" }),
+    ).toThrow(/Workflow name must start with lowercase alphanumeric/);
+  });
+
+  it("rejects UPPERCASE name", () => {
+    expect(() =>
+      workflowDefinitionSchema.parse({ ...minimalWorkflow, name: "UPPERCASE" }),
+    ).toThrow(/Workflow name must start with lowercase alphanumeric/);
+  });
+
+  it("rejects name starting with a hyphen", () => {
+    expect(() =>
+      workflowDefinitionSchema.parse({ ...minimalWorkflow, name: "-bad-start" }),
+    ).toThrow(/Workflow name must start with lowercase alphanumeric/);
+  });
+
+  it("rejects name exceeding 100 characters", () => {
+    expect(() =>
+      workflowDefinitionSchema.parse({ ...minimalWorkflow, name: "a".repeat(101) }),
+    ).toThrow();
+  });
 });
