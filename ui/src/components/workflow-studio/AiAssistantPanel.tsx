@@ -149,37 +149,36 @@ export function AiAssistantPanel(props: AiAssistantPanelProps) {
         </Button>
       </div>
 
-      {/* Message list */}
-      <div
-        className="flex-1 min-h-0 relative"
-        ref={viewportRef}
-      >
-        <ScrollArea
-          className="h-full"
-          onScrollCapture={handleScroll}
-        >
-          {messages.length === 0 ? (
-            <EmptyState
-              disabled={!enabled || streaming}
-              onPick={(p) => setInput(p)}
-            />
-          ) : (
-            <div className="flex flex-col gap-3 p-3">
-              {messages.map((m) => (
-                <MessageBubble
-                  key={m.id}
-                  role={m.role}
-                  content={m.content}
-                  streaming={m.streaming}
-                  error={m.error}
-                  proposals={m.proposals}
-                  onApply={applyProposal}
-                  onDismiss={dismissProposal}
-                />
-              ))}
-            </div>
-          )}
-        </ScrollArea>
+      {/* Message list — `absolute inset-0` on the ScrollArea wrapper prevents */}
+      {/* Radix's Viewport (which uses display:table internally) from pushing  */}
+      {/* the flex parent taller than the panel and causing the whole page    */}
+      {/* to scroll when the conversation gets long.                          */}
+      <div className="flex-1 min-h-0 relative" ref={viewportRef}>
+        <div className="absolute inset-0">
+          <ScrollArea className="h-full" onScrollCapture={handleScroll}>
+            {messages.length === 0 ? (
+              <EmptyState
+                disabled={!enabled || streaming}
+                onPick={(p) => setInput(p)}
+              />
+            ) : (
+              <div className="flex flex-col gap-3 p-3">
+                {messages.map((m) => (
+                  <MessageBubble
+                    key={m.id}
+                    role={m.role}
+                    content={m.content}
+                    streaming={m.streaming}
+                    error={m.error}
+                    proposals={m.proposals}
+                    onApply={applyProposal}
+                    onDismiss={dismissProposal}
+                  />
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
       </div>
 
       <Separator />
@@ -279,7 +278,10 @@ function MessageBubble(props: {
     >
       <div
         className={cn(
-          "px-3 py-2 rounded-xl text-sm whitespace-pre-wrap break-words",
+          // `overflow-wrap: anywhere` + `max-w-full` prevent long URLs, file
+          // paths, or code tokens (e.g. "foo_bar_baz_very_long_import") from
+          // pushing the message wider than the chat column.
+          "px-3 py-2 rounded-xl text-sm whitespace-pre-wrap [overflow-wrap:anywhere] max-w-full overflow-hidden",
           isUser ? "bg-muted/60" : "bg-muted/30",
         )}
       >
