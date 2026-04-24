@@ -80,6 +80,8 @@ import { viewPresetRoutes } from "./routes/view-presets.js";
 import { userWidgetRoutes } from "./routes/user-widgets.js";
 import { inboxItemRoutes } from "./routes/inbox-items.js";
 import { blockCatalogueRoutes } from "./routes/block-catalogue.js";
+// GOVERNED-WORKFLOWS-UI: REST endpoints for the governed workflows cockpit
+import { governedWorkflowUiRoutes } from "./routes/governed-workflows-ui.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 import { createMcpRouter, shutdownMcp } from "./mcp/index.js";
 import { buildMcpServices } from "./mcp/build-mcp-services.js";
@@ -328,6 +330,11 @@ export async function createApp(
   api.use(userWidgetRoutes(db));
   api.use(inboxItemRoutes(db));
   api.use(blockCatalogueRoutes(db));
+  // GOVERNED-WORKFLOWS-UI: cockpit REST endpoints
+  api.use(
+    "/companies/:companyId/governed-workflows",
+    governedWorkflowUiRoutes(db),
+  );
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
