@@ -114,13 +114,12 @@ export async function saveDefinition(
     authorEmail: args.authorEmail,
   });
 
-  // TODO(U2.4): Push the semver tag pointing at the commit sha once
-  // GitProvider.createTag is added to the interface.
-  // await gitProvider.createTag({
-  //   name: newGitTag,
-  //   ref: commitResult.sha,
-  //   message: args.commitMessage,
-  // });
+  // Push the semver tag pointing at the commit sha.
+  await gitProvider.createTag({
+    name: newGitTag,
+    ref: commitResult.sha,
+    message: args.commitMessage,
+  });
 
   // Upsert the DB row.
   const existing = await db

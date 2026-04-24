@@ -13,6 +13,8 @@ import type {
   PathExistsArgs,
   CommitFileArgs,
   CommitFileResult,
+  CreateTagArgs,
+  CreateTagResult,
 } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -152,6 +154,28 @@ export class LocalBareRepoProvider implements GitProvider {
       });
     } finally {
       await rm(work, { recursive: true, force: true });
+    }
+  }
+
+  async createTag(args: CreateTagArgs): Promise<CreateTagResult> {
+    try {
+      // Resolve the ref to an actual sha first so the tag points to the commit.
+      const sha = await this.resolveRef({ ref: args.ref });
+      // Create an annotated tag if a message is provided, otherwise lightweight.
+      if (args.message) {
+        await execFileAsync(
+          "git",
+          ["--git-dir", this.repoDir, "tag", "-a", args.name, sha, "-m", args.message],
+        );
+      } else {
+        await execFileAsync(
+          "git",
+          ["--git-dir", this.repoDir, "tag", args.name, sha],
+        );
+      }
+      return { sha };
+    } catch (cause) {
+      throw this.classifyGitError(cause, "createTag", { name: args.name, ref: args.ref });
     }
   }
 
