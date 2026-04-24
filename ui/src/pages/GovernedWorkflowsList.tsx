@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
@@ -11,6 +11,16 @@ import { relativeTime } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { GitBranch, Plus, Trash2 } from "lucide-react";
 import type { GovernedWorkflowDefinitionRow } from "@mnm/shared";
 
@@ -19,6 +29,7 @@ export function GovernedWorkflowsList() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const [pendingDelete, setPendingDelete] = useState<GovernedWorkflowDefinitionRow | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Workflows gouvernés" }]);
@@ -51,8 +62,14 @@ export function GovernedWorkflowsList() {
   });
 
   function handleDelete(row: GovernedWorkflowDefinitionRow) {
-    if (!confirm(`Archiver "${row.name}" ?`)) return;
-    deleteMutation.mutate(row.name);
+    setPendingDelete(row);
+  }
+
+  function confirmDelete() {
+    if (pendingDelete) {
+      deleteMutation.mutate(pendingDelete.name);
+    }
+    setPendingDelete(null);
   }
 
   if (isLoading) return <PageSkeleton />;
@@ -125,6 +142,7 @@ export function GovernedWorkflowsList() {
                   <td className="px-4 py-2">
                     <Switch
                       checked={row.enabled}
+                      aria-label={row.enabled ? "Désactiver" : "Activer"}
                       onCheckedChange={(checked) =>
                         setEnabledMutation.mutate({ name: row.name, enabled: checked })
                       }
@@ -145,6 +163,7 @@ export function GovernedWorkflowsList() {
                         size="sm"
                         onClick={() => handleDelete(row)}
                         className="text-destructive hover:text-destructive"
+                        aria-label={`Archiver ${row.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -156,6 +175,23 @@ export function GovernedWorkflowsList() {
           </table>
         </div>
       )}
+      {/* Archive confirmation dialog */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archiver ce workflow ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le workflow <span className="font-mono font-medium">{pendingDelete?.name}</span> sera archivé et n'apparaîtra plus dans la liste. Cette action est réversible via l'API.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Archiver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
