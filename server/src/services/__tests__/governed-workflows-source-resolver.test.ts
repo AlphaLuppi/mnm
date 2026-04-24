@@ -11,6 +11,8 @@ function stubProvider(overrides: Partial<GitProvider> = {}): GitProvider {
     pathExists: vi.fn(async () => true),
     commitFile: vi.fn(async () => ({ sha: "x" })),
     createTag: vi.fn(async () => ({ sha: "x" })),
+    fetchTree: vi.fn(async () => []),
+    commitMultipleFiles: vi.fn(async () => ({ sha: "x" })),
     ...overrides,
   };
 }

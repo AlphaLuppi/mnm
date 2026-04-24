@@ -10,6 +10,10 @@ import type {
   CommitFileResult,
   CreateTagArgs,
   CreateTagResult,
+  FetchTreeArgs,
+  TreeEntry,
+  CommitMultipleFilesArgs,
+  CommitMultipleFilesResult,
 } from "./types.js";
 
 export interface GitlabProviderOptions {
@@ -188,6 +192,128 @@ export class GitlabProvider implements GitProvider {
       );
     }
     return { sha };
+  }
+
+  async fetchTree(args: FetchTreeArgs): Promise<TreeEntry[]> {
+    const entries: TreeEntry[] = [];
+    const params = new URLSearchParams();
+    params.set("ref", args.ref);
+    if (args.subtree !== undefined && args.subtree !== "") {
+      params.set("path", args.subtree.replace(/\/+$/, ""));
+    }
+    params.set("recursive", args.recursive ? "true" : "false");
+    params.set("per_page", "100");
+    params.set("pagination", "keyset");
+
+    let url: string | null = `${this.projectPath()}/repository/tree?${params.toString()}`;
+    while (url !== null) {
+      const res: Response = await this.request(url, { method: "GET" }, "fetchTree");
+      const body = (await res.json()) as Array<{
+        id: string;
+        type: "blob" | "tree";
+        path: string;
+        mode?: string;
+      }>;
+      for (const raw of body) {
+        entries.push({
+          path: raw.path,
+          type: raw.type,
+          sha: raw.id,
+          // GitLab's tree endpoint does not surface size — callers that need
+          // byte counts must fetch the blob separately.
+          size: null,
+        });
+      }
+      const nextPage = res.headers.get("x-next-page");
+      if (nextPage && nextPage.length > 0 && body.length > 0) {
+        // GitLab keyset pagination sometimes returns a Link header with the
+        // full next URL; prefer it when present (cheap to parse here).
+        const link = res.headers.get("link");
+        const match = link?.match(/<([^>]+)>;\s*rel="next"/);
+        url = match ? match[1]! : `${this.projectPath()}/repository/tree?${params.toString()}&page=${encodeURIComponent(nextPage)}`;
+      } else {
+        url = null;
+      }
+    }
+    return entries;
+  }
+
+  async commitMultipleFiles(
+    args: CommitMultipleFilesArgs,
+  ): Promise<CommitMultipleFilesResult> {
+    // Resolve create-vs-update for each non-delete action. One tree fetch
+    // amortises N HEAD calls; fall back to "update" for every file if the
+    // tree fetch 404s (branch may not exist yet — GitLab will error on the
+    // commit itself with a clearer message).
+    const nonDelete = args.actions.filter((a) => a.delete !== true);
+    let existingPaths: Set<string> = new Set();
+    if (nonDelete.length > 0) {
+      try {
+        const tree = await this.fetchTree({ ref: args.branch, recursive: true });
+        for (const entry of tree) {
+          if (entry.type === "blob") existingPaths.add(entry.path);
+        }
+      } catch (err) {
+        if (err instanceof GitProviderError && err.code === "not_found") {
+          // Branch/ref missing — treat all non-delete as "create".
+          existingPaths = new Set();
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const actions = args.actions.map((a) => {
+      if (a.delete === true) {
+        return { action: "delete" as const, file_path: a.path };
+      }
+      const exists = existingPaths.has(a.path);
+      return {
+        action: exists ? ("update" as const) : ("create" as const),
+        file_path: a.path,
+        content: a.content ?? "",
+      };
+    });
+
+    const url = `${this.projectPath()}/repository/commits`;
+    const payload = {
+      branch: args.branch,
+      commit_message: args.commitMessage,
+      author_name: args.authorName,
+      author_email: args.authorEmail,
+      actions,
+    };
+
+    let res: Response;
+    try {
+      res = await this.request(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        "commitMultipleFiles",
+      );
+    } catch (err) {
+      if (err instanceof GitProviderError && err.status === 400) {
+        throw new GitProviderError(
+          "conflict",
+          `GitLab commitMultipleFiles conflict (${args.branch}): ${err.message}`,
+          { status: 400, cause: err },
+        );
+      }
+      throw err;
+    }
+
+    const body = (await res.json()) as { id?: string };
+    if (!body.id) {
+      throw new GitProviderError(
+        "unknown",
+        `GitLab commitMultipleFiles returned no commit id`,
+      );
+    }
+    return { sha: body.id };
   }
 
   private async request(
