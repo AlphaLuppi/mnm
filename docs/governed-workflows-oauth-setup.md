@@ -209,3 +209,71 @@ Verify the GitLab application on lab.enterprise.example is still active and the 
 has not been rotated. If the secret was rotated, update `GITLAB_OAUTH_CLIENT_SECRET`
 and restart MnM. Existing sessions will continue using their stored tokens until
 those expire; new sign-ins will use the new secret.
+
+---
+
+## Microsoft / Entra ID (Azure AD) provider
+
+Complementary to GitLab OIDC. Enable when you want EnterpriseCustomer users without GitLab
+access to be able to sign in (non-devs, guest accounts, admin-only users).
+The Microsoft login is OIDC-standard and goes directly against
+`login.microsoftonline.com` — no GitLab hop in between.
+
+**Tradeoff to know:** the token MnM receives is an Azure/Graph token, NOT a
+GitLab token. Users who sign in via Microsoft can view workflows and launch
+runs, but `create_governed_workflow` / `update_governed_workflow` will fall
+back to the company-level PAT (from `config_layer_items.git_provider`)
+because there is no GitLab token associated with their session. For per-user
+commit attribution, those users must either:
+- Also sign in via GitLab at least once (BetterAuth account linking merges
+  the identities — use the "Connect GitLab" button in the MnM profile page).
+- Or generate a personal GitLab PAT and attach it via an alternate flow
+  (future feature).
+
+### Admin Entra setup (once)
+
+1. Azure Portal → Microsoft Entra ID → App registrations → **New registration**.
+2. **Name**: `MnM` (or `MnM - Production`, `MnM - Dev`).
+3. **Supported account types**:
+   - For single-tenant prod (recommended): "Accounts in this organizational directory only (EnterpriseCustomer only)".
+   - For multi-tenant dev: "Accounts in any organizational directory + personal Microsoft accounts".
+4. **Redirect URI** (Web): `http://localhost:3100/api/auth/callback/microsoft` (dev)
+   or `https://<mnm-prod-host>/api/auth/callback/microsoft` (prod).
+5. After registration, note the **Application (client) ID** and the **Directory (tenant) ID**.
+6. Certificates & Secrets → **New client secret**. Copy the **Value** immediately
+   (it is shown only once).
+7. API permissions → Add Microsoft Graph delegated permissions: `openid`,
+   `profile`, `email`, `User.Read`. Grant admin consent if required by your
+   tenant policy.
+
+### MnM env vars
+
+```bash
+MICROSOFT_OAUTH_CLIENT_ID=<application (client) id>
+MICROSOFT_OAUTH_CLIENT_SECRET=<client secret value>
+# Optional: pin to a single Entra tenant for prod. In dev, omit for "common".
+# For EnterpriseCustomer prod: set to the EnterpriseCustomer tenant directory id (GUID shown in Azure Portal).
+MICROSOFT_OAUTH_TENANT_ID=<tenant guid or "common" or "organizations">
+```
+
+Restart MnM. A "Sign in with Microsoft" button appears alongside email/password
+and GitLab (if also configured).
+
+### Behavior by tenantId
+
+- `common` — any Microsoft account, including personal. Dev-friendly, not prod-safe.
+- `organizations` — any Azure AD tenant, no personal. Multi-tenant SaaS.
+- `<EnterpriseCustomer tenant UUID>` — only EnterpriseCustomer employees. **Use this in production.** The
+  UUID is under Azure Portal → Entra ID → Overview.
+
+### Prompt behavior
+
+MnM sets `prompt=select_account` on the Microsoft authorize request, which
+forces the Microsoft account picker every login. Avoids silent SSO picking
+the wrong identity when a user has multiple tenants (typical for consultants).
+
+### Offboarding
+
+Same chain as GitLab: when an Entra account is disabled, BetterAuth fails
+the next token refresh against `login.microsoftonline.com` and the MnM
+session expires. No manual cleanup needed.
