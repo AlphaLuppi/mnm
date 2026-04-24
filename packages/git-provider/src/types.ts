@@ -55,6 +55,49 @@ export interface CreateTagResult {
 }
 
 /**
+ * Arguments to `fetchTree`. `subtree` scopes the listing to a single directory;
+ * `recursive` controls whether nested entries are flattened into the result.
+ */
+export interface FetchTreeArgs {
+  ref: string;
+  /** Repo-relative, POSIX, no leading slash. Undefined = repo root. */
+  subtree?: string;
+  /** Default false — only immediate children of subtree. */
+  recursive?: boolean;
+}
+
+/**
+ * One entry returned by `fetchTree`. `path` is always full repo-relative
+ * (not relative to `subtree`). `size` is bytes for blobs, null for trees or
+ * providers that do not surface size cheaply (GitLab tree endpoint).
+ */
+export interface TreeEntry {
+  /** Repo-relative POSIX path, no leading slash. */
+  path: string;
+  type: "blob" | "tree";
+  sha: string;
+  size: number | null;
+}
+
+/**
+ * Arguments to `commitMultipleFiles`. Each action creates, updates or deletes
+ * a single path. Order is preserved; duplicate paths are allowed (last wins,
+ * per-implementation).
+ */
+export interface CommitMultipleFilesArgs {
+  branch: string;
+  commitMessage: string;
+  authorName: string;
+  authorEmail: string;
+  actions: Array<{ path: string; content?: string; delete?: boolean }>;
+}
+
+export interface CommitMultipleFilesResult {
+  /** SHA of the new commit. */
+  sha: string;
+}
+
+/**
  * Minimal git surface the governed-workflows runtime needs. Implemented by:
  * - `LocalBareRepoProvider` (tests + single-dev local mode)
  * - `GitlabProvider` (production — GitLab REST v4)
@@ -75,4 +118,16 @@ export interface GitProvider {
   pathExists(args: PathExistsArgs): Promise<boolean>;
   commitFile(args: CommitFileArgs): Promise<CommitFileResult>;
   createTag(args: CreateTagArgs): Promise<CreateTagResult>;
+  /**
+   * List entries at `ref`/`subtree`. Returns a flat array of `TreeEntry`.
+   * With `recursive: false` (default), only immediate children are returned;
+   * with `recursive: true`, all nested blobs under the subtree are included.
+   */
+  fetchTree(args: FetchTreeArgs): Promise<TreeEntry[]>;
+  /**
+   * Atomically apply a batch of create/update/delete actions on `branch` as a
+   * single commit. Implementations MUST use `authorName`/`authorEmail` even
+   * when authenticating via a bot token.
+   */
+  commitMultipleFiles(args: CommitMultipleFilesArgs): Promise<CommitMultipleFilesResult>;
 }
