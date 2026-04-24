@@ -8,6 +8,8 @@ import type {
   PathExistsArgs,
   CommitFileArgs,
   CommitFileResult,
+  CreateTagArgs,
+  CreateTagResult,
 } from "./types.js";
 
 export interface GitlabProviderOptions {
@@ -143,6 +145,49 @@ export class GitlabProvider implements GitProvider {
       );
     }
     return { sha: body.id };
+  }
+
+  async createTag(args: CreateTagArgs): Promise<CreateTagResult> {
+    const url = `${this.projectPath()}/repository/tags`;
+    const payload: Record<string, string> = {
+      tag_name: args.name,
+      ref: args.ref,
+    };
+    if (args.message) {
+      payload.message = args.message;
+    }
+
+    let res: Response;
+    try {
+      res = await this.request(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        "createTag",
+      );
+    } catch (err) {
+      if (err instanceof GitProviderError && err.status === 400) {
+        throw new GitProviderError(
+          "conflict",
+          `GitLab createTag conflict (${args.name}@${args.ref}): ${err.message}`,
+          { status: 400, cause: err },
+        );
+      }
+      throw err;
+    }
+
+    const body = (await res.json()) as { commit?: { id?: string } };
+    const sha = body.commit?.id;
+    if (!sha) {
+      throw new GitProviderError(
+        "unknown",
+        `GitLab createTag returned no commit id for tag ${args.name}`,
+      );
+    }
+    return { sha };
   }
 
   private async request(

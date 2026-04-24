@@ -10,6 +10,7 @@ function stubProvider(overrides: Partial<GitProvider> = {}): GitProvider {
     resolveRef: vi.fn(async (a) => `sha-of-${a.ref}`),
     pathExists: vi.fn(async () => true),
     commitFile: vi.fn(async () => ({ sha: "x" })),
+    createTag: vi.fn(async () => ({ sha: "x" })),
     ...overrides,
   };
 }

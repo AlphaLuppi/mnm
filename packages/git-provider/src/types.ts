@@ -40,6 +40,20 @@ export interface CommitFileResult {
   sha: string;
 }
 
+export interface CreateTagArgs {
+  /** Tag name, e.g. `hello-world/v1.2.3`. */
+  name: string;
+  /** SHA or branch name the tag should point to. */
+  ref: string;
+  /** Optional message for annotated tags. */
+  message?: string;
+}
+
+export interface CreateTagResult {
+  /** The SHA the tag was created at (resolves the ref). */
+  sha: string;
+}
+
 /**
  * Minimal git surface the governed-workflows runtime needs. Implemented by:
  * - `LocalBareRepoProvider` (tests + single-dev local mode)
@@ -52,6 +66,7 @@ export interface CommitFileResult {
  *   consumer in T4/T5).
  * - `commitFile` creates one commit stamped with the supplied author identity,
  *   even if the provider authenticates with a bot token.
+ * - `createTag` creates an annotated tag pointing at the given ref.
  */
 export interface GitProvider {
   fetchBlob(args: FetchBlobArgs): Promise<string>;
@@ -59,4 +74,5 @@ export interface GitProvider {
   resolveRef(args: ResolveRefArgs): Promise<string>;
   pathExists(args: PathExistsArgs): Promise<boolean>;
   commitFile(args: CommitFileArgs): Promise<CommitFileResult>;
+  createTag(args: CreateTagArgs): Promise<CreateTagResult>;
 }
