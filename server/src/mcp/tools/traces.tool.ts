@@ -12,7 +12,6 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({
       agentId: z.string().uuid().optional().describe("Filter by agent ID"),
       status: z.string().optional().describe("Filter by status (running, completed, failed, cancelled)"),
-      workflowInstanceId: z.string().uuid().optional().describe("Filter by workflow instance ID"),
       dateFrom: z.string().optional().describe("Start date filter (ISO 8601)"),
       dateTo: z.string().optional().describe("End date filter (ISO 8601)"),
       search: z.string().optional().describe("Search by trace name"),
@@ -24,7 +23,6 @@ export default defineMcpTools(({ tool, services }) => {
       const result = await services.traces.list(actor.companyId, {
         agentId: input.agentId,
         status: input.status,
-        workflowInstanceId: input.workflowInstanceId,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
         search: input.search,
