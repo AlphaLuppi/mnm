@@ -18,10 +18,12 @@ function mkActor(overrides: Partial<McpActor> = {}): McpActor {
   };
 }
 
-function mkServices(governedWorkflows: Record<string, any>) {
+function mkServices(governedWorkflows: Record<string, any>, extra: Record<string, any> = {}) {
   return {
     db: { execute: vi.fn() },
+    resolveGitProvider: vi.fn(),
     governedWorkflows,
+    ...extra,
   };
 }
 
@@ -266,5 +268,276 @@ describe("setup_workspace tool", () => {
     expect(parsed.agents.length).toBeGreaterThan(0);
     expect(parsed.agents[0].name).toMatch(/^mnm--/);
     expect(parsed.instructions).toContain("Write");
+  });
+});
+
+// ── U6.1 — createGovernedWorkflow ──────────────────────────────────────────
+
+describe("createGovernedWorkflow tool (U6.1)", () => {
+  const COMPANY_ID = "00000000-0000-0000-0000-000000000a01";
+
+  function mkActor6(overrides: Partial<McpActor> = {}): McpActor {
+    return mkActor({
+      effectivePermissions: new Set([
+        PERMISSIONS.WORKFLOWS_READ,
+        PERMISSIONS.WORKFLOWS_ENFORCE,
+        PERMISSIONS.WORKFLOWS_CREATE,
+      ]),
+      ...overrides,
+    });
+  }
+
+  /** Minimal valid workflow definition (steps.min(1) enforced by schema). */
+  const validDefinition = {
+    apiVersion: "mnm/v1" as const,
+    kind: "GovernedWorkflow" as const,
+    name: "hello-world",
+    description: "Test workflow",
+    steps: [{ id: "step-1", agent: "greeter", deps: [], prompt_context: {} }],
+  };
+
+  it("success: commits + tags + DB row, returns { commitSha, newGitTag }", async () => {
+    const fakeGitProvider = {
+      listTags: vi.fn(async () => []),
+      commitFile: vi.fn(async () => ({ sha: "abc123" })),
+      createTag: vi.fn(async () => {}),
+    };
+    const services = mkServices(
+      { getDefinition: vi.fn(async () => null) },
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+    // Patch DB select (existing check in saveDefinition) and insert (new row).
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({ where: vi.fn(() => []) })),
+    }));
+    (services.db as any).insert = vi.fn(() => ({
+      values: vi.fn(async () => {}),
+    }));
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const create = tools.find((t) => t.name === "create_governed_workflow")!;
+    expect(create, "create_governed_workflow tool must be registered").toBeDefined();
+
+    const r = await create.handler({
+      input: { definition: validDefinition, commit_message: "feat: hello world", branch: "main" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.commit_sha).toMatch(/.+/);
+    expect(body.new_git_tag).toMatch(/hello-world\/v\d+\.\d+\.\d+/);
+  });
+
+  it("WORKFLOW_VALIDATION: invalid definition body returns error", async () => {
+    const services = mkServices({ getDefinition: vi.fn(async () => null) });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const create = tools.find((t) => t.name === "create_governed_workflow")!;
+    expect(create).toBeDefined();
+
+    // Pass a definition that fails workflowDefinitionSchema (missing required fields).
+    const r = await create.handler({
+      input: { definition: { name: "" }, commit_message: "feat: bad", branch: "main" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe("WORKFLOW_VALIDATION");
+  });
+
+  it("GIT_PROVIDER_MISCONFIG: resolveGitProvider throws, surfaces error", async () => {
+    const services = mkServices(
+      { getDefinition: vi.fn(async () => null) },
+      {
+        resolveGitProvider: vi.fn(async () => {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
+            "Missing gitlab fields",
+            ["Set token on the git_provider config layer item."],
+          );
+        }),
+      },
+    );
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({ where: vi.fn(() => []) })),
+    }));
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const create = tools.find((t) => t.name === "create_governed_workflow")!;
+    expect(create).toBeDefined();
+
+    const r = await create.handler({
+      input: { definition: validDefinition, commit_message: "feat: hello world", branch: "main" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe("GIT_PROVIDER_MISCONFIG");
+  });
+});
+
+// ── U6.2 — updateGovernedWorkflow ──────────────────────────────────────────
+
+describe("updateGovernedWorkflow tool (U6.2)", () => {
+  /** Minimal valid workflow definition (steps.min(1) enforced by schema). */
+  const validDefinition = {
+    apiVersion: "mnm/v1" as const,
+    kind: "GovernedWorkflow" as const,
+    name: "hello-world",
+    description: "Updated workflow",
+    steps: [{ id: "step-1", agent: "greeter", deps: [], prompt_context: {} }],
+  };
+
+  function mkActor6(overrides: Partial<McpActor> = {}): McpActor {
+    return mkActor({
+      effectivePermissions: new Set([
+        PERMISSIONS.WORKFLOWS_READ,
+        PERMISSIONS.WORKFLOWS_ENFORCE,
+        PERMISSIONS.WORKFLOWS_CREATE,
+      ]),
+      ...overrides,
+    });
+  }
+
+  it("success: bumps patch of existing latestGitTag, returns { commitSha, newGitTag }", async () => {
+    const existingDef = { id: "def-1", name: "hello-world", latestGitTag: "hello-world/v1.0.0" };
+    const fakeGitProvider = {
+      listTags: vi.fn(async () => [{ name: "hello-world/v1.0.0" }]),
+      commitFile: vi.fn(async () => ({ sha: "def456" })),
+      createTag: vi.fn(async () => {}),
+    };
+    const services = mkServices(
+      { getDefinition: vi.fn(async () => existingDef) },
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+    // select: first call returns the existing row (saveDefinition upsert check)
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => [{ id: "def-1" }]),
+      })),
+    }));
+    (services.db as any).update = vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(async () => {}),
+      })),
+    }));
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const update = tools.find((t) => t.name === "update_governed_workflow")!;
+    expect(update, "update_governed_workflow tool must be registered").toBeDefined();
+
+    const r = await update.handler({
+      input: { name: "hello-world", definition: validDefinition, commit_message: "fix: update", branch: "main" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.new_git_tag).toBe("hello-world/v1.0.1");
+  });
+
+  it("WORKFLOW_NAME_MISMATCH: input.name != definition.name returns error", async () => {
+    const services = mkServices({ getDefinition: vi.fn(async () => ({ id: "def-1", name: "hello-world" })) });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const update = tools.find((t) => t.name === "update_governed_workflow")!;
+    expect(update).toBeDefined();
+
+    const r = await update.handler({
+      input: {
+        name: "other-workflow",
+        definition: { ...validDefinition, name: "hello-world" },
+        commit_message: "fix: mismatch",
+      },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe("WORKFLOW_NAME_MISMATCH");
+  });
+
+  it("WORKFLOW_NOT_FOUND: DB row missing returns error", async () => {
+    const services = mkServices({ getDefinition: vi.fn(async () => null) });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const update = tools.find((t) => t.name === "update_governed_workflow")!;
+    expect(update).toBeDefined();
+
+    const r = await update.handler({
+      input: { name: "hello-world", definition: validDefinition, commit_message: "fix: missing" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe("WORKFLOW_NOT_FOUND");
+  });
+});
+
+// ── U6.3 — archiveGovernedWorkflow ─────────────────────────────────────────
+
+describe("archiveGovernedWorkflow tool (U6.3)", () => {
+  function mkActor6(overrides: Partial<McpActor> = {}): McpActor {
+    return mkActor({
+      effectivePermissions: new Set([
+        PERMISSIONS.WORKFLOWS_READ,
+        PERMISSIONS.WORKFLOWS_ENFORCE,
+        PERMISSIONS.WORKFLOWS_CREATE,
+      ]),
+      ...overrides,
+    });
+  }
+
+  it("success: sets archived_at + enabled=false, returns { archived: true, name }", async () => {
+    const services = mkServices({});
+    // archiveDefinition is called with (db, { companyId, name }) and returns boolean.
+    // The tool imports it directly from extensions, so we patch via services.db
+    // by making the DB query chain return a found row then succeed on update.
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => [{ id: "def-1", archivedAt: null }]),
+      })),
+    }));
+    (services.db as any).update = vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(async () => {}),
+      })),
+    }));
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const archive = tools.find((t) => t.name === "archive_governed_workflow")!;
+    expect(archive, "archive_governed_workflow tool must be registered").toBeDefined();
+
+    const r = await archive.handler({
+      input: { name: "hello-world" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.archived).toBe(true);
+    expect(body.name).toBe("hello-world");
+  });
+
+  it("WORKFLOW_NOT_FOUND: row not found returns error", async () => {
+    const services = mkServices({});
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => []),
+      })),
+    }));
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const archive = tools.find((t) => t.name === "archive_governed_workflow")!;
+    expect(archive).toBeDefined();
+
+    const r = await archive.handler({
+      input: { name: "missing-workflow" },
+      actor: mkActor6(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe("WORKFLOW_NOT_FOUND");
   });
 });
