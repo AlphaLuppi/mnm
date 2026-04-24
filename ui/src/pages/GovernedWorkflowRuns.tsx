@@ -57,8 +57,8 @@ export function GovernedWorkflowRuns() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Workflows gouvernés", to: "/workflows" },
-      { label: name ?? "", to: `/workflows/${encodeURIComponent(name ?? "")}` },
+      { label: "Workflows gouvernés", href: "/workflows" },
+      { label: name ?? "", href: `/workflows/${encodeURIComponent(name ?? "")}` },
       { label: "Runs" },
     ]);
   }, [setBreadcrumbs, name]);

@@ -61,6 +61,10 @@ import { FullPageLoader } from "./components/FullPageLoader";
 import { Button } from "./components/ui/button";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
+import { GovernedWorkflowsList } from "./pages/GovernedWorkflowsList";
+import { GovernedWorkflowEditor } from "./pages/GovernedWorkflowEditor";
+import { GovernedWorkflowRuns } from "./pages/GovernedWorkflowRuns";
+import { GovernedWorkflowRunDetail } from "./pages/GovernedWorkflowRunDetail";
 
 // SANDBOX-AUTH-AUTOBOOTSTRAP: no more CLI bootstrap page
 // First user signup auto-promotes to instance_admin via Better Auth databaseHooks
@@ -174,6 +178,11 @@ function boardRoutes() {
       <Route path="routines" element={<RequirePermission permission="routines:read" showForbidden><Routines /></RequirePermission>} />
       <Route path="routines/:id" element={<RequirePermission permission="routines:read" showForbidden><RoutineDetail /></RequirePermission>} />
       <Route path="feedback" element={<RequirePermission permission="feedback:read" showForbidden><FeedbackDashboard /></RequirePermission>} />
+      <Route path="workflows" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowsList /></RequirePermission>} />
+      <Route path="workflows/new" element={<RequirePermission permission="workflows:create" showForbidden><GovernedWorkflowEditor /></RequirePermission>} />
+      <Route path="workflows/:name" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowEditor /></RequirePermission>} />
+      <Route path="workflows/:name/runs" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowRuns /></RequirePermission>} />
+      <Route path="workflows/:name/runs/:runId" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowRunDetail /></RequirePermission>} />
       <Route path="inbox" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/inbox/new" replace /></RequirePermission>} />
       <Route path="inbox/new" element={<RequirePermission permission="issues:read" showForbidden><Inbox /></RequirePermission>} />
       <Route path="inbox/all" element={<RequirePermission permission="issues:read" showForbidden><Inbox /></RequirePermission>} />
@@ -344,6 +353,11 @@ export function App() {
           <Route path="routines" element={<UnprefixedBoardRedirect />} />
           <Route path="routines/:id" element={<UnprefixedBoardRedirect />} />
           <Route path="feedback" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows/new" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows/:name" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows/:name/runs" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows/:name/runs/:runId" element={<UnprefixedBoardRedirect />} />
           <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
           <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>
