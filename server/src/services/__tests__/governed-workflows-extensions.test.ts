@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   computeNextTag,
   saveDefinition,
@@ -7,6 +7,7 @@ import {
   listRuns,
   getRunWithSteps,
 } from "../governed-workflows-extensions.js";
+import { governedWorkflowDefinitions } from "@mnm/db";
 import { setupTestDb, teardownTestDb, cleanTestDb } from "@mnm/test-utils";
 import { setTenantContext } from "../../middleware/tenant-context.js";
 import type { Db } from "@mnm/db";
@@ -137,6 +138,58 @@ describe("archiveDefinition", () => {
     await setTenantContext(db, companyId);
     const result = await archiveDefinition(db, { companyId, name: "does-not-exist" });
     expect(result).toBe(false);
+  });
+
+  it("sets enabled=false when archiving", async () => {
+    await setTenantContext(db, companyId);
+    // Insert a fresh workflow to archive
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
+      VALUES (${companyId}, 'wf-enabled-check', 'v1.0.0')`);
+    const ok = await archiveDefinition(db, { companyId, name: "wf-enabled-check" });
+    expect(ok).toBe(true);
+
+    // Verify enabled=false in DB
+    const [row] = await db
+      .select({ enabled: governedWorkflowDefinitions.enabled, archivedAt: governedWorkflowDefinitions.archivedAt })
+      .from(governedWorkflowDefinitions)
+      .where(eq(governedWorkflowDefinitions.name, "wf-enabled-check"));
+    expect(row?.enabled).toBe(false);
+    expect(row?.archivedAt).not.toBeNull();
+  });
+});
+
+describe("listDefinitions excludes archived", () => {
+  // This test uses the governedWorkflowService.listDefinitions function indirectly
+  // by verifying the DB state after archiveDefinition.
+  // Full integration test for listDefinitions is in governed-workflows.test.ts.
+  // Here we just confirm archiveDefinition leaves the row with archivedAt set,
+  // so it would be filtered by IS NULL in listDefinitions.
+  let db: Db;
+  const companyId = "00000000-0000-0000-0000-000000000c05";
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, 'ListExclArch', 'LEA')`);
+    await db.execute(sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
+      VALUES (${companyId}, 'wf-archived-list', 'v1.0.0')`);
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  it("archived row has archivedAt set (confirming listDefinitions IS NULL filter removes it)", async () => {
+    await setTenantContext(db, companyId);
+    const ok = await archiveDefinition(db, { companyId, name: "wf-archived-list" });
+    expect(ok).toBe(true);
+
+    // Verify the row has archivedAt set — listDefinitions filters IS NULL
+    const [row] = await db
+      .select({ archivedAt: governedWorkflowDefinitions.archivedAt })
+      .from(governedWorkflowDefinitions)
+      .where(eq(governedWorkflowDefinitions.name, "wf-archived-list"));
+    expect(row?.archivedAt).not.toBeNull();
   });
 });
 

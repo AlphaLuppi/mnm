@@ -6,7 +6,7 @@
  * helpers it needs from here.
  */
 
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
@@ -186,7 +186,7 @@ export async function archiveDefinition(
 
   await db
     .update(governedWorkflowDefinitions)
-    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .set({ archivedAt: new Date(), enabled: false, updatedAt: new Date() })
     .where(eq(governedWorkflowDefinitions.id, row.id));
 
   return true;
