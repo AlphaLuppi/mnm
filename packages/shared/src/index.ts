@@ -940,3 +940,12 @@ export {
   type SecretsLocalEncryptedConfig,
   type ConfigMeta,
 } from "./config-schema.js";
+export type {
+  GovernedRunStatus,
+  GovernedStepState,
+  GateKind,
+  GovernedWorkflowDefinitionRow,
+  GovernedRunRow,
+  GovernedStepExecutionRow,
+  GateResultRow,
+} from "./types/index.js";
