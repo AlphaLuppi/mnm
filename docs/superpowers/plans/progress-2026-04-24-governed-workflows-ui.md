@@ -25,8 +25,8 @@ Sequential implementer subagents per tranche. After each tranche: spec complianc
 |---|---------|-------|--------|-----------|
 | U1 | Nuke legacy | Migration 0066 + delete 5 DB tables, 12 server files, 8 UI files, xstate dep, dead perms, nav cleanup | done | (this commit) |
 | U2 | REST endpoints + service extensions | 10 endpoints, `computeNextTag`, `saveDefinition`, `archiveDefinition`, `listRuns`, `getRunWithSteps`, `GitProvider.createTag` | done | f51df06, d7acd28, a93d2e6, 29f436f, 6246caf, 41bb843 |
-| U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | blocked by U3 | |
-| U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | blocked by U3 | |
+| U3 | Live events server + UI hook | Emitter helpers + wire into launchStep/completeStep/gate runner, `useGovernedRunEvents` hook | done | 5a964f7, f11c201, c9d6775 |
+| U4 | API client + query keys | `ui/src/api/governed-workflows.ts` + `queryKeys.governedWorkflows` namespace | done | 6c72052 |
 | U5 | 4 pages UI | Monaco install + List / Editor / Runs / RunDetail + routes + parity + smoke | blocked by U4 | |
 | U6 | MCP tool parity | `createGovernedWorkflow`, `updateGovernedWorkflow`, `archiveGovernedWorkflow` + registry check | blocked by U3 | |
 
@@ -70,18 +70,33 @@ Notes:
   - Test suite: ~450 passing, ~29 failing (all pre-existing Windows Postgres + timing issues).
 
 ### U3 — Live events
-Status: blocked by U2
-Start:
-End:
+Status: done
+Start: 2026-04-24T09:30:00Z
+End: 2026-04-24T11:00:00Z
 Commits:
+  - 5a964f7 feat(workflows): SSE emitters for governed run events
+  - f11c201 feat(workflows): emit step_updated/gate_evaluated from governed service
+  - c9d6775 feat(workflows): useGovernedRunEvents hook invalidates runDetail on SSE
 Notes:
+  - Added governed_run.step_updated and governed_run.gate_evaluated to LIVE_EVENT_TYPES in @mnm/shared.
+  - Emitter helpers (emitStepUpdated, emitGateEvaluated) adapted to the real publishLiveEvent signature: { companyId, type, payload } — NOT channel-based as the plan sketched. The server uses a company EventEmitter, not channel strings.
+  - launchStep: emits step_updated after initial transition, emits gate_evaluated + step_updated after entry gate results, emits step_updated after gate pass to running. Exit gate insert in completeStep uses .returning() to capture gate result IDs for emitGateEvaluated.
+  - No useLiveEvents hook exists in the codebase — LiveUpdatesProvider is a monolithic WS handler. useGovernedRunEvents uses a custom DOM event (governed_run:updated) dispatched by handleLiveEvent; hook filters by companyId+runId and invalidates governedWorkflows.runDetail.
+  - DB integration test for U3.2 blocked by Windows isolated-vm crash (pre-existing). Used pure emitter unit tests (2/2) + contract tests (2/2) instead.
+  - useGovernedRunEvents hook tests: 4/4 pass (filter predicate + query key shape).
+  - Typecheck: 13/13 packages pass (root mnm pre-existing @embedded-postgres/windows-x64 error excluded).
 
 ### U4 — API client
-Status: blocked by U2
-Start:
-End:
+Status: done
+Start: 2026-04-24T09:30:00Z
+End: 2026-04-24T11:00:00Z
 Commit:
+  - 6c72052 feat(workflows): UI API client + query keys for governed workflows
 Notes:
+  - governedWorkflows queryKey namespace added: list, detail, tags, runs, runDetail.
+  - governedWorkflowsApi: 10 methods (list, get, tags, create, update, setEnabled, delete, listRuns, getRun, launchRun). Typed against @mnm/shared row types + WorkflowDefinition from @mnm/governed-workflows.
+  - @mnm/governed-workflows added to ui/package.json dependencies (needed for WorkflowDefinition type).
+  - U4.1 was implemented before U3.3 (as the plan recommended) to resolve the forward reference to queryKeys.governedWorkflows.runDetail.
 
 ### U5 — 4 pages UI
 Status: blocked by U4
