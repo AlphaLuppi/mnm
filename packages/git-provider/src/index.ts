@@ -14,6 +14,8 @@ export type {
   PathExistsArgs,
   CommitFileArgs,
   CommitFileResult,
+  CreateTagArgs,
+  CreateTagResult,
 } from "./types.js";
 
 export { ShaCache, type ShaCacheOptions } from "./sha-cache.js";
