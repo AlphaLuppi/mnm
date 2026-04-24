@@ -101,6 +101,40 @@ export interface WorkflowFileChange {
   delete?: boolean;
 }
 
+// ── AI assistant SSE stream (U14.3) ─────────────────────────────────────────
+
+/**
+ * Typed event forwarded by the server's `/ai/chat` SSE endpoint. Mirrors the
+ * `AiAssistantEvent` union from `server/src/services/workflow-ai-assistant.ts`.
+ */
+export interface AiChatEvent {
+  type: "token" | "file-proposal" | "done" | "error";
+  value?: string;
+  path?: string;
+  content?: string;
+  delete?: boolean;
+  error_code?: string;
+  message?: string;
+  hints?: string[];
+}
+
+export interface StreamAiChatHandlers {
+  onToken?: (delta: string) => void;
+  onFileProposal?: (proposal: {
+    path: string;
+    content?: string;
+    delete?: boolean;
+  }) => void;
+  onError?: (err: { error_code: string; message: string; hints: string[] }) => void;
+  onDone?: () => void;
+  signal?: AbortSignal;
+}
+
+export interface StreamAiChatBody {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  ref?: string;
+}
+
 const BASE = (companyId: string) => `/companies/${companyId}/governed-workflows`;
 
 export const governedWorkflowsApi = {
@@ -263,5 +297,156 @@ export const governedWorkflowsApi = {
       `${BASE(companyId)}/${encodeURIComponent(name)}/files`,
       input,
     );
+  },
+
+  /**
+   * Stream an AI chat completion from the governed workflow assistant. The
+   * server returns `text/event-stream` frames shaped as `data: <json>\n\n`
+   * where each payload is an `AiChatEvent`. EventSource can't POST, so we
+   * use `fetch` + `ReadableStream.getReader()` and parse frames manually.
+   *
+   * Cross-origin dev: when the UI runs on :5173 (Vite dev) we POST directly
+   * to :3100 with `credentials: "include"` so the session cookie rides along
+   * — same pattern as `authApi.linkSocial` to avoid the proxy rewriting
+   * SSE keep-alives. In prod the UI + API share an origin so a relative
+   * URL works.
+   *
+   * The returned promise resolves when the stream naturally closes OR a
+   * `done` event arrives OR the caller aborts via `handlers.signal`. An
+   * `AbortError` is swallowed (treated as a clean close). Any other fetch
+   * error is rethrown so callers can surface it.
+   */
+  async streamAiChat(
+    companyId: string,
+    name: string,
+    body: StreamAiChatBody,
+    handlers: StreamAiChatHandlers,
+  ): Promise<void> {
+    const isViteDev =
+      typeof window !== "undefined" && window.location.port === "5173";
+    const path = `/api${BASE(companyId)}/${encodeURIComponent(name)}/ai/chat`;
+    const url = isViteDev ? `http://localhost:3100${path}` : path;
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify(body),
+        signal: handlers.signal,
+      });
+    } catch (err) {
+      if ((err as { name?: string } | null)?.name === "AbortError") {
+        handlers.onDone?.();
+        return;
+      }
+      throw err;
+    }
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      const message =
+        (payload && typeof payload === "object" && "message" in payload
+          ? String((payload as { message?: unknown }).message ?? "")
+          : "") || res.statusText;
+      const err = new Error(message);
+      if (res.status === 429) {
+        (err as Error & { code?: string }).code = "RATE_LIMITED";
+      }
+      throw err;
+    }
+
+    if (!res.body) {
+      handlers.onDone?.();
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let doneSeen = false;
+
+    try {
+      while (true) {
+        let chunk: ReadableStreamReadResult<Uint8Array>;
+        try {
+          chunk = await reader.read();
+        } catch (err) {
+          if ((err as { name?: string } | null)?.name === "AbortError") {
+            handlers.onDone?.();
+            return;
+          }
+          throw err;
+        }
+        if (chunk.done) break;
+
+        buffer += decoder.decode(chunk.value, { stream: true });
+
+        // SSE frames are separated by a blank line (\n\n). Each frame may
+        // contain multiple lines but we only look at the `data:` line.
+        let sepIdx = buffer.indexOf("\n\n");
+        while (sepIdx !== -1) {
+          const frame = buffer.slice(0, sepIdx);
+          buffer = buffer.slice(sepIdx + 2);
+          sepIdx = buffer.indexOf("\n\n");
+
+          const dataLine = frame
+            .split("\n")
+            .find((l) => l.startsWith("data:"));
+          if (!dataLine) continue;
+          const raw = dataLine.slice(5).trim();
+          if (!raw) continue;
+
+          let event: AiChatEvent;
+          try {
+            event = JSON.parse(raw) as AiChatEvent;
+          } catch {
+            continue;
+          }
+
+          switch (event.type) {
+            case "token":
+              if (typeof event.value === "string") {
+                handlers.onToken?.(event.value);
+              }
+              break;
+            case "file-proposal":
+              if (typeof event.path === "string") {
+                handlers.onFileProposal?.({
+                  path: event.path,
+                  content: event.content,
+                  delete: event.delete,
+                });
+              }
+              break;
+            case "error":
+              handlers.onError?.({
+                error_code: event.error_code ?? "LLM_ERROR",
+                message: event.message ?? "Erreur du flux IA",
+                hints: event.hints ?? [],
+              });
+              break;
+            case "done":
+              doneSeen = true;
+              handlers.onDone?.();
+              break;
+          }
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!doneSeen) {
+      handlers.onDone?.();
+    }
   },
 };
