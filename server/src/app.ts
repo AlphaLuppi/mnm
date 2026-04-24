@@ -82,6 +82,8 @@ import { inboxItemRoutes } from "./routes/inbox-items.js";
 import { blockCatalogueRoutes } from "./routes/block-catalogue.js";
 // GOVERNED-WORKFLOWS-UI: REST endpoints for the governed workflows cockpit
 import { governedWorkflowUiRoutes } from "./routes/governed-workflows-ui.js";
+// GOVERNED-WORKFLOWS-FILES: Workflow Studio multi-file editor REST endpoints
+import { governedWorkflowFilesRoutes } from "./routes/governed-workflows-files.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 import { createMcpRouter, shutdownMcp } from "./mcp/index.js";
 import { buildMcpServices } from "./mcp/build-mcp-services.js";
@@ -330,6 +332,14 @@ export async function createApp(
   api.use(userWidgetRoutes(db));
   api.use(inboxItemRoutes(db));
   api.use(blockCatalogueRoutes(db));
+  // GOVERNED-WORKFLOWS-FILES: Workflow Studio multi-file editor — mounted
+  // BEFORE the cockpit router so `/files` is matched by the more specific
+  // router first (the cockpit router has a `/:name` wildcard that would
+  // otherwise swallow it).
+  api.use(
+    "/companies/:companyId/governed-workflows/:name/files",
+    governedWorkflowFilesRoutes(db),
+  );
   // GOVERNED-WORKFLOWS-UI: cockpit REST endpoints
   api.use(
     "/companies/:companyId/governed-workflows",
