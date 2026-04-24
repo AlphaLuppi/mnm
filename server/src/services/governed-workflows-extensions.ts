@@ -114,12 +114,13 @@ export async function saveDefinition(
     authorEmail: args.authorEmail,
   });
 
-  // Push the semver tag pointing at the commit sha.
-  await gitProvider.createTag({
-    name: newGitTag,
-    ref: commitResult.sha,
-    message: args.commitMessage,
-  });
+  // TODO(U2.4): Push the semver tag pointing at the commit sha once
+  // GitProvider.createTag is added to the interface.
+  // await gitProvider.createTag({
+  //   name: newGitTag,
+  //   ref: commitResult.sha,
+  //   message: args.commitMessage,
+  // });
 
   // Upsert the DB row.
   const existing = await db
@@ -273,12 +274,16 @@ export async function listRuns(db: Db, args: ListRunsArgs): Promise<ListRunsResu
 
 // ── U2.5: getRunWithSteps ────────────────────────────────────────────────────
 
-export interface StepWithGates extends typeof governedStepExecutions.$inferSelect {
-  gateResults: (typeof gateResults.$inferSelect)[];
-}
+type StepExecRow = typeof governedStepExecutions.$inferSelect;
+type GateResultRow = typeof gateResults.$inferSelect;
+type RunRow = typeof governedWorkflowRuns.$inferSelect;
+
+export type StepWithGates = StepExecRow & {
+  gateResults: GateResultRow[];
+};
 
 export interface RunWithSteps {
-  run: typeof governedWorkflowRuns.$inferSelect;
+  run: RunRow;
   steps: StepWithGates[];
 }
 
