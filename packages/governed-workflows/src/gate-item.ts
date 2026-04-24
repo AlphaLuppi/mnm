@@ -7,9 +7,9 @@ import { z } from "zod";
  * the gate function via `GateContext.config` for parameterised gates.
  */
 export const gateItemSchema = z.object({
-  id: z.string().min(1),
-  source: z.string().min(1),
-  config: z.record(z.unknown()).optional(),
+  id: z.string().min(1).describe("Identifiant unique de la gate dans ce bloc (référencé dans les logs)"),
+  source: z.string().min(1).describe("Chemin relatif vers le script gate (ex: gates/lint.gate.ts)"),
+  config: z.record(z.unknown()).optional().describe("Configuration optionnelle transmise à la gate via GateContext.config"),
 });
 
 export type GateItem = z.infer<typeof gateItemSchema>;
