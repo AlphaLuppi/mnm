@@ -263,7 +263,10 @@ export async function listRuns(db: Db, args: ListRunsArgs): Promise<ListRunsResu
       .select()
       .from(governedWorkflowRuns)
       .where(and(...conds))
-      .orderBy(desc(governedWorkflowRuns.createdAt))
+      .orderBy(
+        sql`${governedWorkflowRuns.startedAt} DESC NULLS LAST`,
+        desc(governedWorkflowRuns.createdAt),
+      )
       .limit(limit)
       .offset(offset),
   ]);
