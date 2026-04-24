@@ -518,3 +518,12 @@ export type {
   InboxItemStatus,
   InboxItemActionTaken,
 } from "./inbox-item.js";
+export type {
+  GovernedRunStatus,
+  GovernedStepState,
+  GateKind,
+  GovernedWorkflowDefinitionRow,
+  GovernedRunRow,
+  GovernedStepExecutionRow,
+  GateResultRow,
+} from "./governed-workflows-rows.js";
