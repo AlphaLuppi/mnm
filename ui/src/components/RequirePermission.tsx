@@ -28,5 +28,12 @@ export function RequirePermission({
     return fallback ? <>{fallback}</> : null;
   }
 
-  return <div data-testid="rbac-s05-route-guard">{children}</div>;
+  // h-full so pages that own their layout (WorkflowStudio, etc.) can resolve
+  // `h-full` through this wrapper. Content-only pages are unaffected because
+  // their own root decides how to consume the available height.
+  return (
+    <div data-testid="rbac-s05-route-guard" className="h-full min-h-0">
+      {children}
+    </div>
+  );
 }

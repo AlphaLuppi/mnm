@@ -251,29 +251,40 @@ export function MonacoMultiEditor(props: MonacoMultiEditorProps) {
   const language = detectLanguage(activePath);
 
   return (
-    <div className="h-full w-full min-h-0 flex flex-col" data-testid="monaco-multi-editor">
-      <Suspense fallback={<Skeleton className="h-full w-full" />}>
-        <Monaco
-          height="100%"
-          path={activePath}
-          language={language}
-          defaultValue={activeFile?.content ?? ""}
-          beforeMount={handleBeforeMount}
-          onMount={handleMount}
-          options={{
-            readOnly: readOnly ?? false,
-            minimap: { enabled: false },
-            fontSize: 13,
-            scrollBeyondLastLine: false,
-            wordWrap: "on",
-            folding: true,
-            lineNumbers: "on",
-            quickSuggestions: { other: true, comments: false, strings: true },
-            suggestOnTriggerCharacters: true,
-          }}
-          data-testid="monaco-editor"
-        />
-      </Suspense>
+    // `absolute inset-0` insulates Monaco's measured height from the parent
+    // flex chain. Without it, Monaco can grow to fit its content and push the
+    // surrounding `<main>` to scroll, which defeats the Studio's own panels.
+    <div
+      className="h-full w-full min-h-0 relative"
+      data-testid="monaco-multi-editor"
+    >
+      <div className="absolute inset-0">
+        <Suspense fallback={<Skeleton className="h-full w-full" />}>
+          <Monaco
+            height="100%"
+            path={activePath}
+            language={language}
+            defaultValue={activeFile?.content ?? ""}
+            beforeMount={handleBeforeMount}
+            onMount={handleMount}
+            options={{
+              readOnly: readOnly ?? false,
+              minimap: { enabled: false },
+              fontSize: 13,
+              scrollBeyondLastLine: false,
+              wordWrap: "on",
+              folding: true,
+              lineNumbers: "on",
+              // Monaco must observe its container so it resizes when the
+              // ResizablePanel handle is dragged or when the window resizes.
+              automaticLayout: true,
+              quickSuggestions: { other: true, comments: false, strings: true },
+              suggestOnTriggerCharacters: true,
+            }}
+            data-testid="monaco-editor"
+          />
+        </Suspense>
+      </div>
     </div>
   );
 }
