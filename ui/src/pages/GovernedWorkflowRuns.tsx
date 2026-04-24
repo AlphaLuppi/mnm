@@ -11,6 +11,7 @@ import { formatDateTime } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -247,8 +248,8 @@ export function GovernedWorkflowRuns() {
           <div className="py-4 space-y-4">
             <div className="space-y-1.5">
               <Label>Paramètres (JSON)</Label>
-              <textarea
-                className="w-full h-32 rounded-md border bg-muted/20 px-3 py-2 font-mono text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              <Textarea
+                className="font-mono text-xs resize-none h-32"
                 value={launchParams}
                 onChange={(e) => setLaunchParams(e.target.value)}
               />
