@@ -170,8 +170,10 @@ export function governedWorkflowUiRoutes(db: Db) {
         }
         const { definition, commitMessage, branch } = body.data;
         const author = resolveAuthor(req);
+        const userId = req.actor.type === "board" ? req.actor.userId : null;
         const result = await saveDefinition(db, {
           companyId,
+          userId,
           name: definition.name,
           description: (definition as Record<string, unknown>).description as string | null ?? null,
           definitionContent: JSON.stringify(definition, null, 2),
@@ -326,8 +328,10 @@ export function governedWorkflowUiRoutes(db: Db) {
           );
         }
         const author = resolveAuthor(req);
+        const userId = req.actor.type === "board" ? req.actor.userId : null;
         const result = await upsertDefinition(db, {
           companyId,
+          userId,
           name: definition.name,
           description: (definition as Record<string, unknown>).description as string | null ?? null,
           definition: definition as unknown as Record<string, unknown>,
@@ -403,7 +407,8 @@ export function governedWorkflowUiRoutes(db: Db) {
       try {
         const companyId = req.params.companyId as string;
         const name = req.params.name as string;
-        const gitProvider = await resolveGitProvider(companyId);
+        const userId = req.actor.type === "board" ? req.actor.userId : null;
+        const gitProvider = await resolveGitProvider({ companyId, userId });
         const tags = await gitProvider.listTags({ prefix: `${name}/v` });
         res.json({ tags });
       } catch (err) {
@@ -491,9 +496,10 @@ export function governedWorkflowUiRoutes(db: Db) {
         }
 
         // Resolve git tag based on preference
+        const userId = req.actor.type === "board" ? req.actor.userId : null;
         let gitTag: string | undefined;
         if (body.data.gitTagPreference === "HEAD") {
-          const gitProvider = await resolveGitProvider(companyId);
+          const gitProvider = await resolveGitProvider({ companyId, userId });
           const def = await svc.getDefinition({ companyId, name });
           if (!def) {
             return apiError(res, 404, "WORKFLOW_NOT_FOUND", `Workflow '${name}' not found`, [

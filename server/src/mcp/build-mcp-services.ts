@@ -4,8 +4,8 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { and, eq, isNull } from "drizzle-orm";
-import { configLayerItems, configLayers, type Db } from "@mnm/db";
+import { and, eq, gt, isNull } from "drizzle-orm";
+import { authAccounts, configLayerItems, configLayers, type Db } from "@mnm/db";
 import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
@@ -33,37 +33,138 @@ import { heartbeatService } from "../services/heartbeat.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
- * Build a companyId -> GitProvider resolver. Multi-tenant prod stores each
- * company's git backend as a `git_provider` config_layer_item in a
- * company-scoped, enforced layer. Shape of the configJson:
- *   { kind: "gitlab", providerId, baseUrl, projectId, token }
- *   { kind: "local",  providerId, repoDir }
+ * Arguments for the GitProvider resolver.
  *
- * Lookup strategy: direct query over config_layer_items joined to
- * config_layers, filtered to enforced company-scope non-archived layers.
- * We intentionally do NOT route through configLayerConflictService.mergePreview
- * here because mergePreview takes an agentId (cast to uuid inside its CTE)
- * and this is a company-scoped lookup with no meaningful agent id.
- *
- * The config-layer system guarantees a company has at most one active
- * git_provider item under the company-enforced layer (UI validation +
- * `config_layers_company_name_scope_uq` + `config_layer_items_layer_name_uq`
- * combined enforce the invariant).
- *
- * Fallback: when no git_provider item exists for the company, we fall back
- * to process env vars (dev / local bootstrap). When a company declares an
- * item with an unknown kind or missing fields, we fail-closed with
- * GIT_PROVIDER_MISCONFIG rather than silently fall back.
- *
- * Providers are cached per companyId for the lifetime of the process. When
- * a company rotates credentials, restart is required — the config-layer UI
- * already warns users about this (spec §5).
+ * @property companyId — company whose git backend to resolve (required).
+ * @property userId    — BetterAuth user id. When provided in `authenticated`
+ *   mode, the resolver first checks the user's GitLab OAuth account in
+ *   `authAccounts` and, if a non-expired token is found, returns a
+ *   GitlabProvider scoped to that user. This gives each commit a per-user
+ *   GitLab identity and a full audit trail tied to the human, not a bot PAT.
  */
-export function createResolveGitProvider(db: Db): (companyId: string) => Promise<GitProvider> {
-  const cache = new Map<string, GitProvider>();
+export interface ResolveGitProviderArgs {
+  companyId: string;
+  userId?: string | null;
+}
 
-  return async function resolveGitProvider(companyId: string): Promise<GitProvider> {
-    const cached = cache.get(companyId);
+/**
+ * Cached entry for per-user providers. The cache key is
+ * `${companyId}:${userId}`. We store the expiry so we can invalidate on hit
+ * when the token has expired rather than waiting for a 401.
+ */
+interface UserProviderCacheEntry {
+  provider: GitProvider;
+  /** Wall-clock time after which this entry should be evicted (ms). */
+  expiresAt: number;
+}
+
+/**
+ * Build a { companyId, userId? } -> GitProvider resolver.
+ *
+ * Resolution order (first match wins):
+ *   1. Per-user GitLab OAuth token from `authAccounts` (userId + providerId="gitlab")
+ *      — only in `authenticated` mode, only when the token is not expired.
+ *   2. Company-level `config_layer_items` where itemType="git_provider"
+ *      — set via PUT /git-provider-config. Cached for the process lifetime.
+ *   3. Env-var fallback: MNM_GIT_PROVIDER / GITLAB_* / MNM_GIT_LOCAL_PATH
+ *      — for dev / local_trusted bootstrapping.
+ *
+ * Cache strategy:
+ *   - Company-level providers: Map keyed by companyId. Lifetime = process.
+ *     A restart is required after credential rotation (config-layer UI warns).
+ *   - Per-user providers: Map keyed by `${companyId}:${userId}`. Evicted on
+ *     hit when `accessTokenExpiresAt` has passed.
+ *
+ * 401 refresh:
+ *   GitlabProvider retries 5xx / 429 automatically. For 401 on a user token,
+ *   callers should catch GIT_PROVIDER_UNAUTHORIZED and redirect the user to
+ *   re-authenticate (BetterAuth /sign-in/gitlab). We do NOT attempt silent
+ *   refresh here because it would require the BetterAuth instance, creating a
+ *   circular dep. The error message is user-readable.
+ *
+ * local_trusted mode:
+ *   `userId` is always ignored — the resolver goes straight to company config
+ *   or env-var fallback. This preserves the existing dev flow (PUT
+ *   /git-provider-config with a PAT) unchanged.
+ */
+export function createResolveGitProvider(
+  db: Db,
+): (args: ResolveGitProviderArgs) => Promise<GitProvider> {
+  // Cache for company-level providers. Key = companyId.
+  const companyCache = new Map<string, GitProvider>();
+  // Cache for per-user providers. Key = `${companyId}:${userId}`.
+  const userCache = new Map<string, UserProviderCacheEntry>();
+
+  return async function resolveGitProvider(args: ResolveGitProviderArgs): Promise<GitProvider> {
+    const { companyId, userId } = args;
+
+    // ── Step 1: Per-user token (authenticated mode only) ──────────────────────
+    // Skip entirely in local_trusted so dev flow is unaffected.
+    const isAuthenticated =
+      (process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted") === "authenticated";
+
+    if (isAuthenticated && userId) {
+      const userCacheKey = `${companyId}:${userId}`;
+      const cachedEntry = userCache.get(userCacheKey);
+      if (cachedEntry) {
+        if (cachedEntry.expiresAt > Date.now()) {
+          // Cache hit and token not yet expired.
+          return cachedEntry.provider;
+        }
+        // Token expired — evict entry and fall through to DB lookup.
+        userCache.delete(userCacheKey);
+      }
+
+      // Query authAccounts for a non-expired GitLab OAuth access token.
+      const accountRows = await db
+        .select({
+          accessToken: authAccounts.accessToken,
+          accessTokenExpiresAt: authAccounts.accessTokenExpiresAt,
+        })
+        .from(authAccounts)
+        .where(
+          and(
+            eq(authAccounts.userId, userId),
+            eq(authAccounts.providerId, "gitlab"),
+            // Only consider non-expired tokens. We compare against now() so
+            // tokens with null expiresAt (no expiry declared) are excluded via
+            // the gt() check — they'll fall through to company-level config.
+            // If you want to treat null expiresAt as "never expires", change
+            // this condition to also accept null.
+            gt(authAccounts.accessTokenExpiresAt, new Date()),
+          ),
+        )
+        .limit(1);
+
+      if (accountRows.length > 0 && accountRows[0]!.accessToken) {
+        const row = accountRows[0]!;
+        const userToken = row.accessToken!;
+
+        // Determine the GitLab base URL and projectId for this user's provider.
+        // MVP: reuse the same projectId as the company-level config (or env var
+        // fallback). The user's token must have at least read_repository +
+        // write_repository scopes on that project.
+        // Future: per-user or per-workflow project selection.
+        const { baseUrl, projectId } = await resolveGitlabCoordinates(db, companyId);
+
+        const provider = new GitlabProvider({
+          providerId: `gitlab:user:${userId}`,
+          baseUrl,
+          projectId,
+          token: userToken,
+        });
+
+        const expiresAt = row.accessTokenExpiresAt
+          ? row.accessTokenExpiresAt.getTime()
+          : Date.now() + 3600_000; // If no expiry, cache for 1 h as a safety bound.
+        userCache.set(userCacheKey, { provider, expiresAt });
+        return provider;
+      }
+      // No valid user token found — fall through to company-level resolution.
+    }
+
+    // ── Step 2: Company-level config_layer_items lookup ───────────────────────
+    const cached = companyCache.get(companyId);
     if (cached) return cached;
 
     // Direct query over config_layer_items for company-enforced git_provider
@@ -89,7 +190,7 @@ export function createResolveGitProvider(db: Db): (companyId: string) => Promise
 
     if (rows.length === 0) {
       const provider = buildEnvFallbackProvider();
-      cache.set(companyId, provider);
+      companyCache.set(companyId, provider);
       return provider;
     }
 
@@ -125,9 +226,55 @@ export function createResolveGitProvider(db: Db): (companyId: string) => Promise
       );
     }
 
-    cache.set(companyId, provider);
+    companyCache.set(companyId, provider);
     return provider;
   };
+}
+
+/**
+ * Resolve the GitLab base URL and projectId for a user-scoped provider.
+ * MVP strategy: read from the company's config_layer_item. If none, fall
+ * back to env vars (GITLAB_BASE_URL / GITLAB_PROJECT_ID). The user's OAuth
+ * token must have access to this project — it was requested via the `api` +
+ * `read_repository` + `write_repository` scopes during BetterAuth sign-in.
+ *
+ * Future: support per-user or per-workflow repo selection by adding a user
+ * preference table or a workflow-level `gitRepo` field.
+ */
+async function resolveGitlabCoordinates(
+  db: Db,
+  companyId: string,
+): Promise<{ baseUrl: string; projectId: string }> {
+  const rows = await db
+    .select({ configJson: configLayerItems.configJson })
+    .from(configLayerItems)
+    .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+    .where(
+      and(
+        eq(configLayerItems.companyId, companyId),
+        eq(configLayerItems.itemType, "git_provider"),
+        eq(configLayerItems.enabled, true),
+        eq(configLayers.scope, "company"),
+        eq(configLayers.enforced, true),
+        isNull(configLayers.archivedAt),
+      ),
+    )
+    .limit(1);
+
+  if (rows.length > 0) {
+    const cfg = rows[0]!.configJson as { kind?: string } & Record<string, unknown>;
+    if (cfg.kind === "gitlab") {
+      const { baseUrl, projectId } = cfg as { baseUrl?: string; projectId?: string };
+      if (baseUrl && projectId) {
+        return { baseUrl, projectId };
+      }
+    }
+  }
+
+  // Env-var fallback (dev / local bootstrap).
+  const baseUrl = process.env.GITLAB_OAUTH_ISSUER_URL ?? process.env.GITLAB_BASE_URL ?? "https://gitlab.com";
+  const projectId = process.env.GITLAB_PROJECT_ID ?? "";
+  return { baseUrl, projectId };
 }
 
 function buildEnvFallbackProvider(): GitProvider {

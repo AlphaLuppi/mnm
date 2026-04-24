@@ -425,6 +425,7 @@ export default defineMcpTools(({ tool, services }) => {
 
         const result = await saveDefinition(services.db, {
           companyId: actor.companyId,
+          userId: actor.userId,
           name: definition.name,
           description: (definition as Record<string, unknown>).description as string | null ?? null,
           definitionContent: JSON.stringify(definition, null, 2),
@@ -520,6 +521,7 @@ export default defineMcpTools(({ tool, services }) => {
 
         const result = await saveDefinition(services.db, {
           companyId: actor.companyId,
+          userId: actor.userId,
           name: definition.name,
           description: (definition as Record<string, unknown>).description as string | null ?? null,
           definitionContent: JSON.stringify(definition, null, 2),

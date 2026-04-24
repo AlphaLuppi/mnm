@@ -80,7 +80,7 @@ describe("createResolveGitProvider (integration)", () => {
     });
 
     const resolve = createResolveGitProvider(db);
-    const provider = await resolve(companyId);
+    const provider = await resolve({ companyId });
 
     expect(provider.constructor.name).toBe("GitlabProvider");
     expect((provider as unknown as { providerId: string }).providerId).toBe("gitlab:acme");
@@ -95,8 +95,8 @@ describe("createResolveGitProvider (integration)", () => {
       token: "t",
     });
     const resolve = createResolveGitProvider(db);
-    const p1 = await resolve(companyId);
-    const p2 = await resolve(companyId);
+    const p1 = await resolve({ companyId });
+    const p2 = await resolve({ companyId });
     expect(p1).toBe(p2);
   });
 
@@ -108,8 +108,8 @@ describe("createResolveGitProvider (integration)", () => {
       kind: "gitlab", providerId: "gitlab:globex", baseUrl: "y", projectId: "2", token: "t2",
     });
     const resolve = createResolveGitProvider(db);
-    const pA = await resolve(acmeId);
-    const pG = await resolve(globexId);
+    const pA = await resolve({ companyId: acmeId });
+    const pG = await resolve({ companyId: globexId });
     expect(pA).not.toBe(pG);
     expect((pA as unknown as { providerId: string }).providerId).toBe("gitlab:acme");
     expect((pG as unknown as { providerId: string }).providerId).toBe("gitlab:globex");
@@ -120,7 +120,7 @@ describe("createResolveGitProvider (integration)", () => {
     process.env.MNM_GIT_PROVIDER = "local";
     process.env.MNM_GIT_LOCAL_PATH = "./_fixtures/mnm-workflows-bare";
     const resolve = createResolveGitProvider(db);
-    const provider = await resolve(companyId);
+    const provider = await resolve({ companyId });
     expect(provider.constructor.name).toBe("LocalBareRepoProvider");
   });
 
@@ -132,7 +132,7 @@ describe("createResolveGitProvider (integration)", () => {
     process.env.MNM_GIT_PROVIDER = "local";
     process.env.MNM_GIT_LOCAL_PATH = "./_fixtures/mnm-workflows-bare";
     const resolve = createResolveGitProvider(db);
-    const provider = await resolve(companyId);
+    const provider = await resolve({ companyId });
     expect(provider.constructor.name).toBe("LocalBareRepoProvider");
   });
 
@@ -144,14 +144,14 @@ describe("createResolveGitProvider (integration)", () => {
     process.env.MNM_GIT_PROVIDER = "local";
     process.env.MNM_GIT_LOCAL_PATH = "./_fixtures/mnm-workflows-bare";
     const resolve = createResolveGitProvider(db);
-    const provider = await resolve(companyId);
+    const provider = await resolve({ companyId });
     expect(provider.constructor.name).toBe("LocalBareRepoProvider");
   });
 
   it("throws GovernedWorkflowError with code GIT_PROVIDER_MISCONFIG when kind is unknown", async () => {
     const companyId = await seedCompany({ kind: "unknown-vendor" });
     const resolve = createResolveGitProvider(db);
-    await expect(resolve(companyId)).rejects.toMatchObject({
+    await expect(resolve({ companyId })).rejects.toMatchObject({
       name: "GovernedWorkflowError",
       code: "GIT_PROVIDER_MISCONFIG",
       message: expect.stringContaining("unknown kind"),
@@ -162,7 +162,7 @@ describe("createResolveGitProvider (integration)", () => {
   it("throws GIT_PROVIDER_MISCONFIG when gitlab fields are missing", async () => {
     const companyId = await seedCompany({ kind: "gitlab", baseUrl: "x" });
     const resolve = createResolveGitProvider(db);
-    await expect(resolve(companyId)).rejects.toMatchObject({
+    await expect(resolve({ companyId })).rejects.toMatchObject({
       name: "GovernedWorkflowError",
       code: "GIT_PROVIDER_MISCONFIG",
       message: expect.stringContaining("gitlab"),
@@ -173,7 +173,7 @@ describe("createResolveGitProvider (integration)", () => {
   it("throws GIT_PROVIDER_MISCONFIG when local fields are missing", async () => {
     const companyId = await seedCompany({ kind: "local", providerId: "p" }); // missing repoDir
     const resolve = createResolveGitProvider(db);
-    await expect(resolve(companyId)).rejects.toMatchObject({
+    await expect(resolve({ companyId })).rejects.toMatchObject({
       name: "GovernedWorkflowError",
       code: "GIT_PROVIDER_MISCONFIG",
       message: expect.stringContaining("local"),
@@ -188,8 +188,44 @@ describe("createResolveGitProvider (integration)", () => {
       repoDir: "/tmp/acme-repo",
     });
     const resolve = createResolveGitProvider(db);
-    const provider = await resolve(companyId);
+    const provider = await resolve({ companyId });
     expect(provider.constructor.name).toBe("LocalBareRepoProvider");
     expect((provider as unknown as { providerId: string }).providerId).toBe("local:acme");
+  });
+
+  // ── Per-user token fallback chain (authenticated mode) ───────────────────
+  // These tests verify the new resolution order: user token > company config >
+  // env fallback. We mock the authAccounts table using real DB rows.
+
+  it("falls back to company config when userId is null (no user context)", async () => {
+    const companyId = await seedCompany({
+      kind: "gitlab",
+      providerId: "gitlab:acme",
+      baseUrl: "https://lab.example.com",
+      projectId: "99",
+      token: "COMPANY_TOKEN",
+    });
+    process.env.MNM_DEPLOYMENT_MODE = "authenticated";
+    const resolve = createResolveGitProvider(db);
+    // userId=null → skip user-token path → company config used
+    const provider = await resolve({ companyId, userId: null });
+    expect(provider.constructor.name).toBe("GitlabProvider");
+    expect((provider as unknown as { providerId: string }).providerId).toBe("gitlab:acme");
+  });
+
+  it("falls back to company config in local_trusted mode even when userId is set", async () => {
+    const companyId = await seedCompany({
+      kind: "gitlab",
+      providerId: "gitlab:acme",
+      baseUrl: "https://lab.example.com",
+      projectId: "99",
+      token: "COMPANY_TOKEN",
+    });
+    process.env.MNM_DEPLOYMENT_MODE = "local_trusted";
+    const resolve = createResolveGitProvider(db);
+    // local_trusted → userId always ignored, company config used
+    const provider = await resolve({ companyId, userId: "some-user-id" });
+    expect(provider.constructor.name).toBe("GitlabProvider");
+    expect((provider as unknown as { providerId: string }).providerId).toBe("gitlab:acme");
   });
 });

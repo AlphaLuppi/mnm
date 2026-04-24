@@ -64,6 +64,12 @@ export function computeNextTag(workflowName: string, allTagNames: string[]): str
 
 export interface SaveDefinitionArgs {
   companyId: string;
+  /**
+   * BetterAuth user id of the actor triggering the save. When set in
+   * `authenticated` mode, resolveGitProvider will prefer the user's GitLab
+   * OAuth token so the commit is authored by that user's GitLab identity.
+   */
+  userId?: string | null;
   name: string;
   description: string | null;
   /** Stringified JSON content to commit as `<name>/workflow.json`. */
@@ -72,7 +78,7 @@ export interface SaveDefinitionArgs {
   branch: string;
   authorName: string;
   authorEmail: string;
-  resolveGitProvider: (companyId: string) => Promise<import("@mnm/git-provider").GitProvider>;
+  resolveGitProvider: (args: { companyId: string; userId?: string | null }) => Promise<import("@mnm/git-provider").GitProvider>;
 }
 
 export interface SaveDefinitionResult {
@@ -97,7 +103,7 @@ export async function saveDefinition(
   db: Db,
   args: SaveDefinitionArgs,
 ): Promise<SaveDefinitionResult> {
-  const gitProvider = await args.resolveGitProvider(args.companyId);
+  const gitProvider = await args.resolveGitProvider({ companyId: args.companyId, userId: args.userId });
 
   // List existing tags for this workflow to compute the next version.
   const allTags = await gitProvider.listTags({ prefix: `${args.name}/v` });
