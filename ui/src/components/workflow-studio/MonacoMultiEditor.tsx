@@ -211,24 +211,36 @@ export function MonacoMultiEditor(props: MonacoMultiEditorProps) {
     // changes. Depending on `files` wholesale would fire for sibling edits.
   }, [activePath, activePath ? files[activePath]?.content : null]);
 
-  // Dispose models for paths that were removed from `files`. Runs on every
-  // render of the file set, cheap because Map ops are O(1).
+  // Dispose models for paths that were removed from `files`. Each dispose is
+  // guarded because Monaco can throw `InstantiationService has been disposed`
+  // if the editor unmounted in the same render (e.g. save clears files AND
+  // activePath, which triggers the empty-state branch and unmounts <Monaco />
+  // at the same time the dispose effect runs). Letting that throw bubble up
+  // white-screens the whole app via React's unhandled-error semantics.
   useEffect(() => {
     for (const [path, entry] of modelsRef.current.entries()) {
       if (!(path in files)) {
-        entry.sub.dispose();
-        entry.model.dispose();
+        try {
+          entry.sub.dispose();
+          entry.model.dispose();
+        } catch {
+          // Already disposed — ignore.
+        }
         modelsRef.current.delete(path);
       }
     }
   }, [files]);
 
-  // Full teardown on unmount.
+  // Full teardown on unmount. Same try/catch rationale as above.
   useEffect(() => {
     return () => {
       for (const entry of modelsRef.current.values()) {
-        entry.sub.dispose();
-        entry.model.dispose();
+        try {
+          entry.sub.dispose();
+          entry.model.dispose();
+        } catch {
+          // Already disposed — ignore.
+        }
       }
       modelsRef.current.clear();
     };

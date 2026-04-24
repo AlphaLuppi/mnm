@@ -288,8 +288,12 @@ export function useWorkflowFiles(args: UseWorkflowFilesArgs): UseWorkflowFilesRe
         queryKey: queryKeys.governedWorkflows.list(companyId),
       });
       // Reset local state so the tree effect re-seeds from fresh data.
+      // Keep activePath so the user stays on the file they just saved — the
+      // tree re-seed will trigger a fresh getFile for that path. Setting
+      // activePath to null would unmount Monaco in the same render as the
+      // files reset, which can throw "InstantiationService has been disposed"
+      // and white-screen the app.
       setFiles({});
-      setActivePathState(null);
       defaultSeededRef.current = false;
     },
   });
