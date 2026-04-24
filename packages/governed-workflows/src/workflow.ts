@@ -15,7 +15,10 @@ export const workflowDefinitionSchema = z
   .object({
     apiVersion: z.literal("mnm/v1"),
     kind: z.literal("GovernedWorkflow"),
-    name: z.string().min(1),
+    name: z.string()
+      .min(1)
+      .max(100)
+      .regex(/^[a-z0-9][a-z0-9_-]*$/, "Workflow name must start with lowercase alphanumeric and contain only lowercase letters, digits, hyphens, and underscores"),
     description: z.string().optional(),
     variables: z.record(z.string().min(1), variableDefSchema).default({}),
     steps: z.array(workflowStepSchema).min(1),
