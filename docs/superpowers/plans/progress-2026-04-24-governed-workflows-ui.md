@@ -153,3 +153,30 @@ Notes: |
   Typecheck: 13/13 packages pass (pre-existing @embedded-postgres/windows-x64
   error on Windows root package is unrelated).
   Tests: 18/18 pass in governed-workflows.tool.test.ts (8 new tests for U6).
+
+### U7 — Polish
+Status: done
+Start: 2026-04-24
+End: 2026-04-24
+Commits:
+  - 70fc10e fix(workflows): harden workflow name with path-safe regex
+  - a094592 fix(workflows): align validation error_code to spec WORKFLOW_VALIDATION
+  - d89db26 fix(workflows): archive sets enabled=false atomically + exclude archived from list
+  - 10684d9 fix(workflows): listRuns sort by started_at with capped limit
+  - 1188734 fix(workflows): editor save dialog UX + list invalidation
+  - 8ec8156 fix(workflows): UI polish — Textarea primitive, AlertDialog, a11y labels
+  - c526b2c fix(workflows): nav workflow-editor requires workflows:create
+  - 8dd8fe3 fix(workflows): omit status filter from runs query when Tous selected
+  - 44256eb chore(workflows): drop dead legacy UI components + list_traces stale param
+
+Summary: 10-commit polish pass addressing bugs identified by E2E test + 5-agent static review.
+Fixed a CRITICAL path-traversal security hole in workflow name validation (regex + max 100 chars),
+aligned all 5 mutation endpoints to emit WORKFLOW_VALIDATION (not VALIDATION_ERROR), made
+archive atomically set enabled=false and listDefinitions filter archived_at IS NULL, capped
+listRuns at 100/default 50 with started_at DESC ordering, fixed the editor Save button deadlock
+(outer gate = JSON valid, inner = commit message), added list/detail cache invalidation on save,
+scaffolded AlertDialog shadcn component to replace window.confirm in the archive flow, swapped
+raw textarea for Textarea primitive in Runs launch dialog, added aria-labels for a11y, aligned
+nav workflow-editor permission to workflows:create, fixed "__all__" status sentinel leaking into
+API queries, deleted 2 orphan legacy components (StageEditorCard/WorkflowEditorPreview), and
+removed the stale workflowInstanceId param from list_traces MCP tool (column dropped in m0066).
