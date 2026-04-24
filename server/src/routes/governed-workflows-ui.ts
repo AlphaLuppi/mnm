@@ -31,7 +31,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 // ── Error helpers ────────────────────────────────────────────────────────────
 
-function apiError(
+export function apiError(
   res: import("express").Response,
   status: number,
   error_code: string,
@@ -84,7 +84,7 @@ const gitProviderConfigSchema = z.discriminatedUnion("kind", [
 // (not an opaque uuid@mnm.local). Agents and local_trusted keep their
 // synthesized identities — those are never a real person.
 
-async function resolveAuthor(
+export async function resolveAuthor(
   db: Db,
   req: import("express").Request,
 ): Promise<{ name: string; email: string }> {
