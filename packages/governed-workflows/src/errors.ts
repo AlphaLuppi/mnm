@@ -86,6 +86,17 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // escapes resolveSource (e.g. auth failure, network error). Carries the
   // underlying git error code in hints for diagnosis.
   GIT_PROVIDER_ERROR: "GIT_PROVIDER_ERROR",
+  // Emitted by governed-workflow-files when a client-supplied file path is
+  // not a safe workflow-relative POSIX path (contains `..`, is absolute, or
+  // uses backslashes). Fail-closed — never sanitise silently.
+  WORKFLOW_FILE_INVALID_PATH: "WORKFLOW_FILE_INVALID_PATH",
+  // Emitted by governed-workflow-files.getWorkflowFile when the requested
+  // path does not exist at the pinned ref (or is a tree, not a blob).
+  WORKFLOW_FILE_NOT_FOUND: "WORKFLOW_FILE_NOT_FOUND",
+  // Emitted by governed-workflow-files.batchCommitWorkflowFiles when the
+  // client submits zero changes. We refuse to create an empty commit — the
+  // caller almost certainly has a bug.
+  WORKFLOW_FILE_EMPTY_CHANGES: "WORKFLOW_FILE_EMPTY_CHANGES",
 } as const);
 
 export type WorkflowErrorCode =
