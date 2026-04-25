@@ -4,7 +4,7 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { authAccounts, configLayerItems, configLayers, type Db } from "@mnm/db";
 import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
@@ -56,6 +56,80 @@ interface UserProviderCacheEntry {
   provider: GitProvider;
   /** Wall-clock time after which this entry should be evicted (ms). */
   expiresAt: number;
+}
+
+/**
+ * Refresh an expired GitLab access_token using the stored refresh_token.
+ * Updates the `account` row in place and returns the new {accessToken,
+ * accessTokenExpiresAt}. Returns null if refresh fails (revoked token, GitLab
+ * down, etc.) — the caller falls back to company-level config.
+ *
+ * Why we hit GitLab directly instead of going through BetterAuth: BetterAuth
+ * exposes refresh helpers but importing it here would create a circular dep
+ * (better-auth.ts → build-mcp-services.ts via the agent registry). Direct
+ * fetch keeps this resolver dependency-free.
+ */
+async function refreshGitlabAccessToken(
+  db: Db,
+  userId: string,
+  refreshToken: string,
+): Promise<{ accessToken: string; accessTokenExpiresAt: Date } | null> {
+  const clientId = process.env.GITLAB_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GITLAB_OAUTH_CLIENT_SECRET;
+  const issuer = process.env.GITLAB_OAUTH_ISSUER_URL;
+  if (!clientId || !clientSecret || !issuer) return null;
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${issuer}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch {
+    return null; // Network error — fall through.
+  }
+
+  if (!res.ok) {
+    // 400 invalid_grant → user revoked or rotation drift; force re-auth.
+    return null;
+  }
+
+  const json = (await res.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+  } | null;
+  if (!json?.access_token) return null;
+
+  const expiresIn = typeof json.expires_in === "number" ? json.expires_in : 7200;
+  const newExpiresAt = new Date(Date.now() + expiresIn * 1000);
+
+  // Persist the rotated tokens. GitLab rotates the refresh_token on each
+  // use, so we MUST store the new one or the next refresh will 400.
+  await db
+    .update(authAccounts)
+    .set({
+      accessToken: json.access_token,
+      accessTokenExpiresAt: newExpiresAt,
+      ...(json.refresh_token ? { refreshToken: json.refresh_token } : {}),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(authAccounts.userId, userId),
+        eq(authAccounts.providerId, "gitlab"),
+      ),
+    );
+
+  return { accessToken: json.access_token, accessTokenExpiresAt: newExpiresAt };
 }
 
 /**
@@ -115,50 +189,81 @@ export function createResolveGitProvider(
         userCache.delete(userCacheKey);
       }
 
-      // Query authAccounts for a non-expired GitLab OAuth access token.
+      // Query authAccounts for the user's GitLab OAuth row — including
+      // potentially-expired tokens. We attempt a silent refresh below if the
+      // access token is past its expiry but a refresh_token is available.
       const accountRows = await db
         .select({
           accessToken: authAccounts.accessToken,
           accessTokenExpiresAt: authAccounts.accessTokenExpiresAt,
+          refreshToken: authAccounts.refreshToken,
         })
         .from(authAccounts)
         .where(
           and(
             eq(authAccounts.userId, userId),
             eq(authAccounts.providerId, "gitlab"),
-            // Only consider non-expired tokens. We compare against now() so
-            // tokens with null expiresAt (no expiry declared) are excluded via
-            // the gt() check — they'll fall through to company-level config.
-            // If you want to treat null expiresAt as "never expires", change
-            // this condition to also accept null.
-            gt(authAccounts.accessTokenExpiresAt, new Date()),
           ),
         )
         .limit(1);
 
       if (accountRows.length > 0 && accountRows[0]!.accessToken) {
         const row = accountRows[0]!;
-        const userToken = row.accessToken!;
+        let userToken = row.accessToken!;
+        let tokenExpiresAt: Date | null = row.accessTokenExpiresAt;
 
-        // Determine the GitLab base URL and projectId for this user's provider.
-        // MVP: reuse the same projectId as the company-level config (or env var
-        // fallback). The user's token must have at least read_repository +
-        // write_repository scopes on that project.
-        // Future: per-user or per-workflow project selection.
-        const { baseUrl, projectId } = await resolveGitlabCoordinates(db, companyId);
+        // Silent refresh: if access_token is expired (or expires within 30 s)
+        // and a refresh_token is on file, swap for a fresh access_token via
+        // GitLab's /oauth/token endpoint. Without this, users hit 401s every
+        // ~2 h and have to re-login by hand from the profile page.
+        const REFRESH_BUFFER_MS = 30_000;
+        const isStale =
+          !tokenExpiresAt ||
+          tokenExpiresAt.getTime() - Date.now() <= REFRESH_BUFFER_MS;
 
-        const provider = new GitlabProvider({
-          providerId: `gitlab:user:${userId}`,
-          baseUrl,
-          projectId,
-          token: userToken,
-        });
+        if (isStale && row.refreshToken) {
+          const refreshed = await refreshGitlabAccessToken(
+            db,
+            userId,
+            row.refreshToken,
+          );
+          if (refreshed) {
+            userToken = refreshed.accessToken;
+            tokenExpiresAt = refreshed.accessTokenExpiresAt;
+          }
+        }
 
-        const expiresAt = row.accessTokenExpiresAt
-          ? row.accessTokenExpiresAt.getTime()
-          : Date.now() + 3600_000; // If no expiry, cache for 1 h as a safety bound.
-        userCache.set(userCacheKey, { provider, expiresAt });
-        return provider;
+        // Post-refresh check: only trust the token if it's no longer stale.
+        // Otherwise fall through to company-level config (refresh failed or
+        // there was no refresh_token at all).
+        const stillStale =
+          !tokenExpiresAt || tokenExpiresAt.getTime() <= Date.now();
+        if (!stillStale) {
+          // Determine the GitLab base URL and projectId for this user's provider.
+          // MVP: reuse the same projectId as the company-level config (or env var
+          // fallback). The user's token must have at least read_repository +
+          // write_repository scopes on that project.
+          const { baseUrl, projectId } = await resolveGitlabCoordinates(
+            db,
+            companyId,
+          );
+
+          const provider = new GitlabProvider({
+            providerId: `gitlab:user:${userId}`,
+            baseUrl,
+            projectId,
+            token: userToken,
+            // OAuth access_tokens MUST go via Authorization: Bearer.
+            // PRIVATE-TOKEN is reserved for PATs and 401s on OAuth tokens.
+            tokenScheme: "bearer",
+          });
+
+          const expiresAt = tokenExpiresAt
+            ? tokenExpiresAt.getTime()
+            : Date.now() + 3600_000;
+          userCache.set(userCacheKey, { provider, expiresAt });
+          return provider;
+        }
       }
       // No valid user token found — fall through to company-level resolution.
     }

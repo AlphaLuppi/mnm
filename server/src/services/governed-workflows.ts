@@ -295,6 +295,14 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     companyId: string;
     name: string;
     gitTag?: string;
+    /**
+     * Optional BetterAuth user id. When provided, the resolver prefers the
+     * user's GitLab OAuth token (via Bearer auth) over the company-level PAT.
+     * Without it we fall back to company config — fine for system/agent flows
+     * but in `authenticated` mode the company token is often a placeholder
+     * because user-token resolution is the canonical path.
+     */
+    userId?: string | null;
   }): Promise<GetWorkflowParsedResult> {
     const def = await getDefinition({ companyId: args.companyId, name: args.name });
     if (!def) {
@@ -314,7 +322,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     }
 
-    const gitProvider = await resolveGitProvider({ companyId: args.companyId });
+    const gitProvider = await resolveGitProvider({
+      companyId: args.companyId,
+      userId: args.userId ?? null,
+    });
     const gitSha = await gitProvider.resolveRef({ ref });
     const workflowRepoPath = `${args.name}/workflow.json`;
 
