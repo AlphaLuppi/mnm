@@ -9,6 +9,7 @@ import type { BetterAuthSessionResult } from "../../auth/better-auth.js";
 import { getMcpJwtSecret, MCP_TOKEN_AUDIENCE } from "./mcp-auth-config.js";
 import { createRateLimiter } from "../../middleware/rate-limit.js";
 import { auditService } from "../../services/audit.js";
+import { originFromRequest } from "./origin.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
 
@@ -23,7 +24,6 @@ const oauthConsentDataLimiter = createRateLimiter({ max: 20, windowMs: 60_000 })
 export interface McpOAuthRouterDeps {
   db: Db;
   resolveSession: (req: Request) => Promise<BetterAuthSessionResult | null>;
-  getPublicUrl: () => string;
 }
 
 function base64UrlEncode(value: string): string {
@@ -174,7 +174,7 @@ let cleanupStarted = false;
 
 export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
   const router = Router();
-  const { db, resolveSession, getPublicUrl } = deps;
+  const { db, resolveSession } = deps;
   const store = new OAuthStore(db);
 
   // ── Anti-clickjacking headers for all OAuth routes ─────────────────
@@ -198,8 +198,11 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 1. Protected Resource Metadata (RFC 9728) ────────────────────────
 
-  router.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
-    const host = getPublicUrl();
+  router.get("/.well-known/oauth-protected-resource", (req: Request, res: Response) => {
+    // The advertised `resource` must match the origin the client used (e.g.
+    // localhost vs 127.0.0.1) or the MCP SDK rejects the metadata. See
+    // origin.ts for the resolution rules.
+    const host = originFromRequest(req);
     res.json({
       resource: `${host}/mcp`,
       authorization_servers: [`${host}/`],
@@ -209,8 +212,8 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps): Router {
 
   // ── 2. Authorization Server Metadata (RFC 8414) ──────────────────────
 
-  router.get("/.well-known/oauth-authorization-server", (_req: Request, res: Response) => {
-    const host = getPublicUrl();
+  router.get("/.well-known/oauth-authorization-server", (req: Request, res: Response) => {
+    const host = originFromRequest(req);
     res.json({
       issuer: `${host}/`,
       authorization_endpoint: `${host}/oauth/authorize`,
