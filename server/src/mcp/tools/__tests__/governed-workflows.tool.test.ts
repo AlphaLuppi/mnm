@@ -269,6 +269,15 @@ describe("setup_workspace tool", () => {
     expect(parsed.agents[0].name).toMatch(/^mnm--/);
     expect(parsed.instructions).toContain("Write");
   });
+
+  it("propagates actor.userId to the service so per-user GitLab OAuth tokens are used", async () => {
+    const setupSpy = vi.fn(async () => ({ agents: [], instructions: "Write" }));
+    const services = mkServices({ setupWorkspace: setupSpy });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const setup = tools.find((t) => t.name === "setup_workspace")!;
+    await setup.handler({ input: {}, actor: mkActor({ userId: "u-42" }) });
+    expect(setupSpy).toHaveBeenCalledWith(expect.objectContaining({ userId: "u-42" }));
+  });
 });
 
 // ── U6.1 — createGovernedWorkflow ──────────────────────────────────────────

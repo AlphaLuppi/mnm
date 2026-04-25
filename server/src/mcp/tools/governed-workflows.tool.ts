@@ -301,6 +301,7 @@ export default defineMcpTools(({ tool, services }) => {
         await setTenantContext(services.db, actor.companyId);
         const r = await services.governedWorkflows.setupWorkspace({
           companyId: actor.companyId,
+          userId: actor.userId ?? null,
         });
         return {
           content: [{
