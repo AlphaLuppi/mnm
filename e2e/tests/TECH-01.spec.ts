@@ -7,8 +7,8 @@
  *   - docker-compose.dev.yml exists and is valid (AC-2)
  *
  * Prerequisites:
- *   - MnM server running (`pnpm dev`) with a PostgreSQL connection
- *   - Or run via `pnpm test:e2e` (Playwright starts the server in CI)
+ *   - MnM server running (`bun run dev`) with a PostgreSQL connection
+ *   - Or run via `bun run test:e2e` (Playwright starts the server in CI)
  */
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";

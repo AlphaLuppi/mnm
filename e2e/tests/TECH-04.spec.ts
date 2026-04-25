@@ -9,7 +9,7 @@
  *   - AC-5: Rate limiting headers present (X-RateLimit-*)
  *
  * Groups 1-5 are file-content based — they always pass regardless of runtime.
- * Group 6 requires the MnM server to be running (`pnpm dev`).
+ * Group 6 requires the MnM server to be running (`bun run dev`).
  */
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";

@@ -10,7 +10,7 @@ MnM est aujourd'hui un outil mono-utilisateur permettant d'orchestrer une entrep
 
 ### Stack
 
-- Monorepo pnpm : `packages/shared`, `packages/db`, `server` (Express+tsx), `ui` (React+Vite)
+- Monorepo bun : `packages/shared`, `packages/db`, `server` (Express+tsx), `ui` (React+Vite)
 - DB : PostgreSQL embedded (`~/.mnm/instances/default/db`), Drizzle ORM
 - UI : React Query, Tailwind, shadcn/ui
 - Agents : adapter `claude_local` + autres

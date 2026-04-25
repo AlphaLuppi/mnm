@@ -182,7 +182,7 @@ console.log(names.join('\n'));
   else
     echo "Promoted all packages to @latest at v$NEW_VERSION"
     echo ""
-    echo "Verify: npm view paperclipai@latest version"
+    echo "Verify: npm view mnm@latest version"
     echo ""
     echo "To push:"
     echo "  git push && git push origin v$NEW_VERSION"
@@ -219,7 +219,6 @@ PACKAGES=$(node -e "
 const { readdirSync, readFileSync } = require('fs');
 const { resolve } = require('path');
 const root = '$REPO_ROOT';
-const wsYaml = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8');
 const dirs = ['packages/shared', 'packages/adapter-utils', 'packages/db',
   'packages/adapters/claude-local', 'packages/adapters/codex-local', 'packages/adapters/opencode-local', 'packages/adapters/openclaw-gateway',
   'server', 'cli'];
@@ -273,17 +272,17 @@ echo "==> Step 4/7: Building all packages..."
 cd "$REPO_ROOT"
 
 # Build packages in dependency order (excluding CLI)
-pnpm --filter @paperclipai/shared build
-pnpm --filter @paperclipai/adapter-utils build
-pnpm --filter @paperclipai/db build
-pnpm --filter @paperclipai/adapter-claude-local build
-pnpm --filter @paperclipai/adapter-codex-local build
-pnpm --filter @paperclipai/adapter-opencode-local build
-pnpm --filter @paperclipai/adapter-openclaw-gateway build
-pnpm --filter @paperclipai/server build
+bun run --filter @mnm/shared build
+bun run --filter @mnm/adapter-utils build
+bun run --filter @mnm/db build
+bun run --filter @mnm/adapter-claude-local build
+bun run --filter @mnm/adapter-codex-local build
+bun run --filter @mnm/adapter-opencode-local build
+bun run --filter @mnm/adapter-openclaw-gateway build
+bun run --filter @mnm/server build
 
 # Build UI and bundle into server package for static serving
-pnpm --filter @paperclipai/ui build
+bun run --filter @mnm/ui build
 rm -rf "$REPO_ROOT/server/ui-dist"
 cp -r "$REPO_ROOT/ui/dist" "$REPO_ROOT/server/ui-dist"
 
@@ -398,7 +397,7 @@ if [ "$canary" = true ]; then
   else
     echo "Published canary at v$NEW_VERSION"
     echo ""
-    echo "Verify: npm view paperclipai@canary version"
+    echo "Verify: npm view mnm@canary version"
     echo ""
     echo "To promote to latest:"
     echo "  ./scripts/release.sh --promote $NEW_VERSION"
@@ -418,5 +417,5 @@ else
   echo "To push:"
   echo "  git push && git push origin v$NEW_VERSION"
   echo ""
-  echo "GitHub Release: https://github.com/cryppadotta/paperclip/releases/tag/v$NEW_VERSION"
+  echo "GitHub Release: https://github.com/AlphaLuppi/mnm/releases/tag/v$NEW_VERSION"
 fi

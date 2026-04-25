@@ -825,7 +825,7 @@ function buildOnboardingDiscoveryDiagnostics(input: {
       code: "openclaw_onboarding_private_loopback_bind",
       level: "warn",
       message: "MnM is bound to loopback in authenticated/private mode.",
-      hint: "Run with a reachable bind host or use pnpm dev --tailscale-auth for private-network onboarding."
+      hint: "Run with a reachable bind host or use bun run dev --tailscale-auth for private-network onboarding."
     });
   }
 
@@ -841,7 +841,7 @@ function buildOnboardingDiscoveryDiagnostics(input: {
       code: "openclaw_onboarding_private_host_not_allowed",
       level: "warn",
       message: `Onboarding host "${apiHost}" is not in allowed hostnames for authenticated/private mode.`,
-      hint: `Run pnpm mnm allowed-hostname ${apiHost}`
+      hint: `Run bun run mnm allowed-hostname ${apiHost}`
     });
   }
 
@@ -961,7 +961,7 @@ function buildInviteOnboardingManifest(
         guidance:
           opts.deploymentMode === "authenticated" &&
           opts.deploymentExposure === "private"
-            ? "If OpenClaw runs on another machine, ensure the MnM hostname is reachable and allowed via `pnpm mnm allowed-hostname <host>`."
+            ? "If OpenClaw runs on another machine, ensure the MnM hostname is reachable and allowed via `bun run mnm allowed-hostname <host>`."
             : "Ensure OpenClaw can reach this MnM API base URL for invite, claim, and skill bootstrap calls."
       },
       textInstructions: {
@@ -1189,7 +1189,7 @@ export function buildInviteOnboardingTextDocument(
 
       If none are reachable: ask your human operator for a reachable hostname/address and help them update network configuration.
       For authenticated/private mode, they may need:
-      - pnpm mnm allowed-hostname <host>
+      - bun run mnm allowed-hostname <host>
       - then restart MnM and retry onboarding.
     `);
   }
