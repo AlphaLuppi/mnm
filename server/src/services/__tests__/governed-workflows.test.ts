@@ -198,6 +198,22 @@ describe("governedWorkflowService — launchWorkflow", () => {
     });
     expect(firstStep).toBe("greet");
   });
+
+  it("propagates actor.id (when type=user) to resolveGitProvider so the per-user OAuth token is selected", async () => {
+    const resolveSpy = vi.fn(async () => stubProvider);
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: resolveSpy as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await setTenantContext(db, companyA);
+    await svc.launchWorkflow({
+      companyId: companyA,
+      name: "hello-world",
+      params: {},
+      actor: { type: "user", id: "u-42" },
+    });
+    expect(resolveSpy).toHaveBeenCalledWith({ companyId: companyA, userId: "u-42" });
+  });
 });
 
 describe("governedWorkflowService — getRun", () => {
