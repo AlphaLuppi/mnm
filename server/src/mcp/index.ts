@@ -11,6 +11,7 @@ import { logger } from "../middleware/logger.js";
 import { McpSessionManager } from "./mcp-session-manager.js";
 import { verifyMcpToken } from "./auth/mcp-token-verifier.js";
 import { createMcpOAuthRouter, type McpOAuthRouterDeps } from "./auth/mcp-oauth-router.js";
+import { originFromRequest } from "./auth/origin.js";
 import { ToolRegistry } from "./registry/tool-registry.js";
 import { ResourceRegistry } from "./registry/resource-registry.js";
 import { collectTools } from "./registry/define-mcp-tools.js";
@@ -41,7 +42,6 @@ export interface McpRouterDeps {
   db: Db;
   services: McpServices;
   resolveSession: (req: Request) => Promise<BetterAuthSessionResult | null>;
-  getPublicUrl: () => string;
 }
 
 const sessionManager = new McpSessionManager();
@@ -111,7 +111,7 @@ function createConfiguredMcpServer(actor: McpActor): { mcpServer: McpServer; too
 }
 
 export function createMcpRouter(deps: McpRouterDeps): Router {
-  const { db, services, resolveSession, getPublicUrl } = deps;
+  const { db, services, resolveSession } = deps;
   const router = Router();
 
   // ── Collect all tools and resources (once only) ──────────────────────────
@@ -131,7 +131,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
   );
 
   // ── Mount OAuth 2.1 AS endpoints ────────────────────────────────────────
-  const oauthDeps: McpOAuthRouterDeps = { db, resolveSession, getPublicUrl };
+  const oauthDeps: McpOAuthRouterDeps = { db, resolveSession };
   router.use(createMcpOAuthRouter(oauthDeps));
 
   // ── Start session cleanup ───────────────────────────────────────────────
@@ -175,7 +175,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
     // New session — verify token first
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      const publicUrl = getPublicUrl();
+      const publicUrl = originFromRequest(req);
       res
         .status(401)
         .set(
@@ -308,7 +308,7 @@ export function createMcpRouter(deps: McpRouterDeps): Router {
     // Verify auth token
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      const publicUrl = getPublicUrl();
+      const publicUrl = originFromRequest(req);
       res
         .status(401)
         .set(

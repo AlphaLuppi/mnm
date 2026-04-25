@@ -47,7 +47,6 @@ describe("MCP OAuth multi-company enforcement (DEF-9)", () => {
     a.use(createMcpOAuthRouter({
       db,
       resolveSession,
-      getPublicUrl: () => "http://localhost:3000",
     }));
     return a;
   }
