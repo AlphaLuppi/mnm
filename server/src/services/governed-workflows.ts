@@ -188,6 +188,13 @@ export interface SyncEnvironmentResult {
 
 export interface SetupWorkspaceArgs {
   companyId: string;
+  /**
+   * The authenticated user issuing the call. Propagated to `resolveGitProvider`
+   * so the per-user GitLab OAuth token (from `authAccounts`) is preferred over
+   * the company-level PAT / env-var fallback. `null` is allowed for callsites
+   * that genuinely have no user identity (e.g. system-initiated syncs).
+   */
+  userId?: string | null;
 }
 
 /**
@@ -1225,7 +1232,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         ),
       );
 
-    const gitProvider = await resolveGitProvider({ companyId: args.companyId });
+    const gitProvider = await resolveGitProvider({
+      companyId: args.companyId,
+      userId: args.userId ?? null,
+    });
     const out: SetupWorkspaceAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
