@@ -351,6 +351,23 @@ describe("governedWorkflowService — launchStep", () => {
     await clearTenantContext(db);
   });
 
+  it("propagates actor.id through launchStep's getWorkflowParsed call so the user OAuth token is reused", async () => {
+    const resolveSpy = vi.fn(async () => mkProviderWithGate(PASSING_GATE));
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: resolveSpy as any,
+      shaCache: new ShaCache(),
+    });
+    await setTenantContext(db, companyA);
+    const { runId } = await svc.launchWorkflow({
+      companyId: companyA, name: "two-step", params: {}, actor: { type: "user", id: "u-42" },
+    });
+    resolveSpy.mockClear();
+    await svc.launchStep({
+      companyId: companyA, runId, stepId: "greet", actor: { type: "user", id: "u-42" },
+    });
+    expect(resolveSpy).toHaveBeenCalledWith({ companyId: companyA, userId: "u-42" });
+  });
+
   it("WORKFLOW_STEP_NOT_FOUND for an unknown stepId", async () => {
     const svc = governedWorkflowService(db, {
       resolveGitProvider: (async () => mkProviderWithGate(PASSING_GATE)) as any,

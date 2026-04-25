@@ -540,6 +540,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       companyId: args.companyId,
       name: defInfo.name,
       gitTag: defInfo.workflowGitTag,
+      userId: args.actor.type === "user" ? args.actor.id : null,
     });
     // TODO(performance): avoid re-fetching the workflow on every launchStep.
     // For MVP, the ShaCache makes this a single-map lookup after the first
@@ -979,6 +980,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         companyId: args.companyId,
         name: def.name,
         gitTag: def.workflowGitTag,
+        userId: args.actor.type === "user" ? args.actor.id : null,
       });
       const step = parsed.workflow.steps.find((s) => s.id === args.stepId);
       if (!step) {
