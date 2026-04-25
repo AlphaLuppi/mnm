@@ -23,8 +23,17 @@ export interface GitlabProviderOptions {
   baseUrl: string;
   /** Numeric or URL-encoded project id (GitLab accepts both). */
   projectId: string;
-  /** Bot token (`glpat-...`). Sent as `PRIVATE-TOKEN` header. */
+  /** Bot PAT (`glpat-...`) or OAuth access_token. See `tokenScheme`. */
   token: string;
+  /**
+   * How to send `token` to GitLab.
+   * - "private-token" (default): `PRIVATE-TOKEN: <token>` — for personal/bot
+   *   access tokens (`glpat-...`).
+   * - "bearer": `Authorization: Bearer <token>` — for OAuth access tokens
+   *   issued via the OIDC flow. PAT and OAuth tokens are NOT interchangeable
+   *   on GitLab — sending an OAuth token via PRIVATE-TOKEN returns 401.
+   */
+  tokenScheme?: "private-token" | "bearer";
   /** Per-request timeout, default 10s. */
   timeoutMs?: number;
   /** Max retries on 5xx/429, default 2 (so 3 attempts total). */
@@ -40,6 +49,7 @@ export class GitlabProvider implements GitProvider {
   private readonly baseUrl: string;
   private readonly projectId: string;
   private readonly token: string;
+  private readonly tokenScheme: "private-token" | "bearer";
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
 
@@ -48,6 +58,7 @@ export class GitlabProvider implements GitProvider {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.projectId = options.projectId;
     this.token = options.token;
+    this.tokenScheme = options.tokenScheme ?? "private-token";
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
@@ -321,11 +332,13 @@ export class GitlabProvider implements GitProvider {
     init: RequestInit,
     op: string,
   ): Promise<Response> {
-    // Caller headers first, PRIVATE-TOKEN last — class-owned token must win
-    // over any accidental or malicious caller-provided PRIVATE-TOKEN header.
+    // Caller headers first, auth header last — class-owned token must win
+    // over any accidental or malicious caller-provided auth header.
     const headers: Record<string, string> = {
       ...(init.headers as Record<string, string> | undefined),
-      "PRIVATE-TOKEN": this.token,
+      ...(this.tokenScheme === "bearer"
+        ? { Authorization: `Bearer ${this.token}` }
+        : { "PRIVATE-TOKEN": this.token }),
     };
     const attempts = this.maxRetries + 1;
     let lastError: GitProviderError | undefined;

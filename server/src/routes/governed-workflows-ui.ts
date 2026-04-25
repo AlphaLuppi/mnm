@@ -159,11 +159,12 @@ export function governedWorkflowUiRoutes(db: Db) {
           ]);
         }
         const gitTag = (req.query.gitTag as string | undefined) ?? def.latestGitTag ?? undefined;
+        const userId = req.actor.type === "board" ? req.actor.userId : null;
         let parsed = null;
         let parseError: { error_code: string; message: string; hints: string[] } | null = null;
         if (gitTag) {
           try {
-            parsed = await svc.getWorkflowParsed({ companyId, name, gitTag });
+            parsed = await svc.getWorkflowParsed({ companyId, name, gitTag, userId });
           } catch (err) {
             parseError = {
               error_code: err instanceof GovernedWorkflowError ? err.code : "WORKFLOW_PARSE_FAILED",
