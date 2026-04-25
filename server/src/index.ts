@@ -250,6 +250,41 @@ async function waitForDatabase(url: string, label: string, maxRetries = 10): Pro
   }
 }
 
+async function findOrphanPostgresPidsForDataDir(dataDir: string): Promise<number[]> {
+  if (process.platform !== "win32") return [];
+  return new Promise((resolveResult) => {
+    const ps = spawn(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-CimInstance Win32_Process -Filter \"Name='postgres.exe'\" | Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress",
+      ],
+      { stdio: ["ignore", "pipe", "ignore"] },
+    );
+    let out = "";
+    ps.stdout.on("data", (chunk) => { out += String(chunk); });
+    ps.on("error", () => resolveResult([]));
+    ps.on("close", () => {
+      try {
+        const trimmed = out.trim();
+        if (!trimmed) { resolveResult([]); return; }
+        const parsed = JSON.parse(trimmed);
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        const needle = dataDir.toLowerCase().replace(/\//g, "\\");
+        const pids = list
+          .filter((p) => typeof p?.CommandLine === "string" && p.CommandLine.toLowerCase().includes(needle))
+          .map((p) => Number(p.ProcessId))
+          .filter((n) => Number.isInteger(n) && n > 0);
+        resolveResult(pids);
+      } catch {
+        resolveResult([]);
+      }
+    });
+  });
+}
+
 let db;
 let embeddedPostgres: EmbeddedPostgresInstance | null = null;
 let embeddedPostgresStartedByThisProcess = false;
@@ -394,13 +429,46 @@ if (config.databaseUrl) {
       }
     }
 
+    let started = false;
     try {
       await embeddedPostgres.start();
+      started = true;
     } catch (err) {
-      logEmbeddedPostgresFailure("start", err);
-      throw err;
+      // Windows often leaves orphan postgres.exe processes when the parent dies
+      // without firing SIGINT (terminal closed, taskkill /F, IDE stop button).
+      // The orphan keeps owning the shmem block but the postmaster.pid file may
+      // already be gone, so pg_ctl can't reach it. Recover by enumerating
+      // postgres.exe processes whose command line points at OUR data dir and
+      // killing only those — the data files stay intact, postgres replays WAL
+      // on the next start.
+      const recentLogs = embeddedPostgresLogBuffer.join("\n");
+      const isShmemConflict = process.platform === "win32"
+        && /pre-existing shared memory block is still in use/i.test(recentLogs);
+      const orphanPids = isShmemConflict ? await findOrphanPostgresPidsForDataDir(dataDir) : [];
+      if (orphanPids.length === 0) {
+        logEmbeddedPostgresFailure("start", err);
+        throw err;
+      }
+      logger.warn(`Killing orphan PostgreSQL processes holding ${dataDir} (pids=${orphanPids.join(", ")})`);
+      for (const pid of orphanPids) {
+        await new Promise<void>((done) => {
+          const proc = spawn("taskkill", ["/F", "/PID", String(pid)], { stdio: "ignore" });
+          proc.on("close", () => done());
+          proc.on("error", () => done());
+        });
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+      embeddedPostgresLogBuffer.length = 0;
+      try {
+        await embeddedPostgres.start();
+        started = true;
+        logger.info("Embedded PostgreSQL recovered from orphan process");
+      } catch (retryErr) {
+        logEmbeddedPostgresFailure("start", retryErr);
+        throw retryErr;
+      }
     }
-    embeddedPostgresStartedByThisProcess = true;
+    if (started) embeddedPostgresStartedByThisProcess = true;
   }
 
   const embeddedAdminConnectionString = `postgres://mnm:mnm@127.0.0.1:${port}/postgres`;
