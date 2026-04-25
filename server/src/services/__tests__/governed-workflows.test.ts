@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { setTenantContext, clearTenantContext } from "../../middleware/tenant-context.js";
 import { governedWorkflowService } from "../governed-workflows.js";
@@ -765,6 +765,22 @@ describe("governedWorkflowService — setupWorkspace", () => {
     const companyId = await seedCompanyWithAgents({ issuePrefix: "T6HL", agents: [] });
     const result = await service.setupWorkspace({ companyId });
     expect(result.agents).toEqual([]);
+  });
+
+  it("propagates userId to resolveGitProvider so the per-user OAuth token is selected", async () => {
+    const companyId = await seedCompanyWithAgents({
+      issuePrefix: "T6HL",
+      agents: [{ name: "greeter", enabled: true }],
+    });
+    const resolveSpy = vi.fn(async () => stubProvider);
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: resolveSpy as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+
+    await svc.setupWorkspace({ companyId, userId: "u-42" });
+
+    expect(resolveSpy).toHaveBeenCalledWith({ companyId, userId: "u-42" });
   });
 
   describe("pushLocalState", () => {
