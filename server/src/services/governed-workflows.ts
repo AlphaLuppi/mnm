@@ -393,6 +393,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       companyId: args.companyId,
       name: args.name,
       gitTag: args.gitTag,
+      userId: args.actor.type === "user" ? args.actor.id : null,
     });
 
     const def = await getDefinition({ companyId: args.companyId, name: args.name });
