@@ -571,7 +571,11 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     if (args.currentAgents !== undefined) {
       const required = step.agent;
       const namespacedName = `mnm--${required}`;
-      const canonical = await loadCanonicalAgent(args.companyId, required);
+      const canonical = await loadCanonicalAgent(
+        args.companyId,
+        required,
+        args.actor.type === "user" ? args.actor.id : null,
+      );
       const provided = args.currentAgents[namespacedName];
       if (canonical !== null && provided !== canonical.sha) {
         throw new GovernedWorkflowError(
@@ -795,6 +799,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   async function loadCanonicalAgent(
     companyId: string,
     agentName: string,
+    userId?: string | null,
   ): Promise<{ content: string; sha: string } | null> {
     const [row] = await db
       .select()
@@ -812,7 +817,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const content = cached !== undefined
       ? cached
       : await (async () => {
-          const gitProvider = await resolveGitProvider({ companyId });
+          const gitProvider = await resolveGitProvider({
+            companyId,
+            userId: userId ?? null,
+          });
           const blob = await gitProvider.fetchBlob({
             path: mdPath,
             ref: row.latestGitTag!,
