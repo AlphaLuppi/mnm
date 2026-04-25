@@ -115,6 +115,9 @@ const env = {
   MNM_MIGRATION_AUTO_APPLY: "true",
   // Provide a dev fallback so local agents get MNM_API_KEY injected without running `mnm onboard`.
   MNM_AGENT_JWT_SECRET: process.env.MNM_AGENT_JWT_SECRET ?? "mnm-dev-secret",
+  // Same idea for the MCP OAuth signer so /oauth/token can sign JWTs when the
+  // dev runner flips MNM_DEPLOYMENT_MODE to "authenticated" (--tailscale-auth).
+  MNM_MCP_JWT_SECRET: process.env.MNM_MCP_JWT_SECRET ?? "mnm-mcp-dev-secret",
 };
 
 if (tailscaleAuth) {
