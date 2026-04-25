@@ -70,6 +70,7 @@ export const authApi = {
 
   signOut: async () => {
     await authPost("/sign-out", {});
+    try { window.sessionStorage.removeItem("mnm.splash.shown"); } catch {}
   },
 
   listLinkedAccounts: async (): Promise<LinkedAccount[]> => {
