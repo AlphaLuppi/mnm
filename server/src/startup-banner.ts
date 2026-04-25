@@ -101,7 +101,7 @@ function resolveAgentJwtSecretStatus(
 
   return {
     status: "warn",
-    message: "missing (run `pnpm mnm onboard`)",
+    message: "missing (run `bun run mnm onboard`)",
   };
 }
 

@@ -12,7 +12,7 @@
  *
  * Prerequisites:
  *   - For file-based tests: none (always runnable)
- *   - For API/UI tests: MnM server running (`pnpm dev`) in authenticated mode
+ *   - For API/UI tests: MnM server running (`bun run dev`) in authenticated mode
  */
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";

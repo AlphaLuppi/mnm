@@ -45,7 +45,7 @@ export function resolvePrivateHostnameAllowSet(opts: { allowedHostnames: string[
 function blockedHostnameMessage(hostname: string): string {
   return (
     `Hostname '${hostname}' is not allowed for this MnM instance. ` +
-    `If you want to allow this hostname, please run bun mnm allowed-hostname ${hostname}`
+    `If you want to allow this hostname, please run bun run mnm allowed-hostname ${hostname}`
   );
 }
 

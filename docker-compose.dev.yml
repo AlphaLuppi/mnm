@@ -3,10 +3,10 @@
 # =============================================================================
 # Spins up PostgreSQL and Redis for local development.
 # Usage:
-#   pnpm dev:docker:up     # start services
-#   pnpm dev:docker:down   # stop services
+#   bun run dev:docker:up     # start services
+#   bun run dev:docker:down   # stop services
 #
-# The MnM server itself runs on the host via `pnpm dev`.
+# The MnM server itself runs on the host via `bun run dev`.
 # Configure .env with:
 #   DATABASE_URL=postgres://mnm:mnm_dev@127.0.0.1:5432/mnm
 #   REDIS_URL=redis://127.0.0.1:6379

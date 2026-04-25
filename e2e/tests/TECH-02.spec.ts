@@ -176,8 +176,8 @@ test.describe("Dockerfile — MNM_* variable naming (AC-4)", () => {
     expect(fromStatements.length).toBeGreaterThanOrEqual(2);
   });
 
-  test("installs dependencies with pnpm", () => {
-    expect(dockerfileContent).toContain("pnpm install");
+  test("installs dependencies with bun", () => {
+    expect(dockerfileContent).toContain("bun install");
   });
 
   test("exposes port 3100", () => {

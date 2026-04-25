@@ -6,8 +6,8 @@
 # Ports are offset (5433 / 6380) to coexist with dev services.
 #
 # Usage:
-#   pnpm test:docker:up    # start services
-#   pnpm test:docker:down  # stop services and remove ephemeral data
+#   bun run test:docker:up    # start services
+#   bun run test:docker:down  # stop services and remove ephemeral data
 #
 # Configure test .env with:
 #   DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test
