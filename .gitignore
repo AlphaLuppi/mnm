@@ -45,3 +45,4 @@ test-results/
 
 # Claude Code / Superpowers ephemeral state
 .superpowers/
+.collaborator
