@@ -126,6 +126,9 @@ export default defineMcpTools(({ tool, services }) => {
           companyId: actor.companyId,
           name: input.name,
           gitTag: input.git_tag,
+          // userId so resolveGitProvider hits the user-token branch with
+          // silent refresh — otherwise we'd fall to the company PAT.
+          userId: actor.userId ?? null,
         });
         return {
           content: [{
