@@ -76,6 +76,30 @@
     <script>
       window.__MNM_LOADER_START = performance.now();
       (() => {
+        // Warm-reload UX (F5 in same tab): hide splash optimistically, reveal only
+        // if React isn't ready within REVEAL_DELAY_MS (masks white flash without
+        // forcing splash on fast reloads). Cold starts always show it.
+        const SPLASH_KEY = "mnm.splash.shown";
+        const REVEAL_DELAY_MS = 250;
+        let alreadyShown = false;
+        try { alreadyShown = window.sessionStorage.getItem(SPLASH_KEY) === "1"; } catch {}
+        let warmRevealed = !alreadyShown; // cold start = revealed immediately
+        let warmDismissed = false;
+        let warmRevealTimer = null;
+        // Reference point for MIN_DISPLAY — the moment the splash actually became visible,
+        // not page load. Ensures a revealed splash plays its full animation even if React
+        // becomes ready right after.
+        let revealedAt = warmRevealed ? performance.now() : 0;
+        const initialLoader = document.getElementById("app-loader");
+        if (alreadyShown && initialLoader) {
+          initialLoader.style.opacity = "0";
+          warmRevealTimer = setTimeout(() => {
+            if (warmDismissed) return;
+            warmRevealed = true;
+            revealedAt = performance.now();
+            initialLoader.style.opacity = "1";
+          }, REVEAL_DELAY_MS);
+        }
         const LOGO_FULL = [
           "███╗   ███╗       █████╗       ███╗   ███╗",
           "████╗ ████║      ██╔══██╗      ████╗ ████║",
@@ -102,10 +126,17 @@
 
         // Called by React (main.tsx) when app is ready
         window.__dismissMnmLoader = () => {
+          warmDismissed = true;
+          if (warmRevealTimer) { clearTimeout(warmRevealTimer); warmRevealTimer = null; }
           if (dissolving) return;
           var loader = document.getElementById("app-loader");
           if (!loader) return;
-          var elapsed = performance.now() - window.__MNM_LOADER_START;
+          try { window.sessionStorage.setItem(SPLASH_KEY, "1"); } catch {}
+          // Warm reload + React was fast: splash never shown, remove silently.
+          if (!warmRevealed) { loader.remove(); return; }
+          // Count MIN_DISPLAY from when splash became visible, so a slow-reveal splash
+          // still plays its full animation instead of being yanked off screen.
+          var elapsed = performance.now() - revealedAt;
           var delay = Math.max(0, MIN_DISPLAY - elapsed);
           setTimeout(function() {
             dissolving = true;
