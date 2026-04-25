@@ -59,10 +59,10 @@ export default defineConfig({
   ],
   /* The server must be running before tests start.
      In CI, Playwright starts it automatically.
-     In local dev, reuse the existing `pnpm dev` instance. */
+     In local dev, reuse the existing `bun run dev` instance. */
   webServer: process.env.CI
     ? {
-        command: "pnpm dev",
+        command: "bun run dev",
         url: "http://localhost:3100/api/health",
         reuseExistingServer: false,
         timeout: 60_000,

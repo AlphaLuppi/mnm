@@ -24,18 +24,18 @@ OPENCLAW_METHOD="${OPENCLAW_METHOD:-POST}"
 OPENCLAW_AUTH_HEADER="${OPENCLAW_AUTH_HEADER:-}"
 OPENCLAW_TIMEOUT_SEC="${OPENCLAW_TIMEOUT_SEC:-180}"
 OPENCLAW_MODEL="${OPENCLAW_MODEL:-openclaw}"
-OPENCLAW_USER="${OPENCLAW_USER:-paperclip-smoke}"
+OPENCLAW_USER="${OPENCLAW_USER:-mnm-smoke}"
 
-PAPERCLIP_RUN_ID="${PAPERCLIP_RUN_ID:-smoke-run-$(date +%s)}"
-PAPERCLIP_AGENT_ID="${PAPERCLIP_AGENT_ID:-openclaw-smoke-agent}"
-PAPERCLIP_COMPANY_ID="${PAPERCLIP_COMPANY_ID:-openclaw-smoke-company}"
-PAPERCLIP_API_URL="${PAPERCLIP_API_URL:-http://localhost:3100}"
-PAPERCLIP_TASK_ID="${PAPERCLIP_TASK_ID:-openclaw-smoke-task}"
-PAPERCLIP_WAKE_REASON="${PAPERCLIP_WAKE_REASON:-openclaw_smoke_test}"
-PAPERCLIP_WAKE_COMMENT_ID="${PAPERCLIP_WAKE_COMMENT_ID:-}"
-PAPERCLIP_APPROVAL_ID="${PAPERCLIP_APPROVAL_ID:-}"
-PAPERCLIP_APPROVAL_STATUS="${PAPERCLIP_APPROVAL_STATUS:-}"
-PAPERCLIP_LINKED_ISSUE_IDS="${PAPERCLIP_LINKED_ISSUE_IDS:-}"
+MNM_RUN_ID="${MNM_RUN_ID:-smoke-run-$(date +%s)}"
+MNM_AGENT_ID="${MNM_AGENT_ID:-openclaw-smoke-agent}"
+MNM_COMPANY_ID="${MNM_COMPANY_ID:-openclaw-smoke-company}"
+MNM_API_URL="${MNM_API_URL:-http://localhost:3100}"
+MNM_TASK_ID="${MNM_TASK_ID:-openclaw-smoke-task}"
+MNM_WAKE_REASON="${MNM_WAKE_REASON:-openclaw_smoke_test}"
+MNM_WAKE_COMMENT_ID="${MNM_WAKE_COMMENT_ID:-}"
+MNM_APPROVAL_ID="${MNM_APPROVAL_ID:-}"
+MNM_APPROVAL_STATUS="${MNM_APPROVAL_STATUS:-}"
+MNM_LINKED_ISSUE_IDS="${MNM_LINKED_ISSUE_IDS:-}"
 OPENCLAW_TEXT_PREFIX="${OPENCLAW_TEXT_PREFIX:-Standalone OpenClaw SSE smoke test.}"
 
 [[ -n "$OPENCLAW_URL" ]] || fail "OPENCLAW_URL is required"
@@ -43,51 +43,51 @@ OPENCLAW_TEXT_PREFIX="${OPENCLAW_TEXT_PREFIX:-Standalone OpenClaw SSE smoke test
 read -r -d '' TEXT_BODY <<EOF || true
 ${OPENCLAW_TEXT_PREFIX}
 
-PAPERCLIP_RUN_ID=${PAPERCLIP_RUN_ID}
-PAPERCLIP_AGENT_ID=${PAPERCLIP_AGENT_ID}
-PAPERCLIP_COMPANY_ID=${PAPERCLIP_COMPANY_ID}
-PAPERCLIP_API_URL=${PAPERCLIP_API_URL}
-PAPERCLIP_TASK_ID=${PAPERCLIP_TASK_ID}
-PAPERCLIP_WAKE_REASON=${PAPERCLIP_WAKE_REASON}
-PAPERCLIP_WAKE_COMMENT_ID=${PAPERCLIP_WAKE_COMMENT_ID}
-PAPERCLIP_APPROVAL_ID=${PAPERCLIP_APPROVAL_ID}
-PAPERCLIP_APPROVAL_STATUS=${PAPERCLIP_APPROVAL_STATUS}
-PAPERCLIP_LINKED_ISSUE_IDS=${PAPERCLIP_LINKED_ISSUE_IDS}
+MNM_RUN_ID=${MNM_RUN_ID}
+MNM_AGENT_ID=${MNM_AGENT_ID}
+MNM_COMPANY_ID=${MNM_COMPANY_ID}
+MNM_API_URL=${MNM_API_URL}
+MNM_TASK_ID=${MNM_TASK_ID}
+MNM_WAKE_REASON=${MNM_WAKE_REASON}
+MNM_WAKE_COMMENT_ID=${MNM_WAKE_COMMENT_ID}
+MNM_APPROVAL_ID=${MNM_APPROVAL_ID}
+MNM_APPROVAL_STATUS=${MNM_APPROVAL_STATUS}
+MNM_LINKED_ISSUE_IDS=${MNM_LINKED_ISSUE_IDS}
 
-Run your Paperclip heartbeat procedure now.
+Run your MnM heartbeat procedure now.
 EOF
 
 PAYLOAD="$(jq -nc \
   --arg text "$TEXT_BODY" \
   --arg model "$OPENCLAW_MODEL" \
   --arg user "$OPENCLAW_USER" \
-  --arg runId "$PAPERCLIP_RUN_ID" \
-  --arg agentId "$PAPERCLIP_AGENT_ID" \
-  --arg companyId "$PAPERCLIP_COMPANY_ID" \
-  --arg apiUrl "$PAPERCLIP_API_URL" \
-  --arg taskId "$PAPERCLIP_TASK_ID" \
-  --arg wakeReason "$PAPERCLIP_WAKE_REASON" \
-  --arg wakeCommentId "$PAPERCLIP_WAKE_COMMENT_ID" \
-  --arg approvalId "$PAPERCLIP_APPROVAL_ID" \
-  --arg approvalStatus "$PAPERCLIP_APPROVAL_STATUS" \
-  --arg linkedIssueIds "$PAPERCLIP_LINKED_ISSUE_IDS" \
+  --arg runId "$MNM_RUN_ID" \
+  --arg agentId "$MNM_AGENT_ID" \
+  --arg companyId "$MNM_COMPANY_ID" \
+  --arg apiUrl "$MNM_API_URL" \
+  --arg taskId "$MNM_TASK_ID" \
+  --arg wakeReason "$MNM_WAKE_REASON" \
+  --arg wakeCommentId "$MNM_WAKE_COMMENT_ID" \
+  --arg approvalId "$MNM_APPROVAL_ID" \
+  --arg approvalStatus "$MNM_APPROVAL_STATUS" \
+  --arg linkedIssueIds "$MNM_LINKED_ISSUE_IDS" \
   '{
     model: $model,
     user: $user,
     input: $text,
     stream: true,
     metadata: {
-      PAPERCLIP_RUN_ID: $runId,
-      PAPERCLIP_AGENT_ID: $agentId,
-      PAPERCLIP_COMPANY_ID: $companyId,
-      PAPERCLIP_API_URL: $apiUrl,
-      PAPERCLIP_TASK_ID: $taskId,
-      PAPERCLIP_WAKE_REASON: $wakeReason,
-      PAPERCLIP_WAKE_COMMENT_ID: $wakeCommentId,
-      PAPERCLIP_APPROVAL_ID: $approvalId,
-      PAPERCLIP_APPROVAL_STATUS: $approvalStatus,
-      PAPERCLIP_LINKED_ISSUE_IDS: $linkedIssueIds,
-      paperclip_session_key: ("paperclip:run:" + $runId)
+      MNM_RUN_ID: $runId,
+      MNM_AGENT_ID: $agentId,
+      MNM_COMPANY_ID: $companyId,
+      MNM_API_URL: $apiUrl,
+      MNM_TASK_ID: $taskId,
+      MNM_WAKE_REASON: $wakeReason,
+      MNM_WAKE_COMMENT_ID: $wakeCommentId,
+      MNM_APPROVAL_ID: $approvalId,
+      MNM_APPROVAL_STATUS: $approvalStatus,
+      MNM_LINKED_ISSUE_IDS: $linkedIssueIds,
+      mnm_session_key: ("mnm:run:" + $runId)
     }
   }')"
 
@@ -105,7 +105,7 @@ args=(
   -X "$OPENCLAW_METHOD"
   -H "content-type: application/json"
   -H "accept: text/event-stream"
-  -H "x-openclaw-session-key: paperclip:run:${PAPERCLIP_RUN_ID}"
+  -H "x-openclaw-session-key: mnm:run:${MNM_RUN_ID}"
   -D "$headers_file"
   -o "$body_file"
   --data "$PAYLOAD"

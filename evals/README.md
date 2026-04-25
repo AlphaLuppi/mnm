@@ -7,7 +7,7 @@ Eval framework for testing MnM agent behaviors (heartbeat + CAO) across models a
 ### Prerequisites
 
 ```bash
-pnpm add -g promptfoo
+bun add -g promptfoo
 ```
 
 Set an API key:

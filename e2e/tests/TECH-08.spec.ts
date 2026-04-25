@@ -42,17 +42,17 @@ test.describe("TECH-08 — CI Workflow", () => {
     expect(src).toMatch(/pull_request:/);
   });
 
-  // T03 — CI workflow uses pnpm/action-setup
-  test("T03 — CI workflow uses pnpm/action-setup", async () => {
+  // T03 — CI workflow uses oven-sh/setup-bun
+  test("T03 — CI workflow uses oven-sh/setup-bun", async () => {
     const src = await readFile(CI_WORKFLOW, "utf-8");
-    expect(src).toContain("pnpm/action-setup");
+    expect(src).toContain("oven-sh/setup-bun");
   });
 
   // T04 — CI workflow uses actions/setup-node with cache
   test("T04 — CI workflow uses actions/setup-node with cache", async () => {
     const src = await readFile(CI_WORKFLOW, "utf-8");
     expect(src).toContain("actions/setup-node@v4");
-    expect(src).toContain('cache: "pnpm"');
+    expect(src).toContain('cache: "bun"');
   });
 
   // T05 — CI workflow has QG-0 typecheck job
@@ -63,16 +63,16 @@ test.describe("TECH-08 — CI Workflow", () => {
     expect(src).toContain("tech-08-qg0-typecheck");
   });
 
-  // T06 — QG-0 runs pnpm typecheck
-  test("T06 — QG-0 runs pnpm typecheck", async () => {
+  // T06 — QG-0 runs bun run typecheck
+  test("T06 — QG-0 runs bun run typecheck", async () => {
     const src = await readFile(CI_WORKFLOW, "utf-8");
-    expect(src).toContain("pnpm typecheck");
+    expect(src).toContain("bun run typecheck");
   });
 
   // T07 — QG-0 runs check:tokens
   test("T07 — QG-0 runs check:tokens", async () => {
     const src = await readFile(CI_WORKFLOW, "utf-8");
-    expect(src).toContain("pnpm check:tokens");
+    expect(src).toContain("bun run check:tokens");
   });
 
   // T08 — CI workflow has QG-1 unit test job
@@ -84,10 +84,10 @@ test.describe("TECH-08 — CI Workflow", () => {
   });
 
   // T09 — QG-1 runs vitest
-  test("T09 — QG-1 runs vitest (pnpm test:run)", async () => {
+  test("T09 — QG-1 runs vitest (bun run test:run)", async () => {
     const src = await readFile(CI_WORKFLOW, "utf-8");
-    // The unit test job should run vitest via pnpm test:run
-    expect(src).toContain("pnpm test:run");
+    // The unit test job should run vitest via bun run test:run
+    expect(src).toContain("bun run test:run");
   });
 
   // T10 — CI workflow has QG-2 integration job
@@ -207,10 +207,10 @@ test.describe("TECH-08 — Security Workflow", () => {
     expect(src).toMatch(/cron:\s*".*\* \* 1"/);
   });
 
-  // T25 — Security workflow runs pnpm audit
-  test("T25 — Security workflow runs pnpm audit", async () => {
+  // T25 — Security workflow runs bun audit
+  test("T25 — Security workflow runs bun audit", async () => {
     const src = await readFile(SECURITY_WORKFLOW, "utf-8");
-    expect(src).toContain("pnpm audit");
+    expect(src).toContain("bun audit");
   });
 });
 
@@ -253,10 +253,10 @@ test.describe("TECH-08 — Dockerfile", () => {
   });
 
   // T30 — Dockerfile has BuildKit cache mount hints
-  test("T30 — Dockerfile has BuildKit cache mount for pnpm store", async () => {
+  test("T30 — Dockerfile has BuildKit cache mount for bun store", async () => {
     const src = await readFile(DOCKERFILE, "utf-8");
     expect(src).toContain("--mount=type=cache");
-    expect(src).toContain("pnpm");
+    expect(src).toContain("bun");
   });
 });
 
@@ -272,12 +272,12 @@ test.describe("TECH-08 — Cross-cutting CI concerns", () => {
     expect(src).toContain("cancel-in-progress: true");
   });
 
-  // T32 — CI workflow has pnpm store cache via actions/setup-node
-  test("T32 — CI workflow uses pnpm cache via setup-node", async () => {
+  // T32 — CI workflow has bun store cache via actions/setup-node
+  test("T32 — CI workflow uses bun cache via setup-node", async () => {
     const src = await readFile(CI_WORKFLOW, "utf-8");
-    // pnpm cache is handled by setup-node with cache: "pnpm"
-    const cacheCount = (src.match(/cache:\s*"pnpm"/g) || []).length;
-    expect(cacheCount).toBeGreaterThanOrEqual(3); // At least 3 jobs use pnpm cache
+    // bun cache is handled by setup-bun with cache: "bun"
+    const cacheCount = (src.match(/cache:\s*"bun"/g) || []).length;
+    expect(cacheCount).toBeGreaterThanOrEqual(3); // At least 3 jobs use bun cache
   });
 
   // T33 — CI workflow specifies node version >= 20

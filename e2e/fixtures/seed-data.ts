@@ -770,7 +770,7 @@ export const TRACE_OBSERVATIONS = [
     startedAt: new Date(Date.now() - 2_400_000).toISOString(),
     completedAt: new Date(Date.now() - 2_100_000).toISOString(),
     durationMs: 300_000,
-    input: { command: "pnpm test --filter server" },
+    input: { command: "bun run test --filter server" },
     output: { passed: 42, failed: 0, skipped: 2 },
   },
   {
@@ -922,7 +922,7 @@ export const TRACE_OBSERVATIONS = [
     startedAt: HALF_HOUR_AGO,
     completedAt: TWENTY_MIN_AGO,
     durationMs: 600_000,
-    input: { command: "pnpm test:security" },
+    input: { command: "bun run test:security" },
     output: { passed: 28, failed: 1, skipped: 0 },
   },
 ] as const;
