@@ -933,7 +933,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const walk = (v: unknown): unknown => {
       if (typeof v === "string") {
         return v.replace(
-          /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
+          // Allow `-` in identifiers — workflow step IDs use kebab-case
+          // (`tech-design`, `merge-tag`). Without this, any path containing
+          // a step ID with a hyphen returned the literal `{{...}}`.
+          /\{\{\s*([a-zA-Z0-9_.\-]+)\s*\}\}/g,
           (_, path: string) => {
             const parts = path.split(".");
             let cur: any = scope;
