@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   pgTable,
@@ -8,6 +9,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { configLayers } from "./config_layers.js";
@@ -44,5 +46,14 @@ export const agents = pgTable(
     companyStatusIdx: index("agents_company_status_idx").on(table.companyId, table.status),
     companyReportsToIdx: index("agents_company_reports_to_idx").on(table.companyId, table.reportsTo),
     scopedWorkspaceIdx: index("agents_scoped_workspace_idx").on(table.companyId, table.scopedToWorkspaceId),
+    // Mirror raw migration 0067 partial index (drift cleanup, N-2).
+    companyActiveIdx: index("agents_company_active_idx")
+      .on(table.companyId)
+      .where(sql`${table.archivedAt} IS NULL`),
+    // B-FIX-2: enforce unique (company_id, name) among non-archived agents.
+    // Mirror raw migration 0068 so drizzle-kit doesn't detect drift.
+    companyNameUnique: uniqueIndex("agents_company_name_unique")
+      .on(table.companyId, table.name)
+      .where(sql`${table.archivedAt} IS NULL`),
   }),
 );
