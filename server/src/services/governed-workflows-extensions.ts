@@ -7,6 +7,7 @@
  */
 
 import { and, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { workflowDefinitionSchema } from "@mnm/governed-workflows";
 import { resolveResourcePath } from "./git-resource-path.js";
 import type { ProviderWithPaths } from "./git-resource-path.js";
 import {
@@ -167,6 +168,131 @@ export async function saveDefinition(
   }
 
   return { commitSha: commitResult.sha, newGitTag, created };
+}
+
+// ── registerDefinition (option C: import from existing tag) ────────────────
+
+export interface RegisterDefinitionArgs {
+  companyId: string;
+  userId?: string | null;
+  name: string;
+  /** Existing git tag where workflow.json should be fetched from. */
+  gitTag: string;
+  resolveGitProvider: (args: { companyId: string; userId?: string | null; resourceType?: import("./git-resource-path.js").ResourceType }) => Promise<import("@mnm/git-provider").GitProvider>;
+}
+
+export interface RegisterDefinitionResult {
+  /** True if a new row was inserted, false if an existing row was updated. */
+  created: boolean;
+  /** The git tag the row now points to (mirrors the input gitTag). */
+  latestGitTag: string;
+  /** The id of the governed_workflow_definitions row. */
+  id: string;
+  /** Resolved full repo path of workflow.json (useful for error messages). */
+  fullPath: string;
+}
+
+/**
+ * Thrown by registerDefinition when workflow.json at the requested tag
+ * declares a different name than the registration request. The tool layer
+ * maps this to WORKFLOW_NAME_MISMATCH.
+ */
+export class RegisterDefinitionNameMismatchError extends Error {
+  constructor(
+    public readonly requestedName: string,
+    public readonly definitionName: string,
+    public readonly gitTag: string,
+  ) {
+    super(
+      `workflow.json at tag '${gitTag}' declares name '${definitionName}', ` +
+      `but registration requested name '${requestedName}'.`,
+    );
+    this.name = "RegisterDefinitionNameMismatchError";
+  }
+}
+
+/**
+ * Adopt an existing workflow.json from a git tag into governed_workflow_definitions
+ * WITHOUT creating a new commit or tag. Symmetric to create_agent({latestGitTag}).
+ *
+ * Idempotent: if a row already exists for (companyId, name), updates its
+ * latest_git_tag to point to the new tag (re-pinning). Otherwise inserts.
+ *
+ * Errors propagated as-is (caught by the tool layer):
+ *  - GitProviderError (code "not_found") when the blob is absent at the tag
+ *  - SyntaxError when workflow.json is not valid JSON
+ *  - ZodError when the parsed JSON does not match workflowDefinitionSchema
+ *  - RegisterDefinitionNameMismatchError when definition.name !== args.name
+ */
+export async function registerDefinition(
+  db: Db,
+  args: RegisterDefinitionArgs,
+): Promise<RegisterDefinitionResult> {
+  const gitProvider = await args.resolveGitProvider({
+    companyId: args.companyId,
+    userId: args.userId,
+    resourceType: "workflow",
+  });
+
+  const fullPath = resolveResourcePath(
+    gitProvider as ProviderWithPaths,
+    "workflow",
+    args.name,
+    "workflow.json",
+  );
+
+  const blobContent = await gitProvider.fetchBlob({ path: fullPath, ref: args.gitTag });
+
+  // SyntaxError propagates if blob is not valid JSON.
+  const parsedJson = JSON.parse(blobContent);
+
+  // ZodError propagates if the parsed JSON does not match the schema.
+  const definition = workflowDefinitionSchema.parse(parsedJson);
+
+  if (definition.name !== args.name) {
+    throw new RegisterDefinitionNameMismatchError(args.name, definition.name, args.gitTag);
+  }
+
+  const description = (definition as Record<string, unknown>).description as string | null ?? null;
+
+  const existing = await db
+    .select({ id: governedWorkflowDefinitions.id })
+    .from(governedWorkflowDefinitions)
+    .where(
+      and(
+        eq(governedWorkflowDefinitions.companyId, args.companyId),
+        eq(governedWorkflowDefinitions.name, args.name),
+      ),
+    );
+
+  if (existing.length === 0) {
+    const inserted = await db
+      .insert(governedWorkflowDefinitions)
+      .values({
+        companyId: args.companyId,
+        name: args.name,
+        description,
+        latestGitTag: args.gitTag,
+        enabled: true,
+      })
+      .returning({ id: governedWorkflowDefinitions.id });
+    return { created: true, latestGitTag: args.gitTag, id: inserted[0]!.id, fullPath };
+  }
+
+  await db
+    .update(governedWorkflowDefinitions)
+    .set({
+      description,
+      latestGitTag: args.gitTag,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(governedWorkflowDefinitions.companyId, args.companyId),
+        eq(governedWorkflowDefinitions.name, args.name),
+      ),
+    );
+  return { created: false, latestGitTag: args.gitTag, id: existing[0]!.id, fullPath };
 }
 
 // ── U2.5: archiveDefinition ─────────────────────────────────────────────────

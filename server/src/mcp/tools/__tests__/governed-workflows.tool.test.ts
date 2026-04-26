@@ -415,6 +415,185 @@ describe("createGovernedWorkflow tool (U6.1)", () => {
   });
 });
 
+// ── registerGovernedWorkflow (option C: import from existing tag) ──────────
+
+describe("registerGovernedWorkflow tool (option C)", () => {
+  function mkActorReg(overrides: Partial<McpActor> = {}): McpActor {
+    return mkActor({
+      effectivePermissions: new Set([
+        PERMISSIONS.WORKFLOWS_READ,
+        PERMISSIONS.WORKFLOWS_ENFORCE,
+        PERMISSIONS.WORKFLOWS_CREATE,
+      ]),
+      ...overrides,
+    });
+  }
+
+  /** Minimal valid workflow.json content fetched from a git tag. */
+  const validWorkflowJson = JSON.stringify({
+    apiVersion: "mnm/v1",
+    kind: "GovernedWorkflow",
+    name: "feature-dev",
+    description: "Imported from tag",
+    steps: [{ id: "step-1", agent: "senior-dev", deps: [], prompt_context: {} }],
+  });
+
+  it("success (new row): fetches blob, validates, inserts, returns created=true", async () => {
+    const fakeGitProvider = {
+      fetchBlob: vi.fn(async () => validWorkflowJson),
+      paths: { workflows: "workflows" },
+    };
+    const services = mkServices(
+      {},
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({ where: vi.fn(() => []) })),
+    }));
+    (services.db as any).insert = vi.fn(() => ({
+      values: vi.fn(() => ({
+        returning: vi.fn(async () => [{ id: "wf-new-1" }]),
+      })),
+    }));
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const register = tools.find((t) => t.name === "register_governed_workflow")!;
+    expect(register, "register_governed_workflow tool must be registered").toBeDefined();
+
+    const r = await register.handler({
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.2" },
+      actor: mkActorReg(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body).toEqual({
+      id: "wf-new-1",
+      name: "feature-dev",
+      latest_git_tag: "feature-dev/v1.0.2",
+      created: true,
+    });
+    // Did NOT call commitFile or createTag — that's the whole point of option C.
+    expect((fakeGitProvider as any).commitFile).toBeUndefined();
+    expect((fakeGitProvider as any).createTag).toBeUndefined();
+  });
+
+  it("success (existing row): updates pin, returns created=false", async () => {
+    const fakeGitProvider = {
+      fetchBlob: vi.fn(async () => validWorkflowJson),
+      paths: { workflows: "workflows" },
+    };
+    const services = mkServices(
+      {},
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+    (services.db as any).select = vi.fn(() => ({
+      from: vi.fn(() => ({ where: vi.fn(() => [{ id: "wf-existing-1" }]) })),
+    }));
+    (services.db as any).update = vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(async () => {}) })),
+    }));
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const register = tools.find((t) => t.name === "register_governed_workflow")!;
+
+    const r = await register.handler({
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.3" },
+      actor: mkActorReg(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.created).toBe(false);
+    expect(body.id).toBe("wf-existing-1");
+    expect(body.latest_git_tag).toBe("feature-dev/v1.0.3");
+  });
+
+  it("WORKFLOW_FILE_NOT_FOUND: GitProviderError 'not_found' surfaces typed error", async () => {
+    const { GitProviderError } = await import("@mnm/git-provider");
+    const fakeGitProvider = {
+      fetchBlob: vi.fn(async () => {
+        throw new GitProviderError("not_found", "blob not found at ref");
+      }),
+      paths: { workflows: "workflows" },
+    };
+    const services = mkServices(
+      {},
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const register = tools.find((t) => t.name === "register_governed_workflow")!;
+
+    const r = await register.handler({
+      input: { name: "feature-dev", git_tag: "feature-dev/v9.9.9" },
+      actor: mkActorReg(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe(WORKFLOW_ERROR_CODES.WORKFLOW_FILE_NOT_FOUND);
+    expect(body.workflow_name).toBe("feature-dev");
+    expect(body.git_tag).toBe("feature-dev/v9.9.9");
+  });
+
+  it("WORKFLOW_NAME_MISMATCH: workflow.json declares a different name", async () => {
+    const mismatchJson = JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "another-workflow",
+      description: "Wrong name",
+      steps: [{ id: "step-1", agent: "greeter", deps: [], prompt_context: {} }],
+    });
+    const fakeGitProvider = {
+      fetchBlob: vi.fn(async () => mismatchJson),
+      paths: { workflows: "workflows" },
+    };
+    const services = mkServices(
+      {},
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const register = tools.find((t) => t.name === "register_governed_workflow")!;
+
+    const r = await register.handler({
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.2" },
+      actor: mkActorReg(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe(WORKFLOW_ERROR_CODES.WORKFLOW_NAME_MISMATCH);
+    expect(body.definition_name).toBe("another-workflow");
+    expect(body.workflow_name).toBe("feature-dev");
+  });
+
+  it("WORKFLOW_VALIDATION: workflow.json fails schema validation", async () => {
+    const invalidJson = JSON.stringify({ apiVersion: "mnm/v1", kind: "GovernedWorkflow", name: "" });
+    const fakeGitProvider = {
+      fetchBlob: vi.fn(async () => invalidJson),
+      paths: { workflows: "workflows" },
+    };
+    const services = mkServices(
+      {},
+      { resolveGitProvider: vi.fn(async () => fakeGitProvider) },
+    );
+
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const register = tools.find((t) => t.name === "register_governed_workflow")!;
+
+    const r = await register.handler({
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.2" },
+      actor: mkActorReg(),
+    });
+
+    expect(r.isError).toBe(true);
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.error_code).toBe(WORKFLOW_ERROR_CODES.WORKFLOW_VALIDATION);
+  });
+});
+
 // ── U6.2 — updateGovernedWorkflow ──────────────────────────────────────────
 
 describe("updateGovernedWorkflow tool (U6.2)", () => {
