@@ -709,6 +709,41 @@ describe("governedWorkflowService — syncEnvironment", () => {
     expect(result.hasChanges).toBe(true);
     expect(typeof result.newSha).toBe("string");
   });
+
+  it("propagates userId to resolveGitProvider so the per-user OAuth token is used (regression for the gap left after a93c085)", async () => {
+    const resolveSpy = vi.fn(async () => stubProvider);
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: resolveSpy as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES (${companyA}, 'a1', 'claude_local', 'v1.0.0', true) ON CONFLICT DO NOTHING
+    `);
+    await setTenantContext(db, companyA);
+    await svc.syncEnvironment({ companyId: companyA, userId: "u-77" });
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: companyA, userId: "u-77", resourceType: "agent" }),
+    );
+  });
+
+  it("propagates userId from pushLocalState through to syncEnvironment to resolveGitProvider", async () => {
+    const resolveSpy = vi.fn(async () => stubProvider);
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: resolveSpy as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await setTenantContext(db, companyA);
+    await svc.pushLocalState({
+      companyId: companyA,
+      userId: "u-88",
+      agentsProvisioned: ["mnm--a1"],
+      pluginVersion: "0.1.0",
+    });
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: companyA, userId: "u-88" }),
+    );
+  });
 });
 
 describe("governedWorkflowService — setupWorkspace", () => {
