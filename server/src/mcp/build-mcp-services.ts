@@ -250,7 +250,7 @@ export function createResolveGitProvider(
           // MVP: reuse the same projectId as the company-level config (or env var
           // fallback). The user's token must have at least read_repository +
           // write_repository scopes on that project.
-          const { baseUrl, projectId } = await resolveGitlabCoordinates(
+          const { baseUrl, projectId, paths } = await resolveGitlabCoordinates(
             db,
             companyId,
           );
@@ -264,6 +264,10 @@ export function createResolveGitProvider(
             // PRIVATE-TOKEN is reserved for PATs and 401s on OAuth tokens.
             tokenScheme: "bearer",
           });
+          // Propagate the company config's `paths` so resolveResourcePath
+          // produces the same repo-relative path as the company-PAT path
+          // (e.g. `workflows/<name>/workflow.json`, not `<name>/workflow.json`).
+          (provider as unknown as ProviderWithPaths).paths = paths ?? {};
 
           const expiresAt = tokenExpiresAt
             ? tokenExpiresAt.getTime()
@@ -370,7 +374,7 @@ export function createResolveGitProvider(
 async function resolveGitlabCoordinates(
   db: Db,
   companyId: string,
-): Promise<{ baseUrl: string; projectId: string }> {
+): Promise<{ baseUrl: string; projectId: string; paths: ProviderWithPaths["paths"] }> {
   const rows = await db
     .select({ configJson: configLayerItems.configJson })
     .from(configLayerItems)
@@ -388,11 +392,18 @@ async function resolveGitlabCoordinates(
     .limit(1);
 
   if (rows.length > 0) {
-    const cfg = rows[0]!.configJson as { kind?: string } & Record<string, unknown>;
+    const cfg = rows[0]!.configJson as { kind?: string; paths?: Record<string, string> } & Record<string, unknown>;
     if (cfg.kind === "gitlab") {
       const { baseUrl, projectId } = cfg as { baseUrl?: string; projectId?: string };
       if (baseUrl && projectId) {
-        return { baseUrl, projectId };
+        // paths must propagate to the user OAuth provider too — without it,
+        // resolveResourcePath drops the `workflows/` (or `agents/`) prefix
+        // and the GitLab API returns 404 because the file lives one level
+        // deeper than what the URL says. The company-PAT path attaches
+        // paths at provider construction; the user-OAuth path must do the
+        // same. This used to be silently masked by the PAT fallback when
+        // the user OAuth path 404-failed.
+        return { baseUrl, projectId, paths: (cfg.paths ?? {}) as ProviderWithPaths["paths"] };
       }
     }
   }
@@ -400,7 +411,7 @@ async function resolveGitlabCoordinates(
   // Env-var fallback (dev / local bootstrap).
   const baseUrl = process.env.GITLAB_OAUTH_ISSUER_URL ?? process.env.GITLAB_BASE_URL ?? "https://gitlab.com";
   const projectId = process.env.GITLAB_PROJECT_ID ?? "";
-  return { baseUrl, projectId };
+  return { baseUrl, projectId, paths: {} };
 }
 
 function buildEnvFallbackProvider(): GitProvider {
