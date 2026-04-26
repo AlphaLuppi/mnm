@@ -279,9 +279,10 @@ export async function* streamWorkflowAiChat(
   }
 
   // 2. Load parsed workflow.json.
+  const userId = input.userId; // capture for the closure below (round 2: was hardcoded null)
   const svc = governedWorkflowService(db, {
     resolveGitProvider: (a) =>
-      deps.resolveGitProvider({ companyId: a.companyId, userId: null, resourceType: a.resourceType }),
+      deps.resolveGitProvider({ companyId: a.companyId, userId, resourceType: a.resourceType }),
     shaCache: deps.shaCache,
   });
 

@@ -254,4 +254,66 @@ describe("streamWorkflowAiChat", () => {
     expect(err.error_code).toBe("LLM_ERROR");
     expect(err.message).toContain("boom");
   });
+
+  // P9 — BLOCKER B-1 regression tests
+  // The closure at workflow-ai-assistant.ts:282-284 was previously hardcoding
+  // userId: null. These tests assert the fix: input.userId is captured and
+  // forwarded so the per-user OAuth token is selected.
+
+  it("propagates input.userId to deps.resolveGitProvider on the workflow.json fetch", async () => {
+    // Capture the resolveGitProvider arg passed inside the svc closure.
+    let capturedResolveArg: any = null;
+    const { governedWorkflowService: gwsSpy } = await import("../governed-workflows.js") as any;
+    gwsSpy.mockImplementation((_db: any, deps: any) => {
+      // When governedWorkflowService is constructed with deps, invoke the resolver
+      // immediately with a known arg so we can inspect what userId was captured.
+      capturedResolveArg = null;
+      deps.resolveGitProvider({ companyId: "c-1", resourceType: "workflow" }).catch(() => {});
+      // Still return the normal mock
+      return { getWorkflowParsed: getWorkflowParsedMock };
+    });
+
+    const spy = vi.fn(async () => ({}) as any);
+    await collect(
+      streamWorkflowAiChat(makeStubDb(), { ...makeDeps(vi.fn(async () => "")), resolveGitProvider: spy }, {
+        companyId: "c-1",
+        userId: "u-99",
+        workflowName: "hello-world",
+        messages: [],
+      }),
+    );
+
+    // The first call from inside the svc closure must carry userId: "u-99"
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: "c-1", userId: "u-99" }),
+    );
+
+    // Restore
+    gwsSpy.mockImplementation(vi.fn(() => ({ getWorkflowParsed: getWorkflowParsedMock })));
+  });
+
+  it("propagates resourceType='workflow' from the svc closure through deps.resolveGitProvider", async () => {
+    const { governedWorkflowService: gwsSpy } = await import("../governed-workflows.js") as any;
+    gwsSpy.mockImplementation((_db: any, deps: any) => {
+      deps.resolveGitProvider({ companyId: "c-1", resourceType: "workflow" }).catch(() => {});
+      return { getWorkflowParsed: getWorkflowParsedMock };
+    });
+
+    const spy = vi.fn(async () => ({}) as any);
+    await collect(
+      streamWorkflowAiChat(makeStubDb(), { ...makeDeps(vi.fn(async () => "")), resolveGitProvider: spy }, {
+        companyId: "c-1",
+        userId: "u-99",
+        workflowName: "hello-world",
+        messages: [],
+      }),
+    );
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: "workflow" }),
+    );
+
+    // Restore
+    gwsSpy.mockImplementation(vi.fn(() => ({ getWorkflowParsed: getWorkflowParsedMock })));
+  });
 });
