@@ -28,6 +28,10 @@ Thumbs.db
 # Rust legacy
 _legacy/target/
 
+# Demo / governed-workflow run artifacts (cloned repos, generated design.md, etc.)
+/repo/
+/design.md
+
 # MnM data
 .mnm/
 *.db
