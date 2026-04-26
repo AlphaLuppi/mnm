@@ -8,6 +8,42 @@ import type { ProviderWithPaths } from "../../services/git-resource-path.js";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
 import { encodeCursor, decodeCursor } from "./_pagination.js";
 
+// M-FIX-2: mirror the wrap()/governedError pattern from
+// governed-workflows.tool.ts so a thrown GovernedWorkflowError surfaces as
+// the uniform MCP error contract — including spreading err.data so clients
+// can switch on structured sub-causes (e.g. agent_name, full_path).
+function governedError(err: GovernedWorkflowError) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          error: err.message,
+          code: err.code,
+          error_code: err.code,
+          message: err.message,
+          hints: err.hints,
+          retryable: false,
+          ...(err.data ?? {}),
+        }),
+      },
+    ],
+    isError: true,
+  };
+}
+
+async function wrap<T>(fn: () => Promise<T>): Promise<
+  | { content: Array<{ type: "text"; text: string }>; isError?: boolean }
+  | T
+> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof GovernedWorkflowError) return governedError(err);
+    throw err;
+  }
+}
+
 export default defineMcpTools(({ tool, services }) => {
   tool("list_agents", {
     permissions: [PERMISSIONS.AGENTS_READ],
@@ -114,68 +150,61 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      if (input.latestGitTag) {
-        const gitProvider = await services.resolveGitProvider({
-          companyId: actor.companyId,
-          userId: actor.userId ?? null,
-          resourceType: "agent",
-        });
-        const mdPath = resolveResourcePath(
-          gitProvider as ProviderWithPaths,
-          "agent",
-          input.name,
-          "agent.md",
-        );
-        try {
-          await gitProvider.fetchBlob({ path: mdPath, ref: input.latestGitTag });
-        } catch (err) {
-          if (err instanceof GitProviderError && err.code === "not_found") {
-            const gwErr = new GovernedWorkflowError(
-              WORKFLOW_ERROR_CODES.AGENT_GIT_FILE_MISSING,
-              `Agent file '${mdPath}' not found at tag '${input.latestGitTag}'.`,
-              [`Commit ${mdPath} to the company's git repo at tag '${input.latestGitTag}' first`],
-            );
-            return {
-              content: [{
-                type: "text" as const,
-                text: JSON.stringify({
-                  error: gwErr.message,
-                  code: gwErr.code,
-                  error_code: gwErr.code,
-                  message: gwErr.message,
-                  hints: gwErr.hints,
-                  retryable: false,
-                }),
-              }],
-              isError: true,
-            };
+      return wrap(async () => {
+        if (input.latestGitTag) {
+          const gitProvider = await services.resolveGitProvider({
+            companyId: actor.companyId,
+            userId: actor.userId ?? null,
+            resourceType: "agent",
+          });
+          const mdPath = resolveResourcePath(
+            gitProvider as ProviderWithPaths,
+            "agent",
+            input.name,
+            "agent.md",
+          );
+          try {
+            await gitProvider.fetchBlob({ path: mdPath, ref: input.latestGitTag });
+          } catch (err) {
+            if (err instanceof GitProviderError && err.code === "not_found") {
+              throw new GovernedWorkflowError(
+                WORKFLOW_ERROR_CODES.AGENT_GIT_FILE_MISSING,
+                `Agent file '${mdPath}' not found at tag '${input.latestGitTag}'.`,
+                [`Commit ${mdPath} to the company's git repo at tag '${input.latestGitTag}' first`],
+                {
+                  agent_name: input.name,
+                  latest_git_tag: input.latestGitTag,
+                  full_path: mdPath,
+                },
+              );
+            }
+            throw err;
           }
-          throw err;
         }
-      }
-      const agent = await services.agents.create(actor.companyId, {
-        name: input.name,
-        title: input.title ?? null,
-        adapterType: input.adapterType ?? "claude_local",
-        reportsTo: input.reportsTo ?? null,
-        capabilities: input.capabilities ?? null,
-        budgetMonthlyCents: input.budgetMonthlyCents ?? 0,
-        tagIds: input.tagIds,
-        createdByUserId: actor.userId ?? null,
-        latestGitTag: input.latestGitTag ?? null,
+        const agent = await services.agents.create(actor.companyId, {
+          name: input.name,
+          title: input.title ?? null,
+          adapterType: input.adapterType ?? "claude_local",
+          reportsTo: input.reportsTo ?? null,
+          capabilities: input.capabilities ?? null,
+          budgetMonthlyCents: input.budgetMonthlyCents ?? 0,
+          tagIds: input.tagIds,
+          createdByUserId: actor.userId ?? null,
+          latestGitTag: input.latestGitTag ?? null,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              id: agent.id,
+              name: agent.name,
+              status: agent.status,
+              urlKey: agent.urlKey,
+              adapterType: agent.adapterType,
+            }),
+          }],
+        };
       });
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            id: agent.id,
-            name: agent.name,
-            status: agent.status,
-            urlKey: agent.urlKey,
-            adapterType: agent.adapterType,
-          }),
-        }],
-      };
     },
   });
 

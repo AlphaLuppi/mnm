@@ -123,6 +123,14 @@ describe("create_agent — latestGitTag validation", () => {
     expect(body.hints).toEqual(
       expect.arrayContaining([expect.stringMatching(/agents\/ghost\/agent\.md/)]),
     );
+    // M-FIX-2: error envelope must spread err.data so consumers can switch
+    // on structured fields (agent_name, latest_git_tag, full_path) just like
+    // the governed-workflows.tool wrap() helper does (cf. P1 contract).
+    expect(body).toMatchObject({
+      agent_name: "ghost",
+      latest_git_tag: "v1",
+      full_path: "agents/ghost/agent.md",
+    });
   });
 
   // Behavior: omitting latestGitTag produces a row with latestGitTag NULL
