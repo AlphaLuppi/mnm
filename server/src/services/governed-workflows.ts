@@ -15,11 +15,13 @@ import {
   type GateContext,
   type GateBlock,
 } from "@mnm/governed-workflows";
+import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
 import type { AuditActorType, MergedConfigItem } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
+import { resolveResourcePath, type ProviderWithPaths } from "./git-resource-path.js";
 import { configLayerConflictService } from "./config-layer-conflict.js";
 import { publishLiveEvent } from "./live-events.js";
 import {
@@ -1239,6 +1241,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         and(
           eq(agents.companyId, args.companyId),
           eq(agents.enabled, true),
+          isNull(agents.archivedAt),
         ),
       );
 
@@ -1250,25 +1253,45 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const out: SetupWorkspaceAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
-      const mdPath = `${a.name}/agent.md`;
-      const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
-      const content = cached !== undefined
-        ? cached
-        : await (async () => {
-            const blob = await gitProvider.fetchBlob({
-              path: mdPath,
-              ref: a.latestGitTag!,
-            });
-            shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
-            return blob;
-          })();
-      const sha = createHash("sha256").update(content).digest("hex");
-      out.push({
-        name: `mnm--${a.name}`,
-        content,
-        sha,
-        targetPath: `~/.claude/agents/mnm--${a.name}.md`,
-      });
+      const mdPath = resolveResourcePath(
+        gitProvider as ProviderWithPaths,
+        "agent",
+        a.name,
+        "agent.md",
+      );
+      try {
+        const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
+        const content = cached !== undefined
+          ? cached
+          : await (async () => {
+              const blob = await gitProvider.fetchBlob({
+                path: mdPath,
+                ref: a.latestGitTag!,
+              });
+              shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
+              return blob;
+            })();
+        const sha = createHash("sha256").update(content).digest("hex");
+        out.push({
+          name: `mnm--${a.name}`,
+          content,
+          sha,
+          targetPath: `~/.claude/agents/mnm--${a.name}.md`,
+        });
+      } catch (err) {
+        if (err instanceof GitProviderError && err.code === "not_found") {
+          console.warn("[mnm.setup_workspace] agent_md_missing", {
+            companyId: args.companyId,
+            agentId: a.id,
+            agentName: a.name,
+            latestGitTag: a.latestGitTag,
+            providerProjectId: (gitProvider as any).providerId ?? "unknown",
+            fullPath: mdPath,
+          });
+          continue;
+        }
+        throw err;
+      }
     }
 
     return {

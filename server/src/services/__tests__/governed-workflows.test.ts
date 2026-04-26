@@ -5,7 +5,7 @@ import { governedWorkflowService } from "../governed-workflows.js";
 import type { Db } from "@mnm/db";
 import { setupTestDb, teardownTestDb, cleanTestDb } from "@mnm/test-utils";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
-import { ShaCache } from "@mnm/git-provider";
+import { ShaCache, GitProviderError } from "@mnm/git-provider";
 
 // A minimal stub GitProvider — integration tests feed canned blobs.
 const stubProvider = {
@@ -773,11 +773,11 @@ describe("governedWorkflowService — setupWorkspace", () => {
     });
   }
 
-  // Seed a company + agents for a test. Uses `T6HL` prefix with random suffix
+  // Seed a company + agents for a test. Uses issuePrefix with random suffix
   // so concurrent test runs don't collide on the unique `issue_prefix`.
   async function seedCompanyWithAgents(opts: {
     issuePrefix: string;
-    agents: Array<{ name: string; enabled: boolean }>;
+    agents: Array<{ name: string; enabled: boolean; archivedAt?: Date | null }>;
   }): Promise<string> {
     const companyId = crypto.randomUUID();
     const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -787,8 +787,8 @@ describe("governedWorkflowService — setupWorkspace", () => {
     );
     for (const a of opts.agents) {
       await db.execute(sql`
-        INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
-        VALUES (${companyId}, ${a.name}, 'claude_local', 'v0.0.1', ${a.enabled})
+        INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled, archived_at)
+        VALUES (${companyId}, ${a.name}, 'claude_local', 'v0.0.1', ${a.enabled}, ${a.archivedAt ?? null})
       `);
     }
     return companyId;
@@ -864,6 +864,115 @@ describe("governedWorkflowService — setupWorkspace", () => {
     expect(resolveSpy).toHaveBeenCalledWith(
       expect.objectContaining({ resourceType: expect.stringMatching(/^(agent|workflow)$/) }),
     );
+  });
+
+  // ── P5: skip-on-404, warn shape, archived filter, non-404 re-throw ──────────
+
+  it("excludes from result the agents whose agent.md is missing at the pinned tag", async () => {
+    const companyId = await seedCompanyWithAgents({
+      issuePrefix: "T6SK",
+      agents: [
+        { name: "alpha", enabled: true },
+        { name: "ghost", enabled: true },
+      ],
+    });
+    const provider = {
+      ...stubProvider,
+      fetchBlob: async ({ path }: { path: string }) => {
+        if (path.includes("ghost")) {
+          throw new GitProviderError("not_found", `Blob not found: ${path}`);
+        }
+        return `---\nname: alpha\n---\n\n# Alpha body\n`;
+      },
+    };
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await setTenantContext(db, companyId);
+    const result = await svc.setupWorkspace({ companyId });
+    expect(result.agents.map((a) => a.name)).toEqual(["mnm--alpha"]);
+  });
+
+  it("logs a structured warn with the documented payload shape and no token-like fields", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const companyId = await seedCompanyWithAgents({
+      issuePrefix: "T6SK",
+      agents: [{ name: "ghost", enabled: true }],
+    });
+    const provider = {
+      ...stubProvider,
+      providerId: "local:mnm-demo",
+      fetchBlob: async ({ path }: { path: string }) => {
+        throw new GitProviderError("not_found", `Blob not found: ${path}`);
+      },
+    };
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await setTenantContext(db, companyId);
+    await svc.setupWorkspace({ companyId });
+
+    // Filter on the specific prefix to avoid catching unrelated warnings.
+    const ourWarns = warnSpy.mock.calls.filter(
+      (c) => c[0] === "[mnm.setup_workspace] agent_md_missing",
+    );
+    expect(ourWarns).toHaveLength(1);
+
+    const payload = ourWarns[0][1];
+    // Exact shape expected per §3.4.
+    expect(Object.keys(payload).sort()).toEqual(
+      ["agentId", "agentName", "companyId", "fullPath", "latestGitTag", "providerProjectId"].sort(),
+    );
+    expect(payload).toMatchObject({
+      companyId,
+      agentName: "ghost",
+      latestGitTag: expect.any(String),
+      providerProjectId: expect.any(String),
+      fullPath: expect.stringMatching(/\/ghost\/agent\.md$/),
+    });
+    // CRITICAL: no token-like fields in payload (defense in depth).
+    for (const k of Object.keys(payload)) {
+      expect(k.toLowerCase()).not.toMatch(/token|secret|password|credential/);
+    }
+    warnSpy.mockRestore();
+  });
+
+  it("excludes archived agents from setupWorkspace output", async () => {
+    const companyId = await seedCompanyWithAgents({
+      issuePrefix: "T6AR",
+      agents: [
+        { name: "live", enabled: true },
+        { name: "old", enabled: true, archivedAt: new Date() },
+      ],
+    });
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: (async () => stubProvider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await setTenantContext(db, companyId);
+    const result = await svc.setupWorkspace({ companyId });
+    expect(result.agents.map((a) => a.name)).toEqual(["mnm--live"]);
+  });
+
+  it("re-throws non-404 GitProviderErrors (auth, network) instead of skipping", async () => {
+    const companyId = await seedCompanyWithAgents({
+      issuePrefix: "T6AU",
+      agents: [{ name: "alpha", enabled: true }],
+    });
+    const provider = {
+      ...stubProvider,
+      fetchBlob: async () => {
+        throw new GitProviderError("unauthorized", "auth_failed: token expired");
+      },
+    };
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await setTenantContext(db, companyId);
+    await expect(svc.setupWorkspace({ companyId })).rejects.toThrow(/auth_failed/);
   });
 
   describe("pushLocalState", () => {
@@ -1175,5 +1284,253 @@ describe("mergeAgentConfig (real merge via mergePreview)", () => {
 
     // Keep the agentId referenced so unused-var lint is satisfied in the stub.
     expect(agentId).toEqual(expect.any(String));
+  });
+});
+
+// ── P4: loadCanonicalAgent — T6 git-first hard errors ───────────────────────
+
+describe("governedWorkflowService — loadCanonicalAgent (T6 git-first)", () => {
+  let db: Db;
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  async function seedCompany(): Promise<string> {
+    const companyId = crypto.randomUUID();
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const prefix = `P4${suffix}`;
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"P4-" + suffix}, ${prefix})`,
+    );
+    return companyId;
+  }
+
+  async function seedWorkflow(companyId: string, workflowName: string, agentName: string): Promise<void> {
+    const workflowDef = JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: workflowName,
+      variables: {},
+      steps: [
+        { id: "s1", deps: [], agent: agentName, prompt_context: {}, gates: {} },
+      ],
+    });
+    await db.execute(
+      sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag, enabled)
+          VALUES (${companyId}, ${workflowName}, ${"tag-1.0.0"}, true)`,
+    );
+    // The provider will return this content when fetchBlob is called.
+    return void workflowDef;
+  }
+
+  it("throws AGENT_NOT_REGISTERED when no agents row exists for the referenced step.agent", async () => {
+    const companyId = await seedCompany();
+    await seedWorkflow(companyId, "wf-no-agent", "ghost-agent");
+
+    const workflowJson = JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "wf-no-agent",
+      variables: {},
+      steps: [
+        { id: "s1", deps: [], agent: "ghost-agent", prompt_context: {}, gates: {} },
+      ],
+    });
+
+    const provider = {
+      fetchBlob: async () => workflowJson,
+      listTags: async () => [{ name: "tag-1.0.0", sha: "abc123" }],
+      resolveRef: async () => "abc123",
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+
+    const service = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: new ShaCache(),
+    });
+
+    await setTenantContext(db, companyId);
+
+    await expect(
+      service.launchStep({
+        companyId,
+        runId: crypto.randomUUID(),
+        stepId: "s1",
+        actor: { type: "user", id: "u-1" },
+        currentAgents: {},
+        sessionTools: [],
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+    });
+  });
+
+  it("throws AGENT_NOT_REGISTERED (sub_cause AGENT_TAG_MISSING) when agents row exists but latestGitTag is null", async () => {
+    const companyId = await seedCompany();
+    const agentName = "no-tag-agent";
+    await seedWorkflow(companyId, "wf-no-tag", agentName);
+
+    // Insert an agent row WITHOUT a latestGitTag.
+    await db.execute(
+      sql`INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+          VALUES (${companyId}, ${agentName}, 'claude_local', null, true)`,
+    );
+
+    const workflowJson = JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "wf-no-tag",
+      variables: {},
+      steps: [
+        { id: "s1", deps: [], agent: agentName, prompt_context: {}, gates: {} },
+      ],
+    });
+
+    const provider = {
+      fetchBlob: async () => workflowJson,
+      listTags: async () => [{ name: "tag-1.0.0", sha: "abc123" }],
+      resolveRef: async () => "abc123",
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+
+    const service = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: new ShaCache(),
+    });
+
+    await setTenantContext(db, companyId);
+
+    await expect(
+      service.launchStep({
+        companyId,
+        runId: crypto.randomUUID(),
+        stepId: "s1",
+        actor: { type: "user", id: "u-1" },
+        currentAgents: {},
+        sessionTools: [],
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+      data: expect.objectContaining({ sub_cause: "AGENT_TAG_MISSING" }),
+    });
+  });
+
+  it("throws AGENT_NOT_REGISTERED for an archived agent (archivedAt is set)", async () => {
+    const companyId = await seedCompany();
+    const agentName = "archived-agent";
+    await seedWorkflow(companyId, "wf-archived", agentName);
+
+    // Insert an archived agent row.
+    await db.execute(
+      sql`INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled, archived_at)
+          VALUES (${companyId}, ${agentName}, 'claude_local', ${"v1.0.0"}, true, now())`,
+    );
+
+    const workflowJson = JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "wf-archived",
+      variables: {},
+      steps: [
+        { id: "s1", deps: [], agent: agentName, prompt_context: {}, gates: {} },
+      ],
+    });
+
+    const provider = {
+      fetchBlob: async () => workflowJson,
+      listTags: async () => [{ name: "tag-1.0.0", sha: "abc123" }],
+      resolveRef: async () => "abc123",
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+
+    const service = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: new ShaCache(),
+    });
+
+    await setTenantContext(db, companyId);
+
+    await expect(
+      service.launchStep({
+        companyId,
+        runId: crypto.randomUUID(),
+        stepId: "s1",
+        actor: { type: "user", id: "u-1" },
+        currentAgents: {},
+        sessionTools: [],
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+    });
+  });
+
+  it("fetches agent.md from agents/<name>/agent.md path (git-first path convention)", async () => {
+    const companyId = await seedCompany();
+    const agentName = "senior-dev";
+    await seedWorkflow(companyId, "wf-path-check", agentName);
+
+    await db.execute(
+      sql`INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+          VALUES (${companyId}, ${agentName}, 'claude_local', ${"v1.0.0"}, true)`,
+    );
+
+    const capturedPaths: string[] = [];
+    const workflowJson = JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "wf-path-check",
+      variables: {},
+      steps: [
+        { id: "s1", deps: [], agent: agentName, prompt_context: {}, gates: {} },
+      ],
+    });
+
+    const provider = {
+      fetchBlob: async ({ path }: { path: string }) => {
+        capturedPaths.push(path);
+        if (path.endsWith("agent.md")) {
+          return `# ${agentName}\nsubagentType: claude_local\n`;
+        }
+        return workflowJson;
+      },
+      listTags: async () => [{ name: "tag-1.0.0", sha: "abc123" }],
+      resolveRef: async () => "abc123",
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+
+    const service = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: new ShaCache(),
+    });
+
+    await setTenantContext(db, companyId);
+
+    // launchStep fetches agent.md; we verify the path used respects git-first convention.
+    const result = await service.launchStep({
+      companyId,
+      runId: crypto.randomUUID(),
+      stepId: "s1",
+      actor: { type: "user", id: "u-1" },
+      currentAgents: { [agentName]: "abc123" },
+      sessionTools: [],
+    });
+
+    const agentMdPath = capturedPaths.find((p) => p.endsWith("agent.md"));
+    // Must be agents/<name>/agent.md (git-first), not <name>/agent.md (legacy).
+    expect(agentMdPath).toBe(`agents/${agentName}/agent.md`);
+    expect(result.agentName).toBe(agentName);
   });
 });
