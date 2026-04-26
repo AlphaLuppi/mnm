@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveResourcePath } from "../git-resource-path.js";
+import { resolveResourcePath, rejectTraversal } from "../git-resource-path.js";
 
 describe("resolveResourcePath", () => {
   it("returns <name>/<file> when paths is undefined (legacy root-layout)", () => {
@@ -62,5 +62,40 @@ describe("resolveResourcePath", () => {
     expect(() =>
       resolveResourcePath({ paths: { agents: "agents" } }, "agent", "senior-dev", "../../../passwd"),
     ).toThrow(/traversal|invalid path/i);
+  });
+
+  // Nit-CR-1: rejectTraversal must decode URL-encoded `..` and reject backslash.
+  it("rejects a URL-encoded '..' (`%2E%2E`)", () => {
+    expect(() =>
+      resolveResourcePath({ paths: { agents: "agents" } }, "agent", "%2E%2E/etc", "agent.md"),
+    ).toThrow(/traversal|invalid/i);
+  });
+
+  it("rejects a backslash separator in name (Windows-style path smuggling)", () => {
+    expect(() =>
+      resolveResourcePath({ paths: { agents: "agents" } }, "agent", "evil\\name", "agent.md"),
+    ).toThrow(/backslash|invalid/i);
+  });
+});
+
+describe("rejectTraversal (exported helper, M-FIX-3 + Nit-CR-1)", () => {
+  it("rejects '..'", () => {
+    expect(() => rejectTraversal("name", "../evil")).toThrow(/traversal/i);
+  });
+
+  it("rejects URL-encoded '..'", () => {
+    expect(() => rejectTraversal("name", "%2E%2E/evil")).toThrow(/traversal/i);
+  });
+
+  it("rejects backslash", () => {
+    expect(() => rejectTraversal("name", "evil\\path")).toThrow(/backslash/i);
+  });
+
+  it("rejects absolute paths", () => {
+    expect(() => rejectTraversal("name", "/evil")).toThrow(/absolute/i);
+  });
+
+  it("accepts plain workflow name", () => {
+    expect(() => rejectTraversal("name", "cba-feature-dev")).not.toThrow();
   });
 });
