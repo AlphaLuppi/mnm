@@ -212,7 +212,12 @@ describe("governedWorkflowService — launchWorkflow", () => {
       params: {},
       actor: { type: "user", id: "u-42" },
     });
-    expect(resolveSpy).toHaveBeenCalledWith({ companyId: companyA, userId: "u-42" });
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: companyA, userId: "u-42" }),
+    );
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: expect.stringMatching(/^(agent|workflow)$/) }),
+    );
   });
 });
 
@@ -365,7 +370,12 @@ describe("governedWorkflowService — launchStep", () => {
     await svc.launchStep({
       companyId: companyA, runId, stepId: "greet", actor: { type: "user", id: "u-42" },
     });
-    expect(resolveSpy).toHaveBeenCalledWith({ companyId: companyA, userId: "u-42" });
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: companyA, userId: "u-42" }),
+    );
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: expect.stringMatching(/^(agent|workflow)$/) }),
+    );
   });
 
   it("WORKFLOW_STEP_NOT_FOUND for an unknown stepId", async () => {
@@ -813,7 +823,12 @@ describe("governedWorkflowService — setupWorkspace", () => {
 
     await svc.setupWorkspace({ companyId, userId: "u-42" });
 
-    expect(resolveSpy).toHaveBeenCalledWith({ companyId, userId: "u-42" });
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId, userId: "u-42" }),
+    );
+    expect(resolveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: expect.stringMatching(/^(agent|workflow)$/) }),
+    );
   });
 
   describe("pushLocalState", () => {

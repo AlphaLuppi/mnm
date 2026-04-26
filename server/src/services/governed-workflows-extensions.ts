@@ -78,7 +78,7 @@ export interface SaveDefinitionArgs {
   branch: string;
   authorName: string;
   authorEmail: string;
-  resolveGitProvider: (args: { companyId: string; userId?: string | null }) => Promise<import("@mnm/git-provider").GitProvider>;
+  resolveGitProvider: (args: { companyId: string; userId?: string | null; resourceType?: import("./git-resource-path.js").ResourceType }) => Promise<import("@mnm/git-provider").GitProvider>;
 }
 
 export interface SaveDefinitionResult {
@@ -103,7 +103,7 @@ export async function saveDefinition(
   db: Db,
   args: SaveDefinitionArgs,
 ): Promise<SaveDefinitionResult> {
-  const gitProvider = await args.resolveGitProvider({ companyId: args.companyId, userId: args.userId });
+  const gitProvider = await args.resolveGitProvider({ companyId: args.companyId, userId: args.userId, resourceType: "workflow" });
 
   // List existing tags for this workflow to compute the next version.
   const allTags = await gitProvider.listTags({ prefix: `${args.name}/v` });

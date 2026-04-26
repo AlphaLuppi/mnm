@@ -65,8 +65,9 @@ export interface GovernedWorkflowServiceDeps {
    * Pass `userId` when the calling actor is a board user in `authenticated`
    * mode: the resolver will prefer the user's GitLab OAuth token over the
    * company-level PAT, giving commits a per-user GitLab identity.
+   * Pass `resourceType` to enable path-prefix resolution via resolveResourcePath.
    */
-  resolveGitProvider: (args: { companyId: string; userId?: string | null }) => Promise<GitProvider>;
+  resolveGitProvider: (args: { companyId: string; userId?: string | null; resourceType?: import("./git-resource-path.js").ResourceType }) => Promise<GitProvider>;
   shaCache: ShaCache;
 }
 
@@ -332,6 +333,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const gitProvider = await resolveGitProvider({
       companyId: args.companyId,
       userId: args.userId ?? null,
+      resourceType: "workflow",
     });
     const gitSha = await gitProvider.resolveRef({ ref });
     const workflowRepoPath = `${args.name}/workflow.json`;
@@ -674,6 +676,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       const gitProvider = await resolveGitProvider({
         companyId: args.companyId,
         userId: args.actor.type === "user" ? args.actor.id : null,
+        resourceType: "workflow",
       });
       const helpers = buildGateHelpers({ db, companyId: args.companyId });
       const previousArtifacts = buildPreviousArtifacts(run);
@@ -829,6 +832,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           const gitProvider = await resolveGitProvider({
             companyId,
             userId: userId ?? null,
+            resourceType: "agent",
           });
           const blob = await gitProvider.fetchBlob({
             path: mdPath,
@@ -1014,6 +1018,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         const gitProvider = await resolveGitProvider({
           companyId: args.companyId,
           userId: args.actor.type === "user" ? args.actor.id : null,
+          resourceType: "workflow",
         });
         const helpers = buildGateHelpers({ db, companyId: args.companyId });
         const previousArtifacts = await fetchSucceededArtifacts(tx as unknown as Db, args.runId);
@@ -1194,7 +1199,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     // 3. For each agent: fetch .md + merge config_layer_items
-    const gitProvider = await resolveGitProvider({ companyId: args.companyId });
+    const gitProvider = await resolveGitProvider({ companyId: args.companyId, resourceType: "agent" });
     const synced: SyncedAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
@@ -1238,6 +1243,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const gitProvider = await resolveGitProvider({
       companyId: args.companyId,
       userId: args.userId ?? null,
+      resourceType: "agent",
     });
     const out: SetupWorkspaceAgent[] = [];
     for (const a of rows) {

@@ -42,6 +42,7 @@ export interface GovernedWorkflowFilesDeps {
   resolveGitProvider: (args: {
     companyId: string;
     userId: string | null;
+    resourceType?: import("./git-resource-path.js").ResourceType;
   }) => Promise<GitProvider>;
   shaCache: ShaCache;
 }
@@ -177,6 +178,7 @@ export async function listWorkflowFiles(
   const gitProvider = await deps.resolveGitProvider({
     companyId: args.companyId,
     userId: args.userId,
+    resourceType: "workflow",
   });
 
   const prefix = `${args.workflowName}/`;
@@ -212,6 +214,7 @@ export async function getWorkflowFile(
   const gitProvider = await deps.resolveGitProvider({
     companyId: args.companyId,
     userId: args.userId,
+    resourceType: "workflow",
   });
 
   const fullPath = `${args.workflowName}/${args.path}`;
@@ -277,6 +280,7 @@ export async function batchCommitWorkflowFiles(
   const gitProvider = await deps.resolveGitProvider({
     companyId: args.companyId,
     userId: args.userId,
+    resourceType: "workflow",
   });
 
   // Prefix every change with `<workflowName>/` — the only place in the

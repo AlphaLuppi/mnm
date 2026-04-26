@@ -4,8 +4,9 @@
  */
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { authAccounts, configLayerItems, configLayers, type Db } from "@mnm/db";
+import type { ResourceType, ProviderWithPaths } from "../services/git-resource-path.js";
 import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
@@ -35,16 +36,21 @@ import type { McpServices } from "./registry/types.js";
 /**
  * Arguments for the GitProvider resolver.
  *
- * @property companyId — company whose git backend to resolve (required).
- * @property userId    — BetterAuth user id. When provided in `authenticated`
+ * @property companyId    — company whose git backend to resolve (required).
+ * @property userId       — BetterAuth user id. When provided in `authenticated`
  *   mode, the resolver first checks the user's GitLab OAuth account in
  *   `authAccounts` and, if a non-expired token is found, returns a
  *   GitlabProvider scoped to that user. This gives each commit a per-user
  *   GitLab identity and a full audit trail tied to the human, not a bot PAT.
+ * @property resourceType — "agent" or "workflow". Used to select the right
+ *   item when multiple git_provider items exist (future multi-item layout).
+ *   Also forms part of the company-level cache key so distinct resource types
+ *   cache independently. Does NOT scope OAuth tokens — tokens are per-user.
  */
 export interface ResolveGitProviderArgs {
   companyId: string;
   userId?: string | null;
+  resourceType?: ResourceType;
 }
 
 /**
@@ -164,13 +170,14 @@ async function refreshGitlabAccessToken(
 export function createResolveGitProvider(
   db: Db,
 ): (args: ResolveGitProviderArgs) => Promise<GitProvider> {
-  // Cache for company-level providers. Key = companyId.
+  // Cache for company-level providers. Key = `${companyId}:${resourceType ?? "default"}`.
   const companyCache = new Map<string, GitProvider>();
-  // Cache for per-user providers. Key = `${companyId}:${userId}`.
+  // Cache for per-user providers. Key = `${companyId}:${userId}:${resourceType ?? "default"}`.
   const userCache = new Map<string, UserProviderCacheEntry>();
 
   return async function resolveGitProvider(args: ResolveGitProviderArgs): Promise<GitProvider> {
-    const { companyId, userId } = args;
+    const { companyId, userId, resourceType } = args;
+    const rtKey = resourceType ?? "default";
 
     // ── Step 1: Per-user token (authenticated mode only) ──────────────────────
     // Skip entirely in local_trusted so dev flow is unaffected.
@@ -178,7 +185,7 @@ export function createResolveGitProvider(
       (process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted") === "authenticated";
 
     if (isAuthenticated && userId) {
-      const userCacheKey = `${companyId}:${userId}`;
+      const userCacheKey = `${companyId}:${userId}:${rtKey}`;
       const cachedEntry = userCache.get(userCacheKey);
       if (cachedEntry) {
         if (cachedEntry.expiresAt > Date.now()) {
@@ -269,14 +276,14 @@ export function createResolveGitProvider(
     }
 
     // ── Step 2: Company-level config_layer_items lookup ───────────────────────
-    const cached = companyCache.get(companyId);
+    const companyCacheKey = `${companyId}:${rtKey}`;
+    const cached = companyCache.get(companyCacheKey);
     if (cached) return cached;
 
     // Direct query over config_layer_items for company-enforced git_provider
     // items. We intentionally do NOT route through mergePreview here because
-    // it takes an agentId and this is a company-scoped lookup. The
-    // config-layer system guarantees a company has at most one active
-    // git_provider item in the company-enforced layer.
+    // it takes an agentId and this is a company-scoped lookup. Ordered by
+    // (created_at, id) for deterministic selection when multiple items exist.
     const rows = await db
       .select({ configJson: configLayerItems.configJson })
       .from(configLayerItems)
@@ -291,15 +298,22 @@ export function createResolveGitProvider(
           isNull(configLayers.archivedAt),
         ),
       )
-      .limit(1);
+      .orderBy(asc(configLayerItems.createdAt), asc(configLayerItems.id));
 
     if (rows.length === 0) {
       const provider = buildEnvFallbackProvider();
-      companyCache.set(companyId, provider);
+      companyCache.set(companyCacheKey, provider);
       return provider;
     }
 
-    const cfg = rows[0]!.configJson as { kind?: string } & Record<string, unknown>;
+    // When resourceType is provided, prefer items whose paths.<type> field is
+    // explicitly set. Fallback to the first item (legacy single-item layout).
+    const rtPathKey = resourceType === "agent" ? "agents" : resourceType === "workflow" ? "workflows" : undefined;
+    const candidate = (rtPathKey
+      ? rows.find((r) => (r.configJson as Record<string, unknown> & { paths?: Record<string, string> }).paths?.[rtPathKey] !== undefined)
+      : undefined) ?? rows[0]!;
+
+    const cfg = candidate.configJson as { kind?: string; paths?: Record<string, string> } & Record<string, unknown>;
     let provider: GitProvider;
     if (cfg.kind === "gitlab") {
       const { providerId, baseUrl, projectId, token } = cfg as {
@@ -331,7 +345,10 @@ export function createResolveGitProvider(
       );
     }
 
-    companyCache.set(companyId, provider);
+    // Attach paths from config_json so resolveResourcePath can use them.
+    (provider as unknown as ProviderWithPaths).paths = (cfg.paths ?? {}) as ProviderWithPaths["paths"];
+
+    companyCache.set(companyCacheKey, provider);
     return provider;
   };
 }
