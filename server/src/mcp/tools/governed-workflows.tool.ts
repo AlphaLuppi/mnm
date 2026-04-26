@@ -334,6 +334,7 @@ export default defineMcpTools(({ tool, services }) => {
           companyId: actor.companyId,
           agentsProvisioned: input.agents_provisioned,
           pluginVersion: input.plugin_version,
+          userId: actor.userId ?? null,
         });
         return {
           content: [{
@@ -363,6 +364,7 @@ export default defineMcpTools(({ tool, services }) => {
         const r = await services.governedWorkflows.syncEnvironment({
           companyId: actor.companyId,
           lastSyncedSha: input.last_synced_sha,
+          userId: actor.userId ?? null,
         });
         return {
           content: [{

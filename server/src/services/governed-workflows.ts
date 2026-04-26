@@ -160,6 +160,7 @@ export interface CompleteStepResult {
 export interface SyncEnvironmentArgs {
   companyId: string;
   lastSyncedSha?: string;
+  userId?: string | null;
 }
 
 export interface SyncedAgent {
@@ -229,6 +230,7 @@ export interface PushLocalStateArgs {
   companyId: string;
   agentsProvisioned: string[];
   pluginVersion: string;
+  userId?: string | null;
 }
 
 /**
@@ -1199,7 +1201,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     // 3. For each agent: fetch .md + merge config_layer_items
-    const gitProvider = await resolveGitProvider({ companyId: args.companyId, resourceType: "agent" });
+    const gitProvider = await resolveGitProvider({ companyId: args.companyId, userId: args.userId ?? null, resourceType: "agent" });
     const synced: SyncedAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
@@ -1284,7 +1286,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
    * and `openIssues` are counted from the DB at call time.
    */
   async function pushLocalState(args: PushLocalStateArgs): Promise<PushLocalStateResult> {
-    const sync = await syncEnvironment({ companyId: args.companyId });
+    const sync = await syncEnvironment({ companyId: args.companyId, userId: args.userId ?? null });
 
     const pendingRows = await db
       .select({ count: sql<number>`count(*)::int` })
