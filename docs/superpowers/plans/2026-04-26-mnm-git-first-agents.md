@@ -1165,3 +1165,138 @@ M1 (post P0-P11) → M2 (post P3 + M1) → M3 (post P7 + M2) → M4 (post M3)
 - UNIQUE constraint sur `agents(company_id, name)` (post-démo).
 - Lifecycle complet d'archivage UI pour les agents (post-démo).
 - M5 (smoke test démo) — Tom dimanche.
+
+---
+
+## § Arch Review (round 1)
+
+*Author: arch-critic — 2026-04-26 — independent review of the plan above.*
+
+Read in full: spec, plan, `governed-workflows.ts` (820, 1180-1272, 332-337, 583-614, 1014-1017), `build-mcp-services.ts:160-336+410-436`, `agents.tool.ts:87-127`, `governed-workflow-files.ts:170-300`, `governed-workflows-source-resolver.ts:30-87`, `governed-workflows-extensions.ts:102-128`, `workflow-ai-assistant.ts:71-84+280-310`, `agents.ts` schema, `errors.ts` + `errors.test.ts`.
+
+### 10.A Issues found (ranked)
+
+#### BLOCKER
+
+**B-1. P9 corrige mal le bug `workflow-ai-assistant.ts:282-283`.**
+Plan §P9 propose `(a) => deps.resolveGitProvider({ ...a, userId: a.userId ?? null })`. Mais `a.userId` n'existe PAS dans le call interne fait par `governedWorkflowService` (qui passe `{ companyId, userId, resourceType }` où `userId` est l'argument propagé via `loadCanonicalAgent`/`getWorkflowParsed`). Le bug réel à fixer est : la closure ne dispose pas de `input.userId` (l'utilisateur AI assistant authentifié) — elle hardcode `null`. Le fix correct est de capturer `input.userId` dans une variable et de la passer au lieu de `null`. Sinon, en mode `authenticated`, l'AI assistant continue d'utiliser le token company alors que la requête a une session user. **Impact** : pas une régression du refactor, mais le plan le revendique comme "correction" sans la livrer. Soit corriger le fix proposé, soit retirer ce claim de §P9 pour ne pas masquer un bug latent.
+
+**B-2. `syncEnvironment` ne propage pas `userId` — pas couvert par le plan.**
+`governed-workflows.ts:1197` : `await resolveGitProvider({ companyId: args.companyId })` — pas de `userId`. Le plan §6.4 (spec) demande "Tous les autres callsites de `resolveGitProvider` : ajouter `resourceType`". Le plan §2.3 liste 11 callsites mais ligne 1197 n'y est pas (le tableau cite `1238` setupWorkspace, mais saute `1197` syncEnvironment). Or ce site fetch des `agent.md` (ligne 1207) — il faut absolument `resourceType: "agent"` ET propager `userId`. **Impact** : en authenticated mode, `pushLocalState` (qui appelle `syncEnvironment`) bypass le user token et casse le flow OAuth fait en commit `08525f0`. Ajouter au plan : P5b (ou étendre P5) qui couvre `syncEnvironment` explicitement avec test de userId-propagation.
+
+**B-3. Race `create_agent` vs `setupWorkspace` non mitigée même pour la démo.**
+Plan §3.5 dit "race acceptable pour la démo (single-user)". Mais §M3 lance 4 `create_agent` séquentiels — OK pour la race. Le vrai problème : entre M3 et M4, si `setup_workspace` cache `resolveGitProvider`, et que P3 (migration archived_at) n'a pas encore tourné quand M2 archive `greeter/shouter`, le filtre `archived_at IS NULL` (P5) ne filtrera RIEN car la colonne n'existe pas. **Ordre critique** : P3 (migration) DOIT être appliquée AVANT M2. Le plan §6 dit "Run AFTER P3 migration" en commentaire, mais l'acceptance criterion #5 ne le vérifie pas explicitement. Ajouter une garde-fou en runtime : `setupWorkspace` doit échouer fast si la colonne `archived_at` n'existe pas (Drizzle SELECT le levera de toute façon, mais documenter).
+
+#### MAJOR
+
+**M-1. P0 helper rejecte `..` mais pas le tuple `(name, file)` qui pourrait l'introduire.**
+Test plan ligne 223-238 : `paths.agents = "../etc"` → throw. Mais `name` est attribut DB controllé (Tom le saisit via `create_agent` zod) ; `file` est hardcodé code-side. Cas limite : un agent nommé `../etc/passwd` (nom DB malicieux) produit `agents/../etc/passwd/agent.md`. Pour la démo single-user, négligeable. Mais P0 devrait explicitement rejeter `name.includes("..")` et `file.includes("..")` aussi — fail-closed à TOUS les segments. Ajouter test : `expect(() => resolveResourcePath({}, "agent", "../foo", "agent.md")).toThrow()`.
+
+**M-2. Plan ne couvre pas l'audit du `errors.test.ts` existant.**
+`errors.test.ts:21-37` a un `toEqual({...})` strict qui NE liste PAS `WORKFLOW_FILE_INVALID_PATH`, `WORKFLOW_FILE_NOT_FOUND`, `WORKFLOW_FILE_EMPTY_CHANGES` (qui pourtant existent dans `errors.ts:92-99`). Donc ce test est ALREADY broken (fait `toEqual` strict sur un objet qui inclut plus de clés). Soit il passe quand même (toEqual ne vérifie pas extra-keys ?) — à vérifier. P1 doit AJOUTER les 2 nouvelles clés au `toEqual` ET corriger les 3 manquantes. Sinon, P1 ne sera pas un Red→Green honnête.
+
+**M-3. Le `workflowDir` dérivé de `resolveResourcePath` casse `gateSourcePath` quand workflowDir contient un slash.**
+`source-resolver.ts:40-42` : `workflowDir = workflowRepoPath.slice(0, lastIndexOf("/"))`. Si `workflowRepoPath = "workflows/cba-feature-dev/workflow.json"`, `workflowDir = "workflows/cba-feature-dev"`. Le test ligne 52 `if (normalised.includes(".."))` reste OK pour `gateItemSource`. MAIS `gateSourcePath = "workflows/cba-feature-dev/gates/foo.gate.ts"` — dans le repo. OK ✓. Pas de bug, mais P6 doit ajouter un test E2E qui prouve la chaîne complète (workflowRepoPath via paths → workflowDir multi-slash → gate fetch path). Le plan P6 ne l'a pas. Ajouter au moins un assertion `expect(seenGateFetchPaths).toContain("workflows/cba-feature-dev/gates/...")`.
+
+**M-4. P2 cache key `${companyId}:${resourceType ?? "default"}` est insuffisant pour le scénario multi-items futur.**
+Spec §5.4 : "Quand plusieurs `git_provider` items existent". Si demain Tom a deux items pour la même company (un pour `agents`, un pour `workflows`), la clé `${companyId}:${resourceType}` est correcte. Mais le plan §P2.2 dit `${companyId}:${userId}:${resourceType ?? "default"}` pour le user-cache — ce qui est fine. Cependant, le SELECT `.limit(1)` est SUPPRIMÉ en P2.3 ("non `.limit(1)`") mais pas explicité dans l'implementation snippet. Le code à `:280-294` a `.limit(1)`. Plan doit dire explicitement : retirer `.limit(1)` ET trier les résultats de manière déterministe (par `id` ou `created_at`) pour que la sélection soit reproductible. Sinon, deux machines peuvent retourner des items différents.
+
+**M-5. `setupWorkspace` skip-on-404 — comportement de log non testé en isolation.**
+P5 test ligne 553-585 vérifie `warnSpy` ET absence de token dans `arg`. Bien. Mais le test mock `console.warn` globalement — donc TOUT autre warn dans la requête (y compris `[mnm.workflow_ai_assistant]` etc.) pourrait être capturé. La sortie de `warnSpy.mock.calls.flat()` puis `for (const arg of callArgs)` boucle aveugle qui peut donner faux-positifs. Recommandation : filtrer sur le premier arg `=== "[mnm.setup_workspace] agent_md_missing"` avant l'assertion no-token. Sinon, le test peut passer artificiellement.
+
+**M-6. Pas de rollback documenté pour M2 partiel.**
+Plan §M2 wrap en `BEGIN/COMMIT`. Bien. Mais §M3 enchaîne 4 MCP calls qui peuvent partiellement échouer (le 3e en `AGENT_GIT_FILE_MISSING` par ex). Acceptance criteria #6 = "4 rows" — ne dit pas comment rollback. Recommandation : ajouter au plan §M3 un `DELETE FROM agents WHERE company_id = '<demo>' AND name IN ('senior-dev','dev','review-watcher','release-mgr') AND archived_at IS NULL;` à exécuter EN CAS d'échec partiel, avant de relancer M3. Sinon les 4 calls vont rentrer en collision avec `deduplicateAgentName` (suffixe " 2") et casser le triplet attendu en M4.
+
+#### MINOR
+
+**N-1. Le plan §M1 push directement sur `main` (`git push origin main` ligne 1003) sans PR/branch.**
+Pour un repo de démo single-user, OK. Mais si `mnm-demo` a déjà des protections de branche (rare sur lab.cbainfo.fr en perso, mais possible), la push échoue. Plan devrait noter explicitement : "Repo doit autoriser push direct sur main, sinon créer branche `refactor/git-first` et merger localement avant push."
+
+**N-2. P3 migration index — le plan utilise `agents_company_active_idx`, le commentaire `agents_company_archived_idx`.**
+Plan ligne 141 : `agents_company_archived_idx ON agents (company_id) WHERE archived_at IS NULL`. Plan ligne 389 : `agents_company_active_idx`. Cohérence : choisir un nom et l'utiliser partout. Préférer `agents_company_active_idx` (sémantique plus claire pour un index "where archived_at IS NULL"). Mineur.
+
+**N-3. Plan §P11 E2E test — currentAgents sha doit être calculé, pas hardcoded.**
+Ligne 946 : `currentAgents: { "mnm--senior-dev": expectedSeniorDevSha }`. La var `expectedSeniorDevSha` est mentionnée mais pas définie dans le snippet. Le test doit faire un premier appel `setupWorkspace` (ou loadCanonicalAgent direct via test seed) pour obtenir le sha, puis le passer. Ajouter cette étape explicitement.
+
+**N-4. Plan §P7 input zod sans message d'erreur explicite si `latestGitTag` invalide.**
+Ligne 783 `latestGitTag: z.string().min(1).optional()` — OK pour zod. Mais le hint d'erreur en ligne 800 pointe vers le path mais pas vers l'argument `latestGitTag`. Le test ligne 760 vérifie `hints` matching `agents/ghost/agent.md`. Bien. Mais si le user passe `latestGitTag = "  "` (whitespace), `z.string().min(1)` accepte. Recommandation : `.refine((s) => s.trim().length > 0)`. Mineur.
+
+#### NIT
+
+**Nit-1.** Plan §3.2 dit "Le cache key actuelle (...) ne mixe pas les users". Vrai. Mais P2 ajoute `:resourceType` aux deux caches, et la clause "Recommandation côté implémentation" est au passé conditionnel. Clarifier que c'est une note documentaire, pas une action TDD.
+
+**Nit-2.** §M2 ligne 1037 : `WHERE name IN ('greeter','shouter')`. Une SELECT avant pour vérifier que ces deux noms existent serait défensif. `RAISE NOTICE 'Archived % rows', (SELECT COUNT(*) ...)`. Mineur.
+
+**Nit-3.** Plan §6 acceptance criterion #2 dit "tous les tests existants verts". Le `errors.test.ts` strict-equal (M-2) pourrait être en pré-existant cassé. Dev-B doit confirmer en pre-flight `bun test packages/governed-workflows` AVANT P1.
+
+### 10.B Tautology audit (Test first entries)
+
+| Plan task | Test concerné | Verdict | Replacement suggéré |
+|---|---|---|---|
+| P0 ligne 200-205 | "returns <name>/<file> when paths.<type> is empty string" | **Behavior-encoding ✓** | (encode SPEC §5.5 directement, garder) |
+| P0 ligne 206-211 | "returns <prefix>/<name>/<file> when paths.<type> is set" | **Behavior-encoding ✓** | garder. |
+| P0 ligne 223-232 | "rejects '..' segment" | **Behavior-encoding ✓** | garder + élargir M-1 (rejeter aussi name/file). |
+| P1 ligne 279-281 | `expect(WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED).toBe("AGENT_NOT_REGISTERED")` | **TAUTOLOGIQUE** ❌ | Encode rien d'autre que le mapping clé→string-littérale. Replacement : un test fonctionnel qui vérifie qu'une erreur jetée par `loadCanonicalAgent` (via mock léger) a `code === WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED` ET que `wrap()` la mappe en `error_code: "AGENT_NOT_REGISTERED"` dans la sortie MCP. Ce test fait écho à un comportement (l'erreur est routable en MCP), pas à la structure de l'objet `as const`. |
+| P2 ligne 311 | `expect((provider as any).paths).toEqual({ agents: "agents", workflows: "workflows" })` | **Behavior-encoding ✓** (encode l'attachement non-fonctionnel décrit en §5.5) | garder. |
+| P2 ligne 314-323 | "caches per resourceType" — assert que `a.paths.agents === "agents"` ET `w.paths.workflows === "workflows"` | **AMBIGÜ** — vérifie l'attachement, pas le caching. Le titre dit "caches" mais l'assertion teste les paths. ❌ | Replacement : appeler `resolve` 2× avec même `(companyId, resourceType)` puis assert que le SECOND appel n'a PAS frappé la DB (espionner `db.select`). C'est wiring mais ENCODE le contrat de cache. Renommer le test "second resolveGitProvider call with same (companyId, resourceType) skips DB lookup". |
+| P4 ligne 420-441 | "throws AGENT_NOT_REGISTERED when no agents row exists" | **Behavior-encoding ✓** | garder. Vérifier que `hints` est bien actionnable (regex `/create_agent.*ghost/i`). |
+| P4 ligne 442-453 | "sub_cause AGENT_TAG_MISSING when latestGitTag null" | **Behavior-encoding ✓** | garder. |
+| P4 ligne 455-464 | "skips archived agents" | **Behavior-encoding ✓** | garder. |
+| P4 ligne 466-470 | "succeeds when row + tag + .md reachable" — test sans body | **PLACEHOLDER** ❌ | À étoffer : encoder explicitement le triplet retourné `(content, sha)` non-null + assertion sur le path fetch (`expect(seenPath).toBe("agents/<name>/agent.md")`). |
+| P5 ligne 553-585 | "skips agents whose .md is missing... logs structured warn" | **MULTI-BEHAVIOR** ❌ | Splitter en 2 `it`: (a) "result excludes ghost when its .md 404s" (assertion `result.agents.map(...) === ["mnm--alpha"]`) ; (b) "logs a structured warn with no token field on 404 skip" (assertion sur warnSpy + filter sur le préfixe `[mnm.setup_workspace]`). Cf. M-5. |
+| P5 ligne 587-597 | "excludes archived agents" | **Behavior-encoding ✓** | garder. |
+| P5 ligne 599-607 | "re-throws non-404 GitProviderErrors" | **Behavior-encoding ✓** (négatif important : ne pas swallow) | garder. |
+| P6 ligne 685-701 | "fetches under workflows/ prefix when paths.workflows set" | **Behavior-encoding ✓** | garder. |
+| P6 ligne 703-706 | "falls back to <name>/workflow.json when paths undefined" | **Behavior-encoding ✓** | garder. |
+| P7 ligne 741-750 | "inserts row with latest_git_tag when .md exists" | **WIRING-LIKE** ⚠ | Le test re-select la row pour assert `latestGitTag === "v1"`. OK comme contract test, mais l'assertion `row[0].latestGitTag === "v1"` est de la persistence. Replacement plus fort : assert que le NEXT call à `loadCanonicalAgent("senior-dev")` retourne `(content, sha)` non-null sans throw `AGENT_NOT_REGISTERED`. Ça encode "create_agent rend l'agent utilisable", pas "create_agent set la colonne". |
+| P7 ligne 752-761 | "throws AGENT_GIT_FILE_MISSING when .md absent" | **Behavior-encoding ✓** | garder. |
+| P7 ligne 763-769 | "preserves legacy when latestGitTag omitted" | **WIRING** ❌ | `expect(fetchSpy).not.toHaveBeenCalled()` — pure wiring. Replacement : `const result = await callCreateAgent({ name: "legacy", adapterType: "claude_local" }); expect(result.id).toBeDefined();` puis `const row = await db.select(); expect(row.latestGitTag).toBeNull();`. Encode le contrat "latestGitTag optionnel ⇒ row créée sans tag", pas l'absence d'appel git. |
+| P8 ligne 834-844 | "listWorkflowFiles uses workflows/<name> subtree" | **Behavior-encoding ✓** | garder. |
+| P8 ligne 846-855 | "batchCommit prefixes each path with workflows/<name>" | **Behavior-encoding ✓** | garder. |
+| P9 ligne 881-889 | "calls resolveGitProvider with resourceType 'workflow'" — boucle `for (const call of spy.mock.calls)` | **WIRING + MULTI-BEHAVIOR** ❌ | Wiring sur l'arg, ET le test boucle sur N calls (incluant calls à des sous-services). Replacement : isoler **un seul** call (le getWorkflowParsed entry) et asserter la valeur exacte. Si plusieurs calls sont attendus, asserter chaque call dans son `it()` séparé. |
+| P10 (pas de test) | — | **N/A** ; le plan dit "on s'appuie sur typecheck". | Acceptable pour des ajouts de paramètre. Mais si typecheck passe sans test, ajouter un commentaire dans le code expliquant pourquoi `resourceType: "workflow"`. |
+| P11 E2E ligne 925-957 | Triplet retourné | **Behavior-encoding ✓** | garder, MAIS résoudre N-3 (sha doit être calculé, pas hardcoded). |
+
+**Synthèse tautology** : 4 tests à réécrire (P1 ligne 279, P4 ligne 466, P7 ligne 763, P9 ligne 881), 1 à splitter en deux (P5 ligne 553), 1 à renommer (P2 ligne 314), 1 à étoffer (P11 sha calculation).
+
+### 10.C Confirmation de fidelity (spec § → plan task)
+
+| Spec décision | Plan honore ? | Where |
+|---|---|---|
+| #1 — Scope A minimal, pas de frontmatter | ✓ | Hors-scope plan §10. P0/P4/P5 ne touchent pas le contenu de l'agent.md. |
+| #2 — Layout single-repo `agents/<name>/agent.md` + `workflows/<name>/...` | ✓ | M1 §6 ligne 989-994. |
+| #3 — Symétrie agents+workflows via paths (option γ) | ✓ | P0 (helper) + P4 (agent read) + P6 (workflow read) + P8 (workflow write). **MAJOR M-3** : le plan ne teste pas explicitement que les gates suivent la translation `workflows/<name>/gates/...`. À ajouter en P6. |
+| #4 — `paths` dans configJson, defaults `""` | ✓ | P0 ligne 256 `paths?.[type] ?? ""`. |
+| #5 — `create_agent` étendu avec `latestGitTag?` | ✓ | P7. **MINOR N-4** : `.refine` whitespace check à ajouter. |
+| #6 — `Greeter/shouter` archivés | ✓ | M2 ligne 1034-1037. **MAJOR M-3** : ordre P3-then-M2 doit être enforced. |
+| #7 — `AGENT_NOT_REGISTERED` HARD throw | ✓ | P4 ligne 491-510. |
+| #8 — Repo `tom.andrieu/mnm-demo` | ✓ | M2 ligne 1030 `'tom.andrieu/mnm-demo'`. |
+| #9 — Stop à M4 | ✓ | Plan §6 s'arrête M4. |
+
+**Spec amendement requis** (§3.9 plan) : `agents.archived_at` colonne à ajouter. Le plan le fait en P3. Confirmé : la spec doit être amendée par l'orchestrator (Tom) ou le plan-author note l'écart explicitement. **Recommandation** : faire l'amendement avant que dev-B démarre P3, sinon dev-B doit deviner l'intention.
+
+### 10.D Backwards compat
+
+- 3 tests `userId` existants (`:202, :354, :803`) — **plan adapte** explicitement en §3.8 + §P2 implementation snippet. ✓ Ne PAS supprimer, juste passer à `expect.objectContaining({ userId, resourceType })`.
+- `paths` field absent ⇒ `<name>/<file>` (legacy) — **P0 ligne 194-198** encode le comportement. ✓
+- Autres consumers de `git_provider` configJson : grep rapide montre que `resolveGitlabCoordinates` (`build-mcp-services.ts:246`) lit `baseUrl, projectId` mais pas `paths` → safe (extra field ignoré). ✓ Plan §10 mentionne pas cet audit explicitement — à noter mais pas bloquant.
+
+### 10.E Operational risk
+
+- **M1** — script bash `scripts/migrate-2026-04-26-mnm-demo.sh` fourni avec `git mv` exact. ✓ N-1 sur push direct main reste mineur.
+- **M2** — single-TX bien spécifié §3.7 + §M2. ✓ Restart serveur post-M2 mentionné en commentaire — préfererait un `--restart-required` flag dans la sortie (déjà noté §risques ligne 1154).
+- **M3** — JSON exact des 4 calls fourni §M3. ✓ M-6 (rollback partiel) à ajouter.
+- **M4** — séquence MCP exacte + critères de succès "MUST return / MUST NOT return" — ✓ très clair.
+- **Rollback** — non couvert pour M2 partiel succès (mais TX wrap mitige). M3 partiel non couvert (M-6).
+
+### 10.F Sign-off
+
+**Verdict : NEEDS REWORK — see issues**
+
+Total :
+- 3 BLOCKERS (B-1 P9 closure incorrecte, B-2 syncEnvironment manquant du scope, B-3 ordre P3-then-M2 non enforced)
+- 6 MAJORS (M-1 helper validation incomplete, M-2 errors.test.ts pré-cassé, M-3 gate translation untested, M-4 cache key + .limit(1) à clarifier, M-5 setupWorkspace warn test fragile, M-6 rollback M3)
+- 4 MINORS (N-1 push main, N-2 nom index, N-3 sha hardcoded, N-4 zod whitespace)
+- 3 NITS
+
+**Recommandation orchestrator : iterate-with-plan-author.** Les BLOCKERS sont chacun localisable et fixable en <30 min par mnm-plan-arch. Une fois B-1/B-2/B-3 résolus + tautology audit appliqué (4 tests réécrits), le plan est READY FOR DEV. Demo lundi 2026-04-28 reste réaliste.
