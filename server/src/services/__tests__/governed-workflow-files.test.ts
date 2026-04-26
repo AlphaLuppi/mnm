@@ -326,3 +326,94 @@ describe("batchCommitWorkflowFiles", () => {
     expect(provider.commitMultipleFiles).not.toHaveBeenCalled();
   });
 });
+
+// ── P8 — write-side path symmetry tests ────────────────────────────────────
+
+describe("P8 — listWorkflowFiles uses workflows/<name> subtree when paths.workflows is set", () => {
+  it("passes workflows/<name> as subtree when provider.paths.workflows is set", async () => {
+    const seenSubtrees: (string | undefined)[] = [];
+    const provider = {
+      ...makeStubProvider({ tree: [] }),
+      paths: { workflows: "workflows" },
+      fetchTree: vi.fn(async (args: any) => {
+        seenSubtrees.push(args.subtree);
+        return [];
+      }),
+    };
+    await listWorkflowFiles(
+      { resolveGitProvider: async () => provider as any, shaCache: new ShaCache() },
+      { companyId: "c1", userId: null, workflowName: "hello-world", ref: "v1.0.0" },
+    );
+    expect(seenSubtrees).toContain("workflows/hello-world");
+  });
+
+  it("falls back to <name> as subtree when provider has no paths (legacy)", async () => {
+    const seenSubtrees: (string | undefined)[] = [];
+    const provider = {
+      ...makeStubProvider({ tree: [] }),
+      fetchTree: vi.fn(async (args: any) => {
+        seenSubtrees.push(args.subtree);
+        return [];
+      }),
+    };
+    await listWorkflowFiles(
+      { resolveGitProvider: async () => provider as any, shaCache: new ShaCache() },
+      { companyId: "c1", userId: null, workflowName: "hello-world", ref: "v1.0.0" },
+    );
+    expect(seenSubtrees).toContain("hello-world");
+  });
+});
+
+describe("P8 — batchCommitWorkflowFiles prefixes paths with workflows/<name>/ when paths.workflows is set", () => {
+  let db: Db;
+  const companyId = "00000000-0000-0000-0000-000000000e01";
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+    await cleanTestDb(db);
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, 'PathSym', 'PS')`,
+    );
+    await setTenantContext(db, companyId);
+    await db.execute(
+      sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
+          VALUES (${companyId}, 'hello-world', 'hello-world/v1.0.0')`,
+    );
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  it("prefixes each path with workflows/<name>/ when provider.paths.workflows is set", async () => {
+    let seenActions: any[] = [];
+    const provider = {
+      ...makeStubProvider({
+        tags: [],
+        onCommit: (a: CommitMultipleFilesArgs) => {
+          seenActions = a.actions;
+          return { sha: "sym-sha" };
+        },
+      }),
+      paths: { workflows: "workflows" },
+    };
+
+    await setTenantContext(db, companyId);
+    await batchCommitWorkflowFiles(
+      db,
+      { resolveGitProvider: async () => provider as any, shaCache: new ShaCache() },
+      {
+        companyId,
+        userId: null,
+        workflowName: "hello-world",
+        branch: "main",
+        commitMessage: "sym test",
+        authorName: "Tom",
+        authorEmail: "tom@example.com",
+        changes: [{ path: "workflow.json", content: "{}" }],
+      },
+    );
+
+    expect(seenActions[0].path).toBe("workflows/hello-world/workflow.json");
+  });
+});

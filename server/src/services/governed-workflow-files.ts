@@ -30,6 +30,8 @@ import { GitProviderError } from "@mnm/git-provider";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { GovernedWorkflowError } from "./governed-workflows.js";
 import { computeNextTag } from "./governed-workflows-extensions.js";
+import { resolveResourcePath } from "./git-resource-path.js";
+import type { ProviderWithPaths } from "./git-resource-path.js";
 
 // ── Dependencies ────────────────────────────────────────────────────────────
 
@@ -164,6 +166,14 @@ function stripPrefix(entry: TreeEntry, prefix: string): TreeEntry {
   return entry;
 }
 
+// Returns the workflow directory path (no trailing slash).
+// With paths.workflows="workflows": "workflows/hello-world"
+// Without paths:                    "hello-world"
+function resolveWorkflowDir(provider: ProviderWithPaths, workflowName: string): string {
+  const base = provider.paths?.workflows ?? "";
+  return base === "" ? workflowName : `${base}/${workflowName}`;
+}
+
 // ── Service methods ─────────────────────────────────────────────────────────
 
 /**
@@ -181,12 +191,13 @@ export async function listWorkflowFiles(
     resourceType: "workflow",
   });
 
-  const prefix = `${args.workflowName}/`;
+  const workflowDir = resolveWorkflowDir(gitProvider as ProviderWithPaths, args.workflowName);
+  const prefix = `${workflowDir}/`;
   let entries: TreeEntry[];
   try {
     entries = await gitProvider.fetchTree({
       ref: args.ref,
-      subtree: args.workflowName,
+      subtree: workflowDir,
       recursive: true,
     });
   } catch (cause) {
@@ -217,7 +228,12 @@ export async function getWorkflowFile(
     resourceType: "workflow",
   });
 
-  const fullPath = `${args.workflowName}/${args.path}`;
+  const fullPath = resolveResourcePath(
+    gitProvider as ProviderWithPaths,
+    "workflow",
+    args.workflowName,
+    args.path,
+  );
 
   let content: string;
   try {
@@ -283,10 +299,15 @@ export async function batchCommitWorkflowFiles(
     resourceType: "workflow",
   });
 
-  // Prefix every change with `<workflowName>/` — the only place in the
-  // codebase that concatenates client paths with the subtree.
+  // Prefix every change with the provider-resolved workflow dir — the only
+  // place in the codebase that concatenates client paths with the subtree.
   const actions: CommitMultipleFilesArgs["actions"] = args.changes.map((c) => {
-    const full = `${args.workflowName}/${c.path}`;
+    const full = resolveResourcePath(
+      gitProvider as ProviderWithPaths,
+      "workflow",
+      args.workflowName,
+      c.path,
+    );
     if (c.delete === true) {
       return { path: full, delete: true };
     }
