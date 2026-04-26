@@ -680,7 +680,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         userId: args.actor.type === "user" ? args.actor.id : null,
         resourceType: "workflow",
       });
-      const helpers = buildGateHelpers({ db, companyId: args.companyId });
+      const helpers = buildGateHelpers({ db, companyId: args.companyId, resolveGitProvider });
       const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
       const context: GateContext = {
         artifact: undefined,
@@ -1042,7 +1042,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           userId: args.actor.type === "user" ? args.actor.id : null,
           resourceType: "workflow",
         });
-        const helpers = buildGateHelpers({ db, companyId: args.companyId });
+        const helpers = buildGateHelpers({ db, companyId: args.companyId, resolveGitProvider });
         const previousArtifacts = await fetchSucceededArtifacts(tx as unknown as Db, args.runId);
         const context: GateContext = {
           artifact: args.artifact,

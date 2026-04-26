@@ -98,6 +98,36 @@ export interface CommitMultipleFilesResult {
 }
 
 /**
+ * Arguments to `getMergeRequestApprovals`. `projectId` may differ from the
+ * provider's default project (e.g. the workflow repo is `org/mnm-demo` but
+ * the MR being checked is on `org/app-being-developed`). Same token works
+ * across both projects on the same instance.
+ */
+export interface GetMrApprovalsArgs {
+  projectId: string;
+  /** Merge request iid (project-scoped, not global). */
+  mrIid: number;
+}
+
+/**
+ * Subset of GitLab's `/merge_requests/:iid/approvals` payload that gates
+ * actually consume. Note: `approved: true` with `approvals_required: 0`
+ * does NOT mean a human approved — only that no rule blocks merging.
+ * Gate authors must measure `approved_by.length`, not `approved`.
+ */
+export interface MrApprovalsResult {
+  approved: boolean;
+  approvals_required: number;
+  approved_by: Array<{
+    user: {
+      id: number;
+      username: string;
+      name?: string;
+    };
+  }>;
+}
+
+/**
  * Minimal git surface the governed-workflows runtime needs. Implemented by:
  * - `LocalBareRepoProvider` (tests + single-dev local mode)
  * - `GitlabProvider` (production — GitLab REST v4)
@@ -130,4 +160,11 @@ export interface GitProvider {
    * when authenticating via a bot token.
    */
   commitMultipleFiles(args: CommitMultipleFilesArgs): Promise<CommitMultipleFilesResult>;
+  /**
+   * Live-fetch approvals on a merge request. Used by gates that verify
+   * human review at evaluation time, bypassing whatever the subagent
+   * claimed in the artifact. Optional because LocalBareRepoProvider has
+   * no notion of merge requests — it throws when called.
+   */
+  getMergeRequestApprovals?(args: GetMrApprovalsArgs): Promise<MrApprovalsResult>;
 }
