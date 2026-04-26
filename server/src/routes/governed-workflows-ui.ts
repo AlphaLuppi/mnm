@@ -434,7 +434,7 @@ export function governedWorkflowUiRoutes(db: Db) {
         const companyId = req.params.companyId as string;
         const name = req.params.name as string;
         const userId = req.actor.type === "board" ? req.actor.userId : null;
-        const gitProvider = await resolveGitProvider({ companyId, userId });
+        const gitProvider = await resolveGitProvider({ companyId, userId, resourceType: "workflow" });
         const tags = await gitProvider.listTags({ prefix: `${name}/v` });
         res.json({ tags });
       } catch (err) {
@@ -525,7 +525,7 @@ export function governedWorkflowUiRoutes(db: Db) {
         const userId = req.actor.type === "board" ? req.actor.userId : null;
         let gitTag: string | undefined;
         if (body.data.gitTagPreference === "HEAD") {
-          const gitProvider = await resolveGitProvider({ companyId, userId });
+          const gitProvider = await resolveGitProvider({ companyId, userId, resourceType: "workflow" });
           const def = await svc.getDefinition({ companyId, name });
           if (!def) {
             return apiError(res, 404, "WORKFLOW_NOT_FOUND", `Workflow '${name}' not found`, [

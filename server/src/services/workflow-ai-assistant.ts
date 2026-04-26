@@ -72,6 +72,7 @@ export interface AiAssistantDeps {
   resolveGitProvider: (args: {
     companyId: string;
     userId: string | null;
+    resourceType?: import("./git-resource-path.js").ResourceType;
   }) => Promise<GitProvider>;
   shaCache: ShaCache;
   /**
@@ -280,7 +281,7 @@ export async function* streamWorkflowAiChat(
   // 2. Load parsed workflow.json.
   const svc = governedWorkflowService(db, {
     resolveGitProvider: (a) =>
-      deps.resolveGitProvider({ companyId: a.companyId, userId: null }),
+      deps.resolveGitProvider({ companyId: a.companyId, userId: null, resourceType: a.resourceType }),
     shaCache: deps.shaCache,
   });
 
