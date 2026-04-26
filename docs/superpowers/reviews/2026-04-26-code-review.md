@@ -358,3 +358,82 @@ and integration coverage.
   `paths` hash, so a config update that re-sets `paths.agents` is invisible to
   cached provider instances until restart. The plan acknowledges this as a known
   limitation. Not a Phase-2 finding.
+
+## Re-review (round 2) — verification of fixes
+
+Reviewer: re-reviewer
+Date: 2026-04-26
+
+### Verdict
+
+**ALL CLEAR — 13/13 findings VERIFIED. No regressions introduced. READY FOR M0+M1+M2+M3 OPS.**
+
+Each closure was independently verified against the modified source/tests, not just commit messages. The two pre-existing issues (isolated-vm DLL crash on Windows, `@embedded-postgres/windows-x64` typecheck failure on root `mnm` package) are confirmed unchanged — out of scope.
+
+### Per-finding verdict
+
+| ID | Original severity | Fix commit | Verdict | Evidence |
+|---|---|---|---|---|
+| B-CR-1 / F-1 (PM) | BLOCKER | e91f640 | VERIFIED | `governed-workflows.ts:1232-1237` uses `resolveResourcePath(gitProvider as ProviderWithPaths, "agent", a.name, "agent.md")`. Skip-on-404 + structured warn at `:1250-1265` mirrors setupWorkspace. New unit test asserts `agents/pathed-agent/agent.md` is requested when `paths.agents="agents"` (governed-workflows.test.ts:748-771) AND that orphan agents do not abort sync (`:773-808`). |
+| B-CR-2 | BLOCKER | 68a2872 | VERIFIED | `0068_agents_company_name_unique.sql:13-15` uses `CREATE UNIQUE INDEX IF NOT EXISTS ... WHERE archived_at IS NULL`. `agents.ts:55-57` declares the matching `uniqueIndex("agents_company_name_unique")` on `(companyId, name)` with the same partial predicate. Journal idx=68 entry present at `_journal.json:292-298`. New `agents-uniqueness.test.ts` asserts (a) duplicate active row rejected (`/duplicate key|unique|23505/`), (b) recreate after archive succeeds, (c) cross-tenant same-name allowed. |
+| M-CR-1 | MAJOR | 9e0afcc | VERIFIED | `0067_agents_archived_at.sql:9` uses `ADD COLUMN IF NOT EXISTS`, `:11` uses `CREATE INDEX IF NOT EXISTS`. Trailing newline added at EOF. New test asserts both `IF NOT EXISTS` guards (`0067_agents_archived_at.test.ts` +6 lines). |
+| M-CR-2 | MAJOR | c816b43 | VERIFIED | `agents.tool.ts:35-45` defines local `wrap()` matching governed-workflows.tool pattern. `:170-180` throws `GovernedWorkflowError` with structured `data: { agent_name, latest_git_tag, full_path }`. `governedError()` at `:15-33` spreads `...(err.data ?? {})` into the JSON envelope. Test asserts `body` contains `{ agent_name: "ghost", latest_git_tag: "v1", full_path: "agents/ghost/agent.md" }` (agents.tool.test.ts +8 lines). |
+| M-CR-3 | MAJOR | 35d7c2f | VERIFIED | `git-resource-path.ts:24` exports `rejectTraversal`. `:25-39` decodes URL-encoded segments, rejects backslash, rejects absolute paths, rejects `..`. `governed-workflow-files.ts:178-183` `resolveWorkflowDir` calls `rejectTraversal("paths prefix", base)` AND `rejectTraversal("workflow_name", workflowName)` BEFORE concatenation. Tests cover `..`, `%2E%2E`, backslash, absolute, plain (git-resource-path.test.ts:67-99) plus 3 service-layer tests for listWorkflowFiles / getWorkflowFile / batchCommitWorkflowFiles (governed-workflow-files.test.ts:195-241). |
+| N-CR-1 | MINOR | e91f640 | VERIFIED | `governed-workflows.ts:1259` (sync) and setupWorkspace warn payload now use field name `providerId` matching the actual value. Test exact-shape asserts the new key set (governed-workflows.test.ts:991-1003 — sorted keys include `providerId`, exclude `providerProjectId`). |
+| N-CR-2 | NIT | 9e0afcc | VERIFIED | `0067_agents_archived_at.sql` ends with newline (verified by `git show 9e0afcc` — no `\ No newline at end of file` marker on the SQL file). |
+| N-CR-3 | NIT | 9c23218 | VERIFIED | `workflow-ai-assistant.test.ts` now wraps the two P9 BLOCKER B-1 tests in a nested `describe(...)` block with `beforeEach` (re-installs the `gwsSpy.mockImplementation`) and `afterEach` (`gwsSpy.mockReset()` + reinstall benign default). No leaked state across tests. |
+| N-CR-4 | NIT | 9c23218 | VERIFIED | `build-mcp-services.ts:306-309` adds an explanatory comment immediately above the early `return provider` to prevent a future refactor from silently double-setting the cache. |
+| Nit-CR-1 | NIT | 35d7c2f | VERIFIED | `rejectTraversal` decodes via `decodeURIComponent` (with try/catch fallback), rejects `\\` separators. Tests cover `%2E%2E` smuggling and backslash (git-resource-path.test.ts:67-77 + 84-86). |
+| Nit-CR-2 | NIT | 9c23218 | VERIFIED | `cba-feature-dev-techdesign.e2e.test.ts:233-269` adds the skip-on-404 + structured warn case against the real `LocalBareRepoProvider`, asserting (a) live agent included, (b) ghost excluded, (c) warn payload `{agentName, latestGitTag, fullPath, providerId}`. |
+| OPS-1 | OPS gap | fdb0471 | VERIFIED | `scripts/migrate-2026-04-26-mnm-demo.sh` (mode 100755 per `git ls-files --stage`): `#!/usr/bin/env bash`, `set -euo pipefail`, idempotent guards (clone fall-through, `git_mv_safe`, tag `rev-parse -q --verify`, --force opt-in, glab/curl HTTP-status switch). `scripts/migrate-2026-04-26-db.sql` (mode 100644): M0 fail-fast `DO $$ ... RAISE EXCEPTION 'M0 not applied'` at lines 24-33, defensive RAISE NOTICE pre-archive at lines 37-48, single TX `BEGIN; ... COMMIT;` at 50/116, 0/>1 match guard on config_layer_items discovery at 70-74, all 3 §M2 ops covered (paths config update L84-88, archive greeter/shouter L95-103, retag governed_workflow_definitions L107-114). |
+| F-1 (PM validation) | BLOCKER | e91f640 | VERIFIED | (Same closure as B-CR-1 — `syncEnvironment` now uses `resolveResourcePath`. Demo flow M4 step 3 is unblocked.) |
+| Pre-existing isolated-vm DLL | n/a | n/a | NOT-IN-SCOPE | Confirmed pre-existing (orchestration log line 38). Blocks local Windows test runs only. Linux CI unaffected. |
+| Pre-existing typecheck `@embedded-postgres/windows-x64` | n/a | n/a | NOT-IN-SCOPE | Reproduced on this branch: `bun run typecheck` shows 15/16 packages pass; only root `mnm` package fails on Windows-only optional dep at `server/src/index.ts:419:41`. Identical to the failure documented in PM validation §M-1 — no NEW regression introduced by the fix bundle. |
+
+### Tests audit
+
+- **B-FIX-1** (governed-workflows.test.ts +73 LoC):
+  - `it("uses resolveResourcePath when paths.agents is configured (fetches agents/<name>/agent.md, not <name>/agent.md)")` — asserts `fetchSpy` is called with `"agents/pathed-agent/agent.md"` and NOT `"pathed-agent/agent.md"`.
+  - `it("skips agents whose .md is missing at the pinned tag (skip-on-404 with structured warn)")` — asserts result list excludes ghost, only `[mnm.sync_environment] agent_md_missing` warn fired exactly once.
+- **B-FIX-2** (agents-uniqueness.test.ts +67 LoC, new file):
+  - `it("rejects a second active row with the same (company_id, name)")` — `await expect(...).rejects.toThrow(/duplicate key|unique|23505/i)`.
+  - `it("allows a new active row when the previous one is archived (partial index excludes archived rows)")`.
+  - `it("allows the same name in two different companies")`.
+- **M-FIX-3** (git-resource-path.test.ts +37 LoC, governed-workflow-files.test.ts +47 LoC):
+  - `it("rejects '..'")`, `it("rejects URL-encoded '..'")`, `it("rejects backslash")`, `it("rejects absolute paths")`, `it("accepts plain workflow name")` (helper-level).
+  - `it("listWorkflowFiles throws on workflowName='../evil'")`, `it("getWorkflowFile throws on workflowName='../evil'")`, `it("batchCommitWorkflowFiles throws on workflowName='../evil'")` (service-level).
+- **M-FIX-2** (agents.tool.test.ts +8 LoC):
+  - Existing test extended to assert `body` envelope contains `{ agent_name, latest_git_tag, full_path }` — proves `wrap() → governedError()` now spreads `err.data` into the JSON payload.
+- **M-FIX-1** (0067_agents_archived_at.test.ts +6 LoC):
+  - `it("is idempotent (IF NOT EXISTS on column add and index create)")` — regex assertions on the migration SQL file.
+- **N-CR-1 / setup_workspace warn shape** (governed-workflows.test.ts modified):
+  - `Object.keys(payload).sort()` asserts the renamed `providerId` key is present and `providerProjectId` is gone.
+
+### Independent typecheck output
+
+```
+@mnm/shared        OK
+@mnm/git-provider  OK
+@mnm/adapter-utils OK
+@mnm/plugin        OK
+@mnm/governed-workflows OK
+@mnm/adapter-pi-local OK
+@mnm/db            OK
+@mnm/adapter-cursor-local OK
+@mnm/adapter-claude-local OK
+@mnm/adapter-opencode-local OK
+@mnm/adapter-codex-local OK
+@mnm/gate-runner   OK
+@mnm/test-utils    OK
+@mnm/server        OK
+@mnm/ui            OK
+mnm (root)         FAIL — Cannot find module '@embedded-postgres/windows-x64' at server/src/index.ts:419:41 (PRE-EXISTING — same failure documented in PM validation §M-1)
+```
+
+15/16 packages pass. The single remaining failure is the documented Windows-only optional-dep issue from PM validation §M-1; no new regression introduced.
+
+### Sign-off
+
+**READY FOR M0+M1+M2+M3 OPS.**
+
+All 13 findings (2 BLOCKER + 3 MAJOR + 4 MINOR + 2 NIT + OPS-1 + F-1 PM) are independently verified as closed with file-line evidence and matching test coverage. Tom can proceed with the demo cutover.
