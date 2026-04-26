@@ -1074,7 +1074,16 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           { compiledCache, helpers },
         );
 
-        const insertedExitGateResults = await tx
+        // F7 fix: persist gate_results via the OUTER db connection, not
+        // the surrounding tx. When an exit gate fails the function below
+        // throws WORKFLOW_GATE_FAILED, which rolls the tx back — taking
+        // every failed gate_results row with it. Audit / observability
+        // become impossible: the UI sees nothing, the dashboard can't
+        // group-by error_code on KO, debug-a-posteriori is dead. Writing
+        // outside the tx commits each row immediately; the step state
+        // change (to "running" on fail, "succeeded" on pass) stays in
+        // the tx because IT must be atomic with the run completion check.
+        const insertedExitGateResults = await db
           .insert(gateResults)
           .values(
             blockResult.gate_results.map((r) => ({
