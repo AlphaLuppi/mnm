@@ -12,4 +12,10 @@ describe("migration 0067_agents_archived_at", () => {
   it("creates a partial index on (company_id) WHERE archived_at IS NULL", () => {
     expect(sql).toMatch(/CREATE INDEX[\s\S]*agents[\s\S]*company_id[\s\S]*"?archived_at"? IS NULL/i);
   });
+
+  it("is idempotent (IF NOT EXISTS on column add and index create)", () => {
+    expect(sql).toMatch(/ADD COLUMN\s+IF NOT EXISTS/i);
+    expect(sql).toMatch(/CREATE INDEX\s+IF NOT EXISTS/i);
+  });
 });
+
