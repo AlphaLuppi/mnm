@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
+import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
+import { GitProviderError } from "@mnm/git-provider";
+import { GovernedWorkflowError } from "../../services/governed-workflows.js";
+import { resolveResourcePath } from "../../services/git-resource-path.js";
+import type { ProviderWithPaths } from "../../services/git-resource-path.js";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
 import { encodeCursor, decodeCursor } from "./_pagination.js";
 
@@ -98,9 +103,56 @@ export default defineMcpTools(({ tool, services }) => {
       capabilities: z.string().optional().describe("Agent capabilities description (markdown)"),
       budgetMonthlyCents: z.number().int().min(0).optional().describe("Monthly budget in cents (default 0)"),
       tagIds: z.array(z.string().uuid()).optional().describe("Tag IDs to assign"),
+      latestGitTag: z
+        .string()
+        .min(1)
+        .refine((s) => s.trim().length > 0, { message: "latestGitTag must not be whitespace-only" })
+        .optional()
+        .describe(
+          "If supplied, server validates that agents/<name>/agent.md exists at this tag in the company's git provider.",
+        ),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      if (input.latestGitTag) {
+        const gitProvider = await services.resolveGitProvider({
+          companyId: actor.companyId,
+          userId: actor.userId ?? null,
+          resourceType: "agent",
+        });
+        const mdPath = resolveResourcePath(
+          gitProvider as ProviderWithPaths,
+          "agent",
+          input.name,
+          "agent.md",
+        );
+        try {
+          await gitProvider.fetchBlob({ path: mdPath, ref: input.latestGitTag });
+        } catch (err) {
+          if (err instanceof GitProviderError && err.code === "not_found") {
+            const gwErr = new GovernedWorkflowError(
+              WORKFLOW_ERROR_CODES.AGENT_GIT_FILE_MISSING,
+              `Agent file '${mdPath}' not found at tag '${input.latestGitTag}'.`,
+              [`Commit ${mdPath} to the company's git repo at tag '${input.latestGitTag}' first`],
+            );
+            return {
+              content: [{
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: gwErr.message,
+                  code: gwErr.code,
+                  error_code: gwErr.code,
+                  message: gwErr.message,
+                  hints: gwErr.hints,
+                  retryable: false,
+                }),
+              }],
+              isError: true,
+            };
+          }
+          throw err;
+        }
+      }
       const agent = await services.agents.create(actor.companyId, {
         name: input.name,
         title: input.title ?? null,
@@ -110,6 +162,7 @@ export default defineMcpTools(({ tool, services }) => {
         budgetMonthlyCents: input.budgetMonthlyCents ?? 0,
         tagIds: input.tagIds,
         createdByUserId: actor.userId ?? null,
+        latestGitTag: input.latestGitTag ?? null,
       });
       return {
         content: [{
