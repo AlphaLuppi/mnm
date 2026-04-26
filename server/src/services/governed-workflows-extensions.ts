@@ -7,6 +7,8 @@
  */
 
 import { and, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { resolveResourcePath } from "./git-resource-path.js";
+import type { ProviderWithPaths } from "./git-resource-path.js";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
@@ -112,7 +114,7 @@ export async function saveDefinition(
 
   // Commit the workflow.json file.
   const commitResult = await gitProvider.commitFile({
-    path: `${args.name}/workflow.json`,
+    path: resolveResourcePath(gitProvider as ProviderWithPaths, "workflow", args.name, "workflow.json"),
     content: args.definitionContent,
     message: args.commitMessage,
     branch: args.branch,
