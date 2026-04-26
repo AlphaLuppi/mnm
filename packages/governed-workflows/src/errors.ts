@@ -97,6 +97,15 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // client submits zero changes. We refuse to create an empty commit — the
   // caller almost certainly has a bug.
   WORKFLOW_FILE_EMPTY_CHANGES: "WORKFLOW_FILE_EMPTY_CHANGES",
+  // Emitted by loadCanonicalAgent when no enabled, non-archived agents row
+  // exists for the referenced step.agent name, OR when the row exists but
+  // latest_git_tag is NULL. Hints guide the caller toward create_agent.
+  AGENT_NOT_REGISTERED: "AGENT_NOT_REGISTERED",
+  // Emitted by create_agent MCP tool when latestGitTag is supplied but the
+  // corresponding agents/<name>/agent.md blob is not found at that tag in the
+  // git provider. Distinct from AGENT_NOT_REGISTERED (DB row issue) — this is
+  // a missing git file that prevents the agent from ever being usable.
+  AGENT_GIT_FILE_MISSING: "AGENT_GIT_FILE_MISSING",
 } as const);
 
 export type WorkflowErrorCode =
