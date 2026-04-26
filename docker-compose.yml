@@ -74,6 +74,10 @@ services:
       MNM_AGENT_JWT_SECRET: "${MNM_AGENT_JWT_SECRET}"
       MNM_SECRETS_KEY: "${MNM_SECRETS_KEY:?MNM_SECRETS_KEY must be set}"
       MNM_MCP_JWT_SECRET: "${MNM_MCP_JWT_SECRET:?MNM_MCP_JWT_SECRET must be set}"
+      # GitLab social-link OAuth (optional — provider disabled if any var is missing)
+      GITLAB_OAUTH_CLIENT_ID: "${GITLAB_OAUTH_CLIENT_ID:-}"
+      GITLAB_OAUTH_CLIENT_SECRET: "${GITLAB_OAUTH_CLIENT_SECRET:-}"
+      GITLAB_OAUTH_ISSUER_URL: "${GITLAB_OAUTH_ISSUER_URL:-}"
       BETTER_AUTH_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
       MNM_MIGRATION_AUTO_APPLY: "true"
       MNM_E2E_SEED: "${MNM_E2E_SEED:-false}"
