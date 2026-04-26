@@ -1146,9 +1146,15 @@ describe("launchStep (T6 enrichment)", () => {
       actor: { type: "user", id: "u-1" },
     });
 
-    // Compute the canonical sha the same way the service does.
+    // Compute the canonical sha the same way the service does. F1 fix:
+    // loadCanonicalAgent rewrites the YAML `name:` line to match the
+    // namespaced filename, so the sha is computed on the rewritten blob.
     const { createHash } = await import("node:crypto");
-    const expectedAgentSha = createHash("sha256").update(AGENT_MD_CONTENT).digest("hex");
+    const rewrittenContent = AGENT_MD_CONTENT.replace(
+      /^name:\s*.*$/m,
+      "name: mnm--greeter",
+    );
+    const expectedAgentSha = createHash("sha256").update(rewrittenContent).digest("hex");
 
     return {
       companyId,
