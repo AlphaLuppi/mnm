@@ -440,12 +440,21 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         })
         .returning({ id: governedWorkflowRuns.id });
 
+      // Stamp createdAt with a per-step offset so ORDER BY created_at preserves
+      // the workflow.json declaration order. A bulk insert with defaultNow()
+      // gives every row the same microsecond, after which PG's natural row
+      // order is implementation-defined — the UI then renders steps in a
+      // jumbled order (merge-tag before tech-design, etc.). 1 ms per index
+      // is well below human perception and below the run-level startedAt
+      // granularity, so it doesn't break any audit query.
+      const baseTime = Date.now();
       await tx.insert(governedStepExecutions).values(
-        parsed.workflow.steps.map((s) => ({
+        parsed.workflow.steps.map((s, idx) => ({
           companyId: args.companyId,
           runId: run.id,
           stepIdInJson: s.id,
           state: "pending" as const,
+          createdAt: new Date(baseTime + idx),
         })),
       );
 
