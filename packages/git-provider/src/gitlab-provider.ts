@@ -14,6 +14,8 @@ import type {
   TreeEntry,
   CommitMultipleFilesArgs,
   CommitMultipleFilesResult,
+  GetMrApprovalsArgs,
+  MrApprovalsResult,
 } from "./types.js";
 
 export interface GitlabProviderOptions {
@@ -325,6 +327,23 @@ export class GitlabProvider implements GitProvider {
       );
     }
     return { sha: body.id };
+  }
+
+  /**
+   * Live approvals fetch on a project the provider isn't necessarily
+   * pinned to. Same token works across projects on the same instance,
+   * so we just rebuild the URL with the caller-supplied projectId
+   * instead of `this.projectId`.
+   */
+  async getMergeRequestApprovals(
+    args: GetMrApprovalsArgs,
+  ): Promise<MrApprovalsResult> {
+    const url = `${this.baseUrl}/api/v4/projects/${encodeURIComponent(
+      args.projectId,
+    )}/merge_requests/${args.mrIid}/approvals`;
+    const res = await this.request(url, { method: "GET" }, "getMergeRequestApprovals");
+    const body = (await res.json()) as MrApprovalsResult;
+    return body;
   }
 
   private async request(
