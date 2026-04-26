@@ -26,6 +26,11 @@ COPY ui/package.json ui/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY packages/adapter-utils/package.json packages/adapter-utils/
+COPY packages/gate-runner/package.json packages/gate-runner/
+COPY packages/git-provider/package.json packages/git-provider/
+COPY packages/governed-workflows/package.json packages/governed-workflows/
+COPY packages/mnm-plugin/package.json packages/mnm-plugin/
+COPY packages/test-utils/package.json packages/test-utils/
 COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
 COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
 COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
@@ -60,7 +65,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf 
   && mkdir -p /mnm && chown -R mnm:mnm /mnm
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 ENV NODE_ENV=production \
   HOME=/mnm \
