@@ -1845,3 +1845,91 @@ Si le dev team découvre durant l'implémentation que P9 (B-1) ne peut pas être
 ### 11.6 Sign-off round 2
 
 Le plan est **READY FOR ARCH-CRITIC ROUND 2**. Tous les BLOCKERs et MAJORs sont fermés avec edits ciblés. Les MINORs/NITs sont également fermés (coût proche-zéro). La tautology audit est intégralement traitée.
+
+---
+
+## § Arch Review (round 2)
+
+*Author: arch-critic — 2026-04-26 — independent verification of plan revisions round 2.*
+
+Méthode : pour chaque finding round 1, lecture du fix dans le plan + jugement (VERIFIED / PARTIAL / REGRESSION / NOT FIXED).
+
+### 12.A BLOCKERs
+
+| ID | Verdict | Justification (citation) |
+|---|---|---|
+| **B-1** (P9 closure userId) | **VERIFIED** | §P9 ligne 1248-1260 capture `const userId = input.userId` AVANT la closure, forwarde `userId` ET `resourceType: a.resourceType`. 2 tests `it()` séparés (ligne 1228 userId, 1238 resourceType). Tests behavior-encoding (`toMatchObject({ userId: "u-99" })`). Fallback documenté ligne 1269. |
+| **B-2** (syncEnvironment userId) | **VERIFIED** | §2.3 ajoute `:1197` syncEnvironment au tableau (passe à 12 callsites, ligne 38). §3.10 description du bug. §P2.1 (ligne 512-572) crée la tâche dédiée avec 2 tests TDD : `propagates userId to resolveGitProvider` (ligne 519) et `propagates userId from pushLocalState through to syncEnvironment` (ligne 536). Implementation 6 changes listés ligne 555-561. Acceptance criterion #4 ligne 1568 dédié. |
+| **B-3** (P3 → M2 ordering) | **VERIFIED** | M0 nouvelle tâche §1347-1369. M2 commence par `DO $$ ... IF NOT EXISTS ... archived_at ... RAISE EXCEPTION` (ligne 1439-1448) — syntaxiquement valide PL/pgSQL. Fail-fast avant `BEGIN;`. Acceptance criterion #1 ligne 1565 ("M2 ne doit JAMAIS s'exécuter avant M0"). Sequencing strict §1589-1601 met M0 en tête. |
+
+### 12.B MAJORs
+
+| ID | Verdict | Justification |
+|---|---|---|
+| **M-1** (P0 helper traversal) | **VERIFIED** | §P0 ligne 293-300 helper `rejectTraversal(label, value)` appliqué à `paths prefix`, `name`, `file` (ligne 309-311). 2 nouveaux tests ligne 271-281 (rejet `..` dans `name` et `file`). |
+| **M-2** (errors.test.ts strict) | **VERIFIED** | §P1 ligne 326-330 pre-flight check explicite. Le `toEqual` complété ligne 337-358 avec les 3 codes file pré-existants + 2 nouveaux. Couvre aussi Nit-3. |
+| **M-3** (gate translation untested) | **VERIFIED** | §P6 ligne 981-1016 nouveau test E2E qui asserte `seenGateFetchPaths.toContain("workflows/demo/gates/g1.gate.ts")` ET `not.toContain("demo/gates/g1.gate.ts")`. Échouerait clairement sur l'ancien comportement (workflowDir="demo"). Encode la chaîne `paths.workflows → workflowRepoPath → workflowDir → gateSourcePath`. |
+| **M-4** (P2 .limit(1) + ordering) | **VERIFIED** | §P2 ligne 484 implementation point #3 retire `.limit(1)` et ajoute `.orderBy(configLayerItems.createdAt, configLayerItems.id)`. Test multi-items déterministe ligne 453-466. Test "skips DB lookup" ligne 425-434 encode le contrat cache via spy on `db.select`. |
+| **M-5** (warn test fragile) | **VERIFIED** | §P5 split en 2 `it()` (ligne 803, 820). Le 2e filtre sur prefix `[mnm.setup_workspace] agent_md_missing` ligne 830-832, asserte shape exact via `Object.keys(payload).sort()` ligne 837-839, puis regex `/token\|secret\|password\|credential/i` sur les keys ligne 848-850. `providerProjectId` documenté comme non-secret ligne 923. |
+| **M-6** (M3 rollback) | **VERIFIED** | §M3 ligne 1503-1520 décrit la collision avec `deduplicateAgentName` (suffixe " 2"), fournit le DELETE SQL exact ligne 1508-1511, verify count ligne 1513-1517, note prod préfère `archived_at = NOW()` ligne 1520. Acceptance criterion #7 ligne 1571 vérifie l'absence de suffixe " 2". |
+
+### 12.C MINORs
+
+| ID | Verdict | Justification |
+|---|---|---|
+| **N-1** (push direct main) | **VERIFIED** | §M1 ligne 1413-1416 ajoute la procédure MR fallback (branch `refactor/git-first` → MR → tag sur merge commit). |
+| **N-2** (nom index incohérent) | **VERIFIED** | §3.9 ligne 168 et §P3 ligne 602 utilisent tous deux `agents_company_active_idx`. Note explicite ligne 604 : "Le nom canonique de l'index est `agents_company_active_idx`". §M2 ligne 1565 acceptance criterion réaffirme la graphie. |
+| **N-3** (sha hardcoded P11) | **VERIFIED** | §P11 ligne 1306-1309 : `const setup = await svc.setupWorkspace(...); const expectedSeniorDevSha = seniorDev!.sha;` — discovered, NOT hardcoded. Bonus : exerce aussi le path `agents/<name>/agent.md`. |
+| **N-4** (zod whitespace) | **VERIFIED** | §P7 ligne 1117-1120 zod `.refine((s) => s.trim().length > 0, ...)` ; test dédié ligne 1097-1103 `rejects latestGitTag that is whitespace-only`. |
+
+### 12.D NITs
+
+| ID | Verdict | Justification |
+|---|---|---|
+| **Nit-1** (cache key wording) | **VERIFIED** | §P2 ligne 425 test renommé "second resolveGitProvider call ... skips DB lookup" — encode le contrat de cache. |
+| **Nit-2** (M2 SELECT count) | **VERIFIED** | §M2 ligne 1454-1457 ajoute `SELECT COUNT(*) AS to_archive_count` AVANT le `BEGIN;` (intentionnellement hors TX, log défensif). |
+| **Nit-3** (errors.test.ts pre-flight) | **VERIFIED** | §P1 ligne 326 ajoute la consigne "dev-B doit faire CECI EN PREMIER". |
+
+### 12.E Tautology audit
+
+| Finding | Verdict | Justification |
+|---|---|---|
+| P1 ligne 279 (string-literal mapping) | **VERIFIED** | §P1 ligne 367-385 test fonctionnel MCP-envelope routing (`expect(envelope.error_code).toBe("AGENT_NOT_REGISTERED")`). Ne réimplémente plus la string-littérale `as const`. |
+| P2 ligne 314 (renamed) | **VERIFIED** | §P2 ligne 425 test renommé + spy on `db.select`. Behavior, pas wiring sans justification. |
+| P4 ligne 466 (placeholder) | **VERIFIED** | §P4 ligne 681-718 test concret : asserte le triplet retourné ET `seenPaths.toContain("agents/happy/agent.md")`. |
+| P5 ligne 553 (multi-behavior) | **VERIFIED** | §P5 split en 2 `it()` ligne 803 (excludes from result) et ligne 820 (logs structured warn). |
+| P7 ligne 763 (fetchSpy wiring) | **VERIFIED** | §P7 ligne 1089-1094 contract DB `row[0].latestGitTag === null` (encode "no silent default"). Plus d'assertion sur l'absence d'appel git. |
+| P7 ligne 741 (re-select wiring) | **VERIFIED** | §P7 ligne 1055-1073 round-trip `create_agent → launchStep → result.agentName === "senior-dev"`. Encode "create_agent rend l'agent utilisable". |
+| P9 ligne 881 (loop wiring) | **VERIFIED** | §P9 ligne 1228, 1238 split en 2 `it()` (un par behavior, target précis `spy.mock.calls[0][0]`). Plus de boucle aveugle. |
+| P11 sha calc | **VERIFIED** | §P11 ligne 1306-1309 sha discovered via setupWorkspace. |
+
+### 12.F Audit count §11
+
+Net delta claimed §11.5 vs réel observé :
+- "+1 P2.1, +1 M0" — **OK**.
+- "+8 nouveaux tests" — **comptage approximatif** : real ≈ 13 (P0+2, P1+1, P2+2, P2.1+2, P5 split=+1 net, P6+1, P7+2, P9 split=+1 net, P11 +0). Pas un blocker, juste un comptage minoré dans la rétrospective.
+- "Volume +200 lignes (1167 → ~1370)" — **erroné** : réel = 1847 (round 2 sans la nouvelle review = 1717), donc +550 lignes net. Cosmétique, pas un fix.
+
+Aucun de ces écarts ne change le verdict des fixes eux-mêmes.
+
+### 12.G Findings opened in round 2 (OUT OF ROUND)
+
+Pas de nouveau finding bloquant émergé pendant la verification round 2. Une note doc-only :
+- **Doc-1** (déjà ouvert §11.3) : `resolveGitlabCoordinates` lit `baseUrl, projectId` mais ignore `paths` extra-field — safe. Action commentaire post-implem.
+
+Pas d'action plan requise. Ce note est OUT OF ROUND.
+
+### 12.H Sign-off round 2
+
+| Catégorie | VERIFIED | PARTIAL | REGRESSION | NOT FIXED |
+|---|---|---|---|---|
+| BLOCKERs | 3 | 0 | 0 | 0 |
+| MAJORs | 6 | 0 | 0 | 0 |
+| MINORs | 4 | 0 | 0 | 0 |
+| NITs | 3 | 0 | 0 | 0 |
+| Tautology | 8 | 0 | 0 | 0 |
+| **Total** | **24** | **0** | **0** | **0** |
+
+**Verdict : READY FOR DEV.** Tous les findings round 1 sont VERIFIED. Aucun PARTIAL, REGRESSION ou NOT FIXED. Les écarts résiduels sont cosmétiques (comptage §11.5) et n'affectent pas la matière du plan.
+
+**GO signal pour la dev team.** Sequencing : M0 → P0 → (P2, P2.1, P3) parallèle → P1 → (P4, P5, P6) parallèle après P0+P2 → (P7, P8, P9, P10) parallèle après P4+P6 → P11 → M1 → M2 → M3 → M4. Démo lundi 2026-04-28 reste réaliste.
