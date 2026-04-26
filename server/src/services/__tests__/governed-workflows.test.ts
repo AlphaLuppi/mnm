@@ -744,6 +744,72 @@ describe("governedWorkflowService — syncEnvironment", () => {
       expect.objectContaining({ companyId: companyA, userId: "u-88" }),
     );
   });
+
+  // B-FIX-1: syncEnvironment must use resolveResourcePath so paths.agents prefix is honoured.
+  it("uses resolveResourcePath when paths.agents is configured (fetches agents/<name>/agent.md, not <name>/agent.md)", async () => {
+    const fetchSpy = vi.fn(async ({ path }: { path: string }) => `# md @ ${path}`);
+    const provider = {
+      paths: { agents: "agents" },
+      fetchBlob: fetchSpy,
+      resolveRef: async () => "sha-x",
+      listTags: async () => [],
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES (${companyA}, 'pathed-agent', 'claude_local', 'v1.0.0', true) ON CONFLICT DO NOTHING
+    `);
+    await setTenantContext(db, companyA);
+    await svc.syncEnvironment({ companyId: companyA, lastSyncedSha: "stale-sha" });
+    const calledPaths = fetchSpy.mock.calls.map((c) => c[0].path);
+    expect(calledPaths).toContain("agents/pathed-agent/agent.md");
+    expect(calledPaths).not.toContain("pathed-agent/agent.md");
+  });
+
+  // B-FIX-1: skip-on-404 mirrors setupWorkspace — one orphan agent must not abort sync.
+  it("skips agents whose .md is missing at the pinned tag (skip-on-404 with structured warn)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const provider = {
+      paths: { agents: "agents" },
+      providerId: "local:test",
+      fetchBlob: async ({ path }: { path: string }) => {
+        if (path.includes("ghost")) throw new GitProviderError("not_found", `not found: ${path}`);
+        return `# md @ ${path}`;
+      },
+      resolveRef: async () => "sha-x",
+      listTags: async () => [],
+      pathExists: async () => true,
+      commitFile: async () => ({ sha: "x" }),
+    };
+    const svc = governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+    const dedicatedCompany = "00000000-0000-0000-0000-000000000a08";
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${dedicatedCompany}, 'SkipCo', 'GWSK') ON CONFLICT DO NOTHING`,
+    );
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES
+        (${dedicatedCompany}, 'live-agent', 'claude_local', 'v1.0.0', true),
+        (${dedicatedCompany}, 'ghost', 'claude_local', 'v1.0.0', true)
+      ON CONFLICT DO NOTHING
+    `);
+    await setTenantContext(db, dedicatedCompany);
+    const result = await svc.syncEnvironment({ companyId: dedicatedCompany, lastSyncedSha: "stale-sha" });
+    expect(result.agents.map((a) => a.name).sort()).toEqual(["live-agent"]);
+    const ourWarns = warnSpy.mock.calls.filter(
+      (c) => c[0] === "[mnm.sync_environment] agent_md_missing",
+    );
+    expect(ourWarns).toHaveLength(1);
+    warnSpy.mockRestore();
+  });
 });
 
 describe("governedWorkflowService — setupWorkspace", () => {
@@ -921,15 +987,16 @@ describe("governedWorkflowService — setupWorkspace", () => {
     expect(ourWarns).toHaveLength(1);
 
     const payload = ourWarns[0][1];
-    // Exact shape expected per §3.4.
+    // Exact shape expected per §3.4 (N-CR-1: providerProjectId renamed to
+    // providerId so the field name matches the actual value `provider.providerId`).
     expect(Object.keys(payload).sort()).toEqual(
-      ["agentId", "agentName", "companyId", "fullPath", "latestGitTag", "providerProjectId"].sort(),
+      ["agentId", "agentName", "companyId", "fullPath", "latestGitTag", "providerId"].sort(),
     );
     expect(payload).toMatchObject({
       companyId,
       agentName: "ghost",
       latestGitTag: expect.any(String),
-      providerProjectId: expect.any(String),
+      providerId: expect.any(String),
       fullPath: expect.stringMatching(/\/ghost\/agent\.md$/),
     });
     // CRITICAL: no token-like fields in payload (defense in depth).
