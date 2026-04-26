@@ -298,10 +298,8 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
    * `latest_git_tag` if unspecified). Validates against the zod schema in
    * `@mnm/governed-workflows`. Caches by (sha, path).
    *
-   * Path convention: the MVP assumes each workflow lives under `<name>/`
-   * in its repo, with its entry point at `<name>/workflow.json` — see
-   * spec §3 "Repo structure". Until we have explicit config, we derive
-   * the path from `definition.name`.
+   * Path convention: resolveResourcePath(provider, "workflow", name, "workflow.json")
+   * honours the `paths.workflows` prefix from the provider config_layer_item (§5.5).
    */
   async function getWorkflowParsed(args: {
     companyId: string;
@@ -340,7 +338,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       resourceType: "workflow",
     });
     const gitSha = await gitProvider.resolveRef({ ref });
-    const workflowRepoPath = `${args.name}/workflow.json`;
+    const workflowRepoPath = resolveResourcePath(gitProvider as unknown as ProviderWithPaths, "workflow", args.name, "workflow.json");
 
     // ShaCache exposes get/set rather than getOrFetch — use them directly.
     const cached = shaCache.get(PROVIDER_ID, workflowRepoPath, gitSha);
@@ -592,7 +590,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         args.actor.type === "user" ? args.actor.id : null,
       );
       const provided = args.currentAgents[namespacedName];
-      if (canonical !== null && provided !== canonical.sha) {
+      if (provided !== canonical.sha) {
         throw new GovernedWorkflowError(
           WORKFLOW_ERROR_CODES.AGENTS_STALE,
           `Local agent '${namespacedName}' is stale; harness must update.`,
@@ -810,13 +808,14 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   /**
    * Fetches the canonical agent.md content + computed sha for the given
    * company+agent-name, using the shaCache to avoid repeated git fetches.
-   * Returns null if no such agent or the agent has no latestGitTag yet.
+   * Throws AGENT_NOT_REGISTERED (hard error) when the agent DB row is missing,
+   * archived, or has no latestGitTag yet — never returns null (T6 git-first).
    */
   async function loadCanonicalAgent(
     companyId: string,
     agentName: string,
     userId?: string | null,
-  ): Promise<{ content: string; sha: string } | null> {
+  ): Promise<{ content: string; sha: string }> {
     const [row] = await db
       .select()
       .from(agents)
@@ -825,26 +824,43 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           eq(agents.companyId, companyId),
           eq(agents.name, agentName),
           eq(agents.enabled, true),
+          isNull(agents.archivedAt),
         ),
       );
-    if (!row || !row.latestGitTag) return null;
-    const mdPath = `${row.name}/agent.md`;
+    if (!row) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+        `Agent '${agentName}' is not registered for this company.`,
+        [`Run create_agent with name='${agentName}'`],
+        { sub_cause: "AGENT_ROW_MISSING" },
+      );
+    }
+    if (!row.latestGitTag) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+        `Agent '${agentName}' has no published git tag yet.`,
+        [`Push a version tag for '${agentName}' to the git repo`],
+        { sub_cause: "AGENT_TAG_MISSING" },
+      );
+    }
+    const gitProvider = await resolveGitProvider({
+      companyId,
+      userId: userId ?? null,
+      resourceType: "agent",
+    });
+    const mdPath = resolveResourcePath(gitProvider as unknown as ProviderWithPaths, "agent", row.name, "agent.md");
     const cached = shaCache.get(PROVIDER_ID, mdPath, row.latestGitTag);
-    const content = cached !== undefined
-      ? cached
-      : await (async () => {
-          const gitProvider = await resolveGitProvider({
-            companyId,
-            userId: userId ?? null,
-            resourceType: "agent",
-          });
-          const blob = await gitProvider.fetchBlob({
-            path: mdPath,
-            ref: row.latestGitTag!,
-          });
-          shaCache.set(PROVIDER_ID, mdPath, row.latestGitTag!, blob);
-          return blob;
-        })();
+    let content: string;
+    if (cached !== undefined) {
+      content = cached;
+    } else {
+      const blob = await gitProvider.fetchBlob({
+        path: mdPath,
+        ref: row.latestGitTag,
+      });
+      shaCache.set(PROVIDER_ID, mdPath, row.latestGitTag, blob);
+      content = blob;
+    }
     const sha = createHash("sha256").update(content).digest("hex");
     return { content, sha };
   }
