@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { LocalBareRepoProvider, ShaCache } from "@mnm/git-provider";
 import type { ProviderWithPaths } from "../services/git-resource-path.js";
@@ -228,5 +228,45 @@ describe("P11 E2E — feature-dev tech-design step (git-first agents)", () => {
         ticket_id: "ISSUE-NN",
       }),
     });
+  });
+
+  // Nit-CR-2: round out coverage of the skip-on-404 path against a real
+  // LocalBareRepoProvider (unit tests already cover this with a stub).
+  it("skip-on-404 + structured warn fires when one agent's .md is missing at the pinned tag", async () => {
+    // Seed a second agent row whose latest_git_tag points at a tag that
+    // doesn't carry agents/<name>/agent.md — simulating an orphan registration.
+    const ghostName = `ghost-${Math.random().toString(36).slice(2, 8)}`;
+    await db.execute(sql`
+      INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+      VALUES (${companyId}, ${ghostName}, 'claude_local', ${agentTag}, true)
+    `);
+    await setTenantContext(db, companyId);
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const result = await svc.setupWorkspace({ companyId, userId: "u-1" });
+      // The live agent (senior-dev) is included, the orphan is skipped.
+      const names = result.agents.map((a) => a.name);
+      expect(names).toContain("mnm--senior-dev");
+      expect(names).not.toContain(`mnm--${ghostName}`);
+
+      const ourWarns = warnSpy.mock.calls.filter(
+        (c) => c[0] === "[mnm.setup_workspace] agent_md_missing",
+      );
+      expect(ourWarns.length).toBeGreaterThanOrEqual(1);
+      const found = ourWarns.find((c) => (c[1] as any).agentName === ghostName);
+      expect(found).toBeDefined();
+      expect(found![1]).toMatchObject({
+        agentName: ghostName,
+        latestGitTag: agentTag,
+        fullPath: `agents/${ghostName}/agent.md`,
+        providerId: "local:p11-e2e",
+      });
+    } finally {
+      warnSpy.mockRestore();
+      // Cleanup the orphan so the previous test's assertions stay deterministic
+      // if a future test runner reorders.
+      await db.execute(sql`DELETE FROM agents WHERE company_id = ${companyId} AND name = ${ghostName}`);
+    }
   });
 });
