@@ -7,6 +7,8 @@ import { GovernedWorkflowError } from "../../services/governed-workflows.js";
 import {
   saveDefinition,
   archiveDefinition,
+  registerDefinition,
+  RegisterDefinitionNameMismatchError,
 } from "../../services/governed-workflows-extensions.js";
 import { setTenantContext } from "../../middleware/tenant-context.js";
 
@@ -452,6 +454,96 @@ export default defineMcpTools(({ tool, services }) => {
             }),
           }],
         };
+      });
+    },
+  });
+
+  // ── registerGovernedWorkflow (option C: import from existing tag) ───────
+  //
+  // Symmetric to create_agent({latestGitTag}): adopts an existing workflow.json
+  // pinned at a git tag without making a new commit. Idempotent — re-registering
+  // re-pins the row to the supplied tag.
+
+  tool("register_governed_workflow", {
+    permissions: [PERMISSIONS.WORKFLOWS_CREATE],
+    description:
+      "[Governed Workflows] Register an existing workflow.json from a git tag " +
+      "into governed_workflow_definitions WITHOUT creating a new commit or tag. " +
+      "Use to adopt a pre-existing workflow whose workflow.json is already in " +
+      "the company's git repo (e.g. seeded via M1 import, or restored after " +
+      "DB reset). Symmetric to create_agent({latestGitTag}). Idempotent: " +
+      "re-registering updates the latest_git_tag pin.",
+    input: z.object({
+      name: z.string().min(1).describe("Workflow name (must match definition.name in workflow.json)"),
+      git_tag: z.string().min(1).describe("Existing git tag where workflow.json is pinned (e.g. 'cba-feature-dev/v1.0.2')"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+
+        try {
+          const result = await registerDefinition(services.db, {
+            companyId: actor.companyId,
+            userId: actor.userId,
+            name: input.name,
+            gitTag: input.git_tag,
+            resolveGitProvider: services.resolveGitProvider,
+          });
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                id: result.id,
+                name: input.name,
+                latest_git_tag: result.latestGitTag,
+                created: result.created,
+              }),
+            }],
+          };
+        } catch (err) {
+          if (err instanceof GitProviderError && err.code === "not_found") {
+            throw new GovernedWorkflowError(
+              WORKFLOW_ERROR_CODES.WORKFLOW_FILE_NOT_FOUND,
+              `workflow.json for '${input.name}' not found at tag '${input.git_tag}'.`,
+              [
+                `Verify the tag '${input.git_tag}' exists in the workflows git repo`,
+                `Verify workflows/${input.name}/workflow.json (or your provider's configured paths) exists at that tag`,
+                "Or use create_governed_workflow to commit a fresh definition",
+              ],
+              { workflow_name: input.name, git_tag: input.git_tag },
+            );
+          }
+          if (err instanceof RegisterDefinitionNameMismatchError) {
+            throw new GovernedWorkflowError(
+              WORKFLOW_ERROR_CODES.WORKFLOW_NAME_MISMATCH,
+              err.message,
+              [`Either fix workflow.json or call register_governed_workflow with name '${err.definitionName}'.`],
+              {
+                workflow_name: err.requestedName,
+                definition_name: err.definitionName,
+                git_tag: err.gitTag,
+              },
+            );
+          }
+          if (err instanceof z.ZodError) {
+            throw new GovernedWorkflowError(
+              WORKFLOW_ERROR_CODES.WORKFLOW_VALIDATION,
+              `workflow.json at tag '${input.git_tag}' fails schema validation: ${err.message}`,
+              ["Check the workflow.json structure against the workflow schema."],
+              { workflow_name: input.name, git_tag: input.git_tag },
+            );
+          }
+          if (err instanceof SyntaxError) {
+            throw new GovernedWorkflowError(
+              WORKFLOW_ERROR_CODES.WORKFLOW_VALIDATION,
+              `workflow.json at tag '${input.git_tag}' is not valid JSON.`,
+              ["Ensure the file is well-formed JSON."],
+              { workflow_name: input.name, git_tag: input.git_tag },
+            );
+          }
+          throw err;
+        }
       });
     },
   });
