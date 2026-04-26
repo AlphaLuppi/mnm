@@ -11,11 +11,30 @@ export interface ProviderWithPaths {
   paths?: Partial<Record<ResourceTypeKey, string>>;
 }
 
-function rejectTraversal(label: string, value: string): void {
-  if (value.startsWith("/")) {
+// Defense-in-depth path-component validator. Used by resolveResourcePath and
+// directly by services that build subtree paths from client-supplied names
+// (e.g. resolveWorkflowDir in governed-workflow-files.ts).
+//
+// Rules:
+// - No absolute paths (`/foo`).
+// - No `..` traversal segment (after URL-decoding to catch `%2E%2E` smuggling).
+// - No backslash separators (Windows-style) — git treats `\\` literally on
+//   Linux but cross-platform clients sometimes send them and providers may
+//   interpret them inconsistently.
+export function rejectTraversal(label: string, value: string): void {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    decoded = value;
+  }
+  if (decoded.startsWith("/")) {
     throw new Error(`resolveResourcePath: invalid ${label} '${value}' (absolute paths are not allowed)`);
   }
-  if (value.split("/").includes("..")) {
+  if (decoded.includes("\\")) {
+    throw new Error(`resolveResourcePath: invalid ${label} '${value}' (backslash separators are not allowed)`);
+  }
+  if (decoded.split("/").includes("..")) {
     throw new Error(`resolveResourcePath: invalid ${label} '${value}' (traversal segment '..' is not allowed)`);
   }
 }

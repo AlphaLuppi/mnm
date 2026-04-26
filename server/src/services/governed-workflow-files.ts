@@ -30,7 +30,7 @@ import { GitProviderError } from "@mnm/git-provider";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { GovernedWorkflowError } from "./governed-workflows.js";
 import { computeNextTag } from "./governed-workflows-extensions.js";
-import { resolveResourcePath } from "./git-resource-path.js";
+import { resolveResourcePath, rejectTraversal } from "./git-resource-path.js";
 import type { ProviderWithPaths } from "./git-resource-path.js";
 
 // ── Dependencies ────────────────────────────────────────────────────────────
@@ -169,8 +169,16 @@ function stripPrefix(entry: TreeEntry, prefix: string): TreeEntry {
 // Returns the workflow directory path (no trailing slash).
 // With paths.workflows="workflows": "workflows/hello-world"
 // Without paths:                    "hello-world"
+//
+// M-FIX-3: validate workflowName + base prefix BEFORE concatenating so a
+// caller passing `../evil` is rejected here, not at the git provider boundary.
+// Practical impact today is bounded by the providers themselves (GitLab API
+// scoped to project, git ls-tree rejects `..`) but defense-in-depth keeps a
+// single audit point.
 function resolveWorkflowDir(provider: ProviderWithPaths, workflowName: string): string {
   const base = provider.paths?.workflows ?? "";
+  rejectTraversal("paths prefix", base);
+  rejectTraversal("workflow_name", workflowName);
   return base === "" ? workflowName : `${base}/${workflowName}`;
 }
 

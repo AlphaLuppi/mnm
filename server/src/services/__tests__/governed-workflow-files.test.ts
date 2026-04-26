@@ -192,6 +192,53 @@ describe("getWorkflowFile — path validation", () => {
   });
 });
 
+// M-FIX-3: defense-in-depth — workflowName must be rejected when it contains
+// `..` segments BEFORE we ask the git provider to resolve a subtree.
+describe("workflowName traversal guard (M-FIX-3)", () => {
+  const deps = {
+    resolveGitProvider: async () => makeStubProvider({}),
+    shaCache: new ShaCache(),
+  };
+
+  it("listWorkflowFiles throws on workflowName='../evil'", async () => {
+    await expect(
+      listWorkflowFiles(deps, {
+        companyId: "c1",
+        userId: null,
+        workflowName: "../evil",
+        ref: "main",
+      }),
+    ).rejects.toThrow(/traversal|invalid/i);
+  });
+
+  it("getWorkflowFile throws on workflowName='../evil'", async () => {
+    await expect(
+      getWorkflowFile(deps, {
+        companyId: "c1",
+        userId: null,
+        workflowName: "../evil",
+        ref: "main",
+        path: "workflow.json",
+      }),
+    ).rejects.toThrow(/traversal|invalid/i);
+  });
+
+  it("batchCommitWorkflowFiles throws on workflowName='../evil'", async () => {
+    await expect(
+      batchCommitWorkflowFiles({} as Db, deps, {
+        companyId: "c1",
+        userId: null,
+        workflowName: "../evil",
+        branch: "main",
+        commitMessage: "x",
+        authorName: "a",
+        authorEmail: "a@b.c",
+        changes: [{ path: "workflow.json", content: "{}" }],
+      }),
+    ).rejects.toThrow(/traversal|invalid/i);
+  });
+});
+
 // ── DB-backed tests ─────────────────────────────────────────────────────────
 
 describe("batchCommitWorkflowFiles", () => {
