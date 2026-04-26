@@ -181,7 +181,7 @@ export function GovernedWorkflowRunDetail() {
   const { run, steps } = data;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* Header */}
       <div className="space-y-1">
         <div className="flex items-center gap-3">
