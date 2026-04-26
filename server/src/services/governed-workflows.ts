@@ -681,7 +681,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         resourceType: "workflow",
       });
       const helpers = buildGateHelpers({ db, companyId: args.companyId });
-      const previousArtifacts = buildPreviousArtifacts(run);
+      const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
       const context: GateContext = {
         artifact: undefined,
         run: {
@@ -789,10 +789,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
 
     // Interpolate prompt_context placeholders (`{{variables.name}}`,
     // `{{steps.greet.artifact.greeting}}`) against the run's params +
-    // previous artifacts. For MVP, only two substitution patterns are
-    // supported — see `interpolatePromptContext` below.
+    // previous artifacts. Loaded async from the DB so completed-step
+    // artifacts are actually substituted (see `interpolatePromptContext`).
     const params = await fetchRunParams(args.companyId, args.runId);
-    const previousArtifacts = buildPreviousArtifacts(run);
+    const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
     const promptContext = interpolatePromptContext(
       step.prompt_context,
       { variables: params, steps: previousArtifacts },
@@ -803,6 +803,21 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       promptContext,
       subagentType: `mnm--${step.agent}`,
     };
+  }
+
+  // Rewrites the YAML frontmatter `name:` line so it matches the namespaced
+  // filename `mnm--<bare>.md`. Without this, Claude Code registers the agent
+  // under its bare name (`senior-dev`) — colliding with other plugins and
+  // mismatching the server-returned `subagent_type=mnm--senior-dev`. The
+  // ShaCache continues to store the raw blob; sha is computed downstream
+  // on the REWRITTEN content so server and harness agree.
+  function rewriteAgentFrontmatterName(content: string, mnmName: string): string {
+    if (!content.startsWith("---")) return content;
+    const fmEnd = content.indexOf("\n---", 3);
+    if (fmEnd === -1) return content;
+    const head = content.slice(0, fmEnd);
+    const tail = content.slice(fmEnd);
+    return head.replace(/^name:\s*.*$/m, `name: ${mnmName}`) + tail;
   }
 
   /**
@@ -850,17 +865,17 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     });
     const mdPath = resolveResourcePath(gitProvider as unknown as ProviderWithPaths, "agent", row.name, "agent.md");
     const cached = shaCache.get(PROVIDER_ID, mdPath, row.latestGitTag);
-    let content: string;
+    let blob: string;
     if (cached !== undefined) {
-      content = cached;
+      blob = cached;
     } else {
-      const blob = await gitProvider.fetchBlob({
+      blob = await gitProvider.fetchBlob({
         path: mdPath,
         ref: row.latestGitTag,
       });
       shaCache.set(PROVIDER_ID, mdPath, row.latestGitTag, blob);
-      content = blob;
     }
+    const content = rewriteAgentFrontmatterName(blob, `mnm--${row.name}`);
     const sha = createHash("sha256").update(content).digest("hex");
     return { content, sha };
   }
@@ -874,22 +889,6 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       .from(governedWorkflowRuns)
       .where(and(eq(governedWorkflowRuns.companyId, companyId), eq(governedWorkflowRuns.id, runId)));
     return (row?.params as Record<string, unknown>) ?? {};
-  }
-
-  // Helper: assemble { [stepId]: artifact } from succeeded steps for a run.
-  function buildPreviousArtifacts(run: GetRunResult): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const step of run.steps) {
-      if (step.state === "succeeded") {
-        // Re-read artifacts from DB; steps[].artifactsJson isn't on the
-        // summary. Async reads inside a sync helper aren't possible, so
-        // callers that need full artifacts pass them separately. MVP
-        // version leaves this shape empty; interpolation step below reads
-        // lazily.
-        out[step.id] = undefined;
-      }
-    }
-    return out;
   }
 
   // Helper: resolve a definition name + pinned tag from a runId. Private to the service.
@@ -1305,16 +1304,17 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
       try {
         const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
-        const content = cached !== undefined
+        const blob = cached !== undefined
           ? cached
           : await (async () => {
-              const blob = await gitProvider.fetchBlob({
+              const fetched = await gitProvider.fetchBlob({
                 path: mdPath,
                 ref: a.latestGitTag!,
               });
-              shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
-              return blob;
+              shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, fetched);
+              return fetched;
             })();
+        const content = rewriteAgentFrontmatterName(blob, `mnm--${a.name}`);
         const sha = createHash("sha256").update(content).digest("hex");
         out.push({
           name: `mnm--${a.name}`,

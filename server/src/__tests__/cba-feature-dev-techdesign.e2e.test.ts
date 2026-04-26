@@ -186,11 +186,18 @@ describe("P11 E2E — cba-feature-dev tech-design step (git-first agents)", () =
     const seniorDev = setup.agents.find((a) => a.name === "mnm--senior-dev");
     expect(seniorDev).toBeDefined();
 
-    // sha is computed via sha256(content) by loadCanonicalAgent — verify it
-    // matches a fresh sha256 of the known content we seeded.
+    // F1 fix: setupWorkspace rewrites the YAML frontmatter `name:` line so
+    // it matches the namespaced filename (`mnm--senior-dev`) — required
+    // for Claude Code to dispatch on the same `subagent_type` the server
+    // returns from launch_governed_step.
+    expect(seniorDev!.content).toContain("name: mnm--senior-dev");
+    expect(seniorDev!.content).not.toMatch(/^name:\s+senior-dev$/m);
+
+    // sha is computed via sha256(REWRITTEN content). Verify the contract:
+    // sha is sha256 of the content the harness will actually write to disk.
     const expectedSeniorDevSha = seniorDev!.sha;
     const recomputedSha = createHash("sha256")
-      .update(SENIOR_DEV_AGENT_MD)
+      .update(seniorDev!.content)
       .digest("hex");
     expect(expectedSeniorDevSha).toBe(recomputedSha);
     expect(expectedSeniorDevSha).toMatch(/^[0-9a-f]{64}$/);
