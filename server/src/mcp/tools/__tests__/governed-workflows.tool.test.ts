@@ -191,6 +191,35 @@ describe("push_local_state tool", () => {
   });
 });
 
+// ── P1 — AGENT_NOT_REGISTERED surfaces in MCP envelope ─────────────────────
+// Behavior: when launchStep throws GovernedWorkflowError(AGENT_NOT_REGISTERED),
+// wrap() surfaces it as `error_code: "AGENT_NOT_REGISTERED"` in the MCP envelope
+// (NOT as INTERNAL_ERROR or a re-thrown error). err.data is spread into the payload.
+describe("launch_governed_step — AGENT_NOT_REGISTERED MCP envelope (P1)", () => {
+  it("AGENT_NOT_REGISTERED from the service surfaces in the MCP envelope as error_code", async () => {
+    const services = mkServices({
+      launchStep: vi.fn(async () => {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+          "Agent 'ghost' is not registered.",
+          ["Run create_agent with name='ghost'"],
+          { sub_cause: "AGENT_ROW_MISSING" },
+        );
+      }),
+    });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const launchStep = tools.find((t) => t.name === "launch_governed_step")!;
+    const r = await launchStep.handler({
+      input: { run_id: "00000000-0000-0000-0000-000000000001", step_id: "greet" },
+      actor: mkActor(),
+    });
+    expect(r.isError).toBe(true);
+    const envelope = JSON.parse(r.content[0]!.text);
+    expect(envelope.error_code).toBe("AGENT_NOT_REGISTERED");
+    expect(envelope.sub_cause).toBe("AGENT_ROW_MISSING");
+  });
+});
+
 describe("launch_governed_step tool (T6 enriched)", () => {
   it("bubbles AGENTS_STALE with stale_agents[] in the error payload", async () => {
     const staleAgents = [

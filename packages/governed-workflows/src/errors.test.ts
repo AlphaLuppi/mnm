@@ -17,7 +17,7 @@ describe("GATE_ERROR_CODES", () => {
 });
 
 describe("WORKFLOW_ERROR_CODES", () => {
-  it("exposes the MVP workflow error codes", () => {
+  it("exposes the MVP workflow error codes (round 2: +AGENT_NOT_REGISTERED, +AGENT_GIT_FILE_MISSING; +3 file codes that pre-existed in errors.ts but were missing from the toEqual)", () => {
     expect(WORKFLOW_ERROR_CODES).toEqual({
       WORKFLOW_NOT_FOUND: "WORKFLOW_NOT_FOUND",
       WORKFLOW_RUN_NOT_FOUND: "WORKFLOW_RUN_NOT_FOUND",
@@ -33,6 +33,11 @@ describe("WORKFLOW_ERROR_CODES", () => {
       WORKFLOW_NAME_MISMATCH: "WORKFLOW_NAME_MISMATCH",
       GATE_SOURCE_NOT_FOUND: "GATE_SOURCE_NOT_FOUND",
       GIT_PROVIDER_ERROR: "GIT_PROVIDER_ERROR",
+      WORKFLOW_FILE_INVALID_PATH: "WORKFLOW_FILE_INVALID_PATH",
+      WORKFLOW_FILE_NOT_FOUND: "WORKFLOW_FILE_NOT_FOUND",
+      WORKFLOW_FILE_EMPTY_CHANGES: "WORKFLOW_FILE_EMPTY_CHANGES",
+      AGENT_NOT_REGISTERED: "AGENT_NOT_REGISTERED",
+      AGENT_GIT_FILE_MISSING: "AGENT_GIT_FILE_MISSING",
     });
   });
 
