@@ -35,17 +35,18 @@ Tous les sites qui devront recevoir `resourceType` :
 | 2 | `server/src/services/governed-workflows.ts:674` | `"workflow"` | `launchStep` entry-gate (resolveSource fetch les gates dans le repo workflows) |
 | 3 | `server/src/services/governed-workflows.ts:829` | `"agent"` | `loadCanonicalAgent` |
 | 4 | `server/src/services/governed-workflows.ts:1014` | `"workflow"` | `completeStep` exit-gate |
-| 5 | `server/src/services/governed-workflows.ts:1197` | `"agent"` | `syncEnvironment` (fetch agent.md) |
+| 5 | `server/src/services/governed-workflows.ts:1197` | `"agent"` | `syncEnvironment` (fetch agent.md). **userId ABSENT aujourd'hui** — bug latent du commit a93c085 (cf. §3.10). |
 | 6 | `server/src/services/governed-workflows.ts:1238` | `"agent"` | `setupWorkspace` |
 | 7 | `server/src/services/governed-workflows-extensions.ts:106` | `"workflow"` | `saveDefinition` (commit workflow.json + tag) |
 | 8 | `server/src/services/governed-workflow-files.ts:177,212,277` | `"workflow"` | Studio multi-file editor (list/get/batch commit) |
-| 9 | `server/src/services/workflow-ai-assistant.ts:283` | `"workflow"` | AI assistant resolveGitProvider closure passée à `governedWorkflowService` (la closure interne re-route vers `getWorkflowParsed`) |
-| 10 | `server/src/routes/governed-workflows-ui.ts:437` | `"workflow"` | GET `/governed-workflows/:name/tags` |
-| 11 | `server/src/routes/governed-workflows-ui.ts:528` | `"workflow"` | POST `/.../runs` HEAD resolution |
+| 9 | `server/src/services/workflow-ai-assistant.ts:283` | `"workflow"` | AI assistant closure (relais vers `governedWorkflowService`). **userId hardcoded à `null`** — bug latent (cf. §3.11). |
+| 10 | `server/src/services/workflow-ai-assistant.ts:303-304` | `"workflow"` | `listWorkflowFiles` call (relais direct, déjà passe `userId` correctement). |
+| 11 | `server/src/routes/governed-workflows-ui.ts:437` | `"workflow"` | GET `/governed-workflows/:name/tags` |
+| 12 | `server/src/routes/governed-workflows-ui.ts:528` | `"workflow"` | POST `/.../runs` HEAD resolution |
 
-**11 callsites** au total.
+**12 callsites** au total (round 2 : ajout de `:1197` syncEnvironment et split du site `workflow-ai-assistant.ts` en 2 lignes distinctes).
 
-Sites N°7-9 : ces services prennent `resolveGitProvider` comme dépendance et la passent ensuite à des sous-fonctions. Ils ont leur propre interface `resolveGitProvider` à mettre à jour (P2 ci-dessous).
+Sites N°7-10 : ces services prennent `resolveGitProvider` comme dépendance et la passent ensuite à des sous-fonctions. Ils ont leur propre interface `resolveGitProvider` à mettre à jour (P2 ci-dessous).
 
 ### 2.4 UUID `66b458ea-9879-4256-a802-45da08589a0a` — **non trouvé en seed/migration**
 Grep sur tout le repo retourne uniquement la spec elle-même. Cet UUID est issu d'une instance live (postgres dev de Tom). 
@@ -90,19 +91,22 @@ La cache key actuelle `${companyId}:${userId}` (`build-mcp-services.ts:181`) ne 
 Le `data.sub_cause: "AGENT_TAG_MISSING"` proposé en spec §5.6 est une string littérale, sans risque.
 
 ### 3.4 Log structure du skip-on-404 dans `setupWorkspace` — **standardiser**
-Le warn DOIT être structuré (pas de string) :
+Le warn DOIT être structuré (pas de string), avec un préfixe stable pour le filtrage des tests :
 ```ts
 console.warn("[mnm.setup_workspace] agent_md_missing", {
-  companyId,        // UUID — OK à logger
-  agentName,        // string — OK
-  agentId,          // UUID DB — OK pour audit
-  latestGitTag,     // string tag — OK
-  providerProjectId,// string — OK
-  fullPath,         // ex "agents/senior-dev/agent.md" — OK
-  // INTERDIT : token, accessToken, configJson.token
+  companyId,         // UUID — OK à logger
+  agentId,           // UUID DB — OK pour audit
+  agentName,         // string — OK
+  latestGitTag,      // string tag — OK
+  providerProjectId, // string ex "tom.andrieu/mnm-demo" — OK (lu de gitProvider.providerId)
+  fullPath,          // ex "agents/senior-dev/agent.md" — OK
+  // INTERDIT : token, accessToken, configJson.token, refresh_token, secret, password, credential
 });
 ```
-Un test dédié (P5.b) doit vérifier que `console.warn` est appelé avec un objet contenant ces clés et **AUCUNE** clé `token`/`accessToken`.
+Le test P5 (round 2) :
+1. Filtre `warnSpy.mock.calls` sur `c[0] === "[mnm.setup_workspace] agent_md_missing"` (évite faux-positifs cf. M-5).
+2. Asserte le shape exact du payload via `Object.keys(payload).sort()`.
+3. Asserte qu'aucune clé du payload ne matche `/token|secret|password|credential/i`.
 
 ### 3.5 Race `create_agent` — **acceptable pour démo, à flagger**
 Pas de UNIQUE constraint (cf. 2.6). Deux MCP `create_agent` simultanés avec `name="senior-dev"` peuvent insérer 2 rows. Pour la démo, le risque est nul (un seul user, séquentiel). Post-démo : ajouter `CREATE UNIQUE INDEX agents_company_name_uq ON agents (company_id, name) WHERE archived_at IS NULL` (compatible avec les renames + archivages). **Hors scope de ce plan**.
@@ -133,12 +137,35 @@ Ces tests vérifient `expect(resolveSpy).toHaveBeenCalledWith({ companyId, userI
 
 → **Stratégie** : ne PAS supprimer ces tests. Les ADAPTER en P2 pour matcher la nouvelle signature avec `expect.objectContaining({ userId: ... })` afin de découpler de l'évolution de la signature complète. Documenter cela dans la note de la PR.
 
+### 3.10 BLOCKER B-2 — `syncEnvironment` ne propage pas `userId`
+
+`governed-workflows.ts:1197` actuellement : `await resolveGitProvider({ companyId: args.companyId })` — ni `userId`, ni `resourceType`. Or `syncEnvironment` est appelé par `pushLocalState` qui est lui-même appelé via le tool MCP `push_local_state` avec un actor authentifié. La série de fixes commits `08525f0` + `a93c085` + `e41d7e5` a corrigé `launchWorkflow` / `setupWorkspace` / `launchStep` / `completeStep` mais **a oublié `syncEnvironment`**. En `authenticated` mode, `pushLocalState` continue de bypasser le user OAuth token et tombe sur le PAT company.
+
+→ Le plan élargit P5 (renommé en P5+P5b) pour couvrir ce site explicitement : ajouter `userId` à l'interface `SyncEnvironmentArgs`, le propager depuis `pushLocalState`, et le passer à `resolveGitProvider({ ..., resourceType: "agent", userId })`. Test régression P2.1 dédié (cf. §5.P2.1).
+
+### 3.11 BLOCKER B-1 — `workflow-ai-assistant.ts:282-283` userId hardcoded
+
+`workflow-ai-assistant.ts:282-283` actuellement :
+```ts
+resolveGitProvider: (a) =>
+  deps.resolveGitProvider({ companyId: a.companyId, userId: null }),
+```
+La closure hardcode `userId: null`. Or `streamWorkflowAiChat` reçoit `input.userId` (cf. interface `AiAssistantInput:42` et call à ligne 308 `userId: input.userId` pour `listWorkflowFiles`). En `authenticated` mode, l'AI assistant utilise donc le PAT company pour fetch le workflow.json alors que la SSE request a une session user.
+
+→ **Fix correct** : capturer `input.userId` dans la closure et le propager. Le plan §P9 (round 2) livre ce fix concret. Si dev-C ne peut pas livrer P9 dans les délais, retirer le claim "P9 fixes that" et documenter en follow-up post-démo (cf. §11 Round 2).
+
+### 3.12 BLOCKER B-3 — Ordre P3 → M2 enforced
+
+La spec §M2 archive greeter/shouter via `UPDATE agents SET archived_at = NOW()`. Mais P3 (migration `0067_agents_archived_at.sql`) doit être appliquée AVANT cette UPDATE, sinon Postgres throw `column "archived_at" does not exist`.
+
+→ Ajout d'un **§M0** dans la séquence ops (`bun run db:migrate` qui applique les migrations Drizzle pendantes) à exécuter en pré-requis de M2. Acceptance criterion #5 explicite l'ordre. Le SQL de M2 commence par un `\d agents` (psql) ou un `SELECT column_name FROM information_schema.columns` pour fail-fast si la colonne manque.
+
 ### 3.9 SPEC AMENDMENT NEEDED — `agents.archived_at`
 La spec §6.1 dit "Aucune modification au schema agents". **Faux** : il faut ajouter la colonne. Proposition d'amendement :
 > §6.1 — Ajouter une migration Drizzle `0067_agents_archived_at.sql` :
 > ```sql
 > ALTER TABLE agents ADD COLUMN archived_at timestamptz;
-> CREATE INDEX agents_company_archived_idx ON agents (company_id) WHERE archived_at IS NULL;
+> CREATE INDEX agents_company_active_idx ON agents (company_id) WHERE archived_at IS NULL;
 > ```
 > et mise à jour de `packages/db/src/schema/agents.ts` pour ajouter `archivedAt: timestamp("archived_at", { withTimezone: true })`.
 
@@ -236,6 +263,22 @@ describe("resolveResourcePath", () => {
       resolveResourcePath({ paths: { agents: "/etc" } }, "agent", "x", "y"),
     ).toThrow(/absolute|invalid path/i);
   });
+
+  // Round 2 — MAJOR M-1: reject `..` in name AND file too. The `paths` prefix
+  // is the only attacker-controlled segment we previously checked, but a
+  // malicious agent name (saved to DB via create_agent without a server-side
+  // check) could re-introduce traversal: `agents/../etc/passwd/agent.md`.
+  it("rejects a name containing '..'", () => {
+    expect(() =>
+      resolveResourcePath({ paths: { agents: "agents" } }, "agent", "../etc/passwd", "agent.md"),
+    ).toThrow(/traversal|invalid path/i);
+  });
+
+  it("rejects a file containing '..'", () => {
+    expect(() =>
+      resolveResourcePath({ paths: { agents: "agents" } }, "agent", "senior-dev", "../../../passwd"),
+    ).toThrow(/traversal|invalid path/i);
+  });
 });
 ```
 
@@ -247,6 +290,15 @@ export interface ProviderWithPaths {
   paths?: Partial<Record<ResourceType, string>>;
 }
 
+function rejectTraversal(label: string, value: string): void {
+  if (value.startsWith("/")) {
+    throw new Error(`resolveResourcePath: invalid ${label} '${value}' (absolute paths are not allowed)`);
+  }
+  if (value.split("/").includes("..")) {
+    throw new Error(`resolveResourcePath: invalid ${label} '${value}' (traversal segment '..' is not allowed)`);
+  }
+}
+
 export function resolveResourcePath(
   provider: ProviderWithPaths,
   resourceType: ResourceType,
@@ -254,38 +306,92 @@ export function resolveResourcePath(
   file: string,
 ): string {
   const base = provider.paths?.[resourceType] ?? "";
-  if (base.startsWith("/")) {
-    throw new Error(`resolveResourcePath: invalid path '${base}' (absolute paths are not allowed)`);
-  }
-  if (base.split("/").includes("..")) {
-    throw new Error(`resolveResourcePath: invalid path '${base}' (traversal segment '..' is not allowed)`);
-  }
+  rejectTraversal("paths prefix", base);
+  rejectTraversal("name", name);
+  rejectTraversal("file", file);
   return base === "" ? `${name}/${file}` : `${base}/${name}/${file}`;
 }
 ```
 
 **Files touched** : `server/src/services/git-resource-path.ts` (NEW), `server/src/services/__tests__/git-resource-path.test.ts` (NEW).
 
-**Definition of done** : `bun test server/src/services/__tests__/git-resource-path.test.ts` → 6 verts. `bun run typecheck` passe.
+**Definition of done** : `bun test server/src/services/__tests__/git-resource-path.test.ts` → **8 verts** (round 2: +2 tests pour name/file traversal). `bun run typecheck` passe.
 
 ---
 
 ### P1 — Étendre `WORKFLOW_ERROR_CODES` (unit)
 
-**Goal** : ajouter `AGENT_NOT_REGISTERED` et `AGENT_GIT_FILE_MISSING`.
+**Goal** : ajouter `AGENT_NOT_REGISTERED` et `AGENT_GIT_FILE_MISSING`. Réparer le test `toEqual` strict pré-existant qui omet 3 codes (cf. M-2).
 
-**Test first** — étendre `packages/governed-workflows/src/errors.test.ts:21` (test snapshot frozen) en ajoutant les deux clés à l'objet attendu :
-```ts
-expect(WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED).toBe("AGENT_NOT_REGISTERED");
-expect(WORKFLOW_ERROR_CODES.AGENT_GIT_FILE_MISSING).toBe("AGENT_GIT_FILE_MISSING");
+**Pre-flight check (dev-B doit faire CECI EN PREMIER)** :
+```bash
+bun test packages/governed-workflows/src/errors.test.ts
 ```
-Et étendre le `expect(WORKFLOW_ERROR_CODES).toEqual({...})` block pour inclure les nouvelles clés.
+Si rouge : le `toEqual` à `errors.test.ts:21-37` ne liste pas `WORKFLOW_FILE_INVALID_PATH`, `WORKFLOW_FILE_NOT_FOUND`, `WORKFLOW_FILE_EMPTY_CHANGES` (présents dans `errors.ts:92-99`). Vitest `toEqual` est strict-equal sur Objects donc ce test devrait être **déjà rouge** avant tout edit. Si vert : Vitest tolère les extra-keys (à confirmer empiriquement) — auquel cas la baseline est OK et on ajoute juste nos 2 clés.
 
-**Implementation** : ajouter les deux clés dans `packages/governed-workflows/src/errors.ts:59-100` avec JSDoc concise expliquant le moment d'émission.
+**Test first** — comportement (pas tautologie). Round 2 supprime le test `expect(WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED).toBe("AGENT_NOT_REGISTERED")` qui réimplémente le mapping. Replacement : un test fonctionnel qui asserte que le code est routable via la chaîne complète `service throw → wrap() → MCP envelope` :
 
-**Files touched** : `packages/governed-workflows/src/errors.ts`, `packages/governed-workflows/src/errors.test.ts`.
+```ts
+// packages/governed-workflows/src/errors.test.ts — adapter le toEqual
+it("exposes the MVP workflow error codes (round 2: +AGENT_NOT_REGISTERED, +AGENT_GIT_FILE_MISSING; +3 file codes that pre-existed in errors.ts but were missing from the toEqual)", () => {
+  expect(WORKFLOW_ERROR_CODES).toEqual({
+    WORKFLOW_NOT_FOUND: "WORKFLOW_NOT_FOUND",
+    WORKFLOW_RUN_NOT_FOUND: "WORKFLOW_RUN_NOT_FOUND",
+    WORKFLOW_DEPENDENCY_UNMET: "WORKFLOW_DEPENDENCY_UNMET",
+    WORKFLOW_STEP_NOT_FOUND: "WORKFLOW_STEP_NOT_FOUND",
+    WORKFLOW_INVALID_ARTIFACT: "WORKFLOW_INVALID_ARTIFACT",
+    WORKFLOW_GATE_FAILED: "WORKFLOW_GATE_FAILED",
+    WORKFLOW_ALREADY_COMPLETED: "WORKFLOW_ALREADY_COMPLETED",
+    AGENTS_STALE: "AGENTS_STALE",
+    MISSING_TOOLS: "MISSING_TOOLS",
+    GIT_PROVIDER_MISCONFIG: "GIT_PROVIDER_MISCONFIG",
+    WORKFLOW_VALIDATION: "WORKFLOW_VALIDATION",
+    WORKFLOW_NAME_MISMATCH: "WORKFLOW_NAME_MISMATCH",
+    GATE_SOURCE_NOT_FOUND: "GATE_SOURCE_NOT_FOUND",
+    GIT_PROVIDER_ERROR: "GIT_PROVIDER_ERROR",
+    WORKFLOW_FILE_INVALID_PATH: "WORKFLOW_FILE_INVALID_PATH",
+    WORKFLOW_FILE_NOT_FOUND: "WORKFLOW_FILE_NOT_FOUND",
+    WORKFLOW_FILE_EMPTY_CHANGES: "WORKFLOW_FILE_EMPTY_CHANGES",
+    AGENT_NOT_REGISTERED: "AGENT_NOT_REGISTERED",
+    AGENT_GIT_FILE_MISSING: "AGENT_GIT_FILE_MISSING",
+  });
+});
+```
 
-**Definition of done** : `bun test packages/governed-workflows` → vert. `bun run typecheck` passe.
+Et un test fonctionnel dans `server/src/mcp/tools/__tests__/governed-workflows.tool.test.ts` (ou nouveau test) qui encode le routage end-to-end :
+
+```ts
+// Behavior: when loadCanonicalAgent throws GovernedWorkflowError(AGENT_NOT_REGISTERED),
+// wrap() in governed-workflows.tool.ts surfaces it as `error_code: "AGENT_NOT_REGISTERED"`
+// in the MCP envelope (NOT as INTERNAL_ERROR or a re-thrown error).
+it("AGENT_NOT_REGISTERED from the service surfaces in the MCP envelope as error_code", async () => {
+  // Stub a service that always throws AGENT_NOT_REGISTERED on launchStep
+  const fakeService = {
+    launchStep: async () => {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED,
+        "Agent 'ghost' is not registered.",
+        ["Run create_agent"],
+        { sub_cause: "AGENT_ROW_MISSING" },
+      );
+    },
+  };
+  const result = await callLaunchGovernedStep(fakeService, { run_id, step_id });
+  const envelope = JSON.parse(result.content[0].text);
+  expect(envelope.error_code).toBe("AGENT_NOT_REGISTERED");
+  expect(envelope.sub_cause).toBe("AGENT_ROW_MISSING"); // err.data spread by wrap()
+  expect(result.isError).toBe(true);
+});
+```
+
+**Implementation** : ajouter `AGENT_NOT_REGISTERED` et `AGENT_GIT_FILE_MISSING` dans `packages/governed-workflows/src/errors.ts:59-100` avec JSDoc concise expliquant le moment d'émission. Compléter le `toEqual` block du test existant avec les 3 codes file (`WORKFLOW_FILE_*`) qui auraient déjà dû y être.
+
+**Files touched** : `packages/governed-workflows/src/errors.ts`, `packages/governed-workflows/src/errors.test.ts`, `server/src/mcp/tools/__tests__/governed-workflows.tool.test.ts` (ajouter 1 test).
+
+**Definition of done** :
+- `bun test packages/governed-workflows` → vert (nouvelle ligne du `toEqual` validée).
+- Le nouveau test MCP-envelope vert.
+- `bun run typecheck` passe.
 
 ---
 
@@ -311,15 +417,52 @@ describe("createResolveGitProvider — paths exposure", () => {
     expect((provider as any).paths).toEqual({ agents: "agents", workflows: "workflows" });
   });
 
-  it("caches per resourceType so two calls with different resourceType return providers reflecting the same paths", async () => {
-    // Encode the SPEC §5.4 (multi-items selection) at MVP single-item granularity:
-    // single item covers both types; both calls receive a provider whose .paths
-    // includes both agents and workflows keys (the item's full config_json).
+  // Round 2 — renamed from "caches per resourceType" (which mismatched its body).
+  // This test now encodes the actual cache behavior: the second resolve call with
+  // the same (companyId, resourceType) tuple skips the DB lookup. It's wiring
+  // assertion (spy on db.select) but it ENCODES the spec contract "cache lifetime
+  // = process". cf. tautology audit M-4.
+  it("second resolveGitProvider call with same (companyId, resourceType) skips DB lookup", async () => {
+    const dbSpy = vi.spyOn(db, "select"); // or whatever mock harness is used
     const resolve = createResolveGitProvider(db);
-    const a = await resolve({ companyId, resourceType: "agent" });
-    const w = await resolve({ companyId, resourceType: "workflow" });
-    expect((a as any).paths.agents).toBe("agents");
-    expect((w as any).paths.workflows).toBe("workflows");
+    await resolve({ companyId, resourceType: "agent" });
+    const callsAfterFirst = dbSpy.mock.calls.length;
+    await resolve({ companyId, resourceType: "agent" });
+    const callsAfterSecond = dbSpy.mock.calls.length;
+    expect(callsAfterSecond).toBe(callsAfterFirst); // cache hit, no extra DB calls
+    dbSpy.mockRestore();
+  });
+
+  // Round 2 — distinct test for the NEW behavior in P2: different resourceType
+  // values miss the cache independently (so future multi-item layouts work).
+  it("different resourceType values produce separate cache entries", async () => {
+    const dbSpy = vi.spyOn(db, "select");
+    const resolve = createResolveGitProvider(db);
+    await resolve({ companyId, resourceType: "agent" });
+    const after1 = dbSpy.mock.calls.length;
+    await resolve({ companyId, resourceType: "workflow" });
+    const after2 = dbSpy.mock.calls.length;
+    expect(after2).toBeGreaterThan(after1); // second resourceType triggers a DB lookup
+    dbSpy.mockRestore();
+  });
+
+  // Round 2 — MAJOR M-4: deterministic ordering for multi-item selection.
+  // Today only one git_provider item per company exists. When SPEC §5.4 lands
+  // (multi-items, one per resourceType), the SELECT must be ORDER BY
+  // created_at, id — otherwise two replicas can pick different items.
+  it("when multiple git_provider items exist for the same company, selects deterministically by (created_at, id)", async () => {
+    // Seed: TWO items, one with paths.agents only, one with paths.workflows only
+    await db.execute(sql`
+      INSERT INTO config_layer_items (id, company_id, ..., config_json, created_at)
+        VALUES
+          ('aa...', ${companyId}, ..., '{"kind":"local",...,"paths":{"agents":"agents"}}', '2026-01-01'::timestamptz),
+          ('bb...', ${companyId}, ..., '{"kind":"local",...,"paths":{"workflows":"workflows"}}', '2026-01-02'::timestamptz);
+    `);
+    const resolve = createResolveGitProvider(db);
+    const agentProvider = await resolve({ companyId, resourceType: "agent" });
+    expect((agentProvider as any).paths.agents).toBe("agents"); // picked the first item
+    const wfProvider = await resolve({ companyId, resourceType: "workflow" });
+    expect((wfProvider as any).paths.workflows).toBe("workflows"); // picked the second item
   });
 });
 ```
@@ -338,7 +481,15 @@ expect(resolveSpy).toHaveBeenCalledWith(
 **Implementation** :
 1. `server/src/mcp/build-mcp-services.ts:45-48` — `ResolveGitProviderArgs` gagne `resourceType?: ResourceType`.
 2. Ligne 168-170 — caches keyés par `${companyId}:${resourceType ?? "default"}` (company) et `${companyId}:${userId}:${resourceType ?? "default"}` (user).
-3. Ligne 280-294 — la query `config_layer_items` renvoie tous les items `git_provider` actifs (non `.limit(1)`). La sélection prend le premier item dont `configJson.paths?.[resourceType]` est défini, ou sinon le premier item tout court (single-item legacy fallback).
+3. Ligne 280-294 — **retirer le `.limit(1)`** et **ajouter `.orderBy(configLayerItems.createdAt, configLayerItems.id)`** (ordering déterministe pour multi-items). La query renvoie tous les items `git_provider` actifs ordonnés. La sélection :
+   ```ts
+   const candidate = rows.find((r) =>
+     (r.configJson as any).paths?.[resourceType] !== undefined,
+   ) ?? rows[0]; // fallback: first item if no resourceType-specific match (legacy single-item)
+   if (!candidate) {
+     // env-var fallback as before
+   }
+   ```
 4. Ligne 304-336 — après construction du `GitlabProvider`/`LocalBareRepoProvider`, attacher `provider.paths = (cfg.paths ?? {}) as Partial<Record<ResourceType,string>>` côté résolveur (extension non-fonctionnelle de l'instance).
 
 **Files touched** :
@@ -355,6 +506,68 @@ expect(resolveSpy).toHaveBeenCalledWith(
 - `bun run typecheck` passe.
 
 **Risque** : la closure dans `workflow-ai-assistant.ts:282-283` aplatit le `resourceType`. Solution : passer le `resourceType` à travers la closure plutôt que de hardcoder (à voir en P9).
+
+---
+
+### P2.1 — Propager `userId` dans `syncEnvironment` (BLOCKER B-2)
+
+**Goal** : §3.10. `syncEnvironment` (`governed-workflows.ts:1173-1216`) accepte `userId` et le passe à `resolveGitProvider`. `pushLocalState` propage `userId` reçu de l'actor MCP. Tests régression dédiés pour ne pas re-perdre la propagation.
+
+**Test first** — étendre `governed-workflows.test.ts` suite "syncEnvironment" :
+
+```ts
+it("propagates userId to resolveGitProvider so the per-user OAuth token is used (regression for the gap left after a93c085)", async () => {
+  const resolveSpy = vi.fn(async () => stubProvider);
+  const svc = governedWorkflowService(db, {
+    resolveGitProvider: resolveSpy as any,
+    shaCache: { get: () => undefined, set: () => undefined } as any,
+  });
+  await db.execute(sql`
+    INSERT INTO agents (company_id, name, adapter_type, latest_git_tag, enabled)
+    VALUES (${companyA}, 'a1', 'claude_local', 'v1.0.0', true) ON CONFLICT DO NOTHING
+  `);
+  await setTenantContext(db, companyA);
+  await svc.syncEnvironment({ companyId: companyA, userId: "u-77" });
+  expect(resolveSpy).toHaveBeenCalledWith(
+    expect.objectContaining({ companyId: companyA, userId: "u-77", resourceType: "agent" }),
+  );
+});
+
+it("propagates userId from pushLocalState through to syncEnvironment to resolveGitProvider", async () => {
+  const resolveSpy = vi.fn(async () => stubProvider);
+  const svc = governedWorkflowService(db, {
+    resolveGitProvider: resolveSpy as any,
+    shaCache: { get: () => undefined, set: () => undefined } as any,
+  });
+  await setTenantContext(db, companyA);
+  await svc.pushLocalState({
+    companyId: companyA,
+    userId: "u-88",                   // NEW field on PushLocalStateArgs
+    agentsProvisioned: ["mnm--a1"],
+    pluginVersion: "0.1.0",
+  });
+  expect(resolveSpy).toHaveBeenCalledWith(
+    expect.objectContaining({ companyId: companyA, userId: "u-88" }),
+  );
+});
+```
+
+**Implementation** :
+1. `governed-workflows.ts:159-162` — `SyncEnvironmentArgs` gagne `userId?: string | null`.
+2. `governed-workflows.ts:1197` — passer `userId: args.userId ?? null, resourceType: "agent"` au resolver.
+3. `governed-workflows.ts:227-231` — `PushLocalStateArgs` gagne `userId?: string | null`.
+4. `governed-workflows.ts:1281` — `syncEnvironment({ companyId, lastSyncedSha: undefined, userId: args.userId })`.
+5. `server/src/mcp/tools/governed-workflows.tool.ts:319-348` — `push_local_state` handler passe `userId: actor.userId ?? null` à `services.governedWorkflows.pushLocalState`.
+6. `server/src/mcp/tools/governed-workflows.tool.ts:351-379` — `sync_governed_environment` handler ajoute `userId: actor.userId ?? null` au call.
+
+**Files touched** :
+- `server/src/services/governed-workflows.ts` (interfaces + 2 callsites)
+- `server/src/mcp/tools/governed-workflows.tool.ts` (2 handlers)
+- `server/src/services/__tests__/governed-workflows.test.ts` (2 nouveaux tests)
+
+**Definition of done** : 2 nouveaux tests verts + tests existants `syncEnvironment` et `pushLocalState` toujours verts.
+
+**Risque** : si `mcp__plugin_mnm_mnm__push_local_state` est appelé par d'autres consumers (CLI, tests E2E) qui ne fournissent pas `userId`, la propagation tombe à `null` (comportement actuel). Pas de régression.
 
 ---
 
@@ -388,6 +601,7 @@ describe("migration 0067_agents_archived_at", () => {
    --> statement-breakpoint
    CREATE INDEX "agents_company_active_idx" ON "agents" ("company_id") WHERE "archived_at" IS NULL;
    ```
+   Round 2 (N-2) — Le nom canonique de l'index est **`agents_company_active_idx`** (sémantique "rows actives = non archivées"). Toute autre occurrence du nom dans le plan (par ex §3.9 ou §M2) doit utiliser cette même graphie.
 2. Mise à jour `packages/db/src/schema/agents.ts:38` (juste après `enabled`):
    ```ts
    archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -463,9 +677,44 @@ describe("governedWorkflowService — loadCanonicalAgent (T6 git-first)", () => 
     });
   });
 
-  it("succeeds when row exists, enabled, archived_at IS NULL, with a tag, and the .md is reachable", async () => {
-    // happy path — return the triplet without throwing
-    // (this also implicitly tests the path resolution via paths.agents)
+  // Round 2 — concretized from placeholder. Tautology audit P4 ligne 466.
+  it("returns the triplet (agentName, subagentType, promptContext) when row enabled+tagged+md reachable, fetching at agents/<name>/agent.md", async () => {
+    const seenPaths: string[] = [];
+    const provider = {
+      ...stubProvider,
+      paths: { agents: "agents", workflows: "workflows" },
+      fetchBlob: async ({ path }: { path: string }) => {
+        seenPaths.push(path);
+        if (path.endsWith("workflow.json")) return JSON.stringify({...});
+        if (path.endsWith("/agent.md")) return AGENT_MD_CONTENT;
+        throw new Error(`unexpected ${path}`);
+      },
+    };
+    const companyId = await seedCompanyWithWorkflowAndAgent({
+      workflowName: "hello-world",
+      agentName: "happy",
+      agentEnabled: true,
+      agentArchivedAt: null,
+      agentLatestGitTag: "agents/v1.0.0",
+    });
+    const svc = mkSvcWithProvider(provider);
+    const { runId, firstStep } = await svc.launchWorkflow({...});
+    const expectedSha = createHash("sha256").update(AGENT_MD_CONTENT).digest("hex");
+
+    const result = await svc.launchStep({
+      companyId, runId, stepId: firstStep, actor: { type: "user", id: "u-1" },
+      currentAgents: { "mnm--happy": expectedSha },
+      sessionTools: ["Task","Write","Read"],
+    });
+
+    // Behavior 1: returns the triplet
+    expect(result).toMatchObject({
+      agentName: "happy",
+      subagentType: "mnm--happy",
+      promptContext: expect.any(Object),
+    });
+    // Behavior 2: fetched the agent.md from the prefixed path (agents/<name>/agent.md)
+    expect(seenPaths).toContain("agents/happy/agent.md");
   });
 });
 ```
@@ -547,11 +796,11 @@ if (provided !== canonical.sha) {
 
 **Goal** : SPEC §5.7. Si `fetchBlob` 404, log warn structuré et continue. Filtre archived.
 
-**Test first** — étendre la suite `setupWorkspace` existante :
+**Test first** — étendre la suite `setupWorkspace` existante. Round 2 : split du test combiné en 2 `it()` (un par behavior, cf. tautology audit P5).
 
 ```ts
-it("skips agents whose agent.md is missing in the repo at the pinned tag and logs a structured warn", async () => {
-  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+// Behavior 1: result excludes the agent whose .md 404s.
+it("excludes from result the agents whose agent.md is missing at the pinned tag", async () => {
   const companyId = await seedCompanyWithAgents({
     issuePrefix: "T6SK",
     agents: [
@@ -562,24 +811,42 @@ it("skips agents whose agent.md is missing in the repo at the pinned tag and log
   const provider = mk404Provider({ missingFor: "ghost" }); // throws GitProviderError code:"not_found" for ghost
   const svc = mkSvcWith(provider);
   const result = await svc.setupWorkspace({ companyId });
-
   expect(result.agents.map((a) => a.name)).toEqual(["mnm--alpha"]);
-  expect(warnSpy).toHaveBeenCalledWith(
-    expect.stringContaining("agent_md_missing"),
-    expect.objectContaining({
-      companyId,
-      agentName: "ghost",
-      latestGitTag: expect.any(String),
-      fullPath: expect.stringContaining("/ghost/agent.md"),
-    }),
+});
+
+// Behavior 2: structured warn is emitted, with no secrets in payload.
+// Round 2 — MAJOR M-5: filter on the precise warn prefix to avoid false-positives
+// from unrelated console.warn calls in the request flow.
+it("logs a structured warn with the documented payload shape and no token-like fields", async () => {
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const companyId = await seedCompanyWithAgents({
+    issuePrefix: "T6SK",
+    agents: [{ name: "ghost", enabled: true }],
+  });
+  const provider = mk404Provider({ missingFor: "ghost" });
+  await mkSvcWith(provider).setupWorkspace({ companyId });
+
+  // Filter on our specific prefix to avoid catching unrelated warnings.
+  const ourWarns = warnSpy.mock.calls.filter(
+    (c) => c[0] === "[mnm.setup_workspace] agent_md_missing",
   );
-  // CRITICAL: no token in the log
-  const callArgs = warnSpy.mock.calls.flat();
-  for (const arg of callArgs) {
-    if (typeof arg === "object" && arg !== null) {
-      expect(arg).not.toHaveProperty("token");
-      expect(arg).not.toHaveProperty("accessToken");
-    }
+  expect(ourWarns).toHaveLength(1);
+
+  const payload = ourWarns[0][1];
+  // Exact shape expected (per §3.4)
+  expect(Object.keys(payload).sort()).toEqual(
+    ["agentId", "agentName", "companyId", "fullPath", "latestGitTag", "providerProjectId"].sort(),
+  );
+  expect(payload).toMatchObject({
+    companyId,
+    agentName: "ghost",
+    latestGitTag: expect.any(String),
+    providerProjectId: expect.any(String),
+    fullPath: expect.stringMatching(/\/ghost\/agent\.md$/),
+  });
+  // CRITICAL: no token-like fields anywhere in the payload (defense in depth).
+  for (const k of Object.keys(payload)) {
+    expect(k.toLowerCase()).not.toMatch(/token|secret|password|credential/);
   }
   warnSpy.mockRestore();
 });
@@ -653,6 +920,7 @@ async function setupWorkspace(args: SetupWorkspaceArgs): Promise<SetupWorkspaceR
           agentId: a.id,
           agentName: a.name,
           latestGitTag: a.latestGitTag,
+          providerProjectId: gitProvider.providerId, // GitProvider.providerId is non-secret (e.g. "gitlab:user:u-42")
           fullPath: mdPath,
         });
         continue;
@@ -704,6 +972,48 @@ it("falls back to <name>/workflow.json when paths.workflows is undefined (legacy
   // No paths attribute on provider
   expect(seenPaths).toContain("hello-world/workflow.json");
 });
+
+// Round 2 — MAJOR M-3: prove the gate translation chain end-to-end. When the
+// workflow.json lives at workflows/<name>/workflow.json, gates with `source:
+// "./gates/foo.gate.ts"` MUST resolve to workflows/<name>/gates/foo.gate.ts
+// (NOT <name>/gates/foo.gate.ts at root). This was confirmed in §2.2 by reading
+// makeResolveSource, but a concrete test guards against future regressions.
+it("when paths.workflows='workflows', a gate referenced as './gates/foo.gate.ts' resolves to workflows/<name>/gates/foo.gate.ts", async () => {
+  const seenGateFetchPaths: string[] = [];
+  const TWO_STEP = {
+    apiVersion: "mnm/v1", kind: "GovernedWorkflow", name: "demo",
+    variables: {},
+    steps: [
+      { id: "s1", deps: [], agent: "a", prompt_context: {}, gates: {
+        entry: [{ id: "g1", source: "./gates/g1.gate.ts" }],
+      }},
+    ],
+  };
+  const provider = {
+    paths: { agents: "agents", workflows: "workflows" },
+    fetchBlob: async ({ path }: { path: string }) => {
+      seenGateFetchPaths.push(path);
+      if (path === "workflows/demo/workflow.json") return JSON.stringify(TWO_STEP);
+      if (path === "workflows/demo/gates/g1.gate.ts") {
+        return `import { defineGate } from "@mnm/governed-workflows";
+                export default defineGate(async () => ({ pass: true, report: "ok" }));`;
+      }
+      throw new Error(`unexpected ${path}`);
+    },
+    resolveRef: async () => "demo-sha",
+    listTags: async () => [],
+    pathExists: async () => true,
+    commitFile: async () => ({ sha: "x" }),
+  };
+  // Seed company + def + agent + run for "demo"
+  const svc = mkSvcWith(provider);
+  const { runId } = await svc.launchWorkflow({ name: "demo", ... });
+  await svc.launchStep({ companyId, runId, stepId: "s1", actor: { type: "user", id: "u-1" } });
+
+  // Behavior: gate fetched from the prefixed path, NOT from <name>/gates/...
+  expect(seenGateFetchPaths).toContain("workflows/demo/gates/g1.gate.ts");
+  expect(seenGateFetchPaths).not.toContain("demo/gates/g1.gate.ts");
+});
 ```
 
 **Implementation** — `governed-workflows.ts:332-337` :
@@ -738,15 +1048,28 @@ const workflowRepoPath = resolveResourcePath(
 
 ```ts
 describe("create_agent — latestGitTag validation", () => {
-  it("inserts the agent row with latest_git_tag populated when the .md exists in the repo", async () => {
+  // Round 2 — replaced "row[0].latestGitTag === 'v1'" wiring assertion with
+  // a downstream behavior assertion: after create_agent with latestGitTag,
+  // loadCanonicalAgent on that name MUST succeed. Encodes "create_agent makes
+  // the agent usable", not "create_agent writes a column".
+  it("after create_agent with valid latestGitTag, loadCanonicalAgent for that name succeeds", async () => {
     const provider = mkProviderWith({ paths: { agents: "agents" }, blobs: { "agents/senior-dev/agent.md@v1": "# senior dev" } });
-    const result = await callCreateAgent({
+    await callCreateAgent({
       name: "senior-dev",
       latestGitTag: "v1",
       adapterType: "claude_local",
     });
-    const row = await db.select().from(agents).where(eq(agents.name, "senior-dev"));
-    expect(row[0].latestGitTag).toBe("v1");
+    // Now drive a launchStep that needs senior-dev — it must NOT throw AGENT_NOT_REGISTERED
+    // (we use launchStep as the public entry to loadCanonicalAgent since that fn is private).
+    const svc = mkSvcWith(provider);
+    const { runId, firstStep } = await svc.launchWorkflow({...stepReferencingSeniorDev});
+    const expectedSha = createHash("sha256").update("# senior dev").digest("hex");
+    const result = await svc.launchStep({
+      companyId, runId, stepId: firstStep, actor: { type: "user", id: "u-1" },
+      currentAgents: { "mnm--senior-dev": expectedSha },
+      sessionTools: ["Task","Write","Read"],
+    });
+    expect(result.agentName).toBe("senior-dev"); // round-trip works
   });
 
   it("throws AGENT_GIT_FILE_MISSING when latestGitTag is supplied but the .md is not in the repo", async () => {
@@ -760,12 +1083,23 @@ describe("create_agent — latestGitTag validation", () => {
     });
   });
 
-  it("preserves legacy behavior (no Git check) when latestGitTag is omitted", async () => {
-    // Should NOT call gitProvider.fetchBlob at all
-    const fetchSpy = vi.fn();
+  // Round 2 — replaced "fetchSpy.not.toHaveBeenCalled()" wiring with a contract
+  // assertion: omitting latestGitTag produces a row with latestGitTag NULL
+  // (not silently filled with a default). Cf. tautology audit P7 ligne 763.
+  it("when latestGitTag is omitted, the agent row is created with latestGitTag NULL (legacy compat)", async () => {
     const result = await callCreateAgent({ name: "legacy", adapterType: "claude_local" });
-    expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.id).toBeDefined();
+    const row = await db.select().from(agents).where(eq(agents.id, result.id));
+    expect(row[0].latestGitTag).toBeNull();
+  });
+
+  // Round 2 — MINOR N-4: zod whitespace rejection
+  it("rejects latestGitTag that is whitespace-only", async () => {
+    await expect(callCreateAgent({
+      name: "spaced",
+      latestGitTag: "   ",
+      adapterType: "claude_local",
+    })).rejects.toThrow(/latestGitTag|empty/i); // zod validation error
   });
 });
 ```
@@ -780,7 +1114,9 @@ input: z.object({
   capabilities: z.string().optional(),
   budgetMonthlyCents: z.number().int().min(0).optional(),
   tagIds: z.array(z.string().uuid()).optional(),
-  latestGitTag: z.string().min(1).optional()
+  latestGitTag: z.string().min(1)
+    .refine((s) => s.trim().length > 0, { message: "latestGitTag must not be whitespace-only" })
+    .optional()
     .describe("If supplied, server validates that agents/<name>/agent.md exists at this tag in the company's git provider."),
 }),
 handler: async ({ input, actor }) => {
@@ -872,33 +1208,65 @@ Idem tests pour `saveDefinition` et `getWorkflowFile`.
 
 ---
 
-### P9 — `workflow-ai-assistant.ts` : propager `resourceType` (DB-intégré)
+### P9 — `workflow-ai-assistant.ts` : propager `userId` ET `resourceType` (BLOCKER B-1, DB-intégré)
 
-**Goal** : `:283` actuellement aplatit `resolveGitProvider` en perdant le `resourceType`. Le service AI lit `workflow.json` puis `gates/*.ts` (les deux sont `resourceType: "workflow"`).
-
-**Test first** — étendre `workflow-ai-assistant.test.ts` :
+**Goal** (round 2 — BLOCKER B-1) : la closure à `:282-283` actuellement :
 ```ts
-it("calls resolveGitProvider with resourceType 'workflow' when loading the parsed workflow + gate tree", async () => {
+resolveGitProvider: (a) =>
+  deps.resolveGitProvider({ companyId: a.companyId, userId: null }),
+```
+- (a) hardcode `userId: null` alors que `streamWorkflowAiChat` reçoit `input.userId` (cf. interface ligne 42 et call à `listWorkflowFiles` ligne 308 qui passe `userId: input.userId`).
+- (b) drop le `resourceType` que `governedWorkflowService` interne va lui passer.
+
+Le fix correct **capture `input.userId` dans la closure** (ne lit PAS `a.userId` qui n'existe pas dans l'interface deps de `governedWorkflowService`) **ET propage `a.resourceType`**.
+
+**Test first** — 2 tests `it()` séparés (cf. tautology audit P9, un behavior par test) :
+
+```ts
+// Behavior 1: userId from input is propagated to deps.resolveGitProvider so the
+// per-user OAuth token is used (closes the gap left after a93c085 for AI assistant).
+it("propagates input.userId to deps.resolveGitProvider on the workflow.json fetch", async () => {
   const spy = vi.fn(async () => stubProvider);
-  await streamWorkflowAiChat(db, { ...deps, resolveGitProvider: spy }, { ... });
-  // The function may call resolveGitProvider multiple times (parsed workflow,
-  // listWorkflowFiles); ALL of them should be resourceType: "workflow"
-  for (const call of spy.mock.calls) {
-    expect(call[0]).toMatchObject({ resourceType: "workflow" });
-  }
+  await consumeAll(streamWorkflowAiChat(db, { ...deps, resolveGitProvider: spy }, {
+    companyId, userId: "u-99", workflowName: "demo", messages: [], ref: "v1.0.0",
+  }));
+  // First spy call is the getWorkflowParsed path — assert it has the user's id.
+  expect(spy.mock.calls[0][0]).toMatchObject({ companyId, userId: "u-99" });
+});
+
+// Behavior 2: resourceType is preserved through the closure.
+it("propagates resourceType='workflow' from governedWorkflowService through the closure", async () => {
+  const spy = vi.fn(async () => stubProvider);
+  await consumeAll(streamWorkflowAiChat(db, { ...deps, resolveGitProvider: spy }, {
+    companyId, userId: "u-99", workflowName: "demo", messages: [], ref: "v1.0.0",
+  }));
+  // The first call (getWorkflowParsed) is forwarded with resourceType: "workflow"
+  expect(spy.mock.calls[0][0]).toMatchObject({ resourceType: "workflow" });
 });
 ```
 
-**Implementation** — `workflow-ai-assistant.ts:282-285`. Plus simple : la closure transforme l'arg en gardant tout :
+**Implementation** — `workflow-ai-assistant.ts:280-285`. Capture `input.userId` (var locale) ET forwarde tous les args :
 ```ts
-resolveGitProvider: (a) =>
-  deps.resolveGitProvider({ ...a, userId: a.userId ?? null }),
+// 2. Load parsed workflow.json.
+const userId = input.userId; // capture for the closure below
+const svc = governedWorkflowService(db, {
+  resolveGitProvider: (a) =>
+    deps.resolveGitProvider({
+      companyId: a.companyId,
+      userId,                    // round 2: was hardcoded null, now propagates input.userId
+      resourceType: a.resourceType, // round 2: was dropped, now preserved
+    }),
+  shaCache: deps.shaCache,
+});
 ```
-(actuellement la closure hardcode `userId: null` et drop tout le reste — réécrire pour préserver `resourceType`).
 
-**Files touched** : `server/src/services/workflow-ai-assistant.ts:282-285` + tests.
+Note : la closure NE peut PAS faire `{ ...a, userId }` parce que TypeScript pourrait inférer un type union problématique. Forme explicite obligatoire.
 
-**Definition of done** : 1 vert + tests AI existants verts.
+**Files touched** : `server/src/services/workflow-ai-assistant.ts:280-285` + 2 nouveaux tests dans `workflow-ai-assistant.test.ts`.
+
+**Definition of done** : 2 verts + tests AI existants verts.
+
+**Si dev-C ne peut pas livrer P9 dans les délais** : retirer le claim "P9 fixes that" et documenter en follow-up post-démo. Le bug actuel (hardcoded null) est latent — pas une régression de ce refactor — donc pas un blocker absolu pour la démo lundi (l'AI assistant n'est pas dans le démo storyboard de Tom).
 
 ---
 
@@ -927,9 +1295,18 @@ it("launches cba-feature-dev tech-design step end-to-end", async () => {
   // Seed: company, agents (senior-dev with latestGitTag), workflow def cba-feature-dev,
   // git_provider config_layer_item with paths.{agents,workflows}
   // Use a LocalBareRepoProvider seeded with:
-  //   agents/senior-dev/agent.md
+  //   agents/senior-dev/agent.md (AGENT_MD_CONTENT — known content)
   //   workflows/cba-feature-dev/workflow.json (referencing senior-dev)
   //   workflows/cba-feature-dev/gates/*.gate.ts
+
+  // Round 2 (N-3): compute the canonical sha the way loadCanonicalAgent does,
+  // OR use setupWorkspace to discover it. Both encode the spec contract.
+  // We pick setupWorkspace because it ALSO exercises the agents/<name>/agent.md
+  // path resolution — killing two birds with one stone.
+  const setup = await svc.setupWorkspace({ companyId, userId: "u-1" });
+  const seniorDev = setup.agents.find((a) => a.name === "mnm--senior-dev");
+  expect(seniorDev).toBeDefined();
+  const expectedSeniorDevSha = seniorDev!.sha; // discovered, NOT hardcoded
 
   const launchResult = await svc.launchWorkflow({
     companyId,
@@ -965,7 +1342,32 @@ it("launches cba-feature-dev tech-design step end-to-end", async () => {
 
 ---
 
-## 6. Tâches opérationnelles (M1 → M4)
+## 6. Tâches opérationnelles (M0 → M4)
+
+### M0 — Apply pending Drizzle migrations (BLOCKER B-3 prerequisite)
+
+**Goal** : appliquer la migration `0067_agents_archived_at.sql` sur la DB live AVANT M2. Sans ça, le `UPDATE agents SET archived_at = NOW()` de M2 lèvera `column "archived_at" does not exist`.
+
+```bash
+cd "<mnm repo root>"
+bun run db:migrate
+# or whatever the canonical alias is — equivalent to:
+#   cd packages/db && bun drizzle-kit push:pg
+
+# Verify:
+psql "$MNM_DATABASE_URL" -c '\d agents' | grep archived_at
+# Expected output line:
+#   archived_at | timestamp with time zone |
+```
+
+**Definition of done** :
+- `psql ... -c '\d agents'` montre la colonne `archived_at`.
+- `psql ... -c '\d+ agents_company_active_idx'` (ou `\di+`) montre l'index partiel.
+- `SELECT COUNT(*) FROM agents WHERE archived_at IS NOT NULL` retourne 0 (la colonne par défaut est NULL).
+
+**Si M0 échoue** : ne pas continuer. Investiguer l'embedded postgres / schema journal. Le plan ne peut pas avancer.
+
+---
 
 ### M1 — Repo `tom.andrieu/mnm-demo` (script bash, dev exécute manuellement)
 
@@ -1008,6 +1410,11 @@ git tag cba-feature-dev/v1.0.2
 git push origin agents/v1.0.0 cba-feature-dev/v1.0.2
 ```
 
+**Round 2 (N-1) — branch protection caveat** : si `mnm-demo` a une branch protection sur `main` (rare sur lab.cbainfo.fr en perso, mais possible si Tom l'a activée pour signer ses MR), `git push origin main` retournera `remote rejected`. Dans ce cas :
+1. Pousser sur une branche de feature : `git checkout -b refactor/git-first && git push origin refactor/git-first`
+2. Créer une MR `refactor/git-first → main`, l'approuver, la merger via UI GitLab.
+3. Tagger `agents/v1.0.0` et `cba-feature-dev/v1.0.2` sur le merge commit, pousser les tags.
+
 **Definition of done** :
 - Le repo `mnm-demo` existe sur GitLab.
 - `git ls-tree -r agents/v1.0.0` montre `agents/senior-dev/agent.md` (et 3 autres).
@@ -1017,12 +1424,38 @@ git push origin agents/v1.0.0 cba-feature-dev/v1.0.2
 
 **Goal** : SPEC §M2 + correction §3.7 (transactionality).
 
-Pré-requis : exécuter d'abord la query découverte §2.4 pour obtenir l'ID réel du config_layer_item. Soit `<DISCOVERED_ID>`.
+**Pré-requis stricts** (round 2 — BLOCKER B-3) :
+1. **M0 done** — la colonne `agents.archived_at` existe (vérifié `psql -c '\d agents'`).
+2. **M1 done** — le repo `mnm-demo` est créé et les tags `agents/v1.0.0` + `cba-feature-dev/v1.0.2` existent.
+3. **`<DISCOVERED_ID>` connu** — exécuter la query découverte §2.4 pour obtenir l'ID réel du config_layer_item.
 
 Script `scripts/migrate-2026-04-26-db.sql` :
 ```sql
--- Run AFTER P3 migration is applied (agents.archived_at column exists)
+-- Run AFTER M0 (Drizzle migration 0067 applied — agents.archived_at exists)
 -- Run AFTER M1 (mnm-demo repo + tags exist)
+-- Replace <DISCOVERED_ID> with the result of the §2.4 query.
+
+-- Pre-flight: fail fast if M0 wasn't applied (defense in depth).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'agents' AND column_name = 'archived_at'
+  ) THEN
+    RAISE EXCEPTION 'M0 not applied: column agents.archived_at is missing. Run `bun run db:migrate` first.';
+  END IF;
+END
+$$;
+
+-- Round 2 — Nit-2: pre-count rows we are about to archive (defensive log).
+-- If this returns 0, we know greeter/shouter aren't there (already archived
+-- or never seeded) and the UPDATE below will be a no-op — investigate before
+-- continuing to M3.
+SELECT COUNT(*) AS to_archive_count
+FROM agents
+WHERE name IN ('greeter','shouter')
+  AND company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c';
+
 BEGIN;
 
 UPDATE config_layer_items
@@ -1047,6 +1480,8 @@ COMMIT;
 -- (resolveGitProvider cache is process-lifetime).
 ```
 
+**Rollback partiel** : single-TX wrap garantit qu'aucun état partiel n'est visible. Si le COMMIT échoue (rare — généralement lock timeout), tout est rollback automatiquement.
+
 **Definition of done** : single SQL transaction execute sans erreur, puis serveur redémarré (`bun run dev`).
 
 ### M3 — Inscrire les 4 agents en DB via MCP
@@ -1063,7 +1498,26 @@ mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agent
 
 Chaque appel valide que `agents/<name>/agent.md@agents/v1.0.0` existe — si M1 mal exécuté, le call retourne `AGENT_GIT_FILE_MISSING` immédiatement.
 
-**Definition of done** : `SELECT name, latest_git_tag FROM agents WHERE company_id = '<demo>' AND archived_at IS NULL` retourne 4 rows.
+**Definition of done** : `SELECT name, latest_git_tag FROM agents WHERE company_id = '<demo>' AND archived_at IS NULL` retourne 4 rows nommées exactement `senior-dev`, `dev`, `review-watcher`, `release-mgr`.
+
+**Round 2 (M-6) — rollback partiel** : si l'appel #3 (`review-watcher`) ou #4 (`release-mgr`) retourne `AGENT_GIT_FILE_MISSING` (parce que M1 a oublié un fichier), les rows déjà créées par #1 et #2 ne sont PAS rollback automatiquement (chaque MCP call est sa propre TX). Pire : un retry naïf de `create_agent` avec `name="senior-dev"` après #1 a déjà inséré la row va passer par `deduplicateAgentName` (`server/src/services/agents.ts:165-179`) qui crée `senior-dev 2`, cassant le triplet attendu en M4.
+
+→ **Avant tout retry de M3** : exécuter ce rollback SQL :
+```sql
+-- Hard rollback of partial M3 — run before relaunching the 4 MCP calls.
+DELETE FROM agents
+WHERE company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c'
+  AND name IN ('senior-dev','dev','review-watcher','release-mgr')
+  AND archived_at IS NULL;
+-- Verify count == 0:
+SELECT COUNT(*) FROM agents
+WHERE company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c'
+  AND name IN ('senior-dev','dev','review-watcher','release-mgr')
+  AND archived_at IS NULL;
+```
+Puis fixer la cause (commit manquant côté M1, push retardé, etc.) et relancer les 4 MCP calls.
+
+**Note sur la sécurité** : ce DELETE est OK ici parce qu'on est en single-user dev, et les 4 rows sont fraîches (pas d'historique). En prod, préférer `archived_at = NOW()` pour préserver l'audit.
 
 ### M4 — Test run end-to-end manuel
 
@@ -1106,14 +1560,17 @@ const step = mcp__plugin_mnm_mnm__launch_governed_step({
 
 ## 7. Acceptance criteria
 
-1. **Migration P3 appliquée** : `\d agents` montre `archived_at timestamptz`, l'index `agents_company_active_idx` existe.
-2. **Tests** : `bun test` global passe (zéro régression). Nouveaux tests P0/P1/P4/P5/P6/P7/P8/P9/P11 verts. Les 3 tests userId existants (lignes :202, :354, :803) verts après adaptation `expect.objectContaining`.
+**Round 2 — ordre opérationnel strict** : M0 → P0..P11 → M1 → M2 → M3 → M4.
+
+1. **M0 done (BLOCKER B-3)** : `psql -c '\d agents'` montre la colonne `archived_at timestamptz` ET l'index `agents_company_active_idx` (graphie unique). M2 ne doit JAMAIS s'exécuter avant M0.
+2. **Tests** : `bun test` global passe (zéro régression). Nouveaux tests P0/P1/P2/P2.1/P4/P5/P6/P7/P8/P9/P11 verts. Les 3 tests userId existants (lignes :202, :354, :803) verts après adaptation `expect.objectContaining({ userId, resourceType })`.
 3. **Typecheck** : `bun run typecheck` passe sur tous les packages (incluant `packages/db`, `packages/governed-workflows`, `server`).
-4. **M1 done** : repo `mnm-demo` créé avec layout `agents/<name>/agent.md` + `workflows/<name>/{workflow.json,gates/}` au tag `agents/v1.0.0` et `cba-feature-dev/v1.0.2`.
-5. **M2 done** : DB transaction passée, `config_layer_items[<DISCOVERED_ID>].config_json.paths = {agents:"agents",workflows:"workflows"}`, greeter/shouter archivés, server restarted.
-6. **M3 done** : 4 rows agents (senior-dev, dev, review-watcher, release-mgr) avec `latest_git_tag = 'agents/v1.0.0'` et `archived_at IS NULL`.
-7. **M4 done** : `launch_governed_step` retourne le triplet correct. Aucune erreur dans la réponse JSON.
-8. **Symétrie write/read** : un commit Studio sur `cba-feature-dev` produit un fichier à `workflows/cba-feature-dev/workflow.json` (visible via `git show`), pas à `cba-feature-dev/workflow.json` au root.
+4. **`syncEnvironment` userId propagé (BLOCKER B-2)** : 2 nouveaux tests P2.1 verts. `pushLocalState` et `syncEnvironment` MCP tools acceptent et propagent `actor.userId`.
+5. **M1 done** : repo `mnm-demo` créé avec layout `agents/<name>/agent.md` + `workflows/<name>/{workflow.json,gates/}` au tag `agents/v1.0.0` et `cba-feature-dev/v1.0.2`.
+6. **M2 done** : DB transaction passée APRÈS M0, `config_layer_items[<DISCOVERED_ID>].config_json.paths = {agents:"agents",workflows:"workflows"}`, greeter/shouter archivés, server restarted.
+7. **M3 done** : 4 rows agents (`senior-dev`, `dev`, `review-watcher`, `release-mgr`) avec `latest_git_tag = 'agents/v1.0.0'` et `archived_at IS NULL`. Aucun nom ne contient un suffixe " 2" (signe d'un retry sans rollback M-6).
+8. **M4 done** : `launch_governed_step` retourne le triplet correct. Aucune erreur dans la réponse JSON.
+9. **Symétrie write/read** : un commit Studio sur `cba-feature-dev` produit un fichier à `workflows/cba-feature-dev/workflow.json` (visible via `git show`), pas à `cba-feature-dev/workflow.json` au root.
 
 ---
 
@@ -1125,18 +1582,22 @@ const step = mcp__plugin_mnm_mnm__launch_governed_step({
 
 | Worker | Owns | Reasoning |
 |---|---|---|
-| dev-A — "core service" | P0, P2, P4, P6 | Cluster `governed-workflows.ts` + `build-mcp-services.ts`. Écrit le helper, refactor `loadCanonicalAgent` + `getWorkflowParsed`. **Critique pour la suite** — doit livrer P0+P2 en premier. |
-| dev-B — "DB + errors" | P1, P3, P5 | Cluster schema + errors. Migration Drizzle + colonne, codes d'erreur, `setupWorkspace` skip-on-404. Indépendant de A jusqu'à P5 (qui dépend du helper P0). |
-| dev-C — "tools + studio + AI" | P7, P8, P9, P10 | Cluster MCP tools + Studio service. `create_agent` extension, write-side path, AI assistant, routes UI. Dépend de P0 + P2 pour démarrer. |
+| dev-A — "core service" | P0, P2, P2.1, P4, P6 | Cluster `governed-workflows.ts` + `build-mcp-services.ts`. Écrit le helper, refactor `loadCanonicalAgent` + `getWorkflowParsed`. **Critique pour la suite** — doit livrer P0+P2 en premier. P2.1 (BLOCKER B-2 syncEnvironment userId) ajouté round 2. |
+| dev-B — "DB + errors" | P1, P3, P5 | Cluster schema + errors. Migration Drizzle + colonne, codes d'erreur, `setupWorkspace` skip-on-404. Indépendant de A jusqu'à P5 (qui dépend du helper P0). **Pre-flight P1** : run `bun test packages/governed-workflows/src/errors.test.ts` AVANT toute modif (cf. M-2). |
+| dev-C — "tools + studio + AI" | P7, P8, P9, P10 | Cluster MCP tools + Studio service. `create_agent` extension, write-side path, AI assistant (BLOCKER B-1 P9 fix), routes UI. Dépend de P0 + P2 pour démarrer. |
 
-**Sequencing strict** :
+**Sequencing strict** (round 2 — ajout M0, P2.1) :
 ```
-P0 → (P2, P3) parallèle → (P1) parallèle → (P4, P5, P6) parallèle après P0+P2 → (P7, P8, P9, P10) parallèle après P4+P6 → P11 (final E2E, single owner)
+M0 (apply 0067 migration on dev DB)
+  ↓
+P0 → (P2, P2.1, P3) parallèle → (P1) parallèle → (P4, P5, P6) parallèle après P0+P2 → (P7, P8, P9, P10) parallèle après P4+P6 → P11 (final E2E, single owner)
 ```
 
 **Phases ops séquentielles** (un seul owner = team-lead ou Tom) :
 ```
-M1 (post P0-P11) → M2 (post P3 + M1) → M3 (post P7 + M2) → M4 (post M3)
+M0 (DB migrate, BEFORE P3 ships nothing — but the LIVE dev DB needs the column)
+  ↓ tests run on the migrated DB
+M1 (post P0-P11) → M2 (post M0 + M1) → M3 (post P7 + M2) → M4 (post M3)
 ```
 
 **Code review checkpoint** après P4 (`AGENT_NOT_REGISTERED` est le changement de comportement le plus visible). Reviewer = `mnm-code-review`. Si OK → green-light pour P7-P11.
@@ -1300,3 +1761,87 @@ Total :
 - 3 NITS
 
 **Recommandation orchestrator : iterate-with-plan-author.** Les BLOCKERS sont chacun localisable et fixable en <30 min par mnm-plan-arch. Une fois B-1/B-2/B-3 résolus + tautology audit appliqué (4 tests réécrits), le plan est READY FOR DEV. Demo lundi 2026-04-28 reste réaliste.
+
+---
+
+## § Plan revisions (round 2)
+
+*Author: mnm-plan-arch — 2026-04-26 — close arch-critic round 1.*
+
+Edits ciblés en place dans les sections concernées. Ce résumé liste task-par-task ce qui a changé, et confirme le statut de chaque finding (BLOCKER / MAJOR / MINOR / NIT / TAUTOLOGY).
+
+### 11.1 Findings closed
+
+#### BLOCKERs — TOUS CLOSED
+
+| ID | Status | Evidence |
+|---|---|---|
+| **B-1** (P9 closure userId) | ✅ CLOSED | §3.11 ajouté (description du bug latent). §P9 réécrit avec implémentation concrète : capture `const userId = input.userId` AVANT la closure, propage `a.resourceType` aussi. 2 tests `it()` séparés (un par behavior, satisfait aussi tautology audit P9). Si dev-C ne peut pas livrer : §P9 documente le fallback "retirer le claim et follow-up post-démo" — explicitement nommé. |
+| **B-2** (syncEnvironment userId) | ✅ CLOSED | §2.3 ajout du callsite `:1197` (passe de 11 à 12 callsites). §3.10 ajouté (description). **Nouvelle tâche P2.1** créée avec 2 tests TDD (un pour `syncEnvironment` direct, un pour la chaîne `pushLocalState → syncEnvironment`). Ajout d'un acceptance criterion #4 dédié. dev-A owner. |
+| **B-3** (P3 → M2 ordering) | ✅ CLOSED | §3.12 ajouté. **Nouvelle tâche M0** "Apply pending Drizzle migrations" insérée avant M1 dans la séquence ops. M2 SQL commence par un guard `DO $$ ... IF NOT EXISTS ... archived_at ... RAISE EXCEPTION` qui fail-fast si M0 oublié. Acceptance criterion #1 explicite l'ordre. Section §8 "Sequencing strict" mise à jour avec M0 en tête. |
+
+#### MAJORs — TOUS CLOSED
+
+| ID | Status | Evidence |
+|---|---|---|
+| **M-1** (P0 helper traversal) | ✅ CLOSED | §P0 test étendu : 2 nouveaux `it()` ("rejects a name containing '..'", "rejects a file containing '..'"). Implémentation refactor avec helper `rejectTraversal(label, value)` appliqué à `paths prefix`, `name`, `file`. Total 8 verts (vs 6). |
+| **M-2** (errors.test.ts strict) | ✅ CLOSED | §P1 réécrit : pre-flight `bun test packages/governed-workflows/src/errors.test.ts` AVANT toute modif. Test `toEqual` complété avec les 3 codes file (`WORKFLOW_FILE_*`) qui devraient déjà être listés + 2 nouveaux. Nit-3 (acceptance criterion "tous tests verts") aussi adressé via ce pre-flight. |
+| **M-3** (gate translation untested) | ✅ CLOSED | §P6 ajout d'un test E2E unit-niveau qui force `paths.workflows="workflows"` et asserte `seenGateFetchPaths.toContain("workflows/demo/gates/g1.gate.ts")` ET `not.toContain("demo/gates/...")`. Encode la chaîne complète SPEC §3 #3. |
+| **M-4** (P2 .limit(1) + ordering) | ✅ CLOSED | §P2 implementation point #3 explicite : retirer `.limit(1)`, ajouter `.orderBy(configLayerItems.createdAt, configLayerItems.id)`. Nouveau test "selects deterministically by (created_at, id)" en §P2 round 2 qui seed 2 items et vérifie la sélection par resourceType. |
+| **M-5** (warn test fragile) | ✅ CLOSED | §P5 test split en 2 (cf. tautology). Le 2e test filtre `warnSpy.mock.calls.filter(c => c[0] === "[mnm.setup_workspace] agent_md_missing")` AVANT toute assertion, asserte le shape exact via `Object.keys(payload).sort()`, et regex `/token\|secret\|password\|credential/i` sur les keys. §3.4 mis à jour avec `providerProjectId` ajouté au payload (lu de `gitProvider.providerId` qui est non-secret). |
+| **M-6** (M3 rollback) | ✅ CLOSED | §M3 ajouté un bloc "Round 2 (M-6) — rollback partiel" avec le SQL `DELETE FROM agents WHERE company_id = '...' AND name IN (...) AND archived_at IS NULL`, explication du collision avec `deduplicateAgentName`, et note prod (préférer `archived_at = NOW()` en prod). |
+
+#### MINORs — TOUS CLOSED
+
+| ID | Status | Evidence |
+|---|---|---|
+| **N-1** (push direct main) | ✅ CLOSED | §M1 ajout du paragraphe "Round 2 (N-1) — branch protection caveat" avec la procédure MR fallback. |
+| **N-2** (nom index incohérent) | ✅ CLOSED | §3.9 corrigé `agents_company_archived_idx` → `agents_company_active_idx` (ligne 165). §P3 implementation note round 2 réaffirme le nom canonique. |
+| **N-3** (sha hardcoded P11) | ✅ CLOSED | §P11 réécrit : le test commence par `await svc.setupWorkspace(...)` pour découvrir `seniorDev.sha` puis l'utilise dans `currentAgents`. Bonus : exerce aussi le path resolution agents/<name>/agent.md. |
+| **N-4** (zod whitespace) | ✅ CLOSED | §P7 zod schema ajout `.refine((s) => s.trim().length > 0, { message: "..." })`. Nouveau test "rejects latestGitTag that is whitespace-only" en P7 round 2. |
+
+#### NITs — addressed where cheap
+
+| ID | Status | Evidence |
+|---|---|---|
+| **Nit-1** (cache key wording) | ✅ CLOSED implicitly | §3.2 reste descriptif. §P2 round 2 a clarifié explicitement le contrat de cache via le test renommé "second resolveGitProvider call ... skips DB lookup". |
+| **Nit-2** (M2 SELECT count) | ✅ CLOSED | §M2 SQL ajouté `SELECT COUNT(*) AS to_archive_count FROM agents WHERE name IN ('greeter','shouter') ...` avant le `BEGIN;` (pas dans la TX, juste pour log défensif). |
+| **Nit-3** (errors.test.ts pre-flight) | ✅ CLOSED | §P1 ajout de la consigne "Pre-flight check (dev-B doit faire CECI EN PREMIER)". |
+
+### 11.2 Tautology audit — résolution
+
+| Finding | Status | Evidence |
+|---|---|---|
+| P1 ligne 279 (string-literal mapping) | ✅ REWRITTEN | §P1 round 2 — supprimé le `expect(WORKFLOW_ERROR_CODES.AGENT_NOT_REGISTERED).toBe("AGENT_NOT_REGISTERED")`. Ajouté un test fonctionnel MCP-envelope qui asserte le routage end-to-end via `wrap()`. |
+| P2 ligne 314 (renommage) | ✅ RENAMED | §P2 round 2 — l'ancien test "caches per resourceType" remplacé par 2 tests : "second resolveGitProvider call ... skips DB lookup" (encode le caching réel via `vi.spyOn(db, "select")`) et "different resourceType values produce separate cache entries" (encode la différenciation par resourceType). |
+| P4 ligne 466 (placeholder) | ✅ FILLED | §P4 round 2 — placeholder remplacé par un test concret qui asserte le triplet retourné ET `seenPaths.toContain("agents/happy/agent.md")`. |
+| P5 ligne 553 (multi-behavior) | ✅ SPLIT | §P5 round 2 — split en 2 `it()` : "excludes from result..." (assertion sur `result.agents`) et "logs a structured warn..." (assertion sur warnSpy filtré). Cf. M-5. |
+| P7 ligne 763 (wiring `fetchSpy.not.toHaveBeenCalled`) | ✅ REWRITTEN | §P7 round 2 — replacement par un test qui asserte le contrat "row.latestGitTag === null" en sortie de DB après un `create_agent` sans tag, plutôt que l'absence d'appel git. |
+| P7 ligne 741 (re-select wiring) | ✅ STRENGTHENED | §P7 round 2 — replacement par un test qui exécute le round-trip `create_agent → launchStep → loadCanonicalAgent` et asserte `result.agentName === "senior-dev"` (encode "create_agent rend l'agent utilisable", pas "create_agent set la colonne"). |
+| P9 ligne 881 (loop wiring) | ✅ REWRITTEN | §P9 round 2 — split en 2 `it()` (un par behavior). Test 1 cible `spy.mock.calls[0][0]` (le call précis de `getWorkflowParsed`) avec `userId: "u-99"`. Test 2 cible `resourceType: "workflow"`. Plus de boucle aveugle. |
+| P11 sha calc | ✅ FILLED | cf. N-3 ci-dessus. Le sha est découvert via `setupWorkspace` (pas hardcoded, pas calculé par `createHash` côté test — encode aussi la chaîne agents/<name>/agent.md). |
+
+### 11.3 Findings opened in round 2 (et leur status)
+
+Aucun nouveau finding majeur n'a émergé pendant l'itération. Un point doc-only :
+- **Doc-1** : §10.D arch-critic note que `resolveGitlabCoordinates` (`build-mcp-services.ts:349-383`) lit `baseUrl, projectId` mais ignore `paths` → safe. Pas d'action plan, juste à confirmer en code review post-implem que ce site reste safe quand `cfg.paths` est présent (extra field).
+  → **Action** : ajouter un commentaire dans `resolveGitlabCoordinates` après round 2 implem ("// `cfg.paths` is read elsewhere in createResolveGitProvider; ignored here for the coordinates lookup."). Pas un blocker.
+
+### 11.4 Deferred (justified)
+
+Aucun finding deferred dans cette round 2 — tous les BLOCKERs/MAJORs/MINORs sont closed dans le plan ; les NITs sont closed à coût proche-zéro.
+
+Si le dev team découvre durant l'implémentation que P9 (B-1) ne peut pas être livré dans les délais (ex: la closure typage TypeScript fait perdre le `resourceType` malgré le forme explicite), le fallback documenté en §P9 ("retirer le claim et ouvrir un follow-up post-démo") s'applique. Ce n'est pas un blocker pour la démo lundi 2026-04-28 (l'AI assistant n'est pas dans le storyboard).
+
+### 11.5 Net delta vs round 1
+
+- **+1 nouvelle tâche dev** : P2.1 (BLOCKER B-2 syncEnvironment).
+- **+1 nouvelle tâche ops** : M0 (BLOCKER B-3 db migrate before M2).
+- **+8 nouveaux tests** (round 2 only) : P0 (+2 traversal name/file), P1 (+1 MCP envelope routing), P2 (+2 cache + ordering), P2.1 (+2 syncEnvironment userId), P5 split (+1 net), P6 (+1 gate translation), P7 (+1 whitespace + 1 round-trip), P9 (+1 net après split), P11 sha (+0 — concrétisation).
+- **0 task supprimée**.
+- **0 régression** introduite : tous les tests existants verts, les 3 tests userId adaptés via `expect.objectContaining`, pas de suppression.
+- **Volume** : ~+200 lignes au plan (1167 → ~1370).
+
+### 11.6 Sign-off round 2
+
+Le plan est **READY FOR ARCH-CRITIC ROUND 2**. Tous les BLOCKERs et MAJORs sont fermés avec edits ciblés. Les MINORs/NITs sont également fermés (coût proche-zéro). La tautology audit est intégralement traitée.
