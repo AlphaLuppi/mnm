@@ -303,6 +303,10 @@ export function createResolveGitProvider(
     if (rows.length === 0) {
       const provider = buildEnvFallbackProvider();
       companyCache.set(companyCacheKey, provider);
+      // Early return — without this, the trailing companyCache.set below would
+      // re-set the env fallback under the same key. The current code is safe;
+      // this comment exists so a future refactor that drops the return doesn't
+      // silently introduce a double-set (N-CR-4).
       return provider;
     }
 
