@@ -1196,7 +1196,9 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
    * required-env-var markers, not values.
    */
   async function syncEnvironment(args: SyncEnvironmentArgs): Promise<SyncEnvironmentResult> {
-    // 1. Read all enabled agents for the company
+    // 1. Read all enabled, non-archived agents for the company. Filtering on
+    //    archived_at IS NULL keeps syncEnvironment in lockstep with
+    //    setupWorkspace and loadCanonicalAgent — see spec §3 ("listings").
     const rows = await db
       .select()
       .from(agents)
@@ -1204,6 +1206,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         and(
           eq(agents.companyId, args.companyId),
           eq(agents.enabled, true),
+          isNull(agents.archivedAt),
         ),
       );
 
@@ -1223,18 +1226,43 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     const synced: SyncedAgent[] = [];
     for (const a of rows) {
       if (!a.latestGitTag) continue;
-      const mdPath = `${a.name}/agent.md`;
-      // ShaCache exposes get/set rather than getOrFetch — use them directly.
-      const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
-      const mdContent = cached !== undefined
-        ? cached
-        : await (async () => {
-            const blob = await gitProvider.fetchBlob({ path: mdPath, ref: a.latestGitTag! });
-            shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
-            return blob;
-          })();
-      const configMerged = await mergeAgentConfig(args.companyId, a.id);
-      synced.push({ name: a.name, mdContent, configMerged });
+      // Path symmetry: honour provider.paths.agents prefix (B-FIX-1).
+      // Mirrors setupWorkspace + loadCanonicalAgent so a `paths.agents="agents"`
+      // config doesn't 404 the keepalive sync path.
+      const mdPath = resolveResourcePath(
+        gitProvider as ProviderWithPaths,
+        "agent",
+        a.name,
+        "agent.md",
+      );
+      try {
+        // ShaCache exposes get/set rather than getOrFetch — use them directly.
+        const cached = shaCache.get(PROVIDER_ID, mdPath, a.latestGitTag);
+        const mdContent = cached !== undefined
+          ? cached
+          : await (async () => {
+              const blob = await gitProvider.fetchBlob({ path: mdPath, ref: a.latestGitTag! });
+              shaCache.set(PROVIDER_ID, mdPath, a.latestGitTag!, blob);
+              return blob;
+            })();
+        const configMerged = await mergeAgentConfig(args.companyId, a.id);
+        synced.push({ name: a.name, mdContent, configMerged });
+      } catch (err) {
+        // Skip-on-404 parity with setupWorkspace: one orphan must not abort
+        // the entire keepalive sync. Non-404 errors (auth, network) re-throw.
+        if (err instanceof GitProviderError && err.code === "not_found") {
+          console.warn("[mnm.sync_environment] agent_md_missing", {
+            companyId: args.companyId,
+            agentId: a.id,
+            agentName: a.name,
+            latestGitTag: a.latestGitTag,
+            providerId: (gitProvider as any).providerId ?? "unknown",
+            fullPath: mdPath,
+          });
+          continue;
+        }
+        throw err;
+      }
     }
 
     return { agents: synced, newSha, hasChanges: true };
@@ -1301,7 +1329,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
             agentId: a.id,
             agentName: a.name,
             latestGitTag: a.latestGitTag,
-            providerProjectId: (gitProvider as any).providerId ?? "unknown",
+            providerId: (gitProvider as any).providerId ?? "unknown",
             fullPath: mdPath,
           });
           continue;
