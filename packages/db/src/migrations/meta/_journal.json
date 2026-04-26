@@ -281,6 +281,13 @@
       "when": 1773937800000,
       "tag": "0047_gold_prompts",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1745625600000,
+      "tag": "0067_agents_archived_at",
+      "breakpoints": true
     }
   ]
 }
