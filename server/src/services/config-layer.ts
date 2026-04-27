@@ -1,4 +1,4 @@
-import { and, eq, desc, sql, isNull, asc } from "drizzle-orm";
+import { and, eq, desc, sql, isNull, asc, inArray } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import type { Db } from "@mnm/db";
 import {
@@ -203,7 +203,40 @@ export function configLayerService(db: Db) {
       .from(configLayerItems)
       .where(eq(configLayerItems.layerId, layerId));
 
-    return { ...layer, items };
+    // Enrich items with their files (read-time join). UI components written for
+    // the inline-content era expect SKILL.md text at item.configJson.content;
+    // compose it from config_layer_files so they keep working without changes.
+    const itemIds = items.map((i) => i.id);
+    const fileRows = itemIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(configLayerFiles)
+          .where(inArray(configLayerFiles.itemId, itemIds));
+
+    const filesByItem = new Map<string, typeof fileRows>();
+    for (const f of fileRows) {
+      if (!filesByItem.has(f.itemId)) filesByItem.set(f.itemId, []);
+      filesByItem.get(f.itemId)!.push(f);
+    }
+
+    const enrichedItems = items.map((item) => {
+      const files = filesByItem.get(item.id) ?? [];
+      const enriched: any = { ...item, files };
+      if (item.itemType === "skill") {
+        const cfg = (item.configJson ?? {}) as Record<string, unknown>;
+        const primaryFile = (cfg.primaryFile as string | undefined) ?? "SKILL.md";
+        if (cfg.content === undefined) {
+          const primary = files.find((f) => f.path === primaryFile);
+          if (primary) {
+            enriched.configJson = { ...cfg, content: primary.content };
+          }
+        }
+      }
+      return enriched;
+    });
+
+    return { ...layer, items: enrichedItems };
   }
 
   async function listLayers(
