@@ -27,6 +27,7 @@ describe("commitHandoffArtifacts", () => {
         stepId: "tech-design",
         input,
         author: { name: "Tom", email: "tom@cba.fr" },
+        startBranch: "main",
       });
 
       expect(persisted.outputs).toHaveLength(3);
