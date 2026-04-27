@@ -1,5 +1,6 @@
 import type { GitProvider } from "@mnm/git-provider";
 import matter from "gray-matter";
+import { randomUUID } from "node:crypto";
 import type { ParsedPlugin } from "./plugin-parser.js";
 import { parsePlugin } from "./plugin-parser.js";
 
@@ -95,4 +96,100 @@ export function stageGitActions(plugin: ParsedPlugin): GitAction[] {
   });
 
   return actions;
+}
+
+export interface BuildDbInput {
+  plugin: ParsedPlugin;
+  companyId: string;
+  createdByUserId: string;
+  sourceUrl: string;
+  sourceSha: string;
+}
+
+export interface DbLayerRow {
+  name: string;
+  description: string | null;
+  scope: "company";
+  sourceKind: "cc-plugin";
+  sourceUrl: string;
+  sourceSha: string;
+  createdByUserId: string;
+  visibility: "public";
+}
+
+export interface DbSkillItemRow {
+  tempId: string;
+  itemType: "skill";
+  name: string;
+  displayName: string | null;
+  description: string | null;
+  configJson: { frontmatter: Record<string, unknown>; primaryFile: "SKILL.md" };
+  sourceType: "git";
+  sourceUrl: string;
+}
+
+export interface DbSkillFileRow {
+  itemTempId: string;
+  path: string;
+  content: string;
+  contentHash: string;
+}
+
+export interface DbAgentRow {
+  name: string;
+  frontmatter: Record<string, unknown>;
+  body: string;
+}
+
+export interface DbPayload {
+  layer: DbLayerRow;
+  skillItems: DbSkillItemRow[];
+  skillFiles: DbSkillFileRow[];
+  agents: DbAgentRow[];
+}
+
+export function buildDbPayload(input: BuildDbInput): DbPayload {
+  const skillItems: DbSkillItemRow[] = [];
+  const skillFiles: DbSkillFileRow[] = [];
+  for (const skill of input.plugin.skills) {
+    const tempId = randomUUID();
+    skillItems.push({
+      tempId,
+      itemType: "skill",
+      name: skill.name,
+      displayName: typeof skill.frontmatter.name === "string" ? skill.frontmatter.name : skill.name,
+      description:
+        typeof skill.frontmatter.description === "string" ? skill.frontmatter.description : null,
+      configJson: { frontmatter: skill.frontmatter, primaryFile: "SKILL.md" },
+      sourceType: "git",
+      sourceUrl: `skills/${skill.name}/SKILL.md`,
+    });
+    for (const file of skill.files) {
+      skillFiles.push({
+        itemTempId: tempId,
+        path: file.path,
+        content: file.content,
+        contentHash: file.contentHash,
+      });
+    }
+  }
+  return {
+    layer: {
+      name: input.plugin.manifest.name,
+      description: input.plugin.manifest.description ?? null,
+      scope: "company",
+      sourceKind: "cc-plugin",
+      sourceUrl: input.sourceUrl,
+      sourceSha: input.sourceSha,
+      createdByUserId: input.createdByUserId,
+      visibility: "public",
+    },
+    skillItems,
+    skillFiles,
+    agents: input.plugin.agents.map((a) => ({
+      name: a.name,
+      frontmatter: a.frontmatter,
+      body: a.body,
+    })),
+  };
 }
