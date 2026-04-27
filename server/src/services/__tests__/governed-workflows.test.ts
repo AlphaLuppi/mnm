@@ -1583,3 +1583,347 @@ describe("governedWorkflowService — loadCanonicalAgent (T6 git-first)", () => 
     expect(result.agentName).toBe(agentName);
   });
 });
+
+describe("governedWorkflowService — cancelRun", () => {
+  let db: Db;
+
+  // Each test seeds its own company so there is no cross-test pollution
+  // (accessService caches role lookups by `${companyId}:${type}:${id}`).
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      resolveGitProvider: (async () => stubProvider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  // Seeds: company + workflow definition. Returns the companyId.
+  async function seedCompany(suffix: string): Promise<string> {
+    const companyId = crypto.randomUUID();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"Cancel-" + suffix + "-" + rand}, ${"CR" + rand})`,
+    );
+    await db.execute(
+      sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyId}, 'hello-world', 'v1.0.0')`,
+    );
+    return companyId;
+  }
+
+  // Launch a fresh run for a fresh company. The default initiator is
+  // `userId` (string-typed; we don't seed an authUsers row because the
+  // initiator-cancel path never hits the permission system).
+  async function launchRun(opts: { userId?: string } = {}): Promise<{
+    companyId: string;
+    runId: string;
+    actor: { type: "user"; id: string };
+  }> {
+    const userId = opts.userId ?? `init-${crypto.randomUUID()}`;
+    const companyId = await seedCompany(userId.slice(0, 6));
+    await setTenantContext(db, companyId);
+    const svc = mkSvc();
+    const { runId } = await svc.launchWorkflow({
+      companyId,
+      name: "hello-world",
+      params: {},
+      actor: { type: "user", id: userId },
+    });
+    return { companyId, runId, actor: { type: "user", id: userId } };
+  }
+
+  // Helper for the "cascade" test — flips the seeded greet step into a
+  // mix of states so the assertion can verify which states cascade and
+  // which don't. The default workflow only has 1 step, so we INSERT
+  // additional step_executions rows directly to model a 4-step run.
+  async function seedRunWithMixedStates(): Promise<{
+    companyId: string;
+    runId: string;
+    actor: { type: "user"; id: string };
+    succeededStepId: string;
+    failedStepId: string;
+    runningStepId: string;
+    pendingStepId: string;
+  }> {
+    const { companyId, runId, actor } = await launchRun();
+    // The launchWorkflow path inserted 1 step ("greet") in 'pending'. We
+    // mark it succeeded and add three more synthetic step_executions
+    // (running, pending, failed). step_id_in_json values need to be
+    // unique within the run (uniqueIndex governed_step_executions_run_step_uq).
+    await db.execute(sql`
+      UPDATE governed_step_executions
+      SET state = 'succeeded', completed_at = now()
+      WHERE run_id = ${runId} AND step_id_in_json = 'greet'
+    `);
+    await db.execute(sql`
+      INSERT INTO governed_step_executions (company_id, run_id, step_id_in_json, state)
+      VALUES
+        (${companyId}, ${runId}, 'step-running', 'running'),
+        (${companyId}, ${runId}, 'step-pending', 'pending'),
+        (${companyId}, ${runId}, 'step-failed', 'failed')
+    `);
+    const rows = await db.execute(sql`
+      SELECT id::text AS id, step_id_in_json, state
+      FROM governed_step_executions
+      WHERE run_id = ${runId}
+    `) as unknown as Array<{ id: string; step_id_in_json: string; state: string }>;
+    const byStepId = (s: string) => rows.find((r) => r.step_id_in_json === s)!.id;
+    return {
+      companyId,
+      runId,
+      actor,
+      succeededStepId: byStepId("greet"),
+      failedStepId: byStepId("step-failed"),
+      runningStepId: byStepId("step-running"),
+      pendingStepId: byStepId("step-pending"),
+    };
+  }
+
+  // Seed a board user (auth_users + company_membership) bound to a role
+  // that owns `workflows:cancel_run`. Returns an actor pointing at that user.
+  async function makeActorWithCancelPermission(
+    companyId: string,
+  ): Promise<{ type: "user"; id: string }> {
+    const userId = crypto.randomUUID();
+    // No auth_users row needed — accessService.hasPermission joins via
+    // company_memberships → roles → role_permissions → permissions. There
+    // is no FK from company_memberships.principal_id to auth_users, so
+    // referencing a free-floating user-shaped id is fine for permission tests.
+    // Ensure the workflows:cancel_run permission exists for this company.
+    const permId = crypto.randomUUID();
+    await db.execute(sql`
+      INSERT INTO permissions (id, company_id, slug, description, category, is_custom)
+      VALUES (${permId}, ${companyId}, 'workflows:cancel_run', 'Cancel/reactivate runs', 'workflows', false)
+      ON CONFLICT (company_id, slug) DO NOTHING
+    `);
+    // Look up the actual permission id (idempotent on repeated runs).
+    const permRows = await db.execute(sql`
+      SELECT id::text AS id FROM permissions
+      WHERE company_id = ${companyId} AND slug = 'workflows:cancel_run'
+    `) as unknown as Array<{ id: string }>;
+    const realPermId = permRows[0]!.id;
+    // Create a role + bind the permission.
+    const roleId = crypto.randomUUID();
+    await db.execute(sql`
+      INSERT INTO roles (id, company_id, name, slug, hierarchy_level)
+      VALUES (${roleId}, ${companyId}, 'CancelRunner', ${"cancel-runner-" + roleId.slice(0, 6)}, 100)
+    `);
+    await db.execute(sql`
+      INSERT INTO role_permissions (role_id, permission_id) VALUES (${roleId}, ${realPermId})
+    `);
+    // Membership.
+    await db.execute(sql`
+      INSERT INTO company_memberships (company_id, principal_type, principal_id, status, role_id)
+      VALUES (${companyId}, 'user', ${userId}, 'active', ${roleId})
+    `);
+    return { type: "user", id: userId };
+  }
+
+  // Stub provider for the cancelRun suite — workflowJson with a single
+  // step is enough; cancelRun never re-fetches the workflow.
+  const stubProvider = {
+    fetchBlob: async () => JSON.stringify({
+      apiVersion: "mnm/v1",
+      kind: "GovernedWorkflow",
+      name: "hello-world",
+      variables: {},
+      steps: [
+        { id: "greet", deps: [], agent: "greeter", prompt_context: {}, gates: {} },
+      ],
+    }),
+    listTags: async () => [{ name: "v1.0.0", sha: "deadbeef" }],
+    resolveRef: async () => "deadbeef",
+    pathExists: async () => true,
+    commitFile: async () => ({ sha: "x" }),
+  };
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("happy path: cancels run, cascades steps, emits live event, audits", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    const publish = vi.fn();
+    const result = await mkSvc().cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "tom mis-launched",
+      publishLiveEvent: publish,
+    });
+
+    expect(result.runId).toBe(runId);
+    expect(result.cancelledAt).toBeInstanceOf(Date);
+    expect(result.cancelledStepIds.length).toBeGreaterThan(0);
+
+    // Run row updated. Use Drizzle's typed select so the timestamp comes
+    // back as a Date — db.execute() returns raw strings for timestamps.
+    const { governedWorkflowRuns } = await import("@mnm/db");
+    const runRows = await db
+      .select()
+      .from(governedWorkflowRuns)
+      .where(sql`${governedWorkflowRuns.id} = ${runId}`);
+    expect(runRows[0]!.cancelledAt).toBeInstanceOf(Date);
+    expect(runRows[0]!.cancellationReason).toBe("tom mis-launched");
+    expect(runRows[0]!.cancelledByActorId).toBe(actor.id);
+    expect(runRows[0]!.cancelledByActorType).toBe("user");
+
+    // Live event published with expected shape.
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "governed_run.cancelled",
+        companyId,
+        payload: expect.objectContaining({
+          runId,
+          reason: "tom mis-launched",
+          cancelledByActorId: actor.id,
+        }),
+      }),
+    );
+
+    // Audit row inserted.
+    const auditRows = await db.execute(sql`
+      SELECT action, target_id, metadata
+      FROM audit_events
+      WHERE company_id = ${companyId} AND action = 'governed_run.cancelled'
+    `) as unknown as Array<{ action: string; target_id: string; metadata: any }>;
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]!.target_id).toBe(runId);
+    expect(auditRows[0]!.metadata).toMatchObject({
+      runId,
+      reason: "tom mis-launched",
+    });
+  });
+
+  it("cascades pending/running/gate_eval steps to cancelled, leaves succeeded/failed alone", async () => {
+    const {
+      companyId,
+      runId,
+      actor,
+      succeededStepId,
+      failedStepId,
+      runningStepId,
+      pendingStepId,
+    } = await seedRunWithMixedStates();
+
+    await mkSvc().cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "ok cancel",
+      publishLiveEvent: vi.fn(),
+    });
+
+    const stepRows = await db.execute(sql`
+      SELECT id::text AS id, state FROM governed_step_executions WHERE run_id = ${runId}
+    `) as unknown as Array<{ id: string; state: string }>;
+    const stateById = (id: string) => stepRows.find((r) => r.id === id)!.state;
+
+    // Terminal states preserved.
+    expect(stateById(succeededStepId)).toBe("succeeded");
+    expect(stateById(failedStepId)).toBe("failed");
+    // In-flight states cascaded to cancelled.
+    expect(stateById(runningStepId)).toBe("cancelled");
+    expect(stateById(pendingStepId)).toBe("cancelled");
+  });
+
+  it("rejects when run.status !== 'active' (already completed)", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    await db.execute(sql`
+      UPDATE governed_workflow_runs SET status = 'completed', completed_at = now() WHERE id = ${runId}
+    `);
+    await expect(
+      mkSvc().cancelRun({
+        runId,
+        companyId,
+        actor,
+        reason: "after-the-fact",
+        publishLiveEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_ACTIVE });
+  });
+
+  it("rejects when already cancelled (idempotent guard)", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    await mkSvc().cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "first cancel",
+      publishLiveEvent: vi.fn(),
+    });
+    await expect(
+      mkSvc().cancelRun({
+        runId,
+        companyId,
+        actor,
+        reason: "second cancel",
+        publishLiveEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_ALREADY_CANCELLED,
+    });
+  });
+
+  it("rejects non-initiator actor without permission", async () => {
+    const { companyId, runId } = await launchRun();
+    // Different user, no membership/role → no permission.
+    const otherActor = { type: "user" as const, id: crypto.randomUUID() };
+    await expect(
+      mkSvc().cancelRun({
+        runId,
+        companyId,
+        actor: otherActor,
+        reason: "intruder cancels",
+        publishLiveEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN });
+  });
+
+  it("allows initiator without permission", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    await expect(
+      mkSvc().cancelRun({
+        runId,
+        companyId,
+        actor,
+        reason: "owner cancels",
+        publishLiveEvent: vi.fn(),
+      }),
+    ).resolves.toMatchObject({ runId });
+  });
+
+  it("allows non-initiator actor with workflows:cancel_run permission", async () => {
+    const { companyId, runId } = await launchRun();
+    const adminActor = await makeActorWithCancelPermission(companyId);
+    await expect(
+      mkSvc().cancelRun({
+        runId,
+        companyId,
+        actor: adminActor,
+        reason: "admin cancels",
+        publishLiveEvent: vi.fn(),
+      }),
+    ).resolves.toMatchObject({ runId });
+  });
+
+  it("rejects reason shorter than 5 chars", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    await expect(
+      mkSvc().cancelRun({
+        runId,
+        companyId,
+        actor,
+        reason: "no",
+        publishLiveEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT });
+  });
+});

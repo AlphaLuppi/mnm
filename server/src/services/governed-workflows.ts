@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
   governedStepExecutions,
   gateResults,
   agents,
+  auditEvents,
   type Db,
 } from "@mnm/db";
 import {
@@ -18,16 +19,20 @@ import {
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
 import type { AuditActorType, MergedConfigItem } from "@mnm/shared";
+import { PERMISSIONS } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
 import { resolveResourcePath, type ProviderWithPaths } from "./git-resource-path.js";
 import { listRuns as listRunsExt, type ListRunsArgs, type ListRunsResult } from "./governed-workflows-extensions.js";
 import { configLayerConflictService } from "./config-layer-conflict.js";
+import { accessService } from "./access.js";
 import { publishLiveEvent } from "./live-events.js";
 import {
   emitStepUpdated,
   emitGateEvaluated,
+  emitRunCancelled,
+  type PublishFn,
 } from "../realtime/emitters/governed-run-events.js";
 
 // Constant providerId for ShaCache (providerId, path, sha) tuple.
@@ -252,6 +257,33 @@ export interface PushLocalStateResult {
   /** Relative path under `${CLAUDE_PLUGIN_DATA}/` the harness should write to. */
   targetRelativePath: string;
   content: PushLocalStatePayload;
+}
+
+/**
+ * Actor shape consumed by mutation methods (cancelRun, reactivateRun). Matches
+ * the existing `{ type: AuditActorType; id: string }` pattern used by
+ * launchWorkflow/launchStep/completeStep so callsites don't need to translate.
+ */
+export type Actor = { type: AuditActorType; id: string };
+
+export interface CancelRunArgs {
+  runId: string;
+  companyId: string;
+  actor: Actor;
+  reason: string;
+  /**
+   * SSE/WS publisher. Injected (rather than imported as a module-level
+   * default) so unit tests can substitute a `vi.fn()` and assert the
+   * `governed_run.cancelled` payload without mocking the live-events
+   * singleton.
+   */
+  publishLiveEvent: PublishFn;
+}
+
+export interface CancelRunResult {
+  runId: string;
+  cancelledAt: Date;
+  cancelledStepIds: string[];
 }
 
 /**
@@ -1419,6 +1451,169 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     return listRunsExt(db, args);
   }
 
+  /**
+   * Cancel an active governed-workflow run. Idempotent guard via
+   * `cancelled_at IS NULL` + `status = 'active'`. Cascades step executions
+   * in `pending|running|gate_eval` to `cancelled` (terminal states are
+   * preserved for audit).
+   *
+   * Authorization (spec §4): the run's initiator can always cancel; any
+   * other actor needs `workflows:cancel_run`. Cross-tenant access falls
+   * through as `WORKFLOW_RUN_NOT_FOUND` (the `companyId` filter on the
+   * SELECT) — never `WORKFLOW_FORBIDDEN`, so existence is not leaked.
+   *
+   * Atomicity: run UPDATE + step cascade + audit insert run inside a
+   * single TX with `FOR UPDATE` on the run row to serialize concurrent
+   * cancels. The live event is published from inside the TX after all
+   * writes; if the publish itself throws, the TX rolls back and the user
+   * sees a clean failure rather than half-cancelled state.
+   */
+  async function cancelRun(args: CancelRunArgs): Promise<CancelRunResult> {
+    // Reason length check first — cheap, fail fast, no DB hit.
+    if (typeof args.reason !== "string" || args.reason.trim().length < 5) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+        "Cancellation reason must be at least 5 characters.",
+        ["Provide a clear reason explaining why the run is being cancelled."],
+      );
+    }
+
+    return await db.transaction(async (tx) => {
+      // Lock the run row with FOR UPDATE so concurrent cancel calls serialize
+      // — the second one will see cancelledAt != null and reject cleanly.
+      const [run] = await tx
+        .select()
+        .from(governedWorkflowRuns)
+        .where(
+          and(
+            eq(governedWorkflowRuns.id, args.runId),
+            eq(governedWorkflowRuns.companyId, args.companyId),
+          ),
+        )
+        .for("update");
+
+      if (!run) {
+        // Cross-tenant or missing — both surface as NOT_FOUND so existence
+        // is not leaked across tenants (mirrors getRun behaviour).
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+          `Run '${args.runId}' not found.`,
+        );
+      }
+
+      if (run.status !== "active") {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_ACTIVE,
+          `Run is '${run.status}', only active runs can be cancelled.`,
+          ["Only runs with status='active' can be cancelled."],
+        );
+      }
+
+      if (run.cancelledAt !== null) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_ALREADY_CANCELLED,
+          `Run '${args.runId}' is already cancelled (since ${run.cancelledAt.toISOString()}).`,
+        );
+      }
+
+      // Authorization: initiator OR has workflows:cancel_run. We delegate
+      // permission resolution to accessService (one source of truth) and
+      // reuse the `tx` connection so the check honours the same RLS scope
+      // as the run lookup. accessService.hasPermission already handles
+      // both 'user' and 'agent' principal types (with agent fallback to
+      // direct agent_permissions rows).
+      const isInitiator = args.actor.id === run.initiatedByActorId;
+      let allowed = isInitiator;
+      if (!allowed && (args.actor.type === "user" || args.actor.type === "agent")) {
+        const access = accessService(tx as unknown as Db);
+        allowed = await access.hasPermission(
+          args.companyId,
+          args.actor.type,
+          args.actor.id,
+          PERMISSIONS.WORKFLOWS_CANCEL_RUN,
+        );
+      }
+      if (!allowed) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN,
+          "You can only cancel runs you initiated, or you need the workflows:cancel_run permission.",
+          [
+            "Ask an admin to grant workflows:cancel_run, or have the run's initiator cancel it.",
+          ],
+        );
+      }
+
+      // Single Date instance reused across UPDATE / audit / live event so
+      // every consumer agrees on the cancellation timestamp (no microsecond
+      // drift between two `new Date()` calls).
+      const cancelledAt = new Date();
+
+      await tx
+        .update(governedWorkflowRuns)
+        .set({
+          cancelledAt,
+          cancelledByActorId: args.actor.id,
+          cancelledByActorType: args.actor.type,
+          cancellationReason: args.reason,
+          updatedAt: cancelledAt,
+        })
+        .where(eq(governedWorkflowRuns.id, args.runId));
+
+      // Cascade only touches in-flight states. Terminal states
+      // (succeeded/failed) are preserved as-is for audit.
+      const cascaded = await tx
+        .update(governedStepExecutions)
+        .set({ state: "cancelled", updatedAt: cancelledAt })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            inArray(governedStepExecutions.state, ["pending", "running", "gate_eval"]),
+          ),
+        )
+        .returning({ id: governedStepExecutions.id });
+      const cancelledStepIds = cascaded.map((r) => r.id);
+
+      // Audit — written directly in the TX so it's atomic with the state
+      // change. We bypass auditService(db).emit() here because that helper
+      // opens its own connection (for prev_hash chaining) and would commit
+      // even if our TX rolls back — leaving an orphan audit row. The
+      // prev_hash chain will self-heal on the next emit() since chaining
+      // looks at the latest row by created_at.
+      await tx.insert(auditEvents).values({
+        companyId: args.companyId,
+        actorId: args.actor.id,
+        actorType: args.actor.type,
+        action: "governed_run.cancelled",
+        targetType: "workflow",
+        targetId: args.runId,
+        metadata: {
+          runId: args.runId,
+          reason: args.reason,
+          cancelledStepIds,
+        },
+        severity: "info",
+        createdAt: cancelledAt,
+      });
+
+      // Publish the live event INSIDE the TX so a failure to dispatch
+      // (publisher throws) rolls the cancellation back. Acceptable because
+      // PublishFn is fire-and-forget against an in-memory bus — the only
+      // realistic failure is a programming error in the emitter.
+      emitRunCancelled({
+        publish: args.publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        cancelledAt,
+        cancelledByActorId: args.actor.id,
+        cancelledByActorType: args.actor.type,
+        reason: args.reason,
+        cancelledStepIds,
+      });
+
+      return { runId: args.runId, cancelledAt, cancelledStepIds };
+    });
+  }
+
   return {
     listDefinitions,
     getDefinition,
@@ -1431,6 +1626,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     setupWorkspace,
     pushLocalState,
     listRuns,
+    cancelRun,
   };
 }
 
