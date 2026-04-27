@@ -1927,3 +1927,188 @@ describe("governedWorkflowService — cancelRun", () => {
     ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT });
   });
 });
+
+describe("governedWorkflowService — reactivateRun", () => {
+  let db: Db;
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      resolveGitProvider: (async () => stubProvider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  async function seedCompany(suffix: string): Promise<string> {
+    const companyId = crypto.randomUUID();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"Reactivate-" + suffix + "-" + rand}, ${"RR" + rand})`,
+    );
+    await db.execute(
+      sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyId}, 'hello-world', 'v1.0.0')`,
+    );
+    return companyId;
+  }
+
+  async function launchRun(opts: { userId?: string } = {}): Promise<{
+    companyId: string;
+    runId: string;
+    actor: { type: "user"; id: string };
+  }> {
+    const userId = opts.userId ?? `init-${crypto.randomUUID()}`;
+    const companyId = await seedCompany(userId.slice(0, 6));
+    await setTenantContext(db, companyId);
+    const svc = mkSvc();
+    const { runId } = await svc.launchWorkflow({
+      companyId,
+      name: "hello-world",
+      params: {},
+      actor: { type: "user", id: userId },
+    });
+    return { companyId, runId, actor: { type: "user", id: userId } };
+  }
+
+  // Cancel a run as the initiator so we have a cancelled run to reactivate.
+  async function launchAndCancelRun(): Promise<{
+    companyId: string;
+    runId: string;
+    actor: { type: "user"; id: string };
+  }> {
+    const { companyId, runId, actor } = await launchRun();
+    await mkSvc().cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "test setup cancel",
+      publishLiveEvent: vi.fn(),
+    });
+    return { companyId, runId, actor };
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("happy path: clears cancellation fields, restores steps, emits, audits", async () => {
+    const { companyId, runId, actor } = await launchAndCancelRun();
+    const publish = vi.fn();
+    const result = await mkSvc().reactivateRun({
+      runId,
+      companyId,
+      actor,
+      publishLiveEvent: publish,
+    });
+
+    expect(result.runId).toBe(runId);
+    expect(result.reactivatedStepIds.length).toBeGreaterThan(0);
+
+    // Run row: all 4 cancellation fields cleared.
+    const { governedWorkflowRuns } = await import("@mnm/db");
+    const runRows = await db
+      .select()
+      .from(governedWorkflowRuns)
+      .where(sql`${governedWorkflowRuns.id} = ${runId}`);
+    expect(runRows[0]!.cancelledAt).toBeNull();
+    expect(runRows[0]!.cancelledByActorId).toBeNull();
+    expect(runRows[0]!.cancelledByActorType).toBeNull();
+    expect(runRows[0]!.cancellationReason).toBeNull();
+
+    // Live event published with expected shape.
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "governed_run.reactivated",
+        companyId,
+        payload: expect.objectContaining({
+          runId,
+          reactivatedByActorId: actor.id,
+          reactivatedByActorType: "user",
+        }),
+      }),
+    );
+
+    // Audit row inserted.
+    const auditRows = await db.execute(sql`
+      SELECT action, target_id, metadata
+      FROM audit_events
+      WHERE company_id = ${companyId} AND action = 'governed_run.reactivated'
+    `) as unknown as Array<{ action: string; target_id: string; metadata: any }>;
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]!.target_id).toBe(runId);
+    expect(auditRows[0]!.metadata).toMatchObject({ runId });
+    expect(Array.isArray(auditRows[0]!.metadata.reactivatedStepIds)).toBe(true);
+  });
+
+  it("restores step to pending if startedAt is null, running if not null", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    // Seed two steps in distinct states: one never-started, one started.
+    // The launchWorkflow path inserted 1 step ("greet") in 'pending' with
+    // startedAt=NULL. Add a second step with startedAt set.
+    await db.execute(sql`
+      INSERT INTO governed_step_executions (company_id, run_id, step_id_in_json, state, started_at)
+      VALUES (${companyId}, ${runId}, 'step-was-running', 'running', now())
+    `);
+    // Cancel — both steps cascade to 'cancelled', but startedAt is preserved.
+    await mkSvc().cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "setup for reactivate",
+      publishLiveEvent: vi.fn(),
+    });
+
+    // Reactivate.
+    await mkSvc().reactivateRun({
+      runId,
+      companyId,
+      actor,
+      publishLiveEvent: vi.fn(),
+    });
+
+    const stepRows = await db.execute(sql`
+      SELECT step_id_in_json, state FROM governed_step_executions WHERE run_id = ${runId}
+    `) as unknown as Array<{ step_id_in_json: string; state: string }>;
+    const stateBy = (sid: string) =>
+      stepRows.find((r) => r.step_id_in_json === sid)!.state;
+
+    // Never-started step → pending. Previously-running step → running.
+    expect(stateBy("greet")).toBe("pending");
+    expect(stateBy("step-was-running")).toBe("running");
+  });
+
+  it("rejects when run is not cancelled", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    await expect(
+      mkSvc().reactivateRun({
+        runId,
+        companyId,
+        actor,
+        publishLiveEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_CANCELLED,
+    });
+  });
+
+  it("rejects non-initiator without permission", async () => {
+    const { companyId, runId } = await launchAndCancelRun();
+    // Stranger B has no membership/role on this company.
+    const stranger = { type: "user" as const, id: crypto.randomUUID() };
+    await expect(
+      mkSvc().reactivateRun({
+        runId,
+        companyId,
+        actor: stranger,
+        publishLiveEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN });
+  });
+});
