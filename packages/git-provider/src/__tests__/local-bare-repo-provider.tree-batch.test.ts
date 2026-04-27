@@ -148,4 +148,61 @@ describe("LocalBareRepoProvider.commitMultipleFiles", () => {
     ]);
     expect(stdout.trim()).toBe(result.sha);
   });
+
+  it("creates a new branch starting from startBranch when target branch does not exist", async () => {
+    // Use a fresh repo with a "master" branch so we can verify startBranch
+    // divergence independently of the shared fixture's "main" branch.
+    const masterRepo = await makeBareRepo({
+      seedFiles: { "README.md": "hello\n" },
+      branch: "master",
+    });
+    try {
+      const p = new LocalBareRepoProvider({
+        providerId: "test",
+        repoDir: masterRepo.dir,
+      });
+
+      const result = await p.commitMultipleFiles({
+        branch: "mnm-runs/abc-123",
+        startBranch: "master",
+        commitMessage: "step tech-design: handoff",
+        authorName: "Tom",
+        authorEmail: "tom@cba.fr",
+        actions: [
+          { path: "artifacts/runs/abc-123/tech-design/design.md", content: "# Design\n" },
+        ],
+      });
+
+      expect(result.sha).toMatch(/^[a-f0-9]{40}$/);
+
+      // Verify the new branch exists and points at the new commit.
+      const { stdout: branchSha } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "rev-parse",
+        "refs/heads/mnm-runs/abc-123",
+      ]);
+      expect(branchSha.trim()).toBe(result.sha);
+
+      // Verify master is unchanged (parent of the new commit, not the same).
+      const { stdout: masterSha } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "rev-parse",
+        "refs/heads/master",
+      ]);
+      expect(masterSha.trim()).not.toBe(result.sha);
+
+      // Verify the new commit's parent is master's tip.
+      const { stdout: parentSha } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "rev-parse",
+        `${result.sha}^`,
+      ]);
+      expect(parentSha.trim()).toBe(masterSha.trim());
+    } finally {
+      await masterRepo.cleanup();
+    }
+  });
 });

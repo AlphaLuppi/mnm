@@ -374,6 +374,7 @@ export class LocalBareRepoProvider implements GitProvider {
 
       return { sha: commitSha };
     } catch (cause) {
+      if (cause instanceof GitProviderError) throw cause;
       throw this.classifyGitError(cause, "commitMultipleFiles", {
         branch: args.branch,
         actions: args.actions.length,
