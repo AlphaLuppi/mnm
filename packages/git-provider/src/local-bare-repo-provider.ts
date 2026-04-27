@@ -261,18 +261,36 @@ export class LocalBareRepoProvider implements GitProvider {
         parentSha = stdout.trim();
         branchExisted = true;
       } catch {
-        // Branch doesn't exist — fall back to HEAD for seed tree.
-        try {
-          const { stdout } = await execFileAsync("git", [
-            "--git-dir",
-            this.repoDir,
-            "rev-parse",
-            "--verify",
-            "HEAD",
-          ]);
-          parentSha = stdout.trim();
-        } catch {
-          parentSha = null;
+        // Branch doesn't exist. Prefer startBranch, fall back to HEAD.
+        if (args.startBranch) {
+          try {
+            const { stdout } = await execFileAsync("git", [
+              "--git-dir",
+              this.repoDir,
+              "rev-parse",
+              "--verify",
+              `refs/heads/${args.startBranch}`,
+            ]);
+            parentSha = stdout.trim();
+          } catch (cause) {
+            throw this.classifyGitError(cause as Error, "commitMultipleFiles", {
+              branch: args.branch,
+              startBranch: args.startBranch,
+            });
+          }
+        } else {
+          try {
+            const { stdout } = await execFileAsync("git", [
+              "--git-dir",
+              this.repoDir,
+              "rev-parse",
+              "--verify",
+              "HEAD",
+            ]);
+            parentSha = stdout.trim();
+          } catch {
+            parentSha = null;
+          }
         }
       }
 

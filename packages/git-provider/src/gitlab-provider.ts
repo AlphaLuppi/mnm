@@ -289,13 +289,16 @@ export class GitlabProvider implements GitProvider {
     });
 
     const url = `${this.projectPath()}/repository/commits`;
-    const payload = {
+    const payload: Record<string, unknown> = {
       branch: args.branch,
       commit_message: args.commitMessage,
       author_name: args.authorName,
       author_email: args.authorEmail,
       actions,
     };
+    if (args.startBranch) {
+      payload.start_branch = args.startBranch;
+    }
 
     let res: Response;
     try {
