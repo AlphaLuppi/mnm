@@ -22,6 +22,7 @@ import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
 import { resolveResourcePath, type ProviderWithPaths } from "./git-resource-path.js";
+import { listRuns as listRunsExt, type ListRunsArgs, type ListRunsResult } from "./governed-workflows-extensions.js";
 import { configLayerConflictService } from "./config-layer-conflict.js";
 import { publishLiveEvent } from "./live-events.js";
 import {
@@ -1432,6 +1433,13 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     return buckets;
   }
 
+  // Thin pass-through to the extensions helper so MCP tools can stay
+  // consistent with the `services.governedWorkflows.xxx` mocking pattern
+  // and don't have to thread `db` themselves.
+  async function listRuns(args: ListRunsArgs): Promise<ListRunsResult> {
+    return listRunsExt(db, args);
+  }
+
   return {
     listDefinitions,
     getDefinition,
@@ -1443,6 +1451,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     syncEnvironment,
     setupWorkspace,
     pushLocalState,
+    listRuns,
   };
 }
 

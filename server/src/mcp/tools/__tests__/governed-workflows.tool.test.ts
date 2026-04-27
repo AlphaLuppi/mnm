@@ -145,6 +145,80 @@ describe("governed-workflows.tool", () => {
     expect(body.code).toBe("WORKFLOW_GATE_FAILED");
   });
 
+  it("list_governed_workflow_runs returns mapped items + total", async () => {
+    const services = mkServices({
+      listRuns: vi.fn(async () => ({
+        items: [
+          {
+            id: "00000000-0000-0000-0000-0000000000aa",
+            status: "active",
+            startedAt: new Date("2026-04-27T01:40:00Z"),
+            completedAt: null,
+            gitTag: "feature-dev/v1.0.3",
+            gitSha: "045419d",
+            initiatedByActorType: "user",
+            initiatedByActorId: "u-1",
+          },
+          {
+            id: "00000000-0000-0000-0000-0000000000bb",
+            status: "completed",
+            startedAt: new Date("2026-04-26T10:00:00Z"),
+            completedAt: new Date("2026-04-26T10:30:00Z"),
+            gitTag: "feature-dev/v1.0.2",
+            gitSha: "deadbeef",
+            initiatedByActorType: "user",
+            initiatedByActorId: "u-1",
+          },
+        ],
+        total: 2,
+      })),
+    });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const list = tools.find((t) => t.name === "list_governed_workflow_runs")!;
+    expect(list, "list_governed_workflow_runs tool must be registered").toBeDefined();
+
+    const r = await list.handler({
+      input: { name: "feature-dev", status: "active" },
+      actor: mkActor(),
+    });
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.total).toBe(2);
+    expect(body.items).toHaveLength(2);
+    expect(body.items[0]).toEqual({
+      run_id: "00000000-0000-0000-0000-0000000000aa",
+      status: "active",
+      started_at: "2026-04-27T01:40:00.000Z",
+      completed_at: null,
+      git_tag: "feature-dev/v1.0.3",
+      git_sha: "045419d",
+      initiated_by_actor_type: "user",
+      initiated_by_actor_id: "u-1",
+    });
+    expect(services.governedWorkflows.listRuns).toHaveBeenCalledWith({
+      companyId: "00000000-0000-0000-0000-000000000a01",
+      workflowName: "feature-dev",
+      status: "active",
+      limit: 20,
+      offset: 0,
+    });
+  });
+
+  it("list_governed_workflow_runs defaults limit/offset and omits filters when absent", async () => {
+    const services = mkServices({
+      listRuns: vi.fn(async () => ({ items: [], total: 0 })),
+    });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const list = tools.find((t) => t.name === "list_governed_workflow_runs")!;
+    await list.handler({ input: { name: "feature-dev" }, actor: mkActor() });
+    expect(services.governedWorkflows.listRuns).toHaveBeenCalledWith({
+      companyId: "00000000-0000-0000-0000-000000000a01",
+      workflowName: "feature-dev",
+      status: undefined,
+      limit: 20,
+      offset: 0,
+    });
+  });
+
   it("sync_governed_environment returns agents + new_sha + has_changes", async () => {
     const services = mkServices({
       syncEnvironment: vi.fn(async () => ({

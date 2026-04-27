@@ -146,6 +146,52 @@ export default defineMcpTools(({ tool, services }) => {
     },
   });
 
+  tool("list_governed_workflow_runs", {
+    permissions: [PERMISSIONS.WORKFLOWS_READ],
+    description:
+      "[Governed Workflows] List runs for a workflow definition. " +
+      "Filter by status (active|completed|failed|cancelled). " +
+      "Returns {items: [{run_id, status, started_at, completed_at, git_tag, git_sha, initiated_by_actor_type, initiated_by_actor_id}], total}. " +
+      "Use this to discover run_ids to feed into get_governed_workflow_run when resuming work.",
+    input: z.object({
+      name: z.string().min(1).describe("Workflow definition name"),
+      status: z.string().optional().describe("Filter: active|completed|failed|cancelled"),
+      limit: z.number().int().min(1).max(100).optional().default(20),
+      offset: z.number().int().min(0).optional().default(0),
+    }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.listRuns({
+          companyId: actor.companyId,
+          workflowName: input.name,
+          status: input.status,
+          limit: input.limit ?? 20,
+          offset: input.offset ?? 0,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              items: r.items.map((row: any) => ({
+                run_id: row.id,
+                status: row.status,
+                started_at: row.startedAt instanceof Date ? row.startedAt.toISOString() : row.startedAt,
+                completed_at: row.completedAt instanceof Date ? row.completedAt.toISOString() : row.completedAt,
+                git_tag: row.gitTag,
+                git_sha: row.gitSha,
+                initiated_by_actor_type: row.initiatedByActorType,
+                initiated_by_actor_id: row.initiatedByActorId,
+              })),
+              total: r.total,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
   tool("get_governed_workflow_run", {
     permissions: [PERMISSIONS.WORKFLOWS_READ],
     description:
