@@ -28,6 +28,8 @@ import { createResolveGitProvider } from "../mcp/build-mcp-services.js";
 import { ShaCache } from "@mnm/git-provider";
 import { configLayers, configLayerItems, authUsers } from "@mnm/db";
 import { and, eq, isNull } from "drizzle-orm";
+import { runImport, PluginImportError } from "../services/cc-plugin-import/orchestrator.js";
+import { buildSourceProvider } from "../services/cc-plugin-import/source-provider-factory.js";
 
 // ── Error helpers ────────────────────────────────────────────────────────────
 
@@ -547,6 +549,67 @@ export function governedWorkflowUiRoutes(db: Db) {
         });
         res.status(201).json(result);
       } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── POST /governed-workflows/import-plugin ──────────────────────────────────
+  // Import a Claude Code plugin from a source GitLab repo into the company's
+  // workflows repo. Resolves both providers and delegates to runImport.
+  router.post(
+    "/import-plugin",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_CREATE),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const { repo_url, ref, exclude_skills, exclude_agents } = (req.body ?? {}) as {
+          repo_url?: string;
+          ref?: string;
+          exclude_skills?: string[];
+          exclude_agents?: string[];
+        };
+        if (!repo_url || typeof repo_url !== "string") {
+          return apiError(res, 400, "IMPORT_VALIDATION", "repo_url required (string)", [
+            "Send { repo_url: 'https://...' } in the request body",
+          ]);
+        }
+
+        const userId = req.actor.type === "board" ? (req.actor.userId ?? null) : null;
+        const destProvider = await resolveGitProvider({ companyId, userId, resourceType: "workflow" });
+        const sourceProvider = await buildSourceProvider({
+          db,
+          companyId,
+          url: repo_url,
+        });
+        const author = await resolveAuthor(db, req);
+
+        const result = await runImport({
+          db,
+          companyId,
+          createdByUserId: (req.actor.type === "board" ? req.actor.userId : req.actor.agentId) ?? "rest-actor",
+          sourceProvider,
+          destProvider,
+          destBranch: "main",
+          sourceUrl: repo_url,
+          ref,
+          excludeAgents: exclude_agents,
+          excludeSkills: exclude_skills,
+          authorName: author.name,
+          authorEmail: author.email,
+        });
+
+        return res.status(201).json({ ok: true, ...result });
+      } catch (err) {
+        if (err instanceof PluginImportError) {
+          const status = err.code.startsWith("CONFLICT") ? 409 : 400;
+          return res.status(status).json({
+            isError: true,
+            error_code: err.code,
+            message: err.message,
+            details: err.details,
+          });
+        }
         next(err);
       }
     },

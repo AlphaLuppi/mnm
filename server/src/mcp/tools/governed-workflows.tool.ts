@@ -11,6 +11,8 @@ import {
   RegisterDefinitionNameMismatchError,
 } from "../../services/governed-workflows-extensions.js";
 import { setTenantContext } from "../../middleware/tenant-context.js";
+import { runImport, PluginImportError } from "../../services/cc-plugin-import/orchestrator.js";
+import { buildSourceProvider } from "../../services/cc-plugin-import/source-provider-factory.js";
 
 /**
  * Map a GovernedWorkflowError to the MCP uniform error contract.
@@ -725,6 +727,98 @@ export default defineMcpTools(({ tool, services }) => {
           content: [{
             type: "text" as const,
             text: JSON.stringify({ archived: true, name: input.name }),
+          }],
+        };
+      });
+    },
+  });
+
+  // ── import_cc_plugin ─────────────────────────────────────────────────────
+
+  tool("import_cc_plugin", {
+    permissions: [PERMISSIONS.WORKFLOWS_CREATE],
+    description:
+      "[Governed Workflows] Import a Claude Code plugin from a source GitLab repo into the " +
+      "company's workflows git repo. Copies agents and skills, commits them, creates a " +
+      "semver tag, and persists the config layer + agent rows in the DB. " +
+      "V1 constraint: plugin repo must live on the same GitLab instance as the company workflows repo.",
+    input: z.object({
+      repo_url: z.string().url().describe("Full HTTPS URL of the plugin repo, e.g. https://lab.cbainfo.fr/genia/hub/my-plugin"),
+      ref: z.string().optional().describe("Git ref (branch/tag/sha) to import from (default: main)"),
+      exclude_skills: z.array(z.string()).optional().describe("Skill names to skip"),
+      exclude_agents: z.array(z.string()).optional().describe("Agent names to skip"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+
+        const destProvider = await services.resolveGitProvider({
+          companyId: actor.companyId,
+          userId: actor.userId ?? null,
+          resourceType: "workflow",
+        });
+        const sourceProvider = await buildSourceProvider({
+          db: services.db,
+          companyId: actor.companyId,
+          url: input.repo_url,
+        });
+
+        const authorName = actor.userId
+          ? `user:${actor.userId}`
+          : actor.agentId
+            ? `agent:${actor.agentId}`
+            : "MnM MCP";
+        const authorEmail = actor.userId
+          ? `${actor.userId}@mnm.local`
+          : actor.agentId
+            ? `agent-${actor.agentId}@mnm.local`
+            : "mcp@mnm.local";
+
+        let result;
+        try {
+          result = await runImport({
+            db: services.db,
+            companyId: actor.companyId,
+            createdByUserId: actor.userId ?? actor.agentId ?? "mcp-actor",
+            sourceProvider,
+            destProvider,
+            destBranch: "main",
+            sourceUrl: input.repo_url,
+            ref: input.ref,
+            excludeAgents: input.exclude_agents,
+            excludeSkills: input.exclude_skills,
+            authorName,
+            authorEmail,
+          });
+        } catch (err) {
+          if (err instanceof PluginImportError) {
+            // PluginImportError codes (CONFLICT_*, etc.) are not in WORKFLOW_ERROR_CODES,
+            // so we surface them directly via the uniform MCP error contract rather than
+            // wrapping in GovernedWorkflowError (which only accepts typed codes).
+            return {
+              content: [{
+                type: "text" as const,
+                text: JSON.stringify({
+                  isError: true,
+                  error_code: err.code,
+                  code: err.code,
+                  message: err.message,
+                  hints: [],
+                  retryable: false,
+                  details: err.details,
+                }),
+              }],
+              isError: true,
+            };
+          }
+          throw err;
+        }
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({ ok: true, ...result }),
           }],
         };
       });
