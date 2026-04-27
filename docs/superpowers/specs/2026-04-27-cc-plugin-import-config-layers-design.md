@@ -302,34 +302,67 @@ V1 = écriture (pas symlink) parce que les contenus viennent de la DB, pas du re
 
 ### 7.2 Gates — sémantique
 
-Toutes les gates **ré-exec** la vérification côté runner (gate = vérification indépendante, pas confiance dans l'artifact).
-
 | Gate | Step | Position | Logique |
 |---|---|---|---|
-| `preflight` | `write-tests` | entry | Reproduit le skill `preflight` du plugin : `docker compose ps php`, `phpunit/phpstan/infection --version`, `phpstan.neon` configuré `level: 10`, `infection.json5` présent, dossiers `tests/Unit\|Functionnal\|SmokeTest` existent. Block si manquant avec rapport détaillé. |
-| `phpstan-level-10` | `write-tests` | exit | `docker compose exec php vendor/bin/phpstan analyse --level=10 --error-format=json <test_file>` → 0 erreur. Lit `test_file` depuis l'artifact du writer. |
-| `phpunit-pass` | `write-tests` | exit | `docker compose exec php vendor/bin/phpunit <test_file>` → exit 0. |
-| `infection-msi` | `write-tests` | exit | Parse `infection.json5` pour `minMsi/minCoveredMsi`, exec `vendor/bin/infection --filter=<target_file>`, compare. Block si en-dessous. |
-| `reviewer-approves` | `review-tests` | exit | Parse l'artifact reviewer : doit contenir `Verdict : APPROVE`. Sinon block (=`REQUEST_CHANGES` non rebouclé V1). |
+| `preflight` | `write-tests` | entry | Lit `ctx.step.previous_artifacts["preflight-check"]`. Doit contenir `{ ok: true, missing: [] }`. Block sinon. (Suppose un step `preflight-check` lancé en amont OU un agent claude-code générique qui exécute le skill `preflight` du plugin.) |
+| `phpstan-level-10` | `write-tests` | exit | Lit `ctx.artifact.phpstan` : `{ level: 10, passed: true, errors: [] }`. Block si `passed !== true` ou `level < 10`. |
+| `phpunit-pass` | `write-tests` | exit | Lit `ctx.artifact.phpunit` : `{ passed: true, tests_run: number }`. Block si `passed !== true`. |
+| `infection-msi` | `write-tests` | exit | Lit `ctx.artifact.infection` : `{ msi: number, covered_msi: number, min_msi: number }`. Block si `msi < min_msi` ou `covered_msi < min_covered_msi` (les seuils sont retournés par le writer après lecture de `infection.json5`). |
+| `reviewer-approves` | `review-tests` | exit | Lit `ctx.artifact.verdict` : `"APPROVE" | "REQUEST_CHANGES"`. Block si !== `"APPROVE"`. |
 
-### 7.3 Contrat artifact attendu (writer)
+**Contrainte runtime :** les gates tournent dans un isolated-vm sans accès filesystem ni shell. C'est l'agent (test-writer / test-reviewer) qui exécute Docker / PHPStan / PHPUnit / Infection sur sa machine et reporte le résultat dans son artifact JSON. Les gates servent de validation indépendante de ce que l'agent a annoncé.
 
-Le writer doit retourner au minimum :
+### 7.3 Contrat artifact attendu
+
+**Writer (`test-writer`) doit retourner :**
 
 ```json
 {
   "test_file": "tests/Unit/Service/UserServiceTest.php",
-  "msi": 87.5
+  "phpstan": { "level": 10, "passed": true, "errors": [] },
+  "phpunit": { "passed": true, "tests_run": 12 },
+  "infection": { "msi": 87.5, "covered_msi": 92.3, "min_msi": 80, "min_covered_msi": 85 }
 }
 ```
 
-**Ce contrat dépend du brainstorm artifact en cours** (`docs/superpowers/specs/2026-04-27-artifact-persistence-brainstorm.md`). À finaliser quand cette PR est landée — selon la décision retenue, on stickera ce contrat soit via `prompt_context._mnm_artifact_hint` injecté à V1, soit via un mécanisme natif de schema artifact.
+**Reviewer (`test-reviewer`) doit retourner :**
+
+```json
+{
+  "verdict": "APPROVE",
+  "issues": [],
+  "test_file": "tests/Unit/Service/UserServiceTest.php"
+}
+```
+
+Ce contrat est **stické** dans le `prompt_context` du step via un champ `_mnm_artifact_schema` (string descriptive) en V1. Le brainstorm artifact en parallèle (`2026-04-27-artifact-persistence-brainstorm.md`) ne change rien à ce contrat applicatif — il porte sur le **stockage** de l'artifact (Git / DB / storage), pas sur sa **forme**.
 
 ### 7.4 Contraintes runner
 
-- Les gates exécutent du `docker compose` → le serveur MnM doit avoir Docker accessible et `cwd = {{variables.project_dir}}` au moment de l'exécution. V1 démo : MnM dev tourne en local sur la même machine que le projet Symfony cible.
+- Les gates tournent dans un isolated-vm : pas de filesystem, pas de shell, pas de `docker compose`.
+- C'est l'agent sur sa machine hôte qui exécute PHPStan / PHPUnit / Infection et place les résultats dans l'artifact JSON.
 - Pas de loop "REQUEST_CHANGES → re-write" V1 (review block, l'humain corrige et relance).
 - Pas de parallélisme (séquentiel obligatoire write→review).
+
+### 7.5 Step `preflight-check` ajouté en amont
+
+Pour permettre à la gate `preflight` (entry sur `write-tests`) de lire un artifact, on ajoute un step préalable :
+
+```json
+{
+  "id": "preflight-check",
+  "agent": "claude_code_generic",
+  "deps": [],
+  "prompt_context": {
+    "_mnm_invoke_skill": "preflight",
+    "project_dir": "{{variables.project_dir}}"
+  }
+}
+```
+
+L'agent `claude_code_generic` est déjà disponible dans MnM (agent technique par défaut, pas créé par le plugin). Il invoque le skill `preflight` (matérialisé via le config_layer `symfony-upgrade-tests`) et produit un artifact `{ ok: boolean, missing: string[] }`.
+
+Le workflow final a donc 3 steps : `preflight-check` → `write-tests` → `review-tests`.
 
 ---
 
