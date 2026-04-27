@@ -12,6 +12,30 @@ import {
 } from "../../services/governed-workflows-extensions.js";
 import { setTenantContext } from "../../middleware/tenant-context.js";
 
+const outputInputSchema = z.discriminatedUnion("kind", [
+  z.object({
+    name: z.string().min(1),
+    kind: z.literal("file"),
+    filename: z.string().min(1),
+    content: z.string(),
+  }),
+  z.object({
+    name: z.string().min(1),
+    kind: z.literal("folder"),
+    files: z.record(z.string(), z.string()),
+  }),
+  z.object({
+    name: z.string().min(1),
+    kind: z.literal("external_url"),
+    url: z.string().url(),
+  }),
+]);
+
+const artifactInputSchema = z.object({
+  outputs: z.array(outputInputSchema),
+  data: z.record(z.string(), z.unknown()),
+});
+
 /**
  * Map a GovernedWorkflowError to the MCP uniform error contract.
  * Cf. spec §4 "Contrat d'erreur uniforme".
@@ -309,7 +333,7 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({
       run_id: z.string().uuid(),
       step_id: z.string().min(1),
-      artifact: z.unknown(),
+      artifact: artifactInputSchema,
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
