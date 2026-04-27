@@ -727,24 +727,6 @@ describe("governedWorkflowService — syncEnvironment", () => {
     );
   });
 
-  it("propagates userId from pushLocalState through to syncEnvironment to resolveGitProvider", async () => {
-    const resolveSpy = vi.fn(async () => stubProvider);
-    const svc = governedWorkflowService(db, {
-      resolveGitProvider: resolveSpy as any,
-      shaCache: { get: () => undefined, set: () => undefined } as any,
-    });
-    await setTenantContext(db, companyA);
-    await svc.pushLocalState({
-      companyId: companyA,
-      userId: "u-88",
-      agentsProvisioned: ["mnm--a1"],
-      pluginVersion: "0.1.0",
-    });
-    expect(resolveSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ companyId: companyA, userId: "u-88" }),
-    );
-  });
-
   // B-FIX-1: syncEnvironment must use resolveResourcePath so paths.agents prefix is honoured.
   it("uses resolveResourcePath when paths.agents is configured (fetches agents/<name>/agent.md, not <name>/agent.md)", async () => {
     const fetchSpy = vi.fn(async ({ path }: { path: string }) => `# md @ ${path}`);
@@ -1043,23 +1025,17 @@ describe("governedWorkflowService — setupWorkspace", () => {
   });
 
   describe("pushLocalState", () => {
-    it("returns the local state payload + path for the harness to persist", async () => {
+    it("returns only lastPluginVersion in the payload (no live DB counters)", async () => {
       const companyId = await seedCompanyWithAgents({
         issuePrefix: "T6HL",
         agents: [{ name: "greeter", enabled: true }],
       });
       const result = await service.pushLocalState({
         companyId,
-        agentsProvisioned: ["mnm--greeter"],
         pluginVersion: "0.1.0",
       });
       expect(result.targetRelativePath).toBe("last-session.json");
-      expect(result.content.lastPluginVersion).toBe("0.1.0");
-      expect(result.content.agentNames).toEqual(["mnm--greeter"]);
-      expect(typeof result.content.lastSyncedSha).toBe("string");
-      expect(result.content.lastSyncedSha.length).toBeGreaterThan(0);
-      expect(typeof result.content.pendingRuns).toBe("number");
-      expect(typeof result.content.openIssues).toBe("number");
+      expect(result.content).toEqual({ lastPluginVersion: "0.1.0" });
     });
   });
 });

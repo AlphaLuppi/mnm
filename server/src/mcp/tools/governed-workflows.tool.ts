@@ -369,9 +369,9 @@ export default defineMcpTools(({ tool, services }) => {
     description:
       "[Governed Workflows] Returns the payload the harness MUST write to " +
       "`${CLAUDE_PLUGIN_DATA}/last-session.json`. The SessionStart hook reads " +
-      "this cache to display the dashboard on next session.",
+      "this cache to detect plugin upgrades and prompt re-sync. " +
+      "Active workflow state is NOT cached — discover it via list_governed_workflow_runs.",
     input: z.object({
-      agents_provisioned: z.array(z.string()),
       plugin_version: z.string(),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -380,9 +380,7 @@ export default defineMcpTools(({ tool, services }) => {
         await setTenantContext(services.db, actor.companyId);
         const r = await services.governedWorkflows.pushLocalState({
           companyId: actor.companyId,
-          agentsProvisioned: input.agents_provisioned,
           pluginVersion: input.plugin_version,
-          userId: actor.userId ?? null,
         });
         return {
           content: [{

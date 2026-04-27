@@ -231,21 +231,20 @@ export interface SetupWorkspaceResult {
 
 export interface PushLocalStateArgs {
   companyId: string;
-  agentsProvisioned: string[];
   pluginVersion: string;
-  userId?: string | null;
 }
 
 /**
  * Payload the harness should persist to
  * `${CLAUDE_PLUGIN_DATA}/last-session.json` — read by the SessionStart hook.
+ *
+ * Scope is intentionally narrow: only the plugin version, used by the hook
+ * to detect upgrades and prompt re-sync. Live DB state (active runs, open
+ * issues) is NOT cached here — the hook has no network access, so any
+ * cached counter goes stale and silently misleads the model. Active state
+ * is discovered on demand via `list_governed_workflow_runs`.
  */
 export interface PushLocalStatePayload {
-  lastSyncedSha: string;
-  syncedAt: string;
-  agentNames: string[];
-  pendingRuns: number;
-  openIssues: number;
   lastPluginVersion: string;
 }
 
@@ -1370,36 +1369,16 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
 
   /**
    * Produces the payload the SessionStart hook will read next session.
-   * `lastSyncedSha` is the syncEnvironment sha recomputed so the hook knows
-   * whether remote state drifted since the last tool call. `pendingRuns`
-   * and `openIssues` are counted from the DB at call time.
+   * Scope is narrow on purpose — only the plugin version, used by the hook
+   * to detect upgrades and prompt re-sync. Active DB state is NOT included
+   * because the hook can't refresh it (no network access), so caching it
+   * here would be a stale-data trap. Use `list_governed_workflow_runs` to
+   * discover active runs at session start.
    */
   async function pushLocalState(args: PushLocalStateArgs): Promise<PushLocalStateResult> {
-    const sync = await syncEnvironment({ companyId: args.companyId, userId: args.userId ?? null });
-
-    const pendingRows = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(governedWorkflowRuns)
-      .where(
-        and(
-          eq(governedWorkflowRuns.companyId, args.companyId),
-          eq(governedWorkflowRuns.status, "active"),
-        ),
-      );
-    const pendingRuns = Number(pendingRows[0]?.count ?? 0);
-
-    // `openIssues` is out of scope for T6 MVP — issues aren't modelled in the
-    // governed-workflows surface yet. Return 0 as a stable placeholder.
-    const openIssues = 0;
-
     return {
       targetRelativePath: "last-session.json",
       content: {
-        lastSyncedSha: sync.newSha,
-        syncedAt: new Date().toISOString(),
-        agentNames: args.agentsProvisioned,
-        pendingRuns,
-        openIssues,
         lastPluginVersion: args.pluginVersion,
       },
     };

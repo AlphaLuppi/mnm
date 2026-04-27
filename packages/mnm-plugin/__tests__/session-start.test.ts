@@ -32,30 +32,42 @@ describe("runSessionStart", () => {
     expect(out.hookSpecificOutput.additionalContext).toContain("Set me up for MnM");
   });
 
-  it("emits a dashboard when state file is valid", async () => {
+  it("emits an empty steady-state context when state file is valid and version matches", async () => {
     const state: LastSession = {
-      lastSyncedSha: "abc",
-      syncedAt: "2026-04-22T08:00:00.000Z",
-      agentNames: ["mnm--greeter", "mnm--shouter"],
-      pendingRuns: 2,
-      openIssues: 1,
       lastPluginVersion: "1.2.3",
     };
     writeFileSync(join(data, "last-session.json"), JSON.stringify(state));
     const out = await runSessionStart({ root, data });
     const ctx = out.hookSpecificOutput.additionalContext;
-    expect(ctx).toContain("2 workflows");
-    expect(ctx).toContain("1 issue");
-    expect(ctx).toContain("1.2.3");
+    // No fake counters: the cache cannot tell the truth about live DB state,
+    // so the hook stays silent in steady state. Use list_governed_workflow_runs
+    // to discover active runs.
+    expect(ctx).toBe("");
+  });
+
+  it("ignores legacy counter fields without crashing (backward compat)", async () => {
+    // Older caches written by previous plugin versions carry pendingRuns,
+    // openIssues, syncedAt, agentNames, lastSyncedSha. The hook MUST treat
+    // these as unknown extras and never surface them.
+    const legacy = {
+      lastSyncedSha: "abc",
+      syncedAt: "2026-04-22T08:00:00.000Z",
+      agentNames: ["mnm--greeter"],
+      pendingRuns: 99,
+      openIssues: 42,
+      lastPluginVersion: "1.2.3",
+    };
+    writeFileSync(join(data, "last-session.json"), JSON.stringify(legacy));
+    const out = await runSessionStart({ root, data });
+    const ctx = out.hookSpecificOutput.additionalContext;
+    expect(ctx).not.toContain("99");
+    expect(ctx).not.toContain("42");
+    expect(ctx).not.toMatch(/workflows? in progress/);
+    expect(ctx).not.toMatch(/issues? pending/);
   });
 
   it("surfaces a plugin-update hint when manifest version is newer than lastPluginVersion", async () => {
     const state: LastSession = {
-      lastSyncedSha: "abc",
-      syncedAt: "2026-04-22T08:00:00.000Z",
-      agentNames: [],
-      pendingRuns: 0,
-      openIssues: 0,
       lastPluginVersion: "1.0.0",
     };
     writeFileSync(join(data, "last-session.json"), JSON.stringify(state));
