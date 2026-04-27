@@ -1,4 +1,5 @@
 import type { GitProvider } from "@mnm/git-provider";
+import matter from "gray-matter";
 import type { ParsedPlugin } from "./plugin-parser.js";
 import { parsePlugin } from "./plugin-parser.js";
 
@@ -56,4 +57,42 @@ export async function fetchAndParsePlugin(
     excludeSkills: input.excludeSkills,
   });
   return { plugin, sourceSha };
+}
+
+export interface GitAction {
+  path: string;
+  content: string;
+}
+
+export function stageGitActions(plugin: ParsedPlugin): GitAction[] {
+  const actions: GitAction[] = [];
+  const layerName = plugin.manifest.name;
+
+  for (const agent of plugin.agents) {
+    const fm = { ...agent.frontmatter };
+    const existing = Array.isArray(fm.config_layers) ? (fm.config_layers as string[]) : [];
+    if (!existing.includes(layerName)) {
+      fm.config_layers = [...existing, layerName];
+    } else {
+      fm.config_layers = existing;
+    }
+    const rebuilt = matter.stringify(agent.body, fm);
+    actions.push({ path: `agents/${agent.name}.md`, content: rebuilt });
+  }
+
+  for (const skill of plugin.skills) {
+    for (const file of skill.files) {
+      actions.push({
+        path: `config_layers/${layerName}/skills/${skill.name}/${file.path}`,
+        content: file.content,
+      });
+    }
+  }
+
+  actions.push({
+    path: `config_layers/${layerName}/plugin.json`,
+    content: JSON.stringify(plugin.manifest, null, 2) + "\n",
+  });
+
+  return actions;
 }
