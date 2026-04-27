@@ -18,9 +18,13 @@ import {
 } from "@mnm/governed-workflows";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
-import type { AuditActorType, MergedConfigItem } from "@mnm/shared";
+import type { ArtifactInput, AuditActorType, MergedConfigItem } from "@mnm/shared";
 import { PERMISSIONS } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
+import {
+  commitHandoffArtifacts,
+  resolveCommitAuthor,
+} from "./governed-workflows-artifacts.js";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
 import { resolveResourcePath, type ProviderWithPaths } from "./git-resource-path.js";
@@ -156,7 +160,7 @@ export interface CompleteStepArgs {
   companyId: string;
   runId: string;
   stepId: string;
-  artifact: unknown;
+  artifact: ArtifactInput;
   actor: { type: AuditActorType; id: string };
 }
 
@@ -1057,6 +1061,28 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         );
       }
 
+      // Resolve commit author and git provider, then commit inline outputs to Git
+      // before persisting. If git commit fails the tx rolls back, keeping the
+      // step in its current state for a clean retry.
+      const author = await resolveCommitAuthor({
+        db: tx as unknown as Db,
+        companyId: args.companyId,
+        actor: args.actor,
+      });
+      const gitProvider = await resolveGitProvider({
+        companyId: args.companyId,
+        userId: args.actor.type === "user" ? args.actor.id : null,
+        resourceType: "workflow",
+      });
+      const persistedArtifact = await commitHandoffArtifacts({
+        gitProvider,
+        runId: args.runId,
+        stepId: args.stepId,
+        input: args.artifact,
+        author,
+        startBranch: "master", // EnterpriseCustomer convention; multi-tenant should source from company config later
+      });
+
       // Persist artifact immediately (even before gate eval). If gate
       // fails we'll still have the last attempt's artifact on the step
       // execution for audit.
@@ -1064,7 +1090,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         .update(governedStepExecutions)
         .set({
           state: step.gates?.exit ? "gate_eval" : "running",
-          artifactsJson: args.artifact as Record<string, unknown>,
+          artifactsJson: persistedArtifact as unknown as Record<string, unknown>,
         })
         .where(eq(governedStepExecutions.id, stepExec.id));
 
@@ -1078,15 +1104,11 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
 
       const exitBlock = step.gates?.exit as GateBlock | undefined;
       if (exitBlock && exitBlock.length > 0) {
-        const gitProvider = await resolveGitProvider({
-          companyId: args.companyId,
-          userId: args.actor.type === "user" ? args.actor.id : null,
-          resourceType: "workflow",
-        });
+        // gitProvider already resolved above — reuse it here.
         const helpers = buildGateHelpers({ db, companyId: args.companyId, resolveGitProvider });
         const previousArtifacts = await fetchSucceededArtifacts(tx as unknown as Db, args.runId);
         const context: GateContext = {
-          artifact: args.artifact,
+          artifact: persistedArtifact, // gates see the persisted form (git_file/git_folder refs)
           run: {
             id: args.runId,
             workflow_name: parsed.workflow.name,

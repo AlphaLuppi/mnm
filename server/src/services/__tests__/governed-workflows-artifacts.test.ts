@@ -1,8 +1,8 @@
 // server/src/services/__tests__/governed-workflows-artifacts.test.ts
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { LocalBareRepoProvider } from "@mnm/git-provider";
-import { commitHandoffArtifacts } from "../governed-workflows-artifacts.js";
+import { commitHandoffArtifacts, resolveCommitAuthor } from "../governed-workflows-artifacts.js";
 import { seedBareRepo } from "../../mcp/tools/__tests__/fixtures/seed-bare-repo.js";
 import type { ArtifactInput } from "@mnm/shared";
 
@@ -57,6 +57,7 @@ describe("commitHandoffArtifacts", () => {
   });
 
   it("is idempotent if outputs already contain git_file kinds", async () => {
+
     const repo = await seedBareRepo();
     try {
       const provider = new LocalBareRepoProvider({ providerId: "test", repoDir: repo.repoDir });
@@ -79,5 +80,42 @@ describe("commitHandoffArtifacts", () => {
     } finally {
       await repo.cleanup();
     }
+  });
+});
+
+describe("resolveCommitAuthor", () => {
+  it("returns user name/email when actor.type === 'user' and user exists in DB", async () => {
+    const mockDb = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([{ name: "Tom Andrieu", email: "tom@enterprise.example" }]),
+        }),
+      }),
+    } as any;
+
+    const result = await resolveCommitAuthor({
+      db: mockDb,
+      companyId: "company-1",
+      actor: { type: "user", id: "user-abc" },
+    });
+
+    expect(result).toEqual({ name: "Tom Andrieu", email: "tom@enterprise.example" });
+  });
+
+  it("falls back to env service account when actor is an agent", async () => {
+    const mockDb = { select: vi.fn() } as any;
+
+    const result = await resolveCommitAuthor({
+      db: mockDb,
+      companyId: "company-1",
+      actor: { type: "agent", id: "agent-xyz" },
+    });
+
+    // select should never be called for non-user actors
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      name: process.env.MNM_GIT_BOT_NAME ?? "MnM bot",
+      email: process.env.MNM_GIT_BOT_EMAIL ?? "mnm-bot@mnm.local",
+    });
   });
 });
