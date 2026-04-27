@@ -9,8 +9,8 @@ export interface CommitHandoffArtifactsArgs {
   stepId: string;
   input: ArtifactInput;
   author: { name: string; email: string };
-  /** Source branch when creating mnm-runs/<runId>. Defaults to "master". */
-  startBranch?: string;
+  /** Source branch when creating mnm-runs/<runId>. Caller must resolve the workflow repo's default branch. */
+  startBranch: string;
 }
 
 const RUN_BRANCH_PREFIX = "mnm-runs";
@@ -35,14 +35,14 @@ export function stepArtifactsPath(runId: string, stepId: string): string {
 export async function commitHandoffArtifacts(
   args: CommitHandoffArtifactsArgs,
 ): Promise<ArtifactPersisted> {
-  const { gitProvider, runId, stepId, input, author, startBranch = "master" } = args;
+  const { gitProvider, runId, stepId, input, author, startBranch } = args;
 
   // Idempotence: if no input output is of kind "file" or "folder", skip commit.
   const hasInlineContent = input.outputs.some(
     (o) => o.kind === "file" || o.kind === "folder",
   );
   if (!hasInlineContent) {
-    return input as unknown as ArtifactPersisted;
+    return input as ArtifactPersisted;
   }
 
   const branch = runBranchName(runId);
@@ -50,7 +50,7 @@ export async function commitHandoffArtifacts(
 
   // Build the action list and prepare the persisted outputs (git_sha filled after commit).
   const actions: Array<{ path: string; content: string }> = [];
-  const pendingOutputs: Array<OutputPersisted | { __pending: true }> = [];
+  const pendingOutputs: OutputPersisted[] = [];
 
   for (const output of input.outputs) {
     if (output.kind === "file") {
@@ -60,7 +60,7 @@ export async function commitHandoffArtifacts(
         name: output.name,
         kind: "git_file",
         path: filePath,
-        git_sha: "__pending__",
+        git_sha: "__pending__", // git_sha is a placeholder; will be patched after commit
         branch,
         bytes: output.content.length,
       } as OutputPersisted);
@@ -75,7 +75,7 @@ export async function commitHandoffArtifacts(
         name: output.name,
         kind: "git_folder",
         path: folderPath,
-        git_sha: "__pending__",
+        git_sha: "__pending__", // git_sha is a placeholder; will be patched after commit
         branch,
         files: filenames,
       } as OutputPersisted);
@@ -88,7 +88,7 @@ export async function commitHandoffArtifacts(
   if (actions.length === 0) {
     // Only external_url outputs — no commit needed
     return {
-      outputs: pendingOutputs as OutputPersisted[],
+      outputs: pendingOutputs,
       data: input.data,
     };
   }
@@ -104,9 +104,6 @@ export async function commitHandoffArtifacts(
 
   // All outputs of this step share the same commit sha
   const finalOutputs = pendingOutputs.map((p) => {
-    if ("__pending" in p) {
-      throw new Error("unreachable: pending placeholder leaked");
-    }
     if (p.kind === "git_file" || p.kind === "git_folder") {
       return { ...p, git_sha: result.sha };
     }

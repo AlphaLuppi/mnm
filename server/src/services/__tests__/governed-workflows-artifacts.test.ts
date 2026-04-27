@@ -73,6 +73,7 @@ describe("commitHandoffArtifacts", () => {
         stepId: "s",
         input: alreadyPersisted as any,
         author: { name: "T", email: "t@x" },
+        startBranch: "main",
       });
       expect(result).toEqual(alreadyPersisted);
     } finally {
