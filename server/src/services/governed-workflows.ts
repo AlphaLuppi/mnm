@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
@@ -36,6 +36,7 @@ import {
   emitStepUpdated,
   emitGateEvaluated,
   emitRunCancelled,
+  emitRunReactivated,
   type PublishFn,
 } from "../realtime/emitters/governed-run-events.js";
 
@@ -288,6 +289,24 @@ export interface CancelRunResult {
   runId: string;
   cancelledAt: Date;
   cancelledStepIds: string[];
+}
+
+export interface ReactivateRunArgs {
+  runId: string;
+  companyId: string;
+  actor: Actor;
+  /**
+   * SSE/WS publisher. Injected (rather than imported as a module-level
+   * default) so unit tests can substitute a `vi.fn()` and assert the
+   * `governed_run.reactivated` payload without mocking the live-events
+   * singleton.
+   */
+  publishLiveEvent: PublishFn;
+}
+
+export interface ReactivateRunResult {
+  runId: string;
+  reactivatedStepIds: string[];
 }
 
 /**
@@ -1636,6 +1655,160 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     });
   }
 
+  /**
+   * Reactivate a previously cancelled governed-workflow run. Mirrors
+   * `cancelRun`: same TX+lock+permission pattern, same audit/event shape
+   * (action `governed_run.reactivated`).
+   *
+   * Authorization: same rule as cancel — initiator OR
+   * `workflows:cancel_run` (we deliberately reuse the cancel permission
+   * rather than minting a separate `workflows:reactivate_run`; the
+   * capability is symmetric and operationally always granted together).
+   *
+   * Step restore policy: `cancelled` step executions are restored to
+   * `pending` if they never started (`started_at IS NULL`) or to
+   * `running` otherwise. Two UPDATEs are clearer than a CASE expression
+   * and keep the `updated_at` write consistent with the rest of the file.
+   */
+  async function reactivateRun(args: ReactivateRunArgs): Promise<ReactivateRunResult> {
+    return await db.transaction(async (tx) => {
+      // Lock the run row with FOR UPDATE so concurrent reactivate calls
+      // serialize — the second one will see cancelledAt === null and
+      // reject cleanly with WORKFLOW_RUN_NOT_CANCELLED.
+      const [run] = await tx
+        .select()
+        .from(governedWorkflowRuns)
+        .where(
+          and(
+            eq(governedWorkflowRuns.id, args.runId),
+            eq(governedWorkflowRuns.companyId, args.companyId),
+          ),
+        )
+        .for("update");
+
+      if (!run) {
+        // Cross-tenant or missing — both surface as NOT_FOUND so existence
+        // is not leaked across tenants (mirrors getRun/cancelRun behaviour).
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+          `Run '${args.runId}' not found.`,
+        );
+      }
+
+      if (run.cancelledAt === null) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_CANCELLED,
+          `Run '${args.runId}' is not cancelled.`,
+          ["Only cancelled runs can be reactivated."],
+        );
+      }
+
+      // Authorization: initiator OR has workflows:cancel_run. Same logic
+      // as cancelRun (kept inline rather than extracted because the
+      // duplication is short, readable, and lets each method own its own
+      // error message).
+      const isInitiator = args.actor.id === run.initiatedByActorId;
+      let allowed = isInitiator;
+      if (!allowed && (args.actor.type === "user" || args.actor.type === "agent")) {
+        const access = accessService(tx as unknown as Db);
+        allowed = await access.hasPermission(
+          args.companyId,
+          args.actor.type,
+          args.actor.id,
+          PERMISSIONS.WORKFLOWS_CANCEL_RUN,
+        );
+      }
+      if (!allowed) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN,
+          "You can only reactivate runs you initiated, or you need the workflows:cancel_run permission.",
+          [
+            "Ask an admin to grant workflows:cancel_run, or have the run's initiator reactivate it.",
+          ],
+        );
+      }
+
+      // Single Date instance reused across UPDATE / audit / live event so
+      // every consumer agrees on the reactivation timestamp.
+      const reactivatedAt = new Date();
+
+      await tx
+        .update(governedWorkflowRuns)
+        .set({
+          cancelledAt: null,
+          cancelledByActorId: null,
+          cancelledByActorType: null,
+          cancellationReason: null,
+          updatedAt: reactivatedAt,
+        })
+        .where(eq(governedWorkflowRuns.id, args.runId));
+
+      // Restore steps: cancelled → pending if never started, running otherwise.
+      // Two UPDATEs (rather than a single CASE expression) — clearer intent
+      // and the partition is small enough that perf doesn't matter.
+      const restoredToPending = await tx
+        .update(governedStepExecutions)
+        .set({ state: "pending", updatedAt: reactivatedAt })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.state, "cancelled"),
+            isNull(governedStepExecutions.startedAt),
+          ),
+        )
+        .returning({ id: governedStepExecutions.id });
+
+      const restoredToRunning = await tx
+        .update(governedStepExecutions)
+        .set({ state: "running", updatedAt: reactivatedAt })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.state, "cancelled"),
+            isNotNull(governedStepExecutions.startedAt),
+          ),
+        )
+        .returning({ id: governedStepExecutions.id });
+
+      const reactivatedStepIds = [
+        ...restoredToPending.map((r) => r.id),
+        ...restoredToRunning.map((r) => r.id),
+      ];
+
+      // Audit — written directly in the TX so it's atomic with the state
+      // change. We bypass auditService(db).emit() here for the same
+      // prev_hash skip rationale documented on cancelRun: the chain
+      // self-heals on the next emit() since chaining looks at the latest
+      // row by created_at.
+      await tx.insert(auditEvents).values({
+        companyId: args.companyId,
+        actorId: args.actor.id,
+        actorType: args.actor.type,
+        action: "governed_run.reactivated",
+        targetType: "workflow",
+        targetId: args.runId,
+        metadata: {
+          runId: args.runId,
+          reactivatedStepIds,
+        },
+        severity: "info",
+        createdAt: reactivatedAt,
+      });
+
+      // Publish the live event INSIDE the TX (same rationale as cancelRun).
+      emitRunReactivated({
+        publish: args.publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        reactivatedByActorId: args.actor.id,
+        reactivatedByActorType: args.actor.type,
+        reactivatedStepIds,
+      });
+
+      return { runId: args.runId, reactivatedStepIds };
+    });
+  }
+
   return {
     listDefinitions,
     getDefinition,
@@ -1649,6 +1822,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     pushLocalState,
     listRuns,
     cancelRun,
+    reactivateRun,
   };
 }
 
