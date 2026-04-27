@@ -1,4 +1,6 @@
+import type { GitProvider } from "@mnm/git-provider";
 import type { ParsedPlugin } from "./plugin-parser.js";
+import { parsePlugin } from "./plugin-parser.js";
 
 export interface Conflict {
   kind: "layer" | "agent";
@@ -25,4 +27,33 @@ export async function detectConflicts(
     }
   }
   return { conflicts };
+}
+
+export interface FetchAndParseInput {
+  gitProvider: GitProvider;
+  ref: string;
+  excludeAgents?: string[];
+  excludeSkills?: string[];
+}
+
+export interface FetchAndParseResult {
+  plugin: ParsedPlugin;
+  sourceSha: string;
+}
+
+export async function fetchAndParsePlugin(
+  input: FetchAndParseInput,
+): Promise<FetchAndParseResult> {
+  const sourceSha = await input.gitProvider.resolveRef({ ref: input.ref });
+  const tree = await input.gitProvider.fetchTree({
+    ref: input.ref,
+    recursive: true,
+  });
+  const plugin = await parsePlugin({
+    tree,
+    fetchBlob: (path) => input.gitProvider.fetchBlob({ path, ref: sourceSha }),
+    excludeAgents: input.excludeAgents,
+    excludeSkills: input.excludeSkills,
+  });
+  return { plugin, sourceSha };
 }
