@@ -171,19 +171,12 @@ describe("T6 E2E — bootstrap + launch hello-world with stale-correction", () =
     // ── Step 5: push_local_state — cache payload well-formed ──────────
     const push = tools.find((t) => t.name === "push_local_state")!;
     const cacheRes = await push.handler({
-      input: {
-        agents_provisioned: ["mnm--greeter"],
-        plugin_version: "0.1.0",
-      },
+      input: { plugin_version: "0.1.0" },
       actor,
     });
     expect(cacheRes.isError).toBeFalsy();
     const cacheBody = JSON.parse(cacheRes.content[0]!.text);
     expect(cacheBody.target_relative_path).toBe("last-session.json");
-    expect(cacheBody.content.agentNames).toContain("mnm--greeter");
-    expect(cacheBody.content.lastPluginVersion).toBe("0.1.0");
-    expect(typeof cacheBody.content.lastSyncedSha).toBe("string");
-    expect(cacheBody.content.lastSyncedSha.length).toBeGreaterThan(0);
-    expect(typeof cacheBody.content.pendingRuns).toBe("number");
+    expect(cacheBody.content).toEqual({ lastPluginVersion: "0.1.0" });
   });
 });

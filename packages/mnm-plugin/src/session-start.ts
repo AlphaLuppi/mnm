@@ -54,25 +54,27 @@ export async function runSessionStart(params: {
     };
   }
 
-  const lines: string[] = [];
-  lines.push(`MnM plugin v${currentVersion}`);
-  if (state.lastPluginVersion !== currentVersion) {
-    lines.push(
-      `Plugin updated from v${state.lastPluginVersion} — run "Set me up for MnM" to refresh agents.`,
-    );
+  // Steady state: stay silent. The hook has no network access, so any
+  // cached counter (active runs, open issues) is stale by definition —
+  // surfacing one would mislead the model. Active state is discoverable
+  // on demand via list_governed_workflow_runs.
+  if (state.lastPluginVersion === currentVersion) {
+    return {
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: "",
+      },
+    };
   }
-  const runsLabel = state.pendingRuns === 1 ? "workflow" : "workflows";
-  const issuesLabel = state.openIssues === 1 ? "issue" : "issues";
-  lines.push(
-    `${state.pendingRuns} ${runsLabel} in progress, ${state.openIssues} ${issuesLabel} pending.`,
-  );
-  if (state.syncedAt) {
-    lines.push(`Last sync: ${state.syncedAt}.`);
-  }
+
+  // Plugin upgraded: agents materialized in ~/.claude/agents/mnm--*.md may
+  // be out of sync with the new server-side definitions. Prompt re-sync.
   return {
     hookSpecificOutput: {
       hookEventName: "SessionStart",
-      additionalContext: lines.join(" "),
+      additionalContext:
+        `MnM plugin v${currentVersion}. ` +
+        `Plugin updated from v${state.lastPluginVersion} — run "Set me up for MnM" to refresh agents.`,
     },
   };
 }

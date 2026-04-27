@@ -32,25 +32,18 @@ async function runSessionStart(params) {
       }
     };
   }
-  const lines = [];
-  lines.push(`MnM plugin v${currentVersion}`);
-  if (state.lastPluginVersion !== currentVersion) {
-    lines.push(
-      `Plugin updated from v${state.lastPluginVersion} \u2014 run "Set me up for MnM" to refresh agents.`
-    );
-  }
-  const runsLabel = state.pendingRuns === 1 ? "workflow" : "workflows";
-  const issuesLabel = state.openIssues === 1 ? "issue" : "issues";
-  lines.push(
-    `${state.pendingRuns} ${runsLabel} in progress, ${state.openIssues} ${issuesLabel} pending.`
-  );
-  if (state.syncedAt) {
-    lines.push(`Last sync: ${state.syncedAt}.`);
+  if (state.lastPluginVersion === currentVersion) {
+    return {
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: ""
+      }
+    };
   }
   return {
     hookSpecificOutput: {
       hookEventName: "SessionStart",
-      additionalContext: lines.join(" ")
+      additionalContext: `MnM plugin v${currentVersion}. Plugin updated from v${state.lastPluginVersion} \u2014 run "Set me up for MnM" to refresh agents.`
     }
   };
 }

@@ -50,15 +50,16 @@ After all writes succeed, emit exactly this message to the user:
 
 STOP. Do not proceed to Step 5 until the user confirms.
 
-## Step 5: Verify with push_local_state
+## Step 5: Persist plugin version cache
 
 After the user confirms, call:
 
 ```
-mnm.push_local_state  with  { agents_sha: "<sha from setup_workspace response>" }
+mnm.push_local_state  with  { plugin_version: "<version from plugin.json>" }
 ```
 
-A 200 response confirms the server now tracks this session's local agent state.
+The response is `{ target_relative_path: "last-session.json", content: { lastPluginVersion: "<version>" } }`.
+Write `content` to `${CLAUDE_PLUGIN_DATA}/last-session.json` so the SessionStart hook can detect plugin upgrades on the next session and prompt re-sync.
 
 ## Step 6: Offer next steps
 
