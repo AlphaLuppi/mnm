@@ -124,6 +124,11 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // permission within the run's company. Distinct from cross-tenant access
   // (which surfaces WORKFLOW_RUN_NOT_FOUND to avoid leaking existence).
   WORKFLOW_FORBIDDEN: "WORKFLOW_FORBIDDEN",
+  // Emitted when a service-method input fails a basic shape/length check
+  // (e.g. cancelRun with reason shorter than 5 chars). Distinct from
+  // WORKFLOW_VALIDATION (zod failure on a workflow definition body) — this
+  // is a per-call argument validation, not a definition body validation.
+  WORKFLOW_INVALID_INPUT: "WORKFLOW_INVALID_INPUT",
 } as const);
 
 export type WorkflowErrorCode =
