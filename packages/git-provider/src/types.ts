@@ -90,6 +90,13 @@ export interface CommitMultipleFilesArgs {
   authorName: string;
   authorEmail: string;
   actions: Array<{ path: string; content?: string; delete?: boolean }>;
+  /**
+   * If `branch` does not yet exist, create it starting from `startBranch`.
+   * On GitLab this maps to the `start_branch` request param. On
+   * LocalBareRepoProvider, when `branch` is missing the parent commit is
+   * resolved from `refs/heads/<startBranch>` instead of HEAD.
+   */
+  startBranch?: string;
 }
 
 export interface CommitMultipleFilesResult {
