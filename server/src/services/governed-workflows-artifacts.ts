@@ -9,6 +9,8 @@ export interface CommitHandoffArtifactsArgs {
   stepId: string;
   input: ArtifactInput;
   author: { name: string; email: string };
+  /** Source branch when creating mnm-runs/<runId>. Defaults to "master". */
+  startBranch?: string;
 }
 
 const RUN_BRANCH_PREFIX = "mnm-runs";
@@ -33,7 +35,7 @@ export function stepArtifactsPath(runId: string, stepId: string): string {
 export async function commitHandoffArtifacts(
   args: CommitHandoffArtifactsArgs,
 ): Promise<ArtifactPersisted> {
-  const { gitProvider, runId, stepId, input, author } = args;
+  const { gitProvider, runId, stepId, input, author, startBranch = "master" } = args;
 
   // Idempotence: if no input output is of kind "file" or "folder", skip commit.
   const hasInlineContent = input.outputs.some(
@@ -93,7 +95,7 @@ export async function commitHandoffArtifacts(
 
   const result = await gitProvider.commitMultipleFiles({
     branch,
-    startBranch: "main",
+    startBranch,
     commitMessage: `step ${stepId}: handoff outputs`,
     authorName: author.name,
     authorEmail: author.email,
