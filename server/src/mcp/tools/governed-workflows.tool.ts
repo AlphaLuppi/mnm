@@ -762,6 +762,7 @@ export default defineMcpTools(({ tool, services }) => {
           db: services.db,
           companyId: actor.companyId,
           url: input.repo_url,
+          userId: actor.userId ?? null,
         });
 
         const authorName = actor.userId
