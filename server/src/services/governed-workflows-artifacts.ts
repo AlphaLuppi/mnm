@@ -1,7 +1,9 @@
 // server/src/services/governed-workflows-artifacts.ts
 
+import { eq } from "drizzle-orm";
 import type { GitProvider } from "@mnm/git-provider";
 import type { ArtifactInput, ArtifactPersisted, OutputPersisted } from "@mnm/shared";
+import { authUsers, type Db } from "@mnm/db";
 
 export interface CommitHandoffArtifactsArgs {
   gitProvider: GitProvider;
@@ -113,5 +115,35 @@ export async function commitHandoffArtifacts(
   return {
     outputs: finalOutputs,
     data: input.data,
+  };
+}
+
+export interface ResolveCommitAuthorArgs {
+  db: Db;
+  companyId: string; // reserved for future per-tenant fallback config
+  actor: { type: string; id: string };
+}
+
+/**
+ * Resolves the commit author for handoff artifacts.
+ * - User actor → look up the OAuth user's name/email
+ * - Otherwise → fall back to a service account from env, default "MnM bot"
+ *   <mnm-bot@mnm.local>.
+ */
+export async function resolveCommitAuthor(
+  args: ResolveCommitAuthorArgs,
+): Promise<{ name: string; email: string }> {
+  if (args.actor.type === "user") {
+    const [user] = await args.db
+      .select({ email: authUsers.email, name: authUsers.name })
+      .from(authUsers)
+      .where(eq(authUsers.id, args.actor.id));
+    if (user) {
+      return { name: user.name, email: user.email };
+    }
+  }
+  return {
+    name: process.env.MNM_GIT_BOT_NAME ?? "MnM bot",
+    email: process.env.MNM_GIT_BOT_EMAIL ?? "mnm-bot@mnm.local",
   };
 }

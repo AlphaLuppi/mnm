@@ -544,7 +544,7 @@ describe("governedWorkflowService — completeStep", () => {
     // "greet" has no exit gate
     await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='greet'`);
     const result = await svc.completeStep({
-      companyId: companyA, runId, stepId: "greet", artifact: { greeting: "hi" }, actor: { type: "user", id: "u-1" },
+      companyId: companyA, runId, stepId: "greet", artifact: { outputs: [], data: { greeting: "hi" } }, actor: { type: "user", id: "u-1" },
     });
     expect(result).toMatchObject({ stepState: "succeeded", runStatus: "active" });
   });
@@ -562,7 +562,7 @@ describe("governedWorkflowService — completeStep", () => {
     await db.execute(sql`UPDATE governed_step_executions SET state='succeeded', completed_at=now() WHERE run_id=${runId} AND step_id_in_json='greet'`);
     await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='shout'`);
     const result = await svc.completeStep({
-      companyId: companyA, runId, stepId: "shout", artifact: { output: "HELLO" }, actor: { type: "user", id: "u-1" },
+      companyId: companyA, runId, stepId: "shout", artifact: { outputs: [], data: { output: "HELLO" } }, actor: { type: "user", id: "u-1" },
     });
     expect(result).toMatchObject({ stepState: "succeeded", runStatus: "completed" });
   });
@@ -579,7 +579,7 @@ describe("governedWorkflowService — completeStep", () => {
     await db.execute(sql`UPDATE governed_step_executions SET state='succeeded', completed_at=now() WHERE run_id=${runId} AND step_id_in_json='greet'`);
     await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='shout'`);
     await expect(
-      svc.completeStep({ companyId: companyA, runId, stepId: "shout", artifact: { output: "HELLO" }, actor: { type: "user", id: "u-1" } }),
+      svc.completeStep({ companyId: companyA, runId, stepId: "shout", artifact: { outputs: [], data: { output: "HELLO" } }, actor: { type: "user", id: "u-1" } }),
     ).rejects.toMatchObject({
       code: WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
       hints: expect.arrayContaining(["fix it"]),
@@ -598,13 +598,13 @@ describe("governedWorkflowService — completeStep", () => {
     // Complete greet (no exit gate) → active
     await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='greet'`);
     const r1 = await svc.completeStep({
-      companyId: companyA, runId, stepId: "greet", artifact: {}, actor: { type: "user", id: "u-1" },
+      companyId: companyA, runId, stepId: "greet", artifact: { outputs: [], data: {} }, actor: { type: "user", id: "u-1" },
     });
     expect(r1.runStatus).toBe("active");
     // Complete shout (has passing exit gate) → completed
     await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='shout'`);
     const r2 = await svc.completeStep({
-      companyId: companyA, runId, stepId: "shout", artifact: { output: "HELLO" }, actor: { type: "user", id: "u-1" },
+      companyId: companyA, runId, stepId: "shout", artifact: { outputs: [], data: { output: "HELLO" } }, actor: { type: "user", id: "u-1" },
     });
     expect(r2.runStatus).toBe("completed");
   });
@@ -620,11 +620,11 @@ describe("governedWorkflowService — completeStep", () => {
     });
     await db.execute(sql`UPDATE governed_step_executions SET state='running' WHERE run_id=${runId} AND step_id_in_json='greet'`);
     await svc.completeStep({
-      companyId: companyA, runId, stepId: "greet", artifact: {}, actor: { type: "user", id: "u-1" },
+      companyId: companyA, runId, stepId: "greet", artifact: { outputs: [], data: {} }, actor: { type: "user", id: "u-1" },
     });
     // Second call on same step
     await expect(
-      svc.completeStep({ companyId: companyA, runId, stepId: "greet", artifact: {}, actor: { type: "user", id: "u-1" } }),
+      svc.completeStep({ companyId: companyA, runId, stepId: "greet", artifact: { outputs: [], data: {} }, actor: { type: "user", id: "u-1" } }),
     ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_ALREADY_COMPLETED });
   });
 });
