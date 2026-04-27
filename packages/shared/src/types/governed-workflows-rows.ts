@@ -4,7 +4,8 @@ export type GovernedStepState =
   | "running"
   | "gate_eval"
   | "succeeded"
-  | "failed";
+  | "failed"
+  | "cancelled";
 export type GateKind = "entry" | "exit" | string;
 
 export interface GovernedWorkflowDefinitionRow {
