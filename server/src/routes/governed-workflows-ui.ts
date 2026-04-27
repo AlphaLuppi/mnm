@@ -581,6 +581,7 @@ export function governedWorkflowUiRoutes(db: Db) {
           db,
           companyId,
           url: repo_url,
+          userId,
         });
         const author = await resolveAuthor(db, req);
 
