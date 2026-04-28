@@ -1,0 +1,161 @@
+MnM Enterprise License (MEL)
+Version 1.0 — 2026-04-28
+
+Copyright (c) 2026 Alpha Luppi (Studio Manifeste). All rights reserved.
+
+================================================================================
+1. SCOPE
+================================================================================
+
+This MnM Enterprise License (the "License") governs the source code and assets
+located in the `ee/` directory of the MnM repository (the "Enterprise Code"),
+and any code compiled with the build flag `EE=1` that includes such Enterprise
+Code.
+
+The Enterprise Code is **distinct** from the core MnM project, which is
+licensed under the GNU Affero General Public License v3.0 ("AGPL-3.0") and may
+also be licensed under a separate commercial license (see
+`COMMERCIAL-LICENSE.md` at the repository root).
+
+This License is **source-available, NOT open source**. The Enterprise Code is
+made publicly readable for transparency and audit purposes only.
+
+================================================================================
+2. GRANT OF RIGHTS
+================================================================================
+
+Subject to Your compliance with the terms of this License AND the existence of
+an active commercial Enterprise subscription with Alpha Luppi, Alpha Luppi
+grants You a non-exclusive, non-transferable, revocable, worldwide, limited
+license to:
+
+(a) View and read the Enterprise Code in this repository.
+(b) Use the Enterprise Code internally, in object form (after build with
+    `EE=1`), within the scope and seat count specified in Your subscription.
+(c) Make modifications strictly necessary for internal use, integration, or
+    bug-fixing within Your organization, provided that such modifications
+    are not redistributed.
+
+Without an active subscription, Your rights are limited to (a) only:
+viewing the source for evaluation, security audit, or academic study.
+
+================================================================================
+3. RESTRICTIONS
+================================================================================
+
+You MAY NOT, without a separate written agreement with Alpha Luppi:
+
+(a) Redistribute the Enterprise Code, in source or binary form, to any
+    third party.
+(b) Sublicense, rent, lease, lend, sell, or otherwise transfer the
+    Enterprise Code or any rights granted under this License.
+(c) Use the Enterprise Code to provide a hosted service to third parties
+    (SaaS, managed service, etc.) outside the scope of Your subscription.
+(d) Modify the Enterprise Code outside the scope of internal use granted
+    in Section 2(c) above.
+(e) Remove, alter, or obscure any copyright, trademark, license, or other
+    proprietary notices contained in the Enterprise Code.
+(f) Use the Enterprise Code to develop a competing product.
+(g) Use the Enterprise Code if You do not maintain an active commercial
+    Enterprise subscription, except for the limited evaluation rights
+    described in Section 2.
+
+================================================================================
+4. BUILD FLAG
+================================================================================
+
+The Enterprise Code is gated behind the build flag `EE=1`. Builds without this
+flag (i.e., `bun run build` without `EE=1`) compile only the AGPL core and do
+NOT include the Enterprise Code in the resulting artifacts.
+
+Use of `EE=1` in a production environment requires an active commercial
+Enterprise subscription. Use of `EE=1` for development, testing, or evaluation
+purposes is permitted for up to thirty (30) days without a subscription.
+
+================================================================================
+5. COMMERCIAL SUBSCRIPTION
+================================================================================
+
+Production use of the Enterprise Code requires a paid commercial subscription
+with Alpha Luppi. To obtain a subscription, see `COMMERCIAL-LICENSE.md` at the
+repository root or contact `licensing@alphaluppi.com`.
+
+The subscription contract (Master Software License Agreement) takes precedence
+over this License in case of conflict.
+
+================================================================================
+6. CONTRIBUTIONS
+================================================================================
+
+Contributions to the `ee/` directory are subject to a separate Enterprise
+Contributor License Agreement (Enterprise CLA), distinct from the core CLA.
+Contact `cla@alphaluppi.com` for the Enterprise CLA template.
+
+================================================================================
+7. TERMINATION
+================================================================================
+
+This License terminates automatically and immediately upon:
+
+(a) Expiration or cancellation of Your commercial Enterprise subscription.
+(b) Any breach of this License by You.
+(c) Written notice from Alpha Luppi.
+
+Upon termination, You must cease all use of the Enterprise Code, delete all
+copies under Your control (except those required by applicable law to be
+retained), and certify such deletion in writing if requested.
+
+The provisions of Sections 3, 7, 8, 9, 10, and 11 survive termination.
+
+================================================================================
+8. DISCLAIMER OF WARRANTIES
+================================================================================
+
+THE ENTERPRISE CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL ALPHA
+LUPPI BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT
+OF, OR IN CONNECTION WITH THE ENTERPRISE CODE OR ITS USE.
+
+Warranties offered to subscribers are governed by the Master Software License
+Agreement, not this file.
+
+================================================================================
+9. LIMITATION OF LIABILITY
+================================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ALPHA LUPPI'S TOTAL
+AGGREGATE LIABILITY UNDER THIS LICENSE IS LIMITED TO THE AMOUNTS PAID BY YOU
+TO ALPHA LUPPI UNDER YOUR ENTERPRISE SUBSCRIPTION DURING THE TWELVE (12)
+MONTHS PRECEDING THE CLAIM.
+
+================================================================================
+10. TRADEMARKS
+================================================================================
+
+This License does not grant any rights to use the trademarks of Alpha Luppi,
+including "MnM", "Alpha Luppi", or the MnM logo. See `TRADEMARKS.md` at the
+repository root.
+
+================================================================================
+11. GOVERNING LAW
+================================================================================
+
+This License is governed by the laws of France, without regard to conflict of
+laws principles. Any dispute arising under this License is subject to the
+exclusive jurisdiction of the courts of Paris, France.
+
+================================================================================
+12. CONTACT
+================================================================================
+
+For questions about this License or to obtain a commercial subscription:
+
+  - Licensing: licensing@alphaluppi.com
+  - Legal: legal@alphaluppi.com
+  - Trademarks: trademarks@alphaluppi.com
+
+Alpha Luppi (Studio Manifeste)
+France
+
+END OF LICENSE
