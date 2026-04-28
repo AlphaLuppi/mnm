@@ -24,7 +24,7 @@
 
 | PR | Sujet | Statut | Notes |
 |---|---|---|---|
-| [#3315](https://github.com/paperclipai/paperclip/pull/3315) | GHSA-68qg-g8mg-6pr7 — scope import/approval/activity routes | **TODO** Phase 1 | Audit routes MnM puis port manuel (préfixe `/companies/:companyId/` divergent) |
+| [#3315](https://github.com/paperclipai/paperclip/pull/3315) | GHSA-68qg-g8mg-6pr7 — scope import/approval/activity routes | ✅ **DONE** 2026-04-28 | Heartbeat/approvals routes already protected via `/companies/:companyId/` prefix. Only the import flow (no companyId in path for `new_company` mode) was vulnerable: ported via `assertInstanceAdmin` helper + regression test (commit `81c3599d`). |
 | [#4122](https://github.com/paperclipai/paperclip/pull/4122) | API authz hardening (40+ routes) | **TODO** Phase 1 | Port manuel actor/company/active-checkout boundary |
 | [#2819](https://github.com/paperclipai/paperclip/pull/2819) | multer 2.1.1 (HIGH CVE) | ✅ **DONE** 2026-04-28 | `multer` résolu à 2.1.1 dans bun.lock, manifest bumpé `^2.1.1` |
 | [#2909](https://github.com/paperclipai/paperclip/pull/2909) | rollup 4.59.0 (path-traversal CVE) | ✅ **DONE** | rollup déjà à 4.59.0 (transitive via vite 6.4.1) |
