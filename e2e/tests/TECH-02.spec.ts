@@ -5,7 +5,7 @@
  *   - AC-1: docker-compose.dev.yml has Redis service
  *   - AC-2: docker-compose.test.yml is isolated with offset ports
  *   - AC-3: docker-compose.yml (prod) has Redis with healthcheck
- *   - AC-4: Dockerfile uses MNM_* variables (not PAPERCLIP_*)
+ *   - AC-4: Dockerfile uses MNM_* variables (not LEGACY_*)
  *   - AC-5: .env.example documents REDIS_URL
  *   - AC-6: npm scripts for test/dev docker lifecycle
  *   - AC-7: Dev and test environments coexist without port conflicts

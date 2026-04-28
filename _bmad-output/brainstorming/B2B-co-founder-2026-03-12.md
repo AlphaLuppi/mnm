@@ -173,7 +173,7 @@ MnM capture progressivement le savoir tribal (tests dans la tete du QA, contexte
 
 ## Phase 4 : Vision actionnable — Sequence MVP B2B
 
-### Etat des lieux (branche tom-paperclip)
+### Etat des lieux (branche de travail)
 
 Tom a deja implemente :
 - Auth / Login (Auth.tsx)

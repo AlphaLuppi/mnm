@@ -31,7 +31,7 @@ L'epic originale décrit TECH-02 comme "docker-compose.dev.yml (PostgreSQL 16, R
 
 2. **`docker-compose.yml` (production) existe** — avec PostgreSQL 17-alpine + service `server` (build depuis `Dockerfile`). Pas de Redis.
 
-3. **Le `Dockerfile` existe** — multi-stage build (base → deps → build → production) avec `node:lts-trixie-slim`. Il est fonctionnel mais certains noms d'env vars utilisent encore `PAPERCLIP_*` au lieu de `MNM_*`.
+3. **Le `Dockerfile` existe** — multi-stage build (base → deps → build → production) avec `node:lts-trixie-slim`. Il est fonctionnel mais certains noms d'env vars utilisent encore `LEGACY_*` au lieu de `MNM_*`.
 
 4. **Les scripts npm `db:dev` et `db:dev:down` existent** (créés par TECH-01).
 
@@ -46,7 +46,7 @@ L'epic originale décrit TECH-02 comme "docker-compose.dev.yml (PostgreSQL 16, R
 1. **Enrichir `docker-compose.dev.yml`** — Ajouter le service Redis 7 avec health check (PostgreSQL est déjà présent)
 2. **Créer `docker-compose.test.yml`** — Environnement de test isolé avec PostgreSQL et Redis dédiés (noms de volume et ports distincts)
 3. **Enrichir `docker-compose.yml` (prod)** — Ajouter le service Redis 7 avec health check
-4. **Revoir le `Dockerfile`** — Corriger les variables `PAPERCLIP_*` → `MNM_*`, optimiser si nécessaire
+4. **Revoir le `Dockerfile`** — Corriger les variables `LEGACY_*` → `MNM_*`, optimiser si nécessaire
 5. **Ajouter `REDIS_URL` à `.env.example`** — Documenter la variable pour les développeurs
 6. **Ajouter scripts npm** — `pnpm test:e2e:docker` pour lancer les tests avec `docker-compose.test.yml`
 7. **Documenter la hiérarchie** — Commentaires dans chaque compose file expliquant son rôle
@@ -62,7 +62,7 @@ L'epic originale décrit TECH-02 comme "docker-compose.dev.yml (PostgreSQL 16, R
 | `docker-compose.yml` | Compose production (PG 17 + server) | Existe, manque Redis |
 | `docker-compose.dev.yml` | Compose dev (PG 17 only) | Existe (TECH-01), manque Redis |
 | `docker-compose.test.yml` | Compose test isolé | N'existe PAS |
-| `Dockerfile` | Multi-stage build server+ui | Existe, variables `PAPERCLIP_*` à corriger |
+| `Dockerfile` | Multi-stage build server+ui | Existe, variables `LEGACY_*` à corriger |
 | `.env.example` | Template des variables d'env | Existe (TECH-01), manque `REDIS_URL` |
 | `package.json` | Scripts npm racine | `db:dev`, `db:dev:down`, `test:e2e` existent |
 | `playwright.config.ts` | Config Playwright E2E | Existe, webServer pour CI |
@@ -73,7 +73,7 @@ L'epic originale décrit TECH-02 comme "docker-compose.dev.yml (PostgreSQL 16, R
 
 1. **Redis n'est pas encore dans le codebase** — Aucune dépendance `ioredis`, `bullmq`, ou `redis` dans les `package.json`. TECH-04 les ajoutera. TECH-02 prépare uniquement l'infrastructure Docker.
 
-2. **Le Dockerfile utilise `PAPERCLIP_*`** — Variables d'env `PAPERCLIP_HOME`, `PAPERCLIP_INSTANCE_ID`, `PAPERCLIP_CONFIG`, `PAPERCLIP_DEPLOYMENT_MODE`, `PAPERCLIP_DEPLOYMENT_EXPOSURE` (ligne 43-47 du Dockerfile). Le code serveur utilise `MNM_*` (voir `config.ts`). Il faut aligner.
+2. **Le Dockerfile utilise `LEGACY_*`** — Variables d'env `LEGACY_HOME`, `LEGACY_INSTANCE_ID`, `LEGACY_CONFIG`, `LEGACY_DEPLOYMENT_MODE`, `LEGACY_DEPLOYMENT_EXPOSURE` (ligne 43-47 du Dockerfile). Le code serveur utilise `MNM_*` (voir `config.ts`). Il faut aligner.
 
 3. **Le `docker-compose.yml` prod n'a pas de Redis** — Or l'architecture B2B prévoit Redis pour sessions, cache, WebSocket pub/sub et rate limiting (architecture-b2b.md, section 8.2).
 
@@ -244,9 +244,9 @@ volumes:
 - Le serveur dépend maintenant de `redis` (condition: service_healthy)
 - Nouveau volume `redisdata` pour la persistance Redis en production
 
-### T4 : Corriger le Dockerfile (variables PAPERCLIP → MNM)
+### T4 : Corriger le Dockerfile (variables LEGACY → MNM)
 
-Le Dockerfile utilise encore des variables `PAPERCLIP_*` héritées du branding précédent. Les aligner sur les noms `MNM_*` utilisés par le code serveur.
+Le Dockerfile utilise encore des variables `LEGACY_*` héritées du fork upstream. Les aligner sur les noms `MNM_*` utilisés par le code serveur.
 
 **Fichier** : `Dockerfile` (modification)
 
@@ -255,17 +255,17 @@ Lignes à modifier (38-47) :
 ```dockerfile
 # AVANT
 ENV NODE_ENV=production \
-  HOME=/paperclip \
+  HOME=/legacy \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
-  PAPERCLIP_HOME=/paperclip \
-  PAPERCLIP_INSTANCE_ID=default \
-  PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
-  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+  LEGACY_HOME=/legacy \
+  LEGACY_INSTANCE_ID=default \
+  LEGACY_CONFIG=/legacy/instances/default/config.json \
+  LEGACY_DEPLOYMENT_MODE=authenticated \
+  LEGACY_DEPLOYMENT_EXPOSURE=private
 
-VOLUME ["/paperclip"]
+VOLUME ["/legacy"]
 
 # APRÈS
 ENV NODE_ENV=production \
@@ -282,9 +282,9 @@ ENV NODE_ENV=production \
 VOLUME ["/mnm"]
 ```
 
-**Attention** : Il faut vérifier que `server/src/config.ts` utilise bien `MNM_HOME`, `MNM_INSTANCE_ID`, etc. Si le code serveur utilise encore `PAPERCLIP_*` en interne (avec un mapping), on peut avoir besoin de garder la compatibilité ou de mettre à jour le code serveur aussi. L'Agent Dev doit vérifier ceci attentivement avant de modifier.
+**Attention** : Il faut vérifier que `server/src/config.ts` utilise bien `MNM_HOME`, `MNM_INSTANCE_ID`, etc. Si le code serveur utilise encore `LEGACY_*` en interne (avec un mapping), on peut avoir besoin de garder la compatibilité ou de mettre à jour le code serveur aussi. L'Agent Dev doit vérifier ceci attentivement avant de modifier.
 
-**Décision** : Si le serveur mappe encore `PAPERCLIP_*` → `MNM_*` en interne, ajouter les deux sets de variables dans le Dockerfile avec un commentaire de dépréciation. La migration complète sera faite dans un refactor séparé si nécessaire.
+**Décision** : Si le serveur mappe encore `LEGACY_*` → `MNM_*` en interne, ajouter les deux sets de variables dans le Dockerfile avec un commentaire de dépréciation. La migration complète sera faite dans un refactor séparé si nécessaire.
 
 ### T5 : Mettre à jour `.env.example`
 
@@ -380,7 +380,7 @@ Then PostgreSQL, Redis et le serveur MnM démarrent
 Given le Dockerfile de production
 When l'image est construite (docker build .)
 Then les variables d'environnement utilisent le préfixe MNM_*
-  And le VOLUME est /mnm (pas /paperclip)
+  And le VOLUME est /mnm (pas /legacy)
   And le build multi-stage fonctionne sans erreur
   And l'image finale peut démarrer le serveur
 ```
@@ -455,15 +455,15 @@ L'utilisation de `tmpfs` dans `docker-compose.test.yml` garantit :
 - Un nettoyage automatique à l'arrêt du container
 - Pas de résidus entre les runs de test
 
-### Dockerfile — Analyse de rétrocompatibilité des variables PAPERCLIP
+### Dockerfile — Analyse de rétrocompatibilité des variables LEGACY
 
-Le Dockerfile (ligne 38-47) utilise `PAPERCLIP_HOME`, `PAPERCLIP_INSTANCE_ID`, `PAPERCLIP_CONFIG`, `PAPERCLIP_DEPLOYMENT_MODE`, `PAPERCLIP_DEPLOYMENT_EXPOSURE`.
+Le Dockerfile (ligne 38-47) utilise `LEGACY_HOME`, `LEGACY_INSTANCE_ID`, `LEGACY_CONFIG`, `LEGACY_DEPLOYMENT_MODE`, `LEGACY_DEPLOYMENT_EXPOSURE`.
 
 L'agent Dev doit vérifier dans `server/src/config.ts` et `server/src/paths.ts` si ces variables sont lues directement. Rechercher :
-- `process.env.PAPERCLIP_*` dans tout le code serveur
+- `process.env.LEGACY_*` dans tout le code serveur
 - `resolveMnMEnvPath()` et `loadConfig()` pour comprendre le mapping
 - Si le code utilise `MNM_*` exclusivement, on peut renommer en toute sécurité
-- Si le code lit encore `PAPERCLIP_*`, ajouter les deux sets avec un commentaire de dépréciation
+- Si le code lit encore `LEGACY_*`, ajouter les deux sets avec un commentaire de dépréciation
 
 ### Playwright + docker-compose.test.yml — Intégration CI
 
@@ -531,11 +531,11 @@ Then Docker Desktop gère tmpfs via sa VM Linux (transparent)
 ```
 Given le Dockerfile avec les nouvelles variables MNM_*
 When l'image est construite et le serveur démarre
-  And le code serveur attend encore PAPERCLIP_* pour certaines fonctions
+  And le code serveur attend encore LEGACY_* pour certaines fonctions
 Then le serveur échoue avec une erreur de config manquante
   And l'Agent Dev doit ajouter la rétrocompatibilité (lire les deux préfixes)
 ```
-**Mitigation** : L'Agent Dev DOIT vérifier toutes les occurrences de `PAPERCLIP_*` dans le code serveur AVANT de modifier le Dockerfile. Si le code lit `PAPERCLIP_*`, soit mettre à jour le code, soit garder les deux sets de variables.
+**Mitigation** : L'Agent Dev DOIT vérifier toutes les occurrences de `LEGACY_*` dans le code serveur AVANT de modifier le Dockerfile. Si le code lit `LEGACY_*`, soit mettre à jour le code, soit garder les deux sets de variables.
 
 ### E6 : Redis health check échoue au démarrage
 ```
@@ -578,7 +578,7 @@ Then PostgreSQL ou Redis échouent au démarrage
 | `docker-compose.dev.yml` | Modifier | T1 — Ajouter Redis |
 | `docker-compose.test.yml` | Créer | T2 — Compose test isolé |
 | `docker-compose.yml` | Modifier | T3 — Ajouter Redis prod |
-| `Dockerfile` | Modifier | T4 — Variables PAPERCLIP → MNM |
+| `Dockerfile` | Modifier | T4 — Variables LEGACY → MNM |
 | `.env.example` | Modifier | T5 — Ajouter REDIS_URL |
 | `package.json` | Modifier | T6 — Scripts Docker test |
 

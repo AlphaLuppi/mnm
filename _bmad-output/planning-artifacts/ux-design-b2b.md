@@ -4748,7 +4748,7 @@ Echelle structuree pour eviter les conflits d'empilement.
 |-----------|-----------|-------|
 | Classes Tailwind | Utility-first | Priorite aux classes utilitaires Tailwind |
 | Tokens CSS | kebab-case avec prefixe semantique | `--role-admin`, `--agent`, `--chart-1` |
-| Classes custom | kebab-case, prefix projet | `paperclip-mdxeditor`, `activity-row-enter` |
+| Classes custom | kebab-case, prefix projet | `mnm-mdxeditor`, `activity-row-enter` |
 | **Regle** | Eviter les classes custom | Sauf pour les tokens, animations complexes et integrations tierces |
 
 ### 2.4 Variables et Types TypeScript

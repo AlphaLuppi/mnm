@@ -8,7 +8,7 @@ Cette page retrace la chronologie du projet, les sessions de brainstorming qui o
 
 | Date | Jalon |
 |---|---|
-| **Fev 2026** | Fork de Paperclip, premieres sessions de brainstorming |
+| **Fev 2026** | Fork upstream, premieres sessions de brainstorming |
 | **19 fev** | Brainstorm Cross-Document Drift Detection (architecture fondatrice) |
 | **21 fev** | Brainstorm IDE for Agent-Driven Dev — 45 idees, changement de paradigme |
 | **Mar 2026** | Pivot B2B enterprise, migration PostgreSQL |
