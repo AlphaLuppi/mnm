@@ -10,6 +10,37 @@ export interface RateLimiterOptions {
   max?: number;
   /** Function to generate the rate limit key from a request (default: req.ip) */
   keyGenerator?: (req: Request) => string;
+  /** Optional namespace prefix for the bucket key (default: "rl"). Use to isolate
+   *  multiple chained limiters (e.g. per-actor vs per-company). */
+  namespace?: string;
+}
+
+/**
+ * Resolve the companyId for the current request. Falls back to "global" so the
+ * per-company limiter still buckets unauthenticated traffic separately.
+ */
+export function resolveCompanyIdForBucket(req: Request): string {
+  // Express-style param (mounted at /companies/:companyId/...)
+  const param = req.params?.companyId;
+  if (typeof param === "string" && param) return param;
+  if (req.actor?.type === "agent" && req.actor.companyId) return req.actor.companyId;
+  if (req.actor?.type === "board" && req.actor.companyIds?.length) return req.actor.companyIds[0];
+  return "global";
+}
+
+/**
+ * Pre-built keyGenerator for the per-company "global" bucket — used to enforce
+ * a company-wide ceiling regardless of which actor inside that company is
+ * sending traffic. Chain alongside the existing per-actor limiter.
+ *
+ * Example wiring:
+ *   const perActor = createRateLimiter({ keyGenerator: (req) => `${companyId}:${actorId}`, max: 500 });
+ *   const perCompany = createRateLimiter({ keyGenerator: perCompanyKeyGenerator, namespace: "rl-co", max: 5000 });
+ *   api.use(perCompany);
+ *   api.use(perActor);
+ */
+export function perCompanyKeyGenerator(req: Request): string {
+  return `${resolveCompanyIdForBucket(req)}:*`;
 }
 
 interface InMemoryEntry {
@@ -27,6 +58,7 @@ export function createRateLimiter(opts: RateLimiterOptions = {}): RequestHandler
     windowMs = 60_000,
     max = 100,
     keyGenerator = (req: Request) => req.ip ?? "unknown",
+    namespace = "rl",
   } = opts;
 
   const windowSec = Math.ceil(windowMs / 1000);
@@ -51,7 +83,7 @@ export function createRateLimiter(opts: RateLimiterOptions = {}): RequestHandler
     if (!redisState?.client || !redisState.connected) return null;
 
     try {
-      const redisKey = `rl:${key}`;
+      const redisKey = `${namespace}:${key}`;
       const current = await redisState.client.incr(redisKey);
 
       if (current === 1) {
