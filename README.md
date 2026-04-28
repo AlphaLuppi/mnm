@@ -1,5 +1,7 @@
 # MnM — Make no Mistake
 
+🇬🇧 [Read in English](README.en.md) | 🇫🇷 Vous lisez la version française.
+
 ```
 ███╗   ███╗       █████╗       ███╗   ███╗
 ████╗ ████║      ██╔══██╗      ████╗ ████║
@@ -148,4 +150,10 @@ Fork de [Paperclip](https://github.com/paperclipai/paperclip) ("run autonomous A
 
 ## Licence
 
-MIT
+MnM est sous **double licence** :
+
+- **Cœur (tout hors `ee/`)** : [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Libre d'usage, de modification et de self-host. La distribution réseau implique de partager le code source.
+- **Modules Enterprise (dossier `ee/`)** : [MnM Enterprise License](ee/LICENSE) (source-available, nécessite une licence commerciale).
+- **Licence commerciale / non-AGPL** : disponible pour les organisations qui ne peuvent pas adopter l'AGPL — voir [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md). Contact `licensing@alphaluppi.com`.
+
+Marques (MnM, Alpha Luppi, logo MnM) — voir [TRADEMARKS.md](TRADEMARKS.md). Contribuer — voir [CLA.md](CLA.md).

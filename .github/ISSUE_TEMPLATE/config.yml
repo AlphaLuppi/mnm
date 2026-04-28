@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/AlphaLuppi/mnm/discussions
+    about: Please use GitHub Discussions for general Q&A, ideas, and community chat.
+  - name: Security vulnerability
+    url: https://github.com/AlphaLuppi/mnm/security/advisories/new
+    about: Report security issues privately. See SECURITY.md for our policy and SLA.
+  - name: Commercial / Enterprise license
+    url: https://github.com/AlphaLuppi/mnm/blob/main/COMMERCIAL-LICENSE.md
+    about: For organizations that cannot adopt AGPL-3.0 or need EE modules — contact licensing@alphaluppi.com.
