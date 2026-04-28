@@ -614,6 +614,47 @@ function handleLiveEvent(
     }
     return;
   }
+
+  // GOVERNED-WORKFLOWS: Run cancellation / reactivation — also invalidate the
+  // runs list (status flips drive list filters) in addition to the run detail.
+  // Payload runId is set by emitRunCancelled / emitRunReactivated server-side.
+  if (
+    event.type === "governed_run.cancelled" ||
+    event.type === "governed_run.reactivated"
+  ) {
+    // Invalidate every "runs list" query for this company regardless of the
+    // workflow `name` slot — mirrors invalidateRunListsForCompany in
+    // useWorkflowRunActions.ts. List key shape:
+    //   ["governed-workflows", "runs", companyId, name, filters]
+    // The runDetail key shares the prefix but interposes the literal "detail"
+    // at index 2, so the `key[2] === companyId` check excludes it.
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey as unknown[];
+        return (
+          key[0] === "governed-workflows" &&
+          key[1] === "runs" &&
+          key[2] === expectedCompanyId
+        );
+      },
+    });
+    const runId = readString(payload.runId);
+    if (runId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.governedWorkflows.runDetail(expectedCompanyId, runId),
+      });
+      // Re-use the same DOM event channel so useGovernedRunEvents subscribers
+      // on /runs/:runId pick up the change without a second listener.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("governed_run:updated", {
+            detail: { companyId: expectedCompanyId, runId },
+          }),
+        );
+      }
+    }
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
