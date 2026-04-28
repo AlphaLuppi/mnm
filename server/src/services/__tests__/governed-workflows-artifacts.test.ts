@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { LocalBareRepoProvider } from "@mnm/git-provider";
-import { commitHandoffArtifacts, resolveCommitAuthor } from "../governed-workflows-artifacts.js";
+import { commitHandoffArtifacts, resolveCommitAuthor, buildHandoffsForStep } from "../governed-workflows-artifacts.js";
 import { seedBareRepo } from "../../mcp/tools/__tests__/fixtures/seed-bare-repo.js";
 import type { ArtifactInput } from "@mnm/shared";
 
@@ -117,5 +117,47 @@ describe("resolveCommitAuthor", () => {
       name: process.env.MNM_GIT_BOT_NAME ?? "MnM bot",
       email: process.env.MNM_GIT_BOT_EMAIL ?? "mnm-bot@mnm.local",
     });
+  });
+});
+
+describe("buildHandoffsForStep", () => {
+  it("extracts handoffs from previous succeeded steps", () => {
+    const prevSteps = [
+      {
+        stepIdInJson: "tech-design",
+        state: "succeeded" as const,
+        artifactsJson: {
+          outputs: [
+            { name: "design", kind: "git_file", path: "artifacts/runs/r1/tech-design/design.md", git_sha: "abc", branch: "mnm-runs/r1", bytes: 100 },
+            { name: "mr", kind: "external_url", url: "https://x" },
+          ],
+          data: { mr_iid: 1 },
+        },
+      },
+    ];
+    const handoffs = buildHandoffsForStep(prevSteps as any);
+    expect(handoffs).toEqual([
+      {
+        name: "design",
+        kind: "git_file",
+        git_sha: "abc",
+        path: "artifacts/runs/r1/tech-design/design.md",
+        branch: "mnm-runs/r1",
+        destination: ".mnm/handoffs/design.md",
+      },
+      {
+        name: "mr",
+        kind: "external_url",
+        url: "https://x",
+      },
+    ]);
+  });
+
+  it("ignores failed and pending steps", () => {
+    const prevSteps = [
+      { stepIdInJson: "s1", state: "failed", artifactsJson: { outputs: [{ name: "x", kind: "git_file", path: "p", git_sha: "s", branch: "b", bytes: 1 }], data: {} } },
+      { stepIdInJson: "s2", state: "pending", artifactsJson: null },
+    ];
+    expect(buildHandoffsForStep(prevSteps as any)).toEqual([]);
   });
 });

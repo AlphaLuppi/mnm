@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import type { GitProvider } from "@mnm/git-provider";
-import type { ArtifactInput, ArtifactPersisted, OutputPersisted } from "@mnm/shared";
+import type { ArtifactInput, ArtifactPersisted, Handoff, OutputPersisted } from "@mnm/shared";
 import { authUsers, type Db } from "@mnm/db";
 
 export interface CommitHandoffArtifactsArgs {
@@ -146,4 +146,56 @@ export async function resolveCommitAuthor(
     name: process.env.MNM_GIT_BOT_NAME ?? "MnM bot",
     email: process.env.MNM_GIT_BOT_EMAIL ?? "mnm-bot@mnm.local",
   };
+}
+
+interface PreviousStepRow {
+  stepIdInJson: string;
+  state: string;
+  artifactsJson: ArtifactPersisted | null;
+}
+
+/**
+ * Builds the handoffs[] array for a step launch from all previous step rows.
+ * Only succeeded steps with non-null artifacts contribute. Each output is
+ * projected to a Handoff — git_file/git_folder get a destination path under
+ * .mnm/handoffs/, external_url passes through unchanged.
+ */
+export function buildHandoffsForStep(prevSteps: PreviousStepRow[]): Handoff[] {
+  const handoffs: Handoff[] = [];
+  for (const step of prevSteps) {
+    if (step.state !== "succeeded" || !step.artifactsJson) continue;
+    for (const output of step.artifactsJson.outputs) {
+      if (output.kind === "git_file") {
+        handoffs.push({
+          name: output.name,
+          kind: "git_file",
+          git_sha: output.git_sha,
+          path: output.path,
+          branch: output.branch,
+          destination: `.mnm/handoffs/${output.name}${getFileExtension(output.path)}`,
+        });
+      } else if (output.kind === "git_folder") {
+        handoffs.push({
+          name: output.name,
+          kind: "git_folder",
+          git_sha: output.git_sha,
+          path: output.path,
+          branch: output.branch,
+          destination: `.mnm/handoffs/${output.name}/`,
+        });
+      } else if (output.kind === "external_url") {
+        handoffs.push({
+          name: output.name,
+          kind: "external_url",
+          url: output.url,
+        });
+      }
+    }
+  }
+  return handoffs;
+}
+
+function getFileExtension(path: string): string {
+  const i = path.lastIndexOf(".");
+  return i >= 0 ? path.slice(i) : "";
 }
