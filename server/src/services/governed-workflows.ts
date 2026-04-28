@@ -7,6 +7,7 @@ import {
   gateResults,
   agents,
   auditEvents,
+  authUsers,
   type Db,
 } from "@mnm/db";
 import {
@@ -18,7 +19,7 @@ import {
 } from "@mnm/governed-workflows";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
-import type { ArtifactInput, AuditActorType, Handoff, MergedConfigItem } from "@mnm/shared";
+import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem } from "@mnm/shared";
 import { PERMISSIONS } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import {
@@ -122,6 +123,10 @@ export interface GetRunResult {
   status: string;
   startedAt: Date | null;
   completedAt: Date | null;
+  cancelledAt: Date | null;
+  cancelledByActorId: string | null;
+  cancelledByActorType: AuditActorType | null;
+  cancellationReason: string | null;
   steps: RunStepSummary[];
   lastGateResult: {
     gateIdInJson: string;
@@ -568,6 +573,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       status: run.status,
       startedAt: run.startedAt,
       completedAt: run.completedAt,
+      cancelledAt: run.cancelledAt,
+      cancelledByActorId: run.cancelledByActorId,
+      cancelledByActorType: run.cancelledByActorType,
+      cancellationReason: run.cancellationReason,
       steps: steps.map((s) => ({
         id: s.stepIdInJson,
         state: s.state,
@@ -1909,6 +1918,153 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     });
   }
 
+  /**
+   * Resume a governed workflow run from a fresh client session.
+   *
+   * Returns the full history of succeeded steps (with outputs + data from
+   * artifactsJson) and the launch payload for the current pending/running
+   * step so the harness can Task() into the right agent without calling
+   * launchStep again (which would re-evaluate entry gates and mutate state).
+   *
+   * Choice: compute the launch payload INLINE here (no state change, no gate
+   * evaluation) rather than delegating to launchStep. This avoids the
+   * double-transition problem when the next step is already `running` (e.g.
+   * the agent was dispatched but the client session was cleared). A TODO is
+   * left for a future refactor that extracts `computeStepLaunchPayload` from
+   * launchStep so the two paths share code.
+   *
+   * TODO(refactor): extract the prompt-context interpolation + handoff-build
+   * portion of launchStep into a shared helper `computeStepLaunchPayload` so
+   * resumeRun and launchStep stay in sync if the interpolation logic changes.
+   */
+  async function resumeRun(args: { companyId: string; runId: string }) {
+    // Load the run row — same cross-tenant defense as getRun/cancelRun.
+    const [runRow] = await db
+      .select()
+      .from(governedWorkflowRuns)
+      .where(
+        and(
+          eq(governedWorkflowRuns.id, args.runId),
+          eq(governedWorkflowRuns.companyId, args.companyId),
+        ),
+      );
+    if (!runRow) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+        `Run '${args.runId}' not found.`,
+      );
+    }
+
+    // Load all step rows ordered by creation (= workflow step order).
+    const steps = await db
+      .select()
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId))
+      .orderBy(governedStepExecutions.createdAt);
+
+    // Build the history array from succeeded steps.
+    const succeededSteps = steps.filter((s) => s.state === "succeeded");
+    const history = await Promise.all(
+      succeededSteps.map(async (s) => {
+        // Resolve the email of the user who launched this step (null for agents).
+        let completedBy: string | null = null;
+        if (s.launchedByActorType === "user" && s.launchedByActorId) {
+          const [userRow] = await db
+            .select({ email: authUsers.email })
+            .from(authUsers)
+            .where(eq(authUsers.id, s.launchedByActorId));
+          completedBy = userRow?.email ?? null;
+        }
+        const artifact = s.artifactsJson as ArtifactPersisted | null;
+        return {
+          step_id: s.stepIdInJson,
+          state: s.state,
+          outputs: artifact?.outputs ?? [],
+          data: artifact?.data ?? {},
+          started_at: s.startedAt?.toISOString() ?? null,
+          completed_at: s.completedAt?.toISOString() ?? null,
+          completed_by: completedBy,
+        };
+      }),
+    );
+
+    // Find the current step: first non-succeeded, non-terminal step.
+    const nextStep = steps.find(
+      (s) => s.state === "pending" || s.state === "running" || s.state === "gate_eval",
+    );
+
+    // Resolve the definition name (needed to re-parse the workflow JSON).
+    const defInfo = await getDefByRun(args.companyId, args.runId);
+
+    if (!nextStep) {
+      // Run is fully done (all steps succeeded, or was completed/failed/cancelled).
+      return {
+        run_id: runRow.id,
+        workflow_name: defInfo.name,
+        workflow_git_tag: runRow.workflowGitTag,
+        status: runRow.status,
+        history,
+        current_step: null,
+      };
+    }
+
+    // Compute the launch payload for the current step WITHOUT mutating state
+    // (no gate evaluation, no running transition). This is safe to call for
+    // both pending (never launched) and running (launched but session cleared)
+    // steps because we skip the entry gate — the gate was either already
+    // passed (running) or will be evaluated on the next explicit launchStep.
+    const parsed = await getWorkflowParsed({
+      companyId: args.companyId,
+      name: defInfo.name,
+      gitTag: defInfo.workflowGitTag,
+      userId: null, // resumeRun has no actor — use company-level git access
+    });
+
+    const stepDef = parsed.workflow.steps.find((s) => s.id === nextStep.stepIdInJson);
+    if (!stepDef) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_STEP_NOT_FOUND,
+        `Step '${nextStep.stepIdInJson}' not found in workflow definition.`,
+      );
+    }
+
+    // Interpolate prompt_context (mirrors launchStep lines 919-924).
+    const params = await fetchRunParams(args.companyId, args.runId);
+    const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
+    const promptContext = interpolatePromptContext(stepDef.prompt_context, {
+      variables: params,
+      steps: previousArtifacts,
+    });
+
+    // Build handoffs (mirrors launchStep lines 926-934).
+    const prevStepRows = await db
+      .select({
+        stepIdInJson: governedStepExecutions.stepIdInJson,
+        state: governedStepExecutions.state,
+        artifactsJson: governedStepExecutions.artifactsJson,
+      })
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId));
+    const handoffs = buildHandoffsForStep(prevStepRows as any);
+
+    return {
+      run_id: runRow.id,
+      workflow_name: defInfo.name,
+      workflow_git_tag: runRow.workflowGitTag,
+      status: runRow.status,
+      history,
+      current_step: {
+        step_id: nextStep.stepIdInJson,
+        state: nextStep.state,
+        agent_name: stepDef.agent,
+        prompt_context: promptContext,
+        subagent_type: `mnm--${stepDef.agent}`,
+        handoffs,
+        run_branch: runBranchName(args.runId),
+      },
+    };
+  }
+
   return {
     listDefinitions,
     getDefinition,
@@ -1923,6 +2079,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     listRuns,
     cancelRun,
     reactivateRun,
+    resumeRun,
   };
 }
 

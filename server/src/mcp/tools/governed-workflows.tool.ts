@@ -175,7 +175,7 @@ export default defineMcpTools(({ tool, services }) => {
     description:
       "[Governed Workflows] List runs for a workflow definition. " +
       "Filter by status (active|completed|failed|cancelled). " +
-      "Returns {items: [{run_id, status, started_at, completed_at, git_tag, git_sha, initiated_by_actor_type, initiated_by_actor_id}], total}. " +
+      "Returns {items: [{run_id, status, started_at, completed_at, cancelled_at, cancellation_reason, cancelled_by_actor_id, cancelled_by_actor_type, git_tag, git_sha, initiated_by_actor_type, initiated_by_actor_id}], total}. " +
       "Use this to discover run_ids to feed into get_governed_workflow_run when resuming work.",
     input: z.object({
       name: z.string().min(1).describe("Workflow definition name"),
@@ -203,6 +203,10 @@ export default defineMcpTools(({ tool, services }) => {
                 status: row.status,
                 started_at: row.startedAt instanceof Date ? row.startedAt.toISOString() : row.startedAt,
                 completed_at: row.completedAt instanceof Date ? row.completedAt.toISOString() : row.completedAt,
+                cancelled_at: row.cancelledAt instanceof Date ? row.cancelledAt.toISOString() : row.cancelledAt ?? null,
+                cancellation_reason: row.cancellationReason ?? null,
+                cancelled_by_actor_id: row.cancelledByActorId ?? null,
+                cancelled_by_actor_type: row.cancelledByActorType ?? null,
                 git_tag: row.gitTag,
                 git_sha: row.gitSha,
                 initiated_by_actor_type: row.initiatedByActorType,
@@ -219,7 +223,7 @@ export default defineMcpTools(({ tool, services }) => {
   tool("get_governed_workflow_run", {
     permissions: [PERMISSIONS.WORKFLOWS_READ],
     description:
-      "[Governed Workflows] Fetch the state of a run. Returns {status, steps:[{id,state,artifact_ok}], last_gate_result}.",
+      "[Governed Workflows] Fetch the state of a run. Returns {status, cancelled_at, cancellation_reason, cancelled_by_actor_id, cancelled_by_actor_type, steps:[{id,state,artifact_ok}], last_gate_result}.",
     input: z.object({
       run_id: z.string().uuid(),
     }),
@@ -239,6 +243,10 @@ export default defineMcpTools(({ tool, services }) => {
               status: r.status,
               started_at: r.startedAt,
               completed_at: r.completedAt,
+              cancelled_at: r.cancelledAt instanceof Date ? r.cancelledAt.toISOString() : r.cancelledAt ?? null,
+              cancellation_reason: r.cancellationReason ?? null,
+              cancelled_by_actor_id: r.cancelledByActorId ?? null,
+              cancelled_by_actor_type: r.cancelledByActorType ?? null,
               steps: r.steps.map((s: any) => ({
                 id: s.id,
                 state: s.state,
@@ -752,6 +760,32 @@ export default defineMcpTools(({ tool, services }) => {
             type: "text" as const,
             text: JSON.stringify({ archived: true, name: input.name }),
           }],
+        };
+      });
+    },
+  });
+
+  // ── Task 8 — resumeGovernedWorkflowRun ───────────────────────────────────
+
+  tool("resume_governed_workflow_run", {
+    permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
+    description:
+      "[Governed Workflows] Returns a run's history (succeeded steps with their outputs+data) and the current pending step (with prompt + handoffs[]) so a fresh client can resume the run.",
+    input: z.object({
+      run_id: z.string().uuid(),
+    }),
+    // readOnlyHint: true because resumeRun only reads state — it does NOT call
+    // launchStep and therefore does NOT transition any step to running.
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.resumeRun({
+          companyId: actor.companyId,
+          runId: input.run_id,
+        });
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(r) }],
         };
       });
     },
