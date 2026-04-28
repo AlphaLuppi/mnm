@@ -28,12 +28,12 @@
 | [#4122](https://github.com/paperclipai/paperclip/pull/4122) | API authz hardening (40+ routes) | **TODO** Phase 1 | Port manuel actor/company/active-checkout boundary |
 | [#2819](https://github.com/paperclipai/paperclip/pull/2819) | multer 2.1.1 (HIGH CVE) | ✅ **DONE** 2026-04-28 | `multer` résolu à 2.1.1 dans bun.lock, manifest bumpé `^2.1.1` |
 | [#2909](https://github.com/paperclipai/paperclip/pull/2909) | rollup 4.59.0 (path-traversal CVE) | ✅ **DONE** | rollup déjà à 4.59.0 (transitive via vite 6.4.1) |
-| [#2866](https://github.com/paperclipai/paperclip/pull/2866) | JWT secret BETTER_AUTH_SECRET fallback | **TODO** Phase 1 | Audit MnM: `better-auth 1.4.18`, vérifier pas de fallback hardcoded |
-| [#3124](https://github.com/paperclipai/paperclip/pull/3124) | Removed hardcoded JWT secret | **TODO** Phase 1 | Cf. #2866 |
-| [#2659](https://github.com/paperclipai/paperclip/pull/2659) | Bearer redaction logs | **TODO** Phase 1 | Identifier logger MnM (`server/src/middleware/logger.ts`), ajouter redactor |
-| [#4225](https://github.com/paperclipai/paperclip/pull/4225) | Sandbox dynamic adapter UI parsers | **TODO** Phase 1 | Vérifier d'abord si `dynamic-loader.ts` existe côté UI MnM, sinon skip |
-| [#4557](https://github.com/paperclipai/paperclip/pull/4557) | Disappearing issue comments | **TODO** Phase 1 | Vérifier si MnM a même pattern optimistic-update |
-| [#4234](https://github.com/paperclipai/paperclip/pull/4234) | Stale queued comment targets | **TODO** Phase 1 | Lié à #4557 |
+| [#2866](https://github.com/paperclipai/paperclip/pull/2866) | JWT secret BETTER_AUTH_SECRET fallback | ✅ **DONE** 2026-04-29 | `agent-auth-jwt.ts` now reads `MNM_AGENT_JWT_SECRET || BETTER_AUTH_SECRET` (commit `b07b9b0c`). Operators set one secret in production. |
+| [#3124](https://github.com/paperclipai/paperclip/pull/3124) | Removed hardcoded JWT secret | ✅ **DONE** 2026-04-29 | Covered by same commit `b07b9b0c`. MnM had no hardcoded fallback for `authenticated` mode (validated by error path); `local_trusted` retains intentional `mnm-dev-secret` fallback for dev UX. |
+| [#2659](https://github.com/paperclipai/paperclip/pull/2659) | Bearer redaction logs | ✅ **DONE** 2026-04-29 | `server/src/middleware/logger.ts` now redacts Authorization, cookie, x-mnm-api-key, x-api-key, and reqBody password/token/apiKey/secret (commit `11ad9fe6`). Extends upstream's single-path redaction with MnM-specific headers and validation-failure body capture. |
+| [#4225](https://github.com/paperclipai/paperclip/pull/4225) | Sandbox dynamic adapter UI parsers | ⏭️ **SKIP** — N/A | MnM has no dynamic adapter UI loading mechanism. `ui/src/adapters/registry.ts` is a 16-line static map of compiled-in adapters (claude/codex/cursor/opencode/pi/process). No `dynamic-loader.ts`, no `loadDynamicParser()`, no `/api/adapters/:type/ui-parser.js` endpoint. The vulnerability class doesn't exist in MnM. |
+| [#4557](https://github.com/paperclipai/paperclip/pull/4557) | Disappearing issue comments | ⏭️ **SKIP** — N/A | MnM has no comment pagination (single fetch, no cursor anchor) and no optimistic UI queueing for comments. The buggy descending-cursor SQL predicate and stale comment-target reconciliation don't exist in MnM's simpler React Query model. Re-evaluate if pagination/optimistic UX is added in a future phase. |
+| [#4234](https://github.com/paperclipai/paperclip/pull/4234) | Stale queued comment targets | ⏭️ **SKIP** — N/A | Lié à #4557 — MnM n'a pas de `LocallyQueuedIssueComment` wrapper ni de `applyLocalQueuedIssueCommentState()`. |
 
 ### Features stratégiques (Phases 2-4)
 
