@@ -2112,3 +2112,154 @@ describe("governedWorkflowService — reactivateRun", () => {
     ).rejects.toMatchObject({ code: WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN });
   });
 });
+
+describe("governedWorkflowsService — cancelled run guard", () => {
+  let db: Db;
+
+  // Stub provider for this suite — a 2-step workflow lets us:
+  //  - complete step 1 (no entry/exit gates) so launchStep on step 2 has its
+  //    deps satisfied (test 1)
+  //  - leave step 1 running and try completeStep after cancellation (test 2)
+  const TWO_STEP_WORKFLOW = {
+    apiVersion: "mnm/v1",
+    kind: "GovernedWorkflow",
+    name: "hello-world",
+    variables: {},
+    steps: [
+      { id: "greet", deps: [], agent: "greeter", prompt_context: {}, gates: {} },
+      { id: "shout", deps: ["greet"], agent: "shouter", prompt_context: {}, gates: {} },
+    ],
+  };
+
+  const provider = {
+    fetchBlob: async () => JSON.stringify(TWO_STEP_WORKFLOW),
+    listTags: async () => [{ name: "v1.0.0", sha: "deadbeef" }],
+    resolveRef: async () => "deadbeef",
+    pathExists: async () => true,
+    commitFile: async () => ({ sha: "x" }),
+  };
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      resolveGitProvider: (async () => provider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  // Fresh company per test — isolates accessService role caches and avoids
+  // cross-pollination of governed_workflow_definitions (mirrors the cancelRun
+  // / reactivateRun describe blocks).
+  async function seedCompany(suffix: string): Promise<string> {
+    const companyId = crypto.randomUUID();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"Guard-" + suffix + "-" + rand}, ${"GD" + rand})`,
+    );
+    await db.execute(
+      sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyId}, 'hello-world', 'v1.0.0')`,
+    );
+    return companyId;
+  }
+
+  // Launch a fresh run and return run identity + an actor pointing at the
+  // initiator (so cancelRun's permission check passes via the initiator path).
+  async function launchRun(): Promise<{
+    companyId: string;
+    runId: string;
+    actor: { type: "user"; id: string };
+  }> {
+    const userId = `init-${crypto.randomUUID()}`;
+    const companyId = await seedCompany(userId.slice(0, 6));
+    await setTenantContext(db, companyId);
+    const svc = mkSvc();
+    const { runId } = await svc.launchWorkflow({
+      companyId,
+      name: "hello-world",
+      params: {},
+      actor: { type: "user", id: userId },
+    });
+    return { companyId, runId, actor: { type: "user", id: userId } };
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("launchStep throws WORKFLOW_RUN_CANCELLED on a cancelled run", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    const svc = mkSvc();
+
+    // Mark the first step succeeded so 'shout' (deps=[greet]) is launchable.
+    // We then cancel the run and confirm launchStep on 'shout' rejects with
+    // WORKFLOW_RUN_CANCELLED rather than the deps/state errors that would
+    // otherwise apply (the cascade moves 'shout' to 'cancelled').
+    await db.execute(sql`
+      UPDATE governed_step_executions
+      SET state = 'succeeded', completed_at = now()
+      WHERE run_id = ${runId} AND step_id_in_json = 'greet'
+    `);
+
+    await svc.cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "test setup: cancel before launchStep",
+      publishLiveEvent: vi.fn(),
+    });
+
+    await expect(
+      svc.launchStep({
+        companyId,
+        runId,
+        stepId: "shout",
+        actor,
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_CANCELLED,
+    });
+  });
+
+  it("completeStep throws WORKFLOW_RUN_CANCELLED on a cancelled run", async () => {
+    const { companyId, runId, actor } = await launchRun();
+    const svc = mkSvc();
+
+    // Move the first step to 'running' so completeStep would normally proceed.
+    // Cancellation cascades it to 'cancelled' — the guard must still fire on
+    // the RUN's cancelledAt, not on the step state (otherwise the
+    // WORKFLOW_ALREADY_COMPLETED check, which only matches succeeded/failed,
+    // would silently let the call through to commitHandoffArtifacts).
+    await db.execute(sql`
+      UPDATE governed_step_executions
+      SET state = 'running', started_at = now()
+      WHERE run_id = ${runId} AND step_id_in_json = 'greet'
+    `);
+
+    await svc.cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason: "test setup: cancel before completeStep",
+      publishLiveEvent: vi.fn(),
+    });
+
+    await expect(
+      svc.completeStep({
+        companyId,
+        runId,
+        stepId: "greet",
+        artifact: { outputs: [], data: { greeting: "hi" } },
+        actor,
+      }),
+    ).rejects.toMatchObject({
+      code: WORKFLOW_ERROR_CODES.WORKFLOW_RUN_CANCELLED,
+    });
+  });
+});
