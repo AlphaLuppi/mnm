@@ -55,15 +55,29 @@ describe("agent local JWT", () => {
       company_id: "company-1",
       adapter_type: "claude_local",
       run_id: "run-1",
-      iss: "mnm",
-      aud: "mnm-api",
+      iss: "mnm-agent",
+      aud: "mnm-mcp",
     });
   });
 
-  it("returns null when secret is missing", () => {
+  it("uses mnm-dev-secret fallback in local_trusted when no secret env vars are set", () => {
+    // beforeEach already deletes BETTER_AUTH_SECRET and MNM_DEPLOYMENT_MODE
+    // (defaults to local_trusted). Setting MNM_AGENT_JWT_SECRET to "" simulates
+    // the legacy "missing secret" condition; the dev fallback should kick in.
     process.env[secretEnv] = "";
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");
-    expect(token).toBeNull();
+    expect(typeof token).toBe("string");
+
+    // Token must verify with the same dev fallback secret.
+    const claims = verifyLocalAgentJwt(token!);
+    expect(claims).toMatchObject({
+      sub: "agent-1",
+      company_id: "company-1",
+    });
+
+    // Garbage tokens still return null.
     expect(verifyLocalAgentJwt("abc.def.ghi")).toBeNull();
   });
 
