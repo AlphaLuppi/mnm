@@ -16,6 +16,9 @@ import type {
   CommitMultipleFilesResult,
   GetMrApprovalsArgs,
   MrApprovalsResult,
+  MergeBranchArgs,
+  MergeBranchResult,
+  DeleteBranchArgs,
 } from "./types.js";
 
 export interface GitlabProviderOptions {
@@ -347,6 +350,52 @@ export class GitlabProvider implements GitProvider {
     const res = await this.request(url, { method: "GET" }, "getMergeRequestApprovals");
     const body = (await res.json()) as MrApprovalsResult;
     return body;
+  }
+
+  async mergeBranch(args: MergeBranchArgs): Promise<MergeBranchResult> {
+    // Step A: create MR
+    const createUrl = `${this.projectPath()}/merge_requests`;
+    const createRes = await this.request(createUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_branch: args.sourceBranch,
+        target_branch: args.targetBranch,
+        title: args.commitMessage.split("\n")[0]!,
+        description: args.commitMessage,
+        remove_source_branch: false,
+      }),
+    }, "mergeBranch.createMR");
+    const mr = (await createRes.json()) as { iid: number };
+
+    // Step B: accept MR with no fast-forward
+    const acceptUrl = `${this.projectPath()}/merge_requests/${mr.iid}/merge`;
+    const acceptRes = await this.request(acceptUrl, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        merge_commit_message: args.commitMessage,
+        squash: false,
+        should_remove_source_branch: false,
+      }),
+    }, "mergeBranch.acceptMR");
+    const accepted = (await acceptRes.json()) as { merge_commit_sha?: string };
+    if (!accepted.merge_commit_sha) {
+      throw new GitProviderError("unknown", "GitLab merge returned no merge_commit_sha");
+    }
+    return { sha: accepted.merge_commit_sha };
+  }
+
+  async deleteBranch(args: DeleteBranchArgs): Promise<void> {
+    const url = `${this.projectPath()}/repository/branches/${encodeURIComponent(args.branch)}`;
+    try {
+      await this.request(url, { method: "DELETE" }, "deleteBranch");
+    } catch (err) {
+      if (err instanceof GitProviderError && err.code === "not_found") {
+        return; // idempotent
+      }
+      throw err;
+    }
   }
 
   private async request(

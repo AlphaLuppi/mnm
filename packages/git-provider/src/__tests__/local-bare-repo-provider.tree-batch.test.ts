@@ -206,3 +206,124 @@ describe("LocalBareRepoProvider.commitMultipleFiles", () => {
     }
   });
 });
+
+describe("LocalBareRepoProvider.mergeBranch + deleteBranch", () => {
+  it("mergeBranch creates a no-ff merge commit on the target branch", async () => {
+    const masterRepo = await makeBareRepo({
+      seedFiles: { "README.md": "initial\n" },
+      branch: "master",
+    });
+    try {
+      const p = new LocalBareRepoProvider({
+        providerId: "test",
+        repoDir: masterRepo.dir,
+      });
+
+      // Create a feature branch with one extra file.
+      await p.commitMultipleFiles({
+        branch: "feature",
+        startBranch: "master",
+        commitMessage: "add feature file",
+        authorName: "Alice",
+        authorEmail: "alice@example.com",
+        actions: [{ path: "feature.md", content: "# Feature\n" }],
+      });
+
+      // Merge feature into master with --no-ff.
+      const mergeResult = await p.mergeBranch({
+        sourceBranch: "feature",
+        targetBranch: "master",
+        commitMessage: "Merge feature into master",
+        noFf: true,
+        authorName: "Tom",
+        authorEmail: "tom@example.com",
+      });
+
+      expect(mergeResult.sha).toMatch(/^[a-f0-9]{40}$/);
+
+      // Verify master tip is now the merge commit.
+      const { stdout: masterTip } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "rev-parse",
+        "refs/heads/master",
+      ]);
+      expect(masterTip.trim()).toBe(mergeResult.sha);
+
+      // Verify it's a merge commit (has 2 parents).
+      const { stdout: parents } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "cat-file",
+        "-p",
+        mergeResult.sha,
+      ]);
+      const parentLines = parents.split("\n").filter((l) => l.startsWith("parent "));
+      expect(parentLines).toHaveLength(2);
+
+      // Verify feature.md is visible on master after the merge.
+      const { stdout: tree } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "ls-tree",
+        "-r",
+        "--name-only",
+        "master",
+      ]);
+      expect(tree).toContain("feature.md");
+    } finally {
+      await masterRepo.cleanup();
+    }
+  });
+
+  it("deleteBranch removes the branch and is idempotent", async () => {
+    const masterRepo = await makeBareRepo({
+      seedFiles: { "README.md": "hello\n" },
+      branch: "master",
+    });
+    try {
+      const p = new LocalBareRepoProvider({
+        providerId: "test",
+        repoDir: masterRepo.dir,
+      });
+
+      // Create a feature branch to delete.
+      await p.commitMultipleFiles({
+        branch: "to-delete",
+        startBranch: "master",
+        commitMessage: "ephemeral commit",
+        authorName: "Tom",
+        authorEmail: "tom@example.com",
+        actions: [{ path: "ephemeral.txt", content: "bye\n" }],
+      });
+
+      // Verify branch exists first.
+      const { stdout: beforeDelete } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "branch",
+        "--list",
+        "to-delete",
+      ]);
+      expect(beforeDelete.trim()).toBe("to-delete");
+
+      // Delete the branch.
+      await p.deleteBranch({ branch: "to-delete" });
+
+      // Verify ref is gone.
+      const { stdout: afterDelete } = await execFileAsync("git", [
+        "--git-dir",
+        masterRepo.dir,
+        "branch",
+        "--list",
+        "to-delete",
+      ]);
+      expect(afterDelete.trim()).toBe("");
+
+      // Call again — should NOT throw (idempotent).
+      await expect(p.deleteBranch({ branch: "to-delete" })).resolves.toBeUndefined();
+    } finally {
+      await masterRepo.cleanup();
+    }
+  });
+});

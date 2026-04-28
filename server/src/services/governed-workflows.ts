@@ -27,6 +27,7 @@ import {
   resolveCommitAuthor,
   runBranchName,
   buildHandoffsForStep,
+  mergeRunBranch,
 } from "./governed-workflows-artifacts.js";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
@@ -1118,7 +1119,23 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   async function completeStep(args: CompleteStepArgs): Promise<CompleteStepResult> {
     // Serialize per-step completion to avoid races where two harness
     // replies race on the same step.
-    return await db.transaction(async (tx) => {
+
+    // Data needed for post-tx mergeRunBranch — populated inside the tx and
+    // used after commit so Git ops don't extend the DB transaction window.
+    // Wrapped in an object so TypeScript cross-closure mutation tracking works.
+    const pendingMerge: {
+      data: {
+        gitProvider: GitProvider;
+        workflowName: string;
+        startedAt: Date | null;
+        completedAt: Date;
+        triggeredBy: string;
+        author: { name: string; email: string };
+        stepsSummary: Array<{ stepId: string; state: string }>;
+      } | null;
+    } = { data: null };
+
+    const txResult = await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:complete:" + args.runId + ":" + args.stepId}))`,
       );
@@ -1350,11 +1367,53 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           ),
         );
       const allDone = pending[0]!.count === 0;
+      const completedAt = new Date();
       if (allDone) {
         await tx
           .update(governedWorkflowRuns)
-          .set({ status: "completed", completedAt: new Date() })
+          .set({ status: "completed", completedAt })
           .where(eq(governedWorkflowRuns.id, args.runId));
+
+        // Capture data needed for post-tx mergeRunBranch (Git ops must not
+        // run inside the DB transaction — they can take seconds).
+        const [runForMerge] = await tx
+          .select({
+            startedAt: governedWorkflowRuns.startedAt,
+            paramsJson: governedWorkflowRuns.paramsJson,
+            initiatedByActorId: governedWorkflowRuns.initiatedByActorId,
+            initiatedByActorType: governedWorkflowRuns.initiatedByActorType,
+          })
+          .from(governedWorkflowRuns)
+          .where(eq(governedWorkflowRuns.id, args.runId));
+
+        const allSteps = await tx
+          .select({
+            stepIdInJson: governedStepExecutions.stepIdInJson,
+            state: governedStepExecutions.state,
+          })
+          .from(governedStepExecutions)
+          .where(eq(governedStepExecutions.runId, args.runId));
+
+        let triggeredBy: string;
+        if (args.actor.type === "user") {
+          const [u] = await tx
+            .select({ email: authUsers.email })
+            .from(authUsers)
+            .where(eq(authUsers.id, args.actor.id));
+          triggeredBy = u?.email ?? args.actor.id;
+        } else {
+          triggeredBy = args.actor.id;
+        }
+
+        pendingMerge.data = {
+          gitProvider,
+          workflowName: def.name,
+          startedAt: runForMerge?.startedAt ?? null,
+          completedAt,
+          triggeredBy,
+          author,
+          stepsSummary: allSteps.map((s) => ({ stepId: s.stepIdInJson, state: s.state })),
+        };
       }
 
       return {
@@ -1362,6 +1421,38 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         runStatus: allDone ? ("completed" as const) : ("active" as const),
       };
     });
+
+    // Post-tx: merge the run branch into master (outside any DB transaction so
+    // we don't hold XACT locks while git operations run). Log on failure and
+    // continue — the run status is already committed.
+    if (pendingMerge.data !== null) {
+      const mrd = pendingMerge.data;
+      const runParams = await db
+        .select({ paramsJson: governedWorkflowRuns.paramsJson })
+        .from(governedWorkflowRuns)
+        .where(eq(governedWorkflowRuns.id, args.runId));
+      const ticket = (runParams[0]?.paramsJson as Record<string, unknown> | undefined)?.ticket as string | null ?? null;
+      try {
+        await mergeRunBranch({
+          gitProvider: mrd.gitProvider,
+          runId: args.runId,
+          workflowName: mrd.workflowName,
+          ticket,
+          status: "completed",
+          stepsSummary: mrd.stepsSummary,
+          startedAt: mrd.startedAt,
+          completedAt: mrd.completedAt,
+          triggeredBy: mrd.triggeredBy,
+          author: mrd.author,
+        });
+      } catch (err) {
+        console.error(
+          `[governed-workflows] mergeRunBranch failed for run ${args.runId} (completed): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return txResult;
   }
 
   async function fetchSucceededArtifacts(
@@ -1628,7 +1719,22 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     }
 
-    return await db.transaction(async (tx) => {
+    // Data needed for post-tx mergeRunBranch — populated inside the tx.
+    // Wrapped in an object so TypeScript cross-closure mutation tracking works.
+    const pendingCancelMerge: {
+      data: {
+        gitProvider: GitProvider;
+        workflowName: string;
+        startedAt: Date | null;
+        ticket: string | null;
+        cancelledAt: Date;
+        triggeredBy: string;
+        author: { name: string; email: string };
+        stepsSummary: Array<{ stepId: string; state: string }>;
+      } | null;
+    } = { data: null };
+
+    const txResult = await db.transaction(async (tx) => {
       // Lock the run row with FOR UPDATE so concurrent cancel calls serialize
       // — the second one will see cancelledAt != null and reject cleanly.
       const [run] = await tx
@@ -1760,8 +1866,82 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         cancelledStepIds,
       });
 
+      // Capture data for post-tx mergeRunBranch.
+      try {
+        const defInfo = await getDefByRun(args.companyId, args.runId);
+        const allSteps = await tx
+          .select({
+            stepIdInJson: governedStepExecutions.stepIdInJson,
+            state: governedStepExecutions.state,
+          })
+          .from(governedStepExecutions)
+          .where(eq(governedStepExecutions.runId, args.runId));
+
+        const gitProvider = await resolveGitProvider({
+          companyId: args.companyId,
+          userId: args.actor.type === "user" ? args.actor.id : null,
+          resourceType: "workflow",
+        });
+        const author = await resolveCommitAuthor({
+          db: tx as unknown as Db,
+          companyId: args.companyId,
+          actor: args.actor,
+        });
+
+        let triggeredBy: string;
+        if (args.actor.type === "user") {
+          const [u] = await tx
+            .select({ email: authUsers.email })
+            .from(authUsers)
+            .where(eq(authUsers.id, args.actor.id));
+          triggeredBy = u?.email ?? args.actor.id;
+        } else {
+          triggeredBy = args.actor.id;
+        }
+
+        pendingCancelMerge.data = {
+          gitProvider,
+          workflowName: defInfo.name,
+          startedAt: run.startedAt,
+          ticket: (run.paramsJson as Record<string, unknown> | undefined)?.ticket as string | null ?? null,
+          cancelledAt,
+          triggeredBy,
+          author,
+          stepsSummary: allSteps.map((s) => ({ stepId: s.stepIdInJson, state: s.state })),
+        };
+      } catch {
+        // Non-fatal: if we can't gather merge data, skip the post-tx merge.
+      }
+
       return { runId: args.runId, cancelledAt, cancelledStepIds };
     });
+
+    // Post-tx: merge the run branch into master (outside any DB transaction so
+    // we don't hold XACT locks while git operations run). Log on failure and
+    // continue — the run status is already committed.
+    if (pendingCancelMerge.data !== null) {
+      const cmd = pendingCancelMerge.data;
+      try {
+        await mergeRunBranch({
+          gitProvider: cmd.gitProvider,
+          runId: args.runId,
+          workflowName: cmd.workflowName,
+          ticket: cmd.ticket,
+          status: "cancelled",
+          stepsSummary: cmd.stepsSummary,
+          startedAt: cmd.startedAt,
+          completedAt: cmd.cancelledAt,
+          triggeredBy: cmd.triggeredBy,
+          author: cmd.author,
+        });
+      } catch (err) {
+        console.error(
+          `[governed-workflows] mergeRunBranch failed for run ${args.runId} (cancelled): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return txResult;
   }
 
   /**

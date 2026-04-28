@@ -19,6 +19,9 @@ import type {
   TreeEntry,
   CommitMultipleFilesArgs,
   CommitMultipleFilesResult,
+  MergeBranchArgs,
+  MergeBranchResult,
+  DeleteBranchArgs,
 } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -387,6 +390,48 @@ export class LocalBareRepoProvider implements GitProvider {
       } catch {
         // best-effort
       }
+    }
+  }
+
+  async mergeBranch(args: MergeBranchArgs): Promise<MergeBranchResult> {
+    const workTree = await mkdtemp(join(tmpdir(), "mnm-merge-"));
+    try {
+      // Clone the bare repo into a temp worktree so we have a full working tree.
+      await execFileAsync("git", ["clone", this.repoDir, workTree]);
+      await execFileAsync("git", ["-C", workTree, "config", "user.name", args.authorName]);
+      await execFileAsync("git", ["-C", workTree, "config", "user.email", args.authorEmail]);
+      await execFileAsync("git", ["-C", workTree, "checkout", args.targetBranch]);
+      const noFf = args.noFf !== false;
+      const mergeArgs = ["merge"];
+      if (noFf) mergeArgs.push("--no-ff");
+      mergeArgs.push("-m", args.commitMessage, `origin/${args.sourceBranch}`);
+      await execFileAsync("git", ["-C", workTree, ...mergeArgs]);
+      await execFileAsync("git", ["-C", workTree, "push", "origin", args.targetBranch]);
+      const { stdout } = await execFileAsync("git", ["-C", workTree, "rev-parse", "HEAD"]);
+      return { sha: stdout.trim() };
+    } catch (cause) {
+      throw this.classifyGitError(cause as Error, "mergeBranch", {
+        sourceBranch: args.sourceBranch,
+        targetBranch: args.targetBranch,
+      });
+    } finally {
+      await rm(workTree, { recursive: true, force: true });
+    }
+  }
+
+  async deleteBranch(args: DeleteBranchArgs): Promise<void> {
+    try {
+      await execFileAsync("git", [
+        "--git-dir",
+        this.repoDir,
+        "update-ref",
+        "-d",
+        `refs/heads/${args.branch}`,
+      ]);
+    } catch (cause) {
+      // Branch missing — idempotent
+      if ((cause as { stderr?: string }).stderr?.includes("not found")) return;
+      throw this.classifyGitError(cause as Error, "deleteBranch", { branch: args.branch });
     }
   }
 
