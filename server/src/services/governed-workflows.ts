@@ -19,7 +19,7 @@ import {
 } from "@mnm/governed-workflows";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
-import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem } from "@mnm/shared";
+import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem, OutputPersisted } from "@mnm/shared";
 import { PERMISSIONS } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import {
@@ -317,6 +317,87 @@ export interface ReactivateRunArgs {
 export interface ReactivateRunResult {
   runId: string;
   reactivatedStepIds: string[];
+}
+
+/**
+ * Walks the prompt_context template tree and replaces `{{path}}` placeholders
+ * with resolved values from `scope`. When the resolved leaf is an
+ * OutputPersisted (has a `kind` field), applies kind-specific eager resolution:
+ *   - git_file  → fetches blob content from Git (text inlined)
+ *   - git_folder → placeholder string  (folders shouldn't be inlined)
+ *   - external_url → inlines the URL string
+ *
+ * Unknown placeholders are left as literal `{{path}}` strings so that
+ * downstream validators can report them clearly.
+ *
+ * Exported at module level so it can be unit-tested independently of the
+ * service factory.
+ */
+export async function interpolatePromptContext(
+  template: Record<string, unknown>,
+  scope: { variables: Record<string, unknown>; steps: Record<string, unknown> },
+  gitProvider: GitProvider,
+): Promise<Record<string, unknown>> {
+  const walk = async (v: unknown): Promise<unknown> => {
+    if (typeof v === "string") {
+      // Allow `-` in identifiers — workflow step IDs use kebab-case
+      // (`tech-design`, `merge-tag`). Without this, any path containing
+      // a step ID with a hyphen returned the literal `{{...}}`.
+      const regex = /\{\{\s*([a-zA-Z0-9_.\-]+)\s*\}\}/g;
+      const matches = [...v.matchAll(regex)];
+      if (matches.length === 0) return v;
+
+      const replacements = await Promise.all(
+        matches.map(async (m) => {
+          const path = m[1]!;
+          const parts = path.split(".");
+          let cur: any = scope;
+          for (const p of parts) {
+            cur = cur?.[p];
+            if (cur === undefined) return `{{${path}}}`;
+          }
+          // If the resolved leaf is an OutputPersisted, apply kind-specific
+          // eager resolution so downstream agents receive content, not JSON.
+          if (cur && typeof cur === "object" && "kind" in cur) {
+            const output = cur as OutputPersisted;
+            if (output.kind === "git_file") {
+              return await gitProvider.fetchBlob({ ref: output.git_sha, path: output.path });
+            }
+            if (output.kind === "external_url") {
+              return output.url;
+            }
+            if (output.kind === "git_folder") {
+              return `<folder: ${output.path}, ${(output.files ?? []).length} files>`;
+            }
+          }
+          return typeof cur === "string" || typeof cur === "number"
+            ? String(cur)
+            : JSON.stringify(cur);
+        }),
+      );
+
+      // Rebuild the string by substituting each match in order.
+      let result = "";
+      let lastIdx = 0;
+      for (let i = 0; i < matches.length; i++) {
+        const m = matches[i]!;
+        result += v.slice(lastIdx, m.index!);
+        result += replacements[i];
+        lastIdx = m.index! + m[0].length;
+      }
+      result += v.slice(lastIdx);
+      return result;
+    }
+    if (Array.isArray(v)) return await Promise.all(v.map(walk));
+    if (v && typeof v === "object") {
+      const entries = await Promise.all(
+        Object.entries(v).map(async ([k, val]) => [k, await walk(val)] as const),
+      );
+      return Object.fromEntries(entries);
+    }
+    return v;
+  };
+  return (await walk(template)) as Record<string, unknown>;
 }
 
 /**
@@ -926,11 +1007,20 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     // `{{steps.greet.artifact.greeting}}`) against the run's params +
     // previous artifacts. Loaded async from the DB so completed-step
     // artifacts are actually substituted (see `interpolatePromptContext`).
+    // gitProvider is needed for eager git_file resolution; resolve it here
+    // unconditionally (it may already be resolved above inside the entry gate
+    // block, but that branch is conditional so we can't rely on it).
+    const launchStepGitProvider = await resolveGitProvider({
+      companyId: args.companyId,
+      userId: args.actor.type === "user" ? args.actor.id : null,
+      resourceType: "workflow",
+    });
     const params = await fetchRunParams(args.companyId, args.runId);
     const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
-    const promptContext = interpolatePromptContext(
+    const promptContext = await interpolatePromptContext(
       step.prompt_context,
       { variables: params, steps: previousArtifacts },
+      launchStepGitProvider,
     );
 
     const prevStepRows = await db
@@ -1064,44 +1154,6 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     }
     return row;
-  }
-
-  /**
-   * Very small interpolation: walks the prompt_context tree, replaces any
-   * string value matching `{{variables.<key>}}` or `{{steps.<id>.artifact.<path>}}`
-   * with the resolved value. Unknown placeholders remain as literal
-   * strings — a zod-style runtime validator catches this upstream at
-   * complete_step time if the author expected a value.
-   */
-  function interpolatePromptContext(
-    template: Record<string, unknown>,
-    scope: { variables: Record<string, unknown>; steps: Record<string, unknown> },
-  ): Record<string, unknown> {
-    const walk = (v: unknown): unknown => {
-      if (typeof v === "string") {
-        return v.replace(
-          // Allow `-` in identifiers — workflow step IDs use kebab-case
-          // (`tech-design`, `merge-tag`). Without this, any path containing
-          // a step ID with a hyphen returned the literal `{{...}}`.
-          /\{\{\s*([a-zA-Z0-9_.\-]+)\s*\}\}/g,
-          (_, path: string) => {
-            const parts = path.split(".");
-            let cur: any = scope;
-            for (const p of parts) {
-              cur = cur?.[p];
-              if (cur === undefined) return `{{${path}}}`;
-            }
-            return typeof cur === "string" || typeof cur === "number" ? String(cur) : JSON.stringify(cur);
-          },
-        );
-      }
-      if (Array.isArray(v)) return v.map(walk);
-      if (v && typeof v === "object") {
-        return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, walk(val)]));
-      }
-      return v;
-    };
-    return walk(template) as Record<string, unknown>;
   }
 
   /**
@@ -1473,7 +1525,24 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     const out: Record<string, unknown> = {};
     for (const r of rows) {
-      out[r.stepId] = { artifact: r.artifacts };
+      const a = r.artifacts as ArtifactPersisted | null;
+      if (!a) continue;
+      // Project outputs[] into a name-keyed map so that
+      // `{{steps.X.artifact.outputs.design}}` resolves to a single
+      // OutputPersisted object (not the whole array). The interpolation
+      // walker then applies kind-specific eager resolution (git_file → blob).
+      const outputsByName: Record<string, OutputPersisted> = {};
+      if (Array.isArray(a.outputs)) {
+        for (const o of a.outputs) {
+          outputsByName[o.name] = o;
+        }
+      }
+      out[r.stepId] = {
+        artifact: {
+          outputs: outputsByName,
+          data: a.data ?? {},
+        },
+      };
     }
     return out;
   }
@@ -2209,12 +2278,19 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     // Interpolate prompt_context (mirrors launchStep lines 919-924).
+    // resolveGitProvider uses userId=null — resumeRun has no human actor.
+    const resumeRunGitProvider = await resolveGitProvider({
+      companyId: args.companyId,
+      userId: null,
+      resourceType: "workflow",
+    });
     const params = await fetchRunParams(args.companyId, args.runId);
     const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
-    const promptContext = interpolatePromptContext(stepDef.prompt_context, {
-      variables: params,
-      steps: previousArtifacts,
-    });
+    const promptContext = await interpolatePromptContext(
+      stepDef.prompt_context,
+      { variables: params, steps: previousArtifacts },
+      resumeRunGitProvider,
+    );
 
     // Build handoffs (mirrors launchStep lines 926-934).
     const prevStepRows = await db
