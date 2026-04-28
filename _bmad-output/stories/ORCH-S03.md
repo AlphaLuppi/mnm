@@ -25,7 +25,7 @@
 
 L'orchestrateur (ORCH-S01) definit l'etat `validating` avec les transitions `approve` et `reject_with_feedback`. Le WorkflowEnforcer (ORCH-S02) verifie les fichiers obligatoires et injecte les pre-prompts. Mais **aucun mecanisme ne decide automatiquement quand un stage doit passer en validation humaine**, ni ne fournit l'interface pour que le validateur puisse approuver ou rejeter.
 
-Aujourd'hui, la transition `request_validation` existe dans la state machine mais n'est jamais declenchee automatiquement. Un agent peut completer une etape critique (ex: "Review", "Design") sans qu'aucun humain ne valide le livrable. C'est incompatible avec la promesse B2B : **le CTO de CBA veut voir et approuver chaque livrable critique avant que l'agent passe a l'etape suivante** (Verite #45 du brainstorming).
+Aujourd'hui, la transition `request_validation` existe dans la state machine mais n'est jamais declenchee automatiquement. Un agent peut completer une etape critique (ex: "Review", "Design") sans qu'aucun humain ne valide le livrable. C'est incompatible avec la promesse B2B : **le CTO de votre organisation veut voir et approuver chaque livrable critique avant que l'agent passe a l'etape suivante** (Verite #45 du brainstorming).
 
 Le PRD est explicite : REQ-ORCH-09 (P0) exige une validation humaine configurable. Le critere de succes SC-D4 impose un taux de 100% de validation humaine au MVP.
 

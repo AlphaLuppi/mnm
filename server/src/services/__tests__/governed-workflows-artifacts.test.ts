@@ -14,11 +14,11 @@ describe("commitHandoffArtifacts", () => {
 
       const input: ArtifactInput = {
         outputs: [
-          { name: "design", kind: "file", filename: "design.md", content: "# Design AY-1\n" },
+          { name: "design", kind: "file", filename: "design.md", content: "# Design FEAT-001\n" },
           { name: "proto", kind: "folder", files: { "index.html": "<html/>", "app.js": "x" } },
           { name: "mr", kind: "external_url", url: "https://lab/x/-/merge_requests/1" },
         ],
-        data: { mr_iid: 42, ticket: "AY-1" },
+        data: { mr_iid: 42, ticket: "FEAT-001" },
       };
 
       const persisted = await commitHandoffArtifacts({
@@ -26,7 +26,7 @@ describe("commitHandoffArtifacts", () => {
         runId: "abc-123",
         stepId: "tech-design",
         input,
-        author: { name: "Tom", email: "tom@cba.fr" },
+        author: { name: "MnM founder", email: "tom@example.com" },
         startBranch: "main",
       });
 
@@ -36,7 +36,7 @@ describe("commitHandoffArtifacts", () => {
         kind: "git_file",
         path: "artifacts/runs/abc-123/tech-design/design.md",
         branch: "mnm-runs/abc-123",
-        bytes: "# Design AY-1\n".length,
+        bytes: "# Design FEAT-001\n".length,
       });
       expect(persisted.outputs[0]).toHaveProperty("git_sha");
       expect(persisted.outputs[1]).toMatchObject({
@@ -50,7 +50,7 @@ describe("commitHandoffArtifacts", () => {
         kind: "external_url",
         url: "https://lab/x/-/merge_requests/1",
       });
-      expect(persisted.data).toEqual({ mr_iid: 42, ticket: "AY-1" });
+      expect(persisted.data).toEqual({ mr_iid: 42, ticket: "FEAT-001" });
     } finally {
       await repo.cleanup();
     }
@@ -88,7 +88,7 @@ describe("resolveCommitAuthor", () => {
     const mockDb = {
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([{ name: "Tom Andrieu", email: "tom@cba.fr" }]),
+          where: vi.fn().mockResolvedValue([{ name: "MnM contributor", email: "tom@example.com" }]),
         }),
       }),
     } as any;
@@ -99,7 +99,7 @@ describe("resolveCommitAuthor", () => {
       actor: { type: "user", id: "user-abc" },
     });
 
-    expect(result).toEqual({ name: "Tom Andrieu", email: "tom@cba.fr" });
+    expect(result).toEqual({ name: "MnM contributor", email: "tom@example.com" });
   });
 
   it("falls back to env service account when actor is an agent", async () => {

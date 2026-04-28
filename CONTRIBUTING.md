@@ -51,7 +51,7 @@ Ce que ca fait :
 2. Verifie que l'infra est healthy
 3. Lance le serveur MnM + l'UI Vite sur ta machine
 
-**Pourquoi ce setup existe :** en production (ex. chez CBA), la database, le backend et Redis vivent sur des serveurs d'infrastructure, et chaque utilisateur consomme MnM via un client local — UI web, app desktop Tauri, ou MCP depuis Claude Code / Cursor. Ce setup reproduit cette topologie localement : Docker simule l'infra (PG + Redis), l'app tourne nativement pour que l'adapter `claude_local` appelle directement ta CLI Claude, sans credential forwarding ni Docker-in-Docker. Tu utilises ta propre souscription Claude, point.
+**Pourquoi ce setup existe :** en production (ex. en entreprise), la database, le backend et Redis vivent sur des serveurs d'infrastructure, et chaque utilisateur consomme MnM via un client local — UI web, app desktop Tauri, ou MCP depuis Claude Code / Cursor. Ce setup reproduit cette topologie localement : Docker simule l'infra (PG + Redis), l'app tourne nativement pour que l'adapter `claude_local` appelle directement ta CLI Claude, sans credential forwarding ni Docker-in-Docker. Tu utilises ta propre souscription Claude, point.
 
 #### Prerequis
 

@@ -25,10 +25,10 @@ describe("resolveResourcePath", () => {
       resolveResourcePath(
         { paths: { agents: "agents", workflows: "workflows" } },
         "workflow",
-        "cba-feature-dev",
+        "feature-dev",
         "workflow.json",
       ),
-    ).toBe("workflows/cba-feature-dev/workflow.json");
+    ).toBe("workflows/feature-dev/workflow.json");
   });
 
   it("rejects a paths prefix containing '..' to prevent traversal in LocalBareRepoProvider", () => {
@@ -96,6 +96,6 @@ describe("rejectTraversal (exported helper, M-FIX-3 + Nit-CR-1)", () => {
   });
 
   it("accepts plain workflow name", () => {
-    expect(() => rejectTraversal("name", "cba-feature-dev")).not.toThrow();
+    expect(() => rejectTraversal("name", "feature-dev")).not.toThrow();
   });
 });

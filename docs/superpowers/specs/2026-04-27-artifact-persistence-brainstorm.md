@@ -1,7 +1,7 @@
 # Brainstorm — Persistance des handoff artifacts entre steps
 
 **Date** : 2026-04-27
-**Origine** : Tom — "L'objectif grande finale c'est que CHAQUE étape puisse faire un /clear entre les étapes, et que ce qui prime ce soit le handoff entre les étapes. De sorte à ce que n'importe qui n'importe quand puisse reprendre la suite d'un workflow tant qu'il a les handoff précédent."
+**Origine** : MnM founder — "L'objectif grande finale c'est que CHAQUE étape puisse faire un /clear entre les étapes, et que ce qui prime ce soit le handoff entre les étapes. De sorte à ce que n'importe qui n'importe quand puisse reprendre la suite d'un workflow tant qu'il a les handoff précédent."
 **Question** : où vivent les fichiers (.md, builds, logs) produits par un step et consommés par le suivant ?
 
 ---
@@ -17,7 +17,7 @@ Quand un subagent (`senior-dev`, `dev`, `release-mgr`) tourne via `Agent({subage
 4. Le step suivant reçoit ce JSON via `interpolatePromptContext` (`{{steps.tech-design.artifact.design_md}}` → `"design.md"`).
 
 **Conséquence** : seul le *nom du fichier* survit côté serveur. Le contenu vit sur le disque de la machine qui a exécuté le step. Si :
-- L'utilisateur fait `/clear` entre deux steps (Tom le veut)
+- L'utilisateur fait `/clear` entre deux steps (MnM founder le veut)
 - Un autre user reprend le workflow (autre machine)
 - Le run est repris après reboot
 → **le fichier est introuvable**, le step suivant ne peut pas continuer.
@@ -39,7 +39,7 @@ Le repo contient TROIS systèmes de stockage déjà en prod, qu'on peut potentie
 
 3. **`gitProvider`** (`packages/git-provider/`)
    - `commitFile()`, `commitMultipleFiles()`, `createTag()`, `fetchBlob()`.
-   - Tous les workflows ont déjà un repo Git source (`tom.andrieu/mnm-demo`). Le PAT compagnie permet d'écrire dedans.
+   - Tous les workflows ont déjà un repo Git source (`your-username/mnm-demo`). Le PAT compagnie permet d'écrire dedans.
    - C'est aussi le principe philosophique : *"si MnM meurt, les .md survivent"* (cf. memory `project_mnm-philosophy.md`).
 
 ---
@@ -92,7 +92,7 @@ Le repo contient TROIS systèmes de stockage déjà en prod, qu'on peut potentie
 
 Sur `complete_governed_step`, le serveur :
 1. Extrait `files[].content` de l'artifact (le harness inline-le).
-2. Appelle `gitProvider.commitMultipleFiles({branch: "mnm-runs", actions: [...]})` sur le repo du workflow (`tom.andrieu/mnm-demo`) à un chemin `runs/<run_id>/<step_id>/<filename>`.
+2. Appelle `gitProvider.commitMultipleFiles({branch: "mnm-runs", actions: [...]})` sur le repo du workflow (`your-username/mnm-demo`) à un chemin `runs/<run_id>/<step_id>/<filename>`.
 3. Remplace le `content` par le `git_sha` retourné dans l'artifact persisté.
 4. Tag optionnel `run/<run_id>/<step_id>` pour les snapshots de handoff stables.
 
@@ -146,11 +146,11 @@ Référence dans artifact JSON contient toujours `kind` + soit `git_sha` soit `o
 **Phase 1 (cette semaine, post-démo lundi) : Option C — Git commit pour les handoffs texte.**
 
 Pourquoi :
-1. **Aligné avec la philosophie MnM** que Tom répète depuis le début : "if MnM dies the .md survive". Tout le monde peut cloner le repo et reprendre n'importe quel step en `git checkout <sha>`.
+1. **Aligné avec la philosophie MnM** que MnM founder répète depuis le début : "if MnM dies the .md survive". Tout le monde peut cloner le repo et reprendre n'importe quel step en `git checkout <sha>`.
 2. **Réutilise l'infra existante** : `gitProvider.commitMultipleFiles()` est déjà testé et instrumenté, le PAT compagnie a les bonnes perms (cf. memory `project_pat-fallback-removal.md` pour le post-démo cleanup).
 3. **Pas de migration DB, pas de nouvel infra à déployer** — tout passe par les rails Git déjà en prod.
 4. **Couvre 80% du besoin** : un workflow gouverné typique produit du `.md` (designs, changelogs), du `.json` (manifests), du `.yaml` (configs). Tous < 100KB.
-5. **Naturellement portable** : un dev pose `git clone tom.andrieu/mnm-demo && git checkout run/<run_id>/dev` → il a TOUT le contexte du step `dev` localement, prêt à reprendre le step `review` même hors-MnM.
+5. **Naturellement portable** : un dev pose `git clone your-username/mnm-demo && git checkout run/<run_id>/dev` → il a TOUT le contexte du step `dev` localement, prêt à reprendre le step `review` même hors-MnM.
 
 ### Plan d'implémentation Phase 1
 
@@ -169,7 +169,7 @@ Pourquoi :
 
 **P5** (½ jour) — Option `mcp__plugin_mnm_mnm__resume_governed_workflow_run({run_id, step_id})` qui retourne le handoff complet (artifacts résolus + prompt_context substitué) pour qu'un user fresh puisse reprendre le step.
 
-### Phase 2 (post-pilote CBA, quand le besoin émerge) : Option E hybride
+### Phase 2 (post-pilote votre organisation, quand le besoin émerge) : Option E hybride
 
 Quand on commencera à voir des artifacts > 1MB (logs de build, screenshots de review-watcher, binaires de release-mgr), router sur le `storage` service. Pas avant — YAGNI.
 
@@ -181,9 +181,9 @@ Quand on commencera à voir des artifacts > 1MB (logs de build, screenshots de r
 
 2. **GC des runs cancelled / orphelins** : ajouter un job `cleanup-stale-run-branches` qui supprime les branches `mnm-runs/<run_id>` où le run est `failed` ou `cancelled` depuis > 30j.
 
-3. **Encryption-at-rest sensitive content** : design.md peut contenir du contenu sensible (architecture interne). GitLab self-hosted CBA = derrière VPN = OK pour le pilote. Pour SaaS futur, considérer git-crypt ou storage layer chiffré.
+3. **Encryption-at-rest sensitive content** : design.md peut contenir du contenu sensible (architecture interne). GitLab self-hosted votre organisation = derrière VPN = OK pour le pilote. Pour SaaS futur, considérer git-crypt ou storage layer chiffré.
 
-4. **Permissions PAT** : le PAT compagnie doit avoir `write_repository`. Tom a déjà flag dans memory `project_pat-fallback-removal.md` que le PAT doit dégager post-démo au profit de l'OAuth user — quand ça arrivera, il faudra que l'identité OAuth user soit utilisée pour committer (ce qui est PLUS audit-friendly de toute façon : "Tom Andrieu a committé le handoff" vs "le PAT compagnie a committé").
+4. **Permissions PAT** : le PAT compagnie doit avoir `write_repository`. MnM founder a déjà flag dans memory `project_pat-fallback-removal.md` que le PAT doit dégager post-démo au profit de l'OAuth user — quand ça arrivera, il faudra que l'identité OAuth user soit utilisée pour committer (ce qui est PLUS audit-friendly de toute façon : "MnM contributor a committé le handoff" vs "le PAT compagnie a committé").
 
 5. **Race conditions** : deux orchestrateurs concurrents qui ferment le même step → advisory lock côté serveur (déjà en place pour `complete_governed_step` via `pg_advisory_xact_lock`, cf. governed-workflows.ts:974).
 
@@ -195,11 +195,11 @@ Quand on commencera à voir des artifacts > 1MB (logs de build, screenshots de r
 
 ---
 
-## 5. TL;DR pour Tom
+## 5. TL;DR pour MnM founder
 
 - **MnM doit héberger les handoffs** — ton intuition est correcte, sinon `/clear` entre steps casse le contrat de continuité.
 - **Stratégie Phase 1** : commit dans le repo Git du workflow (option C). Aligned avec la philosophie "MnM = harness Git-first", zéro nouvelle infra, audit gratuit, portable. ~3 jours à shipper post-démo.
 - **Stratégie Phase 2** : si/quand les artifacts deviennent gros (binaires, logs), router en hybride Git+blob (option E). À faire en réaction aux besoins réels du pilote, pas en pré-empt.
 - **Anti-pattern à fuir** : nouvelle table `workflow_artifacts` + S3 dès Phase 1. Ça reproduit l'effet "MnM = base de données" alors que MnM = harness sur Git.
 
-> Si MnM meurt après Phase 1, tu fais `git clone tom.andrieu/mnm-demo` et tous tes handoffs sont là, datés, signés, parcourables avec les outils Git natifs. C'est exactement le contrat que tu cherches.
+> Si MnM meurt après Phase 1, tu fais `git clone your-username/mnm-demo` et tous tes handoffs sont là, datés, signés, parcourables avec les outils Git natifs. C'est exactement le contrat que tu cherches.

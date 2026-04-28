@@ -35,7 +35,7 @@ export default defineGate(async () => ({ pass: true, report: "ok" }));
 const CBA_FEATURE_DEV_WORKFLOW_JSON = JSON.stringify({
   apiVersion: "mnm/v1",
   kind: "GovernedWorkflow",
-  name: "cba-feature-dev",
+  name: "feature-dev",
   variables: {
     ticket_id: { type: "string", required: true },
     gitlab_project: { type: "string", required: true },
@@ -69,8 +69,8 @@ async function seedCbaFeatureDevRepo(): Promise<CbaRepoSeed> {
   // Git-first layout: agents/<name>/agent.md + workflows/<name>/workflow.json
   const seedFiles: Record<string, string> = {
     "agents/senior-dev/agent.md": SENIOR_DEV_AGENT_MD,
-    "workflows/cba-feature-dev/workflow.json": CBA_FEATURE_DEV_WORKFLOW_JSON,
-    "workflows/cba-feature-dev/gates/tech-design-exit.gate.ts": TECH_DESIGN_EXIT_GATE,
+    "workflows/feature-dev/workflow.json": CBA_FEATURE_DEV_WORKFLOW_JSON,
+    "workflows/feature-dev/gates/tech-design-exit.gate.ts": TECH_DESIGN_EXIT_GATE,
   };
 
   const branch = "main";
@@ -103,7 +103,7 @@ async function seedCbaFeatureDevRepo(): Promise<CbaRepoSeed> {
 
   // Lightweight tag in the bare repo.
   await runIn(bareDir, ["tag", "agents/v1.0.0", seedSha]);
-  await runIn(bareDir, ["tag", "cba-feature-dev/v1.0.0", seedSha]);
+  await runIn(bareDir, ["tag", "feature-dev/v1.0.0", seedSha]);
 
   return {
     repoDir: bareDir,
@@ -117,14 +117,14 @@ async function seedCbaFeatureDevRepo(): Promise<CbaRepoSeed> {
 
 // ── Test suite ────────────────────────────────────────────────────────────────
 
-describe("P11 E2E — cba-feature-dev tech-design step (git-first agents)", () => {
+describe("P11 E2E — feature-dev tech-design step (git-first agents)", () => {
   let db: Db;
   let repo: CbaRepoSeed;
   let companyId: string;
   let svc: ReturnType<typeof governedWorkflowService>;
 
   const agentTag = "agents/v1.0.0";
-  const workflowTag = "cba-feature-dev/v1.0.0";
+  const workflowTag = "feature-dev/v1.0.0";
 
   beforeAll(async () => {
     db = await setupTestDb();
@@ -149,7 +149,7 @@ describe("P11 E2E — cba-feature-dev tech-design step (git-first agents)", () =
 
     await db.execute(sql`
       INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag)
-      VALUES (${companyId}, 'cba-feature-dev', ${workflowTag})
+      VALUES (${companyId}, 'feature-dev', ${workflowTag})
     `);
 
     // Build a LocalBareRepoProvider and attach the git-first paths so
@@ -177,7 +177,7 @@ describe("P11 E2E — cba-feature-dev tech-design step (git-first agents)", () =
     await teardownTestDb(db);
   });
 
-  it("launches cba-feature-dev tech-design step end-to-end", async () => {
+  it("launches feature-dev tech-design step end-to-end", async () => {
     await setTenantContext(db, companyId);
 
     // ── Step 1: setupWorkspace — exercises agents/<name>/agent.md path ────
@@ -208,8 +208,8 @@ describe("P11 E2E — cba-feature-dev tech-design step (git-first agents)", () =
     // ── Step 2: launchWorkflow ─────────────────────────────────────────────
     const launchResult = await svc.launchWorkflow({
       companyId,
-      name: "cba-feature-dev",
-      params: { ticket_id: "AY-10074", gitlab_project: "tom.andrieu/x" },
+      name: "feature-dev",
+      params: { ticket_id: "FEAT-001", gitlab_project: "your-username/x" },
       actor: { type: "user", id: "u-1" },
     });
 
@@ -232,7 +232,7 @@ describe("P11 E2E — cba-feature-dev tech-design step (git-first agents)", () =
       agentName: "senior-dev",
       subagentType: "mnm--senior-dev",
       promptContext: expect.objectContaining({
-        ticket_id: "AY-10074",
+        ticket_id: "FEAT-001",
       }),
     });
   });

@@ -29,7 +29,7 @@ Agent Runtime (adapters, Docker containers, credential proxy, heartbeat)
 | **Zero polling** | Tous les updates temps reel via SSE/WebSocket. Jamais de `setInterval` ou `refetchInterval`. |
 | **Multi-tenant** | 1 backend sert N companies. Shared DB + RLS PostgreSQL (fail-closed). Toutes les routes ont `/companies/:companyId/` explicite. |
 | **RBAC dynamique** | Roles et permissions en DB, jamais de constantes hardcodees. |
-| **Tags > Teams** | Les tags sont additifs et flexibles. Score 8/8 sur le test CBA vs 5/8 pour Roles+Teams. |
+| **Tags > Teams** | Les tags sont additifs et flexibles. Score 8/8 sur le test enterprise vs 5/8 pour Roles+Teams. |
 | **Config Layers > JSONB** | Config structuree, mergeable, versionee, avec detection de conflits. |
 | **Trace Gold par defaut** | L'utilisateur voit la synthese intelligente, pas le bruit brut. |
 | **Compute cote client** | L'execution agent se fait sur la machine de l'utilisateur (MCP, Desktop, CLI locale). Le serveur est un API/data/orchestration layer. |

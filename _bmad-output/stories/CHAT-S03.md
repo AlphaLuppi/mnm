@@ -9,8 +9,8 @@
 | **Epic** | Epic CHAT -- Chat Temps Reel |
 | **Sprint** | Sprint 4 (Batch 10) |
 | **Effort** | M (5 SP, 3-5j) |
-| **Priorite** | P0 -- Prerequis demo CBA (chat bidirectionnel agent) |
-| **Assignation** | Tom (backend) |
+| **Priorite** | P0 -- Prerequis demo votre organisation (chat bidirectionnel agent) |
+| **Assignation** | MnM founder (backend) |
 | **Bloque par** | CONT-S01 (ContainerManager Docker -- DONE), CHAT-S01 (WebSocket bidirectionnel -- DONE) |
 | **Debloque** | CHAT-S04 (AgentChatPanel UI) |
 | **ADR** | ADR-005 (Chat Temps Reel -- WebSocket Bidirectionnel), ADR-004 (Containerisation Docker) |
@@ -25,7 +25,7 @@
 
 Le chat bidirectionnel (CHAT-S01) et les tables enrichies (CHAT-S02) permettent aux utilisateurs et agents d'echanger des messages persistes via WebSocket. La containerisation (CONT-S01 a CONT-S06) permet de lancer des agents dans des containers Docker isoles. **CHAT-S03 est le pont entre ces deux systemes** : quand un utilisateur envoie un message chat, il doit etre forward au stdin du container Docker de l'agent, et la stdout du container doit etre streamee en retour comme messages chat.
 
-C'est le "moment emotionnel de la demo" CBA : un CEO tape "Utilise le pattern Repository" dans le chat, et voit l'agent s'adapter en temps reel dans son container.
+C'est le "moment emotionnel de la demo" votre organisation : un CEO tape "Utilise le pattern Repository" dans le chat, et voit l'agent s'adapter en temps reel dans son container.
 
 ### Etat actuel du code
 

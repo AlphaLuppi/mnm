@@ -1,15 +1,15 @@
-# Workflow démo CBA — `cba-feature-dev`
+# Workflow démo votre organisation — `feature-dev`
 
-*Spec — 2026-04-25 — Tom × Claude*
+*Spec — 2026-04-25 — founder × Claude*
 
 ## 1. Contexte et intention
 
-Démo MnM devant l'audience plénière CBA (CEO, CTO, PM/PO, lead tech, lead dev, dev,
+Démo MnM devant l'audience plénière votre organisation (CEO, CTO, PM/PO, lead tech, lead dev, dev,
 infra). Format : 5-10 minutes, en live, sur une seule histoire.
 
 L'angle n'est pas une démo de fonctionnalités. C'est un manifeste : **MnM permet de
 prendre ce que les équipes font déjà, et de le rendre gouverné, déterministe, et
-diffusable à tout CBA via les settings Anthropic Console — sans construire ni
+diffusable à tout votre organisation via les settings Anthropic Console — sans construire ni
 maintenir une UI custom**. La thèse "MCP-first, no UI" doit être visible dans la
 démo elle-même, pas seulement énoncée.
 
@@ -22,7 +22,7 @@ démo elle-même, pas seulement énoncée.
 | Lead tech | Étape 1 (validation conception tech) : rien n'avance sans son OK explicite. |
 | Lead dev | Étape 3 (review MR) : approbation humaine déterministe via GitLab. |
 | Dev / infra | Gates en TS lisibles, pas de LLM-trust, audit trail complet. |
-| Tous | Conclusion : 1 fichier YAML + 2 gates, diffusable à tout CBA, zéro UI à maintenir. |
+| Tous | Conclusion : 1 fichier YAML + 2 gates, diffusable à tout votre organisation, zéro UI à maintenir. |
 
 ## 3. Hors-scope
 
@@ -103,9 +103,9 @@ compte est suffisant, l'agent produit l'artifact :
 
 ```json
 {
-  "gitlab_project":  "tom.andrieu/cba-mnm-demo-app",
+  "gitlab_project":  "your-username/mnm-demo-app",
   "mr_iid":          42,
-  "mr_url":          "https://lab.cbainfo.fr/.../merge_requests/42",
+  "mr_url":          "https://gitlab.example.com/.../merge_requests/42",
   "approvals_count": 2,
   "approvers":       ["alice", "bob"],
   "checked_at":      "2026-04-25T14:32:00Z"
@@ -126,8 +126,8 @@ l'état réel de GitLab.
 {
   "apiVersion": "mnm/v1",
   "kind": "GovernedWorkflow",
-  "name": "cba-feature-dev",
-  "description": "Démo CBA — De Jira à la prod, gouverné. 4 steps, 2 humains explicites.",
+  "name": "feature-dev",
+  "description": "Démo votre organisation — De Jira à la prod, gouverné. 4 steps, 2 humains explicites.",
   "variables": {
     "ticket_id":      { "type": "string", "required": true },
     "gitlab_project": { "type": "string", "required": true }
@@ -253,7 +253,7 @@ GitLab via MCP ; la gate vérifie la valeur produite.
 
 ```ts
 {
-  gitlab_project:  string;        // ex: "tom.andrieu/cba-mnm-demo-app"
+  gitlab_project:  string;        // ex: "your-username/mnm-demo-app"
   mr_iid:          number;        // numéro de la MR
   mr_url:          string;        // URL absolue de la MR
   approvals_count: number;        // récupéré via MCP GitLab
@@ -336,16 +336,16 @@ le step précédent, pour permettre à la gate `mr-approved` de relire les refs)
 
 ## 7. Données de démo
 
-Tous les artefacts sont à créer dans **lab.cbainfo.fr/tom.andrieu/** (perso Tom).
+Tous les artefacts sont à créer dans **gitlab.example.com/your-username/** (perso MnM founder).
 
 | Ressource | Cible |
 |---|---|
-| Repo workflows | `lab.cbainfo.fr/tom.andrieu/cba-mnm-demo-workflows` — héberge `workflow.json`, `gates/`, `agents/` |
-| Repo "feature" | `lab.cbainfo.fr/tom.andrieu/cba-mnm-demo-app` — petit projet TS où la feature se développe |
+| Repo workflows | `gitlab.example.com/your-username/mnm-workflows-demo` — héberge `workflow.json`, `gates/`, `agents/` |
+| Repo "feature" | `gitlab.example.com/your-username/mnm-demo-app` — petit projet TS où la feature se développe |
 | Ticket Jira | `AY-DEMO-1` (ou ID réel selon disponibilité) — titre, description, AC |
-| Reviewers de la MR | 2 comptes lab.cbainfo.fr (un sera Tom, un sera un compte secondaire ou un collègue préparé) |
+| Reviewers de la MR | 2 comptes gitlab.example.com (un sera MnM founder, un sera un compte secondaire ou un collègue préparé) |
 
-Le repo `cba-mnm-demo-app` doit avoir un test runner fonctionnel (ex: `bun test`
+Le repo `mnm-demo-app` doit avoir un test runner fonctionnel (ex: `bun test`
 ou `npm test`) pour que la gate `step-succeeded` puisse passer après le step
 `dev`.
 
@@ -353,18 +353,18 @@ ou `npm test`) pour que la gate `step-succeeded` puisse passer après le step
 
 | Tps | Écran | Actions / Voix off |
 |---|---|---|
-| 0:00–1:00 | Studio MnM, `workflow.json` | "Voici notre process feature CBA, codifié dans un fichier YAML. 4 steps. Imposé." |
+| 0:00–1:00 | Studio MnM, `workflow.json` | "Voici notre process feature votre organisation, codifié dans un fichier YAML. 4 steps. Imposé." |
 | 1:00–1:45 | Studio, tab gates | "Deux gates : `approval-granted` et `mr-approved`. Du TypeScript lisible, pas du prompt." |
-| 1:45–3:15 | Claude Code, `launch_governed_workflow(...)` | Step 1 démarre. `senior-dev` lit le ticket, écrit `design.md`, affiche le bloc d'approbation. Tom tape `APPROUVÉ — OK pour implémentation`. Gate verte. |
+| 1:45–3:15 | Claude Code, `launch_governed_workflow(...)` | Step 1 démarre. `senior-dev` lit le ticket, écrit `design.md`, affiche le bloc d'approbation. MnM founder tape `APPROUVÉ — OK pour implémentation`. Gate verte. |
 | 3:15–5:00 | Claude Code + onglet GitLab | Step 2 : agent code, écrit les tests, ouvre la MR. Le diff GitLab apparaît. |
-| 5:00–6:30 | GitLab + Claude Code | Step 3 : MnM affiche "MR !X en attente de 2 approvals". Tom approuve depuis un autre onglet GitLab. Gate verte automatique. |
+| 5:00–6:30 | GitLab + Claude Code | Step 3 : MnM affiche "MR !X en attente de 2 approvals". MnM founder approuve depuis un autre onglet GitLab. Gate verte automatique. |
 | 6:30–7:30 | Claude Code | Step 4 : merge, tag, changelog. Run terminé. |
 | 7:30–9:00 | Dashboard MnM (audit / trace) | Trail complet : qui a approuvé quoi, quand, sha de chaque step. |
-| 9:00–10:00 | Slide finale | "Ce que vous avez vu : 1 fichier YAML, 2 gates TS, 4 agents. Diffusable à tout CBA via les settings Anthropic Console. Zéro UI custom à maintenir." |
+| 9:00–10:00 | Slide finale | "Ce que vous avez vu : 1 fichier YAML, 2 gates TS, 4 agents. Diffusable à tout votre organisation via les settings Anthropic Console. Zéro UI custom à maintenir." |
 
 ## 9. Composants à livrer
 
-1. **Repo `cba-mnm-demo-workflows`** :
+1. **Repo `mnm-workflows-demo`** :
    - `workflow.json`
    - `gates/approval-granted.gate.ts` + tests
    - `gates/mr-approved.gate.ts` + tests
@@ -375,7 +375,7 @@ ou `npm test`) pour que la gate `step-succeeded` puisse passer après le step
    - `agents/release-mgr.md`
    - `README.md` (pitch en 10 lignes pour les nouveaux)
 
-2. **Repo `cba-mnm-demo-app`** :
+2. **Repo `mnm-demo-app`** :
    - Petit projet TS (bun + vitest) avec une fonctionnalité minimale et un test
      existant qui passe.
    - `.gitlab-ci.yml` minimal (optionnel, si on a le temps).
@@ -394,8 +394,8 @@ ou `npm test`) pour que la gate `step-succeeded` puisse passer après le step
 | MCP GitLab tombe en plein live | Run de répétition la veille. Backup : screencast des steps 2-4 prêt à diffuser. |
 | L'agent `dev` produit un code qui ne compile pas | Le ticket `AY-DEMO-1` est volontairement trivial (`formatPrice`). Test de répétition obligatoire. |
 | L'agent `senior-dev` zappe le bloc d'approbation | Le prompt l'impose textuellement, ET la gate `approval-granted` échoue sans l'artifact `approval`, ce qui est aussi une démo possible ("regardez, sans approbation humaine, le workflow s'arrête"). |
-| L'audience ne comprend pas la conclusion "diffusable via Anthropic Console" | Slide finale explicite + une phrase de Tom : "vous installerez ce plugin demain matin sans rien faire". |
-| Latence MCP atlassian côté CBA | Pré-charger un cache si possible, sinon afficher manuellement le ticket pendant que MnM tourne. |
+| L'audience ne comprend pas la conclusion "diffusable via Anthropic Console" | Slide finale explicite + une phrase de MnM founder : "vous installerez ce plugin demain matin sans rien faire". |
+| Latence MCP atlassian côté votre organisation | Pré-charger un cache si possible, sinon afficher manuellement le ticket pendant que MnM tourne. |
 
 ## 11. Suite après la démo
 
@@ -404,8 +404,8 @@ ou `npm test`) pour que la gate `step-succeeded` puisse passer après le step
 - **Primitive native `kind: "approval"` dans MnM** — 2-3 jours focus full,
   inclut runtime pause/resume, endpoint `POST /approve`, MCP tool
   `approve_governed_step`, UI Inbox dans le dashboard, audit + live event.
-- **Diffusion à CBA via Anthropic Console** — packaging du plugin MnM avec ce
+- **Diffusion à votre organisation via Anthropic Console** — packaging du plugin MnM avec ce
   workflow comme exemple template.
-- **Vrai workflow CBA AY** — adaptation de `cba-feature-dev` aux conventions
-  CBA réelles (branches `feat/AY-XXXX`, conventional commits, projet GitLab AY,
+- **Vrai workflow votre organisation AY** — adaptation de `feature-dev` aux conventions
+  votre organisation réelles (branches `feat/AY-XXXX`, conventional commits, projet GitLab AY,
   Jira AY).

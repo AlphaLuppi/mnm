@@ -1,7 +1,7 @@
 # Orchestration log — MnM Git-first agents refactor
 
 **Spec**: `docs/superpowers/specs/2026-04-26-mnm-git-first-agents-design.md`
-**Started**: 2026-04-26 (overnight session, Tom asleep ~8h)
+**Started**: 2026-04-26 (overnight session, MnM founder asleep ~8h)
 **Deadline**: démo lundi 2026-04-28 — code livrable dimanche midi pour M5 polish
 
 ## Phases
@@ -56,9 +56,9 @@
   - fdb0471 OPS-1 M1+M2 scripts committed (mode 100755 .sh + .sql)
 - **2026-04-26 11:39** — **Re-review COMPLETE**: 13/13 VERIFIED, GO for ops (commit f3b9094).
 
-## Phase 6 — Ops handover to Tom
+## Phase 6 — Ops handover to MnM founder
 
-Cannot run ops headless (no `glab`/`psql`/MnM MCP/GitLab token). Tom executes M0→M4 manually.
+Cannot run ops headless (no `glab`/`psql`/MnM MCP/GitLab token). MnM founder executes M0→M4 manually.
 
 ### Commits delivered (chronological)
 
@@ -86,11 +86,11 @@ fdb0471 OPS-1 M1+M2 scripts
 f3b9094 re-review verification
 ```
 
-### Runbook for Tom (ETA ~15 min Sunday)
+### Runbook for MnM founder (ETA ~15 min Sunday)
 
 **Pre-flight**:
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm
+cd ~/projects/mnm
 git pull
 git log --oneline | head -25  # verify f3b9094 at top
 bun install                    # in case of new deps
@@ -104,19 +104,19 @@ bun run db:migrate
 psql $DATABASE_URL -c "\d agents" | grep -E "archived_at|company_name_unique"
 ```
 
-**M1 — Repo restructure on lab.cbainfo.fr**:
+**M1 — Repo restructure on gitlab.example.com**:
 ```bash
-export GITLAB_TOKEN=...   # personal access token with api scope on lab.cbainfo.fr
+export GITLAB_TOKEN=...   # personal access token with api scope on gitlab.example.com
 bash scripts/migrate-2026-04-26-mnm-demo.sh
 # Idempotent. Renames mnm-workflows-tom -> mnm-demo, restructures files,
-# tags agents/v1.0.0 + cba-feature-dev/v1.0.2, pushes.
+# tags agents/v1.0.0 + feature-dev/v1.0.2, pushes.
 ```
 
 **M2 — DB updates** (must run AFTER M0 + M1):
 ```bash
 psql $DATABASE_URL -f scripts/migrate-2026-04-26-db.sql
 # Single TX. Updates config_layer_items.config_json with paths, archives
-# greeter/shouter, retags governed_workflow_definitions to cba-feature-dev/v1.0.2.
+# greeter/shouter, retags governed_workflow_definitions to feature-dev/v1.0.2.
 # RAISE NOTICE rowcounts at end.
 ```
 
@@ -128,10 +128,10 @@ psql $DATABASE_URL -f scripts/migrate-2026-04-26-db.sql
 **M3 — Create 4 agents in DB** (via MCP):
 Reconnect MnM MCP first (was disconnected during overnight session).
 ```jsonc
-mcp.create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (CBA demo)",     adapterType: "claude_local" })
-mcp.create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (CBA demo)",            adapterType: "claude_local" })
-mcp.create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (CBA demo)", adapterType: "claude_local" })
-mcp.create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (CBA demo)",adapterType: "claude_local" })
+mcp.create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (votre organisation demo)",     adapterType: "claude_local" })
+mcp.create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (votre organisation demo)",            adapterType: "claude_local" })
+mcp.create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (votre organisation demo)", adapterType: "claude_local" })
+mcp.create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (votre organisation demo)",adapterType: "claude_local" })
 ```
 
 **M3 rollback** (if a `create_agent` fails mid-way):
@@ -141,14 +141,14 @@ WHERE name IN ('senior-dev','dev','review-watcher','release-mgr')
   AND company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c';
 ```
 
-**M4 — Test run E2E** (Tom does this, demo dress rehearsal):
+**M4 — Test run E2E** (MnM founder does this, demo dress rehearsal):
 ```jsonc
 mcp.setup_workspace({})           // matérialise les 4 agents en ~/.claude/agents/mnm--*
 // Reload Claude Code plugins: /reload-plugins
 mcp.push_local_state({})
-mcp.launch_governed_workflow({ name: "cba-feature-dev", params: {
-  ticket_id: "AY-10074",
-  gitlab_project: "tom.andrieu/cba-mnm-demo-app"
+mcp.launch_governed_workflow({ name: "feature-dev", params: {
+  ticket_id: "FEAT-001",
+  gitlab_project: "your-username/mnm-demo-app"
 }})
 mcp.launch_governed_step({
   run_id: "<from previous>",
@@ -156,10 +156,10 @@ mcp.launch_governed_step({
   current_agents: { /* sha map from setup_workspace */ },
   session_tools: ["mcp__plugin_atlassian_atlassian__*", "mcp__plugin_gitlab_gitlab__*"]
 })
-// Expected response: agent_name="senior-dev", subagent_type="mnm--senior-dev", prompt_context.ticket_id="AY-10074"
+// Expected response: agent_name="senior-dev", subagent_type="mnm--senior-dev", prompt_context.ticket_id="FEAT-001"
 ```
 
-### Caveats Tom should know
+### Caveats MnM founder should know
 
 1. **Pre-existing isolated-vm DLL crash on Windows** — blocks `bun test` for some governed-workflows test files locally. Tests are correct; will pass on Linux CI. Phase 5 reviewers confirmed pre-existing.
 2. **Pre-existing `bun run typecheck` failure on root `mnm` package** — `Cannot find module '@embedded-postgres/windows-x64'`. Pre-existing; reviewer confirmed via stash test. Acceptance criterion #4 technically violated but not by this refactor.

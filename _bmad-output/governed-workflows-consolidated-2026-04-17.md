@@ -1,7 +1,7 @@
 # Governed Workflows — Design Consolidé
 
 **Date :** 2026-04-17
-**Participants :** Tom (cofondateur), Claude
+**Participants :** MnM founder, Claude
 **Input :** `docs/governed-workflows-scenarios.md`
 **Sessions :** 7 sessions de brainstorm + 4 agents de recherche (architecte x2, PM, UX)
 **Statut :** Design consolidé, prêt pour la phase de spec technique
@@ -555,7 +555,7 @@ Dans `_bmad-output/brainstorming/_next-sessions-todo.md` :
 1. **Spec technique complète** — consolider ce design en spec d'implémentation
 2. **POC du Workflow Guard MCP** — un seul tool (`create_skill`) avec son workflow pour valider le pattern de bout en bout
 3. **Définir le GitProvider** — interface + stub GitLab minimal
-4. **Lister les Governed Actions initiales** pour le niveau 2 CBA (~10-15)
+4. **Lister les Governed Actions initiales** pour le niveau 2 votre organisation (~10-15)
 5. **Prototyper l'Orchestrator Agent** — authoring conversationnel
 6. **Brainstorm Access Logs** (session séparée)
 7. **Brainstorm Sensei** (session séparée)

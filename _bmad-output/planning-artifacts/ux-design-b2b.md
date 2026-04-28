@@ -1656,7 +1656,7 @@ Scepticisme      Curiosite       Surprise       Confiance       Satisfaction
 | Dimension | Contenu |
 |-----------|---------|
 | **Pense** | "Est-ce que c'est techniquement solide ou c'est du marketing ? Comment je m'assure que les agents ne font pas n'importe quoi ? Est-ce que je peux integrer ca avec notre stack SSO ?" |
-| **Ressent** | Mefiance technique initiale. Besoin visceral de controle et de preuve. Frustration du hackathon CBA — "les agents sautaient des etapes, ne chargeaient pas les bons fichiers" (Verite #45). Pression de gouvernance. |
+| **Ressent** | Mefiance technique initiale. Besoin visceral de controle et de preuve. Frustration du hackathon votre organisation — "les agents sautaient des etapes, ne chargeaient pas les bons fichiers" (Verite #45). Pression de gouvernance. |
 | **Voit** | Des agents IA deployes sans orchestration dans son entreprise. Des logs bruts illisibles. Des developpeurs qui utilisent Cursor/Claude Code individuellement sans coordination. |
 | **Fait** | Definit des standards que personne ne respecte automatiquement. Revoit du code manuellement. Fait du firefighting quand un agent devie. Compile des metriques manuellement. |
 | **Douleurs** | Aucune tracabilite centralisee (Verite #39). Pas de moyen d'imposer des standards automatiquement. Les contrats inter-roles sont aspirationnels, jamais appliques (Verite #2). Compaction non-geree — l'agent perd son contexte. |
@@ -2973,7 +2973,7 @@ Le systeme de tokens CSS garantit la coherence entre dark et light. Un seul ense
 
 # Section 4 — Priorisation UX & Alignement PRD
 
-> **Auteur :** John le PM | **Date :** 2026-03-14 | **Sources :** PRD B2B v1.0, Product Brief B2B v2.0
+> **Auteur :** the PM | **Date :** 2026-03-14 | **Sources :** PRD B2B v1.0, Product Brief B2B v2.0
 > **Rôle :** Priorisation UX par impact business, alignement User Journeys/FRs, Success Criteria par persona
 
 ---
@@ -3006,7 +3006,7 @@ Le croisement produit 4 quadrants :
 **Composants UI requis :** MembersTable, InviteModal, InviteBulkUploader, CompanySelector, SignOutButton
 **Pages :** /members, /settings/company
 
-**Verdict Phase 1 :** 4 Quick Wins sur 6 experiences. C'est la phase la plus rentable en ratio impact/effort. Le time-to-value pour CBA (SC-BIZ-5 : <2h) dépend directement de la fluidité de ces écrans.
+**Verdict Phase 1 :** 4 Quick Wins sur 6 experiences. C'est la phase la plus rentable en ratio impact/effort. Le time-to-value pour votre organisation (SC-BIZ-5 : <2h) dépend directement de la fluidité de ces écrans.
 
 ### 1.3 Phase 2 — RBAC Métier (~2 semaines)
 
@@ -3022,7 +3022,7 @@ Le croisement produit 4 quadrants :
 **Composants UI requis :** RoleSelector, PermissionMatrix, PermissionEditor, RoleBadge, AccessDeniedPage, NavGuard
 **Pages :** /admin/roles, /admin/permissions
 
-**Verdict Phase 2 :** La matrice de permissions est l'experience la plus stratégique. C'est le moment "wow" pour le CTO de CBA — il voit en un coup d'oeil qui peut faire quoi. Impact direct sur SC-D4 (100% validation humaine) et SC-BIZ-1 (POC signé).
+**Verdict Phase 2 :** La matrice de permissions est l'experience la plus stratégique. C'est le moment "wow" pour le CTO de votre organisation — il voit en un coup d'oeil qui peut faire quoi. Impact direct sur SC-D4 (100% validation humaine) et SC-BIZ-1 (POC signé).
 
 ### 1.4 Phase 3 — Scoping par Projet (~2-3 semaines)
 
@@ -3037,7 +3037,7 @@ Le croisement produit 4 quadrants :
 **Composants UI requis :** ProjectMembersPanel, ScopeFilter, AgentProjectAssigner, ProjectSwitcher, ScopeBreadcrumb
 **Pages :** /project/:id/members, /project/:id/settings
 
-**Verdict Phase 3 :** Le scoping par projet est le pivot vers le vrai multi-tenant. C'est ce qui rend MnM vendable au-delà de CBA. L'experience "page d'accès par projet" est stratégique car elle active SC-C4 (companies avec 3+ niveaux hiérarchiques).
+**Verdict Phase 3 :** Le scoping par projet est le pivot vers le vrai multi-tenant. C'est ce qui rend MnM vendable au-delà de votre organisation. L'experience "page d'accès par projet" est stratégique car elle active SC-C4 (companies avec 3+ niveaux hiérarchiques).
 
 ### 1.5 Phase 4 — Enterprise-Grade (~3-4 semaines)
 
@@ -3061,11 +3061,11 @@ Le croisement produit 4 quadrants :
 | Quadrant | Nombre d'experiences | Phases | Action |
 |---|---|---|---|
 | **Quick Wins** | 8 | Phases 1-2 principalement | Livrer immédiatement, itérer rapidement |
-| **Strategic** | 11 | Phases 2-4 | Planifier avec wireframes detaillés, valider avec CBA |
+| **Strategic** | 11 | Phases 2-4 | Planifier avec wireframes detaillés, valider avec votre organisation |
 | **Nice-to-have** | 5 | Toutes phases | Intégrer si sprint le permet |
 | **Defer** | 1 | Phase 4 | Reporter post-MVP (dashboards PO/PM) |
 
-**Conclusion priorisation :** Les Quick Wins des Phases 1-2 représentent le socle minimum pour le POC CBA (SC-BIZ-1). Les 11 experiences Strategic sont le coeur du produit vendable. Le ratio Quick Wins/Strategic (8/11) confirme que le scope est ambitieux mais réaliste sur 8-10 semaines.
+**Conclusion priorisation :** Les Quick Wins des Phases 1-2 représentent le socle minimum pour le POC votre organisation (SC-BIZ-1). Les 11 experiences Strategic sont le coeur du produit vendable. Le ratio Quick Wins/Strategic (8/11) confirme que le scope est ambitieux mais réaliste sur 8-10 semaines.
 
 ---
 
@@ -3207,7 +3207,7 @@ Le croisement produit 4 quadrants :
 
 ### 4.1 Phase 1 — Écrans Multi-User (Semaine 1)
 
-**Objectif :** Permettre au CEO CBA d'inviter son équipe et de voir les membres.
+**Objectif :** Permettre au CEO votre organisation d'inviter son équipe et de voir les membres.
 
 | Écran | Composants clés | Priorité | Effort |
 |---|---|---|---|
@@ -3219,11 +3219,11 @@ Le croisement produit 4 quadrants :
 
 **Total Phase 1 :** ~5 composants majeurs, 3 pages, 5 jours de design UX.
 
-**Critère de succès Phase 1 :** Le CEO CBA peut inviter 5 personnes par email, voir la liste des membres, et les invités peuvent se connecter et accéder à l'app.
+**Critère de succès Phase 1 :** Le CEO votre organisation peut inviter 5 personnes par email, voir la liste des membres, et les invités peuvent se connecter et accéder à l'app.
 
 ### 4.2 Phase 2 — Écrans RBAC (Semaines 2-3)
 
-**Objectif :** Le CTO CBA peut attribuer des rôles et voir la matrice de permissions.
+**Objectif :** Le CTO votre organisation peut attribuer des rôles et voir la matrice de permissions.
 
 | Écran | Composants clés | Priorité | Effort |
 |---|---|---|---|
@@ -3270,7 +3270,7 @@ Le croisement produit 4 quadrants :
 
 **Total Phase 4 :** ~20 composants majeurs, 6 pages, 22 jours de design UX.
 
-**Critère de succès Phase 4 :** Le CEO CBA ouvre son dashboard et comprend l'état de son organisation en <30 secondes. Le CTO configure SSO en <15 minutes. L'audit log montre toutes les actions des 3 derniers mois.
+**Critère de succès Phase 4 :** Le CEO votre organisation ouvre son dashboard et comprend l'état de son organisation en <30 secondes. Le CTO configure SSO en <15 minutes. L'audit log montre toutes les actions des 3 derniers mois.
 
 ### 4.5 Vue d'Ensemble Roadmap UX
 
@@ -3320,8 +3320,8 @@ Ces composants sont utilisés dans plusieurs phases et doivent etre designés en
 
 ## Conclusion — Recommandations PM
 
-### Priorité absolue (POC CBA, Semaines 1-3)
-1. **Quick Wins Phase 1** — Page Membres + Invitations + Auth = le minimum pour que CBA puisse utiliser MnM avec 5+ personnes
+### Priorité absolue (POC votre organisation, Semaines 1-3)
+1. **Quick Wins Phase 1** — Page Membres + Invitations + Auth = le minimum pour que votre organisation puisse utiliser MnM avec 5+ personnes
 2. **RBAC Phase 2** — Attribution de rôles + matrice permissions = la preuve que MnM gère les accès enterprise
 
 ### Priorité haute (MVP vendable, Semaines 4-6)
@@ -3336,12 +3336,12 @@ Ces composants sont utilisés dans plusieurs phases et doivent etre designés en
 ### KPI de suivi pour cette roadmap UX
 - **Couverture persona** : Chaque persona a au moins 1 écran dédié à la fin de Phase 2, 2+ à la fin de Phase 4
 - **Ratio Quick Wins livrés** : 100% des Quick Wins Phase 1-2 livrés en semaine 3
-- **Time-to-first-value CBA** : CEO fonctionnel en <48h, CTO en <4h, Dev en <30 min
+- **Time-to-first-value votre organisation** : CEO fonctionnel en <48h, CTO en <4h, Dev en <30 min
 - **Nombre de composants réutilisables** : >60% des composants utilisés dans 2+ contextes
 
 ---
 
-*Section 4 — ~2200 mots — John le PM — Priorisation UX, Traçabilité FR, Success Criteria par Persona, Roadmap UX*
+*Section 4 — ~2200 mots — the PM — Priorisation UX, Traçabilité FR, Success Criteria par Persona, Roadmap UX*
 *Sources : PRD B2B v1.0 (26 Success Criteria, 9 FR groupes, 4 phases), Product Brief B2B v2.0 (9 Personas, 5 Noyaux de Valeur)*
 
 ---
@@ -4068,7 +4068,7 @@ MnM doit montrer la performance d'une equipe **sans jamais montrer la performanc
 
 Le management voit :
 - "L'equipe Backend a traite 47 stories ce sprint" — JAMAIS "Pierre a traite 12 stories et Paul en a traite 8"
-- "Le taux de drift moyen est de 3.2%" — JAMAIS "L'agent de Marie devie 2x plus que les autres"
+- "Le taux de drift moyen est de 3.2%" — JAMAIS "L'agent de teammate-B devie 2x plus que les autres"
 - "87% des workflows sont en mode Assiste" — JAMAIS "Jean est encore en mode Manuel"
 
 Ce n'est pas un parametrage desactivable — c'est architecturalement impossible de descendre au niveau individuel dans les dashboards management. La base de donnees ne le permet pas au niveau de la couche de presentation management. Les donnees individuelles existent (pour l'audit), mais elles ne sont accessibles qu'au proprietaire lui-meme et, en cas d'incident specifique, a l'auditeur designe.
@@ -4254,7 +4254,7 @@ C'est le pattern le plus contre-intuitif pour les outils B2B analytics. Habituel
 
 **Comment ca se materialise dans l'UI :**
 - Les dashboards management montrent des bulles d'equipe, pas des lignes individuelles
-- Les graphes de performance sont toujours "Equipe Backend" pas "Pierre, Marie, Jean"
+- Les graphes de performance sont toujours "Equipe Backend" pas "Pierre, teammate-B, Jean"
 - Les alertes de drift pointent vers des workflows et des projets, pas vers des personnes
 - L'interface de reporting genere des syntheses par equipe, pas des evaluations individuelles
 
@@ -4264,7 +4264,7 @@ C'est le pattern le plus contre-intuitif pour les outils B2B analytics. Habituel
 - Pas de "people view" dans les dashboards management. Jamais.
 - Les metriques individuelles sont dans le dashboard personnel du collaborateur, visible uniquement par lui.
 - Si un manager a besoin d'informations individuelles (incident, audit), il passe par un processus formel d'audit avec justification logguee.
-- Les rapports generes par MnM pour le management n'incluent jamais de noms. "3 stories bloquees en review" pas "Pierre, Marie et Jean ont des stories en attente."
+- Les rapports generes par MnM pour le management n'incluent jamais de noms. "3 stories bloquees en review" pas "Pierre, teammate-B et Jean ont des stories en attente."
 
 ### 3.5 Pattern "Dual-Speed Display" — Zones Humain vs Zones Machine
 

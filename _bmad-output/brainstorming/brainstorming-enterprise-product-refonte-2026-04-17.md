@@ -1,23 +1,23 @@
-# Brainstorm — Use case CBA : Refonte Agathe You
+# Brainstorm — Use case votre organisation : Refonte enterprise product
 
 **Date :** 2026-04-17
-**Contexte :** Premier vrai lancement de MnM chez CBA sur un projet concret de refonte frontend.
+**Contexte :** Premier vrai lancement de MnM en entreprise sur un projet concret de refonte frontend.
 
 ## Contexte du projet
 
-- **Client :** CBA (santé, réglementaire fort)
-- **Projet :** Refonte complète frontend d'Agathe You
-- **Legacy :** App web hybride Struts + Angular (l'Angular étant un fork de l'app mobile Capacitor). "L'horreur."
-- **Scope backend :** Évolutions Springboot ponctuelles, pas de refonte.
-- **Contraintes métier :** NGAP, mutuelles, facturation santé, règlementaire lourd avec beaucoup d'edge cases.
+- **Client :** votre organisation (santé, réglementaire fort)
+- **Projet :** Refonte complète frontend d'enterprise product
+- **Legacy :** App web hybride legacy-backend + Angular (l'Angular étant un fork de l'app mobile hybrid-mobile-stack). "L'horreur."
+- **Scope backend :** Évolutions backend-framework ponctuelles, pas de refonte.
+- **Contraintes métier :** nomenclature sectorielle, tiers payeurs, facturation sectorielle, règlementaire lourd avec beaucoup d'edge cases.
 - **Objectif CEO :** "Usine à refonte" — le dev dit le matin "refait toute la création de patient", le soir la feature est refondue proprement, cross-platform, testée E2E, documentée.
 
 ## Équipe (4 personnes)
 
 | Rôle | Profil | Plug MnM |
 |------|--------|----------|
-| **Archi Angular** | Refonte from scratch, sait dev back Springboot, utilise IA au quotidien. A poussé plugin `cba-dev-angular` (plusieurs skills) | Crée workflows + agents, supervise |
-| **Dev Backend** | Java/Springboot, sait faire du front, a poussé plugin `cba-dev-java` | Exécute workflows dev |
+| **Archi Angular** | Refonte from scratch, sait dev back backend-framework, utilise IA au quotidien. A poussé plugin `team-dev-angular` (plusieurs skills) | Crée workflows + agents, supervise |
+| **Dev Backend** | Java/backend-framework, sait faire du front, a poussé plugin `team-dev-java` | Exécute workflows dev |
 | **PM** | Valide fonctionnel + workflows UX | Valide via inbox MnM |
 | **QA** | Connaît le réglementaire mieux que personne, sait les edge cases santé | PO fonctionnel, valide via inbox MnM |
 
@@ -53,7 +53,7 @@
   - Depends : `enrich-prd-pm` (séquentiel)
   - Assignee : `role:qa`
   - Timeout : 24h
-  - Gate exit : `qa-signoff` (agent `reglementary-coverage-judge` — "as-tu couvert NGAP, mutuelle, facturation ?")
+  - Gate exit : `qa-signoff` (agent `reglementary-coverage-judge` — "as-tu couvert nomenclature sectorielle, mutuelle, facturation ?")
 
 - **Step `consolidate-prd`** (agent `prd-consolidator`)
   - Output : `prd_final_json`
@@ -70,13 +70,13 @@
   - `when: "context.kg.endpoints_need_evolution == true"`
   - Output : `{ v2_endpoints, migration_plan }`
 
-- **Step `dev-backend-v2`** (agent `dev-springboot`, skills `cba-dev-java`)
+- **Step `dev-backend-v2`** (agent `dev-springboot`, skills `team-dev-java`)
   - `when: "steps.backend-v2-needed.output.v2_endpoints.length > 0"`
   - Gates exit : `junit-tests-pass` (script), `api-contract-judge` (agent)
   - Output : `pr_backend_url`
 
 ### Phase 5 — Dev front
-- **Step `dev-front-angular`** (agent `dev-angular-cba`, skills `cba-dev-angular`)
+- **Step `dev-front-angular`** (agent `dev-angular-team`, skills `team-dev-angular`)
   - Depends : `ui-spec`, `dev-backend-v2`
   - Gates exit :
     - `ng-build` (script)
@@ -112,14 +112,14 @@
 1. **Moteur workflows gouvernés** — DAG engine + gates + state machine. Routines existent (cron) mais pas de DAG.
 2. **MCP primitives workflows** — `getWorkflow`, `getSteps`, `launchStep`, `signalGate`, `getRunState`, `waitForGate`.
 3. **Schema YAML + parser/validator** — Format de déclaration workflow.
-4. **Infra GitProvider** — Cloner/pull/push repos workflow. Interface + impl GitLab minimum (Tom parle de GitLab chez CBA ? ou GitHub ?).
+4. **Infra GitProvider** — Cloner/pull/push repos workflow. Interface + impl GitLab minimum (MnM founder parle de GitLab en entreprise ? ou GitHub ?).
 5. **Gate I/O contract runtime** — Exécuter un gate (builtin, script, agent, webhook) et collecter `{pass, report, ...}`.
 6. **Agent adversarial pattern** — Gate qui cherche activement à casser le step. Nouveau concept de prompt.
 7. **Human step avec inbox + timeout + resume** — json-render existe, mais le step human qui bloque le DAG en attente d'inbox avec timeout → pas encore.
 8. **Workflow run persistence + resume** — Si MnM redémarre, les runs doivent reprendre. XState + DB snapshot.
 
 ### Bloqueurs P1 (existe partiellement)
-9. **Plugin skills invocation** — Agent `dev-angular-cba` utilise plugin `cba-dev-angular`. MnM doit pouvoir invoquer un agent Claude Code avec skills préchargées. (Via `claude -p` + `--skills` ?)
+9. **Plugin skills invocation** — Agent `dev-angular-team` utilise plugin `team-dev-angular`. MnM doit pouvoir invoquer un agent Claude Code avec skills préchargées. (Via `claude -p` + `--skills` ?)
 10. **Multi-repo context loading** — L'archéologue lit legacy-java + legacy-ng + newapp. Besoin d'un orchestrateur de contexte multi-repo. GitNexus peut aider mais à coupler.
 11. **Cross-agent data passing** — Output d'un step → input du suivant. Besoin d'un store typé par run.
 12. **Agent role registry** — Déclarer `archeologue`, `business-analyst`, etc. comme adapter_type avec prompt + tools. Aujourd'hui MnM a des agents mais faut formaliser le catalogue.
@@ -127,21 +127,21 @@
 14. **Cost tracking par workflow run** — Existe partiellement (observability), à remonter par run.
 15. **PR creation automation** — Agent crée PR via GitHub/GitLab API.
 
-### Manques côté client CBA
+### Manques côté client votre organisation
 16. **Sandbox d'exécution** — Les devs vont exécuter ça sur leur machine ? Sur un pod ? Hybride (archéo serveur, dev local) ?
 17. **UI-kit + mockups storage** — Comment l'agent UX accède-t-il aux maquettes (Figma ? dir S3 ?) ?
-18. **Plugins CBA packaging** — `cba-dev-angular` et `cba-dev-java` sont des plugins Claude Code. Doivent être versionnés, distribués à l'agent qui tourne pour MnM.
+18. **Plugins votre organisation packaging** — `team-dev-angular` et `team-dev-java` sont des plugins Claude Code. Doivent être versionnés, distribués à l'agent qui tourne pour MnM.
 
-## Questions à trancher avec Tom
+## Questions à trancher avec MnM founder
 
 1. **Où tournent les agents ?** Local (machine du dev) ? Serveur MnM ? Pod per-user ? Mixte selon step ?
-2. **Plugins Claude Code dans workflows** — Comment on invoque un agent avec un plugin skills précis ? Via `claude -p --plugin cba-dev-angular` ?
-3. **GitHub ou GitLab chez CBA ?** Impacte le GitProvider à prioriser.
+2. **Plugins Claude Code dans workflows** — Comment on invoque un agent avec un plugin skills précis ? Via `claude -p --plugin team-dev-angular` ?
+3. **GitHub ou GitLab en entreprise ?** Impacte le GitProvider à prioriser.
 4. **Autonomy level par step** — L'archéologue peut être full-auto, le dev plutôt supervisé. Comment on configure ça ?
 5. **Maquettes/UI-kit** — Figma API ? Fichiers plats ? Comment l'agent UX les consomme ?
 6. **Scope workflow** — On part sur un workflow monolithique `refonte-feature` ou on le décompose (un workflow `archéologie`, un workflow `dev`, un workflow `qa`) qui se composent via `uses:` ?
 
-## Décisions de Tom (Round 1)
+## Décisions de MnM founder (Round 1)
 
 ### Architecture d'exécution — HYBRIDE
 - **Backend MnM (serveur cloud)** : héberge agents internes (CAO, Sensei, workflows KG-nightly-synthesis, etc.) qui appellent l'API Anthropic directement.
@@ -149,14 +149,14 @@
 - **Implication** : MnM serveur = **control plane** (catalogue workflows, state machine, gates, inbox, observability). Exécution = **local**.
 
 ### Agents = Config-as-Code (git)
-- Aujourd'hui : plugin Claude Code invocable via `/cba-dev-angular:dev-story`.
+- Aujourd'hui : plugin Claude Code invocable via `/team-dev-angular:dev-story`.
 - **Demain** : agent MnM avec skills + hooks + MCP configurés DANS MnM.
 - **NOUVEAU PRINCIPE** : **chaque agent a son propre repo git**. Configs agent = markdown + yml dans git, pas juste en DB.
 - **Pourquoi** : si MnM meurt, les entreprises gardent la MAJORITÉ de leurs setups dans un format simple (folders/markdown/yml). **Résilience = format portable**.
 - **Conséquence** : étendre le principe "1 repo git par workflow" aux agents : `agents/<agent-name>/` avec `agent.yml`, `prompts/`, `skills/`, `hooks/`.
 
 ### Git provider
-- **GitLab self-hosted** chez CBA. Priorité GitLab dans l'interface GitProvider.
+- **GitLab self-hosted** en entreprise. Priorité GitLab dans l'interface GitProvider.
 
 ### Autonomie
 - **Full autonomie** par défaut pour tous les agents.
@@ -172,7 +172,7 @@
 ### Structure workflow
 - Un **gros workflow top-level** `refonte-feature` qui compose des **sous-workflows** :
   - `extract-prd` (archéologie + business rules + enrich PM/QA)
-  - `dev-backend` (analyse /v2 + dev Springboot + tests)
+  - `dev-backend` (analyse /v2 + dev backend-framework + tests)
   - `dev-frontend` (UI spec + dev Angular + cross-platform)
   - `qa-e2e` (génération tests + run)
   - `docs` (tech writer)
@@ -197,7 +197,7 @@
   - Dans une vue **"workflows en live"** (DAG actuel de tous les runs en cours)
   - Dans un **historique** (tous les runs passés, filtrables)
 
-## Questions Tom (à clarifier)
+## Questions MnM founder (à clarifier)
 
 - **DAG** = Directed Acyclic Graph (graphe orienté sans cycle). Les steps sont des nœuds, les dépendances des arêtes. Le moteur calcule l'ordre. Parallélisme = steps sans dépendance entre eux.
 - **Adversarial gate** = gate qui cherche activement des failles dans l'output. Ex: `no-dette-technique` = agent qui fait exprès de trouver du code pourri dans le PR. Pattern "red team" automatique.
@@ -208,7 +208,7 @@
 ### A. Architecture hybride exécution (IMPORTANT — bloqueur)
 - Serveur MnM = control plane, exécution = local dev
 - **Questions** :
-  - Quand Claude Code local lance un step qui est un agent (ex: `dev-angular-cba`), cet agent tourne en local aussi ? Ou c'est un sous-process Claude Code qui ré-invoque `claude -p --plugin cba-dev-angular` ?
+  - Quand Claude Code local lance un step qui est un agent (ex: `dev-angular-team`), cet agent tourne en local aussi ? Ou c'est un sous-process Claude Code qui ré-invoque `claude -p --plugin team-dev-angular` ?
   - Les gates : tournent local ou serveur ?
     - Gate builtin (check sur output) → serveur (pas besoin de local)
     - Gate script → local (c'est du code qui tourne près du dépôt)
@@ -221,7 +221,7 @@
 - **Format proposé** :
   ```
   agents/
-    dev-angular-cba/
+    dev-angular-team/
       agent.yml          # metadata, adapter_type, skills refs
       prompts/
         system.md
@@ -271,7 +271,7 @@
   ```
 
 ### E. Résilience "MnM meurt"
-- Principe Tom : **tout au format portable**.
+- Principe MnM founder : **tout au format portable**.
 - Ce qui doit être exportable en folders/markdown/yml :
   - Workflows (déjà le cas : 1 repo git par workflow)
   - Agents (nouveau : 1 repo git par agent)
@@ -308,12 +308,12 @@
 - **Agents referencent les config layers par nom/version, PAS par copie**. Le repo agent contient :
   ```yaml
   # agent.yml
-  name: dev-angular-cba
+  name: dev-angular-team
   adapter_type: claude_local
   config_layers:
-    - name: cba-base           # ref vers repo config-layer, pas copié
+    - name: team-base           # ref vers repo config-layer, pas copié
       version: "^1.0"
-    - name: cba-angular-stack
+    - name: team-angular-stack
       version: "^2.3"
   ```
 - **Question ouverte** : versioning existant des agents dans MnM ? À vérifier. Sinon introduire SemVer sur `agent.version` en DB, aligné avec les tags git.
@@ -346,7 +346,7 @@ steps:
   - id: dev-front
     depends_on: [ui-spec, backend-v2-analyze]
     type: agent
-    agent: dev-angular-cba
+    agent: dev-angular-team
 
   # Fan-out explicite (N instances en parallèle sur un array)
   - id: refactor-pages
@@ -432,7 +432,7 @@ Issue MnM "Refait la créa d'ordo" (status: in_progress)
 │   └── ...
 ├── Commentaires (thread conversationnel)
 │   ├── CAO: "step extract-rules terminé, voici le résumé..."
-│   ├── PM: "manque la gestion des mutuelles dans le PRD" ← relance
+│   ├── PM: "manque la gestion des tiers payeurs dans le PRD" ← relance
 │   ├── CAO: "relance du sub-workflow extract-prd avec ce feedback"
 │   └── ...
 └── Artifacts liés (PRs, docs, tests)
@@ -456,7 +456,7 @@ Issue MnM "Refait la créa d'ordo" (status: in_progress)
 **Exemple concret** :
 ```
 Workflow: A → B → C → D → E (tous ont fini sauf E)
-PM commente: "le PRD (output de B) a oublié la gestion des mutuelles"
+PM commente: "le PRD (output de B) a oublié la gestion des tiers payeurs"
 ```
 
 **Options** :
@@ -649,7 +649,7 @@ waitForHumanApproval(stepId, timeoutMs?)
   - Un **état de contexte** requis (session fresh, contexte vide, etc.)
   - Un **mode d'exécution** (main agent, sub-agent, nouvelle session)
   - Des **restrictions d'outils** (allowed/denied tools)
-  - Des **skills/plugins obligatoires** (ex: `cba-dev-angular` doit être loaded)
+  - Des **skills/plugins obligatoires** (ex: `team-dev-angular` doit être loaded)
   - Des **hooks** à vérifier/installer
 
 #### Execution Directive (NOUVEAU concept)
@@ -662,8 +662,8 @@ execution:
   required_context_state: empty | any | specific_tools_loaded
   allowed_tools: [Read, Grep, WebFetch]
   denied_tools: [Bash, Write]
-  required_skills: [cba-dev-angular:extract-rules]
-  required_plugins: [cba-dev-angular]
+  required_skills: [team-dev-angular:extract-rules]
+  required_plugins: [team-dev-angular]
   hooks:
     pre_step: [validate-context.sh]
     post_step: [report-back.sh]
@@ -679,7 +679,7 @@ execution:
 - Un **hook `UserPromptSubmit`** côté Claude Code vérifie avant d'exécuter : "la session est-elle vide ?" Si non, bloque et propose "ouvre une nouvelle session ou spawn un sub-agent".
 
 **Exemple 2 — `dev-front-angular` en sub-agent spécialisé**
-- Directive : `mode: sub_agent`, `required_plugins: [cba-dev-angular]`, `allowed_tools: [Read, Write, Edit, Bash]`.
+- Directive : `mode: sub_agent`, `required_plugins: [team-dev-angular]`, `allowed_tools: [Read, Write, Edit, Bash]`.
 - Claude Code spawn un sub-agent via son outil Agent avec les params.
 
 **Exemple 3 — `extract-rules` avec outils restreints**
@@ -702,7 +702,7 @@ Nouveau type de gate :
 - Sur l'**état de la session Claude Code** avant de lancer le step
 - Exemples :
   - `context-must-be-empty` : vérifie via hook que la session n'a pas déjà exécuté de tools
-  - `plugin-must-be-loaded` : vérifie que `cba-dev-angular` est disponible
+  - `plugin-must-be-loaded` : vérifie que `team-dev-angular` est disponible
   - `worktree-required` : vérifie qu'on est dans un worktree git
 - Implémentation : hook `UserPromptSubmit` ou `PreToolUse` qui appelle MCP MnM pour valider, bloque si invalide.
 
@@ -720,7 +720,7 @@ Nouveau type de gate :
 
 #### Hooks : installés côté dev via plugins company-wide
 - **PAS de distribution dynamique** des hooks par MnM.
-- Les hooks vivent dans des **plugins Claude Code pré-installés company-wide** (ex: plugin `cba-dev-workflows` installé sur tous les postes CBA).
+- Les hooks vivent dans des **plugins Claude Code pré-installés company-wide** (ex: plugin `team-dev-workflows` installé sur tous les postes votre organisation).
 - MnM **vérifie** la présence des hooks mais ne les installe pas.
 - Rationale : isolation, sécurité, versionning géré par le mécanisme plugin Claude Code standard.
 
@@ -744,10 +744,10 @@ Un agent bundle contient :
 - Git credentials refs (pas les secrets, juste les refs — résolus local avec creds dev)
 
 **Protocole** :
-1. MnM dit à Claude Code : "exécute step X avec agent `dev-angular-cba@2.3.1`".
-2. Claude Code vérifie cache local : ai-je `dev-angular-cba@2.3.1` ?
+1. MnM dit à Claude Code : "exécute step X avec agent `dev-angular-team@2.3.1`".
+2. Claude Code vérifie cache local : ai-je `dev-angular-team@2.3.1` ?
    - **Oui** → utilise direct.
-   - **Non** → télécharge depuis MnM : `GET /companies/:companyId/agents/dev-angular-cba/2.3.1/bundle`.
+   - **Non** → télécharge depuis MnM : `GET /companies/:companyId/agents/dev-angular-team/2.3.1/bundle`.
 3. Claude Code unpack dans cache local, exécute.
 
 **Cache local Claude Code** :
@@ -791,7 +791,7 @@ checkAgentIntegrity(name, version, checksum)
 ### Format repo agent
 - Proposition :
   ```
-  agents/dev-angular-cba/              ← 1 repo git
+  agents/dev-angular-team/              ← 1 repo git
     agent.yml                          ← metadata, version, refs
     prompts/
       system.md
@@ -800,10 +800,10 @@ checkAgentIntegrity(name, version, checksum)
     skills/                            ← inline OU refs externes
       scaffold-component.md
     hooks/
-      ref: plugin:cba-dev-workflows    ← hooks vivent dans le plugin
+      ref: plugin:team-dev-workflows    ← hooks vivent dans le plugin
     config-layers:
-      - ref: cba-base@^1.0
-      - ref: cba-angular-stack@^2.3
+      - ref: team-base@^1.0
+      - ref: team-angular-stack@^2.3
     mcp:
       servers:
         - figma-mcp
@@ -833,7 +833,7 @@ checkAgentIntegrity(name, version, checksum)
 - **Détection** : au début d'un step, MnM peut demander à Claude Code (via hook ou commande) de vérifier :
   - "MCP figma configuré ?" → hook liste les MCP actifs
   - "MCP gitlab configuré ?" → idem
-  - Credentials git SSH pour gitlab-cba ? → test connexion
+  - Credentials git SSH pour gitlab-team ? → test connexion
 - Si check fail → MnM poste un commentaire sur l'issue : "Configure MCP figma sur ton poste avant de lancer ce step".
 - **Primitive proposée** : `verifyLocalSetup(stepId)` → Claude Code exécute un check via hook, retourne status.
 
@@ -844,16 +844,16 @@ checkAgentIntegrity(name, version, checksum)
 - Si les config layers sont aussi versionnés sur GitLab → on verra après (pas bloqueur MVP).
 
 ```yaml
-# agents/dev-angular-cba/agent.yml
-name: dev-angular-cba
+# agents/dev-angular-team/agent.yml
+name: dev-angular-team
 version: 2.3.1
 adapter_type: claude_local
-description: "Dev front Angular spécialisé CBA Agathe You"
+description: "Dev front Angular spécialisé votre organisation enterprise product"
 
 config_layers:
-  - ref: cba-base@^1.0
-  - ref: cba-angular-stack@^2.3
-  - ref: cba-prompts-dev-frontend@^1.2
+  - ref: team-base@^1.0
+  - ref: team-angular-stack@^2.3
+  - ref: team-prompts-dev-frontend@^1.2
 
 # Optionnel : overrides locaux si besoin ponctuel
 overrides: {}
@@ -874,7 +874,7 @@ Routine governance-sync (pour chaque company)
     → rien en git, juste archivage DB (runs = pas portables)
 ```
 
-## Recap complet du design CBA
+## Recap complet du design votre organisation
 
 ### Architecture d'exécution
 - **Serveur MnM** = control plane (DB, MCP server, gates, nightly sync, CAO).
@@ -916,9 +916,9 @@ Routine governance-sync (pour chaque company)
 12. Inbox enrichie : step humain en attente.
 
 **Côté dev / Claude Code**
-13. Plugin `cba-dev-workflows` (hooks de validation contexte, pre/post step).
-14. Plugin `cba-dev-angular` (skills existantes à refactorer en agent MnM).
-15. Plugin `cba-dev-java` (idem).
+13. Plugin `team-dev-workflows` (hooks de validation contexte, pre/post step).
+14. Plugin `team-dev-angular` (skills existantes à refactorer en agent MnM).
+15. Plugin `team-dev-java` (idem).
 
 **Agents à créer pour le workflow refonte-feature**
 16. `archeologue-struts-angular` (discover legacy)
@@ -928,15 +928,15 @@ Routine governance-sync (pour chaque company)
 20. `prd-consolidator`
 21. `ux-specifier` (avec MCP Figma)
 22. `backend-analyzer`
-23. `dev-springboot` (existe via plugin cba-dev-java)
-24. `dev-angular-cba` (existe via plugin cba-dev-angular)
+23. `dev-springboot` (existe via plugin team-dev-java)
+24. `dev-angular-team` (existe via plugin team-dev-angular)
 25. `tech-debt-judge` (adversarial)
 26. `capacitor-compat-judge`
 27. `qa-automaton` (génération E2E)
 28. `ac-coverage-judge`
 29. `tech-writer`
 
-## Round 6 — Roadmap POC CBA (à venir)
+## Round 6 — Roadmap POC votre organisation (à venir)
 
 ### Proposition scope réduit POC
 
@@ -955,11 +955,11 @@ Routine governance-sync (pour chaque company)
 - 1 agent seulement : `archeologue-struts-angular` + `business-analyst`
 
 **Delivrables POC** :
-- Workflow `extract-prd` en YAML dans repo gitlab-cba
+- Workflow `extract-prd` en YAML dans repo gitlab-team
 - Agents en DB MnM avec 1 config layer par agent
 - MCP primitives : createIssueFromWorkflow, getNextStep, submitStepOutput, addComment, waitForHumanApproval, resolveAgent
 - UI MnM : page issue + timeline steps + commentaire simple
-- Plugin `cba-dev-workflows` minimal (hook pre-step check MCP)
+- Plugin `team-dev-workflows` minimal (hook pre-step check MCP)
 - Test end-to-end : dev lance, archéologue scan legacy, BA extrait, PM commente, prd consolidé.
 
 **Ce qui est reporté post-POC** :
@@ -975,10 +975,10 @@ Routine governance-sync (pour chaque company)
 
 - OK avec ce scope POC ? Trop restreint ? Trop ambitieux ?
 - Combien de temps on alloue au POC (timeline) ?
-- Qui code quoi (Tom + Gab dispos ?) ?
+- Qui code quoi (MnM founder + MnM co-founder dev dispos ?) ?
 - Priorité : démo fonctionnelle vs robustesse ?
 
 ## Prochains rounds
 
 - Round 5 : format repo agent + config layer + routine nightly sync
-- Round 6 : roadmap POC minimal CBA (1 feature pilote Agathe You)
+- Round 6 : roadmap POC minimal votre organisation (1 feature pilote enterprise product)

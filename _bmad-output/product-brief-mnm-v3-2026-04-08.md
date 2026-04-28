@@ -2,7 +2,7 @@
 
 **Version :** 3.0
 **Date :** 2026-04-08
-**Auteur :** Tom Andrieu (cofondateur), assisté par Claude
+**Auteur :** MnM contributor (cofondateur), assisté par Claude
 **Remplace :** `product-brief-b2b.md` (V2, 2026-03-13)
 **Référence vision :** `vision-mnm-2026-04-07.md`
 
@@ -87,7 +87,7 @@ Les entreprises qui n'outillent pas la supervision IA subiront :
 
 MnM est le management plane. Claude Code / Cursor / Copilot est le data plane. MnM n'a pas à remplacer l'outil du dev — il l'orchestre.
 
-Citation CEO CBA : *"Tu m'enlèves Claude Code pour me mettre un outil où j'ai pas la dernière feature de Claude Code, je suis deg et je veux pas ton outil."*
+Citation CEO votre organisation : *"Tu m'enlèves Claude Code pour me mettre un outil où j'ai pas la dernière feature de Claude Code, je suis deg et je veux pas ton outil."*
 
 ### Les 3 piliers
 
@@ -164,7 +164,7 @@ Même backend, même data, même auth. Projections du même système.
 
 | Objectif | Mesure | Échéance |
 |----------|--------|----------|
-| **Premier client en production** | CBA (50 devs) utilise MnM quotidiennement | T3 2026 |
+| **Premier client en production** | votre organisation (50 devs) utilise MnM quotidiennement | T3 2026 |
 | **Time to First Value < 30 min** | Nouvel utilisateur productif en 30 min (Connected, defaults intelligents) | T2 2026 |
 | **ARR 200k EUR** | 3-5 clients enterprise payants | T4 2026 |
 | **Rôles non-dev actifs > 30%** | PM, QA, CEO utilisent la Web UI régulièrement | T4 2026 |
@@ -238,11 +238,11 @@ Même backend, même data, même auth. Projections du même système.
 
 | Partie prenante | Rôle | Influence | Intérêt |
 |----------------|------|-----------|---------|
-| **Tom Andrieu** | Cofondateur, lead technique | Haute | Architecture, vision technique, dev full-stack |
-| **Gabriel** | Cofondateur, dev | Haute | Implémentation, features B2B, UX |
-| **Niko** | CEO | Haute | Vision business, relations client, stratégie |
-| **CEO CBA** | Client pilote | Haute | Validation terrain, feedback sur les 3 piliers, 50 devs potentiels |
-| **Équipe SRE CBA** | Partenaire technique | Moyenne | Sécurité sandbox, anti-shadow-AI, infrastructure |
+| **MnM contributor** | Cofondateur, lead technique | Haute | Architecture, vision technique, dev full-stack |
+| **MnM co-founder dev** | Cofondateur, dev | Haute | Implémentation, features B2B, UX |
+| **MnM CEO** | CEO | Haute | Vision business, relations client, stratégie |
+| **CEO votre organisation** | Client pilote | Haute | Validation terrain, feedback sur les 3 piliers, 50 devs potentiels |
+| **Équipe SRE votre organisation** | Partenaire technique | Moyenne | Sécurité sandbox, anti-shadow-AI, infrastructure |
 | **Studio Manifeste** | Structure porteuse | Moyenne | Ressources, positionnement marché |
 
 ---
@@ -264,7 +264,7 @@ Même backend, même data, même auth. Projections du même système.
 
 - Les entreprises adopteront un outil de supervision IA SI la valeur est prouvée rapidement (< 30 min)
 - Le MCP (Model Context Protocol) devient le standard d'interopérabilité des outils IA
-- CBA est représentatif du marché enterprise (50 devs, multi-rôles, compliance)
+- votre organisation est représentatif du marché enterprise (50 devs, multi-rôles, compliance)
 - Le pricing enterprise (10-30k EUR/an) est acceptable pour la valeur fournie
 - L'adoption se fait en cercles concentriques (1 équipe → département → entreprise)
 - Le scoring agent bootstrappé par les humains convergera vers une qualité suffisante pour l'auto-approve
@@ -283,7 +283,7 @@ Même backend, même data, même auth. Projections du même système.
 
 ### Succès business
 
-- CBA en production avec > 10 agents supervisés (T3 2026)
+- votre organisation en production avec > 10 agents supervisés (T3 2026)
 - 3 clients payants à 10-30k EUR/an (T4 2026)
 - Rétention > 95% mensuelle
 - Le flywheel est mesurable : cycles scoring → amélioration comptabilisés
@@ -320,7 +320,7 @@ Même backend, même data, même auth. Projections du même système.
 - Improvement Cockpit (KPIs, trends, thèmes LLM-extracted)
 - Feature Map v1 (nodes + traceability)
 - Agent Review Panel (1-2 dimensions automatisées)
-- **CBA en production**
+- **votre organisation en production**
 
 ### Phase 3 : Continuum (T3-T4 2026)
 
@@ -345,7 +345,7 @@ Même backend, même data, même auth. Projections du même système.
 | Risque | Probabilité | Impact | Mitigation |
 |--------|-------------|--------|-----------|
 | **Microsoft lance un concurrent intégré** | Haute | Critique | Agilité + moat du flywheel + positionnement unique (multi-tool, pas IDE-bound) |
-| **CBA ne convertit pas en production** | Moyenne | Haute | Time to First Value < 30 min, adoption cercles concentriques, pas de big-bang |
+| **votre organisation ne convertit pas en production** | Moyenne | Haute | Time to First Value < 30 min, adoption cercles concentriques, pas de big-bang |
 | **Scoring gaming** | Moyenne | Moyenne | Varier les dimensions + Pair Scoring humain + recalibration suggérée |
 | **Dépendance API MCP Anthropic** | Basse | Haute | Abstraction adapter déjà en place, support multi-tool (Cursor, Copilot) |
 | **Équipe trop petite** | Haute | Haute | Focus agressif (phases séquentielles), tooling IA pour multiplier la productivité |
@@ -434,7 +434,7 @@ Le niveau Connected est une **killer feature standalone** : un dev connecte MnM 
 2. **Positionnement inattaquable** — Pas un IDE, pas un framework. Le management plane. Niche vide.
 3. **Flywheel défensif** — Chaque cycle rend MnM plus intelligent pour CE client. Moat d'usage.
 4. **Architecture prête** — 70% de l'infra est construite (51+ tables, 41 RLS, agents, sandbox, traces, config layers).
-5. **Validation terrain** — CEO CBA a validé les 3 piliers. 50 devs potentiels pour le POC.
+5. **Validation terrain** — CEO votre organisation a validé les 3 piliers. 50 devs potentiels pour le POC.
 6. **Narrative puissante** — "L'agent PROUVE qu'il mérite l'autonomie. Le dev est le JUGE." Élimine la résistance au changement.
 
 ---
@@ -467,4 +467,4 @@ Le niveau Connected est une **killer feature standalone** : un dev connecte MnM 
 ---
 
 *Product Brief V3 — MnM — 2026-04-08*
-*Studio Manifeste / AlphaLuppi*
+*Studio Manifeste*

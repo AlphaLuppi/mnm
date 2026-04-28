@@ -14,13 +14,13 @@
 
 Analogie fondatrice : **Kubernetes n'a pas remplacé Docker — il l'orchestre.** MnM n'a pas à remplacer Claude Code — il l'orchestre.
 
-Citation CEO CBA : *"Tu m'enlèves Claude Code pour me mettre un outil où j'ai pas la dernière feature de Claude Code, je suis deg et je veux pas ton outil."*
+Citation CEO votre organisation : *"Tu m'enlèves Claude Code pour me mettre un outil où j'ai pas la dernière feature de Claude Code, je suis deg et je veux pas ton outil."*
 
 ### Les 3 non-négociables
 
 1. **Légèreté** — Le moins de tables, de types hardcodés et de contraintes possibles. Les entités sont génériques (nodes, entity_links). La sémantique vient de l'usage, pas du schema.
 
-2. **Agnosticisme** — MnM marche pour une startup de 3 (AlphaLuppi) comme pour une boîte réglementée de 500 (CBA). Pas d'entités CBA-spécifiques. La flexibilité vient des Blocks + agents configurables.
+2. **Agnosticisme** — MnM marche pour une petite startup interne comme pour une boîte réglementée de 500 (votre organisation). Pas d'entités client-spécifiques. La flexibilité vient des Blocks + agents configurables.
 
 3. **Flexibilité** — Pas de rôles figés PM/PD/Archi. Les rôles seront de plus en plus flous. N'importe qui peut contribuer. La structure vient de l'usage, pas de l'outil.
 
@@ -225,7 +225,7 @@ mnm_link_entities(...)        → Créer des entity_links
 Le chat accumule des **context links** vers des artefacts (documents, prototypes, autres chats, références).
 
 **Espace Production (Projet)** — le terrain commun entre personnes et agents.
-- **Projet = Produit** — un projet MnM représente un produit complet (ex: "Agathe" chez CBA : mobile + web Angular + legacy Struts)
+- **Projet = Produit** — un projet MnM représente un produit complet (ex: "legacy-app" en entreprise : mobile + web Angular + legacy legacy-backend)
 - **Multi-codebase** — N workspaces, chaque codebase a son MCP GitNexus
 - **Nodes = structure permanente** (features, ACs, requirements)
 - **Issues = travail temporaire** — tâches, bugs, stories. Liées aux nodes via entity_links
@@ -349,7 +349,7 @@ Méthodes : déterministe (formule), LLM-as-a-judge, agent reviewer, human revie
 - "Code Quality" attaché à toutes les issues dev → agent reviewer avec SonarQube MCP
 - "Sprint Health" attaché aux sprints → formule (velocity + issues done/planned)
 - "Agent Reliability" attaché aux agents → déterministe (first-pass rate + error rate)
-- "Compliance HAS" attaché aux features réglementées → LLM-as-a-judge contre cahier des charges
+- "Compliance autorité de régulation sectorielle" attaché aux features réglementées → LLM-as-a-judge contre cahier des charges
 
 ### Agent Review Panel
 

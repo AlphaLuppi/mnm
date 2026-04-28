@@ -154,7 +154,7 @@ describe("governed-workflows.tool", () => {
             status: "active",
             startedAt: new Date("2026-04-27T01:40:00Z"),
             completedAt: null,
-            gitTag: "cba-feature-dev/v1.0.3",
+            gitTag: "feature-dev/v1.0.3",
             gitSha: "045419d",
             initiatedByActorType: "user",
             initiatedByActorId: "u-1",
@@ -164,7 +164,7 @@ describe("governed-workflows.tool", () => {
             status: "completed",
             startedAt: new Date("2026-04-26T10:00:00Z"),
             completedAt: new Date("2026-04-26T10:30:00Z"),
-            gitTag: "cba-feature-dev/v1.0.2",
+            gitTag: "feature-dev/v1.0.2",
             gitSha: "deadbeef",
             initiatedByActorType: "user",
             initiatedByActorId: "u-1",
@@ -178,7 +178,7 @@ describe("governed-workflows.tool", () => {
     expect(list, "list_governed_workflow_runs tool must be registered").toBeDefined();
 
     const r = await list.handler({
-      input: { name: "cba-feature-dev", status: "active" },
+      input: { name: "feature-dev", status: "active" },
       actor: mkActor(),
     });
     const body = JSON.parse(r.content[0]!.text);
@@ -193,14 +193,14 @@ describe("governed-workflows.tool", () => {
       cancellation_reason: null,
       cancelled_by_actor_id: null,
       cancelled_by_actor_type: null,
-      git_tag: "cba-feature-dev/v1.0.3",
+      git_tag: "feature-dev/v1.0.3",
       git_sha: "045419d",
       initiated_by_actor_type: "user",
       initiated_by_actor_id: "u-1",
     });
     expect(services.governedWorkflows.listRuns).toHaveBeenCalledWith({
       companyId: "00000000-0000-0000-0000-000000000a01",
-      workflowName: "cba-feature-dev",
+      workflowName: "feature-dev",
       status: "active",
       limit: 20,
       offset: 0,
@@ -213,10 +213,10 @@ describe("governed-workflows.tool", () => {
     });
     const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
     const list = tools.find((t) => t.name === "list_governed_workflow_runs")!;
-    await list.handler({ input: { name: "cba-feature-dev" }, actor: mkActor() });
+    await list.handler({ input: { name: "feature-dev" }, actor: mkActor() });
     expect(services.governedWorkflows.listRuns).toHaveBeenCalledWith({
       companyId: "00000000-0000-0000-0000-000000000a01",
-      workflowName: "cba-feature-dev",
+      workflowName: "feature-dev",
       status: undefined,
       limit: 20,
       offset: 0,
@@ -506,7 +506,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
   const validWorkflowJson = JSON.stringify({
     apiVersion: "mnm/v1",
     kind: "GovernedWorkflow",
-    name: "cba-feature-dev",
+    name: "feature-dev",
     description: "Imported from tag",
     steps: [{ id: "step-1", agent: "senior-dev", deps: [], prompt_context: {} }],
   });
@@ -534,7 +534,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     expect(register, "register_governed_workflow tool must be registered").toBeDefined();
 
     const r = await register.handler({
-      input: { name: "cba-feature-dev", git_tag: "cba-feature-dev/v1.0.2" },
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.2" },
       actor: mkActorReg(),
     });
 
@@ -542,8 +542,8 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const body = JSON.parse(r.content[0]!.text);
     expect(body).toEqual({
       id: "wf-new-1",
-      name: "cba-feature-dev",
-      latest_git_tag: "cba-feature-dev/v1.0.2",
+      name: "feature-dev",
+      latest_git_tag: "feature-dev/v1.0.2",
       created: true,
     });
     // Did NOT call commitFile or createTag — that's the whole point of option C.
@@ -571,7 +571,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const register = tools.find((t) => t.name === "register_governed_workflow")!;
 
     const r = await register.handler({
-      input: { name: "cba-feature-dev", git_tag: "cba-feature-dev/v1.0.3" },
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.3" },
       actor: mkActorReg(),
     });
 
@@ -579,7 +579,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const body = JSON.parse(r.content[0]!.text);
     expect(body.created).toBe(false);
     expect(body.id).toBe("wf-existing-1");
-    expect(body.latest_git_tag).toBe("cba-feature-dev/v1.0.3");
+    expect(body.latest_git_tag).toBe("feature-dev/v1.0.3");
   });
 
   it("WORKFLOW_FILE_NOT_FOUND: GitProviderError 'not_found' surfaces typed error", async () => {
@@ -599,15 +599,15 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const register = tools.find((t) => t.name === "register_governed_workflow")!;
 
     const r = await register.handler({
-      input: { name: "cba-feature-dev", git_tag: "cba-feature-dev/v9.9.9" },
+      input: { name: "feature-dev", git_tag: "feature-dev/v9.9.9" },
       actor: mkActorReg(),
     });
 
     expect(r.isError).toBe(true);
     const body = JSON.parse(r.content[0]!.text);
     expect(body.error_code).toBe(WORKFLOW_ERROR_CODES.WORKFLOW_FILE_NOT_FOUND);
-    expect(body.workflow_name).toBe("cba-feature-dev");
-    expect(body.git_tag).toBe("cba-feature-dev/v9.9.9");
+    expect(body.workflow_name).toBe("feature-dev");
+    expect(body.git_tag).toBe("feature-dev/v9.9.9");
   });
 
   it("WORKFLOW_NAME_MISMATCH: workflow.json declares a different name", async () => {
@@ -631,7 +631,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const register = tools.find((t) => t.name === "register_governed_workflow")!;
 
     const r = await register.handler({
-      input: { name: "cba-feature-dev", git_tag: "cba-feature-dev/v1.0.2" },
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.2" },
       actor: mkActorReg(),
     });
 
@@ -639,7 +639,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const body = JSON.parse(r.content[0]!.text);
     expect(body.error_code).toBe(WORKFLOW_ERROR_CODES.WORKFLOW_NAME_MISMATCH);
     expect(body.definition_name).toBe("another-workflow");
-    expect(body.workflow_name).toBe("cba-feature-dev");
+    expect(body.workflow_name).toBe("feature-dev");
   });
 
   it("WORKFLOW_VALIDATION: workflow.json fails schema validation", async () => {
@@ -657,7 +657,7 @@ describe("registerGovernedWorkflow tool (option C)", () => {
     const register = tools.find((t) => t.name === "register_governed_workflow")!;
 
     const r = await register.handler({
-      input: { name: "cba-feature-dev", git_tag: "cba-feature-dev/v1.0.2" },
+      input: { name: "feature-dev", git_tag: "feature-dev/v1.0.2" },
       actor: mkActorReg(),
     });
 

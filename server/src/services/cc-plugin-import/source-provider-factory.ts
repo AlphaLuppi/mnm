@@ -7,7 +7,7 @@ export interface BuildSourceProviderInput {
   companyId: string;
   /**
    * The full HTTPS URL of the plugin repo, e.g.
-   * https://lab.cbainfo.fr/genia/hub/creation/symfony-upgrade-tests
+   * https://gitlab.example.com/genia/hub/creation/symfony-upgrade-tests
    */
   url: string;
   /** BetterAuth user id. When provided in `authenticated` mode, the resolver

@@ -26,7 +26,7 @@
 | `packages/git-provider/src/gitlab-provider.ts` | Modify | Propager `authorIdentity` au call REST `/repository/commits` (champs `author_email` + `author_name`) |
 | `ui/src/api/governed-workflows.ts` | Modify | Ajouter méthode `resumeRun(companyId, runId)` |
 | `ui/src/pages/GovernedWorkflowRunDetail.tsx` | Modify | Section "Livrables" (parcours `outputs[]`) + section "Données" (parcours `data{}`), rendu `git_file` / `git_folder` / `external_url` |
-| `tom.andrieu/mnm-demo` (repo Git externe) | Modify | Mettre à jour `workflows/cba-feature-dev/workflow.json` + agents pour produire le nouveau schema |
+| `your-username/mnm-demo` (repo Git externe) | Modify | Mettre à jour `workflows/feature-dev/workflow.json` + agents pour produire le nouveau schema |
 | `server/src/mcp/tools/__tests__/governed-workflows-resume.e2e.test.ts` | Create | Test E2E : run → /clear simulé → resume → vérifier handoffs préservés |
 
 ---
@@ -224,13 +224,13 @@ describe("commitMultipleFiles with authorIdentity", () => {
         startBranch: "master",
         message: "step tech-design: handoff design",
         actions: [{ path: "artifacts/runs/test/tech-design/design.md", content: "# X" }],
-        authorIdentity: { name: "Tom Andrieu", email: "tom@cba.fr" },
+        authorIdentity: { name: "MnM contributor", email: "tom@example.com" },
       });
       expect(result.commitSha).toMatch(/^[a-f0-9]{40}$/);
 
       const log = await simpleGit(dir).log({ "--all": null });
-      expect(log.latest?.author_email).toBe("tom@cba.fr");
-      expect(log.latest?.author_name).toBe("Tom Andrieu");
+      expect(log.latest?.author_email).toBe("tom@example.com");
+      expect(log.latest?.author_name).toBe("MnM contributor");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -279,11 +279,11 @@ describe("commitHandoffArtifacts", () => {
 
     const input: ArtifactInput = {
       outputs: [
-        { name: "design", kind: "file", filename: "design.md", content: "# Design AY-1\n" },
+        { name: "design", kind: "file", filename: "design.md", content: "# Design FEAT-001\n" },
         { name: "proto", kind: "folder", files: { "index.html": "<html/>", "app.js": "x" } },
         { name: "mr", kind: "external_url", url: "https://lab/x/-/merge_requests/1" },
       ],
-      data: { mr_iid: 42, ticket: "AY-1" },
+      data: { mr_iid: 42, ticket: "FEAT-001" },
     };
 
     const persisted = await commitHandoffArtifacts({
@@ -291,7 +291,7 @@ describe("commitHandoffArtifacts", () => {
       runId: "abc-123",
       stepId: "tech-design",
       input,
-      author: { name: "Tom", email: "tom@cba.fr" },
+      author: { name: "MnM founder", email: "tom@example.com" },
     });
 
     expect(persisted.outputs).toHaveLength(3);
@@ -300,7 +300,7 @@ describe("commitHandoffArtifacts", () => {
       kind: "git_file",
       path: "artifacts/runs/abc-123/tech-design/design.md",
       branch: "mnm-runs/abc-123",
-      bytes: "# Design AY-1\n".length,
+      bytes: "# Design FEAT-001\n".length,
     });
     expect(persisted.outputs[0]).toHaveProperty("git_sha");
     expect(persisted.outputs[1]).toMatchObject({
@@ -314,7 +314,7 @@ describe("commitHandoffArtifacts", () => {
       kind: "external_url",
       url: "https://lab/x/-/merge_requests/1",
     });
-    expect(persisted.data).toEqual({ mr_iid: 42, ticket: "AY-1" });
+    expect(persisted.data).toEqual({ mr_iid: 42, ticket: "FEAT-001" });
   });
 
   it("is idempotent if outputs already contain git_file kinds", async () => {
@@ -933,7 +933,7 @@ describe("resume_governed_workflow_run", () => {
     const actor = mkActor();
 
     const launchRes = await tools.find((t) => t.name === "launch_governed_workflow")!.handler({
-      input: { name: "hello-world", params: { name: "Tom" } },
+      input: { name: "hello-world", params: { name: "MnM founder" } },
       actor,
     });
     const runId = JSON.parse(launchRes.content[0].text).run_id;
@@ -1117,7 +1117,7 @@ async mergeBranch(args: MergeBranchArgs): Promise<MergeBranchResult> {
   // 1. Create a temporary MR with target=master, source=args.sourceBranch
   // 2. Accept the MR with squash=false, merge_when_pipeline_succeeds=false
   // Alternative: use the GitLab REST endpoint POST /repository/merge_to_default_branch (if available)
-  // Simplest in CBA self-hosted: create + accept MR with merge method = merge commit.
+  // Simplest in votre organisation self-hosted: create + accept MR with merge method = merge commit.
 
   // Step A: create MR
   const mr = await this.request<{ iid: number }>(
@@ -1383,7 +1383,7 @@ function OutputRow({ output, repoUrl }: { output: OutputPersisted; repoUrl?: str
 - [ ] **Step 3: Démarrer le dev server et vérifier visuellement**
 
 Run: `bun run dev`
-Open `http://localhost:3000/workflows/cba-feature-dev/runs/<existing-run-id>`
+Open `http://localhost:3000/workflows/feature-dev/runs/<existing-run-id>`
 Expected: Le tab Output montre une section "Livrables" avec les fichiers/URLs et une section "Données" avec un tableau key/value, plus de JSON brut.
 
 - [ ] **Step 4: Commit**
@@ -1395,11 +1395,11 @@ git commit -m "feat(ui): render outputs[] and data{} in run detail Output tab"
 
 ---
 
-## Task 11: Migration `cba-feature-dev` workflow + agents
+## Task 11: Migration `feature-dev` workflow + agents
 
-**Files (dans le repo `tom.andrieu/mnm-demo` GitLab, hors monorepo) :**
-- Modify: `workflows/cba-feature-dev/workflow.json`
-- Modify: `workflows/cba-feature-dev/agents/*.md` (les prompts des agents)
+**Files (dans le repo `your-username/mnm-demo` GitLab, hors monorepo) :**
+- Modify: `workflows/feature-dev/workflow.json`
+- Modify: `workflows/feature-dev/agents/*.md` (les prompts des agents)
 
 - [ ] **Step 1: Mettre à jour `workflow.json` pour le nouveau schema**
 
@@ -1455,13 +1455,13 @@ Note: this requires `interpolatePromptContext` to become async. Update its calle
 
 - [ ] **Step 3: Adapter les agent prompts**
 
-Each `workflows/cba-feature-dev/agents/<role>.md` agent prompt should mention:
+Each `workflows/feature-dev/agents/<role>.md` agent prompt should mention:
 - "Tu reçois tes handoffs dans `.mnm/handoffs/<name>` (path local)"
 - "Ton output doit être au format `{ outputs: [...], data: {...} }`"
 
 Example for senior-dev:
 ```markdown
-# Senior Dev (cba-feature-dev / tech-design)
+# Senior Dev (feature-dev / tech-design)
 
 ## Inputs
 - `{{variables.ticket}}` — Jira ticket id
@@ -1489,13 +1489,13 @@ Tu dois renvoyer un artifact JSON via `complete_governed_step`:
 ```
 ```
 
-- [ ] **Step 4: Pousser le tag `cba-feature-dev/v2.0.0` sur le repo `tom.andrieu/mnm-demo`**
+- [ ] **Step 4: Pousser le tag `feature-dev/v2.0.0` sur le repo `your-username/mnm-demo`**
 
 ```bash
 # Dans le repo mnm-demo cloné localement:
-git add workflows/cba-feature-dev/
-git commit -m "feat(cba-feature-dev): migrate to outputs[]/data{} schema"
-git tag cba-feature-dev/v2.0.0
+git add workflows/feature-dev/
+git commit -m "feat(feature-dev): migrate to outputs[]/data{} schema"
+git tag feature-dev/v2.0.0
 git push origin master --tags
 ```
 
@@ -1503,10 +1503,10 @@ git push origin master --tags
 
 ```bash
 # Via psql ou via le MCP tool register_governed_workflow:
-mcp__plugin_mnm_mnm__register_governed_workflow --name cba-feature-dev --tag cba-feature-dev/v2.0.0
+mcp__plugin_mnm_mnm__register_governed_workflow --name feature-dev --tag feature-dev/v2.0.0
 ```
 
-- [ ] **Step 6: Smoke test — lancer un nouveau run sur AY-10076 et vérifier que tout passe**
+- [ ] **Step 6: Smoke test — lancer un nouveau run sur FEAT-001 et vérifier que tout passe**
 
 Run: `bun run dev` puis lancer le workflow via UI ou MCP. Vérifier dans GitLab que la branche `mnm-runs/<run_id>` est créée, les fichiers committés, et qu'à la fin du run le merge dans master apparaît.
 
@@ -1519,23 +1519,23 @@ Run: `bun run dev` puis lancer le workflow via UI ou MCP. Vérifier dans GitLab 
 ## Task 12: Tests E2E full flow + resume
 
 **Files:**
-- Create: `server/src/__tests__/cba-feature-dev-resume.e2e.test.ts`
+- Create: `server/src/__tests__/feature-dev-resume.e2e.test.ts`
 
 - [ ] **Step 1: Test "complete first step → resume → continue"**
 
 ```typescript
-// server/src/__tests__/cba-feature-dev-resume.e2e.test.ts
+// server/src/__tests__/feature-dev-resume.e2e.test.ts
 
 import { describe, it, expect, beforeAll } from "vitest";
 // ... imports identiques à governed-workflows-resume.e2e.test.ts ...
 
-describe("cba-feature-dev — full resume flow", () => {
-  it("Tom completes tech-design, simulates /clear, resumes with full context", async () => {
+describe("feature-dev — full resume flow", () => {
+  it("MnM founder completes tech-design, simulates /clear, resumes with full context", async () => {
     const { db, tools, actor } = await setupRealistic();
 
     // Launch
     const launchRes = await tools.find((t) => t.name === "launch_governed_workflow")!.handler({
-      input: { name: "cba-feature-dev", params: { ticket: "AY-9999" } },
+      input: { name: "feature-dev", params: { ticket: "FEAT-001" } },
       actor,
     });
     const runId = JSON.parse(launchRes.content[0].text).run_id;
@@ -1551,10 +1551,10 @@ describe("cba-feature-dev — full resume flow", () => {
               name: "design",
               kind: "file",
               filename: "design.md",
-              content: "# Design AY-9999\n\n## Contexte\nFoo\n\n## Tests\n- Test A",
+              content: "# Design FEAT-001\n\n## Contexte\nFoo\n\n## Tests\n- Test A",
             },
           ],
-          data: { ticket: "AY-9999", summary: "Add feature X" },
+          data: { ticket: "FEAT-001", summary: "Add feature X" },
         },
       },
       actor,
@@ -1571,7 +1571,7 @@ describe("cba-feature-dev — full resume flow", () => {
     expect(payload.history[0].step_id).toBe("tech-design");
     expect(payload.history[0].outputs[0].kind).toBe("git_file");
     expect(payload.history[0].outputs[0].git_sha).toMatch(/^[a-f0-9]+$/);
-    expect(payload.history[0].data.ticket).toBe("AY-9999");
+    expect(payload.history[0].data.ticket).toBe("FEAT-001");
 
     expect(payload.current_step.step_id).toBe("review");
     expect(payload.current_step.handoffs).toEqual([
@@ -1583,7 +1583,7 @@ describe("cba-feature-dev — full resume flow", () => {
       }),
     ]);
     // The interpolated prompt for review should contain the design content (eager resolution)
-    expect(payload.current_step.promptContext.design_content).toContain("# Design AY-9999");
+    expect(payload.current_step.promptContext.design_content).toContain("# Design FEAT-001");
   });
 
   it("Failed run still merges into master with FAILED marker", async () => {
@@ -1594,14 +1594,14 @@ describe("cba-feature-dev — full resume flow", () => {
 
 - [ ] **Step 2: Run, vérifier pass**
 
-Run: `bun run --cwd server test src/__tests__/cba-feature-dev-resume.e2e.test.ts`
+Run: `bun run --cwd server test src/__tests__/feature-dev-resume.e2e.test.ts`
 Expected: PASS, 2 tests
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add server/src/__tests__/cba-feature-dev-resume.e2e.test.ts
-git commit -m "test(governed-workflows): E2E full resume flow with cba-feature-dev"
+git add server/src/__tests__/feature-dev-resume.e2e.test.ts
+git commit -m "test(governed-workflows): E2E full resume flow with feature-dev"
 ```
 
 ---
@@ -1628,7 +1628,7 @@ Le contrat entre steps est l'artifact JSON. Format :
     { "name": "mr", "kind": "external_url", "url": "https://lab/.../merge_requests/1" }
   ],
   "data": {
-    "ticket": "AY-1",
+    "ticket": "FEAT-001",
     "approvals_count": 2
   }
 }

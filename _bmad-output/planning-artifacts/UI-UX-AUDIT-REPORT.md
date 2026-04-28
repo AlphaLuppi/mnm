@@ -453,7 +453,7 @@ The app is predominantly English, but French appears in several places:
 - `ProjectDetail.tsx` workflows tab: "Rechercher...", "Aucun workflow ne correspond"
 - Multiple planning docs reference French terminology
 
-**Impact**: Mixed-language UI is confusing for enterprise users and unprofessional for a CBA demo.
+**Impact**: Mixed-language UI is confusing for enterprise users and unprofessional for a votre organisation demo.
 
 **Recommended fix**: Decide on a single UI language (English for international enterprise) and audit all user-facing strings. Consider i18n infrastructure (e.g., `react-intl`) for future localization.
 
@@ -540,7 +540,7 @@ The design system uses `--radius-lg: 0px` and `--radius-xl: 0px`, giving a sharp
 
 ## Recommended Priority Fixes
 
-Ordered by impact for a CBA demo:
+Ordered by impact for a votre organisation demo:
 
 | # | Priority | Issue | Effort | Impact |
 |---|----------|-------|--------|--------|

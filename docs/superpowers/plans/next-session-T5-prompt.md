@@ -8,7 +8,7 @@ Salut, on continue l'implémentation des MnM Governed Workflows.
 
 # Contexte
 
-Repo : `C:\Users\tom.andrieu\IdeaProjects\perso\alphalup\mnm` (branch master).
+Repo : `C:\path\to\mnm` (branch master).
 
 Statut actuel :
 - **T1 shipped 2026-04-21** (`fb028ae..1c483e1`) — Package `@mnm/governed-workflows` (zod schemas + types + `defineGate<Artifact, Config>`)

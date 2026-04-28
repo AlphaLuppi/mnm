@@ -209,7 +209,7 @@ Use markdown formatting and include links to related entities when they exist:
 - Source issue: [ISSUE_ID](/<prefix>/issues/<issue-identifier-or-id>)
 ```
 
-Where `<prefix>` is the company prefix derived from the issue identifier (e.g., `CBA-123` → prefix is `CBA`).
+Where `<prefix>` is the company prefix derived from the issue identifier (e.g., `votre organisation-123` → prefix is `votre organisation`).
 
 **@-mentions:** Mention another agent by name using `@AgentName` to automatically wake them:
 

@@ -58,7 +58,7 @@ WORKFLOW: "Feature Login SSO" — 7 agents, 5 stages
 ═══════════════════════════════════════════════════
 
 PM Agent     ██████░░░░░░░░░░░░░░░░░░░░  3min  $0.05
-  ✓ Epic créé: "SSO SAML/OIDC pour CBA"
+  ✓ Epic créé: "SSO SAML/OIDC pour votre organisation"
   ✓ 4 stories, 12 AC rédigés
   ⚠ Risk: "certificat SAML expiré = 500 silencieux"
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 5.7, vitest 3, native `fetch` (Node 20+ global), `node:child_process`, `node:fs/promises`, `node:path`, `node:os` (for LocalBareRepoProvider temp worktrees). **Zero runtime dependencies.** The test for `LocalBareRepoProvider` shells out to the system `git` binary — every MnM dev environment already has git.
 
-**Source spec:** `docs/superpowers/specs/2026-04-20-governed-workflows-mvp-design.md` — Section 1 (archi globale, role GitLab CBA), Section 2 (fetch-on-demand), Section 7 (T3 row + "Points ouverts" list).
+**Source spec:** `docs/superpowers/specs/2026-04-20-governed-workflows-mvp-design.md` — Section 1 (archi globale, role GitLab self-hosted), Section 2 (fetch-on-demand), Section 7 (T3 row + "Points ouverts" list).
 
 **Scope of T3:** Only the GitProvider abstraction + its two implementations + in-memory cache + error class. No orchestration, no DB writes, no MCP wiring, no ingestion of `workflow.json` / `agent.md`. T3 is independent of T1 (package) and T2 (DB) — they already shipped. Consumers land in T4 (gate runner loads `.gate.ts` via `fetchBlob`), T5 (MCP `loadWorkflowAtSha` and `listWorkflows` pull `workflow.json` + tags), T7 (hello-world bootstrap `commitFile`s the seed repo content).
 
@@ -1221,7 +1221,7 @@ describe("LocalBareRepoProvider.commitFile", () => {
       content: '{"name":"hello-world"}',
       message: "add workflow",
       branch: "main",
-      authorName: "Tom User",
+      authorName: "MnM founder User",
       authorEmail: "tom@example.com",
     });
     expect(result.sha).toMatch(/^[0-9a-f]{40}$/);
@@ -1238,7 +1238,7 @@ describe("LocalBareRepoProvider.commitFile", () => {
       content: "x",
       message: "add file",
       branch: "main",
-      authorName: "Tom User",
+      authorName: "MnM founder User",
       authorEmail: "tom@example.com",
     });
     const { stdout } = await execFileAsync(
@@ -1252,7 +1252,7 @@ describe("LocalBareRepoProvider.commitFile", () => {
         result.sha,
       ],
     );
-    expect(stdout.trim()).toBe("Tom User <tom@example.com>");
+    expect(stdout.trim()).toBe("MnM founder User <tom@example.com>");
   });
 
   it("updates an existing file", async () => {
@@ -1261,7 +1261,7 @@ describe("LocalBareRepoProvider.commitFile", () => {
       content: "updated\n",
       message: "bump readme",
       branch: "main",
-      authorName: "Tom",
+      authorName: "MnM founder",
       authorEmail: "tom@example.com",
     });
     const content = await provider.fetchBlob({ path: "README.md", ref: "main" });
@@ -1274,7 +1274,7 @@ describe("LocalBareRepoProvider.commitFile", () => {
       content: "export default () => ({ pass: true, report: 'ok' });\n",
       message: "add nested gate",
       branch: "main",
-      authorName: "Tom",
+      authorName: "MnM founder",
       authorEmail: "tom@example.com",
     });
     expect(
@@ -1870,7 +1870,7 @@ describe("GitlabProvider.commitFile", () => {
       content: '{"name":"hello"}',
       message: "add hello-world workflow",
       branch: "main",
-      authorName: "Tom User",
+      authorName: "MnM founder User",
       authorEmail: "tom@example.com",
     });
     expect(result).toEqual({ sha: "newsha123" });
@@ -1889,7 +1889,7 @@ describe("GitlabProvider.commitFile", () => {
     expect(body).toEqual({
       branch: "main",
       commit_message: "add hello-world workflow",
-      author_name: "Tom User",
+      author_name: "MnM founder User",
       author_email: "tom@example.com",
       actions: [
         {
@@ -1917,7 +1917,7 @@ describe("GitlabProvider.commitFile", () => {
       content: "updated",
       message: "bump",
       branch: "main",
-      authorName: "Tom",
+      authorName: "MnM founder",
       authorEmail: "tom@example.com",
     });
 
@@ -1943,7 +1943,7 @@ describe("GitlabProvider.commitFile", () => {
         content: "x",
         message: "x",
         branch: "main",
-        authorName: "Tom",
+        authorName: "MnM founder",
         authorEmail: "tom@example.com",
       }),
     ).rejects.toMatchObject({ code: "conflict", status: 400 });
@@ -2078,7 +2078,7 @@ describe("GitProvider round-trip (Local bare repo)", () => {
       content: '{"name":"hello-world","steps":[]}',
       message: "seed hello-world",
       branch: "main",
-      authorName: "Tom User",
+      authorName: "MnM founder User",
       authorEmail: "tom@example.com",
     });
     expect(sha).toMatch(/^[0-9a-f]{40}$/);
@@ -2267,7 +2267,7 @@ Append a completion report section at the bottom of this plan file following the
 |---|------|-------|-----------|
 | 1 | Webhook GitLab post-commit → update `governed_workflow_definitions.latest_git_tag` async | T5 | Needs HTTP route, signature verification, DB writer. Composes with T5's MCP stack. |
 | 2 | Disk-backed cache layer under `ShaCache` | Post-MVP | MVP memory cache is plenty. Disk would help across cold starts but MnM processes are long-lived. |
-| 3 | GitHubProvider / GiteaProvider | Post-MVP | MVP targets GitLab CBA exclusively. Abstraction is already in place — a 3rd provider is an additive change. |
+| 3 | GitHubProvider / GiteaProvider | Post-MVP | MVP targets GitLab self-hosted exclusively. Abstraction is already in place — a 3rd provider is an additive change. |
 | 4 | Tree listing / dynamic discovery API (`listTree`) | Post-MVP | Not on any MVP consumer's critical path. `workflow.json` drives the path list. |
 | 5 | Commit signing (GPG/SSH) | Post-MVP | Spec doesn't require it MVP. GitLab bot token + audited user author is sufficient audit trail. |
 | 6 | Rate limit header introspection (`RateLimit-Remaining`) | T5 / T6 | Current retry strategy treats 429 as signal enough. Reading `RateLimit-Remaining` pre-emptively would avoid one hit before backoff. Low priority. |

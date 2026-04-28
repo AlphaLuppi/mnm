@@ -13,13 +13,13 @@
     "orchestration",
     "cli"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mnm/mnm.git",
+    "url": "https://github.com/AlphaLuppi/mnm.git",
     "directory": "cli"
   },
-  "homepage": "https://github.com/mnm/mnm",
+  "homepage": "https://github.com/AlphaLuppi/mnm",
   "files": [
     "dist"
   ],
@@ -52,5 +52,9 @@
     "@types/node": "^22.12.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
+  },
+  "author": "Alpha Luppi (Studio Manifeste)",
+  "bugs": {
+    "url": "https://github.com/AlphaLuppi/mnm/issues"
   }
 }

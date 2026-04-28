@@ -293,7 +293,7 @@ but a one-line `if (value.includes("\\")) throw ...` would close it.
 #### Nit-CR-2 — P11 E2E doesn't assert structured warn payload from setupWorkspace
 
 **Commit**: a140402.
-**File**: `server/src/__tests__/cba-feature-dev-techdesign.e2e.test.ts`.
+**File**: `server/src/__tests__/feature-dev-techdesign.e2e.test.ts`.
 **Evidence**: the E2E happy-pathes setupWorkspace with a real bare repo. The
 `agents/<name>/agent.md` resolution is verified via `expect(seniorDev).toBeDefined()`,
 but the test never deliberately deletes the `.md` to verify the skip-on-404 + warn
@@ -326,7 +326,7 @@ and integration coverage.
   correct — when `provided === undefined`, `provided !== canonical.sha` is `true`
   → AGENTS_STALE is correctly thrown (no regression).
 - **P11 sha assertion**: uses real `createHash("sha256").update(SENIOR_DEV_AGENT_MD)`
-  (cba-feature-dev-techdesign.e2e.test.ts:175-180) and a regex `/^[0-9a-f]{64}$/`.
+  (feature-dev-techdesign.e2e.test.ts:175-180) and a regex `/^[0-9a-f]{64}$/`.
   Not just `expect.any(String)`.
 
 ## Recommended team setup for fix phase
@@ -384,7 +384,7 @@ Each closure was independently verified against the modified source/tests, not j
 | N-CR-3 | NIT | 9c23218 | VERIFIED | `workflow-ai-assistant.test.ts` now wraps the two P9 BLOCKER B-1 tests in a nested `describe(...)` block with `beforeEach` (re-installs the `gwsSpy.mockImplementation`) and `afterEach` (`gwsSpy.mockReset()` + reinstall benign default). No leaked state across tests. |
 | N-CR-4 | NIT | 9c23218 | VERIFIED | `build-mcp-services.ts:306-309` adds an explanatory comment immediately above the early `return provider` to prevent a future refactor from silently double-setting the cache. |
 | Nit-CR-1 | NIT | 35d7c2f | VERIFIED | `rejectTraversal` decodes via `decodeURIComponent` (with try/catch fallback), rejects `\\` separators. Tests cover `%2E%2E` smuggling and backslash (git-resource-path.test.ts:67-77 + 84-86). |
-| Nit-CR-2 | NIT | 9c23218 | VERIFIED | `cba-feature-dev-techdesign.e2e.test.ts:233-269` adds the skip-on-404 + structured warn case against the real `LocalBareRepoProvider`, asserting (a) live agent included, (b) ghost excluded, (c) warn payload `{agentName, latestGitTag, fullPath, providerId}`. |
+| Nit-CR-2 | NIT | 9c23218 | VERIFIED | `feature-dev-techdesign.e2e.test.ts:233-269` adds the skip-on-404 + structured warn case against the real `LocalBareRepoProvider`, asserting (a) live agent included, (b) ghost excluded, (c) warn payload `{agentName, latestGitTag, fullPath, providerId}`. |
 | OPS-1 | OPS gap | fdb0471 | VERIFIED | `scripts/migrate-2026-04-26-mnm-demo.sh` (mode 100755 per `git ls-files --stage`): `#!/usr/bin/env bash`, `set -euo pipefail`, idempotent guards (clone fall-through, `git_mv_safe`, tag `rev-parse -q --verify`, --force opt-in, glab/curl HTTP-status switch). `scripts/migrate-2026-04-26-db.sql` (mode 100644): M0 fail-fast `DO $$ ... RAISE EXCEPTION 'M0 not applied'` at lines 24-33, defensive RAISE NOTICE pre-archive at lines 37-48, single TX `BEGIN; ... COMMIT;` at 50/116, 0/>1 match guard on config_layer_items discovery at 70-74, all 3 §M2 ops covered (paths config update L84-88, archive greeter/shouter L95-103, retag governed_workflow_definitions L107-114). |
 | F-1 (PM validation) | BLOCKER | e91f640 | VERIFIED | (Same closure as B-CR-1 — `syncEnvironment` now uses `resolveResourcePath`. Demo flow M4 step 3 is unblocked.) |
 | Pre-existing isolated-vm DLL | n/a | n/a | NOT-IN-SCOPE | Confirmed pre-existing (orchestration log line 38). Blocks local Windows test runs only. Linux CI unaffected. |
@@ -436,4 +436,4 @@ mnm (root)         FAIL — Cannot find module '@embedded-postgres/windows-x64' 
 
 **READY FOR M0+M1+M2+M3 OPS.**
 
-All 13 findings (2 BLOCKER + 3 MAJOR + 4 MINOR + 2 NIT + OPS-1 + F-1 PM) are independently verified as closed with file-line evidence and matching test coverage. Tom can proceed with the demo cutover.
+All 13 findings (2 BLOCKER + 3 MAJOR + 4 MINOR + 2 NIT + OPS-1 + F-1 PM) are independently verified as closed with file-line evidence and matching test coverage. MnM founder can proceed with the demo cutover.

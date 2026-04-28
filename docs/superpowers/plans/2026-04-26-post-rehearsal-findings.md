@@ -1,9 +1,9 @@
-# Post-rehearsal findings — `cba-feature-dev` A→Z run
+# Post-rehearsal findings — `feature-dev` A→Z run
 
 **Date** : 2026-04-26 (rehearsal soir, 22h00 → 22h30 UTC)
 **Run ID** : `1db1a588-8ec8-44fd-85a4-bd9c33e631cf`
-**Workflow** : `cba-feature-dev` @ `cba-feature-dev/v1.0.2` (git_sha `ebe23aa`)
-**Ticket** : [AY-10074] Ajouter un formatPrice avec devise dynamique
+**Workflow** : `feature-dev` @ `feature-dev/v1.0.2` (git_sha `ebe23aa`)
+**Ticket** : [FEAT-001] Ajouter un formatPrice avec devise dynamique
 **Résultat** : 4/4 steps succeeded — run complete.
 
 | Step | Durée | Subagent | Artifact gates |
@@ -13,7 +13,7 @@
 | review | 4m40 | review-watcher | mr-approved ✅ |
 | merge-tag | 1m31 | release-mgr | changelog-exists ✅ |
 
-MR mergée : https://lab.cbainfo.fr/tom.andrieu/cba-mnm-demo-app/-/merge_requests/1
+MR mergée : https://gitlab.example.com/your-username/mnm-demo-app/-/merge_requests/1
 Tag créé : `v0.1.0` sur merge commit `412b79c483fa2cc606950324a0fb8429a280f9af`.
 
 ---
@@ -57,7 +57,7 @@ Le `lastSyncedSha` du fichier `last-session.json` est un sha de l'environnement 
 
 ### [F4] SSH password popup ghost — pas reproduit, à investiguer post-démo
 
-**Symptôme** : pendant l'exécution du subagent dev (~7m30), un dialog "Git for Windows — git@lab.cbainfo.fr's password" est apparu et est resté ouvert. Aucun process git/ssh actif n'est trouvé après coup. Le clone, push et MR ont tous réussi en HTTPS comme attendu.
+**Symptôme** : pendant l'exécution du subagent dev (~7m30), un dialog "Git for Windows — git@gitlab.example.com's password" est apparu et est resté ouvert. Aucun process git/ssh actif n'est trouvé après coup. Le clone, push et MR ont tous réussi en HTTPS comme attendu.
 
 **Hypothèses** :
 - Le subagent a tenté `git push` ou `git fetch` avec une URL SSH par défaut (config locale `url.<git@...>.insteadOf`?), prompt apparaît, le subagent a basculé en HTTPS et continué — le dialog est resté en ghost UI.
@@ -72,7 +72,7 @@ Le `lastSyncedSha` du fichier `last-session.json` est un sha de l'environnement 
 
 **Observation** : sur un projet GitLab sans rule d'approbation (`approvals_required: 0`, `rules: []`), l'API retourne `approved: true` même avec `approved_by: []`. C'est une "auto-mergeabilité" structurelle (rien ne bloque), pas une approbation humaine.
 
-Le subagent review-watcher a refusé de fabriquer `approvals_count: 1` à partir de `approved: true` malgré la pression du contexte ("Tom a déjà approuvé"). Il a bloqué tant que `approved_by[]` était vide. Tom a dû effectivement cliquer le bouton Approve pour débloquer.
+Le subagent review-watcher a refusé de fabriquer `approvals_count: 1` à partir de `approved: true` malgré la pression du contexte ("MnM founder a déjà approuvé"). Il a bloqué tant que `approved_by[]` était vide. MnM founder a dû effectivement cliquer le bouton Approve pour débloquer.
 
 **À call out pendant le pitch** :
 > "Le projet n'a aucune règle d'approbation côté GitLab — l'API dit 'approved: true' par défaut. Mais regardez : le harness exige une vraie signature humaine dans `approved_by[]`. C'est ça la gouvernance — on ne fait pas confiance à GitLab pour décider qu'une MR est review, on exige un humain dans la boucle."
@@ -95,6 +95,6 @@ Le subagent review-watcher a refusé de fabriquer `approvals_count: 1` à partir
 
 - [ ] Les 4 agents matérialisés ont bien `name: mnm--<x>` après next AGENTS_STALE round-trip.
 - [ ] `subagent_type=mnm--senior-dev` dispatchable côté Claude Code après `/reload-plugins`.
-- [ ] Un nouveau run `cba-feature-dev` retourne `prompt_context.design_md = "design.md"` (résolu, pas littéral) au step `dev`.
+- [ ] Un nouveau run `feature-dev` retourne `prompt_context.design_md = "design.md"` (résolu, pas littéral) au step `dev`.
 - [ ] Les tests `governedWorkflowService — loadCanonicalAgent` continuent de passer (cf. `server/src/services/__tests__/governed-workflows.test.ts:1359`).
-- [ ] Les e2e `t6-bootstrap-and-launch` et `cba-feature-dev-techdesign` tournent vert en CI Linux.
+- [ ] Les e2e `t6-bootstrap-and-launch` et `feature-dev-techdesign` tournent vert en CI Linux.

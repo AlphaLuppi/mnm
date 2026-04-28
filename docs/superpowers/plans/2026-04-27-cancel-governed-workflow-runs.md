@@ -1612,7 +1612,7 @@ function renderWithClient(ui: React.ReactElement) {
 
 describe("CancelRunDialog", () => {
   it("renders header, description, textarea, and 2 buttons when open", () => {
-    renderWithClient(<CancelRunDialog runId="run-1" workflowName="cba-feature-dev" open={true} onOpenChange={vi.fn()} />);
+    renderWithClient(<CancelRunDialog runId="run-1" workflowName="feature-dev" open={true} onOpenChange={vi.fn()} />);
     expect(screen.getByText(/Annuler le run/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Raison.*5 caract/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Garder actif/ })).toBeInTheDocument();
@@ -2035,7 +2035,7 @@ describe("E2E — cancel + reactivate full cycle", () => {
   it("launch → complete step 1 → cancel → completeStep blocked → reactivate → finish", async () => {
     const { actor, companyId } = await setupTestWorkflow();
     const launchResult = await callMcpTool("launch_governed_workflow", {
-      name: "cba-feature-dev",
+      name: "feature-dev",
       params: { ticket_id: "TEST-1", gitlab_project: "x/y" },
     }, actor);
     const runId = launchResult.run_id;

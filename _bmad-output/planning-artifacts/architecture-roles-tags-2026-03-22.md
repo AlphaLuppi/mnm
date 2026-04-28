@@ -1,7 +1,7 @@
 # Architecture — Roles + Tags + Dynamic Permissions
 
 > **Version** : 2.0 | **Date** : 2026-03-22 | **Statut** : Reviewed
-> **Input** : Brainstorm enterprise 2026-03-21 (Solution Hybride), clarifications Tom 2026-03-22
+> **Input** : Brainstorm enterprise 2026-03-21 (Solution Hybride), clarifications MnM founder 2026-03-22
 > **Scope** : Roles custom, Tags organisationnels, permissions dynamiques, isolation par tags, sandbox routing, CAO, Task Pool
 > **Review** : Adversarial review passed — 11 findings fixed (v1→v2)
 
@@ -548,29 +548,29 @@ RÈGLES :
 
 ```
 Agent "Code Review Bot" → tags: [Produit-A, Code-Review]
-Tom → tags: [Produit-A, Frontend, Lead-UIKit]
-Gab → tags: [Produit-B, Backend]
+MnM founder → tags: [Produit-A, Frontend, Lead-UIKit]
+MnM co-founder dev → tags: [Produit-B, Backend]
 
-Tom voit l'agent (Produit-A ∩ {Produit-A, Code-Review} ≠ ∅) → peut le lancer
-Gab NE voit PAS l'agent ({Produit-B, Backend} ∩ {Produit-A, Code-Review} = ∅)
+MnM founder voit l'agent (Produit-A ∩ {Produit-A, Code-Review} ≠ ∅) → peut le lancer
+MnM co-founder dev NE voit PAS l'agent ({Produit-B, Backend} ∩ {Produit-A, Code-Review} = ∅)
 
-Partager l'agent avec Gab = ajouter le tag Produit-B à l'agent
-  OU ajouter le tag Produit-A à Gab
+Partager l'agent avec MnM co-founder dev = ajouter le tag Produit-B à l'agent
+  OU ajouter le tag Produit-A à MnM co-founder dev
   OU créer un tag "Shared-Review-Bots" et l'ajouter aux deux
 ```
 
 ### 6.2 Sandbox Routing (Exécution Toujours Personnelle)
 
 ```
-Tom lance "Code Review Bot"
-  → executeRun() résout l'acteur = Tom
+MnM founder lance "Code Review Bot"
+  → executeRun() résout l'acteur = MnM founder
   → sandboxManager.getOrCreate(tom.id, companyId)
-  → docker exec dans le container de Tom
-  → auth Claude = token de Tom
-  → traces/runs = rattachés au run de Tom
+  → docker exec dans le container de MnM founder
+  → auth Claude = token de MnM founder
+  → traces/runs = rattachés au run de MnM founder
 
-Gab lance le même agent (s'il a accès via tags)
-  → Même chose, mais dans le container de Gab
+MnM co-founder dev lance le même agent (s'il a accès via tags)
+  → Même chose, mais dans le container de MnM co-founder dev
 
 La config agent est un TEMPLATE partagé.
 L'exécution est PERSONNELLE.
@@ -1143,15 +1143,15 @@ User Request (GET /api/agents)
   └──────────────────┘
 ```
 
-## Annexe B — Crash Test CBA (Rappel)
+## Annexe B — Crash Test votre organisation (Rappel)
 
 ```
                                     Hybride
                                     ───────
 Jean  (Dev Product-A + Lead UIKit)   ✅  role=Member, tags=[Developer, Frontend, Product-A, UIKit, Lead-UIKit]
-Marie (PO multi-produit A+B)         ✅  role=Lead,   tags=[PO, Product-A, Product-B]
+teammate-B (PO multi-produit A+B)         ✅  role=Lead,   tags=[PO, Product-A, Product-B]
 Sophie (Designer + cross-design)     ✅  role=Member, tags=[Designer, Product-A, Cross-Design]
-Lucas (Cross Tech hardware)          ✅  role=Member, tags=[Hardware, Cross-Tech, Product-C]
+teammate-A (Cross Tech hardware)          ✅  role=Member, tags=[Hardware, Cross-Tech, Product-C]
 Léa   (Lead IA cross 5 produits)     ✅  role=Lead,   tags=[IA, Product-A..E]
 Pierre (Proxy-PO Product-C)         ✅  role=Member, tags=[Proxy-PO, Product-C]
 Camille (UXR cross)                  ✅  role=Member, tags=[UXR, Cross-Design]

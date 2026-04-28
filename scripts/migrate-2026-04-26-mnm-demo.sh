@@ -3,13 +3,13 @@
 #
 # OPS-1a — M1 of docs/superpowers/plans/2026-04-26-mnm-git-first-agents.md
 #
-# Restructures lab.cbainfo.fr/tom.andrieu/mnm-workflows-tom into the
-# Git-first agents layout, tags it (agents/v1.0.0, cba-feature-dev/v1.0.2),
+# Restructures gitlab.example.com/your-username/mnm-workflows-demo into the
+# Git-first agents layout, tags it (agents/v1.0.0, feature-dev/v1.0.2),
 # pushes it back, and renames the GitLab project to mnm-demo.
 #
 # Idempotent: every step probes for existing state first, so re-running the
-# script after a partial failure is safe. Tom granted permission to rename +
-# force-push on tom.andrieu/* repos. The script does NOT --force-push the
+# script after a partial failure is safe. MnM founder granted permission to rename +
+# force-push on your-username/* repos. The script does NOT --force-push the
 # branch by default — only tags receive --force when --force is passed.
 #
 # Usage:
@@ -23,13 +23,13 @@ set -euo pipefail
 
 # ── Config (edit if your lab path differs) ──────────────────────────────────
 
-GITLAB_HOST="${GITLAB_HOST:-lab.cbainfo.fr}"
-GITLAB_NAMESPACE="${GITLAB_NAMESPACE:-tom.andrieu}"
+GITLAB_HOST="${GITLAB_HOST:-gitlab.example.com}"
+GITLAB_NAMESPACE="${GITLAB_NAMESPACE:-your-username}"
 SOURCE_REPO="${SOURCE_REPO:-mnm-workflows-tom}"
 TARGET_REPO="${TARGET_REPO:-mnm-demo}"
 BRANCH="${BRANCH:-main}"
 AGENTS_TAG="${AGENTS_TAG:-agents/v1.0.0}"
-WORKFLOW_TAG="${WORKFLOW_TAG:-cba-feature-dev/v1.0.2}"
+WORKFLOW_TAG="${WORKFLOW_TAG:-feature-dev/v1.0.2}"
 
 FORCE_TAGS=0
 if [[ "${1:-}" == "--force" ]]; then
@@ -88,8 +88,8 @@ git checkout "$BRANCH"
 
 # ── Step 2: detect whether the restructure already happened ────────────────
 
-if [[ -f "agents/senior-dev/agent.md" && -f "workflows/cba-feature-dev/workflow.json" ]]; then
-  log "restructure already applied (agents/<name>/agent.md + workflows/cba-feature-dev/ both present)"
+if [[ -f "agents/senior-dev/agent.md" && -f "workflows/feature-dev/workflow.json" ]]; then
+  log "restructure already applied (agents/<name>/agent.md + workflows/feature-dev/ both present)"
   RESTRUCTURE_NEEDED=0
 else
   RESTRUCTURE_NEEDED=1
@@ -102,14 +102,14 @@ if [[ "$RESTRUCTURE_NEEDED" -eq 1 ]]; then
 
   mkdir -p agents workflows
 
-  git_mv_safe "cba-feature-dev/agents/senior-dev.md"     "agents/senior-dev/agent.md"
-  git_mv_safe "cba-feature-dev/agents/dev.md"            "agents/dev/agent.md"
-  git_mv_safe "cba-feature-dev/agents/review-watcher.md" "agents/review-watcher/agent.md"
-  git_mv_safe "cba-feature-dev/agents/release-mgr.md"    "agents/release-mgr/agent.md"
+  git_mv_safe "feature-dev/agents/senior-dev.md"     "agents/senior-dev/agent.md"
+  git_mv_safe "feature-dev/agents/dev.md"            "agents/dev/agent.md"
+  git_mv_safe "feature-dev/agents/review-watcher.md" "agents/review-watcher/agent.md"
+  git_mv_safe "feature-dev/agents/release-mgr.md"    "agents/release-mgr/agent.md"
 
-  # Move the rest of cba-feature-dev (workflow.json + gates/) under workflows/.
-  if [[ -d "cba-feature-dev" ]]; then
-    git_mv_dir_safe "cba-feature-dev" "workflows/cba-feature-dev"
+  # Move the rest of feature-dev (workflow.json + gates/) under workflows/.
+  if [[ -d "feature-dev" ]]; then
+    git_mv_dir_safe "feature-dev" "workflows/feature-dev"
   fi
 
   # Optional: same for product-feature-delivery if present.
@@ -119,10 +119,10 @@ if [[ "$RESTRUCTURE_NEEDED" -eq 1 ]]; then
 
   # Only commit if there are staged changes.
   if ! git diff --cached --quiet; then
-    git -c user.name="mnm-migrator" -c user.email="mnm-migrator@cbainfo.fr" \
+    git -c user.name="mnm-migrator" -c user.email="mnm-migrator@example.com" \
       commit -m "refactor: restructure repo per Git-first agents convention
 
-agents/<name>/agent.md (was: cba-feature-dev/agents/<name>.md)
+agents/<name>/agent.md (was: feature-dev/agents/<name>.md)
 workflows/<name>/{workflow.json,gates/*.gate.ts} (was: <name>/...)
 
 Aligns with MnM 2026-04-26 spec

@@ -138,16 +138,16 @@ When posting issue comments, use concise markdown with:
 - bullets for what changed / what is blocked
 - links to related entities when available
 
-**Company-prefixed URLs (required):** All internal links MUST include the company prefix. Derive the prefix from any issue identifier you have (e.g., `CBA-315` → prefix is `CBA`). Use this prefix in all UI links:
+**Company-prefixed URLs (required):** All internal links MUST include the company prefix. Derive the prefix from any issue identifier you have (e.g., `votre organisation-315` → prefix is `votre organisation`). Use this prefix in all UI links:
 
-- Issues: `/<prefix>/issues/<issue-identifier>` (e.g., `/CBA/issues/CBA-224`)
+- Issues: `/<prefix>/issues/<issue-identifier>` (e.g., `/votre organisation/issues/votre organisation-224`)
 - Issue comments: `/<prefix>/issues/<issue-identifier>#comment-<comment-id>`
-- Agents: `/<prefix>/agents/<agent-url-key>` (e.g., `/CBA/agents/cto`)
+- Agents: `/<prefix>/agents/<agent-url-key>` (e.g., `/votre organisation/agents/cto`)
 - Projects: `/<prefix>/projects/<project-url-key>`
 - Approvals: `/<prefix>/approvals/<approval-id>`
 - Runs: `/<prefix>/agents/<agent-url-key-or-id>/runs/<run-id>`
 
-Do NOT use unprefixed paths like `/issues/CBA-123` or `/agents/cto` — always include the company prefix.
+Do NOT use unprefixed paths like `/issues/votre organisation-123` or `/agents/cto` — always include the company prefix.
 
 Example:
 
@@ -156,9 +156,9 @@ Example:
 
 Submitted CTO hire request and linked it for board review.
 
-- Approval: [ca6ba09d](/CBA/approvals/ca6ba09d-b558-4a53-a552-e7ef87e54a1b)
-- Pending agent: [CTO draft](/CBA/agents/cto)
-- Source issue: [CBA-142](/CBA/issues/CBA-142)
+- Approval: [ca6ba09d](/votre organisation/approvals/ca6ba09d-b558-4a53-a552-e7ef87e54a1b)
+- Pending agent: [CTO draft](/votre organisation/agents/cto)
+- Source issue: [votre organisation-142](/votre organisation/issues/votre organisation-142)
 ```
 
 ## Planning (Required when planning requested)

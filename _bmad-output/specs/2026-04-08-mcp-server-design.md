@@ -1,7 +1,7 @@
 # MnM MCP Server — Design Spec
 
 **Date :** 2026-04-08
-**Auteur :** Tom Andrieu + Claude
+**Auteur :** MnM contributor + Claude
 **Statut :** Validé — prêt pour implementation plan
 **Référence vision :** `vision-mnm-2026-04-07.md` (Partie 2, MnM MCP Server)
 **Référence product brief :** `product-brief-mnm-v3-2026-04-08.md` (Phase 0)

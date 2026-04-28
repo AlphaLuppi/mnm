@@ -78,7 +78,7 @@ describe("LocalBareRepoProvider.commitMultipleFiles", () => {
     const result = await provider.commitMultipleFiles({
       branch: "main",
       commitMessage: "batch edit",
-      authorName: "Tom",
+      authorName: "MnM founder",
       authorEmail: "tom@example.com",
       actions: [
         { path: "hello/workflow.json", content: '{"name":"hello","v":2}' }, // update
@@ -134,7 +134,7 @@ describe("LocalBareRepoProvider.commitMultipleFiles", () => {
     const result = await provider.commitMultipleFiles({
       branch: "feature-x",
       commitMessage: "bootstrap feature",
-      authorName: "Tom",
+      authorName: "MnM founder",
       authorEmail: "tom@example.com",
       actions: [{ path: "feature.md", content: "new branch\n" }],
     });
@@ -166,8 +166,8 @@ describe("LocalBareRepoProvider.commitMultipleFiles", () => {
         branch: "mnm-runs/abc-123",
         startBranch: "master",
         commitMessage: "step tech-design: handoff",
-        authorName: "Tom",
-        authorEmail: "tom@cba.fr",
+        authorName: "MnM founder",
+        authorEmail: "tom@example.com",
         actions: [
           { path: "artifacts/runs/abc-123/tech-design/design.md", content: "# Design\n" },
         ],
@@ -235,7 +235,7 @@ describe("LocalBareRepoProvider.mergeBranch + deleteBranch", () => {
         targetBranch: "master",
         commitMessage: "Merge feature into master",
         noFf: true,
-        authorName: "Tom",
+        authorName: "MnM founder",
         authorEmail: "tom@example.com",
       });
 
@@ -292,7 +292,7 @@ describe("LocalBareRepoProvider.mergeBranch + deleteBranch", () => {
         branch: "to-delete",
         startBranch: "master",
         commitMessage: "ephemeral commit",
-        authorName: "Tom",
+        authorName: "MnM founder",
         authorEmail: "tom@example.com",
         actions: [{ path: "ephemeral.txt", content: "bye\n" }],
       });

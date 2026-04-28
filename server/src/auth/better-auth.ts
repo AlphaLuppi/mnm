@@ -35,7 +35,7 @@ function buildGitlabProviderConfig(): {
   const clientId = process.env.GITLAB_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GITLAB_OAUTH_CLIENT_SECRET;
   // GITLAB_OAUTH_ISSUER_URL is the GitLab base URL, e.g.
-  // "https://lab.cbainfo.fr". BetterAuth appends /oauth/authorize etc.
+  // "https://gitlab.example.com". BetterAuth appends /oauth/authorize etc.
   const issuerUrl = process.env.GITLAB_OAUTH_ISSUER_URL;
 
   if (!clientId || !clientSecret || !issuerUrl) {
@@ -55,10 +55,10 @@ function buildGitlabProviderConfig(): {
 
 // ── Microsoft / Entra ID (Azure AD) ──────────────────────────────────────────
 // Direct-to-Azure provider, complementary to GitLab OIDC. Useful when a user
-// has a CBA identity but no GitLab access (ex: non-dev staff, external
+// has a votre organisation identity but no GitLab access (ex: non-dev staff, external
 // collaborators with a guest Azure account). Login succeeds, but governed
 // workflow commits will then fall back to the company-level PAT — an Azure
-// token cannot sign commits on lab.cbainfo.fr.
+// token cannot sign commits on gitlab.example.com.
 //
 // BetterAuth's native `microsoft` provider:
 //   authorization → https://login.microsoftonline.com/<tenantId>/oauth2/v2.0/authorize
@@ -68,7 +68,7 @@ function buildGitlabProviderConfig(): {
 // tenantId semantics:
 //   "common"        → any Azure AD tenant + personal accounts (dev default)
 //   "organizations" → any Azure AD tenant (no personal)
-//   "<uuid>"        → single tenant (recommended for prod — lock to CBA's tenant)
+//   "<uuid>"        → single tenant (recommended for prod — lock to votre organisation's tenant)
 function buildMicrosoftProviderConfig(): {
   clientId: string;
   clientSecret: string;
@@ -86,7 +86,7 @@ function buildMicrosoftProviderConfig(): {
     clientId,
     clientSecret,
     // Default to "common" (any tenant) so dev works out of the box. In prod,
-    // set MICROSOFT_OAUTH_TENANT_ID to CBA's Entra tenant UUID so only CBA
+    // set MICROSOFT_OAUTH_TENANT_ID to votre organisation's Entra tenant UUID so only votre organisation
     // identities can sign in — guests from other tenants get a 401.
     tenantId: process.env.MICROSOFT_OAUTH_TENANT_ID ?? "common",
     // openid/profile/email = OIDC claims. User.Read = Graph API baseline
@@ -218,7 +218,7 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       accountLinking: {
         enabled: true,
         trustedProviders: ["gitlab", "microsoft"],
-        // CBA / corporate scenario: a user's MnM email (signup-supplied) often
+        // votre organisation / corporate scenario: a user's MnM email (signup-supplied) often
         // differs from their GitLab/Entra email (LDAP alias, employee number,
         // legacy address). Without this, BetterAuth refuses to link with
         // `error=email_doesn't_match` even when the user is clearly the legit

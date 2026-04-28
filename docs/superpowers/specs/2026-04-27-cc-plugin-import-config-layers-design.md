@@ -1,9 +1,9 @@
 # Spec — Import de plugins Claude Code en config layers MnM
 
 **Date** : 2026-04-27
-**Auteur** : Tom + Claude
-**Cas d'usage validateur** : `https://lab.cbainfo.fr/genia/hub/creation/symfony-upgrade-tests`
-**Statut** : à valider par Tom avant écriture du plan d'implémentation.
+**Auteur** : MnM founder + Claude
+**Cas d'usage validateur** : `https://gitlab.example.com/genia/hub/creation/symfony-upgrade-tests`
+**Statut** : à valider par MnM founder avant écriture du plan d'implémentation.
 
 ---
 
@@ -11,14 +11,14 @@
 
 MnM stocke aujourd'hui dans le repo Git per-company deux familles d'objets : `agents/` et `workflows/`. Les **skills** existent comme dossiers statiques du repo `mnm` (`skills/mnm`, `skills/mnm-create-agent`, `skills/para-memory-files`) injectés au runtime via `cursor-local-skill-injection` côté adapter. Ce sont des skills hard-codés au plugin MnM lui-même, pas un kind dynamique.
 
-**Gap** : Le hub interne CBA `https://lab.cbainfo.fr/genia/hub/` contient déjà N plugins Claude Code prêts (skills + agents + parfois MCP/hooks) — `symfony-upgrade-tests`, `php-quality`, etc. MnM n'a aujourd'hui **aucun moyen** :
+**Gap** : Le hub interne votre organisation `https://gitlab.example.com/genia/hub/` contient déjà N plugins Claude Code prêts (skills + agents + parfois MCP/hooks) — `symfony-upgrade-tests`, `php-quality`, etc. MnM n'a aujourd'hui **aucun moyen** :
 - d'ingérer un plugin CC,
 - de stocker ses skills (notamment ceux qui ont des sous-fichiers `references/*.md`),
 - de wirer ces skills à un agent ou un workflow MnM.
 
 Le plus proche actuellement = `config_layer_items` typés, mais ils ne supportent ni les sous-fichiers, ni le format CC, ni l'import depuis un repo distant.
 
-**Modèle visé (Tom)** : un `config_layer` MnM **est** l'équivalent d'un plugin CC. Le format on-disk vit à côté de `agents/` et `workflows/` dans le repo Git per-company. À terme, chaque `config_layer` peut être extrait dans son propre repo distant (modèle hub-style), mais on commence simple : tout dans le repo company.
+**Modèle visé (MnM founder)** : un `config_layer` MnM **est** l'équivalent d'un plugin CC. Le format on-disk vit à côté de `agents/` et `workflows/` dans le repo Git per-company. À terme, chaque `config_layer` peut être extrait dans son propre repo distant (modèle hub-style), mais on commence simple : tout dans le repo company.
 
 ---
 
@@ -95,7 +95,7 @@ Quatre colonnes ajoutées (migration SQL) :
 
 | Colonne | Type | Nullable | Sens |
 |---|---|---|---|
-| `source_url` | text | oui | URL du repo CC plugin importé (ex: `https://lab.cbainfo.fr/genia/hub/creation/symfony-upgrade-tests`) |
+| `source_url` | text | oui | URL du repo CC plugin importé (ex: `https://gitlab.example.com/genia/hub/creation/symfony-upgrade-tests`) |
 | `source_sha` | text | oui | Commit SHA cloné côté plugin source (pour diff / re-import futur) |
 | `source_kind` | text | non, default `"inline"` | `"inline" \| "cc-plugin"` (V2 ouvre `"cc-marketplace"`) |
 | `mnm_import_commit_sha` | text | oui | Commit SHA côté repo MnM company qui a matérialisé l'import (debug / audit) |
@@ -131,7 +131,7 @@ Les paths sont relatifs au dossier du skill et préservent l'arbo.
 
 - Réutilise tout le tooling existant : RLS multi-tenant, scope tag-based, priority merge, advisory locks, cache hash, `sourceFetchedAt`.
 - `config_layer_files` est déjà conçu pour stocker des contenus rattachés à un item.
-- Cohérent avec la sémantique Tom : "config_layer = plugin CC".
+- Cohérent avec la sémantique MnM founder : "config_layer = plugin CC".
 
 ---
 
@@ -146,7 +146,7 @@ Les paths sont relatifs au dossier du skill et préservent l'arbo.
 
 ```json
 {
-  "repo_url": "https://lab.cbainfo.fr/genia/hub/creation/symfony-upgrade-tests",
+  "repo_url": "https://gitlab.example.com/genia/hub/creation/symfony-upgrade-tests",
   "ref": "main",
   "exclude_skills": ["test"],
   "exclude_agents": []

@@ -1,4 +1,4 @@
-# Questions Interview Hackathon CBA — 12 mars 2026
+# Questions Interview Hackathon votre organisation — 12 mars 2026
 
 **Contexte :** On explore comment un outil unique pourrait centraliser et simplifier le travail de toute l'équipe, avec de l'IA pour automatiser les tâches mécaniques. Pas de pitch, juste des questions ouvertes.
 

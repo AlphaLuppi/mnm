@@ -46,11 +46,11 @@ Every artifact has two parts:
     {
       "name": "mr",
       "kind": "external_url",
-      "url": "https://lab.cbainfo.fr/team/proj/-/merge_requests/42"
+      "url": "https://gitlab.example.com/team/proj/-/merge_requests/42"
     }
   ],
   "data": {
-    "ticket": "AY-1234",
+    "ticket": "FEAT-001",
     "mr_iid": 42,
     "approvals_count": 1
   }
@@ -85,11 +85,11 @@ After server-side commit, `kind: "file"` becomes `kind: "git_file"` and `kind: "
     {
       "name": "mr",
       "kind": "external_url",
-      "url": "https://lab.cbainfo.fr/team/proj/-/merge_requests/42"
+      "url": "https://gitlab.example.com/team/proj/-/merge_requests/42"
     }
   ],
   "data": {
-    "ticket": "AY-1234",
+    "ticket": "FEAT-001",
     "mr_iid": 42,
     "approvals_count": 1
   }
@@ -231,18 +231,18 @@ When a user clears their orchestrator session mid-run, the `resume_governed_work
 // resume_governed_workflow_run(input: { run_id })
 {
   "run_id": "abc-123",
-  "workflow_name": "cba-feature-dev",
-  "workflow_git_tag": "cba-feature-dev/v2.0.0",
+  "workflow_name": "feature-dev",
+  "workflow_git_tag": "feature-dev/v2.0.0",
   "status": "active",
   "history": [
     {
       "step_id": "tech-design",
       "state": "succeeded",
       "outputs": [{"name": "design", "kind": "git_file", ...}],
-      "data": {"ticket": "AY-1234", "approval": {...}},
+      "data": {"ticket": "FEAT-001", "approval": {...}},
       "started_at": "2026-04-28T13:00:00Z",
       "completed_at": "2026-04-28T13:05:00Z",
-      "completed_by": "tom@cbainfo.fr"
+      "completed_by": "tom@example.com"
     }
   ],
   "current_step": {

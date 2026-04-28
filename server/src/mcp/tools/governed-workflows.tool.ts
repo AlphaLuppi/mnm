@@ -556,7 +556,7 @@ export default defineMcpTools(({ tool, services }) => {
       "re-registering updates the latest_git_tag pin.",
     input: z.object({
       name: z.string().min(1).describe("Workflow name (must match definition.name in workflow.json)"),
-      git_tag: z.string().min(1).describe("Existing git tag where workflow.json is pinned (e.g. 'cba-feature-dev/v1.0.2')"),
+      git_tag: z.string().min(1).describe("Existing git tag where workflow.json is pinned (e.g. 'feature-dev/v1.0.2')"),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
@@ -778,7 +778,7 @@ export default defineMcpTools(({ tool, services }) => {
       "semver tag, and persists the config layer + agent rows in the DB. " +
       "V1 constraint: plugin repo must live on the same GitLab instance as the company workflows repo.",
     input: z.object({
-      repo_url: z.string().url().describe("Full HTTPS URL of the plugin repo, e.g. https://lab.cbainfo.fr/genia/hub/my-plugin"),
+      repo_url: z.string().url().describe("Full HTTPS URL of the plugin repo, e.g. https://gitlab.example.com/genia/hub/my-plugin"),
       ref: z.string().optional().describe("Git ref (branch/tag/sha) to import from (default: main)"),
       exclude_skills: z.array(z.string()).optional().describe("Skill names to skip"),
       exclude_agents: z.array(z.string()).optional().describe("Agent names to skip"),

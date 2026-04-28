@@ -305,7 +305,7 @@ Add exports for `FolderShare`, `FolderSharePermission`, `FOLDER_SHARE_PERMISSION
 - [ ] **Step 4: Run typecheck to find all broken references**
 
 ```bash
-cd C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm && bun run typecheck 2>&1 | head -50
+cd C:/path/to/mnm && bun run typecheck 2>&1 | head -50
 ```
 
 Fix any remaining references to `FolderVisibility`, `FOLDER_VISIBILITIES`, or `visibility` on the Folder type across the codebase. Key files to check:
@@ -810,7 +810,7 @@ async delete(
 - [ ] **Step 6: Run typecheck**
 
 ```bash
-cd C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm && bun run typecheck 2>&1 | head -80
+cd C:/path/to/mnm && bun run typecheck 2>&1 | head -80
 ```
 
 Fix any remaining type errors in the service.
@@ -1128,7 +1128,7 @@ In `server/src/services/document.ts`, update the `create` method's input type to
 - [ ] **Step 5: Run typecheck**
 
 ```bash
-cd C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm && bun run typecheck 2>&1 | head -80
+cd C:/path/to/mnm && bun run typecheck 2>&1 | head -80
 ```
 
 - [ ] **Step 6: Commit**
@@ -2120,7 +2120,7 @@ git commit -m "feat(ui): add folder workspace — 3-column layout (sidebar, chat
 - [ ] **Step 1: Run typecheck and fix all errors**
 
 ```bash
-cd C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm && bun run typecheck 2>&1
+cd C:/path/to/mnm && bun run typecheck 2>&1
 ```
 
 Fix all TypeScript errors. Key things to clean up:
@@ -2145,7 +2145,7 @@ Remove all found references.
 - [ ] **Step 3: Verify build**
 
 ```bash
-cd C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm && bun run build 2>&1 | tail -20
+cd C:/path/to/mnm && bun run build 2>&1 | tail -20
 ```
 
 - [ ] **Step 4: Commit**
@@ -2162,7 +2162,7 @@ git commit -m "chore: remove dead code — FolderVisibility, FOLDER_VISIBILITIES
 - [ ] **Step 1: Start dev server and verify**
 
 ```bash
-cd C:/Users/tom.andrieu/IdeaProjects/perso/alphalup/mnm && bun run dev
+cd C:/path/to/mnm && bun run dev
 ```
 
 Verify:

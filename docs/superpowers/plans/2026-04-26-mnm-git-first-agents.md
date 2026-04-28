@@ -9,7 +9,7 @@ Deadline démo : lundi 2026-04-28. Code-complete + reviewed dimanche midi.
 
 ## 1. Contexte (5 lignes)
 
-MnM résout aujourd'hui les agents en fetchant `<name>/agent.md` au root du repo et retourne `null` silencieux si la row DB est absente. Ce plan refactore vers le pattern Git-first symétrique (workflows + agents passent par `paths` du `git_provider` config_layer_item), ajoute une erreur dure `AGENT_NOT_REGISTERED`, étend `create_agent` MCP avec `latestGitTag`, et migre le repo `mnm-workflows-tom` → `mnm-demo` avec layout `agents/<name>/agent.md` + `workflows/<name>/workflow.json`. Stop à M4 ; M5 (smoke test démo) reste manuel côté Tom dimanche.
+MnM résout aujourd'hui les agents en fetchant `<name>/agent.md` au root du repo et retourne `null` silencieux si la row DB est absente. Ce plan refactore vers le pattern Git-first symétrique (workflows + agents passent par `paths` du `git_provider` config_layer_item), ajoute une erreur dure `AGENT_NOT_REGISTERED`, étend `create_agent` MCP avec `latestGitTag`, et migre le repo `mnm-workflows-tom` → `mnm-demo` avec layout `agents/<name>/agent.md` + `workflows/<name>/workflow.json`. Stop à M4 ; M5 (smoke test démo) reste manuel côté MnM founder dimanche.
 
 ---
 
@@ -49,7 +49,7 @@ Tous les sites qui devront recevoir `resourceType` :
 Sites N°7-10 : ces services prennent `resolveGitProvider` comme dépendance et la passent ensuite à des sous-fonctions. Ils ont leur propre interface `resolveGitProvider` à mettre à jour (P2 ci-dessous).
 
 ### 2.4 UUID `66b458ea-9879-4256-a802-45da08589a0a` — **non trouvé en seed/migration**
-Grep sur tout le repo retourne uniquement la spec elle-même. Cet UUID est issu d'une instance live (postgres dev de Tom). 
+Grep sur tout le repo retourne uniquement la spec elle-même. Cet UUID est issu d'une instance live (postgres dev de MnM founder). 
 
 → **Le dev team DOIT découvrir l'ID via une query live DB** avant d'exécuter M2 :
 ```sql
@@ -98,7 +98,7 @@ console.warn("[mnm.setup_workspace] agent_md_missing", {
   agentId,           // UUID DB — OK pour audit
   agentName,         // string — OK
   latestGitTag,      // string tag — OK
-  providerProjectId, // string ex "tom.andrieu/mnm-demo" — OK (lu de gitProvider.providerId)
+  providerProjectId, // string ex "your-username/mnm-demo" — OK (lu de gitProvider.providerId)
   fullPath,          // ex "agents/senior-dev/agent.md" — OK
   // INTERDIT : token, accessToken, configJson.token, refresh_token, secret, password, credential
 });
@@ -122,7 +122,7 @@ La spec §M2 enchaîne 3 UPDATEs. Si le serveur observe l'état entre l'UPDATE 1
 BEGIN;
   UPDATE config_layer_items SET ... WHERE id = '<discovered>';
   UPDATE agents SET archived_at = NOW(), enabled = false WHERE name IN ('greeter','shouter') AND company_id = '<demo>';
-  UPDATE governed_workflow_definitions SET latest_git_tag = 'cba-feature-dev/v1.0.2' WHERE name = 'cba-feature-dev' AND company_id = '<demo>';
+  UPDATE governed_workflow_definitions SET latest_git_tag = 'feature-dev/v1.0.2' WHERE name = 'feature-dev' AND company_id = '<demo>';
 COMMIT;
 ```
 Mais comme `resolveGitProvider` cache les providers process-lifetime (`build-mcp-services.ts:168`), il faut **redémarrer le serveur après M2** quand même. Le restart est plus efficace que le wrap-TX comme atomicité, mais TX recommandée par défense en profondeur.
@@ -202,7 +202,7 @@ Pour tester `loadCanonicalAgent`, on stub `resolveGitProvider`/`fetchBlob`/`shaC
 ### 4.7 Tests d'intégration vs unitaires
 - **Unitaires** : `resolveResourcePath`, `createResolveGitProvider` cache key, parsing.
 - **Intégrés DB** (vrai postgres via `setupTestDb()`) : `loadCanonicalAgent`, `setupWorkspace`, `getWorkflowParsed` — comme les tests existants `governed-workflows.test.ts`.
-- **E2E** : un seul (P11), `cba-feature-dev` step `tech-design` jusqu'au triplet `(agent_name, subagent_type, prompt_context)`.
+- **E2E** : un seul (P11), `feature-dev` step `tech-design` jusqu'au triplet `(agent_name, subagent_type, prompt_context)`.
 
 ---
 
@@ -241,10 +241,10 @@ describe("resolveResourcePath", () => {
       resolveResourcePath(
         { paths: { agents: "agents", workflows: "workflows" } },
         "workflow",
-        "cba-feature-dev",
+        "feature-dev",
         "workflow.json",
       ),
-    ).toBe("workflows/cba-feature-dev/workflow.json");
+    ).toBe("workflows/feature-dev/workflow.json");
   });
 
   it("rejects a paths prefix containing '..' to prevent traversal in LocalBareRepoProvider", () => {
@@ -1266,7 +1266,7 @@ Note : la closure NE peut PAS faire `{ ...a, userId }` parce que TypeScript pour
 
 **Definition of done** : 2 verts + tests AI existants verts.
 
-**Si dev-C ne peut pas livrer P9 dans les délais** : retirer le claim "P9 fixes that" et documenter en follow-up post-démo. Le bug actuel (hardcoded null) est latent — pas une régression de ce refactor — donc pas un blocker absolu pour la démo lundi (l'AI assistant n'est pas dans le démo storyboard de Tom).
+**Si dev-C ne peut pas livrer P9 dans les délais** : retirer le claim "P9 fixes that" et documenter en follow-up post-démo. Le bug actuel (hardcoded null) est latent — pas une régression de ce refactor — donc pas un blocker absolu pour la démo lundi (l'AI assistant n'est pas dans le démo storyboard de MnM founder).
 
 ---
 
@@ -1284,20 +1284,20 @@ Note : la closure NE peut PAS faire `{ ...a, userId }` parce que TypeScript pour
 
 ---
 
-### P11 — Test E2E : `cba-feature-dev` step `tech-design` (E2E)
+### P11 — Test E2E : `feature-dev` step `tech-design` (E2E)
 
 **Goal** : SPEC §M4 step 5-6 — lance jusqu'au triplet retourné par `launch_governed_step` sans erreur.
 
-**Test first** — créer `server/src/__tests__/cba-feature-dev-techdesign.e2e.test.ts` (mirroir de `t6-bootstrap-and-launch.e2e.test.ts`) :
+**Test first** — créer `server/src/__tests__/feature-dev-techdesign.e2e.test.ts` (mirroir de `t6-bootstrap-and-launch.e2e.test.ts`) :
 
 ```ts
-it("launches cba-feature-dev tech-design step end-to-end", async () => {
-  // Seed: company, agents (senior-dev with latestGitTag), workflow def cba-feature-dev,
+it("launches feature-dev tech-design step end-to-end", async () => {
+  // Seed: company, agents (senior-dev with latestGitTag), workflow def feature-dev,
   // git_provider config_layer_item with paths.{agents,workflows}
   // Use a LocalBareRepoProvider seeded with:
   //   agents/senior-dev/agent.md (AGENT_MD_CONTENT — known content)
-  //   workflows/cba-feature-dev/workflow.json (referencing senior-dev)
-  //   workflows/cba-feature-dev/gates/*.gate.ts
+  //   workflows/feature-dev/workflow.json (referencing senior-dev)
+  //   workflows/feature-dev/gates/*.gate.ts
 
   // Round 2 (N-3): compute the canonical sha the way loadCanonicalAgent does,
   // OR use setupWorkspace to discover it. Both encode the spec contract.
@@ -1310,8 +1310,8 @@ it("launches cba-feature-dev tech-design step end-to-end", async () => {
 
   const launchResult = await svc.launchWorkflow({
     companyId,
-    name: "cba-feature-dev",
-    params: { ticket_id: "AY-10074", gitlab_project: "tom.andrieu/x" },
+    name: "feature-dev",
+    params: { ticket_id: "FEAT-001", gitlab_project: "your-username/x" },
     actor: { type: "user", id: "u-1" },
   });
 
@@ -1328,7 +1328,7 @@ it("launches cba-feature-dev tech-design step end-to-end", async () => {
     agentName: "senior-dev",
     subagentType: "mnm--senior-dev",
     promptContext: expect.objectContaining({
-      ticket_id: "AY-10074",
+      ticket_id: "FEAT-001",
     }),
   });
 });
@@ -1336,7 +1336,7 @@ it("launches cba-feature-dev tech-design step end-to-end", async () => {
 
 **Implementation** : aucune — c'est un test d'acceptance. Les seeds gates `.gate.ts` doivent être minimal (gate `pass: true`) pour ne pas dépendre des canonical gates.
 
-**Files touched** : `server/src/__tests__/cba-feature-dev-techdesign.e2e.test.ts` (NEW).
+**Files touched** : `server/src/__tests__/feature-dev-techdesign.e2e.test.ts` (NEW).
 
 **Definition of done** : test vert.
 
@@ -1369,7 +1369,7 @@ psql "$MNM_DATABASE_URL" -c '\d agents' | grep archived_at
 
 ---
 
-### M1 — Repo `tom.andrieu/mnm-demo` (script bash, dev exécute manuellement)
+### M1 — Repo `your-username/mnm-demo` (script bash, dev exécute manuellement)
 
 **Goal** : SPEC §M1. Renommer `mnm-workflows-tom` → `mnm-demo`, restructurer, retag.
 
@@ -1380,24 +1380,24 @@ set -euo pipefail
 
 # Run from a fresh clone of mnm-workflows-tom
 cd "$(mktemp -d)"
-git clone https://lab.cbainfo.fr/tom.andrieu/mnm-workflows-tom.git mnm-demo
+git clone https://gitlab.example.com/your-username/mnm-workflows-demo.git mnm-demo
 cd mnm-demo
 git remote rename origin old
 # Rename in GitLab UI first, then:
-git remote add origin https://lab.cbainfo.fr/tom.andrieu/mnm-demo.git
+git remote add origin https://gitlab.example.com/your-username/mnm-demo.git
 
 # Restructure
 mkdir -p agents workflows
-git mv cba-feature-dev/agents/senior-dev.md     agents/senior-dev/agent.md
-git mv cba-feature-dev/agents/dev.md            agents/dev/agent.md
-git mv cba-feature-dev/agents/review-watcher.md agents/review-watcher/agent.md
-git mv cba-feature-dev/agents/release-mgr.md    agents/release-mgr/agent.md
-git mv cba-feature-dev workflows/cba-feature-dev
+git mv feature-dev/agents/senior-dev.md     agents/senior-dev/agent.md
+git mv feature-dev/agents/dev.md            agents/dev/agent.md
+git mv feature-dev/agents/review-watcher.md agents/review-watcher/agent.md
+git mv feature-dev/agents/release-mgr.md    agents/release-mgr/agent.md
+git mv feature-dev workflows/feature-dev
 git mv product-feature-delivery workflows/product-feature-delivery 2>/dev/null || true
 
 git commit -m "refactor: restructure repo per Git-first agents convention
 
-agents/<name>/agent.md (was: cba-feature-dev/agents/<name>.md)
+agents/<name>/agent.md (was: feature-dev/agents/<name>.md)
 workflows/<name>/{workflow.json,gates/*.gate.ts} (was: <name>/...)
 
 Aligns with MnM 2026-04-26 spec (docs/superpowers/specs/2026-04-26-mnm-git-first-agents-design.md)."
@@ -1406,19 +1406,19 @@ git push origin main
 
 # Tags — global agents tag + new workflow tag
 git tag agents/v1.0.0
-git tag cba-feature-dev/v1.0.2
-git push origin agents/v1.0.0 cba-feature-dev/v1.0.2
+git tag feature-dev/v1.0.2
+git push origin agents/v1.0.0 feature-dev/v1.0.2
 ```
 
-**Round 2 (N-1) — branch protection caveat** : si `mnm-demo` a une branch protection sur `main` (rare sur lab.cbainfo.fr en perso, mais possible si Tom l'a activée pour signer ses MR), `git push origin main` retournera `remote rejected`. Dans ce cas :
+**Round 2 (N-1) — branch protection caveat** : si `mnm-demo` a une branch protection sur `main` (rare sur gitlab.example.com en perso, mais possible si MnM founder l'a activée pour signer ses MR), `git push origin main` retournera `remote rejected`. Dans ce cas :
 1. Pousser sur une branche de feature : `git checkout -b refactor/git-first && git push origin refactor/git-first`
 2. Créer une MR `refactor/git-first → main`, l'approuver, la merger via UI GitLab.
-3. Tagger `agents/v1.0.0` et `cba-feature-dev/v1.0.2` sur le merge commit, pousser les tags.
+3. Tagger `agents/v1.0.0` et `feature-dev/v1.0.2` sur le merge commit, pousser les tags.
 
 **Definition of done** :
 - Le repo `mnm-demo` existe sur GitLab.
 - `git ls-tree -r agents/v1.0.0` montre `agents/senior-dev/agent.md` (et 3 autres).
-- `git ls-tree -r cba-feature-dev/v1.0.2 -- workflows/cba-feature-dev/` montre `workflow.json` + `gates/*.gate.ts`.
+- `git ls-tree -r feature-dev/v1.0.2 -- workflows/feature-dev/` montre `workflow.json` + `gates/*.gate.ts`.
 
 ### M2 — DB updates (single-transaction)
 
@@ -1426,7 +1426,7 @@ git push origin agents/v1.0.0 cba-feature-dev/v1.0.2
 
 **Pré-requis stricts** (round 2 — BLOCKER B-3) :
 1. **M0 done** — la colonne `agents.archived_at` existe (vérifié `psql -c '\d agents'`).
-2. **M1 done** — le repo `mnm-demo` est créé et les tags `agents/v1.0.0` + `cba-feature-dev/v1.0.2` existent.
+2. **M1 done** — le repo `mnm-demo` est créé et les tags `agents/v1.0.0` + `feature-dev/v1.0.2` existent.
 3. **`<DISCOVERED_ID>` connu** — exécuter la query découverte §2.4 pour obtenir l'ID réel du config_layer_item.
 
 Script `scripts/migrate-2026-04-26-db.sql` :
@@ -1460,7 +1460,7 @@ BEGIN;
 
 UPDATE config_layer_items
 SET config_json = config_json
-  || jsonb_build_object('projectId', 'tom.andrieu/mnm-demo')
+  || jsonb_build_object('projectId', 'your-username/mnm-demo')
   || jsonb_build_object('paths', jsonb_build_object('agents','agents','workflows','workflows'))
 WHERE id = '<DISCOVERED_ID>';
 
@@ -1470,8 +1470,8 @@ WHERE name IN ('greeter','shouter')
   AND company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c';
 
 UPDATE governed_workflow_definitions
-SET latest_git_tag = 'cba-feature-dev/v1.0.2'
-WHERE name = 'cba-feature-dev'
+SET latest_git_tag = 'feature-dev/v1.0.2'
+WHERE name = 'feature-dev'
   AND company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c';
 
 COMMIT;
@@ -1490,10 +1490,10 @@ COMMIT;
 
 Sequence d'appels MCP (via Claude Code session ou via une commande CLI test) :
 ```jsonc
-mcp__plugin_mnm_mnm__create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (CBA demo)",     adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (CBA demo)",            adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (CBA demo)", adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (CBA demo)",adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (votre organisation demo)",     adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (votre organisation demo)",            adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (votre organisation demo)", adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (votre organisation demo)",adapterType: "claude_local" })
 ```
 
 Chaque appel valide que `agents/<name>/agent.md@agents/v1.0.0` existe — si M1 mal exécuté, le call retourne `AGENT_GIT_FILE_MISSING` immédiatement.
@@ -1521,7 +1521,7 @@ Puis fixer la cause (commit manquant côté M1, push retardé, etc.) et relancer
 
 ### M4 — Test run end-to-end manuel
 
-**Goal** : SPEC §M4 step 1-6. Stop avant le step 7 (Tom prend le relais).
+**Goal** : SPEC §M4 step 1-6. Stop avant le step 7 (MnM founder prend le relais).
 
 ```jsonc
 mcp__plugin_mnm_mnm__setup_workspace({})
@@ -1536,8 +1536,8 @@ mcp__plugin_mnm_mnm__push_local_state({
 })
 
 const launch = mcp__plugin_mnm_mnm__launch_governed_workflow({
-  name: "cba-feature-dev",
-  params: { ticket_id: "AY-10074", gitlab_project: "tom.andrieu/cba-mnm-demo-app" }
+  name: "feature-dev",
+  params: { ticket_id: "FEAT-001", gitlab_project: "your-username/mnm-demo-app" }
 })
 // → returns { run_id, first_step: "tech-design", ... }
 
@@ -1550,11 +1550,11 @@ const step = mcp__plugin_mnm_mnm__launch_governed_step({
 // MUST return:
 //   { agent_name: "senior-dev",
 //     subagent_type: "mnm--senior-dev",
-//     prompt_context: { ticket_id: "AY-10074" } }
+//     prompt_context: { ticket_id: "FEAT-001" } }
 // MUST NOT return: AGENTS_STALE, MISSING_TOOLS, AGENT_NOT_REGISTERED, 401, GIT_PROVIDER_ERROR
 ```
 
-**Definition of done** : le triplet est retourné. Stop ici, M5 (Tom).
+**Definition of done** : le triplet est retourné. Stop ici, M5 (MnM founder).
 
 ---
 
@@ -1566,11 +1566,11 @@ const step = mcp__plugin_mnm_mnm__launch_governed_step({
 2. **Tests** : `bun test` global passe (zéro régression). Nouveaux tests P0/P1/P2/P2.1/P4/P5/P6/P7/P8/P9/P11 verts. Les 3 tests userId existants (lignes :202, :354, :803) verts après adaptation `expect.objectContaining({ userId, resourceType })`.
 3. **Typecheck** : `bun run typecheck` passe sur tous les packages (incluant `packages/db`, `packages/governed-workflows`, `server`).
 4. **`syncEnvironment` userId propagé (BLOCKER B-2)** : 2 nouveaux tests P2.1 verts. `pushLocalState` et `syncEnvironment` MCP tools acceptent et propagent `actor.userId`.
-5. **M1 done** : repo `mnm-demo` créé avec layout `agents/<name>/agent.md` + `workflows/<name>/{workflow.json,gates/}` au tag `agents/v1.0.0` et `cba-feature-dev/v1.0.2`.
+5. **M1 done** : repo `mnm-demo` créé avec layout `agents/<name>/agent.md` + `workflows/<name>/{workflow.json,gates/}` au tag `agents/v1.0.0` et `feature-dev/v1.0.2`.
 6. **M2 done** : DB transaction passée APRÈS M0, `config_layer_items[<DISCOVERED_ID>].config_json.paths = {agents:"agents",workflows:"workflows"}`, greeter/shouter archivés, server restarted.
 7. **M3 done** : 4 rows agents (`senior-dev`, `dev`, `review-watcher`, `release-mgr`) avec `latest_git_tag = 'agents/v1.0.0'` et `archived_at IS NULL`. Aucun nom ne contient un suffixe " 2" (signe d'un retry sans rollback M-6).
 8. **M4 done** : `launch_governed_step` retourne le triplet correct. Aucune erreur dans la réponse JSON.
-9. **Symétrie write/read** : un commit Studio sur `cba-feature-dev` produit un fichier à `workflows/cba-feature-dev/workflow.json` (visible via `git show`), pas à `cba-feature-dev/workflow.json` au root.
+9. **Symétrie write/read** : un commit Studio sur `feature-dev` produit un fichier à `workflows/feature-dev/workflow.json` (visible via `git show`), pas à `feature-dev/workflow.json` au root.
 
 ---
 
@@ -1593,7 +1593,7 @@ M0 (apply 0067 migration on dev DB)
 P0 → (P2, P2.1, P3) parallèle → (P1) parallèle → (P4, P5, P6) parallèle après P0+P2 → (P7, P8, P9, P10) parallèle après P4+P6 → P11 (final E2E, single owner)
 ```
 
-**Phases ops séquentielles** (un seul owner = team-lead ou Tom) :
+**Phases ops séquentielles** (un seul owner = team-lead ou MnM founder) :
 ```
 M0 (DB migrate, BEFORE P3 ships nothing — but the LIVE dev DB needs the column)
   ↓ tests run on the migrated DB
@@ -1625,7 +1625,7 @@ M1 (post P0-P11) → M2 (post M0 + M1) → M3 (post P7 + M2) → M4 (post M3)
 - Bouton UI "Promote to MnM agent" dans le Studio.
 - UNIQUE constraint sur `agents(company_id, name)` (post-démo).
 - Lifecycle complet d'archivage UI pour les agents (post-démo).
-- M5 (smoke test démo) — Tom dimanche.
+- M5 (smoke test démo) — MnM founder dimanche.
 
 ---
 
@@ -1651,16 +1651,16 @@ Plan §3.5 dit "race acceptable pour la démo (single-user)". Mais §M3 lance 4 
 #### MAJOR
 
 **M-1. P0 helper rejecte `..` mais pas le tuple `(name, file)` qui pourrait l'introduire.**
-Test plan ligne 223-238 : `paths.agents = "../etc"` → throw. Mais `name` est attribut DB controllé (Tom le saisit via `create_agent` zod) ; `file` est hardcodé code-side. Cas limite : un agent nommé `../etc/passwd` (nom DB malicieux) produit `agents/../etc/passwd/agent.md`. Pour la démo single-user, négligeable. Mais P0 devrait explicitement rejeter `name.includes("..")` et `file.includes("..")` aussi — fail-closed à TOUS les segments. Ajouter test : `expect(() => resolveResourcePath({}, "agent", "../foo", "agent.md")).toThrow()`.
+Test plan ligne 223-238 : `paths.agents = "../etc"` → throw. Mais `name` est attribut DB controllé (MnM founder le saisit via `create_agent` zod) ; `file` est hardcodé code-side. Cas limite : un agent nommé `../etc/passwd` (nom DB malicieux) produit `agents/../etc/passwd/agent.md`. Pour la démo single-user, négligeable. Mais P0 devrait explicitement rejeter `name.includes("..")` et `file.includes("..")` aussi — fail-closed à TOUS les segments. Ajouter test : `expect(() => resolveResourcePath({}, "agent", "../foo", "agent.md")).toThrow()`.
 
 **M-2. Plan ne couvre pas l'audit du `errors.test.ts` existant.**
 `errors.test.ts:21-37` a un `toEqual({...})` strict qui NE liste PAS `WORKFLOW_FILE_INVALID_PATH`, `WORKFLOW_FILE_NOT_FOUND`, `WORKFLOW_FILE_EMPTY_CHANGES` (qui pourtant existent dans `errors.ts:92-99`). Donc ce test est ALREADY broken (fait `toEqual` strict sur un objet qui inclut plus de clés). Soit il passe quand même (toEqual ne vérifie pas extra-keys ?) — à vérifier. P1 doit AJOUTER les 2 nouvelles clés au `toEqual` ET corriger les 3 manquantes. Sinon, P1 ne sera pas un Red→Green honnête.
 
 **M-3. Le `workflowDir` dérivé de `resolveResourcePath` casse `gateSourcePath` quand workflowDir contient un slash.**
-`source-resolver.ts:40-42` : `workflowDir = workflowRepoPath.slice(0, lastIndexOf("/"))`. Si `workflowRepoPath = "workflows/cba-feature-dev/workflow.json"`, `workflowDir = "workflows/cba-feature-dev"`. Le test ligne 52 `if (normalised.includes(".."))` reste OK pour `gateItemSource`. MAIS `gateSourcePath = "workflows/cba-feature-dev/gates/foo.gate.ts"` — dans le repo. OK ✓. Pas de bug, mais P6 doit ajouter un test E2E qui prouve la chaîne complète (workflowRepoPath via paths → workflowDir multi-slash → gate fetch path). Le plan P6 ne l'a pas. Ajouter au moins un assertion `expect(seenGateFetchPaths).toContain("workflows/cba-feature-dev/gates/...")`.
+`source-resolver.ts:40-42` : `workflowDir = workflowRepoPath.slice(0, lastIndexOf("/"))`. Si `workflowRepoPath = "workflows/feature-dev/workflow.json"`, `workflowDir = "workflows/feature-dev"`. Le test ligne 52 `if (normalised.includes(".."))` reste OK pour `gateItemSource`. MAIS `gateSourcePath = "workflows/feature-dev/gates/foo.gate.ts"` — dans le repo. OK ✓. Pas de bug, mais P6 doit ajouter un test E2E qui prouve la chaîne complète (workflowRepoPath via paths → workflowDir multi-slash → gate fetch path). Le plan P6 ne l'a pas. Ajouter au moins un assertion `expect(seenGateFetchPaths).toContain("workflows/feature-dev/gates/...")`.
 
 **M-4. P2 cache key `${companyId}:${resourceType ?? "default"}` est insuffisant pour le scénario multi-items futur.**
-Spec §5.4 : "Quand plusieurs `git_provider` items existent". Si demain Tom a deux items pour la même company (un pour `agents`, un pour `workflows`), la clé `${companyId}:${resourceType}` est correcte. Mais le plan §P2.2 dit `${companyId}:${userId}:${resourceType ?? "default"}` pour le user-cache — ce qui est fine. Cependant, le SELECT `.limit(1)` est SUPPRIMÉ en P2.3 ("non `.limit(1)`") mais pas explicité dans l'implementation snippet. Le code à `:280-294` a `.limit(1)`. Plan doit dire explicitement : retirer `.limit(1)` ET trier les résultats de manière déterministe (par `id` ou `created_at`) pour que la sélection soit reproductible. Sinon, deux machines peuvent retourner des items différents.
+Spec §5.4 : "Quand plusieurs `git_provider` items existent". Si demain MnM founder a deux items pour la même company (un pour `agents`, un pour `workflows`), la clé `${companyId}:${resourceType}` est correcte. Mais le plan §P2.2 dit `${companyId}:${userId}:${resourceType ?? "default"}` pour le user-cache — ce qui est fine. Cependant, le SELECT `.limit(1)` est SUPPRIMÉ en P2.3 ("non `.limit(1)`") mais pas explicité dans l'implementation snippet. Le code à `:280-294` a `.limit(1)`. Plan doit dire explicitement : retirer `.limit(1)` ET trier les résultats de manière déterministe (par `id` ou `created_at`) pour que la sélection soit reproductible. Sinon, deux machines peuvent retourner des items différents.
 
 **M-5. `setupWorkspace` skip-on-404 — comportement de log non testé en isolation.**
 P5 test ligne 553-585 vérifie `warnSpy` ET absence de token dans `arg`. Bien. Mais le test mock `console.warn` globalement — donc TOUT autre warn dans la requête (y compris `[mnm.workflow_ai_assistant]` etc.) pourrait être capturé. La sortie de `warnSpy.mock.calls.flat()` puis `for (const arg of callArgs)` boucle aveugle qui peut donner faux-positifs. Recommandation : filtrer sur le premier arg `=== "[mnm.setup_workspace] agent_md_missing"` avant l'assertion no-token. Sinon, le test peut passer artificiellement.
@@ -1671,7 +1671,7 @@ Plan §M2 wrap en `BEGIN/COMMIT`. Bien. Mais §M3 enchaîne 4 MCP calls qui peuv
 #### MINOR
 
 **N-1. Le plan §M1 push directement sur `main` (`git push origin main` ligne 1003) sans PR/branch.**
-Pour un repo de démo single-user, OK. Mais si `mnm-demo` a déjà des protections de branche (rare sur lab.cbainfo.fr en perso, mais possible), la push échoue. Plan devrait noter explicitement : "Repo doit autoriser push direct sur main, sinon créer branche `refactor/git-first` et merger localement avant push."
+Pour un repo de démo single-user, OK. Mais si `mnm-demo` a déjà des protections de branche (rare sur gitlab.example.com en perso, mais possible), la push échoue. Plan devrait noter explicitement : "Repo doit autoriser push direct sur main, sinon créer branche `refactor/git-first` et merger localement avant push."
 
 **N-2. P3 migration index — le plan utilise `agents_company_active_idx`, le commentaire `agents_company_archived_idx`.**
 Plan ligne 141 : `agents_company_archived_idx ON agents (company_id) WHERE archived_at IS NULL`. Plan ligne 389 : `agents_company_active_idx`. Cohérence : choisir un nom et l'utiliser partout. Préférer `agents_company_active_idx` (sémantique plus claire pour un index "where archived_at IS NULL"). Mineur.
@@ -1731,10 +1731,10 @@ Ligne 783 `latestGitTag: z.string().min(1).optional()` — OK pour zod. Mais le 
 | #5 — `create_agent` étendu avec `latestGitTag?` | ✓ | P7. **MINOR N-4** : `.refine` whitespace check à ajouter. |
 | #6 — `Greeter/shouter` archivés | ✓ | M2 ligne 1034-1037. **MAJOR M-3** : ordre P3-then-M2 doit être enforced. |
 | #7 — `AGENT_NOT_REGISTERED` HARD throw | ✓ | P4 ligne 491-510. |
-| #8 — Repo `tom.andrieu/mnm-demo` | ✓ | M2 ligne 1030 `'tom.andrieu/mnm-demo'`. |
+| #8 — Repo `your-username/mnm-demo` | ✓ | M2 ligne 1030 `'your-username/mnm-demo'`. |
 | #9 — Stop à M4 | ✓ | Plan §6 s'arrête M4. |
 
-**Spec amendement requis** (§3.9 plan) : `agents.archived_at` colonne à ajouter. Le plan le fait en P3. Confirmé : la spec doit être amendée par l'orchestrator (Tom) ou le plan-author note l'écart explicitement. **Recommandation** : faire l'amendement avant que dev-B démarre P3, sinon dev-B doit deviner l'intention.
+**Spec amendement requis** (§3.9 plan) : `agents.archived_at` colonne à ajouter. Le plan le fait en P3. Confirmé : la spec doit être amendée par l'orchestrator (MnM founder) ou le plan-author note l'écart explicitement. **Recommandation** : faire l'amendement avant que dev-B démarre P3, sinon dev-B doit deviner l'intention.
 
 ### 10.D Backwards compat
 

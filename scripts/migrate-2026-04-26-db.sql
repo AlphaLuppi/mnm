@@ -6,7 +6,7 @@
 -- repo layout to the Git-first agents layout.
 --
 -- Run AFTER M0 (Drizzle migration 0067 + 0068 applied) AND AFTER M1
--- (mnm-demo repo + agents/v1.0.0 + cba-feature-dev/v1.0.2 tags exist).
+-- (mnm-demo repo + agents/v1.0.0 + feature-dev/v1.0.2 tags exist).
 --
 -- After commit, REQUIRED restart of the MnM dev server because the
 -- resolveGitProvider cache is process-lifetime (cf. plan §M2).
@@ -83,7 +83,7 @@ BEGIN
 
   UPDATE config_layer_items
   SET config_json = config_json
-    || jsonb_build_object('projectId', 'tom.andrieu/mnm-demo')
+    || jsonb_build_object('projectId', 'your-username/mnm-demo')
     || jsonb_build_object('paths', jsonb_build_object('agents','agents','workflows','workflows'))
   WHERE id = cli_id;
   RAISE NOTICE 'config_layer_items updated: 1 row (id=%)', cli_id;
@@ -106,8 +106,8 @@ SELECT 'agents archived: ' || COALESCE(string_agg(name, ', '), '(none)') AS info
 
 WITH retagged AS (
   UPDATE governed_workflow_definitions
-  SET latest_git_tag = 'cba-feature-dev/v1.0.2'
-  WHERE name = 'cba-feature-dev'
+  SET latest_git_tag = 'feature-dev/v1.0.2'
+  WHERE name = 'feature-dev'
     AND company_id = 'c26214de-ada2-4f71-ba6f-90c686a6dd5c'
   RETURNING name
 )

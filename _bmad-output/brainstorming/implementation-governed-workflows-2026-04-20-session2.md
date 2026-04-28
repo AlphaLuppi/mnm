@@ -1,7 +1,7 @@
 # Brainstorm Implémentation Governed Workflows — Session 2 (2026-04-20)
 
 **Statut** : En cours — design par sections, Section 2 (data model) à valider.
-**Participants** : Tom, Claude
+**Participants** : MnM founder, Claude
 **Contexte d'entrée** :
 - Design consolidé : `_bmad-output/governed-workflows-consolidated-2026-04-17.md`
 - Récap de la Session 1 abandonnée : `_bmad-output/brainstorming/implementation-governed-workflows-session-2026-04-20.md`
@@ -43,7 +43,7 @@ Les décisions sont arrivées en 11 questions successives. Chacune conditionne l
 6. **Versionning git pour tout** : workflows, gates TS, agents `.md`, config layers JSON.
    - DB = index + cache parsé. Git = source de vérité.
    - Commit author = user réel (traçabilité), token d'écriture = bot MnM (simple).
-   - GitLab CBA réutilisé comme infra git.
+   - GitLab self-hosted réutilisé comme infra git.
 
 7. **Structure = 2 repos par company pour MVP** (skills reportés) :
    ```
@@ -135,7 +135,7 @@ Les décisions sont arrivées en 11 questions successives. Chacune conditionne l
                                                     │
                                                     ▼
                                           ┌──────────────────┐
-                                          │ GitLab CBA       │
+                                          │ GitLab self-hosted       │
                                           │ - workflows repo │
                                           │ - agents repo    │
                                           └──────────────────┘
@@ -144,7 +144,7 @@ Les décisions sont arrivées en 11 questions successives. Chacune conditionne l
 **3 plans** :
 - **Poste user** : Claude Code execute les sub-agents. Cache staging MnM + copie finale dans `~/.claude/` avec préfixe `mnm--`. Hook SessionStart sync.
 - **Serveur MnM** : control plane. Gate Runner eval les gates TS dans un sandbox Node VM. Git Provider pull workflow.json/gates/agents depuis GitLab, cache en DB.
-- **GitLab CBA** : source de vérité. 2 repos par company. MnM commit au nom de l'user (author) avec son token bot.
+- **GitLab self-hosted** : source de vérité. 2 repos par company. MnM commit au nom de l'user (author) avec son token bot.
 
 **Flow d'un step typique** :
 1. Harness → `launchStep(step-1, runId)` → MCP

@@ -1,6 +1,6 @@
 # MnM — Governed Workflows (brainstorm)
 
-*Session du 2026-04-16 — Tom × Claude*
+*Session du 2026-04-16 — founder × Claude*
 
 Synthèse du brainstorm sur la manière d'imposer des workflows déterministes dans MnM,
 quel que soit le point d'entrée (Chat, Claude Code + MCP, API, UI), tout en restant
@@ -8,16 +8,16 @@ agnostique du provider de code source.
 
 ---
 
-## 1. Contexte : priorisation MnM pour CBA niveau 2
+## 1. Contexte : priorisation MnM pour votre organisation niveau 2
 
-Lecture du plan `cba-mnm-transformation.md`. L'ordre de construction recommandé (section 7) :
+Lecture du plan `team-mnm-transformation.md`. L'ordre de construction recommandé (section 7) :
 
 ```
 1. KG Memory          ← prérequis bloquant, fondation de tout
 2. Nightly Synthesis  ← dépend du KG
 3. Jira Intelligent   ← dépend du KG
 4. Sensei             ← dépend du KG + marketplace
-5. Skills Marketplace ← backée par GitLab Group CBA
+5. Skills Marketplace ← backée par GitLab Group votre organisation
 6. Bot Teams          ← MCP Teams à créer, dépend du KG
 ```
 
@@ -126,7 +126,7 @@ bypasser le rejet. C'est un 403, point.
 ### Gate côté Chat
 
 ```
-Marie: "Je veux brainstormer une feature"
+teammate-B: "Je veux brainstormer une feature"
   │
   ▼
 Backend Chat (POST /chat/message)
@@ -142,7 +142,7 @@ Backend Chat (POST /chat/message)
   4. LLM reçoit:
      system: "Tu es dans workflow brainstorm,
               étape 1/4, pose ces questions: [...]"
-     user: message de Marie
+     user: message de teammate-B
   │
   → Le LLM est enfermé dans le workflow
     (il ne voit que ça dans son contexte)
@@ -153,7 +153,7 @@ Backend Chat (POST /chat/message)
 ### Gate côté MCP
 
 ```
-Lucas (Claude Code): "Corrige AY-4521"
+teammate-A (Claude Code): "Corrige FEAT-001"
   │
   ▼
 Claude Code appelle MCP: create_branch
@@ -168,7 +168,7 @@ MnM MCP Server — wrappedHandler:
 Claude Code reçoit l'erreur + hint
   │
   ▼
-Claude Code appelle: start_bugfix(AY-4521)
+Claude Code appelle: start_bugfix(FEAT-001)
   (pas de requiredWorkflow sur ce tool — c'est le point d'entrée)
   → crée la session, retourne contexte enrichi
   │
@@ -210,7 +210,7 @@ LLM enfermé dans workflow        LLM bloqué hors workflow
 ### Scénario 1 — PM : Brainstorm → Proto live
 
 ```
-Marie (PM) — Chat MnM
+teammate-B (PM) — Chat MnM
 │
 ├─ "Je veux brainstormer une feature de facturation"
 │   └─ Gate chat: brainstorm workflow OBLIGATOIRE
@@ -219,48 +219,48 @@ Marie (PM) — Chat MnM
 │
 ├─ "Je veux prototyper"
 │   └─ Gate: app-creation workflow OBLIGATOIRE
-│       ├─ Git Provider → repo perso GitLab (template CBA)
+│       ├─ Git Provider → repo perso GitLab (template votre organisation)
 │       ├─ Scaffold app + commit atomique
 │       └─ MCP K8S → deploy sur cluster interne
 │
-├─ proto-anomalies.internal.cba.fr = LIVE
+├─ proto-anomalies.internal.team.fr = LIVE
 │
 └─ "Partage à l'équipe dev"
     └─ Notif Teams + lien PRD + proto
-       (Marie n'a jamais ouvert GitLab)
+       (teammate-B n'a jamais ouvert GitLab)
 ```
 
 ### Scénario 2 — Dev : Bug fix via Claude Code + MCP
 
 ```
-Lucas (Dev) — Claude Code + MCP MnM
+teammate-A (Dev) — Claude Code + MCP MnM
 │
-├─ "Corrige AY-4521" (lien Jira)
+├─ "Corrige FEAT-001" (lien Jira)
 │   └─ Gate MCP: bug-correction workflow OBLIGATOIRE
 │       ├─ Fetch Jira → description, prio, composant
 │       ├─ Fetch Sentry → stacktraces, occurrences
 │       └─ Fetch KG → décisions passées sur ce module
 │
-├─ Git Provider → branche fix/AY-4521
-│   └─ Lucas code le fix avec Claude Code
+├─ Git Provider → branche fix/FEAT-001
+│   └─ teammate-A code le fix avec Claude Code
 │
 ├─ "Commit"
 │   └─ Gate: ❌ BLOQUÉ — reviews pas faites
 │       ├─ Sub-agent Archi    → ✓
 │       ├─ Sub-agent Sécu     → ✓
 │       ├─ Sub-agent Impact   → ⚠️ 2 callers à adapter
-│       └─ Lucas adapte → reviews OK
+│       └─ teammate-A adapte → reviews OK
 │
 ├─ Gate: ✅ commit autorisé
 │   └─ Git Provider → commit atomique + push + MR
 │
-└─ Jira AY-4521 → "In Review" (auto)
+└─ Jira FEAT-001 → "In Review" (auto)
 ```
 
 ### Scénario 3 — Lead : Skill → Marketplace → Auto-install
 
 ```
-Tom (Lead) — Claude Code + MCP MnM
+MnM founder — Claude Code + MCP MnM
 │
 ├─ MCP: create_skill("sentry-bug-context")
 │   └─ Gate: ❌ WORKFLOW_REQUIRED
@@ -274,7 +274,7 @@ Tom (Lead) — Claude Code + MCP MnM
 │
 ├─ "Partage à mon équipe"
 │   └─ Gate: marketplace-proposal workflow
-│       ├─ Git Provider → fork vers cba-skills/ + MR
+│       ├─ Git Provider → fork vers team-skills/ + MR
 │       └─ Review + merge → publié ✓
 │
 ├─ 🌙 Nuit : Sensei Nightly Synthesis
@@ -282,7 +282,7 @@ Tom (Lead) — Claude Code + MCP MnM
 │       → Règle auto: équipe Produit + bug-fix
 │         = pré-charger ce skill
 │
-└─ Lendemain : un dev fait start_bugfix("AY-4590")
+└─ Lendemain : un dev fait start_bugfix("FEAT-001")
     └─ Contexte Sentry injecté automatiquement
        (le dev ne sait même pas que le skill existe)
 ```
@@ -308,7 +308,7 @@ Tom (Lead) — Claude Code + MCP MnM
 - **Workflow guard** dans `wrappedHandler` : ~10 lignes, pattern identique au permission check
 - **GitProvider abstraction** : interface + implémentations GitLab/GitHub/local
 - **MCP K8S** : à évaluer (existe-t-il dans l'écosystème ou à créer ?)
-- **Templates GitLab CBA** : repos template pour les apps greenfield avec CI/CD embarqué
+- **Templates GitLab self-hosted** : repos template pour les apps greenfield avec CI/CD embarqué
 - **MCP Teams** : gros chantier, identifié P1 dans le plan (bot Teams)
 
 ---
@@ -347,7 +347,7 @@ Tom (Lead) — Claude Code + MCP MnM
 2. **POC du Workflow Guard MCP** : un seul tool (`create_skill`) avec son workflow pour
    valider le pattern technique de bout en bout
 3. **Définir le GitProvider interface** et stubber une implémentation GitLab minimale
-4. **Lister les Governed Actions initiales** pour le niveau 2 CBA (probablement 10-15)
+4. **Lister les Governed Actions initiales** pour le niveau 2 votre organisation (probablement 10-15)
 5. **Prototyper l'Intent Classifier chat** (rule-based) sur 3-4 intents critiques
 
 ---

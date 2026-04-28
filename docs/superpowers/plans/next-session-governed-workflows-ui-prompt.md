@@ -1,6 +1,6 @@
 # Next-session prompt — Governed Workflows UI (listing + editor + runs)
 
-Copy/paste ce bloc entier dans une nouvelle session Claude Code à la racine du repo `C:\Users\tom.andrieu\IdeaProjects\perso\alphalup\mnm`.
+Copy/paste ce bloc entier dans une nouvelle session Claude Code à la racine du repo `C:\path\to\mnm`.
 
 ---
 
@@ -8,7 +8,7 @@ Salut, j'ai besoin d'ajouter l'UI pour la feature **Governed Workflows** qu'on v
 
 # Contexte
 
-- Repo : `C:\Users\tom.andrieu\IdeaProjects\perso\alphalup\mnm` (branch `master`).
+- Repo : `C:\path\to\mnm` (branch `master`).
 - Stack UI : React 18 + Vite + TanStack Query + React Router + Tailwind + shadcn/ui (`ui/src/components/ui/`), icônes Lucide.
 - Stack serveur : Express + Drizzle + Postgres, `@mnm/shared` pour les types/zod, `@mnm/governed-workflows` pour les schemas de workflow.
 - Monorepo bun workspaces. Conventional commits, scope `workflows`. Pas d'emojis.

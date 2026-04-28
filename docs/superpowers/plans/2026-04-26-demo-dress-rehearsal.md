@@ -1,4 +1,4 @@
-# Démo CBA — Dress Rehearsal & Cold-Start Playbook
+# Démo votre organisation — Dress Rehearsal & Cold-Start Playbook
 
 **Date démo** : lundi 2026-04-28
 **Setup réalisé** : 2026-04-26 (session précédente)
@@ -11,13 +11,13 @@
 | # | Étape | Statut | Détail |
 |---|---|---|---|
 | 1 | `bun run dev` killé | ✅ | Port 3100 libéré pour Docker |
-| 2 | M1 GitLab restructure | ✅ | `mnm-workflows-tom` → `mnm-demo` avec `/agents` + `/workflows` propres + tags `agents/v1.0.0` + `cba-feature-dev/v1.0.2`, repo renommé. Commit GitLab `ebe23aa`. |
+| 2 | M1 GitLab restructure | ✅ | `mnm-workflows-tom` → `mnm-demo` avec `/agents` + `/workflows` propres + tags `agents/v1.0.0` + `feature-dev/v1.0.2`, repo renommé. Commit GitLab `ebe23aa`. |
 | 3 | Docker stack `docker compose up -d` | ✅ | 3 containers healthy : `mnm-db-1` (Postgres 17.9), `mnm-redis-1`, `mnm-server-1` (mode `authenticated`, port 3100) |
 | 4 | M0 migrations Drizzle | ✅ | Auto-appliquées au boot (`MNM_MIGRATION_AUTO_APPLY=true`). 68 tables RLS protégées. |
-| 5 | BetterAuth signup | ✅ | `tom@cbainfo.fr` / `DemoMnM2026!` |
+| 5 | BetterAuth signup | ✅ | `tom@example.com` / `DemoMnM2026!` |
 | 6 | Bootstrap CEO invite | ✅ | User promu `instance_admin` via `/api/invites/<token>/accept` |
-| 7 | Création company "CBA Demo" | ✅ | `id = f262468b-d0aa-408b-9f69-5053bf34671d` (issuePrefix=CBA) |
-| 8 | Git provider config | ✅ | `kind=gitlab`, `baseUrl=https://lab.cbainfo.fr`, `projectId=tom.andrieu/mnm-demo`, `token=<PAT>`, `paths={agents,workflows}` |
+| 7 | Création company "votre organisation Demo" | ✅ | `id = f262468b-d0aa-408b-9f69-5053bf34671d` (issuePrefix=votre organisation) |
+| 8 | Git provider config | ✅ | `kind=gitlab`, `baseUrl=https://gitlab.example.com`, `projectId=your-username/mnm-demo`, `token=<PAT>`, `paths={agents,workflows}` |
 | 9 | Server restart (cache flush) | ✅ | `resolveGitProvider` cache process-lifetime, restart obligatoire après config layer change. `bootstrapStatus: ready`, `hasCompany: true`. |
 | 10 | Commit fixes Docker (`2a58f96`) | ✅ | Dockerfile (5 packages manquants + CRLF fix entrypoint.sh) + `MNM_SECRETS_KEY` dans compose. Pushed sur master. |
 
@@ -26,7 +26,7 @@
 ```bash
 docker compose ps                                            # 3 containers Up (healthy)
 curl -s http://localhost:3100/api/health | head -c 300       # status:ok, bootstrapStatus:ready, hasCompany:true (Postgres 17.9)
-docker compose exec -T db psql -U mnm -d mnm -c "SELECT name, id FROM companies;"  # 1 row CBA Demo
+docker compose exec -T db psql -U mnm -d mnm -c "SELECT name, id FROM companies;"  # 1 row votre organisation Demo
 ```
 
 Si l'un échoue → soit Docker arrêté (relance via `docker compose up -d`), soit DB nuked (refaire le cold-start headless en bas de doc).
@@ -54,20 +54,20 @@ Appel de l'outil :
 mcp__plugin_mnm_mnm__authenticate
 ```
 
-→ retourne une URL d'autorisation. Ouvre-la dans le browser. Login avec `tom@cbainfo.fr` / `DemoMnM2026!`. Consent screen → "Authorize". JWT auto-stocké côté plugin.
+→ retourne une URL d'autorisation. Ouvre-la dans le browser. Login avec `tom@example.com` / `DemoMnM2026!`. Consent screen → "Authorize". JWT auto-stocké côté plugin.
 
 Vérif : les tools `mcp__plugin_mnm_mnm__create_agent`, `mcp__plugin_mnm_mnm__setup_workspace`, `mcp__plugin_mnm_mnm__launch_governed_workflow` apparaissent dans la liste des tools disponibles.
 
 ### Step C — Seed des 4 agents depuis Git (M3)
 
 ```jsonc
-mcp__plugin_mnm_mnm__create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (CBA demo)",     adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (CBA demo)",            adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (CBA demo)", adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (CBA demo)",adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (votre organisation demo)",     adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (votre organisation demo)",            adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (votre organisation demo)", adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (votre organisation demo)",adapterType: "claude_local" })
 ```
 
-Chaque appel fait un git fetch sur `lab.cbainfo.fr/tom.andrieu/mnm-demo` au tag `agents/v1.0.0`, vérifie `agents/<name>/agent.md`, insère la row dans `agents` table.
+Chaque appel fait un git fetch sur `gitlab.example.com/your-username/mnm-demo` au tag `agents/v1.0.0`, vérifie `agents/<name>/agent.md`, insère la row dans `agents` table.
 
 **Rollback si un appel pète mid-way** :
 ```sql
@@ -96,19 +96,19 @@ mcp__plugin_mnm_mnm__push_local_state({})
 
 → remonte l'état local au serveur (sha matérialisés vs sha en DB).
 
-### Step E — Lance le workflow `cba-feature-dev` (M4 part 2)
+### Step E — Lance le workflow `feature-dev` (M4 part 2)
 
 ```jsonc
 mcp__plugin_mnm_mnm__launch_governed_workflow({
-  name: "cba-feature-dev",
+  name: "feature-dev",
   params: {
-    ticket_id: "AY-10074",
-    gitlab_project: "tom.andrieu/cba-mnm-demo-app"
+    ticket_id: "FEAT-001",
+    gitlab_project: "your-username/mnm-demo-app"
   }
 })
 ```
 
-→ git fetch tag `cba-feature-dev/v1.0.2`, parse `workflows/cba-feature-dev/workflow.json`, retourne un `run_id`.
+→ git fetch tag `feature-dev/v1.0.2`, parse `workflows/feature-dev/workflow.json`, retourne un `run_id`.
 
 ```jsonc
 mcp__plugin_mnm_mnm__launch_governed_step({
@@ -124,7 +124,7 @@ mcp__plugin_mnm_mnm__launch_governed_step({
 {
   "agent_name": "senior-dev",
   "subagent_type": "mnm--senior-dev",
-  "prompt_context": { "ticket_id": "AY-10074", "gitlab_project": "tom.andrieu/cba-mnm-demo-app" }
+  "prompt_context": { "ticket_id": "FEAT-001", "gitlab_project": "your-username/mnm-demo-app" }
 }
 ```
 
@@ -145,14 +145,14 @@ docker compose up -d         # 30s → fresh DB + Redis + serveur
 
 ### Resetup post-nuke (~3 min) — UI 100% si tu veux l'effet visuel
 
-1. `http://localhost:3100` → signup `tom@cbainfo.fr` / `DemoMnM2026!`
+1. `http://localhost:3100` → signup `tom@example.com` / `DemoMnM2026!`
 2. Open `/invite/<bootstrap_token>` (généré via SQL — voir snippet plus bas)
 3. UI accept invite → tu deviens `instance_admin`
-4. UI "Create company" → "CBA Demo"
-5. UI Settings → Git Provider → PAT GitLab + `tom.andrieu/mnm-demo` + paths
+4. UI "Create company" → "votre organisation Demo"
+5. UI Settings → Git Provider → PAT GitLab + `your-username/mnm-demo` + paths
 6. Restart `docker compose restart server` (cache flush)
 7. **Reconnect plugin** : `/plugin` → set new `company_id`, `mcp__plugin_mnm_mnm__authenticate`
-8. Step C, D, E ci-dessus → 4 agents + cba-feature-dev v1.0.2 reprennent vie depuis GitLab
+8. Step C, D, E ci-dessus → 4 agents + feature-dev v1.0.2 reprennent vie depuis GitLab
 
 ### Resetup post-nuke headless (plus rapide pour la rehearsal)
 
@@ -165,7 +165,7 @@ until curl -sf http://localhost:3100/api/health >/dev/null 2>&1; do sleep 3; don
 # 2. Signup
 curl -sX POST http://localhost:3100/api/auth/sign-up/email \
   -H "Content-Type: application/json" \
-  -d '{"email":"tom@cbainfo.fr","password":"DemoMnM2026!","name":"Tom Andrieu"}' \
+  -d '{"email":"tom@example.com","password":"DemoMnM2026!","name":"MnM contributor"}' \
   -c /tmp/mnm-cookies.txt
 
 # 3. Bootstrap invite (insert + accept)
@@ -181,7 +181,7 @@ curl -sX POST "http://localhost:3100/api/invites/$TOKEN/accept" \
 # 4. Create company → ⚠️ NOTE LE NOUVEAU company_id retourné, il sera DIFFÉRENT
 COMPANY_RESP=$(curl -sX POST http://localhost:3100/api/companies \
   -H "Content-Type: application/json" -H "Origin: http://localhost:3100" \
-  -b /tmp/mnm-cookies.txt -d '{"name":"CBA Demo"}')
+  -b /tmp/mnm-cookies.txt -d '{"name":"votre organisation Demo"}')
 echo "$COMPANY_RESP" | jq .id
 CID=$(echo "$COMPANY_RESP" | jq -r .id)
 
@@ -189,7 +189,7 @@ CID=$(echo "$COMPANY_RESP" | jq -r .id)
 curl -sX PUT "http://localhost:3100/api/companies/$CID/governed-workflows/git-provider-config" \
   -H "Content-Type: application/json" -H "Origin: http://localhost:3100" \
   -b /tmp/mnm-cookies.txt \
-  -d "{\"kind\":\"gitlab\",\"providerId\":\"cba-lab\",\"baseUrl\":\"https://lab.cbainfo.fr\",\"projectId\":\"tom.andrieu/mnm-demo\",\"token\":\"$GITLAB_TOKEN\"}"
+  -d "{\"kind\":\"gitlab\",\"providerId\":\"gitlab:primary\",\"baseUrl\":\"https://gitlab.example.com\",\"projectId\":\"your-username/mnm-demo\",\"token\":\"$GITLAB_TOKEN\"}"
 
 # 6. Add paths (PUT endpoint ne les supporte pas)
 docker compose exec -T db psql -U mnm -d mnm -c \
@@ -248,7 +248,7 @@ echo "NEW company_id = $CID"
 
 ```
 2a58f96 fix(docker): missing workspace packages + CRLF + MNM_SECRETS_KEY
-0564479 docs(orchestration): finalize log + runbook for Tom
+0564479 docs(orchestration): finalize log + runbook for MnM founder
 f3b9094 docs(review): re-review round 2 — verify fix-dev closures
 fdb0471 chore(scripts): OPS-1 commit M1 + M2 migration scripts
 9c23218 chore(tests): apply MINOR/NIT review findings

@@ -119,7 +119,7 @@ const cancelRunBodySchema = z.object({
 const gitProviderConfigSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("gitlab"),
-    providerId: z.string().min(1).default("cba-lab"),
+    providerId: z.string().min(1).default("gitlab:primary"),
     baseUrl: z.string().url(),
     projectId: z.string().min(1),
     token: z.string().min(1),

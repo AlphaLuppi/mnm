@@ -63,5 +63,15 @@
   },
   "dependencies": {
     "gray-matter": "^4.0.3"
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": "Alpha Luppi (Studio Manifeste)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlphaLuppi/mnm.git"
+  },
+  "homepage": "https://github.com/AlphaLuppi/mnm",
+  "bugs": {
+    "url": "https://github.com/AlphaLuppi/mnm/issues"
   }
 }

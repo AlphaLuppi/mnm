@@ -1,4 +1,4 @@
-# Brainstorming Projects v2 — Session 2 : Vision Tom (2026-04-06)
+# Brainstorming Projects v2 — Session 2 : Vision MnM founder (2026-04-06)
 
 ## Raw Vision Capture
 
@@ -40,9 +40,9 @@ Le PM travaille principalement dans un **chat collaboratif avec l'IA** :
 ### 3. Flexibilité > Spécificité
 
 - MnM doit s'adapter à tout type de besoin et d'entreprise
-- **Ne pas créer une usine à gaz spécifique à CBA** — Tom est biaisé par ce modèle
+- **Ne pas créer une usine à gaz spécifique à votre organisation** — MnM founder est biaisé par ce modèle
 - Limiter les types d'entité spécifiques, rester propre aux features de MnM
-- **Réutilisable** : AlphaLuppi construit MnM via MnM (startup ≠ même besoins que enterprise)
+- **Réutilisable** : AlphaLuppi construit MnM via MnM (petite équipe ≠ même besoins que enterprise)
 - La flexibilité vient des Blocks + des agents configurables, pas d'entités hardcodées
 
 ### 4. Dashboard composable MAIS traceability accessible
@@ -89,7 +89,7 @@ Le PM doit pouvoir choisir : brainstormer en mode "green field" (sans legacy) OU
 L'impact d'un changement dépend de où en est la feature. MnM doit calculer ça automatiquement et guider le PM.
 
 ### Insight F : Généricité absolue
-Pas d'entités CBA-spécifiques. MnM doit marcher pour une startup de 3 (AlphaLuppi) comme pour une boîte réglementée de 500. La flexibilité vient des Blocks + agents configurables.
+Pas d'entités client-spécifiques. MnM doit marcher pour une petite startup interne comme pour une boîte réglementée de 500. La flexibilité vient des Blocks + agents configurables.
 
 ### Insight G : Chat partageable, pas multi-user
 Le PM ne veut pas un Google Docs collaboratif. Il veut pouvoir **partager** son chat, que quelqu'un d'autre le référence, travaille dans son coin, et repartage ses résultats. C'est un modèle de **fork & merge de contexte**, pas de co-editing temps réel.
@@ -98,7 +98,7 @@ Le PM ne veut pas un Google Docs collaboratif. Il veut pouvoir **partager** son 
 Ne pas enfermer dans PM → PD → Archi. Les rôles seront de plus en plus flous. N'importe qui peut ajouter des inputs. Les idées circulent entre les personnes qui savent et qui ont besoin du "goût" des autres.
 
 ### Insight I : Projet = Produit (multi-codebase)
-Un projet = un produit complet. Exemple Agathe@CBA : app mobile + app web Angular + vieille app Struts. Un produit = ensemble de features réparties sur N codebases. Chaque codebase = un workspace avec son MCP GitNexus.
+Un projet = un produit complet. Exemple enterprise-product@votre organisation : app mobile + app web Angular + vieille app Struts. Un produit = ensemble de features réparties sur N codebases. Chaque codebase = un workspace avec son MCP GitNexus.
 
 ### Insight J : Prototype deployment = MVP scope (anti shadow IT)
-Le déploiement de prototypes par les PM est dans le scope MVP. Raison : éviter la shadow IT — PMs qui vibecode sur Vercel/Netlify et font fuiter des infos. MnM = outil officiel pour prototyper ET déployer. L'orchestrateur + features MnM répondent aussi à l'élimination de la shadow IA. Équipe infra/SRE CBA aide sur cette partie.
+Le déploiement de prototypes par les PM est dans le scope MVP. Raison : éviter la shadow IT — PMs qui vibecode sur Vercel/Netlify et font fuiter des infos. MnM = outil officiel pour prototyper ET déployer. L'orchestrateur + features MnM répondent aussi à l'élimination de la shadow IA. Équipe infra/SRE votre organisation aide sur cette partie.
