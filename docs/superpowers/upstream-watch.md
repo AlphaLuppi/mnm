@@ -25,7 +25,7 @@
 | PR | Sujet | Statut | Notes |
 |---|---|---|---|
 | [#3315](https://github.com/paperclipai/paperclip/pull/3315) | GHSA-68qg-g8mg-6pr7 — scope import/approval/activity routes | ✅ **DONE** 2026-04-28 | Heartbeat/approvals routes already protected via `/companies/:companyId/` prefix. Only the import flow (no companyId in path for `new_company` mode) was vulnerable: ported via `assertInstanceAdmin` helper + regression test (commit `81c3599d`). |
-| [#4122](https://github.com/paperclipai/paperclip/pull/4122) | API authz hardening (40+ routes) | **TODO** Phase 1 | Port manuel actor/company/active-checkout boundary |
+| [#4122](https://github.com/paperclipai/paperclip/pull/4122) | API authz hardening (40+ routes, 8 zones) | 🟡 **PARTIAL** 2026-04-29 | See zones below. |
 | [#2819](https://github.com/paperclipai/paperclip/pull/2819) | multer 2.1.1 (HIGH CVE) | ✅ **DONE** 2026-04-28 | `multer` résolu à 2.1.1 dans bun.lock, manifest bumpé `^2.1.1` |
 | [#2909](https://github.com/paperclipai/paperclip/pull/2909) | rollup 4.59.0 (path-traversal CVE) | ✅ **DONE** | rollup déjà à 4.59.0 (transitive via vite 6.4.1) |
 | [#2866](https://github.com/paperclipai/paperclip/pull/2866) | JWT secret BETTER_AUTH_SECRET fallback | ✅ **DONE** 2026-04-29 | `agent-auth-jwt.ts` now reads `MNM_AGENT_JWT_SECRET || BETTER_AUTH_SECRET` (commit `b07b9b0c`). Operators set one secret in production. |
@@ -34,6 +34,19 @@
 | [#4225](https://github.com/paperclipai/paperclip/pull/4225) | Sandbox dynamic adapter UI parsers | ⏭️ **SKIP** — N/A | MnM has no dynamic adapter UI loading mechanism. `ui/src/adapters/registry.ts` is a 16-line static map of compiled-in adapters (claude/codex/cursor/opencode/pi/process). No `dynamic-loader.ts`, no `loadDynamicParser()`, no `/api/adapters/:type/ui-parser.js` endpoint. The vulnerability class doesn't exist in MnM. |
 | [#4557](https://github.com/paperclipai/paperclip/pull/4557) | Disappearing issue comments | ⏭️ **SKIP** — N/A | MnM has no comment pagination (single fetch, no cursor anchor) and no optimistic UI queueing for comments. The buggy descending-cursor SQL predicate and stale comment-target reconciliation don't exist in MnM's simpler React Query model. Re-evaluate if pagination/optimistic UX is added in a future phase. |
 | [#4234](https://github.com/paperclipai/paperclip/pull/4234) | Stale queued comment targets | ⏭️ **SKIP** — N/A | Lié à #4557 — MnM n'a pas de `LocallyQueuedIssueComment` wrapper ni de `applyLocalQueuedIssueCommentState()`. |
+
+### PR #4122 zone-by-zone (Phase 1.2)
+
+| Zone | Sujet upstream | Statut MnM | Commit |
+|---|---|---|---|
+| **Z1** | Budget mutation cross-company (`/companies/:companyId/agents/:agentId/budgets`) | ✅ **DONE** 2026-04-29 — explicit `agent.companyId === path.companyId` check + 2 regression tests | `eec9dead` |
+| **Z2** | Plugin admin/scoped routes require instance-admin | ⏭️ **N/A** — MnM has no plugin install/disable/upgrade/delete routes (config-layers + cc-plugin-import replaced upstream concept) | — |
+| **Z3** | Adapter management routes require instance-admin | ⏭️ **N/A** — MnM has no adapter install/reload/delete routes (adapters are workspace packages, not runtime-installable) | — |
+| **Z4** | Company import/export instance-admin gate | ✅ **DONE** in Phase 1.1 (commit `81c3599d`, GHSA fix) | `81c3599d` |
+| **Z5** | Direct agent creation must respect `requireBoardApprovalForNewAgents` | ✅ **DONE** 2026-04-29 — POST `/companies/:companyId/agents` returns 409 when flag is set, redirects to `/agent-hires`. Test deferred to follow-up (mocking surface > code change scope). | `eec9dead` |
+| **Z6** | Invite test resolution DNS/NAT64 SSRF validation | ⏳ **DEFERRED** — `server/src/routes/access.ts` has `probeInviteResolutionTarget` (line 1326) and `/invites/:token/test-resolution` (line 1803) but no DNS validation. Port = ~100 LOC of IPv4/IPv6 helpers + `resolveInviteResolutionTarget`. Requires careful RFC1918/NAT64 test coverage. Dedicated session. |
+| **Z7** | Issue mutation requires active-checkout ownership for agents | ⏳ **DEFERRED** — `server/src/routes/issues.ts` has 5+ mutation routes (PATCH/DELETE/comments/attachments/documents) without checkout-ownership check. Port = `hasActiveCheckoutManagementOverride` helper + `tasks:manage_active_checkouts` permission constant + integration in 5 routes. CRITICAL severity but needs dedicated session. |
+| **Z8** | Adapter validation route company scope | ⏭️ **N/A** — MnM has no `/agents/:id/adapter-validation` route |
 
 ### Features stratégiques (Phases 2-4)
 
