@@ -2,7 +2,7 @@
 
 > **Version** : 2.0 (document consolide) | **Date** : 2026-03-14 | **Statut** : Final
 > **Auteurs** : Bob (SM Lead), Winston (Architecte), John (PM), Amelia (Dev), Quinn (QA), Sally (UX), Murat (TEA)
-> **Deadline critique** : Demo EnterpriseCustomer — Juin 2026
+> **Deadline critique** : Demo your organization — Juin 2026
 
 ---
 
@@ -22,7 +22,7 @@
 - Epic CONT — Containerisation
 - Synthese Sprints & Timeline
 - Graphe de Dependances Global
-- Matrice Parallelisme Tom / Cofondateur
+- Matrice Parallelisme the maintainer / Cofondateur
 
 ### Partie 2 — Sequencage Technique & Dependances (Winston)
 - Graphe de Dependances Techniques
@@ -35,12 +35,12 @@
 
 ### Partie 3 — Priorisation Business & Frontieres MVP (John)
 - Matrice de Priorisation Impact Business x Effort
-- Scope MVP Strict — Demo EnterpriseCustomer Juin 2026
+- Scope MVP Strict — Demo your organization Juin 2026
 - Success Criteria Mesurables par Epic
 - User Value par Story
 - Go/No-Go Criteria par Phase
 - Risk Assessment Business
-- Split Cofondateurs : Tom vs Cofondateur
+- Split Cofondateurs : the maintainer vs Cofondateur
 
 ### Partie 4 — Estimation d'Effort & Faisabilite Technique (Amelia)
 - Methodologie d'Estimation
@@ -48,7 +48,7 @@
 - Stories Techniques Manquantes (Infrastructure)
 - Dette Technique a Resoudre AVANT le Sprint
 - Dependances Techniques Inter-Stories
-- Repartition Tom vs Cofondateur
+- Repartition the maintainer vs Cofondateur
 - Velocity et Planification par Sprint
 - Faisabilite — Ce qui est Simple vs Complexe
 
@@ -88,7 +88,7 @@
 
 > **Auteur** : Bob (Scrum Master — LEAD Sprint Planning)
 > **Sources** : PRD B2B v1.0, Architecture B2B v1.0, UX Design B2B v1.0
-> **Split Cofondateurs** : Tom (Gabri) = Noyaux B + C | Cofondateur = Noyaux A + D | Noyau E = Partage
+> **Split Cofondateurs** : the maintainer (the lead developer) = Noyaux B + C | Cofondateur = Noyaux A + D | Noyau E = Partage
 
 
 ## 1. Vue d'ensemble Sprints
@@ -105,11 +105,11 @@
 | **Sprint 5** | 2 semaines | FR-A2A + FR-DUAL + FR-ONB | Bus A2A, curseur automatisation, onboarding cascade |
 | **Sprint 6** | 2 semaines | Enterprise + Polish | SSO, dashboards, import Jira, stabilisation |
 
-**Total** : ~13 semaines (Sprint 0 + 6 sprints de 2 semaines) = **Demo EnterpriseCustomer juin 2026**.
+**Total** : ~13 semaines (Sprint 0 + 6 sprints de 2 semaines) = **Demo your organization juin 2026**.
 
 ### 1.2 Principes de planification
 
-1. **Parallelisme maximal** : Tom et Cofondateur travaillent sur des noyaux distincts sauf Noyau E (partage explicite)
+1. **Parallelisme maximal** : the maintainer et Cofondateur travaillent sur des noyaux distincts sauf Noyau E (partage explicite)
 2. **Prerequis respectes** : Sprint 0 → Sprint 1 (MU) → Sprint 2 (RBAC) sont sequentiels et prealables a tout
 3. **Increment livrable** : chaque sprint produit un increment deployable et testable
 4. **Definition of Ready** : chaque story a des ACs Given/When/Then, des dependances claires, et une assignation
@@ -121,7 +121,7 @@
 
 **Duree** : 1 semaine
 **Objectif** : Poser les bases techniques et UX pour le developpement B2B
-**Assignation** : Partage Tom + Cofondateur
+**Assignation** : Partage the maintainer + Cofondateur
 
 ### Story S0-S01
 **Titre** : Migration PostgreSQL externe
@@ -156,7 +156,7 @@
 ### Story S0-S03
 **Titre** : Design System — Tokens & Composants de base
 **Description** : Implementer les design tokens CSS (couleurs, spacing, typographie) et configurer les composants shadcn/ui supplementaires (12 composants a ajouter).
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : Aucun
 **Debloque** : Toutes les stories UI des sprints suivants
@@ -186,7 +186,7 @@
 ### Story S0-S05
 **Titre** : Test infrastructure — Factories & Seed
 **Description** : Creer les factories TypeScript pour les tests (users, companies, agents, workflows) et le seed E2E pour Cypress.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S
 **Bloque par** : S0-S04 (schema DB)
 **Debloque** : Tous les tests d'integration et E2E
@@ -203,7 +203,7 @@
 **Noyau** : Transverse (prerequis pour tout)
 **FRs couverts** : FR-MU (REQ-MU-01 a REQ-MU-07)
 **Sprint** : Sprint 1
-**Assignation principale** : Tom (frontend) + Cofondateur (backend)
+**Assignation principale** : the maintainer (frontend) + Cofondateur (backend)
 **Effort total** : ~1 semaine
 
 ### Story MU-S01
@@ -225,7 +225,7 @@
 ### Story MU-S02
 **Titre** : UI Invitation Modal
 **Description** : Composant InviteModal pour inviter des membres par email (un ou plusieurs). Champ email, selection du role, bouton envoyer.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S
 **Bloque par** : MU-S01 (API invitations), S0-S03 (design system)
 **Debloque** : MU-S05
@@ -256,7 +256,7 @@
 ### Story MU-S04
 **Titre** : Page Membres avec tableau et actions
 **Description** : Composant MembersTable avec la liste des membres, leurs roles, statut, et actions (changer role, desactiver). Filtres par role et recherche.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : S0-S03 (design system), MU-S01 (API)
 **Debloque** : RBAC-S04
@@ -287,7 +287,7 @@
 ### Story MU-S06
 **Titre** : Selecteur de Company (multi-company)
 **Description** : Composant CompanySelector dans le header pour basculer entre companies (si l'utilisateur est membre de plusieurs).
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S
 **Bloque par** : MU-S04 (page membres)
 **Debloque** : RBAC-S04
@@ -304,7 +304,7 @@
 **Noyau** : Transverse (prerequis pour tous les noyaux)
 **FRs couverts** : FR-RBAC (REQ-RBAC-01 a REQ-RBAC-08)
 **Sprint** : Sprint 1 (base) + Sprint 2 (avance)
-**Assignation principale** : Cofondateur (backend critique) + Tom (UI)
+**Assignation principale** : Cofondateur (backend critique) + the maintainer (UI)
 **Effort total** : ~2 semaines
 
 ### Story RBAC-S01
@@ -361,7 +361,7 @@
 ### Story RBAC-S04
 **Titre** : UI Admin — Page Roles & Matrice Permissions
 **Description** : Composants RoleSelector, PermissionMatrix, et RoleBadge. Page admin pour visualiser et modifier les permissions par role.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : RBAC-S02 (roles definis), MU-S04 (page membres), S0-S03 (design system)
 **Debloque** : RBAC-S06
@@ -377,7 +377,7 @@
 ### Story RBAC-S05
 **Titre** : Masquage navigation selon permissions
 **Description** : Implementer NavigationGuard : les items de la sidebar et du menu sont absents du DOM (pas grises) si l'utilisateur n'a pas la permission. Utilise canUser() cote client.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : RBAC-S03 (enforcement backend), RBAC-S04 (UI admin)
 **Debloque** : Toutes les pages UI des sprints suivants
@@ -515,7 +515,7 @@
 ### Story A2-S04
 **Titre** : UI Drift — Pipeline visuel et alertes
 **Description** : Composants WorkflowPipeline (barre de progression etapes), StageCard (detail etape), DriftAlert (diff attendu vs observe + actions). Integration dans la page de supervision agent.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : L
 **Bloque par** : A2-S01 (drift detection backend), S0-S03 (design system)
 **Debloque** : Aucun
@@ -530,7 +530,7 @@
 ### Story A2-S05
 **Titre** : UI Editeur de Workflow drag-and-drop
 **Description** : WorkflowEditor pour creer et modifier des templates de workflow. Drag-and-drop des etapes, configuration des prompts, fichiers obligatoires, et points de validation humaine.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : XL
 **Bloque par** : A2-S04 (pipeline visuel), RBAC-S05 (navigation)
 **Debloque** : Aucun
@@ -547,7 +547,7 @@
 
 **FRs couverts** : FR-OBS (REQ-OBS-01 a REQ-OBS-06)
 **Sprint** : Sprint 3 (base) + Sprint 6 (avance)
-**Assignation** : **Tom** (noyau principal)
+**Assignation** : **the maintainer** (noyau principal)
 **Effort total** : ~2-3 semaines
 
 ### Epic B1 — Audit Log Enterprise
@@ -555,7 +555,7 @@
 ### Story B1-S01
 **Titre** : Table audit_events partitionnee et immutable
 **Description** : Creer la table audit_events partitionnee par mois avec TRIGGER deny UPDATE/DELETE. Separation des roles PostgreSQL (mnm_app vs mnm_audit_admin). Retention 3 ans.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : S0-S04 (schema DB)
 **Debloque** : B1-S02, B1-S03
@@ -571,7 +571,7 @@
 ### Story B1-S02
 **Titre** : Service d'audit — Emission automatique sur mutations
 **Description** : Service audit.ts qui emet un audit event pour chaque mutation API. Integration avec le middleware Express pour capturer automatiquement acteur, IP, user-agent.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : B1-S01 (table audit_events)
 **Debloque** : B1-S03, B2-S01
@@ -586,7 +586,7 @@
 ### Story B1-S03
 **Titre** : UI Audit Log — Consultation et export
 **Description** : Composant AuditLogTable avec tableau paginee, 12 filtres (acteur, action, cible, date, etc.), et export CSV/JSON. Read-only.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : B1-S02 (service audit), S0-S03 (design system)
 **Debloque** : B2-S02
@@ -604,7 +604,7 @@
 ### Story B2-S01
 **Titre** : Resume LLM temps reel des actions agent
 **Description** : Service audit-summarizer.ts qui utilise Claude Haiku pour traduire les logs techniques en langage naturel. Latence < 5 secondes. Les resumes sont affiches dans le flux d'activite.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : B1-S02 (service audit)
 **Debloque** : B2-S02
@@ -619,7 +619,7 @@
 ### Story B2-S02
 **Titre** : Dashboards management agreges — CEO et CTO
 **Description** : Composants DashboardCard et MetricWidget. Dashboard CEO (KPIs headline, avancement par BU, alertes) et Dashboard CTO (agents actifs, drift, containers, metriques compaction). JAMAIS de donnees individuelles (k-anonymity k=5).
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : L
 **Bloque par** : B1-S03 (audit UI), B2-S01 (resume LLM), RBAC-S05 (navigation)
 **Debloque** : Aucun
@@ -636,7 +636,7 @@
 
 **FRs couverts** : FR-ONB (REQ-ONB-01 a REQ-ONB-04)
 **Sprint** : Sprint 5 + Sprint 6
-**Assignation** : **Tom** (noyau principal)
+**Assignation** : **the maintainer** (noyau principal)
 **Effort total** : ~3-4 semaines
 
 ### Epic C1 — Onboarding Hierarchique
@@ -644,7 +644,7 @@
 ### Story C1-S01
 **Titre** : Cascade hierarchique — CEO configure le cadre CTO
 **Description** : Chaque niveau hierarchique configure le perimetre du niveau inferieur. Le CEO definit la structure organisationnelle, le CTO configure les workflows techniques, le Manager configure les equipes.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : L
 **Bloque par** : RBAC-S06 (scoping projets), MU-S01 (invitations)
 **Debloque** : C1-S02, C1-S03
@@ -660,7 +660,7 @@
 ### Story C1-S02
 **Titre** : Agent d'onboarding conversationnel
 **Description** : Agent conversationnel qui guide le CEO a travers 5-7 echanges structures pour configurer sa company : nom, secteur, structure, equipes, objectifs.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : L
 **Bloque par** : C1-S01 (cascade), CHAT-S01 (WebSocket bidirectionnel)
 **Debloque** : C1-S03
@@ -676,7 +676,7 @@
 ### Story C1-S03
 **Titre** : Organigramme interactif & invitations cascade
 **Description** : Composant OrgChart interactif (drag-and-drop) genere automatiquement depuis les reponses de l'onboarding. Bouton pour envoyer les invitations cascade a tous les niveaux.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : C1-S02 (agent onboarding)
 **Debloque** : C2-S01
@@ -693,7 +693,7 @@
 ### Story C2-S01
 **Titre** : Import Jira — Scan et mapping
 **Description** : Service import-service.ts qui scanne un projet Jira via API et propose un mapping automatique (projets → projets, epics → epics, stories → issues, users → membres). Table import_jobs pour le suivi.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : L
 **Bloque par** : C1-S01 (cascade hierarchique)
 **Debloque** : C2-S02
@@ -709,7 +709,7 @@
 ### Story C2-S02
 **Titre** : UI Import — Progression et validation
 **Description** : Composant ImportProgress avec barre de progression, log en temps reel, et validation post-import. Supporte Jira, Linear, ClickUp (extensible).
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : C2-S01 (service import)
 **Debloque** : Aucun
@@ -765,7 +765,7 @@
 ### Story D1-S03
 **Titre** : UI A2A — Requetes et approbations
 **Description** : Composant A2ARequestCard pour visualiser les requetes A2A en attente avec approbation 1-clic. Historique des transactions A2A. Notification temps reel.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : D1-S01 (A2A bus), D1-S02 (permissions), RBAC-S05 (navigation)
 **Debloque** : Aucun
@@ -781,7 +781,7 @@
 
 **FRs couverts** : FR-DUAL (REQ-DUAL-01 a REQ-DUAL-04)
 **Sprint** : Sprint 5
-**Assignation** : **Partage** Tom + Cofondateur
+**Assignation** : **Partage** the maintainer + Cofondateur
 **Effort total** : ~2-3 semaines
 
 ### Epic E1 — Curseur d'Automatisation
@@ -804,7 +804,7 @@
 ### Story E1-S02
 **Titre** : UI — Composant AutomationCursor (slider 3 positions)
 **Description** : Slider segmente 3 positions (Manuel/Assiste/Auto) avec zone verte (accessible) et zone grisee (bloquee par hierarchie). Affiche le plafond actuel et la recommandation basee sur l'historique.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : E1-S01 (backend curseur), S0-S03 (design system)
 **Debloque** : E1-S03
@@ -836,7 +836,7 @@
 
 **FRs couverts** : FR-CHAT (REQ-CHAT-01 a REQ-CHAT-05)
 **Sprint** : Sprint 4
-**Assignation** : Partage Tom (UI) + Cofondateur (backend)
+**Assignation** : Partage the maintainer (UI) + Cofondateur (backend)
 **Effort total** : ~3 semaines
 
 ### Story CHAT-S01
@@ -874,7 +874,7 @@
 ### Story CHAT-S03
 **Titre** : UI ChatPanel — Dialogue temps reel avec agent
 **Description** : Composant ChatPanel avec MessageBubble (humain vs agent differencies), TypingIndicator, ConnectionStatus (vert/orange/rouge), et input avec envoi. Panneau fixe 320px a droite.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : CHAT-S01 (WebSocket), CHAT-S02 (ChatService), S0-S03 (design system)
 **Debloque** : CHAT-S04
@@ -891,7 +891,7 @@
 ### Story CHAT-S04
 **Titre** : Chat — Pilotage agent en temps reel
 **Description** : L'utilisateur peut envoyer des instructions a l'agent pendant l'execution du workflow. L'agent ajuste son comportement en consequence. Split view : code a gauche, chat a droite.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M
 **Bloque par** : CHAT-S03 (UI ChatPanel), A1-S01 (state machine)
 **Debloque** : Aucun
@@ -907,7 +907,7 @@
 
 **FRs couverts** : FR-CONT (REQ-CONT-01 a REQ-CONT-07)
 **Sprint** : Sprint 4
-**Assignation** : **Cofondateur** (backend) + Tom (UI monitoring)
+**Assignation** : **Cofondateur** (backend) + the maintainer (UI monitoring)
 **Effort total** : ~4-5 semaines
 
 ### Story CONT-S01
@@ -961,7 +961,7 @@
 ### Story CONT-S04
 **Titre** : UI Container — Monitoring et statut
 **Description** : Composants ContainerStatus et ResourceMonitor. Affichage du statut des containers actifs, consommation CPU/RAM, et logs en temps reel.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S
 **Bloque par** : CONT-S01 (ContainerManager), S0-S03 (design system)
 **Debloque** : Aucun
@@ -977,7 +977,7 @@
 
 ### 12.1 Recapitulatif par Sprint
 
-| Sprint | Tom (Gabri) | Cofondateur | Livrable |
+| Sprint | the maintainer (the lead developer) | Cofondateur | Livrable |
 |--------|-------------|-------------|----------|
 | **S0** (1 sem) | S0-S03 (Design System), S0-S05 (Factories) | S0-S01 (PostgreSQL), S0-S02 (CI/CD), S0-S04 (Schema DB) | Infra prete |
 | **S1** (2 sem) | MU-S02, MU-S04, MU-S06 (UI multi-user) | MU-S01, MU-S03, MU-S05 (API multi-user), RBAC-S01, RBAC-S02 | Multi-user + RBAC base |
@@ -994,7 +994,7 @@ Mars 2026                              Juin 2026
 |--- S0 ---|---- S1 ----|---- S2 ----|---- S3 ----|---- S4 ----|---- S5 ----|---- S6 ----|
    1 sem       2 sem        2 sem        2 sem        2 sem        2 sem        2 sem
   SETUP      MULTI-USER    RBAC+ORCH   ORCH+AUDIT  CHAT+CONT    A2A+ONB+DUAL  ENTERPRISE
-                                                                               DEMO EnterpriseCustomer
+                                                                               DEMO your organization
 ```
 
 ### 12.3 Jalons critiques
@@ -1007,7 +1007,7 @@ Mars 2026                              Juin 2026
 | **M4 — Orchestrateur v1** | Fin S3 (semaine 7) | Drift detection, compaction, audit enterprise |
 | **M5 — Chat + Containers** | Fin S4 (semaine 9) | WebSocket bidirectionnel, Docker, credential proxy |
 | **M6 — Produit Complet** | Fin S5 (semaine 11) | A2A, curseur, onboarding cascade |
-| **M7 — Demo EnterpriseCustomer** | Fin S6 (semaine 13) | Import Jira, dashboards, SSO, stabilisation |
+| **M7 — Demo your organization** | Fin S6 (semaine 13) | Import Jira, dashboards, SSO, stabilisation |
 
 ---
 
@@ -1047,11 +1047,11 @@ C1-S01 ──→ C1-S02 (agent onboarding) ──→ C1-S03 (organigramme) ─�
 
 ---
 
-## 14. Matrice Parallelisme Tom / Cofondateur
+## 14. Matrice Parallelisme the maintainer / Cofondateur
 
 ### 14.1 Repartition par noyau
 
-| Noyau | Tom (Gabri) | Cofondateur | Points de synchronisation |
+| Noyau | the maintainer (the lead developer) | Cofondateur | Points de synchronisation |
 |-------|-------------|-------------|--------------------------|
 | **Transverse (MU)** | UI : InviteModal, MembersTable, CompanySelector | API : invitations, acceptation, signup/signout | API spec avant UI (S1 jour 1) |
 | **Transverse (RBAC)** | UI : RoleSelector, PermissionMatrix, NavigationGuard | Backend : hasPermission, roles, enforcement, scoping | Contrat API RBAC (S1 jour 3) |
@@ -1065,8 +1065,8 @@ C1-S01 ──→ C1-S02 (agent onboarding) ──→ C1-S03 (organigramme) ─�
 
 ### 14.2 Regles de synchronisation
 
-1. **Daily standup 15 min** : Tom et Cofondateur synchronisent chaque matin sur les blocages et les interfaces
-2. **Spec API first** : le Cofondateur definit l'API (endpoints, types, responses) AVANT que Tom commence la UI
+1. **Daily standup 15 min** : the maintainer et Cofondateur synchronisent chaque matin sur les blocages et les interfaces
+2. **Spec API first** : le Cofondateur definit l'API (endpoints, types, responses) AVANT que the maintainer commence la UI
 3. **Contrats TypeScript** : les types partages dans `packages/shared/` sont la source de verite pour les interfaces
 4. **Feature branches** : chaque story a sa branche `feature/[EPIC]-S[NN]`, merge via PR avec review croisee
 5. **Integration continue** : merge quotidien vers develop, pas de branches longues (>3 jours)
@@ -1075,8 +1075,8 @@ C1-S01 ──→ C1-S02 (agent onboarding) ──→ C1-S03 (organigramme) ─�
 
 | Risque | Probabilite | Impact | Mitigation |
 |--------|------------|--------|------------|
-| API pas prete quand Tom commence la UI | Moyenne | Elevee | Tom commence par les composants purs (design system, composants sans API) puis branche l'API |
-| Conflits de merge sur les types partages | Faible | Moyenne | Un seul mainteneur pour `packages/shared/` (Cofondateur), Tom propose des PRs |
+| API pas prete quand the maintainer commence la UI | Moyenne | Elevee | the maintainer commence par les composants purs (design system, composants sans API) puis branche l'API |
+| Conflits de merge sur les types partages | Faible | Moyenne | Un seul mainteneur pour `packages/shared/` (Cofondateur), the maintainer propose des PRs |
 | Compaction (R1) bloque l'Orchestrateur | Moyenne | Elevee | Spike en Sprint 2 (1 semaine), si echec → Cofondateur priorise kill+relance simple |
 | WebSocket protocole incompatible | Faible | Moyenne | Spec commune le jour 1 du Sprint 4, tests d'integration immediats |
 
@@ -1095,10 +1095,10 @@ C1-S01 ──→ C1-S02 (agent onboarding) ──→ C1-S03 (organigramme) ─�
 | **Sprint 4** | 8 stories (CHAT=4, CONT=4) |
 | **Sprint 5** | 8 stories (C1=3, D1=2, E1=3) |
 | **Sprint 6** | 5 stories (C2=2, B2=2, A2=1) |
-| **Stories Tom** | ~24 stories |
+| **Stories the maintainer** | ~24 stories |
 | **Stories Cofondateur** | ~23 stories |
 | **Duration totale** | 13 semaines (1 + 6x2) |
-| **Demo EnterpriseCustomer** | Juin 2026 |
+| **Demo your organization** | Juin 2026 |
 
 ---
 
@@ -1478,11 +1478,11 @@ Ces stories ne delivrent aucune valeur utilisateur directe mais sont des prerequ
 
 ```
 Semaine 0 (Jour 1-3) :
-  Tom    : INFRA-S01 (PostgreSQL) + INFRA-S03 (Redis)
+  the maintainer    : INFRA-S01 (PostgreSQL) + INFRA-S03 (Redis)
   Cofond.: INFRA-S02 (Docker Compose) + INFRA-S04 (CI/CD)
 
 Semaine 0-1 (Jour 3-7) :
-  Tom    : INFRA-S05 (10 nouvelles tables) + INFRA-S06 (5 tables modifiees)
+  the maintainer    : INFRA-S05 (10 nouvelles tables) + INFRA-S06 (5 tables modifiees)
   Cofond.: INFRA-S07 (RLS) — commence des que INFRA-S01 + INFRA-S05 sont prets
 ```
 
@@ -1494,36 +1494,36 @@ Semaine 0-1 (Jour 3-7) :
 
 Le PRD identifie deux pistes de travail paralleles (section 11.2) :
 
-- **Tom** : Backend + Observabilite (Noyau B + C) — expertise infra, Docker, monitoring
+- **the maintainer** : Backend + Observabilite (Noyau B + C) — expertise infra, Docker, monitoring
 - **Cofondateur technique** : Orchestration + Agents (Noyau A + D) — expertise IA, state machines, agents
 
 ### 6.2 Matrice de Parallelisation par Sprint
 
 #### Sprint 1 — Infrastructure + Fondations (Semaine 1-2)
 
-| Tom (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
+| the maintainer (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
 |-------------------------------|--------------------------------------|-------------|
 | INFRA-S01: PostgreSQL externe | INFRA-S02: Docker Compose | Independants |
 | INFRA-S03: Redis setup | INFRA-S04: CI/CD pipeline | Independants |
-| INFRA-S05: Schema 10 tables | INFRA-S07: RLS (apres S05) | S07 attend S05 de Tom |
-| INFRA-S06: Schema modifs | RBAC-S03: Fix hasPermission | S03 attend S06 de Tom |
+| INFRA-S05: Schema 10 tables | INFRA-S07: RLS (apres S05) | S07 attend S05 de the maintainer |
+| INFRA-S06: Schema modifs | RBAC-S03: Fix hasPermission | S03 attend S06 de the maintainer |
 
 **Point de sync fin Sprint 1** : Schema DB complet, RLS actif, hasPermission corrige. Les deux doivent valider ensemble que l'isolation fonctionne.
 
 #### Sprint 2 — RBAC + Multi-User + Container Base (Semaine 3-4)
 
-| Tom (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
+| the maintainer (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
 |-------------------------------|--------------------------------------|-------------|
 | RBAC-S04: Permission keys | ORCH-S01: State machine (WorkflowEnforcer) | Independants |
 | RBAC-S05: Audit 22 routes | ORCH-S02: File validation | Independants |
 | OBS-S02: Audit events table | ORCH-S03: Pre-prompts injection | Independants |
 | MU-S01: API invitations | CONT-S01: ContainerManager base | Independants |
 
-**Point de sync fin Sprint 2** : Routes securisees, audit en place, state machine fonctionnelle. Tom livre les APIs, le Cofondateur livre le moteur d'orchestration.
+**Point de sync fin Sprint 2** : Routes securisees, audit en place, state machine fonctionnelle. the maintainer livre les APIs, le Cofondateur livre le moteur d'orchestration.
 
 #### Sprint 3 — Multi-User UI + Container Security + Orchestration avancee (Semaine 5-6)
 
-| Tom (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
+| the maintainer (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
 |-------------------------------|--------------------------------------|-------------|
 | MU-S02: Page Membres UI | ORCH-S05: Drift detection | Independants |
 | RBAC-S07: Admin UI | CONT-S02: Credential proxy | Independants |
@@ -1534,33 +1534,33 @@ Le PRD identifie deux pistes de travail paralleles (section 11.2) :
 
 #### Sprint 4 — Fonctionnalites Avancees (Semaine 7-8)
 
-| Tom (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
+| the maintainer (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
 |-------------------------------|--------------------------------------|-------------|
 | CHAT-S02: Chat in-workflow | A2A-S01: A2A Bus | Chat → ContainerManager |
 | OBS-S01: Audit summarizer (LLM) | A2A-S02: A2A permissions | Independants |
 | OBS-S03: Dashboards agreges | ORCH-S07: Reinjection compaction | Independants |
 | DUAL-S01: Curseur automatisation | ORCH-S09: HITL validation | Independants |
 
-**Point de sync fin Sprint 4** : Chat temps reel, A2A basique, dashboards, curseur. Feature complete pour demo EnterpriseCustomer.
+**Point de sync fin Sprint 4** : Chat temps reel, A2A basique, dashboards, curseur. Feature complete pour demo your organization.
 
 #### Sprint 5 — Enterprise + Polish (Semaine 9-10)
 
-| Tom (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
+| the maintainer (Backend + Observabilite) | Cofondateur (Orchestration + Agents) | Dependances |
 |-------------------------------|--------------------------------------|-------------|
 | ENT-01: SSO SAML/OIDC | ORCH-S08: Workflow editor UI | Independants |
 | OBS-S05: Export audit | ENT-04: CompactionWatcher | Independants |
 | ENT-02: Import Jira | A2A-S03: A2A audit | Independants |
 | ENT-06: Smoke tests | ENT-06: Smoke tests | Collaboration |
 
-**Point de sync fin Sprint 5** : Produit B2B vendable. Demo EnterpriseCustomer possible.
+**Point de sync fin Sprint 5** : Produit B2B vendable. Demo your organization possible.
 
 ### 6.3 Dependances Bloquantes Inter-Developpeurs
 
 Il y a 4 moments critiques ou un developpeur bloque l'autre :
 
-1. **Sprint 1, Jour 3** : Le Cofondateur ne peut pas commencer RLS avant que Tom finisse les schemas
-2. **Sprint 1, Jour 5** : Le Cofondateur ne peut pas commencer hasPermission fix avant que Tom finisse les modifications de tables
-3. **Sprint 3** : Le Chat bidirectionnel (Tom) doit etre pret avant que le Chat in-workflow (Sprint 4) puisse etre fait
+1. **Sprint 1, Jour 3** : Le Cofondateur ne peut pas commencer RLS avant que the maintainer finisse les schemas
+2. **Sprint 1, Jour 5** : Le Cofondateur ne peut pas commencer hasPermission fix avant que the maintainer finisse les modifications de tables
+3. **Sprint 3** : Le Chat bidirectionnel (the maintainer) doit etre pret avant que le Chat in-workflow (Sprint 4) puisse etre fait
 4. **Sprint 3** : Le ContainerManager (Cofondateur) doit etre pret avant que le Credential Proxy puisse etre complete
 
 ### 6.4 Strategies de Deblocage
@@ -1656,21 +1656,21 @@ Ecrire les tests d'isolation cross-company des que RLS est actif, avant toute st
 
 > **Auteur** : John (Product Manager)
 > **Sources** : PRD B2B v1.0, UX Design B2B v1.0, Product Brief B2B v2.0
-> **Contexte** : Deadline critique — Demo EnterpriseCustomer en juin 2026
+> **Contexte** : Deadline critique — Demo your organization en juin 2026
 
 
-## 2. Scope MVP Strict -- Demo EnterpriseCustomer Juin 2026
+## 2. Scope MVP Strict -- Demo your organization Juin 2026
 
 ### 2.1 MUST-HAVE : Stories Obligatoires pour la Demo
 
-Ce sont les stories **sans lesquelles la demo EnterpriseCustomer echoue**. Elles constituent le produit minimum demontrable a un CTO enterprise.
+Ce sont les stories **sans lesquelles la demo your organization echoue**. Elles constituent le produit minimum demontrable a un CTO enterprise.
 
 #### Epic 1 : Multi-User MVP (Phase 1)
 
 | Story | Justification Business | Persona | Priorite |
 |-------|----------------------|---------|----------|
 | Invitation par email avec lien signe | Impossible de demontrer le multi-user sans inviter quelqu'un | CTO, Admin | P0 |
-| Page Membres avec tableau et filtres | Le CTO EnterpriseCustomer doit voir qui a acces | CTO | P0 |
+| Page Membres avec tableau et filtres | Le CTO your organization doit voir qui a acces | CTO | P0 |
 | Sign-out avec invalidation session | Signal de maturite enterprise basique | Tous | P0 |
 | Desactivation signup libre (invitation-only) | Securite enterprise non-negociable | CTO, DPO | P0 |
 | Migration PostgreSQL externe | Prerequis technique pour deploiement reel | DevOps | P0 |
@@ -1681,7 +1681,7 @@ Ce sont les stories **sans lesquelles la demo EnterpriseCustomer echoue**. Elles
 
 | Story | Justification Business | Persona | Priorite |
 |-------|----------------------|---------|----------|
-| 4 roles metier (Admin, Manager, Contributor, Viewer) | Le CTO EnterpriseCustomer doit assigner des droits differencies | CTO | P0 |
+| 4 roles metier (Admin, Manager, Contributor, Viewer) | Le CTO your organization doit assigner des droits differencies | CTO | P0 |
 | `hasPermission()` lit et applique scope JSONB | **Trou de securite critique** -- bloquant pour tout deploiement B2B | Tous | P0 |
 | 9 nouvelles permission keys (15 total) | Granularite necessaire pour la separation des roles | CTO, Admin | P0 |
 | Enforcement dans chaque route API (22 fichiers) | Sans ca, le RBAC est cosmetique -- inacceptable en enterprise | Tous | P0 |
@@ -1737,12 +1737,12 @@ Ce sont les stories **sans lesquelles la demo EnterpriseCustomer echoue**. Elles
 
 ### 2.2 NICE-TO-HAVE : Ajoutent de la Valeur mais Non-Critiques pour la Demo
 
-Ces stories ameliorent l'experience mais ne bloquent pas la demo EnterpriseCustomer. Elles peuvent etre reportees a post-demo sans risque commercial.
+Ces stories ameliorent l'experience mais ne bloquent pas la demo your organization. Elles peuvent etre reportees a post-demo sans risque commercial.
 
 | Story | Epic | Justification Report | Effort |
 |-------|------|---------------------|--------|
 | Invitation bulk (CSV) | Multi-User | Demo avec 3-5 users suffit | 1j |
-| Selecteur multi-company | Multi-User | EnterpriseCustomer = 1 company pour la demo | 1j |
+| Selecteur multi-company | Multi-User | your organization = 1 company pour la demo | 1j |
 | Page profil utilisateur | Multi-User | Basique, pas bloquant | 1j |
 | Badges couleur par role | RBAC | Cosmetique, le role fonctionne sans badge | 0.5j |
 | Masquage navigation selon permissions | RBAC | Le 403 suffit pour la demo | 1j |
@@ -1758,7 +1758,7 @@ Ces stories ameliorent l'experience mais ne bloquent pas la demo EnterpriseCusto
 | Resource limits par profil container | Container | Profil par defaut suffit | 1j |
 | Timeout avec reset sur output | Container | Timeout fixe suffit pour la demo | 1j |
 | SSO SAML/OIDC | Enterprise | Login classique pour la demo | 3-4j |
-| Multi-tenant SaaS | Enterprise | Single-tenant pour EnterpriseCustomer suffit | 3-5j |
+| Multi-tenant SaaS | Enterprise | Single-tenant pour your organization suffit | 3-5j |
 | Onboarding CEO conversationnel | Onboarding | Setup manuel pour la demo | 3j |
 | Cascade hierarchique | Onboarding | Invitations manuelles suffisent | 2j |
 | Import Jira intelligent | Onboarding | Donnees de demo pre-chargees | 5j |
@@ -1767,7 +1767,7 @@ Ces stories ameliorent l'experience mais ne bloquent pas la demo EnterpriseCusto
 | Dashboards management agreges | Observabilite | Version simplifiee dans MUST-HAVE | 3-5j |
 | Retention audit 3 ans immutable | Observabilite | Pas teste en demo | 1j |
 
-**Total NICE-TO-HAVE : ~45-55 jours.** A planifier post-demo EnterpriseCustomer.
+**Total NICE-TO-HAVE : ~45-55 jours.** A planifier post-demo your organization.
 
 ### 2.3 Synthese MUST-HAVE vs NICE-TO-HAVE
 
@@ -1783,62 +1783,62 @@ Chat temps reel       10j                   Onboarding conversationnel   5-10j
                                             Dual-Speed avance            4-5j
                                             UX polish (badges, nav)      3j
 ==========================================  ==========================================
-= DEMO EnterpriseCustomer REUSSIE                         = PRODUIT B2B COMPLET
+= DEMO your organization REUSSIE                         = PRODUIT B2B COMPLET
 ```
 
-**Avec 2 developpeurs en parallele (Tom + Cofondateur), les MUST-HAVE representent 8-10 semaines calendaires** -- ce qui correspond exactement a la timeline mars-juin 2026.
+**Avec 2 developpeurs en parallele (the maintainer + Cofondateur), les MUST-HAVE representent 8-10 semaines calendaires** -- ce qui correspond exactement a la timeline mars-juin 2026.
 
 ---
 
 ## 3. Success Criteria Mesurables par Epic
 
-Les 26 Success Criteria du PRD (section 3) sont ici mappes aux epics concernes, avec les cibles a atteindre pour la demo EnterpriseCustomer (3 mois).
+Les 26 Success Criteria du PRD (section 3) sont ici mappes aux epics concernes, avec les cibles a atteindre pour la demo your organization (3 mois).
 
 ### 3.1 Multi-User MVP
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Epic |
+| SC | Critere | Cible Demo your organization | Epic |
 |----|---------|---------------|------|
-| SC-BIZ-1 | Premier client pilote (EnterpriseCustomer) | POC signe | Multi-User |
+| SC-BIZ-1 | Premier client pilote (your organization) | POC signe | Multi-User |
 | SC-BIZ-5 | Time-to-value | <2h (setup company + premiers agents) | Multi-User |
 | SC-C1 | Temps onboarding company -> premier workflow | <1 semaine | Multi-User |
 | SC-C2 | Taux completion onboarding | >70% | Multi-User |
 
 ### 3.2 RBAC Metier + Scoping
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Epic |
+| SC | Critere | Cible Demo your organization | Epic |
 |----|---------|---------------|------|
-| SC-BIZ-3 | Roles non-dev actifs | >30% des users EnterpriseCustomer | RBAC |
+| SC-BIZ-3 | Roles non-dev actifs | >30% des users your organization | RBAC |
 | SC-D4 | Taux validation humaine A2A | 100% (tout passe par HITL) | RBAC |
-| SC-C4 | Companies avec >=3 niveaux hierarchiques | >50% (EnterpriseCustomer = 1 company, 3+ niveaux) | Scoping |
+| SC-C4 | Companies avec >=3 niveaux hierarchiques | >50% (your organization = 1 company, 3+ niveaux) | Scoping |
 
 ### 3.3 Orchestrateur Deterministe
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Epic |
+| SC | Critere | Cible Demo your organization | Epic |
 |----|---------|---------------|------|
 | SC-A1 | Taux de respect workflows | >90% | Orchestrateur |
 | SC-A2 | Temps de detection drift | <15 min | Orchestrateur |
 | SC-A3 | Reinjection contexte reussie apres compaction | >85% | Orchestrateur |
-| SC-A4 | Workflows actifs utilises | 10+ (chez EnterpriseCustomer) | Orchestrateur |
+| SC-A4 | Workflows actifs utilises | 10+ (chez your organization) | Orchestrateur |
 | SC-A5 | Sessions survivant une compaction | >80% | Orchestrateur |
 
 ### 3.4 Observabilite & Audit
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Epic |
+| SC | Critere | Cible Demo your organization | Epic |
 |----|---------|---------------|------|
 | SC-B1 | Couverture d'audit (actions loggees) | 100% des runs | Observabilite |
 | SC-B2 | Latence observabilite (action -> dashboard) | <5s | Observabilite |
-| SC-B3 | Reduction MTTR | -40% vs baseline EnterpriseCustomer | Observabilite |
+| SC-B3 | Reduction MTTR | -40% vs baseline your organization | Observabilite |
 | SC-B4 | NPS transparence agent | >25 | Observabilite |
 
 ### 3.5 Containerisation
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Epic |
+| SC | Critere | Cible Demo your organization | Epic |
 |----|---------|---------------|------|
 | SC-B5 | Agents enterprise containerises | >90% | Containerisation |
 
 ### 3.6 Chat & Dual-Speed
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Epic |
+| SC | Critere | Cible Demo your organization | Epic |
 |----|---------|---------------|------|
 | SC-E1 | Ratio execution/reflexion | 60/40 | Dual-Speed |
 | SC-E2 | Position moyenne curseur automatisation | 1.5 (entre Manuel et Assiste) | Dual-Speed |
@@ -1847,9 +1847,9 @@ Les 26 Success Criteria du PRD (section 3) sont ici mappes aux epics concernes, 
 
 ### 3.7 KPIs Business Transverses
 
-| SC | Critere | Cible Demo EnterpriseCustomer | Responsable |
+| SC | Critere | Cible Demo your organization | Responsable |
 |----|---------|---------------|-------------|
-| SC-BIZ-1 | Premier client pilote EnterpriseCustomer | POC signe | Tom + CEO |
+| SC-BIZ-1 | Premier client pilote your organization | POC signe | the maintainer + CEO |
 | SC-BIZ-2 | ARR | 10-30k EUR | Commercial |
 | SC-BIZ-3 | Roles non-dev actifs | >30% | John PM |
 | SC-BIZ-4 | Retention 90 jours | >70% | John PM |
@@ -1868,7 +1868,7 @@ SC-E1..E4 (4 criteres)  --> Dual-Speed (E1-E3) + Chat (E4)
 SC-BIZ1..7 (7 criteres) --> Transverses (tous les epics contribuent)
 ```
 
-**Analyse critique :** Les SC du Noyau A (Orchestrateur) sont les plus difficiles a atteindre en 3 mois. SC-A2 (drift <15 min) et SC-A5 (compaction >80%) demandent un spike technique d'une semaine minimum. Les SC Business (BIZ) sont des indicateurs retardes qui dependront de la qualite de la demo et du suivi EnterpriseCustomer.
+**Analyse critique :** Les SC du Noyau A (Orchestrateur) sont les plus difficiles a atteindre en 3 mois. SC-A2 (drift <15 min) et SC-A5 (compaction >80%) demandent un spike technique d'une semaine minimum. Les SC Business (BIZ) sont des indicateurs retardes qui dependront de la qualite de la demo et du suivi your organization.
 
 ---
 
@@ -1886,7 +1886,7 @@ Chaque story est evaluee selon le persona qui en beneficie directement et la rai
 | Dashboards agreges (jamais individuels) | "C'est un outil de visibilite, pas de surveillance" | Confiance ethique |
 | Audit log complet | "Je peux prouver au board que l'IA est sous controle" | Securite decisionnelle |
 
-**Pourquoi le CEO compte pour la demo EnterpriseCustomer :** Le DPO/CEO de EnterpriseCustomer est le sponsor du projet. S'il n'a pas de visibilite immmediate, il perdra confiance. Le dashboard executif est son "moment de verite".
+**Pourquoi le CEO compte pour la demo your organization :** Le DPO/CEO de your organization est le sponsor du projet. S'il n'a pas de visibilite immmediate, il perdra confiance. Le dashboard executif est son "moment de verite".
 
 #### CTO -- Le Garant Technique
 
@@ -1898,7 +1898,7 @@ Chaque story est evaluee selon le persona qui en beneficie directement et la rai
 | Containerisation | "Agents isoles, credentials proteges, zero risk" | Serenite |
 | hasPermission() corrige (scope JSONB) | "Le systeme de permissions n'a pas de trou" | Confiance securite |
 
-**Pourquoi le CTO compte pour la demo EnterpriseCustomer :** C'est le decision-maker technique. S'il detecte un trou de securite ou un manque de rigueur, c'est game over. Les stories RBAC et containerisation repondent directement a ses "questions pieges".
+**Pourquoi le CTO compte pour la demo your organization :** C'est le decision-maker technique. S'il detecte un trou de securite ou un manque de rigueur, c'est game over. Les stories RBAC et containerisation repondent directement a ses "questions pieges".
 
 #### Developpeur -- L'Artisan du Code
 
@@ -1909,7 +1909,7 @@ Chaque story est evaluee selon le persona qui en beneficie directement et la rai
 | Fichiers obligatoires par etape | "L'agent a TOUJOURS le bon contexte, pas besoin de re-expliquer" | Soulagement |
 | Kill+relance compaction | "Quand l'agent perd le fil, il est relance proprement" | Confiance |
 
-**Pourquoi le dev compte pour la demo EnterpriseCustomer :** Les devs EnterpriseCustomer sont les early adopters quotidiens. Si le chat est fluide et l'orchestrateur fiable, ils deviennent les evangelistes internes.
+**Pourquoi le dev compte pour la demo your organization :** Les devs your organization sont les early adopters quotidiens. Si le chat est fluide et l'orchestrateur fiable, ils deviennent les evangelistes internes.
 
 #### PO / PM -- Les Traducteurs de Besoins
 
@@ -1948,7 +1948,7 @@ DPO            Moyen      FORT    -             FORT      FORT     -       -
 
 ### 5.1 Phase 1 -- Multi-User Livrable
 
-**Duree estimee :** 1 semaine | **Equipe :** Tom
+**Duree estimee :** 1 semaine | **Equipe :** the maintainer
 
 | Critere Go/No-Go | Seuil | Methode de Verification |
 |-------------------|-------|------------------------|
@@ -1962,7 +1962,7 @@ DPO            Moyen      FORT    -             FORT      FORT     -       -
 
 ### 5.2 Phase 2 -- RBAC Metier
 
-**Duree estimee :** 2 semaines | **Equipe :** Tom (ou Cofondateur si recrute)
+**Duree estimee :** 2 semaines | **Equipe :** the maintainer (ou Cofondateur si recrute)
 
 | Critere Go/No-Go | Seuil | Methode de Verification |
 |-------------------|-------|------------------------|
@@ -1976,7 +1976,7 @@ DPO            Moyen      FORT    -             FORT      FORT     -       -
 
 ### 5.3 Phase 3 -- Scoping par Projet
 
-**Duree estimee :** 2-3 semaines | **Equipe :** Tom
+**Duree estimee :** 2-3 semaines | **Equipe :** the maintainer
 
 | Critere Go/No-Go | Seuil | Methode de Verification |
 |-------------------|-------|------------------------|
@@ -1989,21 +1989,21 @@ DPO            Moyen      FORT    -             FORT      FORT     -       -
 
 ### 5.4 Phase 4 -- Enterprise-Grade
 
-**Duree estimee :** 3-4 semaines | **Equipe :** Tom + Cofondateur
+**Duree estimee :** 3-4 semaines | **Equipe :** the maintainer + Cofondateur
 
 | Critere Go/No-Go | Seuil | Methode de Verification |
 |-------------------|-------|------------------------|
 | Audit log immutable (pas d'UPDATE/DELETE) | 100% | Test : tenter un UPDATE sur audit_events -> echec |
-| Dashboards CEO et CTO rendus avec donnees reelles | Fonctionnel | Smoke test avec donnees de demo EnterpriseCustomer |
-| SSO SAML/OIDC fonctionnel (si inclus dans le scope demo) | 1 provider | Test : login via SSO EnterpriseCustomer -> session creee |
+| Dashboards CEO et CTO rendus avec donnees reelles | Fonctionnel | Smoke test avec donnees de demo your organization |
+| SSO SAML/OIDC fonctionnel (si inclus dans le scope demo) | 1 provider | Test : login via SSO your organization -> session creee |
 | Performance API <500ms P95 | Mesure | Load test basique (50 users simultanes) |
 
-**Condition No-Go :** La Phase 4 est partiellement optionnelle pour la demo EnterpriseCustomer. SSO et multi-tenant SaaS peuvent etre demontres "en plan" plutot qu'en production si le temps manque.
+**Condition No-Go :** La Phase 4 est partiellement optionnelle pour la demo your organization. SSO et multi-tenant SaaS peuvent etre demontres "en plan" plutot qu'en production si le temps manque.
 
 ### 5.5 Vue d'Ensemble Go/No-Go
 
 ```
-Phase 1 [GO] -----> Phase 2 [GO] -----> Phase 3 [GO] -----> Phase 4 [GO] -----> DEMO EnterpriseCustomer
+Phase 1 [GO] -----> Phase 2 [GO] -----> Phase 3 [GO] -----> Phase 4 [GO] -----> DEMO your organization
   |                   |                   |                   |
   | NO-GO:            | NO-GO:            | NO-GO:            | NO-GO:
   | PG externe KO     | hasPermission     | Scope fuite       | Audit non-immutable
@@ -2018,15 +2018,15 @@ Phase 1 [GO] -----> Phase 2 [GO] -----> Phase 3 [GO] -----> Phase 4 [GO] -----> 
 
 ## 6. Risk Assessment Business
 
-### 6.1 Risques Classes par Impact sur la Demo EnterpriseCustomer
+### 6.1 Risques Classes par Impact sur la Demo your organization
 
-| # | Risque | Probabilite | Impact Demo EnterpriseCustomer | Epics Impactes | Mitigation |
+| # | Risque | Probabilite | Impact Demo your organization | Epics Impactes | Mitigation |
 |---|--------|------------|-----------------|----------------|------------|
 | **R1** | Gestion compaction techniquement plus dure que prevu | Elevee | **CRITIQUE** -- sans compaction, l'orchestrateur est limite aux sessions courtes | Orchestrateur | Spike 1 semaine AVANT le dev principal. Kill+relance comme fallback. |
-| **R2** | Recrutement cofondateur retarde (>4 semaines) | Moyenne | **ELEVE** -- reduit la capacite de parallelisation, timeline depassee | Tous | Freelance senior pour la Piste B (containerisation). Tom prend la Piste A. |
+| **R2** | Recrutement cofondateur retarde (>4 semaines) | Moyenne | **ELEVE** -- reduit la capacite de parallelisation, timeline depassee | Tous | Freelance senior pour la Piste B (containerisation). the maintainer prend la Piste A. |
 | **R3** | hasPermission() + scope JSONB plus complexe que prevu | Faible | **CRITIQUE** -- faille de securite = demo impossible en B2B | RBAC, Scoping | DT1 est estime a 1-2j. Si >5j, simplifier le scope a "global-only" pour la demo et ajouter le scope fin post-demo. |
 | **R4** | Performance WebSocket en charge | Faible | **MOYEN** -- chat lent = mauvaise impression mais pas bloquant | Chat | Demo avec 5-10 users simultanes, pas 100. Load test en Phase 3. |
-| **R5** | Docker indisponible sur l'infra EnterpriseCustomer | Faible | **ELEVE** -- sans containerisation, pas d'isolation B2B | Containerisation | Verifier l'infra EnterpriseCustomer des la semaine 1. Plan B : processus isoles avec UID separes. |
+| **R5** | Docker indisponible sur l'infra entreprise | Faible | **ELEVE** -- sans containerisation, pas d'isolation B2B | Containerisation | Verifier l'infra entreprise des la semaine 1. Plan B : processus isoles avec UID separes. |
 | **R6** | Drift detection produit trop de faux positifs | Moyenne | **MOYEN** -- erode la confiance mais ne bloque pas la demo | Orchestrateur | Commencer avec des heuristiques simples (output vs expected file list). Seuil configurable. |
 | **R7** | Scope MVP trop ambitieux -- burnout equipe | Moyenne | **ELEVE** -- qualite degradee = mauvaise impression demo | Tous | Respecter strictement le MUST-HAVE. Tout NICE-TO-HAVE est coupable jusqu'a preuve du contraire. |
 
@@ -2039,7 +2039,7 @@ CRITICITE MAXIMALE (bloquent la demo) :
   3. R2 -- Recrutement       --> Freelance en backup
 
 CRITICITE ELEVEE (degradent la demo) :
-  4. R5 -- Docker @ EnterpriseCustomer      --> Verifier infra semaine 1
+  4. R5 -- Docker @ your organization      --> Verifier infra semaine 1
   5. R7 -- Scope trop large  --> Discipline MUST-HAVE only
 
 CRITICITE MOYENNE (gerees en runtime) :
@@ -2064,13 +2064,13 @@ Quel est l'impact si un epic prend 2 semaines de plus que prevu ?
 
 ---
 
-## 7. Split Cofondateurs : Tom vs Cofondateur
+## 7. Split Cofondateurs : the maintainer vs Cofondateur
 
 ### 7.1 Repartition par Noyau de Valeur
 
 | Cofondateur | Noyaux | Profil Requis | Epics |
 |------------|--------|---------------|-------|
-| **Tom** | B (Observabilite) + C (Onboarding) | Product Engineer -- UI/UX, adoption, import | Multi-User, Observabilite, Onboarding, Dual-Speed (UI) |
+| **the maintainer** | B (Observabilite) + C (Onboarding) | Product Engineer -- UI/UX, adoption, import | Multi-User, Observabilite, Onboarding, Dual-Speed (UI) |
 | **Cofondateur** | A (Orchestrateur) + D (A2A/Permissions) | Ingenieur Systeme -- moteur, compaction, state machine, drift, container | Orchestrateur, Containerisation, RBAC (backend), Scoping, Chat (backend) |
 | **Partage** | D (Observabilite & Audit) | Les deux contribuent | Audit log, dashboards |
 
@@ -2092,7 +2092,7 @@ COFONDATEUR: Spike Compaction      Orchestrateur v1      RBAC enforcement      C
 | Fin S2 | Phase 1 terminee + Spike compaction | Go/No-Go sur la strategie de compaction |
 | Fin S4 | RBAC + Orchestrateur v1 fonctionnels | Go/No-Go Phase 3 (scoping) ou pivot sur containerisation |
 | Fin S6 | Scoping + Observabilite fonctionnels | Evaluation : on attaque Phase 4 ou on polish le MVP ? |
-| Fin S8 | Containerisation + Chat | Go/No-Go Demo EnterpriseCustomer. Si retard, couper NICE-TO-HAVE restant. |
+| Fin S8 | Containerisation + Chat | Go/No-Go Demo your organization. Si retard, couper NICE-TO-HAVE restant. |
 | S9-10 | Preparation demo | Bug fixing, donnees demo, script demo, repetition |
 
 ### 7.4 Dependances Inter-Cofondateurs
@@ -2111,7 +2111,7 @@ COFONDATEUR -- Orchestrateur ---+--> Integration Transverse
                           [Chat = necessite Container en prod, mais peut demarrer sans]
 ```
 
-**Risque principal du split :** Le scoping (Phase 3) depend de travaux des DEUX cofondateurs (Multi-User par Tom, RBAC backend par le Cofondateur). Si l'un est en retard, le scoping est bloque. **Mitigation :** RBAC backend doit etre termine avant la fin de la semaine 4, sans exception.
+**Risque principal du split :** Le scoping (Phase 3) depend de travaux des DEUX cofondateurs (Multi-User par the maintainer, RBAC backend par le Cofondateur). Si l'un est en retard, le scoping est bloque. **Mitigation :** RBAC backend doit etre termine avant la fin de la semaine 4, sans exception.
 
 ---
 
@@ -2127,22 +2127,22 @@ COFONDATEUR -- Orchestrateur ---+--> Integration Transverse
 
 4. **Le spike compaction doit se faire en semaine 1-2**, avant meme que le developpement de l'orchestrateur commence. C'est le risque technique #1 du projet.
 
-5. **La demo EnterpriseCustomer est faisable en 8-10 semaines** avec 2 developpeurs, a condition de respecter STRICTEMENT le perimetre MUST-HAVE. Chaque NICE-TO-HAVE ajoute est une dette sur la timeline.
+5. **La demo your organization est faisable en 8-10 semaines** avec 2 developpeurs, a condition de respecter STRICTEMENT le perimetre MUST-HAVE. Chaque NICE-TO-HAVE ajoute est une dette sur la timeline.
 
-### 8.2 Criteres de Succes de la Demo EnterpriseCustomer
+### 8.2 Criteres de Succes de la Demo your organization
 
-Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un POC signe :
+Pour que la demo your organization soit consideree comme un succes et mene a un POC signe :
 
-- [ ] Le CTO EnterpriseCustomer peut inviter 3-5 membres avec des roles differents
+- [ ] Le CTO your organization peut inviter 3-5 membres avec des roles differents
 - [ ] Un workflow deterministe de 4+ etapes s'execute correctement
 - [ ] Un drift est detecte et affiche en <15 minutes
 - [ ] Un agent est arrete et relance proprement (kill+relance)
-- [ ] Le dev EnterpriseCustomer dialogue en temps reel avec son agent
+- [ ] Le dev your organization dialogue en temps reel avec son agent
 - [ ] Le CEO voit un dashboard de supervision avec KPIs agreges
 - [ ] Les agents sont containerises et les credentials isolees
 - [ ] L'audit log trace chaque action de maniere verifiable
 
-**Si ces 8 points sont couverts, le POC EnterpriseCustomer est gagne.**
+**Si ces 8 points sont couverts, le POC your organization est gagne.**
 
 ---
 
@@ -2161,13 +2161,13 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| MU-01 | Invitation par email avec lien signé (expire 7j) | S | 2 | 1-2j | Tom | `invites` table existe déjà, route `/api/invites` partielle dans routes/access.ts (2604 lignes). Besoin : endpoint POST complet, email sending (nodemailer ou Resend), lien signé avec token. Complexité modérée car l'infra email n'existe pas encore. |
+| MU-01 | Invitation par email avec lien signé (expire 7j) | S | 2 | 1-2j | the maintainer | `invites` table existe déjà, route `/api/invites` partielle dans routes/access.ts (2604 lignes). Besoin : endpoint POST complet, email sending (nodemailer ou Resend), lien signé avec token. Complexité modérée car l'infra email n'existe pas encore. |
 | MU-02 | Page Membres avec tableau, filtres, actions | M | 3 | 2-3j | Cofondateur | Frontend shadcn/ui + React Query. `company_memberships` existe. Besoin : GET /api/members enrichi (join user), composant DataTable avec filtres, actions bulk. Pattern existant dans issues list. |
-| MU-03 | Invitation bulk (CSV ou liste emails) | S | 2 | 1-2j | Tom | Extension de MU-01 : parsing CSV côté client, boucle sur le endpoint d'invitation, feedback par ligne. |
+| MU-03 | Invitation bulk (CSV ou liste emails) | S | 2 | 1-2j | the maintainer | Extension de MU-01 : parsing CSV côté client, boucle sur le endpoint d'invitation, feedback par ligne. |
 | MU-04 | Sélecteur de Company (multi-company) | S | 2 | 1j | Cofondateur | UI dropdown dans header, stockage company active en Zustand, filtrage API par companyId. Pattern simple. |
-| MU-05 | Désactivation signup libre (invitation-only) | S | 1 | 0.5j | Tom | Flag `invitationOnly` sur `companies`, check dans auth middleware. Trivial. |
-| MU-06 | Sign-out avec invalidation session | S | 1 | 0.5j | Tom | Better Auth a déjà le mécanisme. Besoin : bouton UI + appel endpoint + cleanup local. |
-| MU-07 | Migration PostgreSQL externe | M | 5 | 3-4j | Tom | **Story technique critique**. docker-compose.dev.yml avec PostgreSQL 16, config connexion .env, migration du SQLite embarqué, scripts de seed, documentation setup. Prérequis pour tout le reste. |
+| MU-05 | Désactivation signup libre (invitation-only) | S | 1 | 0.5j | the maintainer | Flag `invitationOnly` sur `companies`, check dans auth middleware. Trivial. |
+| MU-06 | Sign-out avec invalidation session | S | 1 | 0.5j | the maintainer | Better Auth a déjà le mécanisme. Besoin : bouton UI + appel endpoint + cleanup local. |
+| MU-07 | Migration PostgreSQL externe | M | 5 | 3-4j | the maintainer | **Story technique critique**. docker-compose.dev.yml avec PostgreSQL 16, config connexion .env, migration du SQLite embarqué, scripts de seed, documentation setup. Prérequis pour tout le reste. |
 
 **Risques Epic 1** :
 - MU-07 est un **bloquant** pour toutes les autres epics (RLS, multi-tenant, etc.)
@@ -2181,10 +2181,10 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| RBAC-01 | Fix hasPermission() — lire scope JSONB | M | 3 | 2j | Tom | **DETTE TECHNIQUE CRITIQUE (DT1)**. access.ts:45-66 ignore complètement `scope`. Requiert : lecture scope, parsing Zod, validation projectId. Impact : chaque route qui appelle hasPermission() est potentiellement vulnérable. Code existant = 268 lignes dans services/access.ts. Risque modéré car le fix est bien défini dans l'architecture (ADR-002). |
-| RBAC-02 | 9 nouvelles permission keys + presets par rôle | S | 2 | 1-2j | Tom | constants.ts : ajouter 9 keys (workflows.create/manage, agents.launch, stories.create/edit, audit.view/export, dashboard.view, chat.agent). role-presets.ts : matrice admin/manager/contributor/viewer. Modification simple, bien définie. |
+| RBAC-01 | Fix hasPermission() — lire scope JSONB | M | 3 | 2j | the maintainer | **DETTE TECHNIQUE CRITIQUE (DT1)**. access.ts:45-66 ignore complètement `scope`. Requiert : lecture scope, parsing Zod, validation projectId. Impact : chaque route qui appelle hasPermission() est potentiellement vulnérable. Code existant = 268 lignes dans services/access.ts. Risque modéré car le fix est bien défini dans l'architecture (ADR-002). |
+| RBAC-02 | 9 nouvelles permission keys + presets par rôle | S | 2 | 1-2j | the maintainer | constants.ts : ajouter 9 keys (workflows.create/manage, agents.launch, stories.create/edit, audit.view/export, dashboard.view, chat.agent). role-presets.ts : matrice admin/manager/contributor/viewer. Modification simple, bien définie. |
 | RBAC-03 | businessRole sur company_memberships | S | 2 | 1j | Cofondateur | Migration Drizzle : ajouter colonne `businessRole` enum (admin/manager/contributor/viewer) sur company_memberships. Migration data : tous les membres existants → admin. |
-| RBAC-04 | Enforcement dans 22 fichiers routes | L | 8 | 5-7j | Tom + Cofondateur | **La plus grosse story de l'epic.** Audit des 22 fichiers dans server/src/routes/. 3 fichiers critiques sans aucun check (approvals.ts, assets.ts, secrets.ts). Besoin : middleware `requirePermission(key, scopeExtractor?)` appliqué systématiquement. Travail mécanique mais volumineux et critique pour la sécurité. Splitting recommandé : Tom fait les routes critiques (approvals, assets, secrets, agents, workflows), Cofondateur fait le reste. |
+| RBAC-04 | Enforcement dans 22 fichiers routes | L | 8 | 5-7j | the maintainer + Cofondateur | **La plus grosse story de l'epic.** Audit des 22 fichiers dans server/src/routes/. 3 fichiers critiques sans aucun check (approvals.ts, assets.ts, secrets.ts). Besoin : middleware `requirePermission(key, scopeExtractor?)` appliqué systématiquement. Travail mécanique mais volumineux et critique pour la sécurité. Splitting recommandé : the maintainer fait les routes critiques (approvals, assets, secrets, agents, workflows), Cofondateur fait le reste. |
 | RBAC-05 | Navigation UI masquée selon permissions | M | 3 | 2-3j | Cofondateur | Hook `usePermissions()` côté React, `canUser()` basé sur les permissions du token. Items masqués du DOM (pas grisés). Impacte sidebar, menus contextuels, boutons d'action. |
 | RBAC-06 | UI admin matrice permissions + page rôles | M | 3 | 2-3j | Cofondateur | Composants shadcn/ui : PermissionMatrix (grille checkboxes), RoleSelector (dropdown), page /admin/roles. Pattern CRUD standard. |
 | RBAC-07 | Badges couleur par rôle | S | 1 | 0.5j | Cofondateur | Composant Badge shadcn/ui avec variant par rôle. Trivial. |
@@ -2206,9 +2206,9 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| PROJ-01 | Table project_memberships + migration | S | 2 | 1j | Tom | Nouvelle table Drizzle : id, userId, projectId, companyId, role, grantedBy, createdAt. Relations → users, projects, companies. Migration straightforward. |
-| PROJ-02 | Service project-memberships.ts | M | 3 | 2-3j | Tom | CRUD complet + validation scope JSONB dans hasPermission(). Intégration avec le fix RBAC-01. Filtrage des projets visibles par user. |
-| PROJ-03 | Filtrage agents/issues par scope projet | M | 5 | 3-5j | Tom | Modification de agents.ts (22782 lignes service, 52248 lignes routes) et issues.ts (50807 lignes service). Ajout de WHERE projectId IN (user_project_ids) sur toutes les queries. **Attention** : ces fichiers sont massifs, risque de régression élevé. Tests d'intégration obligatoires. |
+| PROJ-01 | Table project_memberships + migration | S | 2 | 1j | the maintainer | Nouvelle table Drizzle : id, userId, projectId, companyId, role, grantedBy, createdAt. Relations → users, projects, companies. Migration straightforward. |
+| PROJ-02 | Service project-memberships.ts | M | 3 | 2-3j | the maintainer | CRUD complet + validation scope JSONB dans hasPermission(). Intégration avec le fix RBAC-01. Filtrage des projets visibles par user. |
+| PROJ-03 | Filtrage agents/issues par scope projet | M | 5 | 3-5j | the maintainer | Modification de agents.ts (22782 lignes service, 52248 lignes routes) et issues.ts (50807 lignes service). Ajout de WHERE projectId IN (user_project_ids) sur toutes les queries. **Attention** : ces fichiers sont massifs, risque de régression élevé. Tests d'intégration obligatoires. |
 | PROJ-04 | Page ProjectAccess.tsx | M | 3 | 2-3j | Cofondateur | UI de gestion d'accès par projet : liste membres, ajout/retrait, sélection rôle. Composant shadcn/ui standard avec React Query. |
 
 **Risques Epic 3** :
@@ -2226,7 +2226,7 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 | ORCH-01 | State machine workflow-state-machine.ts | L | 8 | 5-7j | Cofondateur | **Nouveau système complet.** 12 transitions (CREATED→READY→IN_PROGRESS→VALIDATING→COMPLETED + PAUSED/FAILED/COMPACTING/SKIPPED). Guards sur chaque transition. Persistance état dans stage_instances. Base existante : workflow_templates + instances + stage_instances (3 tables) et workflows.ts service (266 lignes). Le service existant est un CRUD simple — il faut ajouter toute la logique d'enforcement. |
 | ORCH-02 | WorkflowEnforcer + fichiers obligatoires | L | 8 | 5-7j | Cofondateur | Vérification fichiers obligatoires avant transition. Injection pré-prompts par étape. Persistance résultats intermédiaires. Intégration avec la state machine ORCH-01. Nouveau fichier workflow-enforcer.ts ~300-500 lignes. |
 | ORCH-03 | Validation humaine configurable (HITL) | M | 5 | 3-4j | Cofondateur | Extension du système approvals existant (approvals.ts, 7614 lignes service). Ajout d'un step de validation humaine configurable par étape de workflow. WebSocket notification pour demande d'approbation. |
-| ORCH-04 | API routes orchestrateur | M | 3 | 2-3j | Tom | POST /workflows/:id/enforce, GET /drift/alerts, POST /drift/alerts/:id/resolve. Routes Express standard avec auth + RBAC. |
+| ORCH-04 | API routes orchestrateur | M | 3 | 2-3j | the maintainer | POST /workflows/:id/enforce, GET /drift/alerts, POST /drift/alerts/:id/resolve. Routes Express standard avec auth + RBAC. |
 | ORCH-05 | UI éditeur de workflow drag-and-drop | M | 5 | 3-5j | Cofondateur | Composant React : drag-and-drop d'étapes, configuration prompts/fichiers par étape, preview. Librairie dnd-kit ou react-beautiful-dnd. **P1 — peut être reporté au Sprint 3.** |
 
 **Risques Epic 4** :
@@ -2238,12 +2238,12 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 ### 2.5 Epic 5 — Drift Detection (FR-DRIFT)
 
-**Total Epic : 13-16 SP | ~1.5-2 semaines (principalement Tom)**
+**Total Epic : 13-16 SP | ~1.5-2 semaines (principalement the maintainer)**
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| DRIFT-01 | Fix drift en mémoire → persistance DB | M | 3 | 2-3j | Tom | **DETTE TECHNIQUE (DT2)**. drift.ts (405 lignes) utilise `reportCache = new Map()` — perdu au restart. Besoin : tables drift_reports + drift_items dans PostgreSQL. Migration des données in-memory vers DB. Tom connaît bien ce code. |
-| DRIFT-02 | Drift monitor service | M | 5 | 3-5j | Tom | Nouveau service drift-monitor.ts : comparaison attendu (workflow template) vs observé (heartbeat events). Alertes temps réel via WebSocket (live-events.ts existant). Intégration avec la state machine ORCH-01. |
+| DRIFT-01 | Fix drift en mémoire → persistance DB | M | 3 | 2-3j | the maintainer | **DETTE TECHNIQUE (DT2)**. drift.ts (405 lignes) utilise `reportCache = new Map()` — perdu au restart. Besoin : tables drift_reports + drift_items dans PostgreSQL. Migration des données in-memory vers DB. the maintainer connaît bien ce code. |
+| DRIFT-02 | Drift monitor service | M | 5 | 3-5j | the maintainer | Nouveau service drift-monitor.ts : comparaison attendu (workflow template) vs observé (heartbeat events). Alertes temps réel via WebSocket (live-events.ts existant). Intégration avec la state machine ORCH-01. |
 | DRIFT-03 | UI diff visuel drift | M | 5 | 3-5j | Cofondateur | Composant DriftAlert.tsx : vue comparée attendu/observé, diff visuel (similaire à un git diff), actions (recharger, kill+relance, ignorer). Notification badge dans sidebar. |
 
 **Risques Epic 5** :
@@ -2258,9 +2258,9 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| OBS-01 | Table audit_events + migration | M | 5 | 3-4j | Tom | **Table critique.** Partitionnée par mois (PARTITION BY RANGE createdAt). TRIGGER deny UPDATE/DELETE. Colonnes : companyId, actorId, actorType, action, targetType, targetId, metadata JSONB, ipAddress, prevHash, createdAt. Rôles PostgreSQL séparés (mnm_app vs mnm_audit_admin). Plus complexe qu'une migration standard à cause du partitionnement et des triggers. |
-| OBS-02 | Service audit.ts + emission systématique | M | 5 | 3-5j | Tom | Service centralisé pour émettre des audit events depuis toutes les routes. Intégration avec les 22 fichiers de routes. Pattern : middleware ou helper `emitAudit(action, target, metadata)`. Volume de travail mécanique mais important. |
-| OBS-03 | Résumé LLM actions agent (<5s) | M | 3 | 2-3j | Tom | audit-summarizer.ts : appel Haiku pour traduire les logs techniques en langage naturel. Intégration avec heartbeat_run_events. Cache Redis pour éviter les appels LLM redondants. Tom connaît bien le heartbeat. |
+| OBS-01 | Table audit_events + migration | M | 5 | 3-4j | the maintainer | **Table critique.** Partitionnée par mois (PARTITION BY RANGE createdAt). TRIGGER deny UPDATE/DELETE. Colonnes : companyId, actorId, actorType, action, targetType, targetId, metadata JSONB, ipAddress, prevHash, createdAt. Rôles PostgreSQL séparés (mnm_app vs mnm_audit_admin). Plus complexe qu'une migration standard à cause du partitionnement et des triggers. |
+| OBS-02 | Service audit.ts + emission systématique | M | 5 | 3-5j | the maintainer | Service centralisé pour émettre des audit events depuis toutes les routes. Intégration avec les 22 fichiers de routes. Pattern : middleware ou helper `emitAudit(action, target, metadata)`. Volume de travail mécanique mais important. |
+| OBS-03 | Résumé LLM actions agent (<5s) | M | 3 | 2-3j | the maintainer | audit-summarizer.ts : appel Haiku pour traduire les logs techniques en langage naturel. Intégration avec heartbeat_run_events. Cache Redis pour éviter les appels LLM redondants. the maintainer connaît bien le heartbeat. |
 | OBS-04 | UI AuditLog.tsx + filtres + export | M | 5 | 3-5j | Cofondateur | Composant DataTable avec 12 filtres (acteur, action, target, date range, company, etc.). Export CSV/JSON. Virtualisation TanStack Virtual pour les grandes listes. Pattern similaire à la page issues existante. |
 
 **Risques Epic 6** :
@@ -2275,9 +2275,9 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| CHAT-01 | WebSocket bidirectionnel | L | 8 | 5-7j | Tom | **DETTE TECHNIQUE (DT3)**. live-events.ts actuel = 40 lignes, unidirectionnel (serveur→client). Besoin : protocole de messages typé bidirectionnel, routing par channelId, authentification WebSocket. Extension majeure du système WebSocket existant. Tom connaît ce code. |
-| CHAT-02 | Tables chat_channels + chat_messages | S | 2 | 1j | Tom | 2 tables Drizzle : chat_channels (id, agentId, heartbeatRunId, companyId, status), chat_messages (id, channelId, senderId, senderType, content, createdAt). Migration standard. |
-| CHAT-03 | ChatService + pipe stdin agent | M | 5 | 3-5j | Tom | Service chat-service.ts : réception message WebSocket → persistance DB → pipe vers stdin de l'agent containerisé. Reconnexion avec buffer 30s. Rate limiting 10 msg/min. Dépend de la containerisation (Epic 8) pour le pipe stdin. |
+| CHAT-01 | WebSocket bidirectionnel | L | 8 | 5-7j | the maintainer | **DETTE TECHNIQUE (DT3)**. live-events.ts actuel = 40 lignes, unidirectionnel (serveur→client). Besoin : protocole de messages typé bidirectionnel, routing par channelId, authentification WebSocket. Extension majeure du système WebSocket existant. the maintainer connaît ce code. |
+| CHAT-02 | Tables chat_channels + chat_messages | S | 2 | 1j | the maintainer | 2 tables Drizzle : chat_channels (id, agentId, heartbeatRunId, companyId, status), chat_messages (id, channelId, senderId, senderType, content, createdAt). Migration standard. |
+| CHAT-03 | ChatService + pipe stdin agent | M | 5 | 3-5j | the maintainer | Service chat-service.ts : réception message WebSocket → persistance DB → pipe vers stdin de l'agent containerisé. Reconnexion avec buffer 30s. Rate limiting 10 msg/min. Dépend de la containerisation (Epic 8) pour le pipe stdin. |
 | CHAT-04 | AgentChatPanel.tsx + useAgentChat hook | M | 3 | 2-3j | Cofondateur | Composant React : panel de chat dans la vue agent, messages en temps réel, indicateur de frappe, scroll auto. Hook useAgentChat avec WebSocket client. Pattern existant dans les composants issues. |
 
 **Risques Epic 7** :
@@ -2297,7 +2297,7 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 | CONT-02 | Credential Proxy HTTP | L | 8 | 5-7j | Cofondateur | Nouveau service credential-proxy.ts. Serveur HTTP interne (port 8090). Résolution secrets via le provider existant (secrets.ts, 4 providers : local/AWS/GCP/Vault). Mount bind `/dev/null` sur `.env` dans le container. Pattern Nanoclaw. |
 | CONT-03 | Mount allowlist tamper-proof | M | 5 | 3-4j | Cofondateur | Validation `realpath()` + interdiction symlinks + blocage null bytes + URL encoding. Configuration allowlist par company dans container_profiles. Tests de sécurité exhaustifs (path traversal). |
 | CONT-04 | Isolation réseau Docker | M | 3 | 2-3j | Cofondateur | Bridge Docker par company. Pas de communication inter-company. Configuration réseau dans docker-compose. |
-| CONT-05 | Tables container_profiles + container_instances | S | 2 | 1j | Tom | 2 tables Drizzle + migration. container_profiles (name, cpu, memory, disk, timeout, mountAllowlist, companyId), container_instances (profileId, agentId, containerId, status, startedAt, stoppedAt). |
+| CONT-05 | Tables container_profiles + container_instances | S | 2 | 1j | the maintainer | 2 tables Drizzle + migration. container_profiles (name, cpu, memory, disk, timeout, mountAllowlist, companyId), container_instances (profileId, agentId, containerId, status, startedAt, stoppedAt). |
 | CONT-06 | UI ContainerStatus.tsx | M | 3 | 2-3j | Cofondateur | Composant : statut container en temps réel, métriques CPU/RAM, logs, boutons start/stop. Intégration WebSocket pour les updates live. |
 
 **Risques Epic 8** :
@@ -2311,7 +2311,7 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 ### 2.9 Epic 9 — Gestion Compaction (FR-COMP)
 
-**Total Epic : 21-26 SP | ~2.5-3 semaines (Cofondateur, support Tom)**
+**Total Epic : 21-26 SP | ~2.5-3 semaines (Cofondateur, support the maintainer)**
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
@@ -2341,12 +2341,12 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 ### 2.11 Epic 11 — SSO (FR-SSO)
 
-**Total Epic : 8-10 SP | ~1 semaine (Tom)**
+**Total Epic : 8-10 SP | ~1 semaine (the maintainer)**
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| SSO-01 | Table sso_configurations + config | S | 2 | 1j | Tom | Table Drizzle : id, companyId, provider (saml/oidc), config JSONB, enabled. Migration standard. |
-| SSO-02 | Better Auth plugins SAML/OIDC | M | 3 | 2-3j | Tom | Intégration plugins Better Auth. Config dynamique par company (chaque company peut avoir son propre IdP). Flux : user → login page → redirect IdP → callback → création/mapping user → session. |
+| SSO-01 | Table sso_configurations + config | S | 2 | 1j | the maintainer | Table Drizzle : id, companyId, provider (saml/oidc), config JSONB, enabled. Migration standard. |
+| SSO-02 | Better Auth plugins SAML/OIDC | M | 3 | 2-3j | the maintainer | Intégration plugins Better Auth. Config dynamique par company (chaque company peut avoir son propre IdP). Flux : user → login page → redirect IdP → callback → création/mapping user → session. |
 | SSO-03 | UI configuration SSO | M | 3 | 2-3j | Cofondateur | Formulaire admin : choix provider (SAML/OIDC), champs de configuration (entity ID, SSO URL, certificate, etc.), bouton de test, statut connexion. Guide pas-à-pas intégré. |
 
 **Risques Epic 11** :
@@ -2361,9 +2361,9 @@ Pour que la demo EnterpriseCustomer soit consideree comme un succes et mene a un
 
 | Story | Description | Taille | SP | Effort | Assignation | Justification |
 |-------|-------------|--------|-----|--------|-------------|---------------|
-| DASH-01 | API dashboards agrégés | M | 5 | 3-4j | Tom | Endpoints GET /dashboards/:type (executive, technical, operational). Queries agrégées avec k-anonymity (k=5). Vues matérialisées PostgreSQL avec GROUP BY obligatoire. Interdiction architecturale du drill-down individuel (Vérité #20). |
+| DASH-01 | API dashboards agrégés | M | 5 | 3-4j | the maintainer | Endpoints GET /dashboards/:type (executive, technical, operational). Queries agrégées avec k-anonymity (k=5). Vues matérialisées PostgreSQL avec GROUP BY obligatoire. Interdiction architecturale du drill-down individuel (Vérité #20). |
 | DASH-02 | DashboardCards.tsx par rôle | M | 3 | 2-3j | Cofondateur | Composants : cards KPI, graphiques (recharts ou visx), filtres par période. Vue différente par rôle : CEO (vue stratégique), CTO (vue technique), Manager (vue opérationnelle). |
-| DASH-03 | Dashboard temps réel via WebSocket | S | 2 | 1-2j | Tom | Push updates dashboard via WebSocket existant. Rafraîchissement automatique des métriques toutes les 30s. |
+| DASH-03 | Dashboard temps réel via WebSocket | S | 2 | 1-2j | the maintainer | Push updates dashboard via WebSocket existant. Rafraîchissement automatique des métriques toutes les 30s. |
 
 ---
 
@@ -2373,14 +2373,14 @@ Ces stories ne correspondent à aucun FR mais sont **indispensables** pour que l
 
 | # | Story | Taille | SP | Effort | Assignation | Justification | Bloque |
 |---|-------|--------|-----|--------|-------------|---------------|--------|
-| TECH-01 | Docker Compose dev/test/prod | M | 5 | 3-4j | Tom | docker-compose.dev.yml (PostgreSQL 16, Redis 7, server, ui), docker-compose.test.yml (PostgreSQL de test), Dockerfile server + ui. **Prérequis pour toute containerisation.** | Epic 8 |
-| TECH-02 | CI/CD Pipeline GitHub Actions | L | 8 | 5-7j | Tom | Pipeline complet : QG-0 (lint+TS) → QG-1 (unit) → QG-2 (integration) → QG-3 (security) → QG-4 (perf) → QG-5 (E2E) → QG-6 (review). Caching pnpm, Docker layers, Cypress binary. ~15-22 min. | Déploiement |
-| TECH-03 | Infrastructure de test (factories + seed) | M | 5 | 3-4j | Tom | Factories TypeScript : createTestUser(), createTestCompany(), createTestAgent(), createTestWorkflow(). Seed E2E pour Cypress. Embedded-postgres pour tests d'intégration. Pattern mock : mocker LLM providers, JAMAIS la DB. | Tous les tests |
-| TECH-04 | Redis setup + session/cache | M | 3 | 2-3j | Tom | Redis pour : sessions (au lieu de DB), query cache, WebSocket pub/sub (multi-instance), rate limiting. docker-compose + config Node. | Performance, scaling |
-| TECH-05 | RLS PostgreSQL (14 tables) | L | 8 | 5-7j | Tom | **Story de sécurité critique.** CREATE POLICY sur 14 tables (toutes sauf user, session, account, verification, instance_user_roles, migrations, assets, inbox_dismissals). SET LOCAL app.current_company_id au début de chaque requête. Tests d'isolation cross-company. | Multi-tenant |
-| TECH-06 | Migration DB : 10 nouvelles tables | M | 5 | 3-4j | Tom | Création des 10 tables listées dans le domain model (Section 5.3 PRD). Migration Drizzle avec rollback scripts. Seed de données de test. | Toutes les epics |
-| TECH-07 | Migration DB : colonnes ajoutées sur 5 tables | S | 2 | 1j | Tom | companies (+tier, ssoEnabled, maxUsers, parentCompanyId), company_memberships (+businessRole), agents (+containerProfileId, isolationMode), principal_permission_grants (+9 keys), activity_log (+ipAddress, userAgent, severity). | Epic 2, 3 |
-| TECH-08 | Refactoring heartbeat.ts (2396 → modules) | M | 5 | 3-5j | Tom | **DETTE TECHNIQUE (DT7)**. Splitting en modules : heartbeat-core.ts, heartbeat-events.ts, heartbeat-compaction.ts, heartbeat-metrics.ts. Nécessaire avant d'intégrer le CompactionWatcher (Epic 9). | Epic 9 |
+| TECH-01 | Docker Compose dev/test/prod | M | 5 | 3-4j | the maintainer | docker-compose.dev.yml (PostgreSQL 16, Redis 7, server, ui), docker-compose.test.yml (PostgreSQL de test), Dockerfile server + ui. **Prérequis pour toute containerisation.** | Epic 8 |
+| TECH-02 | CI/CD Pipeline GitHub Actions | L | 8 | 5-7j | the maintainer | Pipeline complet : QG-0 (lint+TS) → QG-1 (unit) → QG-2 (integration) → QG-3 (security) → QG-4 (perf) → QG-5 (E2E) → QG-6 (review). Caching pnpm, Docker layers, Cypress binary. ~15-22 min. | Déploiement |
+| TECH-03 | Infrastructure de test (factories + seed) | M | 5 | 3-4j | the maintainer | Factories TypeScript : createTestUser(), createTestCompany(), createTestAgent(), createTestWorkflow(). Seed E2E pour Cypress. Embedded-postgres pour tests d'intégration. Pattern mock : mocker LLM providers, JAMAIS la DB. | Tous les tests |
+| TECH-04 | Redis setup + session/cache | M | 3 | 2-3j | the maintainer | Redis pour : sessions (au lieu de DB), query cache, WebSocket pub/sub (multi-instance), rate limiting. docker-compose + config Node. | Performance, scaling |
+| TECH-05 | RLS PostgreSQL (14 tables) | L | 8 | 5-7j | the maintainer | **Story de sécurité critique.** CREATE POLICY sur 14 tables (toutes sauf user, session, account, verification, instance_user_roles, migrations, assets, inbox_dismissals). SET LOCAL app.current_company_id au début de chaque requête. Tests d'isolation cross-company. | Multi-tenant |
+| TECH-06 | Migration DB : 10 nouvelles tables | M | 5 | 3-4j | the maintainer | Création des 10 tables listées dans le domain model (Section 5.3 PRD). Migration Drizzle avec rollback scripts. Seed de données de test. | Toutes les epics |
+| TECH-07 | Migration DB : colonnes ajoutées sur 5 tables | S | 2 | 1j | the maintainer | companies (+tier, ssoEnabled, maxUsers, parentCompanyId), company_memberships (+businessRole), agents (+containerProfileId, isolationMode), principal_permission_grants (+9 keys), activity_log (+ipAddress, userAgent, severity). | Epic 2, 3 |
+| TECH-08 | Refactoring heartbeat.ts (2396 → modules) | M | 5 | 3-5j | the maintainer | **DETTE TECHNIQUE (DT7)**. Splitting en modules : heartbeat-core.ts, heartbeat-events.ts, heartbeat-compaction.ts, heartbeat-metrics.ts. Nécessaire avant d'intégrer le CompactionWatcher (Epic 9). | Epic 9 |
 
 **Total Stories Techniques : 41 SP | ~4-5 semaines**
 
@@ -2433,7 +2433,7 @@ TECH-01 (Docker Compose) ──► CONT-01 (ContainerManager)
 
 ### 5.2 Chemins Critiques
 
-**Chemin A (Product/RBAC)** — Tom principalement :
+**Chemin A (Product/RBAC)** — the maintainer principalement :
 ```
 MU-07 → TECH-06/07 → RBAC-01 → RBAC-02 → RBAC-04 → PROJ-01 → PROJ-03
 Durée : ~5-6 semaines
@@ -2449,11 +2449,11 @@ Durée : ~8-10 semaines
 
 ---
 
-## 6. Répartition Tom vs Cofondateur
+## 6. Répartition the maintainer vs Cofondateur
 
-### 6.1 Tom (Cofondateur existant — Backend + Observabilité)
+### 6.1 the maintainer (Cofondateur existant — Backend + Observabilité)
 
-Tom connaît la codebase, donc il prend :
+the maintainer connaît la codebase, donc il prend :
 - **Infra & migrations** : TECH-01 à TECH-08, MU-07
 - **RBAC backend** : RBAC-01, RBAC-02, RBAC-04 (routes critiques)
 - **Observabilité** : OBS-01, OBS-02, OBS-03, DRIFT-01
@@ -2461,7 +2461,7 @@ Tom connaît la codebase, donc il prend :
 - **SSO backend** : SSO-01, SSO-02
 - **API routes** : ORCH-04, DASH-01, DASH-03, CONT-05
 
-**Charge Tom : ~115-140 SP | ~12-14 semaines full-time**
+**Charge the maintainer : ~115-140 SP | ~12-14 semaines full-time**
 
 ### 6.2 Cofondateur Technique (À recruter — Orchestration + Agents + Frontend)
 
@@ -2477,10 +2477,10 @@ Le Cofondateur technique prend les systèmes nouveaux qui ne requièrent pas de 
 
 | Semaine | Sujet | Participants |
 |---------|-------|-------------|
-| S1 | Setup Docker + PostgreSQL + premiers tests | Tom + Cofondateur |
-| S2 | Review RBAC-01 (fix sécurité scope) | Tom → Cofondateur review |
-| S4 | Intégration state machine + heartbeat | Cofondateur → Tom review |
-| S6 | Review credential proxy + container security | Cofondateur → Tom + externe |
+| S1 | Setup Docker + PostgreSQL + premiers tests | the maintainer + Cofondateur |
+| S2 | Review RBAC-01 (fix sécurité scope) | the maintainer → Cofondateur review |
+| S4 | Intégration state machine + heartbeat | Cofondateur → the maintainer review |
+| S6 | Review credential proxy + container security | Cofondateur → the maintainer + externe |
 | S8 | POC compaction : spike technique 1 semaine | Les deux devs ensemble |
 | S10 | Intégration complète + smoke tests | Les deux devs ensemble |
 
@@ -2541,7 +2541,7 @@ Le Cofondateur technique prend les systèmes nouveaux qui ne requièrent pas de 
 | **Sprint 9** | S19-S20 | Curseur + Dashboards + Polish | 25 | DUAL-01/02/03, DASH-01/02/03, ORCH-05, TECH-02 (CI/CD) |
 | **Sprint 10** | S21-S22 | Stabilisation + Tests E2E | 20 | TECH-04 (Redis), smoke tests, performance, bug fixes |
 
-**Jalon EnterpriseCustomer (juin 2026)** : Après Sprint 5 (~S12 = début juin), le MVP est **vendable** avec : multi-user, RBAC, scoping, orchestrateur v1, drift basique, containerisation P1. C'est le moment de la démo EnterpriseCustomer.
+**Jalon your organization (juin 2026)** : Après Sprint 5 (~S12 = début juin), le MVP est **vendable** avec : multi-user, RBAC, scoping, orchestrateur v1, drift basique, containerisation P1. C'est le moment de la démo your organization.
 
 ---
 
@@ -2609,13 +2609,13 @@ Le Cofondateur technique prend les systèmes nouveaux qui ne requièrent pas de 
 
 | Story | Raison du report | Impact |
 |-------|-----------------|--------|
-| ORCH-05 (UI drag-and-drop workflow) | P1, éditeur YAML suffit pour le MVP EnterpriseCustomer | Faible — CTO EnterpriseCustomer peut configurer en YAML |
+| ORCH-05 (UI drag-and-drop workflow) | P1, éditeur YAML suffit pour le MVP your organization | Faible — CTO your organization peut configurer en YAML |
 | COMP-03 (réinjection post-compaction) | P1, kill+relance suffit pour le MVP | Moyen — fonctionnel mais moins élégant |
 | DASH-02/03 (dashboards temps réel) | P1, des dashboards statiques suffisent | Faible — refresh manuel acceptable |
-| SSO-01/02/03 | P1 Enterprise, pas nécessaire pour le POC EnterpriseCustomer | Nul pour le POC — EnterpriseCustomer utilise email/password |
+| SSO-01/02/03 | P1 Enterprise, pas nécessaire pour le POC your organization | Nul pour le POC — your organization utilise email/password |
 | OBS-03 (résumé LLM) | P1, les logs techniques bruts suffisent pour le MVP | Moyen — expérience dégradée mais fonctionnelle |
 
-**En reportant ces stories (~25-30 SP), le MVP EnterpriseCustomer tombe à ~220-275 SP soit 8-10 sprints (16-20 semaines).**
+**En reportant ces stories (~25-30 SP), le MVP your organization tombe à ~220-275 SP soit 8-10 sprints (16-20 semaines).**
 
 ### 9.4 Alerte sur la Timeline PRD
 
@@ -2627,10 +2627,10 @@ Le PRD annonce **8-10 semaines**. Mon estimation réaliste est **20-22 semaines 
 4. Les **spikes R&D** (compaction, container POC) ne sont pas comptés
 5. Les **tests et CI/CD** ne sont pas comptés
 
-**Pour respecter la deadline EnterpriseCustomer (juin 2026)**, il faut :
+**Pour respecter la deadline your organization (juin 2026)**, il faut :
 - Reporter SSO, dashboards avancés, et résumé LLM au post-MVP
 - Focus Sprint 0-5 (12 semaines) sur le core : multi-user, RBAC, orchestrateur, containerisation v1
-- Accepter un MVP "rugueux" pour le POC EnterpriseCustomer et polir en Sprint 6-10
+- Accepter un MVP "rugueux" pour le POC your organization et polir en Sprint 6-10
 
 ---
 
@@ -5136,4 +5136,4 @@ La stratégie de test MnM B2B repose sur trois piliers :
 ---
 
 *Sprint Planning B2B v2.0 (document consolide) — 7 parties, 7 auteurs — Bob (structure & stories), Winston (sequencage), John (priorisation), Amelia (estimations), Quinn (DoD & QA), Sally (UX), Murat (tests).*
-*47 stories, 12+ epics, 7 sprints, 197 SP planifies (MVP EnterpriseCustomer), timeline 13 semaines, ~525 tests prevus, 13 criteres DoD, 31 ACs Given/When/Then, 42 edge cases.*
+*47 stories, 12+ epics, 7 sprints, 197 SP planifies (MVP your organization), timeline 13 semaines, ~525 tests prevus, 13 criteres DoD, 31 ACs Given/When/Then, 42 edge cases.*

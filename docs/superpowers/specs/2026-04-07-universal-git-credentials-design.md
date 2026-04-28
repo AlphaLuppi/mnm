@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-07
 **Status:** Draft — en attente de review
-**Auteur:** tom.andrieu
+**Auteur:** your-username
 **Epic:** Universal Git Provider & Credential Store
 **Priorite:** High
 

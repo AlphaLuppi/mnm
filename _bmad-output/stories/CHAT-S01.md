@@ -10,7 +10,7 @@
 | **Sprint** | Sprint 3 (Batch 6) |
 | **Effort** | L (8 SP, 5-7j) |
 | **Priorite** | P0 -- Prerequis chat temps reel |
-| **Assignation** | Tom (backend) |
+| **Assignation** | the maintainer (backend) |
 | **Bloque par** | TECH-04 (Redis setup -- DONE) |
 | **Debloque** | CHAT-S03 (ChatService pipe stdin), CHAT-S04 (AgentChatPanel UI), DASH-S03 (Dashboard temps reel) |
 | **ADR** | ADR-005 (Chat Temps Reel -- WebSocket Bidirectionnel) |
@@ -24,7 +24,7 @@
 
 ### Contexte -- Pourquoi cette story est critique
 
-Le chat bidirectionnel est le "moment emotionnel de la demo" (epics-b2b.md, impact 7/10). Aujourd'hui, `live-events-ws.ts` est strictement unidirectionnel : le serveur pousse des LiveEvents vers les clients, mais les clients ne peuvent rien envoyer en retour. Pour la demo EnterpriseCustomer, un dev doit pouvoir taper "Utilise le pattern Repository" dans un chat et voir l'agent s'adapter en temps reel.
+Le chat bidirectionnel est le "moment emotionnel de la demo" (epics-b2b.md, impact 7/10). Aujourd'hui, `live-events-ws.ts` est strictement unidirectionnel : le serveur pousse des LiveEvents vers les clients, mais les clients ne peuvent rien envoyer en retour. Pour la demo your organization, un dev doit pouvoir taper "Utilise le pattern Repository" dans un chat et voir l'agent s'adapter en temps reel.
 
 Cette story transforme le systeme realtime de MnM : d'un flux unidirectionnel (serveur -> client) vers un protocole bidirectionnel type (client <-> serveur) avec authentification WebSocket, routage par channelId, persistance des messages, reconnexion avec rattrapage, et rate limiting.
 

@@ -43,5 +43,16 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": "Alpha Luppi (Studio Manifeste)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlphaLuppi/mnm.git",
+    "directory": "packages/db"
+  },
+  "homepage": "https://github.com/AlphaLuppi/mnm",
+  "bugs": {
+    "url": "https://github.com/AlphaLuppi/mnm/issues"
   }
 }

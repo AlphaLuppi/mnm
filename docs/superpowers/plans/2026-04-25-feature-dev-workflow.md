@@ -1,10 +1,10 @@
-# Plan d'implémentation — Workflow démo EnterpriseCustomer `feature-dev`
+# Plan d'implémentation — Workflow démo your organization `feature-dev`
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Livrer un workflow MnM gouverné `feature-dev` complet (workflow.json + 2 gates custom + 4 agents) hébergé sur `lab.enterprise.example/tom.andrieu/`, prêt à dérouler en live pour la démo plénière EnterpriseCustomer en 5-10 min.
+**Goal:** Livrer un workflow MnM gouverné `feature-dev` complet (workflow.json + 2 gates custom + 4 agents) hébergé sur `gitlab.example.com/your-username/`, prêt à dérouler en live pour la démo plénière your organization en 5-10 min.
 
-**Architecture:** Deux repos GitLab séparés sur `lab.enterprise.example/tom.andrieu/` — `mnm-demo-workflows` (héberge le workflow + gates + agents) et `mnm-demo-app` (le repo "feature" où le dev se passe). Les gates custom (`approval-granted`, `mr-approved`) sont du TS pur, sans accès réseau (isolated-vm), qui lisent l'artifact du step. L'agent `review-watcher` fait l'appel MCP GitLab et produit l'artifact que la gate `mr-approved` vérifiera.
+**Architecture:** Deux repos GitLab séparés sur `gitlab.example.com/your-username/` — `mnm-workflows-demo` (héberge le workflow + gates + agents) et `mnm-demo-app` (le repo "feature" où le dev se passe). Les gates custom (`approval-granted`, `mr-approved`) sont du TS pur, sans accès réseau (isolated-vm), qui lisent l'artifact du step. L'agent `review-watcher` fait l'appel MCP GitLab et produit l'artifact que la gate `mr-approved` vérifiera.
 
 **Tech Stack:** TypeScript (gates), `@mnm/governed-workflows` (defineGate), vitest (tests gates), bun (test runner du repo demo-app), MCP `mcp__plugin_atlassian_atlassian__*` (lecture Jira), MCP `mcp__plugin_gitlab_gitlab__*` (branche, MR, approvals, merge, tag).
 
@@ -14,12 +14,12 @@
 
 ## File Structure
 
-Tous les chemins ci-dessous sont **dans un dossier de travail local hors du repo `mnm`**, par exemple `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/` et `~/IdeaProjects/perso/alphalup/mnm-demo-app/`. Ces deux dossiers seront poussés en repos distincts sur `lab.enterprise.example/tom.andrieu/`.
+Tous les chemins ci-dessous sont **dans un dossier de travail local hors du repo `mnm`**, par exemple `~/projects/mnm-workflows-demo/` et `~/projects/mnm-demo-app/`. Ces deux dossiers seront poussés en repos distincts sur `gitlab.example.com/your-username/`.
 
-### Repo `mnm-demo-workflows`
+### Repo `mnm-workflows-demo`
 
 ```
-mnm-demo-workflows/
+mnm-workflows-demo/
 ├── README.md                              # pitch + usage 10 lignes
 ├── package.json                           # vitest, typescript, @mnm/governed-workflows
 ├── tsconfig.json                          # strict, NodeNext
@@ -55,27 +55,27 @@ mnm-demo-app/
 
 ### Ressources externes (manuel / CLI)
 
-- Projet GitLab `lab.enterprise.example/example-org/mnm-demo-workflows` (créé via CLI/UI)
-- Projet GitLab `lab.enterprise.example/example-org/mnm-demo-app` (créé via CLI/UI, branche par défaut protégée avec règle "≥ 2 approvals")
+- Projet GitLab `gitlab.example.com/your-username/mnm-workflows-demo` (créé via CLI/UI)
+- Projet GitLab `gitlab.example.com/your-username/mnm-demo-app` (créé via CLI/UI, branche par défaut protégée avec règle "≥ 2 approvals")
 - Ticket Jira `AY-DEMO-1` (créé via UI Atlassian ou MCP)
-- 2 comptes lab.enterprise.example pour pouvoir approuver les MR (Tom + un compte secondaire ou collègue)
+- 2 comptes gitlab.example.com pour pouvoir approuver les MR (the maintainer + un compte secondaire ou collègue)
 
 ---
 
-## Task 1 : Bootstrap du repo `mnm-demo-workflows`
+## Task 1 : Bootstrap du repo `mnm-workflows-demo`
 
 **Files:**
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/.gitignore`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/package.json`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/tsconfig.json`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/vitest.config.ts`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/README.md`
+- Create: `~/projects/mnm-workflows-demo/.gitignore`
+- Create: `~/projects/mnm-workflows-demo/package.json`
+- Create: `~/projects/mnm-workflows-demo/tsconfig.json`
+- Create: `~/projects/mnm-workflows-demo/vitest.config.ts`
+- Create: `~/projects/mnm-workflows-demo/README.md`
 
 - [ ] **Step 1.1 : Créer le dossier et initialiser git**
 
 ```bash
-mkdir -p ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
+mkdir -p ~/projects/mnm-workflows-demo
+cd ~/projects/mnm-workflows-demo
 git init -b main
 ```
 
@@ -94,7 +94,7 @@ dist/
 
 ```json
 {
-  "name": "mnm-demo-workflows",
+  "name": "mnm-workflows-demo",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -148,9 +148,9 @@ export default defineConfig({
 - [ ] **Step 1.6 : Créer `README.md`**
 
 ```markdown
-# mnm-demo-workflows
+# mnm-workflows-demo
 
-Workflow MnM démo EnterpriseCustomer — `feature-dev` : de Jira à la prod, gouverné en 4 steps.
+Workflow MnM démo your organization — `feature-dev` : de Jira à la prod, gouverné en 4 steps.
 
 ## Lancer
 
@@ -160,7 +160,7 @@ launch_governed_workflow(
   name: "feature-dev",
   variables: {
     ticket_id: "AY-DEMO-1",
-    gitlab_project: "example-org/mnm-demo-app"
+    gitlab_project: "your-username/mnm-demo-app"
   }
 )
 ```
@@ -190,7 +190,7 @@ npm test
 ```bash
 npm install
 git add .
-git commit -m "chore: bootstrap mnm-demo-workflows scaffold"
+git commit -m "chore: bootstrap mnm-workflows-demo scaffold"
 ```
 
 Expected: install OK, commit créé.
@@ -207,25 +207,25 @@ Expected: install OK, commit créé.
 
 - [ ] **Step 2.1 : Copier `artifact-exists.gate.ts`**
 
-Source : `~/IdeaProjects/perso/alphalup/mnm/packages/gate-runner/canonical/artifact-exists.gate.ts`
-Dest : `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/gates/artifact-exists.gate.ts`
+Source : `~/projects/mnm/packages/gate-runner/canonical/artifact-exists.gate.ts`
+Dest : `~/projects/mnm-workflows-demo/gates/artifact-exists.gate.ts`
 
 ```bash
-cp ~/IdeaProjects/perso/alphalup/mnm/packages/gate-runner/canonical/artifact-exists.gate.ts \
-   ~/IdeaProjects/perso/alphalup/mnm-demo-workflows/gates/artifact-exists.gate.ts
+cp ~/projects/mnm/packages/gate-runner/canonical/artifact-exists.gate.ts \
+   ~/projects/mnm-workflows-demo/gates/artifact-exists.gate.ts
 ```
 
 - [ ] **Step 2.2 : Copier `step-succeeded.gate.ts`**
 
 ```bash
-cp ~/IdeaProjects/perso/alphalup/mnm/packages/gate-runner/canonical/step-succeeded.gate.ts \
-   ~/IdeaProjects/perso/alphalup/mnm-demo-workflows/gates/step-succeeded.gate.ts
+cp ~/projects/mnm/packages/gate-runner/canonical/step-succeeded.gate.ts \
+   ~/projects/mnm-workflows-demo/gates/step-succeeded.gate.ts
 ```
 
 - [ ] **Step 2.3 : Vérifier que TypeScript compile (typecheck)**
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
+cd ~/projects/mnm-workflows-demo
 npm run typecheck
 ```
 
@@ -461,9 +461,9 @@ function makeCtx(opts: { artifact: unknown; config: Record<string, unknown> }): 
 }
 
 const VALID_ARTIFACT = {
-  gitlab_project: "example-org/mnm-demo-app",
+  gitlab_project: "your-username/mnm-demo-app",
   mr_iid: 42,
-  mr_url: "https://lab.enterprise.example/example-org/mnm-demo-app/-/merge_requests/42",
+  mr_url: "https://gitlab.example.com/your-username/mnm-demo-app/-/merge_requests/42",
   approvals_count: 2,
   approvers: ["alice", "bob"],
   checked_at: "2026-04-25T14:32:00Z",
@@ -684,7 +684,7 @@ name: senior-dev
 description: Lit un ticket Jira, produit une conception technique, demande l'approbation explicite de l'utilisateur. Utilise le MCP atlassian.
 ---
 
-Tu es un développeur senior EnterpriseCustomer. Ta mission est de transformer un ticket Jira en une conception technique courte et exploitable, puis d'obtenir une approbation explicite avant que l'implémentation ne démarre.
+Tu es un développeur senior your organization. Ta mission est de transformer un ticket Jira en une conception technique courte et exploitable, puis d'obtenir une approbation explicite avant que l'implémentation ne démarre.
 
 ## Contexte fourni
 
@@ -742,12 +742,12 @@ name: dev
 description: Implémente la feature décrite dans design.md, écrit les tests, ouvre une MR GitLab. TDD obligatoire.
 ---
 
-Tu es un développeur EnterpriseCustomer. Ta mission est d'implémenter la feature décrite dans `design.md` (produit par le step précédent) en TDD strict, puis d'ouvrir une MR sur GitLab.
+Tu es un développeur your organization. Ta mission est d'implémenter la feature décrite dans `design.md` (produit par le step précédent) en TDD strict, puis d'ouvrir une MR sur GitLab.
 
 ## Contexte fourni
 
 - `ticket_id` : identifiant Jira
-- `gitlab_project` : ex `example-org/mnm-demo-app`
+- `gitlab_project` : ex `your-username/mnm-demo-app`
 - `design_md` : chemin vers le fichier de conception
 
 ## Étapes obligatoires
@@ -798,7 +798,7 @@ Tu es un agent de surveillance de review. Ta mission est d'attendre que des huma
 
 ## Contexte fourni
 
-- `gitlab_project` : ex `example-org/mnm-demo-app`
+- `gitlab_project` : ex `your-username/mnm-demo-app`
 - `mr_iid` : numéro de la MR à surveiller
 
 ## Étapes obligatoires
@@ -848,17 +848,17 @@ name: release-mgr
 description: Merge la MR approuvée, tague la release, génère le changelog. Utilise le MCP gitlab.
 ---
 
-Tu es un release manager EnterpriseCustomer. Ta mission est de finaliser la release : merge, tag, changelog.
+Tu es un release manager your organization. Ta mission est de finaliser la release : merge, tag, changelog.
 
 ## Contexte fourni
 
-- `gitlab_project` : ex `example-org/mnm-demo-app`
+- `gitlab_project` : ex `your-username/mnm-demo-app`
 - `mr_iid` : numéro de la MR (déjà approuvée par 2 reviewers grâce au step précédent)
 
 ## Étapes obligatoires
 
 1. **Merger la MR** via `mcp__plugin_gitlab_gitlab__merge_merge_request` ou équivalent.
-   - Stratégie : merge commit (ou squash si la convention EnterpriseCustomer l'exige — choisis selon les paramètres GitLab du projet).
+   - Stratégie : merge commit (ou squash si la convention your organization l'exige — choisis selon les paramètres GitLab du projet).
    - Récupère le SHA du merge commit.
 2. **Déterminer la prochaine version** : lis le dernier tag (`mcp__plugin_gitlab_gitlab__list_tags`), incrémente le patch (sémantique semver simple : `vX.Y.Z` → `vX.Y.Z+1`). Si aucun tag, démarre à `v0.1.0`.
 3. **Créer le tag** sur le merge commit.
@@ -909,7 +909,7 @@ git commit -m "feat(agents): add senior-dev, dev, review-watcher, release-mgr pr
   "apiVersion": "mnm/v1",
   "kind": "GovernedWorkflow",
   "name": "feature-dev",
-  "description": "Démo EnterpriseCustomer — De Jira à la prod, gouverné. 4 steps, 2 humains explicites.",
+  "description": "Démo your organization — De Jira à la prod, gouverné. 4 steps, 2 humains explicites.",
   "variables": {
     "ticket_id":      { "type": "string", "required": true },
     "gitlab_project": { "type": "string", "required": true }
@@ -993,7 +993,7 @@ git commit -m "feat(agents): add senior-dev, dev, review-watcher, release-mgr pr
 Run la validation manuelle via le helper du package `@mnm/governed-workflows` :
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
+cd ~/projects/mnm-workflows-demo
 node --experimental-vm-modules -e '
 import("@mnm/governed-workflows").then(async (m) => {
   const fs = await import("node:fs/promises");
@@ -1014,7 +1014,7 @@ Expected: `VALID`. Si erreur, lire le détail Zod et corriger le JSON.
 
 - [ ] **Step 6.3 : Faire un dry-run via le MCP MnM si dispo**
 
-Si l'environnement de Tom a déjà le MCP MnM connecté :
+Si l'environnement de the maintainer a déjà le MCP MnM connecté :
 
 ```
 mcp__plugin_mnm_mnm__get_governed_workflow(...)
@@ -1034,18 +1034,18 @@ git commit -m "feat: add feature-dev workflow definition"
 ## Task 7 : Bootstrap du repo `mnm-demo-app`
 
 **Files:**
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-app/.gitignore`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-app/package.json`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-app/tsconfig.json`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-app/README.md`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-app/src/format.ts`
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-app/src/format.test.ts`
+- Create: `~/projects/mnm-demo-app/.gitignore`
+- Create: `~/projects/mnm-demo-app/package.json`
+- Create: `~/projects/mnm-demo-app/tsconfig.json`
+- Create: `~/projects/mnm-demo-app/README.md`
+- Create: `~/projects/mnm-demo-app/src/format.ts`
+- Create: `~/projects/mnm-demo-app/src/format.test.ts`
 
 - [ ] **Step 7.1 : Créer le dossier et initialiser**
 
 ```bash
-mkdir -p ~/IdeaProjects/perso/alphalup/mnm-demo-app/src
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-app
+mkdir -p ~/projects/mnm-demo-app/src
+cd ~/projects/mnm-demo-app
 git init -b main
 ```
 
@@ -1102,7 +1102,7 @@ dist/
 ```ts
 /**
  * Formate un montant en euros.
- * Utilisé comme base de feature pour la démo MnM EnterpriseCustomer.
+ * Utilisé comme base de feature pour la démo MnM your organization.
  */
 export function formatPrice(amount: number): string {
   if (!Number.isFinite(amount)) {
@@ -1138,7 +1138,7 @@ describe("formatPrice", () => {
 ```markdown
 # mnm-demo-app
 
-Repo "feature" pour la démo MnM EnterpriseCustomer. C'est ici que l'agent `dev` du workflow `feature-dev` écrit du code.
+Repo "feature" pour la démo MnM your organization. C'est ici que l'agent `dev` du workflow `feature-dev` écrit du code.
 
 ## Lancer les tests
 
@@ -1156,7 +1156,7 @@ npm test
 - [ ] **Step 7.8 : Installer, tester, commit**
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-app
+cd ~/projects/mnm-demo-app
 npm install
 npm test
 ```
@@ -1170,55 +1170,55 @@ git commit -m "chore: bootstrap mnm-demo-app with formatPrice baseline"
 
 ---
 
-## Task 8 : Créer les projets sur lab.enterprise.example et pousser
+## Task 8 : Créer les projets sur gitlab.example.com et pousser
 
 **Files:** aucun fichier local — opérations git remote.
 
-- [ ] **Step 8.1 : Créer le projet `mnm-demo-workflows` sur lab.enterprise.example**
+- [ ] **Step 8.1 : Créer le projet `mnm-workflows-demo` sur gitlab.example.com**
 
-Via UI GitLab (lab.enterprise.example → New Project), ou via MCP gitlab si dispo dans l'environnement Tom :
-- Visibilité : private (ou internal selon préférence EnterpriseCustomer)
-- Path : `example-org/mnm-demo-workflows`
+Via UI GitLab (gitlab.example.com → New Project), ou via MCP gitlab si dispo dans l'environnement the maintainer :
+- Visibilité : private (ou internal selon préférence your organization)
+- Path : `your-username/mnm-workflows-demo`
 - Pas d'init README (on push notre repo existant)
 
 - [ ] **Step 8.2 : Ajouter le remote et pousser**
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
-git remote add origin git@lab.enterprise.example:example-org/mnm-demo-workflows.git
+cd ~/projects/mnm-workflows-demo
+git remote add origin git@gitlab.example.com:your-username/mnm-workflows-demo.git
 git push -u origin main
 ```
 
 Expected: push OK, branche `main` trackée.
 
-- [ ] **Step 8.3 : Créer le projet `mnm-demo-app` sur lab.enterprise.example**
+- [ ] **Step 8.3 : Créer le projet `mnm-demo-app` sur gitlab.example.com**
 
-Mêmes options que ci-dessus, path `example-org/mnm-demo-app`.
+Mêmes options que ci-dessus, path `your-username/mnm-demo-app`.
 
 - [ ] **Step 8.4 : Ajouter le remote et pousser le repo demo-app**
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-app
-git remote add origin git@lab.enterprise.example:example-org/mnm-demo-app.git
+cd ~/projects/mnm-demo-app
+git remote add origin git@gitlab.example.com:your-username/mnm-demo-app.git
 git push -u origin main
 ```
 
 - [ ] **Step 8.5 : Configurer la branche `main` du repo demo-app pour exiger ≥ 2 approvals**
 
-Sur `lab.enterprise.example/example-org/mnm-demo-app/-/settings/merge_requests` :
+Sur `gitlab.example.com/your-username/mnm-demo-app/-/settings/merge_requests` :
 - "Approvals required" : 2
 - "Prevent approval by author" : ON
-- "Prevent approval by users who add commits" : ON (recommandé pour EnterpriseCustomer)
+- "Prevent approval by users who add commits" : ON (recommandé pour your organization)
 - "Reset approvals on new push" : ON (recommandé)
 
 Et ajouter 2 reviewers éligibles dans le projet (ou via groupe).
 
-> **Si tu n'as pas de second compte EnterpriseCustomer prêt** : ajoute un collègue à qui tu peux demander un clic pendant la démo. Alternativement, abaisse temporairement à `min_approvals: 1` dans `workflow.json` et `mnm-demo-app` (et fais valider par toi-même, ce qui démontre quand même la mécanique GitLab — moins percutant mais ça marche).
+> **Si tu n'as pas de second compte your organization prêt** : ajoute un collègue à qui tu peux demander un clic pendant la démo. Alternativement, abaisse temporairement à `min_approvals: 1` dans `workflow.json` et `mnm-demo-app` (et fais valider par toi-même, ce qui démontre quand même la mécanique GitLab — moins percutant mais ça marche).
 
 - [ ] **Step 8.6 : Tag les commits comme version stable de démo**
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
+cd ~/projects/mnm-workflows-demo
 git tag v0.1.0-demo
 git push origin v0.1.0-demo
 ```
@@ -1233,7 +1233,7 @@ git push origin v0.1.0-demo
 
 - [ ] **Step 9.1 : Créer le ticket via le MCP atlassian**
 
-Si le MCP atlassian est connecté dans l'environnement Tom :
+Si le MCP atlassian est connecté dans l'environnement the maintainer :
 
 ```
 mcp__plugin_atlassian_atlassian__create_issue(
@@ -1245,7 +1245,7 @@ mcp__plugin_atlassian_atlassian__create_issue(
 )
 ```
 
-Sinon, créer manuellement dans l'UI Jira EnterpriseCustomer.
+Sinon, créer manuellement dans l'UI Jira your organization.
 
 - [ ] **Step 9.2 : Contenu du ticket**
 
@@ -1276,7 +1276,7 @@ L'identifiant réel pourra différer de `AY-DEMO-1` selon le projet Jira. **Mett
 ## Task 10 : Run E2E + checklist de répétition
 
 **Files:**
-- Create: `~/IdeaProjects/perso/alphalup/mnm-demo-workflows/REPETITION.md`
+- Create: `~/projects/mnm-workflows-demo/REPETITION.md`
 
 - [ ] **Step 10.1 : Run le workflow de bout en bout**
 
@@ -1287,7 +1287,7 @@ mcp__plugin_mnm_mnm__launch_governed_workflow(
   name: "feature-dev",
   variables: {
     ticket_id: "<id réel>",
-    gitlab_project: "example-org/mnm-demo-app"
+    gitlab_project: "your-username/mnm-demo-app"
   }
 )
 ```
@@ -1305,7 +1305,7 @@ Expected : 4 steps, tous gates vertes, run termine en `succeeded`.
 | Step `dev` échoue à ouvrir la MR | Permissions GitLab insuffisantes ou tool MCP différent | Vérifier le token GitLab du MCP, ajuster l'appel dans `dev.md` |
 | Workflow rejeté à la validation | Schéma JSON incorrect | Refaire la validation Step 6.2, lire l'erreur Zod |
 
-Re-pousser les corrections sur le repo `mnm-demo-workflows` (`git commit && git push && git tag -f v0.1.0-demo && git push -f origin v0.1.0-demo`).
+Re-pousser les corrections sur le repo `mnm-workflows-demo` (`git commit && git push && git tag -f v0.1.0-demo && git push -f origin v0.1.0-demo`).
 
 - [ ] **Step 10.3 : Reset l'état pour pouvoir refaire la démo proprement**
 
@@ -1313,7 +1313,7 @@ Avant la vraie démo (et après chaque répétition réussie) :
 
 ```bash
 # Repo demo-app : supprimer la branche feat/<ticket> et le tag créés par le run
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-app
+cd ~/projects/mnm-demo-app
 git push origin --delete feat/<ticket-id>
 git push origin --delete v<X.Y.Z>     # le tag de release créé au step merge-tag
 # Localement aussi
@@ -1327,7 +1327,7 @@ Et dans MnM : annuler le run précédent depuis le dashboard si nécessaire.
 - [ ] **Step 10.4 : Créer `REPETITION.md` avec la checklist de répétition pre-démo**
 
 ```markdown
-# Checklist de répétition — Démo MnM EnterpriseCustomer
+# Checklist de répétition — Démo MnM your organization
 
 ## J-1 (la veille)
 
@@ -1358,7 +1358,7 @@ Et dans MnM : annuler le run précédent depuis le dashboard si nécessaire.
 - [ ] **Step 10.5 : Commit `REPETITION.md`**
 
 ```bash
-cd ~/IdeaProjects/perso/alphalup/mnm-demo-workflows
+cd ~/projects/mnm-workflows-demo
 git add REPETITION.md
 git commit -m "docs: add demo rehearsal checklist"
 git push origin main

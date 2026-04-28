@@ -209,7 +209,7 @@ describe("P11 E2E — feature-dev tech-design step (git-first agents)", () => {
     const launchResult = await svc.launchWorkflow({
       companyId,
       name: "feature-dev",
-      params: { ticket_id: "ISSUE-NN", gitlab_project: "example-org/repo" },
+      params: { ticket_id: "FEAT-001", gitlab_project: "your-username/x" },
       actor: { type: "user", id: "u-1" },
     });
 
@@ -232,7 +232,7 @@ describe("P11 E2E — feature-dev tech-design step (git-first agents)", () => {
       agentName: "senior-dev",
       subagentType: "mnm--senior-dev",
       promptContext: expect.objectContaining({
-        ticket_id: "ISSUE-NN",
+        ticket_id: "FEAT-001",
       }),
     });
   });

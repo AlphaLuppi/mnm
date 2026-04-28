@@ -6,7 +6,7 @@
  *   - managerPage:      manager@novatech.test (manager role, 14/20 permissions)
  *   - contributorPage:  contributor@novatech.test (contributor role, 5/20 permissions)
  *   - viewerPage:       viewer@novatech.test (viewer role, 2/20 permissions — read only)
- *   - atelierAdminPage: admin@atelier.test (Atelier Numerique admin — cross-tenant isolation)
+ *   - atelierAdminPage: admin@testcorp-b.test (TestCorp-B admin — cross-tenant isolation)
  *
  * Usage:
  *   import { test, expect } from "../fixtures/auth.fixture";
@@ -104,7 +104,7 @@ export const test = base.extend<RoleFixtures>({
     await page.close();
   },
 
-  // Atelier Admin — cross-tenant isolation (Atelier Numerique company)
+  // Atelier Admin — cross-tenant isolation (TestCorp-B company)
   atelierAdminContext: async ({ browser }, use) => {
     const context = await browser.newContext({
       storageState: AUTH_STATES.atelierAdmin,

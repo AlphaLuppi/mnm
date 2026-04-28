@@ -47,5 +47,16 @@
   "devDependencies": {
     "@types/node": "^24.6.0",
     "typescript": "^5.7.3"
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": "Alpha Luppi (Studio Manifeste)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlphaLuppi/mnm.git",
+    "directory": "packages/adapters/cursor-local"
+  },
+  "homepage": "https://github.com/AlphaLuppi/mnm",
+  "bugs": {
+    "url": "https://github.com/AlphaLuppi/mnm/issues"
   }
 }

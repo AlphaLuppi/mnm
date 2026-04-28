@@ -69,7 +69,7 @@ Modified files:
 
 Run:
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 grep -A3 '"workspaces"' package.json
 ```
 Expected: `"workspaces"` includes `packages/*`. If so, new `packages/mnm-plugin/` auto-included. If not, add it explicitly.
@@ -169,7 +169,7 @@ export default {
 
 Run:
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && bun install
+cd C:/path/to/mnm && bun install
 ```
 Expected: no errors, `packages/mnm-plugin/node_modules` created.
 
@@ -177,14 +177,14 @@ Expected: no errors, `packages/mnm-plugin/node_modules` created.
 
 Create empty `packages/mnm-plugin/src/session-start.ts` with `export {};` placeholder, then run:
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run typecheck
+cd C:/path/to/mnm/packages/mnm-plugin && bun run typecheck
 ```
 Expected: no errors.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add packages/mnm-plugin/ package.json bun.lock
 git commit -m "feat(workflows): scaffold @mnm/plugin package (T6)"
 git push origin master
@@ -250,7 +250,7 @@ describe("atomicWriteFile", () => {
 
 Run:
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run test
+cd C:/path/to/mnm/packages/mnm-plugin && bun run test
 ```
 Expected: FAIL with "Cannot find module '../src/atomic-write.js'" or similar.
 
@@ -286,21 +286,21 @@ export async function atomicWriteFile(
 
 Run:
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run test
+cd C:/path/to/mnm/packages/mnm-plugin && bun run test
 ```
 Expected: all 4 tests pass.
 
 - [ ] **Step 5: Typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run typecheck
+cd C:/path/to/mnm/packages/mnm-plugin && bun run typecheck
 ```
 Expected: no errors.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add packages/mnm-plugin/src/atomic-write.ts packages/mnm-plugin/__tests__/atomic-write.test.ts
 git commit -m "feat(workflows): atomic write util for plugin hook (T6)"
 git push origin master
@@ -353,14 +353,14 @@ export interface SessionStartHookOutput {
 - [ ] **Step 2: Typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run typecheck
+cd C:/path/to/mnm/packages/mnm-plugin && bun run typecheck
 ```
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add packages/mnm-plugin/src/types.ts
 git commit -m "feat(workflows): plugin hook types (T6)"
 git push origin master
@@ -460,7 +460,7 @@ describe("runSessionStart", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run test
+cd C:/path/to/mnm/packages/mnm-plugin && bun run test
 ```
 Expected: FAIL with `runSessionStart` not defined.
 
@@ -590,21 +590,21 @@ if (isEntryPoint) {
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run test
+cd C:/path/to/mnm/packages/mnm-plugin && bun run test
 ```
 Expected: 5/5 tests pass.
 
 - [ ] **Step 5: Typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run typecheck
+cd C:/path/to/mnm/packages/mnm-plugin && bun run typecheck
 ```
 Expected: no errors.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add packages/mnm-plugin/src/session-start.ts packages/mnm-plugin/__tests__/session-start.test.ts
 git commit -m "feat(workflows): SessionStart hook binary (T6)"
 git push origin master
@@ -620,20 +620,20 @@ git push origin master
 - [ ] **Step 1: Create target directory**
 
 ```bash
-mkdir -p C:/Users/example-org/repo/perso/alphalup/mnm/plugins/mnm/bin
+mkdir -p C:/path/to/mnm/plugins/mnm/bin
 ```
 
 - [ ] **Step 2: Run build**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/mnm-plugin && bun run build
+cd C:/path/to/mnm/packages/mnm-plugin && bun run build
 ```
 Expected: `../../plugins/mnm/bin/mnm-session-start` created, no errors.
 
 - [ ] **Step 3: Smoke-test the binary**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 CLAUDE_PLUGIN_ROOT="$(pwd)/plugins/mnm" CLAUDE_PLUGIN_DATA="$(mktemp -d)" node plugins/mnm/bin/mnm-session-start
 ```
 Expected: JSON output containing `"hookEventName":"SessionStart"` and `"First run detected"`. Exit code 0.
@@ -641,7 +641,7 @@ Expected: JSON output containing `"hookEventName":"SessionStart"` and `"First ru
 - [ ] **Step 4: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add plugins/mnm/bin/mnm-session-start
 git commit -m "build(workflows): compile SessionStart hook binary (T6)"
 git push origin master
@@ -727,7 +727,7 @@ Write `plugins/mnm/hooks/hooks.json`:
 - [ ] **Step 4: Validate JSON files**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 node -e "JSON.parse(require('fs').readFileSync('plugins/mnm/.claude-plugin/plugin.json'))"
 node -e "JSON.parse(require('fs').readFileSync('plugins/mnm/.mcp.json'))"
 node -e "JSON.parse(require('fs').readFileSync('plugins/mnm/hooks/hooks.json'))"
@@ -737,7 +737,7 @@ Expected: no output (silent success).
 - [ ] **Step 5: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add plugins/mnm/.claude-plugin/plugin.json plugins/mnm/.mcp.json plugins/mnm/hooks/hooks.json
 git commit -m "feat(workflows): plugin manifest + .mcp.json + SessionStart hook config (T6)"
 git push origin master
@@ -828,7 +828,7 @@ content if stale. Claude writes the update, then retries the step.
 - [ ] **Step 2: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add plugins/mnm/README.md
 git commit -m "docs(workflows): plugin README (T6)"
 git push origin master
@@ -845,7 +845,7 @@ git push origin master
 - [ ] **Step 1: Validate DB schema**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 grep -n "agents" packages/db/src/schema/agents.ts | head -30
 ```
 Confirm the `agents` table columns we will read: `id, companyId, name, enabled, latestGitTag, ...`. All used below must exist.
@@ -895,7 +895,7 @@ If `seedCompanyWithAgents` helper doesn't exist, inline the fixture setup using 
 - [ ] **Step 3: Run test to verify it fails**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t setupWorkspace
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t setupWorkspace
 ```
 Expected: FAIL with "service.setupWorkspace is not a function".
 
@@ -995,21 +995,21 @@ Add `setupWorkspace` to the returned object from the factory.
 - [ ] **Step 5: Run test to verify it passes**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t setupWorkspace
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t setupWorkspace
 ```
 Expected: 2/2 pass.
 
 - [ ] **Step 6: Full service test suite green**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts
 ```
 Expected: all green.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add server/src/services/governed-workflows.ts server/src/services/__tests__/governed-workflows.test.ts
 git commit -m "feat(workflows): setupWorkspace service returns agents + write instructions (T6)"
 git push origin master
@@ -1052,7 +1052,7 @@ Add to `governed-workflows.test.ts`:
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t pushLocalState
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t pushLocalState
 ```
 Expected: FAIL.
 
@@ -1131,7 +1131,7 @@ Add `pushLocalState` to the returned object.
 - [ ] **Step 4: Run test + typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t pushLocalState
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t pushLocalState
 bun run --filter=@mnm/server typecheck
 ```
 Expected: 1/1 pass; typecheck green.
@@ -1139,7 +1139,7 @@ Expected: 1/1 pass; typecheck green.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add server/src/services/governed-workflows.ts server/src/services/__tests__/governed-workflows.test.ts
 git commit -m "feat(workflows): pushLocalState service returns cache payload for hook (T6)"
 git push origin master
@@ -1217,7 +1217,7 @@ Helper: `seedHelloWorldRunAtFirstStep` may need extending to accept `requiredToo
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t "launchStep \(T6 enrichment\)"
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t "launchStep \(T6 enrichment\)"
 ```
 Expected: 3 FAIL.
 
@@ -1231,7 +1231,7 @@ In `packages/governed-workflows/src/errors.ts` (or wherever `WORKFLOW_ERROR_CODE
 
 Rebuild the package:
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm/packages/governed-workflows && bun run build
+cd C:/path/to/mnm/packages/governed-workflows && bun run build
 ```
 
 - [ ] **Step 4: Update `LaunchStepArgs` + `launchStep`**
@@ -1404,21 +1404,21 @@ In `packages/governed-workflows/src/schema.ts` (check exact file — grep for `s
 - [ ] **Step 6: Run tests to verify they pass**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t "launchStep \(T6 enrichment\)"
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.test.ts -t "launchStep \(T6 enrichment\)"
 ```
 Expected: 3/3 pass.
 
 - [ ] **Step 7: Full service suite green**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test
 ```
 Expected: all existing tests still green (no regressions).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add packages/governed-workflows/ server/src/services/governed-workflows.ts server/src/services/__tests__/governed-workflows.test.ts
 git commit -m "feat(workflows): launchStep self-correction — AGENTS_STALE + MISSING_TOOLS (T6)"
 git push origin master
@@ -1460,7 +1460,7 @@ Use existing `setupToolHarness` pattern from the file if present; otherwise inli
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.tool.test.ts -t "setup_workspace tool"
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.tool.test.ts -t "setup_workspace tool"
 ```
 Expected: FAIL.
 
@@ -1500,7 +1500,7 @@ In `server/src/mcp/tools/governed-workflows.tool.ts`, after the `sync_governed_e
 - [ ] **Step 4: Run test + typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.tool.test.ts -t "setup_workspace tool"
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.tool.test.ts -t "setup_workspace tool"
 bun run --filter=@mnm/server typecheck
 ```
 Expected: 1/1 pass; typecheck green.
@@ -1508,7 +1508,7 @@ Expected: 1/1 pass; typecheck green.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add server/src/mcp/tools/governed-workflows.tool.ts server/src/mcp/tools/__tests__/governed-workflows.tool.test.ts
 git commit -m "feat(workflows): setup_workspace MCP tool (T6)"
 git push origin master
@@ -1655,14 +1655,14 @@ describe("launch_governed_step tool (T6 enriched)", () => {
 - [ ] **Step 5: Run all new tool tests**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.tool.test.ts
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/governed-workflows.tool.test.ts
 ```
 Expected: all green.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add server/src/mcp/tools/governed-workflows.tool.ts server/src/mcp/tools/__tests__/governed-workflows.tool.test.ts
 git commit -m "feat(workflows): push_local_state MCP tool + enriched launch_governed_step (T6)"
 git push origin master
@@ -1756,14 +1756,14 @@ Check `server/src/__tests__/helpers/e2e-harness.ts` (or wherever T5 put it). If 
 - [ ] **Step 3: Run the E2E test**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/t6-bootstrap-and-launch.e2e.test.ts
+cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run --filter=@mnm/server test __tests__/t6-bootstrap-and-launch.e2e.test.ts
 ```
 Expected: 1/1 pass.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add server/src/__tests__/
 git commit -m "test(workflows): E2E bootstrap + launch with stale-correction (T6)"
 git push origin master
@@ -1816,14 +1816,14 @@ TBD — either:
 - **Requires restart** : adopt fallback "dispatch inline" pattern (Task with subagent_type: "general-purpose" + prompt that assumes the persona). Document in spec §6 "Fallback dispatch mode".
 ```
 
-- [ ] **Step 2: Execute the spike (manual by Tom next morning)**
+- [ ] **Step 2: Execute the spike (manual by the maintainer next morning)**
 
-Note in the completion report : "Spike test protocol written at `docs/superpowers/specs/T6-hot-reload-spike-result.md`; execution requires a live Claude Code session and is left to Tom to run and fill in the Results section."
+Note in the completion report : "Spike test protocol written at `docs/superpowers/specs/T6-hot-reload-spike-result.md`; execution requires a live Claude Code session and is left to the maintainer to run and fill in the Results section."
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add docs/superpowers/specs/T6-hot-reload-spike-result.md
 git commit -m "docs(workflows): T6 hot-reload spike protocol (T6)"
 git push origin master
@@ -1864,7 +1864,7 @@ Find the tranches table (§7 in the design). Replace the T6 row:
 - [ ] **Step 3: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add docs/superpowers/specs/2026-04-20-governed-workflows-mvp-design.md
 git commit -m "docs(workflows): update MVP design — §5 superseded by T6, T6 shipped (T6)"
 git push origin master
@@ -1903,7 +1903,7 @@ Append to `docs/superpowers/plans/2026-04-22-governed-workflows-T6-plugin.md`:
 
 ### What remains
 
-- Hot-reload spike protocol is WRITTEN but EXECUTION requires Tom to run it in a live Claude Code session (morning task).
+- Hot-reload spike protocol is WRITTEN but EXECUTION requires the maintainer to run it in a live Claude Code session (morning task).
 - `docs/superpowers/specs/T6-hot-reload-spike-result.md` Results section to fill based on empirical findings.
 - README guidance on `/reload-plugins` to adjust post-spike if hot-reload works silently.
 
@@ -1928,7 +1928,7 @@ Salut, on continue l'implémentation des MnM Governed Workflows.
 
 # Contexte
 
-Repo : `C:\Users\tom.andrieu\IdeaProjects\perso\alphalup\mnm` (branch master).
+Repo : `C:\path\to\mnm` (branch master).
 
 Statut actuel :
 - T1-T5 shipped 2026-04-21.
@@ -1965,7 +1965,7 @@ Dis-moi et on y va.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 git add docs/superpowers/plans/2026-04-22-governed-workflows-T6-plugin.md docs/superpowers/plans/next-session-T7-prompt.md
 git commit -m "docs(workflows): T6 completion report + T7 next-session prompt (T6)"
 git push origin master
@@ -1977,26 +1977,26 @@ git push origin master
 
 - [ ] Run full test suite across the monorepo:
   ```bash
-  cd C:/Users/example-org/repo/perso/alphalup/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run test
+  cd C:/path/to/mnm && DATABASE_URL=postgres://mnm_test:mnm_test@127.0.0.1:5433/mnm_test bun run test
   ```
   Expected: all green (no regressions in T1-T5 suites).
 
 - [ ] Full typecheck:
   ```bash
-  cd C:/Users/example-org/repo/perso/alphalup/mnm && bun run typecheck
+  cd C:/path/to/mnm && bun run typecheck
   ```
   Expected: 13+ packages, all green.
 
 - [ ] Plugin smoke test:
   ```bash
-  cd C:/Users/example-org/repo/perso/alphalup/mnm
+  cd C:/path/to/mnm
   CLAUDE_PLUGIN_ROOT="$(pwd)/plugins/mnm" CLAUDE_PLUGIN_DATA="$(mktemp -d)" node plugins/mnm/bin/mnm-session-start
   ```
   Expected: valid JSON with `"First run detected"` message, exit 0.
 
 - [ ] Confirm all commits pushed:
   ```bash
-  cd C:/Users/example-org/repo/perso/alphalup/mnm && git status && git log origin/master..HEAD --oneline
+  cd C:/path/to/mnm && git status && git log origin/master..HEAD --oneline
   ```
   Expected: working tree clean, no unpushed commits.
 
@@ -2054,7 +2054,7 @@ git push origin master
 
 ### What remains
 
-- Hot-reload spike protocol is WRITTEN but EXECUTION requires Tom to run it in a live Claude Code session (morning task).
+- Hot-reload spike protocol is WRITTEN but EXECUTION requires the maintainer to run it in a live Claude Code session (morning task).
 - `docs/superpowers/specs/T6-hot-reload-spike-result.md` Results section to fill based on empirical findings.
 - README guidance on `/reload-plugins` to adjust post-spike if hot-reload works silently.
 - **T5-DEF-1** — wire `mergeAgentConfig` in `governedWorkflowService` to `configLayerConflictService.mergePreview` (currently returns empty buckets; OK for T6 MVP since `configMerged` is not consumed by the SessionStart hook).

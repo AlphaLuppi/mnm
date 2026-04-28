@@ -676,7 +676,7 @@ chore(parity): track workflow studio + AI assistant features
 
 # Tranche U15 — Canonical gate.ts library
 
-Goal: 4 reusable gate implementations that match the declarations in `product-feature-delivery/workflow.json`, so Tom can:
+Goal: 4 reusable gate implementations that match the declarations in `product-feature-delivery/workflow.json`, so the maintainer can:
 1. Copy them via the new Studio into his workflow repo's `gates/` folder.
 2. Launch a run end-to-end and have the gates actually evaluate.
 
@@ -733,17 +733,17 @@ Parses `ctx.workspace.readFile(ctx.config.report_path)` as markdown or JSON. Loo
 
 - [ ] Standard TDD + commit.
 
-### Task U15.5: Push the canonical gates to Tom's workflow repo
+### Task U15.5: Push the canonical gates to the maintainer's workflow repo
 
 **Via the new WorkflowStudio (from U13):**
-- Open `/EnterpriseCustomer/workflows/product-feature-delivery`
+- Open `/your organization/workflows/product-feature-delivery`
 - File tree → right-click on `product-feature-delivery/gates/` → Add File
 - Paste each canonical gate content (or: Copy from `@mnm/gate-runner/canonical/`)
 - Save → batch commit → new tag `product-feature-delivery/v1.0.1`
 
 - [ ] Run an E2E: `launch_governed_workflow` via MCP → verify each step traverses its gates without GATE_SOURCE_NOT_FOUND → runs to `completed`.
 
-- [ ] Commit (no code): the commit is the one pushed to example-org/mnm-workflows via the Studio.
+- [ ] Commit (no code): the commit is the one pushed to your-username/mnm-workflows-demo via the Studio.
 
 ---
 
@@ -754,7 +754,7 @@ Parses `ctx.workspace.readFile(ctx.config.report_path)` as markdown or JSON. Loo
 3. Manual E2E smoke (the important one):
    - Open WorkflowStudio on product-feature-delivery → file tree shows workflow.json + 4 gates/*.ts.
    - Click a gate → Monaco shows TS with type-aware autocomplete on `GateContext`.
-   - Edit description of workflow.json + a hint in one gate → Save → commit lands on GitLab under tom.andrieu + new tag.
+   - Edit description of workflow.json + a hint in one gate → Save → commit lands on GitLab under your-username + new tag.
    - AI panel: prompt "ajoute une step de préprod entre review et merge, avec une entry gate qui vérifie que docs/preprod-checks.md existe" → AI proposes diff → Apply → review → Save.
    - Launch a run via MCP `launch_governed_workflow` → step 1 runs → gate evaluates → step 2 unblocked → ... → run ends `completed`.
 4. Parity tracker shows both new features.

@@ -1357,13 +1357,13 @@ describe("runSingleGate", () => {
         ...BASE,
         source: READS_PREVIOUS_ARTIFACT,
         context: ctx({
-          step: { id: "shout", previous_artifacts: { greet: { greeting: "Hello, Tom!" } } },
+          step: { id: "shout", previous_artifacts: { greet: { greeting: "Hello, the maintainer!" } } },
         }),
       },
       { compiledCache: new CompiledCache() },
     );
     expect(result.pass).toBe(true);
-    expect(result.report).toBe("previous greeting: Hello, Tom!");
+    expect(result.report).toBe("previous greeting: Hello, the maintainer!");
   });
 
   it("reuses the compiled cache on the second invocation", async () => {
@@ -1994,7 +1994,7 @@ export default defineGate<
 function baseCtx(overrides: Partial<GateContext> = {}): GateContext {
   return {
     artifact: undefined,
-    run: { id: "run-1", workflow_name: "hello-world", git_tag: "v1.0.0", params: { name: "Tom" } },
+    run: { id: "run-1", workflow_name: "hello-world", git_tag: "v1.0.0", params: { name: "the maintainer" } },
     step: { id: "greet", previous_artifacts: {} },
     config: {},
     kind: "exit",
@@ -2013,7 +2013,7 @@ describe("gate-runner integration", () => {
         gitSha: "deadbeef",
         kind: "exit",
         context: baseCtx({
-          artifact: { greeting: "Hello, Tom!" },
+          artifact: { greeting: "Hello, the maintainer!" },
           config: { field: "greeting", type: "string" },
         }),
       },
@@ -2208,7 +2208,7 @@ Salut, on continue l'implémentation des MnM Governed Workflows.
 
 # Contexte
 
-Repo : `C:\Users\tom.andrieu\IdeaProjects\perso\alphalup\mnm` (branch master).
+Repo : `C:\path\to\mnm` (branch master).
 
 Statut :
 - T1 shipped (package `@mnm/governed-workflows`).

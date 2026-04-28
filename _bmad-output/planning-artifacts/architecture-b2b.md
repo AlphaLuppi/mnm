@@ -2103,7 +2103,7 @@ $$ LANGUAGE plpgsql;
 La Vérité #20 du brainstorming des cofondateurs est catégorique : "Les dashboards sont TOUJOURS agrégés, JAMAIS individuels". Cela signifie :
 
 - **OUI** : "Cette semaine, l'équipe a traité 47 issues, dont 12 critiques"
-- **NON** : "Jean a traité 3 issues, Marie en a traité 8"
+- **NON** : "Jean a traité 3 issues, teammate-B en a traité 8"
 
 Les dashboards exposent :
 - **Métriques d'équipe** : issues traitées/ouvertes, temps moyen de résolution, drift rate
@@ -4083,11 +4083,11 @@ Le serveur répond avec les messages manqués.
 ```json
 {
   "protocol": "oidc",
-  "displayName": "EnterpriseCustomer SSO",
-  "issuerUrl": "https://login.cba.com",
+  "displayName": "your organization SSO",
+  "issuerUrl": "https://login.team.com",
   "clientId": "mnm-prod",
   "clientSecret": "secret-value",
-  "emailDomain": "cba.com",
+  "emailDomain": "team.com",
   "defaultRole": "contributor",
   "autoProvision": true
 }
@@ -4098,8 +4098,8 @@ Le serveur répond avec les messages manqués.
 {
   "id": "uuid",
   "protocol": "oidc",
-  "displayName": "EnterpriseCustomer SSO",
-  "emailDomain": "cba.com",
+  "displayName": "your organization SSO",
+  "emailDomain": "team.com",
   "enabled": false,
   "testUrl": "/api/companies/uuid/sso/uuid/test"
 }
@@ -4150,7 +4150,7 @@ Le serveur répond avec les messages manqués.
 {
   "source": "jira",
   "sourceConfig": {
-    "baseUrl": "https://cba.atlassian.net",
+    "baseUrl": "https://team.atlassian.net",
     "projectKey": "ALPHA",
     "apiTokenSecretId": "uuid"
   },
@@ -5408,7 +5408,7 @@ MnM supporte trois modes de déploiement alignés sur les quatre tiers de licenc
 
 #### 7.1.2 Mode Cloud Managed (Team + Enterprise)
 
-**Cible** : Équipes 5-500+ utilisateurs, SaaS multi-tenant géré par AlphaLuppi.
+**Cible** : Équipes 5-500+ utilisateurs, SaaS multi-tenant géré par l'éditeur.
 
 **Principe** : Kubernetes (K8s) multi-tenant avec auto-scaling, isolation par namespace ou Row-Level Security PostgreSQL, et infrastructure managée.
 
@@ -5560,7 +5560,7 @@ MnM supporte trois modes de déploiement alignés sur les quatre tiers de licenc
 - Logs structurés JSON pour intégration directe dans les pipelines de log existants
 
 **Zero data exfiltration** :
-- Aucun appel réseau sortant vers AlphaLuppi
+- Aucun appel réseau sortant vers le SaaS
 - Pas de telemetry, analytics, ou phone-home
 - Mises à jour : l'équipe infra du client pull les nouvelles images depuis un registry miroir ou reçoit le bundle offline
 - LLM : uniquement des providers accessibles depuis le réseau interne du client
@@ -7650,7 +7650,7 @@ CREATE POLICY company_isolation ON issues
 
 -- ... (toutes les tables)
 
--- 3. Policy superadmin pour les opérations cross-tenant (admin AlphaLuppi)
+-- 3. Policy superadmin pour les opérations cross-tenant (admin instance)
 CREATE POLICY superadmin_bypass ON users
   USING (current_setting('app.is_superadmin', true)::boolean = true);
 
@@ -7697,12 +7697,12 @@ DROP POLICY IF EXISTS company_isolation ON users;
 2. Activer les endpoints API multi-tenant (`POST /companies`, `POST /invitations`, etc.)
 3. Configurer le middleware d'isolation tenant sur toutes les routes
 4. Activer la feature flag `MULTI_TENANT=true` en production (progressive rollout)
-5. Onboarder la première company externe (EnterpriseCustomer) en parallèle de la Legacy Company
+5. Onboarder la première company externe (your organization) en parallèle de la Legacy Company
 
 **Progressive rollout** :
 ```
 Semaine 1 : Legacy Company uniquement (feature flag off)
-Semaine 2 : EnterpriseCustomer ajouté (feature flag on pour EnterpriseCustomer seulement)
+Semaine 2 : your organization ajouté (feature flag on pour your organization seulement)
 Semaine 3 : Monitoring, feedback, corrections
 Semaine 4 : Feature flag on pour toutes les nouvelles companies
 ```
@@ -7714,8 +7714,8 @@ Semaine 4 : Feature flag on pour toutes les nouvelles companies
 - Aucune perte de données
 
 **Validation Phase 4** :
-- EnterpriseCustomer onboardé avec 10+ utilisateurs sur 3+ rôles RBAC
-- Isolation vérifiée : EnterpriseCustomer ne voit pas les données Legacy, et vice versa
+- your organization onboardé avec 10+ utilisateurs sur 3+ rôles RBAC
+- Isolation vérifiée : your organization ne voit pas les données Legacy, et vice versa
 - Performance : aucune dégradation mesurable (P99 API <500ms)
 - Audit trail : toutes les actions cross-company sont loggées
 - Uptime pendant la migration : 100% (zero-downtime confirmé)
@@ -7738,7 +7738,7 @@ Chaque █ = travail actif
 - Fin Phase 1 : tous les tests existants passent → go Phase 2
 - Fin Phase 2 : 0 lignes avec `company_id` NULL + E2E passent → go Phase 3
 - Fin Phase 3 : tests d'isolation passent + latence <5ms overhead → go Phase 4
-- Fin Phase 4 : EnterpriseCustomer onboardé + 1 semaine sans incident → déclaration multi-tenant stable
+- Fin Phase 4 : your organization onboardé + 1 semaine sans incident → déclaration multi-tenant stable
 
 ---
 

@@ -76,7 +76,7 @@ Ouvre `~/.claude/settings.json` et **merge** ces trois blocs (au niveau racine) 
     "mnm-local": {
       "source": {
         "source": "directory",
-        "path": "C:/Users/example-org/repo/perso/alphalup/mnm/plugins"
+        "path": "C:/path/to/mnm/plugins"
       }
     }
   },
@@ -145,7 +145,7 @@ mnm.list_governed_workflows
 Tu dois voir hello-world dans la liste. Puis :
 
 ```
-mnm.launch_governed_workflow  with  { name: "hello-world", params: { name: "Tom" } }
+mnm.launch_governed_workflow  with  { name: "hello-world", params: { name: "the maintainer" } }
 ```
 
 Cela crée un run. Note l'`id` retourné, puis :
@@ -161,7 +161,7 @@ Le serveur va :
 Exécute ce dispatch, récupère l'artifact JSON `{ "greeting": "..." }`, puis :
 
 ```
-mnm.complete_governed_step  with  { run_id: "<id>", step_id: "greet", artifact: { "greeting": "Hello Tom!" } }
+mnm.complete_governed_step  with  { run_id: "<id>", step_id: "greet", artifact: { "greeting": "Hello the maintainer!" } }
 ```
 
 La gate `greeting-ok` s'évalue (check que `greeting` est non-vide), le step `shout` devient dispatchable. Tu répètes pour `shout` → artifact `{ "shouted": "HELLO TOM!" }` → gate `uppercase-ok` passe → **workflow terminé**.

@@ -3,13 +3,13 @@
 #
 # OPS-1a — M1 of docs/superpowers/plans/2026-04-26-mnm-git-first-agents.md
 #
-# Restructures lab.enterprise.example/example-org/mnm-workflows into the
+# Restructures gitlab.example.com/your-username/mnm-workflows-demo into the
 # Git-first agents layout, tags it (agents/v1.0.0, feature-dev/v1.0.2),
 # pushes it back, and renames the GitLab project to mnm-demo.
 #
 # Idempotent: every step probes for existing state first, so re-running the
-# script after a partial failure is safe. Tom granted permission to rename +
-# force-push on tom.andrieu/* repos. The script does NOT --force-push the
+# script after a partial failure is safe. the maintainer granted permission to rename +
+# force-push on your-username/* repos. The script does NOT --force-push the
 # branch by default — only tags receive --force when --force is passed.
 #
 # Usage:
@@ -23,8 +23,8 @@ set -euo pipefail
 
 # ── Config (edit if your lab path differs) ──────────────────────────────────
 
-GITLAB_HOST="${GITLAB_HOST:-lab.enterprise.example}"
-GITLAB_NAMESPACE="${GITLAB_NAMESPACE:-tom.andrieu}"
+GITLAB_HOST="${GITLAB_HOST:-gitlab.example.com}"
+GITLAB_NAMESPACE="${GITLAB_NAMESPACE:-your-username}"
 SOURCE_REPO="${SOURCE_REPO:-mnm-workflows-demo}"
 TARGET_REPO="${TARGET_REPO:-mnm-demo}"
 BRANCH="${BRANCH:-main}"
@@ -119,7 +119,7 @@ if [[ "$RESTRUCTURE_NEEDED" -eq 1 ]]; then
 
   # Only commit if there are staged changes.
   if ! git diff --cached --quiet; then
-    git -c user.name="mnm-migrator" -c user.email="mnm-migrator@enterprise.example" \
+    git -c user.name="mnm-migrator" -c user.email="mnm-migrator@example.com" \
       commit -m "refactor: restructure repo per Git-first agents convention
 
 agents/<name>/agent.md (was: feature-dev/agents/<name>.md)

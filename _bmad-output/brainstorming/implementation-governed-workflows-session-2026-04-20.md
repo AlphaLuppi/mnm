@@ -2,7 +2,7 @@
 
 **Statut :** **Abandonnée en cours** — on s'est perdus sur les questions de format (TS vs JSON) et d'exécution des gates. À reprendre dans une nouvelle session à tête reposée.
 
-**Participants :** Tom, Claude (Opus 4.7 1M)
+**Participants :** the maintainer, Claude (Opus 4.7 1M)
 
 **Contexte d'entrée :**
 - Design consolidé existant : `_bmad-output/governed-workflows-consolidated-2026-04-17.md`
@@ -18,7 +18,7 @@ Au fil de la conversation, l'architecture a changé plusieurs fois :
 3. Puis "Claude Code = scheduler, serveur = data/tools (client-side compute pour les agents)"
 4. Puis "pas de code TS sur le client, juste MCP"
 5. Puis "workflows = data pure, format JSON"
-6. Puis Tom a rappelé que **les gates doivent bien être EXÉCUTÉES côté serveur** — ce qui rouvre la question du format (si les gates sont du code custom TS, on a besoin de TS ; si elles sont déclaratives, JSON suffit).
+6. Puis the maintainer a rappelé que **les gates doivent bien être EXÉCUTÉES côté serveur** — ce qui rouvre la question du format (si les gates sont du code custom TS, on a besoin de TS ; si elles sont déclaratives, JSON suffit).
 
 Claude a glissé d'un modèle à l'autre sans recadrer clairement les justifications. Trop de décisions prises sur des prémisses qui bougeaient. Stop net pour repartir frais.
 
@@ -38,7 +38,7 @@ Claude a glissé d'un modèle à l'autre sans recadrer clairement les justificat
 
 6. **Création/édition des workflows via MCP uniquement pour MVP.** Pas d'UI web pour créer/éditer. L'UI viendra plus tard. Mais l'archi data (DB, persistence, versioning) doit être opérationnelle pour MVP.
 
-7. **Versioning = Git externe** (GitLab EnterpriseCustomer qui existe déjà en interne). Pas de bare repo local MnM. Réutilisation de l'infra existante (backup, perms, SSO).
+7. **Versioning = Git externe** (GitLab self-hosted qui existe déjà en interne). Pas de bare repo local MnM. Réutilisation de l'infra existante (backup, perms, SSO).
 
 8. **Interface `GitProvider` abstraite** avec impls : MVP = `GitlabProvider` + `LocalBareRepoProvider` (pour dev/tests sans réseau).
 
@@ -46,7 +46,7 @@ Claude a glissé d'un modèle à l'autre sans recadrer clairement les justificat
 
 10. **Structure repos = 3 repos par company** : `mnm-<company>/workflows`, `mnm-<company>/agents`, `mnm-<company>/skills`. Permissions/CI/webhooks différents par type d'artefact.
 
-11. **Token MnM central + commit author = user réel.** Token = simple (MnM écrit au nom d'un bot), author du commit = l'user qui a déclenché la modif (Tom Andrieu, Paul, etc.). Traçabilité via git log.
+11. **Token MnM central + commit author = user réel.** Token = simple (MnM écrit au nom d'un bot), author du commit = l'user qui a déclenché la modif (the contributor, Paul, etc.). Traçabilité via git log.
 
 12. **Cache client `~/.mnm/cache/<company>/...`** owned par MnM, user ne touche jamais à la main. Conflits = "le serveur gagne toujours", pas de merge. *Mais : utilité exacte à reclarifier (voir points ouverts).*
 
@@ -58,7 +58,7 @@ Claude a glissé d'un modèle à l'autre sans recadrer clairement les justificat
 
 16. **Claude Code = le scheduler DAG en mode server-pull, gate-driven.** Claude Code appelle MCP, reçoit l'état, décide le prochain step, l'exécute localement, notifie, recommence. Les verdicts des gates (pass/fail/retry/block/override) pilotent les décisions du harness.
 
-17. **Gates = évaluées côté serveur** sur les artifacts reportés par le client. ← Tom a explicitement rappelé ce point en fin de session. Reste à trancher : gates = code custom TS sandboxé OU gates = identifiers déclaratifs.
+17. **Gates = évaluées côté serveur** sur les artifacts reportés par le client. ← the maintainer a explicitement rappelé ce point en fin de session. Reste à trancher : gates = code custom TS sandboxé OU gates = identifiers déclaratifs.
 
 ---
 
@@ -150,6 +150,6 @@ Consignes :
 ## Notes pour Claude de la prochaine session
 
 - Ne pas redécouvrir la roue sur les points 1-16 des "décisions actées" — les confirmer rapidement, pas re-brainstormer.
-- Attaquer direct le point 1 (nature des gates) : Tom doit trancher A ou B.
+- Attaquer direct le point 1 (nature des gates) : the maintainer doit trancher A ou B.
 - Rester honnête : si une justification change parce que l'archi change, **le dire explicitement** au lieu de glisser silencieusement.
 - Le skill `superpowers:brainstorming` structure bien la session, mais ne pas laisser le flow guider la conversation sans valider les fondations.

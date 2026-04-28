@@ -23,7 +23,7 @@
 
 ### Contexte -- Pourquoi cette story est critique
 
-L'orchestrateur est le coeur de MnM. C'est lui qui impose que les agents IA executent EXACTEMENT ce qu'on leur dit -- des workflows deterministes, pas des suggestions. Sans lui, les agents sautent des etapes, ne chargent pas les bons fichiers, et derivent sans controle (Verite #45 EnterpriseCustomer).
+L'orchestrateur est le coeur de MnM. C'est lui qui impose que les agents IA executent EXACTEMENT ce qu'on leur dit -- des workflows deterministes, pas des suggestions. Sans lui, les agents sautent des etapes, ne chargent pas les bons fichiers, et derivent sans controle (Verite #45 your organization).
 
 Aujourd'hui, le service `stages.ts` gere les transitions de stage_instances avec une simple map `VALID_TRANSITIONS` et un check `pending -> running -> review -> done`. C'est fonctionnel pour une V1, mais ca ne suffit pas pour l'enforcement B2B : pas de gardes RBAC sur les transitions, pas de persistance d'etat riche, pas d'evenements structures pour l'audit, pas de gestion des etats avances (compaction, validation humaine).
 

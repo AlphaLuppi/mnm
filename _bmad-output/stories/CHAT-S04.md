@@ -19,7 +19,7 @@ L'infrastructure chat est complete cote backend :
 
 Il manque la couche UI React : le composant **AgentChatPanel** qui permet a un utilisateur de communiquer en temps reel avec un agent AI dans un container, via le WebSocket et le pipe container.
 
-C'est le "moment emotionnel de la demo EnterpriseCustomer" : un utilisateur tape dans le chat, voit l'agent repondre en temps reel.
+C'est le "moment emotionnel de la demo your organization" : un utilisateur tape dans le chat, voit l'agent repondre en temps reel.
 
 ## 2. Objectif
 

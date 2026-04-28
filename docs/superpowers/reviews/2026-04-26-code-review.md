@@ -436,4 +436,4 @@ mnm (root)         FAIL — Cannot find module '@embedded-postgres/windows-x64' 
 
 **READY FOR M0+M1+M2+M3 OPS.**
 
-All 13 findings (2 BLOCKER + 3 MAJOR + 4 MINOR + 2 NIT + OPS-1 + F-1 PM) are independently verified as closed with file-line evidence and matching test coverage. Tom can proceed with the demo cutover.
+All 13 findings (2 BLOCKER + 3 MAJOR + 4 MINOR + 2 NIT + OPS-1 + F-1 PM) are independently verified as closed with file-line evidence and matching test coverage. the maintainer can proceed with the demo cutover.

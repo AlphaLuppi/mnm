@@ -135,7 +135,7 @@ Le projet a ete construit sur une reflexion approfondie documentee dans `_bmad-o
 | **Projects v2 — Feature Map & Traceability** | P0 | Arbre de nodes generique (features, ACs, requirements) + entity_links (graph de liens). Feature Map comme vue centrale du projet. Coverage structurelle par feature. Voir `_bmad-output/vision-projects-v2-2026-04-06.md` |
 | **GitNexus MCP par repo** | P0 | 1 MCP server par codebase exposant le knowledge graph du code. Agents + humains peuvent query l'architecture sans cloner. |
 | **Handoff Chat → Production** | P1 | Agent extracteur qui distille un brainstorm chat en document structure pour les equipes prod. |
-| Validation E2E complete | P1 | Deploy test instance, smoke test 8 scenarios EnterpriseCustomer |
+| Validation E2E complete | P1 | Deploy test instance, smoke test 8 enterprise scenarios |
 | Import Jira intelligent | P1 | Mapping semantique Jira → MnM, dry-run preview |
 | "Drive the Agent" Live UX | P1 | Split view code+chat, quick-actions, historique navigable |
 | Distributed Tracing avance | P2 | OpenTelemetry, correlation trace/audit/drift, alertes |

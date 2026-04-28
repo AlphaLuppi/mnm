@@ -35,9 +35,9 @@ type ProviderInfo = {
 const PROVIDERS: ProviderInfo[] = [
   {
     id: "gitlab",
-    label: "GitLab (lab.enterprise.example)",
+    label: "GitLab (gitlab.example.com)",
     description:
-      "Permet de committer les Governed Workflows sous votre identité GitLab. Les commits apparaissent à votre nom dans l'historique lab.enterprise.example.",
+      "Permet de committer les Governed Workflows sous votre identité GitLab. Les commits apparaissent à votre nom dans l'historique gitlab.example.com.",
     scopes: ["api", "read_repository", "write_repository"],
     commitCapable: true,
   },
@@ -45,7 +45,7 @@ const PROVIDERS: ProviderInfo[] = [
     id: "microsoft",
     label: "Microsoft / Entra ID",
     description:
-      "Identité EnterpriseCustomer via Azure AD. Utile si vous n'avez pas d'accès GitLab. Les commits Governed Workflows retombent sur le token de la company.",
+      "Identité your organization via Azure AD. Utile si vous n'avez pas d'accès GitLab. Les commits Governed Workflows retombent sur le token de la company.",
     scopes: ["User.Read"],
     commitCapable: false,
   },

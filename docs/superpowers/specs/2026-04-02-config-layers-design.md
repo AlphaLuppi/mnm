@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-02
 **Status:** Spec finale — post-review (6 personas: securite, SQL, produit, backend, frontend, DBA)
-**Auteur:** tom.andrieu
+**Auteur:** your-username
 
 ---
 

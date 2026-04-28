@@ -2,7 +2,7 @@
 
 **Date** : 2026-04-20
 **Statut** : Design validé section par section, prêt pour writing-plans
-**Auteurs** : Tom (cofondateur), Claude
+**Auteurs** : the maintainer, Claude
 **Objectif** : spécification technique pour l'implémentation MVP des Governed Workflows, avec hello-world comme premier workflow test.
 
 ---
@@ -100,7 +100,7 @@ Ce document **consolide** la session 2 de brainstorm après adversarial review, 
                                                     │
                                                     ▼
                                           ┌──────────────────┐
-                                          │ GitLab EnterpriseCustomer       │
+                                          │ GitLab self-hosted       │
                                           │ - workflows repo │
                                           │ - agents repo    │
                                           └──────────────────┘
@@ -110,7 +110,7 @@ Ce document **consolide** la session 2 de brainstorm après adversarial review, 
 
 - **Poste user** : Claude Code exécute les sub-agents (compute client-side). Cache staging MnM + copie finale dans `~/.claude/`. Hook SessionStart sync.
 - **Serveur MnM** : control plane. Gate Runner eval les gates TS dans isolated-vm. Git Provider pull workflow.json / gates / agents depuis GitLab, cache in-memory par sha.
-- **GitLab EnterpriseCustomer** : source de vérité. 2 repos par company. MnM commit au nom de l'user (author) avec son token bot.
+- **GitLab self-hosted** : source de vérité. 2 repos par company. MnM commit au nom de l'user (author) avec son token bot.
 
 ### Flow d'un step typique
 
@@ -624,19 +624,19 @@ Le harness voit toujours un verdict structuré, jamais un 500.
 ### Flow E2E (19 étapes)
 
 ```
-User : "lance hello-world avec name=Tom"
-├─ (1)  Harness → launchWorkflow("hello-world", {name:"Tom"})
+User : "lance hello-world avec name=the maintainer"
+├─ (1)  Harness → launchWorkflow("hello-world", {name:"the maintainer"})
 ├─ (2)  Serveur : crée run + step_executions (greet pending, shout pending)
 ├─ (3)  Retourne {runId, firstStep:"greet"}
 ├─ (4)  Harness → launchStep(runId, "greet")
-├─ (5)  Serveur : pas d'entry gate, retourne {agent:"greeter", ctx:{name:"Tom"}}
+├─ (5)  Serveur : pas d'entry gate, retourne {agent:"greeter", ctx:{name:"the maintainer"}}
 ├─ (6)  Harness → Task(subagent_type:"mnm--greeter", ...)
-├─ (7)  Sub-agent produit {greeting:"Hello, Tom!"}
-├─ (8)  Harness → completeStep(runId, "greet", {greeting:"Hello, Tom!"})
+├─ (7)  Sub-agent produit {greeting:"Hello, the maintainer!"}
+├─ (8)  Harness → completeStep(runId, "greet", {greeting:"Hello, the maintainer!"})
 ├─ (9)  Serveur : eval exit gate → pass
 ├─ (10) step greet=succeeded, unlock shout
 ├─ (11) Harness → launchStep(runId, "shout")
-├─ (12) Serveur : retourne {agent:"shouter", ctx:{greeting:"Hello, Tom!"}}
+├─ (12) Serveur : retourne {agent:"shouter", ctx:{greeting:"Hello, the maintainer!"}}
 ├─ (13) Harness → Task(subagent_type:"mnm--shouter", ...)
 ├─ (14) Sub-agent produit {shouted:"HELLO, TOM!"}
 ├─ (15) Harness → completeStep(runId, "shout", {shouted:"HELLO, TOM!"})
@@ -675,7 +675,7 @@ Parallélisable : T1, T2, T3 indépendants. T6 indépendant de T4/T5.
 
 - T1 : écrire une gate TS type-safe en local
 - T2 : insérer un run à la main (SQL), verify RLS
-- T3 : fetch workflow.json depuis GitLab EnterpriseCustomer
+- T3 : fetch workflow.json depuis GitLab self-hosted
 - T4 : eval gate TS contre artifact mock
 - T5 : driver un run complet via MCP
 - T6 : booter Claude Code avec MnM enabled

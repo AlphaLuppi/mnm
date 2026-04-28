@@ -1,7 +1,7 @@
 # Vision: Projects v2 — MnM
 
 **Date:** 2026-04-06
-**Auteur de la vision:** Tom (co-fondateur AlphaLuppi)
+**Auteur de la vision:** the maintainer (co-fondateur Studio Manifeste)
 **Documenté par:** Session brainstorm interactive
 
 ---
@@ -13,7 +13,7 @@ MnM est un **cockpit de supervision**, pas un IDE, pas un Jira, pas un GitHub. L
 **Trois principes non-négociables :**
 
 1. **Légèreté** — Pas de nouvelles entités spécifiques (pas de "Feature", "Handoff", "HealthScore" comme tables DB). On relie ce qui existe déjà.
-2. **Agnosticité** — Doit marcher pour AlphaLuppi (3 personnes, startup) comme pour EnterpriseCustomer (enterprise réglementé). Zéro logique métier hardcodée.
+2. **Agnosticité** — Doit marcher pour Studio Manifeste (petite équipe, startup) comme pour your organization (enterprise réglementé). Zéro logique métier hardcodée.
 3. **Flexibilité** — La puissance vient des liens entre entités + des Blocks composables + des agents configurables, pas de structures figées.
 
 ---
@@ -45,7 +45,7 @@ C'est là que les gens **pensent**. L'interface primaire pour brainstormer, ité
 
 C'est là que les agents **travaillent**. Le terrain commun entre les personnes et les agents.
 
-- **Projet = Produit** — un projet MnM représente un produit complet (ex: "<external-stakeholder>" chez EnterpriseCustomer)
+- **Projet = Produit** — un projet MnM représente un produit complet (ex: "internal-product" en entreprise)
 - **Multi-codebase** — un produit peut avoir N codebases/workspaces (app mobile, web Angular, vieille app internal-backend...). Chaque codebase a son MCP GitNexus.
 - **Nodes = la structure du produit** — un arbre générique (features, ACs, requirements, modules...) qui organise le produit. Pas des issues — les nodes sont permanents (capacités du produit), les issues sont temporaires (travail à faire).
 - **Issues = le travail à faire** — tâches, bugs, stories. Liées aux nodes via entity_links.
@@ -322,24 +322,24 @@ Quand quelqu'un ouvre un projet dans MnM, peu importe qui il est, il voit les fe
 Une feature est un **node** dans la table `nodes` (type: "feature"). Les ACs sont des nodes enfants (type: "acceptance-criteria"). Les issues, specs, tests sont liés via `entity_links`.
 
 ```
-Projet: <external-stakeholder> (multi-codebase: web Angular + mobile React Native + legacy internal-backend)
+Projet: internal-product (multi-codebase: web Angular + mobile React Native + legacy internal-backend)
 │
-├── Node "Création d'<document>"        [type: feature] ← company-wide, span multi-repo
+├── Node "Création d'document généré"        [type: feature] ← company-wide, span multi-repo
 │   ├── Node "Ordonnance Web"           [type: feature, parent: above]
-│   │   ├── entity_link → workspace: stakeholder-web
+│   │   ├── entity_link → workspace: internal-product-web
 │   │   ├── entity_link → issues: 8/12 done
 │   │   └── entity_link → 15 tests E2E
 │   ├── Node "Ordonnance Mobile"        [type: feature, parent: above]
-│   │   ├── entity_link → workspace: stakeholder-mobile
+│   │   ├── entity_link → workspace: internal-product-mobile
 │   │   ├── entity_link → issues: 6/10 done
 │   │   └── entity_link → 11 tests E2E
-│   ├── Node "AC: Médecin peut prescrire un médicament" [type: acceptance-criteria]
+│   ├── Node "AC: Professionnel peut prescrire un médicament" [type: acceptance-criteria]
 │   │   ├── entity_link → Issue MNM-42 (implements) ✅ done
 │   │   └── entity_link → heartbeat_run #xyz (tested-by) ✅ passing
-│   ├── Node "AC: Alerte interaction médicamenteuse" [type: acceptance-criteria]
+│   ├── Node "AC: Alerte conflit de règles" [type: acceptance-criteria]
 │   │   └── entity_link → Issue MNM-45 (implements) 🔄 in_progress
-│   ├── entity_link → spec: spec-<document>-global.md
-│   └── entity_link → cahier-des-charges-<redacted-acronym>.md (compliance)
+│   ├── entity_link → spec: spec-document généré-global.md
+│   └── entity_link → cahier-des-charges-autorité de régulation sectorielle.md (compliance)
 │
 ├── Node "Authentification"             [type: feature]
 │   ├── entity_link → spec: auth-spec.md
@@ -348,7 +348,7 @@ Projet: <external-stakeholder> (multi-codebase: web Angular + mobile React Nativ
 │   └── entity_link → ISO-27001-A942 (node requirement company-wide)
 │
 └── Node "REQ: MFA obligatoire"         [type: requirement, project_id: null] ← company-wide
-    ├── entity_link → Node "Authentification" projet <external-stakeholder>
+    ├── entity_link → Node "Authentification" projet internal-product
     ├── entity_link → Node "Authentification" projet BackOffice
     └── entity_link → cahier-des-charges-ISO27001.md
 ```
@@ -385,8 +385,8 @@ SSO Entreprise       ○ nouveau    0/0       0/0       0%
 
 ### La flexibilité par l'usage
 
-- **Startup (AlphaLuppi)** : features avec quelques issues chacune, pas de cahier des charges. La Feature Map montre l'avancement de chaque feature. Simple.
-- **Enterprise réglementé (EnterpriseCustomer)** : features structurées avec requirements numérotés, liens vers cahiers des charges, couverture de tests par requirement. La même Feature Map montre une matrice de conformité.
+- **Startup (éditeur)** : features avec quelques issues chacune, pas de cahier des charges. La Feature Map montre l'avancement de chaque feature. Simple.
+- **Enterprise réglementé (your organization)** : features structurées avec requirements numérotés, liens vers cahiers des charges, couverture de tests par requirement. La même Feature Map montre une matrice de conformité.
 - **Agence / freelance** : features par client/contrat, liées aux specs du brief client.
 - **Même mécanisme. Même UI. Usage différent.** La sémantique vient des tags et des liens, pas des types d'entités.
 
@@ -413,7 +413,7 @@ C'est ce que la Feature Map affiche dans la vue liste. Coût de rendu : quasi z�
 Même pattern que les traces Gold (Bronze → Silver → Gold). Un agent génère un document exhaustif de la feature, stocké comme artifact lié au noeud :
 
 ```markdown
-# Création d'<document>
+# Création d'document généré
 
 ## Résumé
 Permet aux médecins de créer des <documents> électroniques...
@@ -421,16 +421,16 @@ Permet aux médecins de créer des <documents> électroniques...
 ## État actuel
 - Issues: 14/22 (64%)
 - Tests E2E: 20/26 (77%)
-- Compliance <redacted-acronym>: 8/10 requirements
+- Compliance autorité de régulation sectorielle: 8/10 requirements
 
 ## Specs liées
-- spec-<document>-global.md (approved)
-- cahier-des-charges-<redacted-acronym>.md → REQ-04, REQ-07, REQ-12...
+- spec-document généré-global.md (approved)
+- cahier-des-charges-autorité de régulation sectorielle.md → REQ-04, REQ-07, REQ-12...
 
 ## Plateformes
 ### Web (Angular)
 - 8/12 issues, 15 tests
-- Modules: <document>-service, <document>-form...
+- Modules: document généré-service, génération de document-form...
 ### Mobile (React Native)
 - 6/10 issues, 11 tests
 - Modules: OrdonnanceScreen, PrescriptionAPI...
@@ -442,7 +442,7 @@ Permet aux médecins de créer des <documents> électroniques...
 ## Historique
 - 2026-03-15: Handoff PM → équipe dev
 - 2026-03-22: 50% issues done
-- 2026-04-01: Premier test E2E compliance <redacted-acronym> passé
+- 2026-04-01: Premier test E2E compliance autorité de régulation sectorielle passé
 ```
 
 **Régénéré** quand un changement significatif se produit (issue fermée, test status change, spec modifiée) — pas à chaque commit. L'agent reçoit l'événement, régénère le doc, le stocke comme artifact.
@@ -523,7 +523,7 @@ L'agent regarde l'état des liens :
 4. **Ne pas faire de git UI** — les diffs, branches, PRs restent dans les IDEs/GitHub
 5. **Ne pas forcer un workflow** — le système de liens est flexible, chaque entreprise structure comme elle veut
 6. **Ne pas sur-spécifier les link_types** — laisser libre ("implements", "tests", "references" ou n'importe quoi d'autre)
-7. **Ne pas oublier que MnM construit MnM** — si ça marche pas pour AlphaLuppi (3 personnes), c'est trop complexe
+7. **Ne pas oublier que MnM construit MnM** — si ça marche pas pour Studio Manifeste (petite équipe), c'est trop complexe
 
 ---
 
@@ -540,4 +540,4 @@ La vision Projects v2 repose sur **4 piliers** :
 
 ---
 
-*Vision documentée le 2026-04-06 — Session brainstorm Tom + Claude*
+*Vision documentée le 2026-04-06 — Session brainstorm the maintainer + Claude*

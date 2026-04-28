@@ -138,16 +138,16 @@ When posting issue comments, use concise markdown with:
 - bullets for what changed / what is blocked
 - links to related entities when available
 
-**Company-prefixed URLs (required):** All internal links MUST include the company prefix. Derive the prefix from any issue identifier you have (e.g., `EnterpriseCustomer-315` → prefix is `EnterpriseCustomer`). Use this prefix in all UI links:
+**Company-prefixed URLs (required):** All internal links MUST include the company prefix. Derive the prefix from any issue identifier you have (e.g., `your organization-315` → prefix is `your organization`). Use this prefix in all UI links:
 
-- Issues: `/<prefix>/issues/<issue-identifier>` (e.g., `/EnterpriseCustomer/issues/EnterpriseCustomer-224`)
+- Issues: `/<prefix>/issues/<issue-identifier>` (e.g., `/your organization/issues/your organization-224`)
 - Issue comments: `/<prefix>/issues/<issue-identifier>#comment-<comment-id>`
-- Agents: `/<prefix>/agents/<agent-url-key>` (e.g., `/EnterpriseCustomer/agents/cto`)
+- Agents: `/<prefix>/agents/<agent-url-key>` (e.g., `/your organization/agents/cto`)
 - Projects: `/<prefix>/projects/<project-url-key>`
 - Approvals: `/<prefix>/approvals/<approval-id>`
 - Runs: `/<prefix>/agents/<agent-url-key-or-id>/runs/<run-id>`
 
-Do NOT use unprefixed paths like `/issues/EnterpriseCustomer-123` or `/agents/cto` — always include the company prefix.
+Do NOT use unprefixed paths like `/issues/your organization-123` or `/agents/cto` — always include the company prefix.
 
 Example:
 
@@ -156,9 +156,9 @@ Example:
 
 Submitted CTO hire request and linked it for board review.
 
-- Approval: [ca6ba09d](/EnterpriseCustomer/approvals/ca6ba09d-b558-4a53-a552-e7ef87e54a1b)
-- Pending agent: [CTO draft](/EnterpriseCustomer/agents/cto)
-- Source issue: [EnterpriseCustomer-142](/EnterpriseCustomer/issues/EnterpriseCustomer-142)
+- Approval: [ca6ba09d](/your organization/approvals/ca6ba09d-b558-4a53-a552-e7ef87e54a1b)
+- Pending agent: [CTO draft](/your organization/agents/cto)
+- Source issue: [your organization-142](/your organization/issues/your organization-142)
 ```
 
 ## Planning (Required when planning requested)

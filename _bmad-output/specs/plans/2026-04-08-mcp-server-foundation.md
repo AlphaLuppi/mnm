@@ -62,14 +62,14 @@
 - [ ] **Step 1: Install the MCP SDK**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun add @modelcontextprotocol/sdk --cwd server
 ```
 
 - [ ] **Step 2: Verify installation**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run typecheck --filter @mnm/server
 ```
 
@@ -384,7 +384,7 @@ export {
 - [ ] **Step 3: Run typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run typecheck --filter @mnm/shared
 ```
 
@@ -424,7 +424,7 @@ The rest of the file (`seedPermissions`, role presets, `backfillPermissions`) st
 - [ ] **Step 2: Run typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run typecheck --filter @mnm/server
 ```
 
@@ -473,7 +473,7 @@ export async function assertCompanyPermission(
 - [ ] **Step 2: Run typecheck to find all call sites with invalid strings**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run typecheck --filter @mnm/server 2>&1 | head -50
 ```
 
@@ -498,7 +498,7 @@ requirePermission(db, PERMISSIONS.AGENTS_READ)
 - [ ] **Step 4: Run typecheck — should pass now**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run typecheck --filter @mnm/server
 ```
 
@@ -600,7 +600,7 @@ Find the call to `createLocalAgentJwt` in `server/src/services/heartbeat.ts` and
 - [ ] **Step 3: Run typecheck**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run typecheck --filter @mnm/server
 ```
 
@@ -1351,7 +1351,7 @@ app.use(createMcpRouter(db, services));
 - [ ] **Step 3: Verify the server starts**
 
 ```bash
-cd C:/Users/example-org/repo/perso/alphalup/mnm
+cd C:/path/to/mnm
 bun run dev
 ```
 

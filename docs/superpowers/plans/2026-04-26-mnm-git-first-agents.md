@@ -9,7 +9,7 @@ Deadline démo : lundi 2026-04-28. Code-complete + reviewed dimanche midi.
 
 ## 1. Contexte (5 lignes)
 
-MnM résout aujourd'hui les agents en fetchant `<name>/agent.md` au root du repo et retourne `null` silencieux si la row DB est absente. Ce plan refactore vers le pattern Git-first symétrique (workflows + agents passent par `paths` du `git_provider` config_layer_item), ajoute une erreur dure `AGENT_NOT_REGISTERED`, étend `create_agent` MCP avec `latestGitTag`, et migre le repo `mnm-workflows-demo` → `mnm-demo` avec layout `agents/<name>/agent.md` + `workflows/<name>/workflow.json`. Stop à M4 ; M5 (smoke test démo) reste manuel côté Tom dimanche.
+MnM résout aujourd'hui les agents en fetchant `<name>/agent.md` au root du repo et retourne `null` silencieux si la row DB est absente. Ce plan refactore vers le pattern Git-first symétrique (workflows + agents passent par `paths` du `git_provider` config_layer_item), ajoute une erreur dure `AGENT_NOT_REGISTERED`, étend `create_agent` MCP avec `latestGitTag`, et migre le repo `mnm-workflows-demo` → `mnm-demo` avec layout `agents/<name>/agent.md` + `workflows/<name>/workflow.json`. Stop à M4 ; M5 (smoke test démo) reste manuel côté the maintainer dimanche.
 
 ---
 
@@ -49,7 +49,7 @@ Tous les sites qui devront recevoir `resourceType` :
 Sites N°7-10 : ces services prennent `resolveGitProvider` comme dépendance et la passent ensuite à des sous-fonctions. Ils ont leur propre interface `resolveGitProvider` à mettre à jour (P2 ci-dessous).
 
 ### 2.4 UUID `66b458ea-9879-4256-a802-45da08589a0a` — **non trouvé en seed/migration**
-Grep sur tout le repo retourne uniquement la spec elle-même. Cet UUID est issu d'une instance live (postgres dev de Tom). 
+Grep sur tout le repo retourne uniquement la spec elle-même. Cet UUID est issu d'une instance live (postgres dev de the maintainer). 
 
 → **Le dev team DOIT découvrir l'ID via une query live DB** avant d'exécuter M2 :
 ```sql
@@ -98,7 +98,7 @@ console.warn("[mnm.setup_workspace] agent_md_missing", {
   agentId,           // UUID DB — OK pour audit
   agentName,         // string — OK
   latestGitTag,      // string tag — OK
-  providerProjectId, // string ex "example-org/mnm-demo" — OK (lu de gitProvider.providerId)
+  providerProjectId, // string ex "your-username/mnm-demo" — OK (lu de gitProvider.providerId)
   fullPath,          // ex "agents/senior-dev/agent.md" — OK
   // INTERDIT : token, accessToken, configJson.token, refresh_token, secret, password, credential
 });
@@ -1266,7 +1266,7 @@ Note : la closure NE peut PAS faire `{ ...a, userId }` parce que TypeScript pour
 
 **Definition of done** : 2 verts + tests AI existants verts.
 
-**Si dev-C ne peut pas livrer P9 dans les délais** : retirer le claim "P9 fixes that" et documenter en follow-up post-démo. Le bug actuel (hardcoded null) est latent — pas une régression de ce refactor — donc pas un blocker absolu pour la démo lundi (l'AI assistant n'est pas dans le démo storyboard de Tom).
+**Si dev-C ne peut pas livrer P9 dans les délais** : retirer le claim "P9 fixes that" et documenter en follow-up post-démo. Le bug actuel (hardcoded null) est latent — pas une régression de ce refactor — donc pas un blocker absolu pour la démo lundi (l'AI assistant n'est pas dans le démo storyboard de the maintainer).
 
 ---
 
@@ -1311,7 +1311,7 @@ it("launches feature-dev tech-design step end-to-end", async () => {
   const launchResult = await svc.launchWorkflow({
     companyId,
     name: "feature-dev",
-    params: { ticket_id: "ISSUE-NN", gitlab_project: "example-org/repo" },
+    params: { ticket_id: "FEAT-001", gitlab_project: "your-username/x" },
     actor: { type: "user", id: "u-1" },
   });
 
@@ -1328,7 +1328,7 @@ it("launches feature-dev tech-design step end-to-end", async () => {
     agentName: "senior-dev",
     subagentType: "mnm--senior-dev",
     promptContext: expect.objectContaining({
-      ticket_id: "ISSUE-NN",
+      ticket_id: "FEAT-001",
     }),
   });
 });
@@ -1369,7 +1369,7 @@ psql "$MNM_DATABASE_URL" -c '\d agents' | grep archived_at
 
 ---
 
-### M1 — Repo `example-org/mnm-demo` (script bash, dev exécute manuellement)
+### M1 — Repo `your-username/mnm-demo` (script bash, dev exécute manuellement)
 
 **Goal** : SPEC §M1. Renommer `mnm-workflows-demo` → `mnm-demo`, restructurer, retag.
 
@@ -1380,11 +1380,11 @@ set -euo pipefail
 
 # Run from a fresh clone of mnm-workflows-demo
 cd "$(mktemp -d)"
-git clone https://lab.enterprise.example/example-org/mnm-workflows.git mnm-demo
+git clone https://gitlab.example.com/your-username/mnm-workflows-demo.git mnm-demo
 cd mnm-demo
 git remote rename origin old
 # Rename in GitLab UI first, then:
-git remote add origin https://lab.enterprise.example/example-org/mnm-demo.git
+git remote add origin https://gitlab.example.com/your-username/mnm-demo.git
 
 # Restructure
 mkdir -p agents workflows
@@ -1410,7 +1410,7 @@ git tag feature-dev/v1.0.2
 git push origin agents/v1.0.0 feature-dev/v1.0.2
 ```
 
-**Round 2 (N-1) — branch protection caveat** : si `mnm-demo` a une branch protection sur `main` (rare sur lab.enterprise.example en perso, mais possible si Tom l'a activée pour signer ses MR), `git push origin main` retournera `remote rejected`. Dans ce cas :
+**Round 2 (N-1) — branch protection caveat** : si `mnm-demo` a une branch protection sur `main` (rare sur gitlab.example.com en perso, mais possible si the maintainer l'a activée pour signer ses MR), `git push origin main` retournera `remote rejected`. Dans ce cas :
 1. Pousser sur une branche de feature : `git checkout -b refactor/git-first && git push origin refactor/git-first`
 2. Créer une MR `refactor/git-first → main`, l'approuver, la merger via UI GitLab.
 3. Tagger `agents/v1.0.0` et `feature-dev/v1.0.2` sur le merge commit, pousser les tags.
@@ -1460,7 +1460,7 @@ BEGIN;
 
 UPDATE config_layer_items
 SET config_json = config_json
-  || jsonb_build_object('projectId', 'example-org/mnm-demo')
+  || jsonb_build_object('projectId', 'your-username/mnm-demo')
   || jsonb_build_object('paths', jsonb_build_object('agents','agents','workflows','workflows'))
 WHERE id = '<DISCOVERED_ID>';
 
@@ -1490,10 +1490,10 @@ COMMIT;
 
 Sequence d'appels MCP (via Claude Code session ou via une commande CLI test) :
 ```jsonc
-mcp__plugin_mnm_mnm__create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (EnterpriseCustomer demo)",     adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (EnterpriseCustomer demo)",            adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (EnterpriseCustomer demo)", adapterType: "claude_local" })
-mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (EnterpriseCustomer demo)",adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "senior-dev",     latestGitTag: "agents/v1.0.0", title: "Senior Dev (your organization demo)",     adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "dev",            latestGitTag: "agents/v1.0.0", title: "Dev (your organization demo)",            adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "review-watcher", latestGitTag: "agents/v1.0.0", title: "Review Watcher (your organization demo)", adapterType: "claude_local" })
+mcp__plugin_mnm_mnm__create_agent({ name: "release-mgr",    latestGitTag: "agents/v1.0.0", title: "Release Manager (your organization demo)",adapterType: "claude_local" })
 ```
 
 Chaque appel valide que `agents/<name>/agent.md@agents/v1.0.0` existe — si M1 mal exécuté, le call retourne `AGENT_GIT_FILE_MISSING` immédiatement.
@@ -1521,7 +1521,7 @@ Puis fixer la cause (commit manquant côté M1, push retardé, etc.) et relancer
 
 ### M4 — Test run end-to-end manuel
 
-**Goal** : SPEC §M4 step 1-6. Stop avant le step 7 (Tom prend le relais).
+**Goal** : SPEC §M4 step 1-6. Stop avant le step 7 (the maintainer prend le relais).
 
 ```jsonc
 mcp__plugin_mnm_mnm__setup_workspace({})
@@ -1537,7 +1537,7 @@ mcp__plugin_mnm_mnm__push_local_state({
 
 const launch = mcp__plugin_mnm_mnm__launch_governed_workflow({
   name: "feature-dev",
-  params: { ticket_id: "ISSUE-NN", gitlab_project: "example-org/mnm-demo-app" }
+  params: { ticket_id: "FEAT-001", gitlab_project: "your-username/mnm-demo-app" }
 })
 // → returns { run_id, first_step: "tech-design", ... }
 
@@ -1550,11 +1550,11 @@ const step = mcp__plugin_mnm_mnm__launch_governed_step({
 // MUST return:
 //   { agent_name: "senior-dev",
 //     subagent_type: "mnm--senior-dev",
-//     prompt_context: { ticket_id: "ISSUE-NN" } }
+//     prompt_context: { ticket_id: "FEAT-001" } }
 // MUST NOT return: AGENTS_STALE, MISSING_TOOLS, AGENT_NOT_REGISTERED, 401, GIT_PROVIDER_ERROR
 ```
 
-**Definition of done** : le triplet est retourné. Stop ici, M5 (Tom).
+**Definition of done** : le triplet est retourné. Stop ici, M5 (the maintainer).
 
 ---
 
@@ -1593,7 +1593,7 @@ M0 (apply 0067 migration on dev DB)
 P0 → (P2, P2.1, P3) parallèle → (P1) parallèle → (P4, P5, P6) parallèle après P0+P2 → (P7, P8, P9, P10) parallèle après P4+P6 → P11 (final E2E, single owner)
 ```
 
-**Phases ops séquentielles** (un seul owner = team-lead ou Tom) :
+**Phases ops séquentielles** (un seul owner = team-lead ou the maintainer) :
 ```
 M0 (DB migrate, BEFORE P3 ships nothing — but the LIVE dev DB needs the column)
   ↓ tests run on the migrated DB
@@ -1625,7 +1625,7 @@ M1 (post P0-P11) → M2 (post M0 + M1) → M3 (post P7 + M2) → M4 (post M3)
 - Bouton UI "Promote to MnM agent" dans le Studio.
 - UNIQUE constraint sur `agents(company_id, name)` (post-démo).
 - Lifecycle complet d'archivage UI pour les agents (post-démo).
-- M5 (smoke test démo) — Tom dimanche.
+- M5 (smoke test démo) — the maintainer dimanche.
 
 ---
 
@@ -1651,7 +1651,7 @@ Plan §3.5 dit "race acceptable pour la démo (single-user)". Mais §M3 lance 4 
 #### MAJOR
 
 **M-1. P0 helper rejecte `..` mais pas le tuple `(name, file)` qui pourrait l'introduire.**
-Test plan ligne 223-238 : `paths.agents = "../etc"` → throw. Mais `name` est attribut DB controllé (Tom le saisit via `create_agent` zod) ; `file` est hardcodé code-side. Cas limite : un agent nommé `../etc/passwd` (nom DB malicieux) produit `agents/../etc/passwd/agent.md`. Pour la démo single-user, négligeable. Mais P0 devrait explicitement rejeter `name.includes("..")` et `file.includes("..")` aussi — fail-closed à TOUS les segments. Ajouter test : `expect(() => resolveResourcePath({}, "agent", "../foo", "agent.md")).toThrow()`.
+Test plan ligne 223-238 : `paths.agents = "../etc"` → throw. Mais `name` est attribut DB controllé (the maintainer le saisit via `create_agent` zod) ; `file` est hardcodé code-side. Cas limite : un agent nommé `../etc/passwd` (nom DB malicieux) produit `agents/../etc/passwd/agent.md`. Pour la démo single-user, négligeable. Mais P0 devrait explicitement rejeter `name.includes("..")` et `file.includes("..")` aussi — fail-closed à TOUS les segments. Ajouter test : `expect(() => resolveResourcePath({}, "agent", "../foo", "agent.md")).toThrow()`.
 
 **M-2. Plan ne couvre pas l'audit du `errors.test.ts` existant.**
 `errors.test.ts:21-37` a un `toEqual({...})` strict qui NE liste PAS `WORKFLOW_FILE_INVALID_PATH`, `WORKFLOW_FILE_NOT_FOUND`, `WORKFLOW_FILE_EMPTY_CHANGES` (qui pourtant existent dans `errors.ts:92-99`). Donc ce test est ALREADY broken (fait `toEqual` strict sur un objet qui inclut plus de clés). Soit il passe quand même (toEqual ne vérifie pas extra-keys ?) — à vérifier. P1 doit AJOUTER les 2 nouvelles clés au `toEqual` ET corriger les 3 manquantes. Sinon, P1 ne sera pas un Red→Green honnête.
@@ -1660,7 +1660,7 @@ Test plan ligne 223-238 : `paths.agents = "../etc"` → throw. Mais `name` est a
 `source-resolver.ts:40-42` : `workflowDir = workflowRepoPath.slice(0, lastIndexOf("/"))`. Si `workflowRepoPath = "workflows/feature-dev/workflow.json"`, `workflowDir = "workflows/feature-dev"`. Le test ligne 52 `if (normalised.includes(".."))` reste OK pour `gateItemSource`. MAIS `gateSourcePath = "workflows/feature-dev/gates/foo.gate.ts"` — dans le repo. OK ✓. Pas de bug, mais P6 doit ajouter un test E2E qui prouve la chaîne complète (workflowRepoPath via paths → workflowDir multi-slash → gate fetch path). Le plan P6 ne l'a pas. Ajouter au moins un assertion `expect(seenGateFetchPaths).toContain("workflows/feature-dev/gates/...")`.
 
 **M-4. P2 cache key `${companyId}:${resourceType ?? "default"}` est insuffisant pour le scénario multi-items futur.**
-Spec §5.4 : "Quand plusieurs `git_provider` items existent". Si demain Tom a deux items pour la même company (un pour `agents`, un pour `workflows`), la clé `${companyId}:${resourceType}` est correcte. Mais le plan §P2.2 dit `${companyId}:${userId}:${resourceType ?? "default"}` pour le user-cache — ce qui est fine. Cependant, le SELECT `.limit(1)` est SUPPRIMÉ en P2.3 ("non `.limit(1)`") mais pas explicité dans l'implementation snippet. Le code à `:280-294` a `.limit(1)`. Plan doit dire explicitement : retirer `.limit(1)` ET trier les résultats de manière déterministe (par `id` ou `created_at`) pour que la sélection soit reproductible. Sinon, deux machines peuvent retourner des items différents.
+Spec §5.4 : "Quand plusieurs `git_provider` items existent". Si demain the maintainer a deux items pour la même company (un pour `agents`, un pour `workflows`), la clé `${companyId}:${resourceType}` est correcte. Mais le plan §P2.2 dit `${companyId}:${userId}:${resourceType ?? "default"}` pour le user-cache — ce qui est fine. Cependant, le SELECT `.limit(1)` est SUPPRIMÉ en P2.3 ("non `.limit(1)`") mais pas explicité dans l'implementation snippet. Le code à `:280-294` a `.limit(1)`. Plan doit dire explicitement : retirer `.limit(1)` ET trier les résultats de manière déterministe (par `id` ou `created_at`) pour que la sélection soit reproductible. Sinon, deux machines peuvent retourner des items différents.
 
 **M-5. `setupWorkspace` skip-on-404 — comportement de log non testé en isolation.**
 P5 test ligne 553-585 vérifie `warnSpy` ET absence de token dans `arg`. Bien. Mais le test mock `console.warn` globalement — donc TOUT autre warn dans la requête (y compris `[mnm.workflow_ai_assistant]` etc.) pourrait être capturé. La sortie de `warnSpy.mock.calls.flat()` puis `for (const arg of callArgs)` boucle aveugle qui peut donner faux-positifs. Recommandation : filtrer sur le premier arg `=== "[mnm.setup_workspace] agent_md_missing"` avant l'assertion no-token. Sinon, le test peut passer artificiellement.
@@ -1671,7 +1671,7 @@ Plan §M2 wrap en `BEGIN/COMMIT`. Bien. Mais §M3 enchaîne 4 MCP calls qui peuv
 #### MINOR
 
 **N-1. Le plan §M1 push directement sur `main` (`git push origin main` ligne 1003) sans PR/branch.**
-Pour un repo de démo single-user, OK. Mais si `mnm-demo` a déjà des protections de branche (rare sur lab.enterprise.example en perso, mais possible), la push échoue. Plan devrait noter explicitement : "Repo doit autoriser push direct sur main, sinon créer branche `refactor/git-first` et merger localement avant push."
+Pour un repo de démo single-user, OK. Mais si `mnm-demo` a déjà des protections de branche (rare sur gitlab.example.com en perso, mais possible), la push échoue. Plan devrait noter explicitement : "Repo doit autoriser push direct sur main, sinon créer branche `refactor/git-first` et merger localement avant push."
 
 **N-2. P3 migration index — le plan utilise `agents_company_active_idx`, le commentaire `agents_company_archived_idx`.**
 Plan ligne 141 : `agents_company_archived_idx ON agents (company_id) WHERE archived_at IS NULL`. Plan ligne 389 : `agents_company_active_idx`. Cohérence : choisir un nom et l'utiliser partout. Préférer `agents_company_active_idx` (sémantique plus claire pour un index "where archived_at IS NULL"). Mineur.
@@ -1731,10 +1731,10 @@ Ligne 783 `latestGitTag: z.string().min(1).optional()` — OK pour zod. Mais le 
 | #5 — `create_agent` étendu avec `latestGitTag?` | ✓ | P7. **MINOR N-4** : `.refine` whitespace check à ajouter. |
 | #6 — `Greeter/shouter` archivés | ✓ | M2 ligne 1034-1037. **MAJOR M-3** : ordre P3-then-M2 doit être enforced. |
 | #7 — `AGENT_NOT_REGISTERED` HARD throw | ✓ | P4 ligne 491-510. |
-| #8 — Repo `example-org/mnm-demo` | ✓ | M2 ligne 1030 `'example-org/mnm-demo'`. |
+| #8 — Repo `your-username/mnm-demo` | ✓ | M2 ligne 1030 `'your-username/mnm-demo'`. |
 | #9 — Stop à M4 | ✓ | Plan §6 s'arrête M4. |
 
-**Spec amendement requis** (§3.9 plan) : `agents.archived_at` colonne à ajouter. Le plan le fait en P3. Confirmé : la spec doit être amendée par l'orchestrator (Tom) ou le plan-author note l'écart explicitement. **Recommandation** : faire l'amendement avant que dev-B démarre P3, sinon dev-B doit deviner l'intention.
+**Spec amendement requis** (§3.9 plan) : `agents.archived_at` colonne à ajouter. Le plan le fait en P3. Confirmé : la spec doit être amendée par l'orchestrator (the maintainer) ou le plan-author note l'écart explicitement. **Recommandation** : faire l'amendement avant que dev-B démarre P3, sinon dev-B doit deviner l'intention.
 
 ### 10.D Backwards compat
 

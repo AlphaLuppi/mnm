@@ -1,12 +1,12 @@
 # Brainstorm: Governed Workflows — Superpowers & Plan
 
 **Date:** 2026-04-16
-**Participants:** Tom (cofondateur), Claude
+**Participants:** the maintainer, Claude
 **Input:** `docs/governed-workflows-scenarios.md`
 
 ---
 
-## Clarifications fondamentales (Tom)
+## Clarifications fondamentales (the maintainer)
 
 ### 1. Workflows forcés = universels, pas liés au niveau d'autonomie
 Les workflows sont **imposés à TOUT LE MONDE**, quel que soit le niveau d'autonomie.
@@ -52,7 +52,7 @@ La visibilité est contrôlée par **tags + permissions** (comme tout dans MnM).
 Git est le backend de stockage/versioning, pas l'interface utilisateur.
 
 ### 7. Gates custom = à designer (demande un truc "pépite")
-Tom ne sait pas encore comment les gates custom doivent fonctionner, mais veut quelque chose d'exceptionnel.
+the maintainer ne sait pas encore comment les gates custom doivent fonctionner, mais veut quelque chose d'exceptionnel.
 
 ### 8. Nightly auto-apply = opt-in par le lead
 - Par défaut : approbation humaine (propositions)
@@ -157,7 +157,7 @@ L'utilisateur ne touche jamais le YAML. Un agent spécialisé :
 ```
 CRÉATION          PUBLICATION       EXÉCUTION         OBSERVATION        ÉVOLUTION
 ─────────         ───────────       ─────────         ───────────        ─────────
-Tom chat MnM      Tags/permissions  Trigger           Métriques          Nightly Synthesis
+the maintainer chat MnM      Tags/permissions  Trigger           Métriques          Nightly Synthesis
   │                 │                 │                 │                  │
   ▼                 │                 ▼                 ▼                  ▼
 Orchestrator      Qui voit ?       Session créée     Taux pass/fail    Propositions
@@ -237,7 +237,7 @@ gates:
 ```
 
 **`block_with_override`** : bypass tracé et auditable.
-"Lucas a overridé security-review sur bugfix/ISSUE-NN, approuvé par Tom (lead), raison: hotfix prod."
+"teammate-A a overridé security-review sur bugfix/FEAT-001, approuvé par the maintainer, raison: hotfix prod."
 
 **`warn`** : informatif, pas bloquant. "Score maintenabilité 4/10" — dans le rapport, mais on continue.
 
@@ -249,7 +249,7 @@ Concept volé à LangGraph. Chaque workflow a un **contexte enrichi cumulatif** 
 
 ```
 Step 1: context-gathering
-  Input:  { issue: "ISSUE-NN" }
+  Input:  { issue: "FEAT-001" }
   Output: { issue, jira: {...}, sentry: {...}, kg: {...} }
 
 Step 2: implementation
@@ -274,8 +274,8 @@ Pipeline view (inspiré GitLab CI mais pour la gouvernance) :
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Workflow: bugfix/ISSUE-NN                    v3 ⚙️      │
-│  Lancé par: Lucas  •  Il y a 2h  •  En cours           │
+│  Workflow: bugfix/FEAT-001                    v3 ⚙️      │
+│  Lancé par: teammate-A  •  Il y a 2h  •  En cours           │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  ✅ Context Gathering ·········· 12s                    │
@@ -316,7 +316,7 @@ template: mnm/bugfix-standard
     - merge:
         gates: [human-review]
 
-# Company EnterpriseCustomer override
+# Company your organization override
 workflow: bugfix
   extends: mnm/bugfix-standard
   overrides:
@@ -407,7 +407,7 @@ On ne perd jamais la gouvernance, on la DIFFÈRE.
 ```
 Workflow terminé → notification :
 
-  "Workflow bugfix/ISSUE-NN terminé ✅ (2h 12m)
+  "Workflow bugfix/FEAT-001 terminé ✅ (2h 12m)
 
    Comment s'est passé ce workflow ?
    👍 Fluide    😐 OK    👎 Friction    🚫 Bloquant
@@ -429,7 +429,7 @@ MnM Platform
   └─ Templates globaux (mnm/bugfix-standard, mnm/feature-standard...)
       │
       ▼
-  Company EnterpriseCustomer
+  Company your organization
     └─ Workflows company (extends templates)
         │
         ▼
@@ -446,7 +446,7 @@ Chaque niveau peut **ajouter ou resserrer**, jamais relâcher (sauf override adm
 
 ---
 
-## Clarifications Session 2 (Tom)
+## Clarifications Session 2 (the maintainer)
 
 ### 11. Pas de "workflow bloqué" — timeouts + max tokens + CAO watchdog
 Un workflow n'est pas "bloqué" au sens humain. C'est le système qui gère :
@@ -459,13 +459,13 @@ Un workflow n'est pas "bloqué" au sens humain. C'est le système qui gère :
 Throughput, lead time, bottleneck analysis, gate fail heatmap — à garder.
 
 ### 13. Gates parallèles vs séquentiels — à designer
-Tom ne sait pas encore. À creuser.
+the maintainer ne sait pas encore. À creuser.
 
 ### 14. Conditions dynamiques sur les gates — validé
 "Run ce gate SEULEMENT SI le diff touche `api/`" — concept validé.
 
 ### 15. Lien Scoring Contracts / Gates — à designer
-Tom ne sait pas encore. À creuser.
+the maintainer ne sait pas encore. À creuser.
 
 ### 16. Dry-run workflow = NON. Dry-run gate par gate = OUI
 Pas utile de simuler un workflow entier. Par contre, **tester un gate individuellement**
@@ -566,7 +566,7 @@ gates:
 ```
 
 **Le mentoring-review conditionnel** : pas de l'autonomie différenciée (gates identiques),
-mais du **coaching intégré dans le workflow**. Rejoint la clarification de Tom :
+mais du **coaching intégré dans le workflow**. Rejoint la clarification de the maintainer :
 tout le monde passe les gates, les expérimentés passent plus facilement,
 et les conditions s'adaptent pour aider ceux qui en ont besoin.
 
@@ -607,7 +607,7 @@ Un Scoring Contract (brainstorm 3 piliers) **EST** un gate de type "panel" :
 ### Angle 16 bis : Gate dry-run = TDD pour les gates
 
 ```
-Tom: "Teste mon gate check-api-backward-compat sur un vrai diff"
+the maintainer: "Teste mon gate check-api-backward-compat sur un vrai diff"
 
 MnM: dry_run_gate({
   gate_id: "check-api-backward-compat",
@@ -617,14 +617,14 @@ MnM: dry_run_gate({
 → pass: false, score: 4
   "Breaking change: champ 'userId' renommé sans alias"
 
-Tom: "Teste-le sur les 10 derniers diffs du module auth"
+the maintainer: "Teste-le sur les 10 derniers diffs du module auth"
 
 MnM: batch_dry_run_gate({
   gate_id: "check-api-backward-compat",
   artifacts: { type: "last_n_diffs", module: "auth", n: 10 }
 })
 → 7/10 pass, 3/10 fail, 1 faux positif identifié
-→ Tom ajuste, re-teste, publie
+→ the maintainer ajuste, re-teste, publie
 ```
 
 **TDD pour les gates** : tester un gate sur des données réelles avant de le brancher en prod.
@@ -632,7 +632,7 @@ Le batch dry-run permet de **calibrer les thresholds**.
 
 ---
 
-## Clarifications Session 3 (Tom) — GAME CHANGER
+## Clarifications Session 3 (the maintainer) — GAME CHANGER
 
 ### 18. Un repo git PAR workflow, dans un groupe "workflows"
 Structure : groupe git `workflows/` → un repo par workflow (`workflows/bugfix`, `workflows/create-app`...).
@@ -673,7 +673,7 @@ Un gate ne vérifie pas juste "est-ce que ce code est bon". Il vérifie **l'éta
 **Exemple concret (PO brainstorm → deploy) :**
 
 ```
-Marie (PO, chat MnM) : "deploy l'app sur MnM"
+teammate-B (PO, chat MnM) : "deploy l'app sur MnM"
 
 MnM MCP → lance step "deploy-app" du workflow "create-app"
 
@@ -885,7 +885,7 @@ Skills Marketplace et Workflow System partagent les mêmes primitives.
 
 ---
 
-## Clarifications Session 4 (Tom)
+## Clarifications Session 4 (the maintainer)
 
 ### Le "Step Resolution Engine" n'existe pas — c'est juste le gate qui décide
 Pas besoin d'un composant central de résolution. **Le gate fait son propre check comme il veut** :
@@ -918,7 +918,7 @@ Le gate_result stocke déjà tout ce qu'il faut (input, output, evidence).
 
 ## Session 5 — Cadrage du contrat I/O Gate (minimal, avec paramètres ouverts)
 
-### Principe directeur (Tom)
+### Principe directeur (the maintainer)
 **MnM doit rester le + simple et le + agnostique possible.**
 Ne pas over-engineer. MnM = control plane avec primitives atomiques.
 Le harness (Claude Code + Opus 4.7) orchestre grâce à des erreurs explicites.
@@ -998,7 +998,7 @@ Le gate évalue, retourne le verdict, et c'est fini.
 
 ---
 
-## Clarifications Session 5 (Tom)
+## Clarifications Session 5 (the maintainer)
 
 ### Pattern discovery-first — pas d'invocation direct
 Le harness ne fait PAS `launchStep` direct. D'abord il découvre :
@@ -1045,7 +1045,7 @@ Les deux canaux sont sync via l'état workflow dans la DB.
 ## Session 6 — Le scénario PO revisité avec discovery-first
 
 ```
-Marie (chat MnM / Claude Code) : "deploy l'app"
+teammate-B (chat MnM / Claude Code) : "deploy l'app"
 
 Harness (Opus 4.7) :
   1. Appelle MCP: listWorkflows(intent: "deploy app")
@@ -1054,7 +1054,7 @@ Harness (Opus 4.7) :
   2. Appelle MCP: getWorkflow("create-app")
      → Retourne: structure compacte du workflow avec steps + deps
   
-  3. Appelle MCP: getWorkflowState(workflow: "create-app", actor: Marie)
+  3. Appelle MCP: getWorkflowState(workflow: "create-app", actor: teammate-B)
      → Retourne: "Aucun run actif. Steps brainstorm et human-validation
                   peuvent être satisfaits implicitement par le contexte chat."
   
@@ -1075,24 +1075,24 @@ Harness (Opus 4.7) :
   
   6. MCP retourne : "Step lancé. Required inputs: infra_config, deploy_target"
   
-  7. Harness demande à Marie ce qu'il manque, complète.
+  7. Harness demande à teammate-B ce qu'il manque, complète.
   
   8. Appelle MCP: completeStep(runId, artifacts: {...})
      → MnM backend détecte fin du step,
        déclenche notification via json-render vers tag "infra",
        état workflow passe à "awaiting infra-review"
   
-  9. Harness dit à Marie : "Draft envoyé à l'équipe infra pour review."
-     (Marie n'attend rien, son job est fini)
+  9. Harness dit à teammate-B : "Draft envoyé à l'équipe infra pour review."
+     (teammate-B n'attend rien, son job est fini)
 
 PENDANT CE TEMPS côté infra :
-  Lucas (infra) ouvre MnM le matin → inbox → voit "Review deploy-draft pour Marie"
+  teammate-A (infra) ouvre MnM le matin → inbox → voit "Review deploy-draft pour teammate-B"
   → Clic, viewer json-render montre le draft + diff + spec
   → Approuve ou demande modifs
   → Si approuve : backend MnM déclenche automatiquement le next step éligible
      (deploy-app devient possible)
 
-PLUS TARD, Marie retourne dans le chat :
+PLUS TARD, teammate-B retourne dans le chat :
   "Comment va mon deploy ?"
   Harness appelle getWorkflowState → "Infra a approuvé. Prêt à deploy."
   Harness : "Infra a approuvé ! Je lance le deploy-app."
@@ -1108,7 +1108,7 @@ PLUS TARD, Marie retourne dans le chat :
 
 ---
 
-## Clarifications Session 6 (Tom)
+## Clarifications Session 6 (the maintainer)
 
 ### Gates = points d'entrée / sortie des workflows ET des steps
 - **Gate d'entrée** : valide qu'on peut lancer
@@ -1124,15 +1124,15 @@ C'est le point important. Un gate n'est PAS forcément un check mécanique.
 - Step "code review" → load un agent spécialisé qui fait la review sur plusieurs axes
   (produit des findings, rapports, scores)
 - Gate de sortie "review OK, tout est carré" → **un autre agent** qui évalue le rapport
-  (ou alternativement une step "validation" juste après, Tom pas sûr)
+  (ou alternativement une step "validation" juste après, the maintainer pas sûr)
 
 → **Gate et Step deviennent structurellement la même chose** :
   - Un step produit un artifact
   - Un gate valide un artifact (et peut lui-même être un step/agent)
   - La différence est FONCTIONNELLE, pas structurelle
 
-### Onboarding = Tom consulting + Sensei + CAO
-Pas besoin de "bootstrap templates automatiques". Tom vendra du consulting.
+### Onboarding = the maintainer consulting + Sensei + CAO
+Pas besoin de "bootstrap templates automatiques". the maintainer vendra du consulting.
 - **Sensei** doit connaître MnM sur le bout des doigts → aide l'onboarding, dialogue avec les clients
 - **CAO** supervise
 - Le Sensei = meta-assistant expert sur MnM lui-même
@@ -1225,7 +1225,7 @@ Le workflow = la chaîne de units + les gates entre elles.
 
 ## L'access logs qui loguent TOUT — concept à creuser
 
-Tom a dit "access logs qui logs TOUT" comme point 4. Ça devrait être le **fondement de l'auditabilité** :
+the maintainer a dit "access logs qui logs TOUT" comme point 4. Ça devrait être le **fondement de l'auditabilité** :
 
 ### Ce qui doit être logué
 

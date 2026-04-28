@@ -1,7 +1,7 @@
 # Brainstorm — Virer le PAT fallback, le remplacer par un service account
 
 **Date** : 2026-04-27 (post-démo cc-plugin-import)
-**Origine** : Tom — "Je veux JAMAIS utiliser un PAT, ce sera l'admin qui mettra un service account plutôt."
+**Origine** : the maintainer — "Je veux JAMAIS utiliser un PAT, ce sera l'admin qui mettra un service account plutôt."
 **Statut** : à brainstormer à froid, pas pendant la démo.
 
 ---
@@ -28,7 +28,7 @@ Aujourd'hui, MnM utilise un PAT GitLab (Personal Access Token) stocké en clair 
 
 ---
 
-## 2. Vision cible (Tom)
+## 2. Vision cible (the maintainer)
 
 **Plus jamais de PAT humain stocké en DB.** À la place :
 
@@ -70,7 +70,7 @@ Aujourd'hui, MnM utilise un PAT GitLab (Personal Access Token) stocké en clair 
    - Le PAT actuel est rotaté manuellement (admin re-PUT le config). Avec service account OAuth, refresh_token GitLab a une durée de vie. Comment gérer son expiration / sa rotation ? Notification admin ?
 
 7. **Multi-instance GitLab** :
-   - Si une company veut importer un plugin depuis une autre instance GitLab (cross-EnterpriseCustomer / public hub), le service account d'instance A ne peut pas lire instance B. Garder le check "same instance" ou autoriser N service accounts par company (1 par instance) ?
+   - Si une company veut importer un plugin depuis une autre instance GitLab (cross-your organization / public hub), le service account d'instance A ne peut pas lire instance B. Garder le check "same instance" ou autoriser N service accounts par company (1 par instance) ?
 
 ---
 
@@ -99,7 +99,7 @@ Aujourd'hui, MnM utilise un PAT GitLab (Personal Access Token) stocké en clair 
 
 ## 6. À faire pour démarrer la feature
 
-1. Brainstormer ce doc avec Tom pour valider/affiner les options.
+1. Brainstormer ce doc avec the maintainer pour valider/affiner les options.
 2. Écrire le spec via `superpowers:brainstorming`.
 3. Plan d'implem via `superpowers:writing-plans`.
 4. Exécution via subagent-driven-development.

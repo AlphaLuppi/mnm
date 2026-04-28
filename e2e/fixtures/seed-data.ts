@@ -3,8 +3,8 @@
  *
  * All IDs are deterministic UUIDs for stable test references.
  * Data is designed around two French companies:
- *   - NovaTech Solutions (main test company, all features)
- *   - Atelier Numerique (secondary, cross-tenant isolation tests)
+ *   - TestCorp-A (main test company, all features)
+ *   - TestCorp-B (secondary, cross-tenant isolation tests)
  *
  * This file is ONLY constants — no DB calls.
  * Actual seeding happens in global-setup.ts via API calls.
@@ -27,19 +27,19 @@ export const IDS = {
   NOVATECH_VIEWER_USER: "", // set at runtime
   ATELIER_ADMIN_USER: "", // set at runtime
 
-  // Agents (NovaTech)
+  // Agents (TestCorp)
   AGENT_CLAUDE_STRATEGE: "b1000000-0000-4000-8000-000000000001",
   AGENT_MARCUS_ARCHITECTE: "b1000000-0000-4000-8000-000000000002",
   AGENT_LUNA_DEVELOPPEUR: "b1000000-0000-4000-8000-000000000003",
   AGENT_ARIA_QA: "b1000000-0000-4000-8000-000000000004",
   AGENT_PHOENIX_DEVOPS: "b1000000-0000-4000-8000-000000000005",
 
-  // Projects (NovaTech)
+  // Projects (TestCorp)
   PROJECT_MIGRATION_CLOUD: "c1000000-0000-4000-8000-000000000001",
   PROJECT_REFONTE_UX: "c1000000-0000-4000-8000-000000000002",
   PROJECT_AUDIT_SECURITE: "c1000000-0000-4000-8000-000000000003",
 
-  // Workflow Templates (NovaTech)
+  // Workflow Templates (TestCorp)
   WORKFLOW_TPL_CICD: "d1000000-0000-4000-8000-000000000001",
   WORKFLOW_TPL_AUDIT: "d1000000-0000-4000-8000-000000000002",
 
@@ -111,36 +111,36 @@ export const TEST_PASSWORD = "E2eTestPass!2026";
 
 export const USERS = {
   novaTechAdmin: {
-    name: "Sophie Durand",
+    name: "Test Admin",
     email: "admin@novatech.test",
     password: TEST_PASSWORD,
     businessRole: "admin" as const,
     company: "novatech",
   },
   novaTechManager: {
-    name: "Pierre Martin",
+    name: "Test Manager",
     email: "manager@novatech.test",
     password: TEST_PASSWORD,
     businessRole: "manager" as const,
     company: "novatech",
   },
   novaTechContributor: {
-    name: "Camille Leroy",
+    name: "Test Contributor",
     email: "contributor@novatech.test",
     password: TEST_PASSWORD,
     businessRole: "contributor" as const,
     company: "novatech",
   },
   novaTechViewer: {
-    name: "Thomas Bernard",
+    name: "Test Viewer",
     email: "viewer@novatech.test",
     password: TEST_PASSWORD,
     businessRole: "viewer" as const,
     company: "novatech",
   },
   atelierAdmin: {
-    name: "Marie Dupont",
-    email: "admin@atelier.test",
+    name: "Test Cross-Tenant Admin",
+    email: "admin@testcorp-b.test",
     password: TEST_PASSWORD,
     businessRole: "admin" as const,
     company: "atelier",
@@ -154,7 +154,7 @@ export type TestUserKey = keyof typeof USERS;
 export const COMPANIES = {
   novatech: {
     id: IDS.NOVATECH_COMPANY,
-    name: "NovaTech Solutions",
+    name: "TestCorp-A",
     description: "Plateforme IA enterprise pour orchestration d'agents intelligents",
     issuePrefix: "NTS",
     tier: "enterprise",
@@ -167,7 +167,7 @@ export const COMPANIES = {
   },
   atelier: {
     id: IDS.ATELIER_COMPANY,
-    name: "Atelier Numerique",
+    name: "TestCorp-B",
     description: "Studio de creation digitale specialise en IA generative",
     issuePrefix: "ATN",
     tier: "free",
@@ -180,7 +180,7 @@ export const COMPANIES = {
   },
 } as const;
 
-// ─── Agents (NovaTech) ─────────────────────────────────────────────────────
+// ─── Agents (TestCorp) ─────────────────────────────────────────────────────
 
 export const AGENTS = [
   {
@@ -255,7 +255,7 @@ export const AGENTS = [
   },
 ] as const;
 
-// ─── Projects (NovaTech) ────────────────────────────────────────────────────
+// ─── Projects (TestCorp) ────────────────────────────────────────────────────
 
 export const PROJECTS = [
   {
@@ -287,7 +287,7 @@ export const PROJECTS = [
   },
 ] as const;
 
-// ─── Goals (NovaTech) ───────────────────────────────────────────────────────
+// ─── Goals (TestCorp) ───────────────────────────────────────────────────────
 
 export const GOALS = [
   {
@@ -300,7 +300,7 @@ export const GOALS = [
   },
 ] as const;
 
-// ─── Workflow Templates (NovaTech) ──────────────────────────────────────────
+// ─── Workflow Templates (TestCorp) ──────────────────────────────────────────
 
 export const WORKFLOW_TEMPLATES = [
   {
@@ -405,7 +405,7 @@ export const WORKFLOW_TEMPLATES = [
   },
 ] as const;
 
-// ─── Container Profiles (NovaTech) ──────────────────────────────────────────
+// ─── Container Profiles (TestCorp) ──────────────────────────────────────────
 
 export const CONTAINER_PROFILES = [
   {
@@ -427,7 +427,7 @@ export const CONTAINER_PROFILES = [
   },
 ] as const;
 
-// ─── Automation Cursors (NovaTech) ──────────────────────────────────────────
+// ─── Automation Cursors (TestCorp) ──────────────────────────────────────────
 
 export const AUTOMATION_CURSORS = [
   {
@@ -448,7 +448,7 @@ export const AUTOMATION_CURSORS = [
   },
 ] as const;
 
-// ─── Audit Events (NovaTech) — sample events for audit log tests ────────────
+// ─── Audit Events (TestCorp) — sample events for audit log tests ────────────
 
 export const SAMPLE_AUDIT_EVENTS = [
   {
@@ -477,7 +477,7 @@ export const SAMPLE_AUDIT_EVENTS = [
     actorType: "user",
     targetType: "permission",
     severity: "warning",
-    metadata: { permissionKey: "agents:create", grantedTo: "Pierre Martin" },
+    metadata: { permissionKey: "agents:create", grantedTo: "Test Manager" },
   },
   {
     action: "company.settings_updated",
@@ -542,7 +542,7 @@ export const PERMISSION_KEYS_VIEWER = [
   "audit:read", "dashboard:view",
 ] as const;
 
-// ─── Traces (NovaTech) ───────────────────────────────────────────────────────
+// ─── Traces (TestCorp) ───────────────────────────────────────────────────────
 
 const HOUR_AGO = new Date(Date.now() - 3_600_000).toISOString();
 const HALF_HOUR_AGO = new Date(Date.now() - 1_800_000).toISOString();
@@ -927,7 +927,7 @@ export const TRACE_OBSERVATIONS = [
   },
 ] as const;
 
-// ─── Trace Lenses (NovaTech) ─────────────────────────────────────────────────
+// ─── Trace Lenses (TestCorp) ─────────────────────────────────────────────────
 // userId will be set at runtime to the admin user
 
 export const TRACE_LENSES = [
@@ -953,7 +953,7 @@ export const TRACE_LENSES = [
   },
 ] as const;
 
-// ─── Trace Lens Results (NovaTech) ───────────────────────────────────────────
+// ─── Trace Lens Results (TestCorp) ───────────────────────────────────────────
 
 export const TRACE_LENS_RESULTS = [
   {

@@ -90,7 +90,7 @@ export async function runImport(input: RunImportInput): Promise<RunImportResult>
   const actions = stageGitActions(plugin);
   const author = {
     authorName: input.authorName ?? "MnM Plugin Importer",
-    authorEmail: input.authorEmail ?? "mnm@enterprise.example",
+    authorEmail: input.authorEmail ?? "mnm@example.com",
   };
   const commitResult = await input.destProvider.commitMultipleFiles({
     branch: input.destBranch,

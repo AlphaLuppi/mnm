@@ -7,7 +7,7 @@ export interface BuildSourceProviderInput {
   companyId: string;
   /**
    * The full HTTPS URL of the plugin repo, e.g.
-   * https://lab.enterprise.example/example-org/hub/creation/lint-pack
+   * https://gitlab.example.com/example-org/hub/creation/lint-pack
    */
   url: string;
   /** BetterAuth user id. When provided in `authenticated` mode, the resolver

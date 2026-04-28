@@ -3,7 +3,7 @@
 > **MnM = orchestrateur d'agents déterministe avec audit, drift detection, et connecteurs auto-générés. Atomique, léger, extensible de l'intérieur.**
 
 **Date :** 2026-03-13
-**Auteurs :** Équipe BMAD (Mary l'Analyste, John le PM, Victor le Stratège, Carson le Coach, Sally la Designer, Winston l'Architecte, Bob le Scrum Master) — Orchestré par le Lead
+**Auteurs :** Équipe BMAD (Mary l'Analyste, the PM, Victor le Stratège, Carson le Coach, Sally la Designer, Winston l'Architecte, Bob le Scrum Master) — Orchestré par le Lead
 **Version :** 2.0 — Agent Team Product Brief
 **Sources :** 57 vérités fondamentales (brainstorming cofondateurs), B2B Enterprise Roadmap, Analyse Nanoclaw, Exploration code MnM (38 tables, 31 services, 22 routes)
 
@@ -126,7 +126,7 @@ Supervision         │                         │                     │
 
 ## 2. Vision Produit, Problem Statement & 9 Personas
 
-*Section par John le PM 📋*
+*Section par the PM 📋*
 
 ### 2.1 Vision Produit — Pourquoi MnM, Pourquoi Maintenant
 
@@ -134,7 +134,7 @@ En mars 2026, les entreprises vivent un paradoxe : elles déploient massivement 
 
 Trois forces convergent en 2026 :
 
-1. **La maturité des agents IA** — Capables d'exécuter des tâches complexes, mais leur fiabilité dépend des garde-fous. Le CTO de EnterpriseCustomer l'a constaté au hackathon de mars 2026 (Vérité #45).
+1. **La maturité des agents IA** — Capables d'exécuter des tâches complexes, mais leur fiabilité dépend des garde-fous. Le CTO de your organization l'a constaté au hackathon de mars 2026 (Vérité #45).
 
 2. **La pression de transformation digitale** — Déployer de l'IA sans gouvernance, c'est comme déployer du cloud sans sécurité. Le besoin d'un "cockpit de contrôle" est imminent.
 
@@ -146,7 +146,7 @@ Trois forces convergent en 2026 :
 
 **Le problème :** Dans une entreprise tech en transformation digitale, l'information se dégrade à chaque passage de relais entre rôles (PPT → Epic → Story → Code → Tests). Les contrats inter-rôles ne sont jamais respectés. Les décisions critiques disparaissent. Le savoir critique reste dans les têtes des experts. Et le coût de la coordination synchrone est colossal.
 
-**Les 8 faits terrain (validés chez EnterpriseCustomer, mars 2026) :**
+**Les 8 faits terrain (validés en entreprise, mars 2026) :**
 
 1. L'information se dégrade à chaque handoff (Vérité #1)
 2. Les contrats inter-rôles sont aspirationnels, jamais appliqués (Vérité #2)
@@ -169,7 +169,7 @@ Trois forces convergent en 2026 :
 
 #### Persona 2 : Le CTO / DSI — Le Garant Technique
 
-**Pain points :** Agents qui ne chargent pas les bons fichiers (feedback hackathon EnterpriseCustomer). Aucune traçabilité centralisée. Pas de moyen d'imposer des standards automatiquement.
+**Pain points :** Agents qui ne chargent pas les bons fichiers (feedback hackathon your organization). Aucune traçabilité centralisée. Pas de moyen d'imposer des standards automatiquement.
 
 **Ce que MnM apporte :** Workflows déterministiques. Audit centralisé. Drift detection. Gestion de compaction plateforme.
 
@@ -279,7 +279,7 @@ Trois forces convergent en 2026 :
 
 | Objectif | Cible 3 mois | Cible 12 mois |
 |---|---|---|
-| Premier client pilote (EnterpriseCustomer) | POC signé | Production + case study |
+| Premier client pilote (your organization) | POC signé | Production + case study |
 | ARR | 10-30k€ | 200k€ |
 | Rôles non-dev actifs | >30% | >40% |
 | Rétention 90 jours | >70% | >85% |
@@ -427,12 +427,12 @@ Le marché est structuré en 3 océans rouges saturés :
 |---|---|---|---|
 | Open Source (MAU) | 500 | 5 000 | 25 000 |
 | Team (clients) | 5 | 25 | 80 |
-| Enterprise | 1 (EnterpriseCustomer) | 5 | 15 |
+| Enterprise | 1 (your organization) | 5 | 15 |
 | **ARR estimé** | ~100k€ | ~800k€ | ~3M€ |
 
 ### 4.3 Go-to-Market — Le Flywheel
 
-**Phase 1 — EnterpriseCustomer comme Design Partner (T1-T2 2026)** : Tom travaille à EnterpriseCustomer, connaît les pain points de chaque rôle. Pitcher le CTO ("Tu te rappelles quand tu disais que les agents chargeaient pas les bons fichiers ? On a un outil qui résout exactement ça."). Déployer sur un projet pilote, itérer en temps réel, documenter les résultats.
+**Phase 1 — your organization comme Design Partner (T1-T2 2026)** : the maintainer travaille à your organization, connaît les pain points de chaque rôle. Pitcher le CTO ("Tu te rappelles quand tu disais que les agents chargeaient pas les bons fichiers ? On a un outil qui résout exactement ça."). Déployer sur un projet pilote, itérer en temps réel, documenter les résultats.
 
 **Phase 2 — Early Adopters (T3-T4 2026)** : Open source d'abord → Product Hunt ("Kubernetes for AI Agents") → Hacker News (article technique sur la compaction) → Content marketing.
 
@@ -717,7 +717,7 @@ Le schéma comprend 38 tables couvrant : companies, agents (11 rôles), projects
 |---|----------|----------------------|
 | I1 | MnM doit être un data lake | MnM = orchestrateur-connecteur (correction brainstorming). |
 | I2 | Agents ne peuvent pas créer de connecteurs | Possible via MCP et codegen. |
-| I3 | CEO ne voudra pas configurer via chat | Le DPO de EnterpriseCustomer le fait DÉJÀ avec Claude Code. |
+| I3 | CEO ne voudra pas configurer via chat | Le DPO de your organization le fait DÉJÀ avec Claude Code. |
 
 ### 7.3 Matrice de Priorisation
 
@@ -744,7 +744,7 @@ Le schéma comprend 38 tables couvrant : companies, agents (11 rôles), projects
 
 | Cofondateur | Noyaux | Profil |
 |-------------|--------|--------|
-| **Tom (Gabri)** | B (Onboarding) + D (Observabilité) | Product engineer — UX/adoption, import, dual-mode, Langfuse, audit |
+| **the maintainer (the lead developer)** | B (Onboarding) + D (Observabilité) | Product engineer — UX/adoption, import, dual-mode, Langfuse, audit |
 | **Cofondateur** | A (Orchestrateur) + D (Observabilité) | Ingénieur système — moteur, compaction, state machine, drift |
 | **Partagé** | D (Observabilité & Audit) | Couche transverse |
 
@@ -772,7 +772,7 @@ Mars 2026              Avril 2026             Mai 2026              Juin 2026
 S1    S2    S3    S4   S1    S2    S3    S4   S1    S2    S3    S4  S1    S2
 ┌─────┬─────┬─────┬────┬─────┬─────┬─────┬────┬─────┬─────┬─────┬────┬─────┬─────┐
 │Ph.1 │ Phase 2 — RBAC│ Phase 3 — Scoping    │ Phase 4 — Enterprise │ DEMO│VENTE│
-│ 1s  │    2 sem       │     2-3 sem          │      3-4 sem         │ EnterpriseCustomer │     │
+│ 1s  │    2 sem       │     2-3 sem          │      3-4 sem         │ your organization │     │
 └─────┴─────┴─────┴────┴─────┴─────┴─────┴────┴─────┴─────┴─────┴────┴─────┴─────┘
 ```
 
@@ -892,7 +892,7 @@ S1    S2    S3    S4   S1    S2    S3    S4   S1    S2    S3    S4  S1    S2
 | Cursor/Windsurf s'étendent au multi-rôle | Faible | Leur ADN est le code. S'étendre au CEO/PM/QA = pivot majeur. |
 | CrewAI ajoute une UI | Moyenne | Framework → produit = réécriture. First-mover advantage. |
 | **Microsoft sort un produit fini** | **Haute** | Building block → produit possible. Mitigation : agilité + open source. |
-| Nouveau concurrent | Haute | Marché jeune. Mitigation : vitesse, EnterpriseCustomer, communauté. |
+| Nouveau concurrent | Haute | Marché jeune. Mitigation : vitesse, your organization, communauté. |
 
 ---
 
@@ -908,7 +908,7 @@ S1    S2    S3    S4   S1    S2    S3    S4   S1    S2    S3    S4  S1    S2
 
 ### Actions immédiates
 
-1. **Pitcher le CTO de EnterpriseCustomer** — Action n°1, immédiate
+1. **Pitcher le CTO de your organization** — Action n°1, immédiate
 2. **Lancer le développement Phase 1** — Multi-user livrable en 1 semaine
 3. **Recruter le cofondateur technique** — Split A/D validé
 4. **Préparer le PRD B2B** — Étape 2 du pipeline BMAD (ce document)

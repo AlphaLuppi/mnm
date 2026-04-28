@@ -29,15 +29,15 @@
 En mars 2026, le marché de l'orchestration IA atteint 13,5 milliards USD avec un CAGR de 22,3%, tandis que le marché des agents IA autonomes explose à 8,5 milliards USD (CAGR 49,6%). Les entreprises déploient massivement des outils IA — Cursor ($29,3 Mrd de valorisation, $1 Mrd ARR), Windsurf ($30M ARR enterprise), agents dans Jira — mais font face à un paradoxe critique : **aucun moyen de les orchestrer, contrôler et auditer à l'échelle de l'organisation**.
 
 Trois forces convergent simultanément :
-1. **La maturité des agents IA** — capables d'exécuter des tâches complexes, mais leur fiabilité dépend de garde-fous que personne ne fournit encore. Le CTO de EnterpriseCustomer l'a constaté au hackathon de mars 2026 : des agents qui sautent des étapes, ne chargent pas les bons fichiers, dérivent sans contrôle (Vérité #45).
+1. **La maturité des agents IA** — capables d'exécuter des tâches complexes, mais leur fiabilité dépend de garde-fous que personne ne fournit encore. Le CTO de your organization l'a constaté au hackathon de mars 2026 : des agents qui sautent des étapes, ne chargent pas les bons fichiers, dérivent sans contrôle (Vérité #45).
 2. **La pression de gouvernance** — déployer de l'IA sans orchestration déterministe et audit trail, c'est comme déployer du cloud sans sécurité. Les plateformes leaders seront celles qui traduisent les intentions en actions step-by-step liées à des politiques.
 3. **L'échec structurel des outils existants** — Jira = tracking passif (pas d'orchestration), Cursor = développeur individuel (pas multi-rôle), CrewAI = librairie technique (pas de produit enterprise). Aucun ne combine vision transversale + orchestration d'agents + audit enterprise.
 
 ### 1.2 Problème
 
-Dans une entreprise tech en transformation digitale, l'information se dégrade à chaque passage de relais entre rôles (PPT → Epic → Story → Code → Tests). Les contrats inter-rôles ne sont jamais respectés. Les décisions critiques disparaissent. Le savoir tribal reste dans les têtes. Et le coût de la coordination synchrone est colossal — pattern récurrent validé chez EnterpriseCustomer : malentendu → dev → découverte du malentendu → re-réunion → re-dev.
+Dans une entreprise tech en transformation digitale, l'information se dégrade à chaque passage de relais entre rôles (PPT → Epic → Story → Code → Tests). Les contrats inter-rôles ne sont jamais respectés. Les décisions critiques disparaissent. Le savoir tribal reste dans les têtes. Et le coût de la coordination synchrone est colossal — pattern récurrent validé en entreprise : malentendu → dev → découverte du malentendu → re-réunion → re-dev.
 
-Les 8 faits terrain validés chez EnterpriseCustomer (mars 2026) confirment que ce problème est structurel, pas accidentel :
+Les 8 faits terrain validés en entreprise (mars 2026) confirment que ce problème est structurel, pas accidentel :
 1. L'information se dégrade à chaque handoff (Vérité #1)
 2. Les contrats inter-rôles sont aspirationnels, jamais appliqués (Vérité #2)
 3. Des décisions non-documentées se prennent en permanence (Vérité #3)
@@ -67,7 +67,7 @@ MnM se structure autour de 5 noyaux de valeur :
 - **Phase 3 — Scoping par projet** (~2-3 semaines) : project memberships, filtrage par scope JSONB, UI d'accès par projet
 - **Phase 4 — Enterprise-grade** (~3-4 semaines) : SSO SAML/OIDC, audit complet, multi-tenant, dashboards par rôle
 
-**Total estimé : ~8-10 semaines** pour un produit B2B vendable. Démonstration EnterpriseCustomer en juin 2026.
+**Total estimé : ~8-10 semaines** pour un produit B2B vendable. Démonstration your organization en juin 2026.
 
 ---
 
@@ -116,7 +116,7 @@ MnM se structure autour de 5 noyaux de valeur :
 
 ## 3. Success Criteria
 
-26 critères mesurables structurés par noyau de valeur, avec cibles à 3 mois (MVP EnterpriseCustomer) et 12 mois.
+26 critères mesurables structurés par noyau de valeur, avec cibles à 3 mois (MVP your organization) et 12 mois.
 
 ### 3.1 Noyau A — Orchestrateur Déterministe
 
@@ -169,7 +169,7 @@ MnM se structure autour de 5 noyaux de valeur :
 
 | # | Critère | Cible 3 mois | Cible 12 mois |
 |---|---------|-------------|--------------|
-| SC-BIZ-1 | Premier client pilote (EnterpriseCustomer) | POC signé | Production + case study |
+| SC-BIZ-1 | Premier client pilote (your organization) | POC signé | Production + case study |
 | SC-BIZ-2 | ARR | 10-30k€ | 200k€ |
 | SC-BIZ-3 | Rôles non-dev actifs | >30% | >40% |
 | SC-BIZ-4 | Rétention 90 jours | >70% | >85% |
@@ -619,7 +619,7 @@ MnM se structure autour de 5 noyaux de valeur :
 | 3 | Marketplace de templates workflows | Trop peu de workflows en production | Année 2 |
 | 4 | IA de suggestion proactive | Nécessite volume de données d'usage | Post-MVP |
 | 5 | Connecteurs auto-générés | Risque sécurité sans containerisation robuste | Phase 4+ |
-| 6 | Multi-langue (i18n) | MVP français (cible EnterpriseCustomer) | Avant scale international |
+| 6 | Multi-langue (i18n) | MVP français (cible your organization) | Avant scale international |
 | 7 | App mobile native | UI responsive suffit, desktop-first | Non planifié |
 | 8 | Intégration CI/CD native | Agents interagissent avec le code, pas les pipelines | Post-MVP |
 | 9 | Facturation/paiement | MVP = design partner, billing = go-to-market | T3 2026 |
@@ -649,7 +649,7 @@ MVP (8-10 sem)                     POST-MVP
 ├ Activity log enrichi             ├ Mode ORAL
 ├ Permissions par route            ├ Dashboards avancés
 ├ UI admin basique                 ├ Email transactionnel
-= VENDABLE à EnterpriseCustomer                  = SCALABLE en SaaS
+= VENDABLE à your organization                  = SCALABLE en SaaS
 ```
 
 ---
@@ -660,19 +660,19 @@ MVP (8-10 sem)                     POST-MVP
 
 | # | Hypothèse | Confiance | Validation |
 |---|-----------|-----------|-----------|
-| H-M1 | Entreprises ont besoin d'orchestrer agents IA de manière déterministe | Élevée | POC EnterpriseCustomer — observer si le déterminisme est utilisé ou contourné |
+| H-M1 | Entreprises ont besoin d'orchestrer agents IA de manière déterministe | Élevée | POC your organization — observer si le déterminisme est utilisé ou contourné |
 | H-M2 | Multi-rôle (CEO → Dev) est un différenciateur vendable | Moyenne | Tester onboarding avec 3 premiers rôles (CEO, CTO, Dev) |
 | H-M3 | Open-core génère un flywheel OSS → Team → Enterprise | Moyenne | Tracker funnel OSS → Team dès le lancement |
-| H-M4 | EnterpriseCustomer est représentatif des entreprises cibles | Moyenne | Valider avec 2-3 early adopters hors EnterpriseCustomer |
+| H-M4 | your organization est représentatif des entreprises cibles | Moyenne | Valider avec 2-3 early adopters hors your organization |
 
 ### 9.2 Hypothèses Produit (4)
 
 | # | Hypothèse | Confiance | Validation |
 |---|-----------|-----------|-----------|
 | H-P1 | Curseur d'automatisation (3 positions) est compris et adopté | Moyenne | Tests utilisateur dès Phase 2 |
-| H-P2 | Onboarding conversationnel accepté par CEO/DSI | Moyenne | A/B test chat vs formulaire chez EnterpriseCustomer |
-| H-P3 | Import Jira = "moment de vérité" pour adoption B2B | Moyenne | Prototype avec données réelles EnterpriseCustomer |
-| H-P4 | Dashboards agrégés suffisent sans effrayer les opérationnels | Moyenne | Feedback loops deux populations chez EnterpriseCustomer |
+| H-P2 | Onboarding conversationnel accepté par CEO/DSI | Moyenne | A/B test chat vs formulaire en entreprise |
+| H-P3 | Import Jira = "moment de vérité" pour adoption B2B | Moyenne | Prototype avec données réelles your organization |
+| H-P4 | Dashboards agrégés suffisent sans effrayer les opérationnels | Moyenne | Feedback loops deux populations en entreprise |
 
 ### 9.3 Hypothèses Techniques (4)
 
@@ -687,9 +687,9 @@ MVP (8-10 sem)                     POST-MVP
 
 | # | Hypothèse | Confiance | Plan B |
 |---|-----------|-----------|--------|
-| H-O1 | Split cofondateurs (Tom=B+C, Cofondateur=A+D) permet travail parallèle | Moyenne | Revue dépendances hebdomadaire |
+| H-O1 | Split cofondateurs (the maintainer=B+C, Cofondateur=A+D) permet travail parallèle | Moyenne | Revue dépendances hebdomadaire |
 | H-O2 | Cofondateur technique recruté dans 4 semaines | Moyenne | Freelance senior pour Noyau A |
-| H-O3 | EnterpriseCustomer accepte d'être design partner | Élevée | Pitcher le CTO EnterpriseCustomer immédiatement |
+| H-O3 | your organization accepte d'être design partner | Élevée | Pitcher le CTO your organization immédiatement |
 
 ### 9.5 Contraintes Réglementaires (13 requirements)
 
@@ -902,7 +902,7 @@ MVP vendable (Phases 1-3 + Orchestrateur v1) = **8-10 semaines**.
 ---
 
 # PRD B2B — MnM : Tour de Contrôle IA Enterprise
-## Sections 1-4 par John le PM
+## Sections 1-4 par the PM
 
 ---
 
@@ -913,15 +913,15 @@ MVP vendable (Phases 1-3 + Orchestrateur v1) = **8-10 semaines**.
 En mars 2026, le marché de l'orchestration IA atteint 13,5 milliards USD avec un CAGR de 22,3%, tandis que le marché des agents IA autonomes explose à 8,5 milliards USD (CAGR 49,6%). Les entreprises déploient massivement des outils IA — Cursor ($29,3 Mrd de valorisation, $1 Mrd ARR), Windsurf ($30M ARR enterprise), agents dans Jira — mais font face à un paradoxe critique : **aucun moyen de les orchestrer, contrôler et auditer à l'échelle de l'organisation**.
 
 Trois forces convergent simultanément :
-1. **La maturité des agents IA** — capables d'exécuter des tâches complexes, mais leur fiabilité dépend de garde-fous que personne ne fournit encore. Le CTO de EnterpriseCustomer l'a constaté au hackathon de mars 2026 : des agents qui sautent des étapes, ne chargent pas les bons fichiers, dérivent sans contrôle (Vérité #45).
+1. **La maturité des agents IA** — capables d'exécuter des tâches complexes, mais leur fiabilité dépend de garde-fous que personne ne fournit encore. Le CTO de your organization l'a constaté au hackathon de mars 2026 : des agents qui sautent des étapes, ne chargent pas les bons fichiers, dérivent sans contrôle (Vérité #45).
 2. **La pression de gouvernance** — déployer de l'IA sans orchestration déterministe et audit trail, c'est comme déployer du cloud sans sécurité. Les plateformes leaders seront celles qui traduisent les intentions en actions step-by-step liées à des politiques.
 3. **L'échec structurel des outils existants** — Jira = tracking passif (pas d'orchestration), Cursor = développeur individuel (pas multi-rôle), CrewAI = librairie technique (pas de produit enterprise). Aucun ne combine vision transversale + orchestration d'agents + audit enterprise.
 
 ### 1.2 Problème
 
-Dans une entreprise tech en transformation digitale, l'information se dégrade à chaque passage de relais entre rôles (PPT → Epic → Story → Code → Tests). Les contrats inter-rôles ne sont jamais respectés. Les décisions critiques disparaissent. Le savoir tribal reste dans les têtes. Et le coût de la coordination synchrone est colossal — pattern récurrent validé chez EnterpriseCustomer : malentendu → dev → découverte du malentendu → re-réunion → re-dev.
+Dans une entreprise tech en transformation digitale, l'information se dégrade à chaque passage de relais entre rôles (PPT → Epic → Story → Code → Tests). Les contrats inter-rôles ne sont jamais respectés. Les décisions critiques disparaissent. Le savoir tribal reste dans les têtes. Et le coût de la coordination synchrone est colossal — pattern récurrent validé en entreprise : malentendu → dev → découverte du malentendu → re-réunion → re-dev.
 
-Les 8 faits terrain validés chez EnterpriseCustomer (mars 2026) confirment que ce problème est structurel, pas accidentel :
+Les 8 faits terrain validés en entreprise (mars 2026) confirment que ce problème est structurel, pas accidentel :
 1. L'information se dégrade à chaque handoff (Vérité #1)
 2. Les contrats inter-rôles sont aspirationnels, jamais appliqués (Vérité #2)
 3. Des décisions non-documentées se prennent en permanence (Vérité #3)
@@ -956,7 +956,7 @@ Le plan d'implémentation se décompose en 4 phases séquentielles :
 - **Phase 3 — Scoping par projet** (~2-3 semaines) : project memberships, filtrage par scope JSONB, UI d'accès par projet
 - **Phase 4 — Enterprise-grade** (~3-4 semaines) : SSO SAML/OIDC, audit complet, multi-tenant, dashboards par rôle
 
-**Total estimé : ~8-10 semaines** pour atteindre un produit B2B vendable, avec démonstration EnterpriseCustomer en juin 2026.
+**Total estimé : ~8-10 semaines** pour atteindre un produit B2B vendable, avec démonstration your organization en juin 2026.
 
 ---
 
@@ -1016,7 +1016,7 @@ Le plan d'implémentation se décompose en 4 phases séquentielles :
 
 ## 3. Success Criteria
 
-Les critères de succès sont structurés selon les 5 noyaux de valeur et les KPIs business transverses, avec des cibles progressives à 3 mois (MVP déployé chez EnterpriseCustomer) et 12 mois (produit commercial). Chaque critère est numéroté, mesurable, et traçable vers le Product Brief.
+Les critères de succès sont structurés selon les 5 noyaux de valeur et les KPIs business transverses, avec des cibles progressives à 3 mois (MVP déployé en entreprise) et 12 mois (produit commercial). Chaque critère est numéroté, mesurable, et traçable vers le Product Brief.
 
 ### 3.1 Noyau A — Orchestrateur Déterministe
 
@@ -1034,7 +1034,7 @@ Les critères de succès sont structurés selon les 5 noyaux de valeur et les KP
 |---|---------|-------------|-------------|--------------|-------------------|
 | **SC-B1** | Couverture d'audit | % des actions agent/humain générant un audit log | 100% runs | 100% runs | Comparer événements loggés vs actions moteur d'exécution |
 | **SC-B2** | Latence observabilité | Délai action agent → affichage dashboard | <5s | <2s | Mesure E2E : timestamp action → timestamp rendu UI (WebSocket + rendering) |
-| **SC-B3** | Réduction MTTR | Réduction du temps moyen de résolution problèmes agents | -40% | -70% | Baseline EnterpriseCustomer avant MnM vs après. Temps alerte → résolution confirmée |
+| **SC-B3** | Réduction MTTR | Réduction du temps moyen de résolution problèmes agents | -40% | -70% | Baseline your organization avant MnM vs après. Temps alerte → résolution confirmée |
 | **SC-B4** | NPS transparence agent | Satisfaction utilisateurs sur lisibilité actions agents | >25 | >50 | Enquête in-app trimestrielle (échelle 0-10 NPS) |
 | **SC-B5** | Isolation container | % d'agents enterprise exécutés dans un container isolé | >90% | 100% | Count agents containerisés / total agents en mode Enterprise |
 
@@ -1052,7 +1052,7 @@ Les critères de succès sont structurés selon les 5 noyaux de valeur et les KP
 | # | Critère | Description | Cible 3 mois | Cible 12 mois | Méthode de mesure |
 |---|---------|-------------|-------------|--------------|-------------------|
 | **SC-D1** | Queries inter-agents/semaine | Volume communications entre agents d'utilisateurs différents | 50+ | 500+ | Count requêtes A2A dans les logs, par semaine |
-| **SC-D2** | Réduction temps handoff | Réduction délai production artefact → consommation rôle suivant | -30% | -70% | Baseline EnterpriseCustomer vs MnM : timestamp artefact produit → consommé |
+| **SC-D2** | Réduction temps handoff | Réduction délai production artefact → consommation rôle suivant | -30% | -70% | Baseline your organization vs MnM : timestamp artefact produit → consommé |
 | **SC-D3** | Connecteurs auto-générés | Connecteurs vers outils externes créés par les agents | 0 (MVP) | >5 par client | Count connecteurs table Connector avec flag auto_generated |
 | **SC-D4** | Taux validation humaine A2A | % des requêtes inter-agents passant par validation humaine | 100% | >80% (reste configurable) | Count requêtes validées / total requêtes A2A |
 
@@ -1069,7 +1069,7 @@ Les critères de succès sont structurés selon les 5 noyaux de valeur et les KP
 
 | # | Critère | Description | Cible 3 mois | Cible 12 mois | Méthode de mesure |
 |---|---------|-------------|-------------|--------------|-------------------|
-| **SC-BIZ-1** | Premier client pilote | EnterpriseCustomer comme design partner | POC signé | Production + case study | Contrat → déploiement → métriques → case study publiée |
+| **SC-BIZ-1** | Premier client pilote | your organization comme design partner | POC signé | Production + case study | Contrat → déploiement → métriques → case study publiée |
 | **SC-BIZ-2** | ARR | Chiffre d'affaires récurrent annuel | 10-30k€ | 200k€ | Comptabilité : MRR x 12 |
 | **SC-BIZ-3** | Rôles non-dev actifs | % d'utilisateurs actifs non-développeurs | >30% | >40% | (Users actifs rôle non-dev / total users actifs) x 100 |
 | **SC-BIZ-4** | Rétention 90 jours | % d'utilisateurs actifs 90j après onboarding | >70% | >85% | Cohorte : users avec action dans les 7 derniers jours / total cohorte 90j |
@@ -1110,10 +1110,10 @@ Les 12 éléments suivants sont **intentionnellement exclus** du scope MVP. Chac
 | 3 | **Marketplace de templates workflows** | Trop peu de workflows en production pour justifier un marketplace. Templates intégrés d'abord. | Année 2 quand flywheel actif |
 | 4 | **IA de suggestion proactive de workflows** | Nécessite un volume de données d'usage significatif. MnM doit d'abord CAPTURER ces données (Vérité #9). | Post-MVP, quand >1000 workflows actifs |
 | 5 | **Connecteurs auto-générés par agents** | Possible via MCP/codegen, mais risque sécurité trop élevé sans containerisation robuste. | Phase 4+ quand FR-CONT mature |
-| 6 | **Multi-langue (i18n)** | MVP en français (cible EnterpriseCustomer). Internationalisation après validation PMF. | Avant scale international (Année 2) |
+| 6 | **Multi-langue (i18n)** | MVP en français (cible your organization). Internationalisation après validation PMF. | Avant scale international (Année 2) |
 | 7 | **App mobile native** | UI responsive suffit. Le cockpit MnM est une expérience desktop-first. | Non planifié |
 | 8 | **Intégration CI/CD native** | Les agents MnM interagissent avec le code, pas avec les pipelines CI/CD directement. | À évaluer post-MVP |
-| 9 | **Facturation/paiement intégré** | MVP = design partner (EnterpriseCustomer). Stripe/billing = go-to-market commercial. | Phase commerciale (T3 2026) |
+| 9 | **Facturation/paiement intégré** | MVP = design partner (your organization). Stripe/billing = go-to-market commercial. | Phase commerciale (T3 2026) |
 | 10 | **Drift detection avancée (ML)** | V1 = règles heuristiques. ML = quand assez de données. Non-bloquant MVP (risque R4). | Année 2 |
 | 11 | **MnM modifiable par ses propres agents** | Vision long terme fascinante (REQ-A2A-03), mais risque sécurité et complexité trop élevés. | Recherche (Année 2+) |
 | 12 | **Assignation dynamique de tâches** | Utopique à court terme (What If #1). Nécessite compréhension fine des compétences individuelles. | Vision long terme |
@@ -1124,19 +1124,19 @@ Les 12 éléments suivants sont **intentionnellement exclus** du scope MVP. Chac
 
 | # | Hypothèse | Risque si fausse | Validation prévue |
 |---|-----------|-----------------|-------------------|
-| **H-M1** | Les entreprises en transformation digitale ont besoin d'orchestrer leurs agents IA de manière déterministe, pas seulement de les déployer | MnM résout un problème inexistant | POC EnterpriseCustomer — observer si le déterminisme est utilisé ou contourné |
+| **H-M1** | Les entreprises en transformation digitale ont besoin d'orchestrer leurs agents IA de manière déterministe, pas seulement de les déployer | MnM résout un problème inexistant | POC your organization — observer si le déterminisme est utilisé ou contourné |
 | **H-M2** | Le multi-rôle (CEO → Dev dans un seul outil) est un différenciateur vendable, pas une complexité repoussante | Trop de personas = produit confus | Tester l'onboarding avec les 3 premiers rôles (CEO, CTO, Dev) avant d'élargir |
 | **H-M3** | Le modèle open-core génère un flywheel d'adoption Dev solo → Team → Enterprise | L'OSS ne convertit pas en payant | Tracker le funnel OSS → Team précisément dès le lancement |
-| **H-M4** | EnterpriseCustomer est représentatif des entreprises cibles (PME tech en transformation) | EnterpriseCustomer est un cas particulier non-généralisable | Valider avec 2-3 early adopters hors EnterpriseCustomer avant de scaler |
+| **H-M4** | your organization est représentatif des entreprises cibles (PME tech en transformation) | your organization est un cas particulier non-généralisable | Valider avec 2-3 early adopters hors your organization avant de scaler |
 
 #### Hypothèses produit (H-P)
 
 | # | Hypothèse | Risque si fausse | Validation prévue |
 |---|-----------|-----------------|-------------------|
 | **H-P1** | Le curseur d'automatisation (manuel → assisté → auto) est compris et adopté par les utilisateurs | UX trop conceptuelle, personne ne l'utilise | Tests utilisateur dès Phase 2 — observer si les users déplacent le curseur |
-| **H-P2** | L'onboarding conversationnel (mode oral) est accepté par les CEO/DSI | Le CEO veut un formulaire classique, pas un chat | A/B test : onboarding chat vs formulaire chez EnterpriseCustomer |
-| **H-P3** | L'import Jira/Linear est le "moment de vérité" pour l'adoption B2B | Import trop complexe ou données trop sales | Prototype import avec données réelles EnterpriseCustomer avant implémentation complète |
-| **H-P4** | Les dashboards agrégés (jamais individuels) suffisent à convaincre les managers SANS effrayer les opérationnels (Vérité #20) | Managers veulent du granulaire, opérationnels ne font pas confiance | Feedback loops avec les deux populations chez EnterpriseCustomer |
+| **H-P2** | L'onboarding conversationnel (mode oral) est accepté par les CEO/DSI | Le CEO veut un formulaire classique, pas un chat | A/B test : onboarding chat vs formulaire en entreprise |
+| **H-P3** | L'import Jira/Linear est le "moment de vérité" pour l'adoption B2B | Import trop complexe ou données trop sales | Prototype import avec données réelles your organization avant implémentation complète |
+| **H-P4** | Les dashboards agrégés (jamais individuels) suffisent à convaincre les managers SANS effrayer les opérationnels (Vérité #20) | Managers veulent du granulaire, opérationnels ne font pas confiance | Feedback loops avec les deux populations en entreprise |
 
 #### Hypothèses techniques (H-T)
 
@@ -1151,15 +1151,15 @@ Les 12 éléments suivants sont **intentionnellement exclus** du scope MVP. Chac
 
 | # | Hypothèse | Risque si fausse | Validation prévue |
 |---|-----------|-----------------|-------------------|
-| **H-O1** | Le split cofondateurs (Tom = Noyaux B+C, Cofondateur = Noyaux A+D) permet un travail parallèle efficace | Dépendances croisées bloquent le parallélisme | Revue de dépendances hebdomadaire |
-| **H-O2** | Un cofondateur technique sera recruté dans les 4 prochaines semaines | Tom doit tout faire seul → timeline x2 | Plan B : freelance senior pour le Noyau A |
-| **H-O3** | EnterpriseCustomer accepte d'être design partner avec accès privilégié et feedback structuré | Pas de terrain de validation réel | Pitcher le CTO de EnterpriseCustomer immédiatement (action n°1 Product Brief) |
+| **H-O1** | Le split cofondateurs (the maintainer = Noyaux B+C, Cofondateur = Noyaux A+D) permet un travail parallèle efficace | Dépendances croisées bloquent le parallélisme | Revue de dépendances hebdomadaire |
+| **H-O2** | Un cofondateur technique sera recruté dans les 4 prochaines semaines | the maintainer doit tout faire seul → timeline x2 | Plan B : freelance senior pour le Noyau A |
+| **H-O3** | your organization accepte d'être design partner avec accès privilégié et feedback structuré | Pas de terrain de validation réel | Pitcher le CTO de your organization immédiatement (action n°1 Product Brief) |
 
 **Total : 15 hypothèses** (4 marché + 4 produit + 4 technique + 3 organisationnelle).
 
 ---
 
-*Section produite par John le PM — ~3500 mots, format PRD professionnel, traçabilité complète vers le Product Brief B2B v2.0 et les 57 vérités fondamentales du brainstorming cofondateurs.*
+*Section produite par the PM — ~3500 mots, format PRD professionnel, traçabilité complète vers le Product Brief B2B v2.0 et les 57 vérités fondamentales du brainstorming cofondateurs.*
 
 ---
 
@@ -1570,7 +1570,7 @@ Entreprise définit un plafond global (ex: "aucun merge sans validation humaine"
 
 **Ce que MnM fait que Microsoft ne fera PAS facilement :** UI non-technique pour CEO/PM/PO, drift detection, curseur d'automatisation, onboarding cascade, métriques agrégées (pas individuelles), indépendance cloud.
 
-**ALERTE CONCURRENTIELLE :** Microsoft est la menace la plus sérieuse. Leur framework est en RC depuis février 2026. S'ils sortent un produit fini avec UI, MnM perd son avantage. La mitigation : agilité, open source, EnterpriseCustomer comme design partner, et le fait que MS sera toujours Azure-first.
+**ALERTE CONCURRENTIELLE :** Microsoft est la menace la plus sérieuse. Leur framework est en RC depuis février 2026. S'ils sortent un produit fini avec UI, MnM perd son avantage. La mitigation : agilité, open source, your organization comme design partner, et le fait que MS sera toujours Azure-first.
 
 ---
 
@@ -2887,7 +2887,7 @@ MVP (8-10 sem)                     POST-MVP
 ├ Activity log enrichi             ├ Mode ORAL
 ├ Permissions par route            ├ Dashboards avancés
 ├ UI admin basique                 ├ Email transactionnel
-= VENDABLE à EnterpriseCustomer                  = SCALABLE en SaaS
+= VENDABLE à your organization                  = SCALABLE en SaaS
 ```
 
 ---
@@ -2904,7 +2904,7 @@ MVP (8-10 sem)                     POST-MVP
 - HT-07 : Adapters supportent pattern containerisé (confiance élevée)
 
 ### Business (5 hypothèses)
-- HB-01 : EnterpriseCustomer premier client viable (confiance élevée)
+- HB-01 : your organization premier client viable (confiance élevée)
 - HB-02 : Cofondateur technique recruté bientôt (confiance moyenne)
 - HB-03 : Pricing ~<redacted-pricing>/user/mois acceptable (confiance moyenne)
 - HB-04 : Open source flywheel viable (confiance moyenne)

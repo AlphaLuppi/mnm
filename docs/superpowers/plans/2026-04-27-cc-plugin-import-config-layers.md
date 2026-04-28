@@ -1329,7 +1329,7 @@ export async function runImport(input: RunImportInput): Promise<RunImportResult>
   const actions = stageGitActions(plugin);
   const author = {
     authorName: input.authorName ?? "MnM Plugin Importer",
-    authorEmail: input.authorEmail ?? "mnm@enterprise.example",
+    authorEmail: input.authorEmail ?? "mnm@example.com",
   };
   const commitResult = await input.destProvider.commitMultipleFiles({
     branch: input.destBranch,
@@ -1426,7 +1426,7 @@ router.post("/companies/:companyId/governed-workflows/import-plugin", async (req
 bun run dev   # in another terminal
 curl -X POST http://localhost:3100/api/companies/$COMPANY_ID/governed-workflows/import-plugin \
   -H "Content-Type: application/json" \
-  -d '{"repo_url":"https://lab.enterprise.example/example-org/hub/creation/lint-pack","exclude_skills":["test"]}'
+  -d '{"repo_url":"https://gitlab.example.com/example-org/hub/creation/lint-pack","exclude_skills":["test"]}'
 ```
 Expected: `{ok: true, layerId, agents:[...], ...}`.
 
@@ -1679,7 +1679,7 @@ git push
 
 - [ ] **Step 1: Lire le repo company actuel**
 
-Identifier le repo company (cf `~/.mnm/dev-workflows-bare/repo.git` ou GitLab `example-org/mnm-workflows`). Cloner localement pour édition.
+Identifier le repo company (cf `~/.mnm/dev-workflows-bare/repo.git` ou GitLab `your-username/mnm-workflows-demo`). Cloner localement pour édition.
 
 - [ ] **Step 2: Écrire le workflow.json**
 
@@ -2112,7 +2112,7 @@ bun run dev
 
 - [ ] **Step 2: Vérifier git_provider config layer du company de test**
 
-S'assurer que la company a un PAT GitLab EnterpriseCustomer configuré (cf `docs/governed-workflows-gitlab-setup.md`).
+S'assurer que la company a un PAT GitLab self-hosted configuré (cf `docs/governed-workflows-gitlab-setup.md`).
 
 - [ ] **Step 3: Importer le plugin**
 
@@ -2121,7 +2121,7 @@ COMPANY_ID=$(curl -sS http://localhost:3100/api/companies | jq -r '.[0].id')
 curl -X POST "http://localhost:3100/api/companies/$COMPANY_ID/governed-workflows/import-plugin" \
   -H "Content-Type: application/json" \
   -d '{
-    "repo_url": "https://lab.enterprise.example/example-org/hub/creation/lint-pack",
+    "repo_url": "https://gitlab.example.com/example-org/hub/creation/lint-pack",
     "exclude_skills": ["test"]
   }'
 ```

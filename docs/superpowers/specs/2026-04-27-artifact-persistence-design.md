@@ -9,7 +9,7 @@
 ## 1. Vision
 
 > "L'objectif grande finale c'est que CHAQUE étape puisse faire un /clear entre les étapes, et que ce qui prime ce soit le handoff entre les étapes. De sorte à ce que n'importe qui n'importe quand puisse reprendre la suite d'un workflow tant qu'il a les handoff précédent."
-> — Tom, 2026-04-26
+> — the maintainer, 2026-04-26
 
 Aujourd'hui les artifacts produits par un step (design.md, changelog.md, etc.) ne survivent pas au filesystem local de la machine qui exécute le step. Si l'utilisateur fait `/clear`, change de machine, ou un collègue prend le relais → le step suivant ne peut pas continuer.
 
@@ -32,7 +32,7 @@ Le design ci-dessous résout ce problème en commitant les handoffs dans le repo
 | 9 | **Eager Phase 1** : le content des handoffs est inline dans le prompt du step suivant. Lazy = futur. Helper `fetchHandoff` côté gates dispo dès Phase 1 | YAGNI, on bascule lazy quand un cas réel le justifie |
 | 10 | **Orchestrateur clone, pas le subagent** : c'est l'orchestrateur top-level (Claude Code principal) qui clone la branche dans `.mnm/handoffs/`. Si le step est exécuté en subagent (configurable dans `workflow.json` per-step), le subagent voit les fichiers déjà en place | Une seule logique de clone, propagation transparente au subagent |
 | 11 | **Coexistence repo workflow vs repo cible** : artifacts texte produits par le workflow → repo workflow ; code applicatif modifié → repo cible référencé via `kind: external_url` | Pas de duplication du code applicatif, audit complet via les deux repos |
-| 12 | **Identité Git du commit handoff = OAuth user qui complete le step** (avec fallback PAT compagnie en mode dégradé) | Aligned avec PAT-removal post-démo, audit "Tom Andrieu a committé" naturel |
+| 12 | **Identité Git du commit handoff = OAuth user qui complete le step** (avec fallback PAT compagnie en mode dégradé) | Aligned avec PAT-removal post-démo, audit "the contributor a committé" naturel |
 
 ---
 
@@ -47,7 +47,7 @@ Le design ci-dessous résout ce problème en commitant les handoffs dans le repo
       "name": "design",
       "kind": "file",
       "filename": "design.md",
-      "content": "# Conception ISSUE-NN\n\n## Contexte\n..."
+      "content": "# Conception FEAT-001\n\n## Contexte\n..."
     },
     {
       "name": "proto",
@@ -61,7 +61,7 @@ Le design ci-dessous résout ce problème en commitant les handoffs dans le repo
     {
       "name": "mr",
       "kind": "external_url",
-      "url": "https://lab.enterprise.example/example-org/mnm-demo-app/-/merge_requests/1"
+      "url": "https://gitlab.example.com/your-username/mnm-demo-app/-/merge_requests/1"
     },
     {
       "name": "figma_mockup",
@@ -72,7 +72,7 @@ Le design ci-dessous résout ce problème en commitant les handoffs dans le repo
   "data": {
     "mr_iid": 42,
     "approvals_count": 2,
-    "ticket": "ISSUE-NN",
+    "ticket": "FEAT-001",
     "summary": "Ajout de l'export PDF dans la vue planning"
   }
 }
@@ -102,7 +102,7 @@ Le design ci-dessous résout ce problème en commitant les handoffs dans le repo
     {
       "name": "mr",
       "kind": "external_url",
-      "url": "https://lab.enterprise.example/.../-/merge_requests/1"
+      "url": "https://gitlab.example.com/.../-/merge_requests/1"
     },
     {
       "name": "figma_mockup",
@@ -113,7 +113,7 @@ Le design ci-dessous résout ce problème en commitant les handoffs dans le repo
   "data": {
     "mr_iid": 42,
     "approvals_count": 2,
-    "ticket": "ISSUE-NN",
+    "ticket": "FEAT-001",
     "summary": "Ajout de l'export PDF dans la vue planning"
   }
 }
@@ -150,7 +150,7 @@ Phase 2 ajoutera : `blob` (binaire >1MB via storage S3), `git_ref` (référence 
      {
        "name": "mr",
        "kind": "external_url",
-       "url": "https://lab.enterprise.example/.../merge_requests/1"
+       "url": "https://gitlab.example.com/.../merge_requests/1"
      }
    ]
    ```
@@ -189,7 +189,7 @@ Phase 2 ajoutera : `blob` (binaire >1MB via storage S3), `git_ref` (référence 
    Steps: tech-design ✓, review ✓, dev ✓, release-mgr ✓
    Started: 2026-04-27T08:00:00Z
    Completed: 2026-04-27T11:30:00Z
-   Triggered by: alice@enterprise.example
+   Triggered by: alice@example.com
    ```
 3. Le serveur supprime la branche `mnm-runs/<run_id>` (push delete)
 4. Si une étape du merge échoue (race condition extrêmement improbable car répertoires disjoints) : la branche est conservée, alerte loggée, opération retentée par un job de réconciliation
@@ -205,7 +205,7 @@ Phase 2 ajoutera : `blob` (binaire >1MB via storage S3), `git_ref` (référence 
   "workflow_name": "feature-dev",
   "workflow_git_tag": "feature-dev/v1.0.3",
   "status": "running",
-  "ticket": "ISSUE-NN",
+  "ticket": "FEAT-001",
   "history": [
     {
       "step_id": "tech-design",
@@ -214,7 +214,7 @@ Phase 2 ajoutera : `blob` (binaire >1MB via storage S3), `git_ref` (référence 
       "data": {/* ... */},
       "started_at": "...",
       "completed_at": "...",
-      "completed_by": "alice@enterprise.example",
+      "completed_by": "alice@example.com",
       "gate_results_summary": {"passed": 2, "failed": 0}
     }
     // ... autres steps précédents
@@ -254,7 +254,7 @@ Pas de Phase 1 sur le diff entre runs : la version simple "voir le contenu d'un 
 Le serveur résout l'identité de commit dans cet ordre :
 
 1. **OAuth user** qui a appelé `complete_governed_step` (token dispo dans `req.actor` / RLS context). `gitProvider` GitLab utilise ce token pour pousser, le commit apparaît avec l'email/nom de l'utilisateur dans `git log`
-2. **Service account compagnie** si configuré explicitement (`mnm-bot@enterprise.example` avec PAT dédié)
+2. **Service account compagnie** si configuré explicitement (`mnm-bot@example.com` avec PAT dédié)
 3. **PAT compagnie** (status quo, mode dégradé) — utilisé par `local_trusted` mode et par les flows automatiques sans user identifiable
 
 Ce phasing est aligned avec la suppression progressive du PAT (memory `project_pat-fallback-removal.md`) : Phase 1 ajoute le code path OAuth user, Phase 2 supprime le fallback PAT après que tous les flows aient migré.
@@ -265,7 +265,7 @@ Ce phasing est aligned avec la suppression progressive du PAT (memory `project_p
 
 ### 7.1 Hérités du brainstorm (toujours valides)
 
-1. **Encryption-at-rest sensitive content** — design.md peut contenir des informations internes. GitLab self-hosted EnterpriseCustomer derrière VPN couvre le pilote. Pour SaaS futur : git-crypt ou storage layer chiffré.
+1. **Encryption-at-rest sensitive content** — design.md peut contenir des informations internes. GitLab self-hosted your organization derrière VPN couvre le pilote. Pour SaaS futur : git-crypt ou storage layer chiffré.
 2. **Race conditions** — `pg_advisory_xact_lock` côté serveur sur `complete_governed_step` (déjà en place, cf. `governed-workflows.ts:974`).
 3. **Gate runner et binaires** — couvert Phase 2 quand le `kind: blob` arrivera. Phase 1 = textes uniquement.
 

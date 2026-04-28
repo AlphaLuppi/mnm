@@ -8,7 +8,7 @@ Salut, on continue l'implémentation des MnM Governed Workflows.
 
 # Contexte
 
-Repo : `C:\Users\tom.andrieu\IdeaProjects\perso\alphalup\mnm` (branch master).
+Repo : `C:\path\to\mnm` (branch master).
 
 Le design MVP est un système de workflows gouvernés : DAG de steps + gates TS versionnées git, sandboxées server-side (isolated-vm), avec MCP + hook SessionStart pour brancher Claude Code côté user.
 

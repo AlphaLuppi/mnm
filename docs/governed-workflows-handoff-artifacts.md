@@ -46,11 +46,11 @@ Every artifact has two parts:
     {
       "name": "mr",
       "kind": "external_url",
-      "url": "https://lab.enterprise.example/team/proj/-/merge_requests/42"
+      "url": "https://gitlab.example.com/team/proj/-/merge_requests/42"
     }
   ],
   "data": {
-    "ticket": "ISSUE-NN",
+    "ticket": "FEAT-001",
     "mr_iid": 42,
     "approvals_count": 1
   }
@@ -85,11 +85,11 @@ After server-side commit, `kind: "file"` becomes `kind: "git_file"` and `kind: "
     {
       "name": "mr",
       "kind": "external_url",
-      "url": "https://lab.enterprise.example/team/proj/-/merge_requests/42"
+      "url": "https://gitlab.example.com/team/proj/-/merge_requests/42"
     }
   ],
   "data": {
-    "ticket": "ISSUE-NN",
+    "ticket": "FEAT-001",
     "mr_iid": 42,
     "approvals_count": 1
   }
@@ -239,10 +239,10 @@ When a user clears their orchestrator session mid-run, the `resume_governed_work
       "step_id": "tech-design",
       "state": "succeeded",
       "outputs": [{"name": "design", "kind": "git_file", ...}],
-      "data": {"ticket": "ISSUE-NN", "approval": {...}},
+      "data": {"ticket": "FEAT-001", "approval": {...}},
       "started_at": "2026-04-28T13:00:00Z",
       "completed_at": "2026-04-28T13:05:00Z",
-      "completed_by": "tom@enterprise.example"
+      "completed_by": "tom@example.com"
     }
   ],
   "current_step": {

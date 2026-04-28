@@ -5,7 +5,7 @@
 
 ---
 
-## Priorite 1 — Bloquant pour demo EnterpriseCustomer / premier client
+## Priorite 1 — Bloquant pour demo your organization / premier client
 
 ### 1. Validation d'integration end-to-end
 **Quoi :** Les 69 stories sont codees individuellement. Il faut verifier que tout fonctionne ensemble sur une vraie instance.
@@ -14,7 +14,7 @@
 - [ ] Deploy sur une instance de test complete (Docker Compose prod)
 - [ ] Run des 70 tests Playwright sur l'instance reelle
 - [ ] Fix des bugs d'integration decouverts
-- [ ] Smoke test manuel des 8 scenarios demo EnterpriseCustomer
+- [ ] Smoke test manuel des 8 scenarios demo your organization
 
 ### 2. Import Jira intelligent
 **Quoi :** ONB-S03 fait un import basique (API Jira -> tables MnM). Il manque le mapping semantique.
@@ -109,4 +109,4 @@
 | **P2** | 3 items | 3-4 semaines |
 | **P3** | 4 items | Long terme (iteratif) |
 
-**Prochaine action concrete :** Deployer l'instance de test, fixer les bugs d'integration, et pitcher le CTO de EnterpriseCustomer (verite #57).
+**Prochaine action concrete :** Deployer l'instance de test, fixer les bugs d'integration, et pitcher des prospects (verite #57).

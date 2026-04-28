@@ -54,8 +54,8 @@
 | Noyau | Nom | Assignation | Epics |
 |-------|-----|------------|-------|
 | **A** | Orchestrateur Déterministe | **Cofondateur** | ORCH, DRIFT, COMP |
-| **B** | Observabilité & Audit | **Tom** | OBS, DASH |
-| **C** | Onboarding Cascade | **Tom** | ONB |
+| **B** | Observabilité & Audit | **the maintainer** | OBS, DASH |
+| **C** | Onboarding Cascade | **the maintainer** | ONB |
 | **D** | Agent-to-Agent + Permissions | **Cofondateur** | A2A |
 | **E** | Dual-Speed Workflow | **Partagé** | DUAL |
 
@@ -64,11 +64,11 @@
 - **Sprint 0** : 1 semaine — Infrastructure
 - **Sprints 1-6** : 6 × 2 semaines — Développement
 - **Total** : ~13 semaines calendaires
-- **Deadline** : Démo EnterpriseCustomer juin 2026
+- **Deadline** : Démo your organization juin 2026
 
 ### 1.4 Alerte Timeline (Amelia)
 
-Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec 2 devs. La divergence vient des stories techniques (41 SP), de la dette technique, de la montée en charge du cofondateur, des spikes R&D, et des tests non comptés. **Pour respecter EnterpriseCustomer** : focus strict MUST-HAVE, MVP "rugueux" après Sprint 5 (~S12), polish en S6-10.
+Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec 2 devs. La divergence vient des stories techniques (41 SP), de la dette technique, de la montée en charge du cofondateur, des spikes R&D, et des tests non comptés. **Pour respecter your organization** : focus strict MUST-HAVE, MVP "rugueux" après Sprint 5 (~S12), polish en S6-10.
 
 ---
 
@@ -78,11 +78,11 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Phase PRD** : Sprint 0 (prérequis)
 **FRs couverts** : REQ-MU-07 (PostgreSQL), infrastructure transverse
 **Effort total** : 41 SP | ~4-5 semaines
-**Assignation** : Partagé Tom + Cofondateur
+**Assignation** : Partagé the maintainer + Cofondateur
 
 ### Story TECH-01 : Migration PostgreSQL Externe
 **Description** : Migrer de SQLite/embedded vers PostgreSQL 16 externe. docker-compose.dev.yml, config connexion .env, scripts de migration et seed.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M (5 SP, 3-4j)
 **Bloqué par** : Aucun
 **Débloque** : TECH-05, TECH-06, toutes les epics B2B
@@ -107,7 +107,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story TECH-03 : Infrastructure de Test (Factories + Seed)
 **Description** : Factories TypeScript (createTestUser, createTestCompany, createTestAgent, createTestWorkflow). Seed E2E Cypress. Embedded-postgres pour intégration. Pattern : mocker LLM providers, JAMAIS la DB.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M (5 SP, 3-4j)
 **Bloqué par** : TECH-01
 **Débloque** : Tous les tests
@@ -118,7 +118,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story TECH-04 : Redis Setup
 **Description** : Redis pour sessions, cache, WebSocket pub/sub, rate limiting. docker-compose service + client Redis dans le serveur.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M (3 SP, 2-3j)
 **Bloqué par** : TECH-02
 **Débloque** : CHAT-01 (WebSocket scaling), performance
@@ -129,7 +129,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story TECH-05 : RLS PostgreSQL (14 tables)
 **Description** : CREATE POLICY sur 14 tables. Hook Drizzle pour SET LOCAL app.current_company_id. Tests d'isolation cross-company. **Sécurité critique**.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : L (8 SP, 5-7j)
 **Bloqué par** : TECH-01, TECH-06
 **Débloque** : Tout le multi-tenant, CONT-01
@@ -142,7 +142,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story TECH-06 : Schema DB — 10 Nouvelles Tables
 **Description** : project_memberships, automation_cursors, chat_channels, chat_messages, container_profiles, container_instances, credential_proxy_rules, audit_events, sso_configurations, import_jobs. Migrations Drizzle + indexes + relations.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M (5 SP, 2-3j)
 **Bloqué par** : TECH-01
 **Débloque** : Tout le niveau CORE
@@ -154,7 +154,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story TECH-07 : Schema DB — Modifications 5 Tables Existantes
 **Description** : companies (+tier, ssoEnabled, maxUsers), company_memberships (+businessRole), agents (+containerProfileId, isolationMode), principal_permission_grants (+9 keys), activity_log (+ipAddress, userAgent, severity).
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S (2 SP, 1j)
 **Bloqué par** : TECH-01
 **Débloque** : RBAC-01, RBAC-03
@@ -183,13 +183,13 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Phase PRD** : Phase 1
 **FRs couverts** : REQ-MU-01 à REQ-MU-06
 **Effort total** : 11-14 SP | ~1 semaine
-**Assignation** : Tom (backend) + Cofondateur (frontend)
+**Assignation** : the maintainer (backend) + Cofondateur (frontend)
 **Impact Business** : CRITIQUE (9/10) — Quick Win
 **Priorisation** : #1 — Débloque tout le reste
 
 ### Story MU-S01 : API Invitations par Email
 **Description** : Endpoint POST /api/invites avec lien signé (expire 7j), envoi email (Resend recommandé). Table `invites` existe déjà partiellement.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S (2 SP, 1-2j)
 **Bloqué par** : TECH-01
 **Débloque** : MU-S02, MU-S03
@@ -212,7 +212,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story MU-S03 : Invitation Bulk (CSV)
 **Description** : Parsing CSV côté client, boucle sur endpoint d'invitation, feedback par ligne.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S (2 SP, 1-2j)
 **Bloqué par** : MU-S01
 
@@ -224,7 +224,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story MU-S05 : Désactivation Signup Libre
 **Description** : Flag `invitationOnly` sur companies, check dans auth middleware.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S (1 SP, 0.5j)
 **Bloqué par** : TECH-07
 
@@ -234,7 +234,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story MU-S06 : Sign-out avec Invalidation Session
 **Description** : Bouton UI + appel endpoint + cleanup local. Better Auth a le mécanisme.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S (1 SP, 0.5j)
 **Bloqué par** : Aucun
 
@@ -250,13 +250,13 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Phase PRD** : Phase 2
 **FRs couverts** : REQ-RBAC-01 à REQ-RBAC-08
 **Effort total** : 21-26 SP | ~2 semaines
-**Assignation** : Tom (backend) + Cofondateur (frontend)
+**Assignation** : the maintainer (backend) + Cofondateur (frontend)
 **Impact Business** : CRITIQUE (9/10) — Prérequis sécurité démo
 **Priorisation** : #2
 
 ### Story RBAC-S01 : Fix hasPermission() — Scope JSONB ⚠️ P0 SÉCURITÉ
 **Description** : **DETTE TECHNIQUE CRITIQUE (DT1)**. access.ts:45-66 ignore le champ `scope`. Requiert : lecture scope, parsing Zod, validation projectId. Chaque route utilisant hasPermission() est potentiellement vulnérable.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M (3 SP, 2j)
 **Bloqué par** : TECH-07
 **Débloque** : RBAC-S02, RBAC-S04, PROJ-S01, tout le RBAC
@@ -269,7 +269,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story RBAC-S02 : 9 Permission Keys + Presets par Rôle
 **Description** : 9 nouvelles keys (workflows.create/manage, agents.launch, stories.create/edit, audit.view/export, dashboard.view, chat.agent). Matrice presets admin/manager/contributor/viewer.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : S (2 SP, 1-2j)
 **Bloqué par** : RBAC-S01
 **Débloque** : RBAC-S04
@@ -281,8 +281,8 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Bloqué par** : TECH-07
 
 ### Story RBAC-S04 : Enforcement dans 22 Fichiers Routes
-**Description** : Middleware `requirePermission(key, scopeExtractor?)` sur toutes les routes. 3 fichiers critiques sans aucun check : approvals.ts, assets.ts, secrets.ts. **Splitting recommandé** : Tom = routes critiques, Cofondateur = reste.
-**Assignation** : Tom + Cofondateur
+**Description** : Middleware `requirePermission(key, scopeExtractor?)` sur toutes les routes. 3 fichiers critiques sans aucun check : approvals.ts, assets.ts, secrets.ts. **Splitting recommandé** : the maintainer = routes critiques, Cofondateur = reste.
+**Assignation** : the maintainer + Cofondateur
 **Effort** : L (8 SP, 5-7j)
 **Bloqué par** : RBAC-S01, RBAC-S02
 **Débloque** : OBS-S02
@@ -321,14 +321,14 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Impact Business** : ÉLEVÉ (8/10)
 
 ### Story PROJ-S01 : Table project_memberships + Migration
-**Assignation** : Tom | **Effort** : S (2 SP, 1j) | **Bloqué par** : TECH-06
+**Assignation** : the maintainer | **Effort** : S (2 SP, 1j) | **Bloqué par** : TECH-06
 
 ### Story PROJ-S02 : Service project-memberships.ts
-**Assignation** : Tom | **Effort** : M (3 SP, 2-3j) | **Bloqué par** : RBAC-S01
+**Assignation** : the maintainer | **Effort** : M (3 SP, 2-3j) | **Bloqué par** : RBAC-S01
 
 ### Story PROJ-S03 : Filtrage Agents/Issues par Scope Projet
 **Description** : Modification agents.ts et issues.ts (fichiers massifs). WHERE projectId IN (user_project_ids). Tests d'intégration obligatoires.
-**Assignation** : Tom | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : PROJ-S02
+**Assignation** : the maintainer | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : PROJ-S02
 **⚠ Risque** : agents.ts et issues.ts sont les plus gros fichiers du projet — splitting en sous-PRs recommandé.
 
 ### Story PROJ-S04 : Page ProjectAccess.tsx
@@ -380,7 +380,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story ORCH-S04 : API Routes Orchestrateur
 **Description** : POST /workflows/:id/enforce, GET /drift/alerts, POST /drift/alerts/:id/resolve.
-**Assignation** : Tom
+**Assignation** : the maintainer
 **Effort** : M (3 SP, 2-3j)
 **Bloqué par** : ORCH-S01
 
@@ -389,7 +389,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Assignation** : Cofondateur
 **Effort** : M (5 SP, 3-5j)
 **Bloqué par** : ORCH-S01
-**Note** : P1 — éditeur YAML suffit pour le MVP EnterpriseCustomer.
+**Note** : P1 — éditeur YAML suffit pour le MVP your organization.
 
 ---
 
@@ -402,11 +402,11 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story DRIFT-S01 : Fix Drift en Mémoire → Persistance DB
 **Description** : **DT2** — drift.ts utilise `reportCache = new Map()` perdu au restart. Migration vers tables drift_reports + drift_items.
-**Assignation** : Tom | **Effort** : M (3 SP, 2-3j)
+**Assignation** : the maintainer | **Effort** : M (3 SP, 2-3j)
 
 ### Story DRIFT-S02 : Drift Monitor Service
 **Description** : Comparaison attendu (workflow template) vs observé (heartbeat events). Alertes via WebSocket.
-**Assignation** : Tom | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : ORCH-S01
+**Assignation** : the maintainer | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : ORCH-S01
 
 **Acceptance Criteria** :
 - Given un agent en exécution When le DriftDetector détecte une déviation >15 min Then une alerte est créée
@@ -428,11 +428,11 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story OBS-S01 : Table audit_events + Migration
 **Description** : Table partitionnée par mois (PARTITION BY RANGE). TRIGGER deny UPDATE/DELETE. Colonnes : companyId, actorId, actorType, action, targetType, targetId, metadata JSONB, ipAddress, prevHash, createdAt. Rôles PostgreSQL séparés.
-**Assignation** : Tom | **Effort** : M (5 SP, 3-4j) | **Bloqué par** : TECH-05
+**Assignation** : the maintainer | **Effort** : M (5 SP, 3-4j) | **Bloqué par** : TECH-05
 
 ### Story OBS-S02 : Service audit.ts + Émission Systématique
 **Description** : Service centralisé `emitAudit(action, target, metadata)` intégré aux 22 fichiers de routes.
-**Assignation** : Tom | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : RBAC-S04
+**Assignation** : the maintainer | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : RBAC-S04
 
 **Acceptance Criteria** :
 - Given toute mutation When l'action est exécutée Then un audit_event immutable est créé
@@ -440,7 +440,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story OBS-S03 : Résumé LLM Actions Agent (P1)
 **Description** : audit-summarizer.ts : appel Haiku pour traduire logs techniques en langage naturel. Cache Redis.
-**Assignation** : Tom | **Effort** : M (3 SP, 2-3j)
+**Assignation** : the maintainer | **Effort** : M (3 SP, 2-3j)
 
 ### Story OBS-S04 : UI AuditLog.tsx + Filtres + Export
 **Description** : DataTable avec 12 filtres, export CSV/JSON, virtualisation TanStack Virtual.
@@ -457,13 +457,13 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Priorisation** : #9 — Post-MVP acceptable
 
 ### Story ONB-S01 : Onboarding CEO Conversationnel
-**Assignation** : Tom | **Effort** : M (3 SP) | P1
+**Assignation** : the maintainer | **Effort** : M (3 SP) | P1
 
 ### Story ONB-S02 : Cascade Hiérarchique
-**Assignation** : Tom | **Effort** : S (2 SP) | P1
+**Assignation** : the maintainer | **Effort** : S (2 SP) | P1
 
 ### Story ONB-S03 : Import Jira Intelligent
-**Assignation** : Tom | **Effort** : M (5 SP) | P2
+**Assignation** : the maintainer | **Effort** : M (5 SP) | P2
 
 ### Story ONB-S04 : Dual-Mode Configuration (Oral/Visuel)
 **Assignation** : Cofondateur | **Effort** : M (3 SP) | P1
@@ -530,14 +530,14 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story CHAT-S01 : WebSocket Bidirectionnel
 **Description** : **DT3** — live-events.ts actuel = unidirectionnel. Protocole de messages typé bidirectionnel, routing par channelId, auth WebSocket.
-**Assignation** : Tom | **Effort** : L (8 SP, 5-7j) | **Bloqué par** : TECH-04
+**Assignation** : the maintainer | **Effort** : L (8 SP, 5-7j) | **Bloqué par** : TECH-04
 
 ### Story CHAT-S02 : Tables chat_channels + chat_messages
-**Assignation** : Tom | **Effort** : S (2 SP, 1j) | **Bloqué par** : TECH-06
+**Assignation** : the maintainer | **Effort** : S (2 SP, 1j) | **Bloqué par** : TECH-06
 
 ### Story CHAT-S03 : ChatService + Pipe stdin Agent
 **Description** : Réception message → persistance → pipe vers stdin agent containerisé. Reconnexion buffer 30s. Rate limiting 10/min.
-**Assignation** : Tom | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : CONT-S01 (dépendance forte)
+**Assignation** : the maintainer | **Effort** : M (5 SP, 3-5j) | **Bloqué par** : CONT-S01 (dépendance forte)
 
 ### Story CHAT-S04 : AgentChatPanel.tsx + useAgentChat
 **Assignation** : Cofondateur | **Effort** : M (3 SP, 2-3j)
@@ -582,7 +582,7 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Assignation** : Cofondateur | **Effort** : M (3 SP, 2-3j)
 
 ### Story CONT-S05 : Tables container_profiles + container_instances
-**Assignation** : Tom | **Effort** : S (2 SP, 1j) | **Bloqué par** : TECH-06
+**Assignation** : the maintainer | **Effort** : S (2 SP, 1j) | **Bloqué par** : TECH-06
 
 ### Story CONT-S06 : UI ContainerStatus.tsx
 **Assignation** : Cofondateur | **Effort** : M (3 SP, 2-3j)
@@ -621,13 +621,13 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 
 ### Story DASH-S01 : API Dashboards Agrégés
 **Description** : GET /dashboards/:type. k-anonymity (k=5). Vues matérialisées PostgreSQL. Interdiction drill-down individuel (Vérité #20).
-**Assignation** : Tom | **Effort** : M (5 SP, 3-4j)
+**Assignation** : the maintainer | **Effort** : M (5 SP, 3-4j)
 
 ### Story DASH-S02 : DashboardCards.tsx par Rôle
 **Assignation** : Cofondateur | **Effort** : M (3 SP, 2-3j)
 
 ### Story DASH-S03 : Dashboard Temps Réel via WebSocket
-**Assignation** : Tom | **Effort** : S (2 SP, 1-2j)
+**Assignation** : the maintainer | **Effort** : S (2 SP, 1-2j)
 
 ---
 
@@ -636,13 +636,13 @@ Le PRD annonce 8-10 semaines. L'estimation réaliste est **20-22 semaines** avec
 **Objectif** : SSO SAML/OIDC pour les clients enterprise.
 **Phase PRD** : Phase 4
 **Effort total** : 8-10 SP | ~1 semaine
-**Priorisation** : P1 — Reportable post-démo EnterpriseCustomer
+**Priorisation** : P1 — Reportable post-démo your organization
 
 ### Story SSO-S01 : Table sso_configurations + Config
-**Assignation** : Tom | **Effort** : S (2 SP, 1j)
+**Assignation** : the maintainer | **Effort** : S (2 SP, 1j)
 
 ### Story SSO-S02 : Better Auth Plugins SAML/OIDC
-**Assignation** : Tom | **Effort** : M (3 SP, 2-3j)
+**Assignation** : the maintainer | **Effort** : M (3 SP, 2-3j)
 
 ### Story SSO-S03 : UI Configuration SSO
 **Assignation** : Cofondateur | **Effort** : M (3 SP, 2-3j)
@@ -742,7 +742,7 @@ NICE-TO-HAVE (~45-55 jours-dev) : SSO, ONB, DASH avancé, DUAL avancé, UX polis
 
 | Cofondateur | Noyaux | Charge | Stories principales |
 |------------|--------|--------|---------------------|
-| **Tom** | B (Obs) + C (Onb) + Infra | ~115-140 SP | TECH-01 à 07, RBAC backend, OBS, WebSocket, Chat backend, SSO backend, API routes |
+| **the maintainer** | B (Obs) + C (Onb) + Infra | ~115-140 SP | TECH-01 à 07, RBAC backend, OBS, WebSocket, Chat backend, SSO backend, API routes |
 | **Cofondateur** | A (Orch) + D (A2A) + Frontend | ~110-135 SP | TECH-02/08, CONT, ORCH, COMP, A2A, DUAL, frontend React |
 
 ### 19.2 Points de Synchronisation
@@ -752,7 +752,7 @@ NICE-TO-HAVE (~45-55 jours-dev) : SSO, ONB, DASH avancé, DUAL avancé, UX polis
 | Fin S2 | Phase 1 terminée + Spike compaction | Go/No-Go stratégie compaction |
 | Fin S4 | RBAC + Orchestrateur v1 | Go/No-Go Phase 3 ou pivot container |
 | Fin S6 | Scoping + Observabilité | Phase 4 ou polish MVP ? |
-| Fin S8 | Containerisation + Chat | Go/No-Go Démo EnterpriseCustomer |
+| Fin S8 | Containerisation + Chat | Go/No-Go Démo your organization |
 | S9-10 | Préparation démo | Bug fixing, données démo, script, répétition |
 
 ---
@@ -773,7 +773,7 @@ NICE-TO-HAVE (~45-55 jours-dev) : SSO, ONB, DASH avancé, DUAL avancé, UX polis
 | Tests estimés | ~525 (300 unit, 205 intég, 20 E2E) |
 | Infrastructure test stories | 8 (13 jours) |
 | Durée réaliste (2 devs) | 20-22 semaines |
-| Durée MVP EnterpriseCustomer (strict) | 12-13 semaines (Sprint 0-5) |
+| Durée MVP your organization (strict) | 12-13 semaines (Sprint 0-5) |
 | Risques techniques | 6 identifiés (1 critique, 2 élevés, 2 moyens, 1 faible) |
 | Spikes R&D | 3 (compaction 1 sem, container POC 2-3j, SSO 1j) |
 

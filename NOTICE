@@ -1,0 +1,54 @@
+MnM
+Copyright (c) 2026 Alpha Luppi (Studio Manifeste)
+
+This product includes software developed by Alpha Luppi and contributors.
+
+MnM is licensed under the GNU Affero General Public License v3.0 or later
+(AGPL-3.0-or-later). See the LICENSE file for the full license text.
+
+================================================================================
+Origin and lineage
+================================================================================
+
+MnM was forked from Paperclip (https://github.com/paperclipai/paperclip).
+The two projects have since diverged substantially in vision, scope, and
+architecture. Original portions of code derived from Paperclip retain their
+upstream copyright; modifications and new code are copyright Alpha Luppi.
+
+================================================================================
+Trademarks
+================================================================================
+
+"MnM" and the MnM logo are trademarks of Alpha Luppi. Use of the AGPL license
+on this source code does NOT grant any rights to use the MnM name or logo
+beyond what is required to identify the origin of the software (nominative
+fair use). See TRADEMARKS.md for details (to be added in Phase 1 follow-up).
+
+================================================================================
+Third-party software
+================================================================================
+
+This product includes third-party open-source software. Each such component
+is licensed under its own terms, as recorded in the package metadata. A
+non-exhaustive summary of license types observed at the time of writing:
+
+  - MIT (~930 packages)
+  - Apache-2.0 (~128 packages)
+  - ISC (~75 packages)
+  - BSD-2-Clause / BSD-3-Clause (~33 packages)
+  - MPL-2.0 (~3 packages)
+  - Other permissive (CC0, BlueOak, 0BSD, Unlicense, etc.)
+
+A full SBOM and license summary will be generated in Phase 1 of the
+open-source preparation (see docs/open-source-migration-plan.md).
+
+================================================================================
+Known license caveats (under review)
+================================================================================
+
+  - @codesandbox/nodebox (transitive via @mdxeditor/editor →
+    @codesandbox/sandpack-react → @codesandbox/sandpack-client → nodebox)
+    is distributed under the Sustainable Use License (SUL), a source-available
+    non-OSI license. Mixing SUL with AGPL-3.0 distribution is being assessed
+    before public release. If found incompatible, the offending dependency
+    will be replaced or vendored.

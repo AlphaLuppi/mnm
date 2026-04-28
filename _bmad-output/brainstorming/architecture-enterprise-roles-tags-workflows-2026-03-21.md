@@ -10,7 +10,7 @@ context_file: ''
 
 **Brainstorming stratégique : rendre MnM adaptable à toute structure d'entreprise**
 
-**Participants :** Tom (co-founder), Gab (dev), Niko (CEO)
+**Participants :** the maintainer (co-founder), the lead developer (dev), the CEO (CEO)
 **Dates :** 2026-03-20 → 2026-03-21
 
 ---
@@ -38,13 +38,13 @@ MnM aujourd'hui est rigide :
 2. Niveaux de permissions hiérarchiques (Admin > Lead > Member...)
 3. Assignation flexible (personne, groupe, rôle, ou pool)
 4. Un CAO qui surveille et conseille sans bloquer
-5. Que ça marche pour une startup de 3 comme pour une corp de 500
+5. Que ça marche pour une petite startup comme pour une corp de 500
 6. Que ce soit maintenable dans le temps (turnover, re-orgs, migration IA)
 7. Per-user pods pour isoler les auth Claude Code
 
 ---
 
-## 3. Décisions prises (Tom, 2026-03-20)
+## 3. Décisions prises (the maintainer, 2026-03-20)
 
 | # | Décision | Détail |
 |---|----------|--------|
@@ -127,22 +127,22 @@ issues (modifié)
 
 ---
 
-## 5. Crash test — AlphaLuppi vs EnterpriseCustomer
+## 5. Crash test — petite équipe vs grande entreprise
 
-### AlphaLuppi (3 pers, 2 produits)
+### Studio Manifeste (3 pers, 2 produits)
 
 ```
 Rôles : Admin, Member
 Tags  : MnM, Bienvenue
 
-Tom    → role=Admin,  tags=[MnM, Bienvenue]
-Gab    → role=Member, tags=[MnM, Bienvenue]
-Niko   → role=Admin,  tags=[MnM, Bienvenue]
+the maintainer    → role=Admin,  tags=[MnM, Bienvenue]
+the lead developer    → role=Member, tags=[MnM, Bienvenue]
+the CEO   → role=Admin,  tags=[MnM, Bienvenue]
 
-→ Les 3 solutions marchent. Match nul. (Normal, 3 personnes.)
+→ Les 3 solutions marchent. Match nul. (Normal, petite équipe.)
 ```
 
-### EnterpriseCustomer (structure matricielle complexe)
+### your organization (structure matricielle complexe)
 
 ```
 5 produits, teams front/back par produit, Cross Tech, UIKit,
@@ -156,9 +156,9 @@ Proxy-PO, designers cross, UXR, Lead IA cross...
                                     Tags    R+T    Hybride
                                     ────    ───    ───────
 Jean  (Dev Product-A + Lead UIKit)   ✅      ✅      ✅
-Marie (PO multi-produit A+B)         ✅      ✅      ✅
+teammate-B (PO multi-produit A+B)         ✅      ✅      ✅
 Sophie (Designer + cross-design)     ✅      😬      ✅
-Lucas (Cross Tech hardware)         ✅      ✅      ✅
+teammate-A (Cross Tech hardware)         ✅      ✅      ✅
 Léa   (Lead IA cross 5 produits)    ✅      😬😬    ✅
 Pierre (Proxy-PO Product-C)         ✅      😬      ✅
 Camille (UXR cross)                 ✅      ✅      ✅
@@ -220,7 +220,7 @@ Profils cross/matriciels     ★★★★★       ★★☆☆☆        ★★
 Skills natifs                ★★★★★       ★★☆☆☆        ★★★★★
 Tables nouvelles             4            2(+2 cols)   2(+2 cols)
 Couverture use cases         ~95%         ~85%         ~95%
-Score EnterpriseCustomer                    8/8          5/8          8/8
+Score your organization                    8/8          5/8          8/8
 ```
 
 ---
@@ -314,7 +314,7 @@ MODE INTERACTIF :
   → "Résume l'état du projet X"
 ```
 
-Nom "CAO" déposé par Niko.
+Nom "CAO" déposé par the CEO.
 
 ---
 

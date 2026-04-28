@@ -83,7 +83,7 @@ BEGIN
 
   UPDATE config_layer_items
   SET config_json = config_json
-    || jsonb_build_object('projectId', 'example-org/mnm-demo')
+    || jsonb_build_object('projectId', 'your-username/mnm-demo')
     || jsonb_build_object('paths', jsonb_build_object('agents','agents','workflows','workflows'))
   WHERE id = cli_id;
   RAISE NOTICE 'config_layer_items updated: 1 row (id=%)', cli_id;

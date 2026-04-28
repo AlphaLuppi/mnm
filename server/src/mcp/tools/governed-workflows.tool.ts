@@ -778,7 +778,7 @@ export default defineMcpTools(({ tool, services }) => {
       "semver tag, and persists the config layer + agent rows in the DB. " +
       "V1 constraint: plugin repo must live on the same GitLab instance as the company workflows repo.",
     input: z.object({
-      repo_url: z.string().url().describe("Full HTTPS URL of the plugin repo, e.g. https://lab.enterprise.example/example-org/hub/my-plugin"),
+      repo_url: z.string().url().describe("Full HTTPS URL of the plugin repo, e.g. https://gitlab.example.com/example-org/hub/my-plugin"),
       ref: z.string().optional().describe("Git ref (branch/tag/sha) to import from (default: main)"),
       exclude_skills: z.array(z.string()).optional().describe("Skill names to skip"),
       exclude_agents: z.array(z.string()).optional().describe("Agent names to skip"),

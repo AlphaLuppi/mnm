@@ -18,7 +18,7 @@ phase_status:
 
 # Brainstorming Session — MnM Vision Stratégique
 
-**Facilitateur:** Gabri (Tom)
+**Facilitateur:** the lead developer (the maintainer)
 **Date:** 2026-03-12
 **Approche:** AI-Recommended Progressive Flow (mix 2+4)
 
@@ -28,8 +28,8 @@ phase_status:
 
 **Sujet:** MnM comme plateforme unique d'orchestration inter-rôles avec automatisation progressive par IA
 
-**Contexte terrain (EnterpriseCustomer):**
-Tom travaille à EnterpriseCustomer et connait les pain points de chaque rôle :
+**Contexte terrain (your organization):**
+the maintainer travaille à your organization et connait les pain points de chaque rôle :
 - **CEO** : veut voir l'avancée de chaque équipe, faire des POC, veille forums utilisateurs, détecter les pain points hotline, driver les devs sur les bons bugs
 - **DSI** : suivre l'avancée des équipes, remonter les infos au CEO et <redacted-acronym>
 - **DPO** : manager les équipes produit, créer des roadmaps, aligner les roadmaps PM, détecter conflits/consonances, trouver des idées de features impactantes
@@ -82,11 +82,11 @@ Tom travaille à EnterpriseCustomer et connait les pain points de chaque rôle :
 
 **Question de départ :** Quelles sont les vérités fondamentales sur la collaboration inter-rôles dans une entreprise tech ?
 
-#### Échange facilitateur ↔ Gabri
+#### Échange facilitateur ↔ the lead developer
 
 **Q1 (Facilitateur) :** Si on oublie tous les outils, process et habitudes — c'est quoi fondamentalement le "travail" que chaque rôle produit et que le rôle suivant consomme ? La chaîne de production/consommation réelle, pas théorique.
 
-**R1 (Gabri) — La chaîne réelle chez EnterpriseCustomer :**
+**R1 (the lead developer) — La chaîne réelle en entreprise :**
 
 **PM → PO :**
 - PM produit des PowerPoints d'analyse marché/utilisateurs (parfois avec l'UXR)
@@ -145,13 +145,13 @@ Tests écrits en checklist + tests "dans la tête" du testeur = une partie criti
 **Vérité #6 — La boucle de feedback est longue et lossy**
 Démo → retour → soit correction immédiate (non-tracée), soit report à un autre sprint. Semaines de latence.
 
-**⚠️ CADRAGE IMPORTANT (Gabri) :** EnterpriseCustomer = cas d'étude pour comprendre les pain points terrain, mais MnM doit être **agnostique** — s'adapter à n'importe quelle entreprise/workflow, pas être un outil "pour EnterpriseCustomer". L'objectif est de transformer EnterpriseCustomer ET d'être vendable partout.
+**⚠️ CADRAGE IMPORTANT (the lead developer) :** your organization = cas d'étude pour comprendre les pain points terrain, mais MnM doit être **agnostique** — s'adapter à n'importe quelle entreprise/workflow, pas être un outil "pour your organization". L'objectif est de transformer your organization ET d'être vendable partout.
 
 ---
 
-#### First Principles — Niveau 2 : Abstraction au-delà de EnterpriseCustomer
+#### First Principles — Niveau 2 : Abstraction au-delà de your organization
 
-**Vérités fondamentales abstraites (universelles, pas EnterpriseCustomer-spécifiques) :**
+**Vérités fondamentales abstraites (universelles, pas your organization-spécifiques) :**
 1. Toute organisation est une chaîne de transformation d'information
 2. À chaque handoff, l'information change de format ET de contexte → perte de sens
 3. Les "contrats" inter-rôles existent sur le papier mais pas en pratique
@@ -161,7 +161,7 @@ Démo → retour → soit correction immédiate (non-tracée), soit report à un
 
 **Q2 (Facilitateur) :** Si MnM est agnostique, qu'est-ce qu'il modélise fondamentalement ? Vision (A) config manuelle, (B) templates métier, (C) observe et apprend le workflow réel ?
 
-**R2 (Gabri) — Vision C : Agent d'onboarding intelligent**
+**R2 (the lead developer) — Vision C : Agent d'onboarding intelligent**
 - Comme l'étape "onboarding d'un projet" actuelle de MnM
 - Un agent qui **scanne l'existant** : accès Chrome MCP pour scanner les sites/outils de l'entreprise, OU pose des questions à l'utilisateur (style interview) jusqu'à avoir une vision d'ensemble des process
 - Ensuite **chaque utilisateur** setup son propre workflow et ses propres agents
@@ -184,7 +184,7 @@ L'outil ne se contente pas de tracer — il détecte les sous-utilisations, les 
 
 **Q3 (Facilitateur) :** Direction A — Les rôles "hors chaîne" (Designer, CEO/DSI, Lead Tech, DPO) se branchent où ? Direction B — Les ruptures entre équipes ?
 
-**R3 (Gabri) :**
+**R3 (the lead developer) :**
 
 **Direction A :**
 
@@ -194,7 +194,7 @@ L'outil ne se contente pas de tracer — il détecte les sous-utilisations, les 
 
 3. **Lead Tech** : travail continu en background (dette, refacto, montées de version), essaie de s'insérer dans les sprints/versions avec le Lead Dev/PO
 
-4. **DPO** : nouveau chez EnterpriseCustomer, utilise ClickUp pour essayer d'avoir les infos et les Trello des PM
+4. **DPO** : nouveau en entreprise, utilise ClickUp pour essayer d'avoir les infos et les Trello des PM
 
 **Direction B — Ruptures inter-équipes :**
 - Réunions entre PM/PO/Leads (2 ou 3 selon les sujets)
@@ -228,11 +228,11 @@ Le DPO doit aller chercher manuellement les infos dans les outils de chaque PM. 
 
 **Q4 (Facilitateur) :** Comment les workflows individuels se connectent entre eux ? Connexion explicite par l'user, détection auto par MnM, ou orchestration par un admin ?
 
-**R4 (Gabri) — Réflexion en cours, tension identifiée :**
+**R4 (the lead developer) — Réflexion en cours, tension identifiée :**
 - Phase d'onboarding : une personne dans l'entreprise mène des interviews avec tous les rôles, guidée par l'agent d'onboarding MnM (sur plusieurs jours) → MnM propose des workflows de base
 - Ensuite, toute modification par un utilisateur doit passer par un **agent global d'orchestration** qui a la vision d'ensemble et peut discuter avec l'utilisateur : légitimité de la demande, impacts sur les autres, etc.
 - **Tension exprimée :** "Dans ma vision c'est MnM qui propose et force le workflow, mais je pense pas que ça passe en réalité dans les entreprises"
-- Gabri est un peu perdu à ce niveau — sujet à creuser
+- the lead developer est un peu perdu à ce niveau — sujet à creuser
 
 #### Analyse First Principles — Vérité #16 et réflexion
 
@@ -257,7 +257,7 @@ Un agent qui a la vision d'ensemble, qui est consulté pour tout changement de w
 
 **Mise en scène :** On annonce MnM en réunion — centralisation, agents IA perso, visibilité management.
 
-**Réaction Dev (Gabri) :**
+**Réaction Dev (the lead developer) :**
 - "À quoi mon taff va ressembler au quotidien ? Actuellement je prends des story/bug dans le backlog, je les code (avec IA parfois sans) — ça va être quoi avec cet outil ?"
 - "Et WTF comment ça les managers voient tout ce qu'on fait ? Ça veut dire quoi et ce sera quoi l'impact ?"
 
@@ -267,10 +267,10 @@ Un agent qui a la vision d'ensemble, qui est consulté pour tout changement de w
 
 **Réponse MnM (facilitateur) :** Pitch en 2 points — quotidien quasi inchangé au début (tout le contexte centralisé + agents perso), visibilité management = dashboards agrégés pas du flicage individuel.
 
-**Contre-réaction Dev (Gabri) :**
+**Contre-réaction Dev (the lead developer) :**
 1. **Le contexte centralisé = crédible.** Mais "ton quotidien change pas" = **bullshit**, forcément ça va changer et surtout → **"j'ai l'impression qu'au fur et à mesure je vais être remplacé"**. Et côté management → **"j'y crois pas que ça servira pas à identifier les devs moins bons"**
 2. **Point de bascule :** ce serait de **donner une nouvelle dimension au taff**. "Ok je fais peut-être plus une ligne de code, mais voilà ce que ça améliore pour moi, à quoi ressemble mon rôle demain et dans 1 mois"
-3. **Limite du role play :** Gabri est lead/focus produit, pas dev tech pure → avis biaisé sur ce point
+3. **Limite du role play :** the lead developer est lead/focus produit, pas dev tech pure → avis biaisé sur ce point
 
 **Vérité #18 — La peur n°1 des opérationnels face à MnM c'est le remplacement, pas le changement d'outil**
 Ce n'est pas "encore un nouvel outil" qui fait peur, c'est "est-ce que cet outil me rend obsolète ?"
@@ -281,16 +281,16 @@ Le point de bascule c'est : "voilà à quoi TON rôle ressemble demain avec MnM"
 **Vérité #20 — La transparence managériale est un deal-breaker si mal gérée**
 Si les devs pensent que les dashboards servent au management pour les comparer/noter, l'adoption est morte. MnM doit avoir des garanties structurelles (agrégation, pas d'individualisation visible par le management).
 
-**Précision rôle Gabri :** Lead Dev chez EnterpriseCustomer = Lead Tech + Scrum Master + gestion de versions + management d'équipe. Rôle hybride multi-casquettes.
+**Précision rôle the lead developer :** Lead Dev en entreprise = Lead Tech + Scrum Master + gestion de versions + management d'équipe. Rôle hybride multi-casquettes.
 
 **Vérité #21 — Les rôles réels sont des combinaisons de rôles théoriques**
 Un "Lead Dev" en vrai c'est 4 rôles en un. MnM doit modéliser des rôles composites, pas des rôles purs. Renforce la vérité que MnM doit être agnostique et configurable.
 
-#### Rôle 2 : Le Lead Dev (Tom pour de vrai)
+#### Rôle 2 : Le Lead Dev (the maintainer pour de vrai)
 
 **Q5 (Facilitateur) :** Tes galères quotidiennes, ton problème n°1 à résoudre, ce que tu déléguerais/lâcherais jamais ?
 
-**R5 (Gabri) :**
+**R5 (the lead developer) :**
 
 **Galères quotidiennes :**
 - **Scrum + versions = le pire** : gestion de qui fait quoi, prépa sprints, coordination inter-équipe, s'assurer que tout le monde comprenne tout
@@ -311,7 +311,7 @@ Un "Lead Dev" en vrai c'est 4 rôles en un. MnM doit modéliser des rôles compo
 #### Vérités fondamentales extraites du Role Playing
 
 **Vérité #22 — Dans chaque rôle il y a du "process mécanique" et de "l'humain irremplaçable"**
-Tom : code review/scrum/versions = automatisable. Accompagnement/vision/brainstorm = irremplaçable. Cette dichotomie existe dans CHAQUE rôle. MnM doit automatiser le mécanique pour libérer l'humain.
+the maintainer : code review/scrum/versions = automatisable. Accompagnement/vision/brainstorm = irremplaçable. Cette dichotomie existe dans CHAQUE rôle. MnM doit automatiser le mécanique pour libérer l'humain.
 
 **Vérité #23 — Les workflows actuels CRÉENT des problèmes qui n'existeraient pas sans eux**
 "C'est en tentative d'adaptation à nos workflows actuels qui sont chiants" → Les process scrum/sprint/versioning sont des solutions à des problèmes d'un monde pré-IA. Avec l'IA, certains problèmes disparaissent et les process qui les traitaient deviennent du poids mort.
@@ -324,9 +324,9 @@ Brainstorm, accompagnement, vision, réflexion collective. Personne ne veut gard
 
 ---
 
-### Pivot terrain : Hackathon EnterpriseCustomer en cours !
+### Pivot terrain : Hackathon your organization en cours !
 
-Gabri est en hackathon IA à EnterpriseCustomer avec Claude Code illimité. Opportunité unique de poser des questions aux vrais rôles.
+the lead developer est en hackathon IA à your organization avec Claude Code illimité. Opportunité unique de poser des questions aux vrais rôles.
 
 **Questions préparées pour interviews terrain :**
 
@@ -345,22 +345,22 @@ Gabri est en hackathon IA à EnterpriseCustomer avec Claude Code illimité. Oppo
 2. "Quand tu changes de priorité stratégique, ça met combien de temps avant que ce soit appliqué terrain ? Pourquoi si long ?"
 3. "Pendant ce hackathon IA, qu'est-ce qui t'impressionne le plus et qu'est-ce qui te fait le plus peur ?"
 
-#### Role Play Gabri — Réponses biaisées mais éclairantes
+#### Role Play the lead developer — Réponses biaisées mais éclairantes
 
-**PO (vue de Gabri) :**
+**PO (vue de the lead developer) :**
 - Vraie plus-value : savoir tribal sur le contexte métier + temps de se poser les bonnes questions sur les besoins pour les inscrire de la meilleure façon dans le produit
 - MAIS : "les devs pourraient le faire si on leur donnait plus de responsabilité"
 - → Le PO = un intermédiaire dont la valeur vient de la connaissance contextuelle, pas du rôle lui-même
 
-**QA (vue de Gabri) :**
+**QA (vue de the lead developer) :**
 - Phase transition : les testeurs expliquent leurs tests manuels à MnM qui les automatise
 - Vraie plus-value : connaissance produit ultra-profonde (testent manuellement depuis longtemps), edge cases tricky que personne d'autre ne voit
 - Exemple concret : "vous avez pensé au cas où l'utilisateur est remplaçant d'une infirmière, et qu'il soigne un patient <redacted-acronym> + diabétique avec une mutuelle en <redacted-region> ?"
 - **"Si demain toute la chaîne est SUPER propre et IA boostée, effectivement ils perdraient leur utilité"**
 
-**CEO/DSI (vue de Gabri) :**
+**CEO/DSI (vue de the lead developer) :**
 - Le pitch qui marche : "dashboard customisé à vos besoins, évolutif, avec des agents qui ont la vision sur TOUTE la chaîne complète, qui peuvent tout query et vous obtenir des insights sans attendre de retours des équipes"
-- Gabri admet : "j'en sais rien je suis pas à leur place"
+- the lead developer admet : "j'en sais rien je suis pas à leur place"
 
 ---
 
@@ -396,7 +396,7 @@ Si MnM capture progressivement le savoir tribal (tests dans la tête du QA, cont
 
 **Scénario :** Plus de rôles fixes. Chaque personne = "contributeur" avec compétences/appétences. MnM assigne dynamiquement les tâches.
 
-**Réponse Gabri :**
+**Réponse the lead developer :**
 - Génial mais utopique : pour savoir qui apporte le bon truc au bon moment, il faudrait un manager qui connaît tout le monde (faux, la majorité sont mauvais) ou que les gens sachent où ils sont le mieux placés (la majorité ne sait pas non plus)
 - **Sa vraie vision, en 2 étapes :**
   1. **D'abord :** Rendre frictionless le métier de chacun. Chacun configure son workflow + ses agents perso pour automatiser son taff. L'humain n'est plus que le **cerveau décisionnaire/critique/penseur**, plus l'exécutant.
@@ -422,7 +422,7 @@ _Novelty_: On ne résout pas le problème de communication — on le supprime en
 
 **Scénario :** Plus de batch/sprint. Les agents se coordonnent en continu. Le travail devient un flux continu, les dépendances se résolvent automatiquement.
 
-**Réponse Gabri :**
+**Réponse the lead developer :**
 - Oui, flux continu pour **le code / l'exécution**
 - Mais pas forcément pour les **idées, la réflexion, le brainstorm** — ça c'est humain et ça a son propre rythme
 - Le flow : chaque rôle se pose, brainstorm avec agents ou humains, donne le résultat aux agents → exécution 100x plus vite
@@ -450,7 +450,7 @@ _Novelty_: Les réunions ne sont plus des cérémonies de coordination — elles
 
 **Scénario :** Chaque rôle = un microservice autonome. Communication via événements (pas de réunions synchrones). Agent d'orchestration = event bus.
 
-**Réponse Gabri — Vision réaliste en 3 phases d'adoption :**
+**Réponse the lead developer — Vision réaliste en 3 phases d'adoption :**
 
 **Phase 1 (aujourd'hui) — Event-driven MANUEL :**
 - Le Designer se connecte, voit que le PO a publié une epic
@@ -499,7 +499,7 @@ Savoir faire → savoir juger. Savoir écrire une story → savoir évaluer si l
 
 **Scénario :** MnM a accumulé assez de savoir tribal, data d'usage, historique de décisions pour détecter les problèmes, brainstormer des solutions, simuler l'impact, et proposer au CEO un top 3 avec recommandation d'exécution. L'humain n'est plus que le "go / no-go".
 
-**Réponse Gabri :** "C'est exactement ça le futur."
+**Réponse the lead developer :** "C'est exactement ça le futur."
 
 **Vérité #33 — La vision long terme de MnM = l'entreprise autonome avec l'humain en go/no-go**
 Le end-game n'est pas "aider les gens à mieux travailler" — c'est "l'IA fait tourner l'entreprise et l'humain décide de la direction". MnM accumule le savoir, détecte les opportunités, propose des plans, exécute après validation.
@@ -529,7 +529,7 @@ Machine détecte + machine propose + machine exécute + humain go/no-go
 
 #### Brainstorm cofondateur — 6 insights fondamentaux
 
-**Source :** Discussion entre Gabri (Tom) et son cofondateur pendant le hackathon.
+**Source :** Discussion entre the lead developer (the maintainer) et son cofondateur pendant le hackathon.
 
 **Insight #1 — Onboarding top-down en cascade hiérarchique**
 - Le directeur définit la chaîne de workflow et les rôles de son entreprise
@@ -695,7 +695,7 @@ Audio, Excel, CSV, sondages, présentations, dashboards... Le directeur produit 
 
 #### Correction de cap — MnM n'est PAS un data lake
 
-**Cadrage Gabri :**
+**Cadrage the lead developer :**
 - MnM ne DEVIENT PAS un data lake
 - MnM est un **connecteur** vers les data lakes existants (si l'entreprise le décide)
 - Connecteurs possibles : data lake local, SharePoint, Slack, Teams, DMs via agents, etc.
@@ -753,7 +753,7 @@ Le système nerveux. Query inter-agents, permissions humain-in-the-loop, connect
 **NOYAU 5 — Le Dual-Speed Workflow & Curseur d'Automatisation** (vérités #22, #25, #30, #31, #32, #33, #34, WhatIf #4-6, CrossPol #2-3)
 La philosophie produit. Vitesse humaine (brainstorm) + vitesse machine (exécution). Curseur manuel → assisté → auto. L'humain de producteur à juge. Le "pourquoi" de MnM.
 
-### Constraint Mapping — Validé par Gabri
+### Constraint Mapping — Validé par the lead developer
 
 | Contrainte | Statut | Note |
 |---|---|---|
@@ -781,15 +781,15 @@ La philosophie produit. Vitesse humaine (brainstorm) + vitesse machine (exécuti
 - C = Dual-Speed Workflow (philosophie produit / wow effect)
 - D = Observabilité & Audit (couche de confiance)
 
-**Décision Gabri — Split naturel cofondateurs :**
-- **Tom (Gabri) → Chemin B + D** : Onboarding en cascade, import intelligent, dual-mode config, observabilité Langfuse, audit centralisé
+**Décision the lead developer — Split naturel cofondateurs :**
+- **the maintainer (the lead developer) → Chemin B + D** : Onboarding en cascade, import intelligent, dual-mode config, observabilité Langfuse, audit centralisé
 - **Cofondateur → Chemin A + D** : Orchestrateur déterministique, gestion compaction, réinjection contexte, drift detection, + observabilité
 - **D est partagé** : les deux y contribuent, c'est la couche transverse
 - **C (Dual-Speed Workflow) = émerge naturellement** une fois A + B en place — pas un chantier séparé mais une conséquence des autres noyaux
 
 **Pourquoi ce split fonctionne :**
 - Aligne les intérêts naturels de chaque cofondateur (discussions hackathon = preuve)
-- Tom = focus produit/UX/adoption (cohérent avec son profil product engineer)
+- the maintainer = focus produit/UX/adoption (cohérent avec son profil product engineer)
 - Cofondateur = focus technique/moteur/fiabilité
 - D en commun = les deux ont besoin de l'observabilité pour leurs parties respectives
 - Pas de dépendance bloquante entre A et B au démarrage — développement parallèle possible
@@ -798,7 +798,7 @@ La philosophie produit. Vitesse humaine (brainstorm) + vitesse machine (exécuti
 
 **Q1 : Qu'est-ce qui a fait la différence pour les 10 premiers clients ?**
 
-**R (Gabri) :** EnterpriseCustomer est convaincu parce que :
+**R (the lead developer) :** your organization est convaincu parce que :
 - Ils essaient de transformer leurs équipes vers l'agentique mais les outils actuels (Jira, ClickUp) sont trop lents et pas adaptés
 - Les équipes de dev ne sont pas formées à l'IA/agentique
 - MnM = solution clé en main qui résout les 2 : le bordel des process ET la formation/adoption de l'IA
@@ -806,20 +806,20 @@ La philosophie produit. Vitesse humaine (brainstorm) + vitesse machine (exécuti
 
 **Q2 : Le truc que vous avez failli ne pas faire et qui a tout changé ?**
 
-**R (Gabri) :** La customisation et l'import depuis l'existant.
+**R (the lead developer) :** La customisation et l'import depuis l'existant.
 - Tentation : "le futur c'est MnM, pas besoin de s'adapter à Jira"
 - Réalité : les entreprises existent et ont un mode de fonctionnement. Il faut s'adapter à chacune.
 - Beaucoup d'entreprises B2B déploient un produit par client (pas multi-tenant) et font du custom par client
 - **MnM est différent :** le core est customisable et adaptable à n'importe quelle entreprise. Il fournit les clés pour la sécurité, le déterminisme et la traçabilité que personne d'autre ne propose.
 - L'import n'est pas un nice-to-have — c'est le pont entre le monde actuel du client et MnM.
 
-**Q3 : Ce que Tom de mars 2026 devrait commencer CETTE SEMAINE ?**
+**Q3 : Ce que the maintainer de mars 2026 devrait commencer CETTE SEMAINE ?**
 
-**R (Gabri) :** Pitcher le produit au CEO ou CTO de EnterpriseCustomer et recueillir les vrais besoins plutôt qu'essayer de les inventer.
+**R (the lead developer) :** Pitcher le produit au CEO ou CTO de your organization et recueillir les vrais besoins plutôt qu'essayer de les inventer.
 - **Peur #1 :** "ils vont dire non, too much, irréalisable"
 - **Peur #2 :** "retourne à ton poste de Lead Dev frontend, c'est pas ton rôle"
-- **Peur #3 :** "ils vont donner le projet au responsable IA de EnterpriseCustomer" (que Tom estime pas à la hauteur)
-- **Tension :** Tom sait que c'est la bonne chose à faire mais la peur du rejet / de la hiérarchie le bloque
+- **Peur #3 :** "ils vont donner le projet au responsable IA de your organization" (que the maintainer estime pas à la hauteur)
+- **Tension :** the maintainer sait que c'est la bonne chose à faire mais la peur du rejet / de la hiérarchie le bloque
 
 ---
 
@@ -831,10 +831,10 @@ Pas "remplacez Jira". Pas "orchestrateur d'agents". C'est : "vous essayez de tra
 **Vérité #56 — L'import/customisation est le pont entre le monde actuel et MnM**
 Sans import, MnM demande aux entreprises de tout recommencer à zéro. Avec import, MnM dit "continuez là où vous en êtes, on vous fait monter en puissance progressivement." C'est la même logique que le curseur d'automatisation (vérité #30) mais appliquée à l'adoption produit.
 
-**Vérité #57 — Le plus gros risque de MnM n'est pas technique — c'est que Tom ne pitch pas**
+**Vérité #57 — Le plus gros risque de MnM n'est pas technique — c'est que the maintainer ne pitch pas**
 Le produit peut être parfait — si personne ne le confronte aux vrais décideurs et aux vrais besoins, il sera construit sur des hypothèses. Le feedback du CTO sceptique au hackathon est plus précieux que 3 mois de dev.
 
-**🔴 ACTION IMMÉDIATE IDENTIFIÉE :** Pitcher MnM au CEO ou CTO de EnterpriseCustomer. La peur est réelle mais le coût de ne pas le faire est plus élevé que le risque de se prendre un "non".
+**🔴 ACTION IMMÉDIATE IDENTIFIÉE :** Pitcher MnM au CEO ou CTO de your organization. La peur est réelle mais le coût de ne pas le faire est plus élevé que le risque de se prendre un "non".
 
 ---
 
@@ -848,12 +848,12 @@ Le produit peut être parfait — si personne ne le confronte aux vrais décideu
 | **4. Agent-to-Agent + Permissions** | Delegation via issues/subtasks, permission grants table, agent API keys, wakeup on mention, MnM Skill doc | Interfaces formelles, scope enforcement (stocké mais pas lu), service discovery, SDKs auto-générés | 50% |
 | **5. Dual-Speed + Automatisation** | Heartbeat system, wakeup queue, approval workflow, task lifecycle complet | Rules engine, scheduled triggers, auto-advance stages, modes d'exécution (auto/supervisé/sandbox) | 40% |
 
-### Pitch CTO EnterpriseCustomer — Message prêt
+### Pitch CTO your organization — Message prêt
 
 > Salut [CTO], suite au hackathon je voulais te montrer un truc.
 > Tu te rappelles quand tu disais que les agents chargeaient pas les bons fichiers et qu'on pouvait pas contrôler ce qu'ils faisaient ? Avec [cofondateur] on bosse sur un outil qui résout exactement ça.
 > En gros : tu définis un workflow (ex: brief → stories → dev → review → test), tu assignes des agents à chaque étape avec les fichiers/prompts obligatoires, et l'outil garantit que l'agent suit le workflow. Si il dévie, on le détecte. Tous les logs sont centralisés et lisibles.
-> C'est pas un truc théorique, on a un proto qui tourne. Je peux te faire une démo de 15 min si ça t'intéresse. L'idée c'est d'abord de voir si ça répond à un vrai besoin pour EnterpriseCustomer avant d'aller plus loin.
+> C'est pas un truc théorique, on a un proto qui tourne. Je peux te faire une démo de 15 min si ça t'intéresse. L'idée c'est d'abord de voir si ça répond à un vrai besoin pour your organization avant d'aller plus loin.
 
 **Statut Phase 4 :** TERMINÉE
 
@@ -862,8 +862,8 @@ Le produit peut être parfait — si personne ne le confronte aux vrais décideu
 ## Résumé de session
 
 **Date :** 12-13 mars 2026
-**Durée :** Session longue (hackathon EnterpriseCustomer)
-**Participants :** Tom (Gabri) + cofondateur MnM (brainstorm annexe)
+**Durée :** Session longue (hackathon your organization)
+**Participants :** the maintainer (the lead developer) + cofondateur MnM (brainstorm annexe)
 **Approche :** AI-Recommended Progressive Flow (mix 2+4)
 
 ### Métriques
@@ -891,8 +891,8 @@ Le produit peut être parfait — si personne ne le confronte aux vrais décideu
 > MnM = orchestrateur d'agents déterministique avec audit, drift detection, et connecteurs auto-générés. Atomique, léger, extensible de l'intérieur.
 
 ### Actions identifiées
-- 🔴 **IMMÉDIAT :** Pitcher le CTO de EnterpriseCustomer avec le message préparé
-- 📋 **Tom :** Noyaux B (Onboarding) + D (Observabilité)
+- 🔴 **IMMÉDIAT :** Pitcher le CTO de your organization avec le message préparé
+- 📋 **the maintainer :** Noyaux B (Onboarding) + D (Observabilité)
 - 📋 **Cofondateur :** Noyaux A (Orchestrateur) + D (Observabilité)
 - 📋 **En attente :** Réponses interviews terrain hackathon (DMs envoyés)
 

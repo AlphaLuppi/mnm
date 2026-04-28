@@ -20,7 +20,7 @@
 - **Chat-first** : le chat existant (`chat_channels` + `chat_messages` + WebSocket) est la base — on l'étend, on ne le remplace pas.
 - **Artefacts first-class** : les artefacts (PRD, code, résumé...) vivent dans leur propre table, versionnés, indépendants du chat qui les a créés.
 - **Folders** : espaces nommés de docs/artefacts réutilisables entre chats, partageables par tags.
-- **Stockage flexible** : abstraction provider existante (table `assets`, champ `provider`). Pas de dépendance à S3 — doit supporter l'infra EnterpriseCustomer.
+- **Stockage flexible** : abstraction provider existante (table `assets`, champ `provider`). Pas de dépendance à S3 — doit supporter l'infra entreprise.
 - **RAG pgvector** : embeddings en base PostgreSQL, pas de service vectoriel externe.
 - **Tag-based isolation** : même modèle que le reste de MnM — les Folders, artefacts, et chats partagés respectent l'isolation par tags.
 - **Pas de polling** : toutes les mises à jour temps réel via le WebSocket chat existant + live events.

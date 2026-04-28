@@ -1277,7 +1277,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         stepId: args.stepId,
         input: args.artifact,
         author,
-        startBranch: "master", // EnterpriseCustomer convention; multi-tenant should source from company config later
+        startBranch: "master", // your organization convention; multi-tenant should source from company config later
       });
 
       // Persist artifact immediately (even before gate eval). If gate
