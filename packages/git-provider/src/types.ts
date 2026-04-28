@@ -104,6 +104,25 @@ export interface CommitMultipleFilesResult {
   sha: string;
 }
 
+export interface MergeBranchArgs {
+  sourceBranch: string;
+  targetBranch: string;
+  commitMessage: string;
+  /** When true, force a merge commit (no fast-forward). Defaults true. */
+  noFf?: boolean;
+  authorName: string;
+  authorEmail: string;
+}
+
+export interface MergeBranchResult {
+  /** The merge commit sha (may equal sourceBranch tip if a real merge wasn't needed). */
+  sha: string;
+}
+
+export interface DeleteBranchArgs {
+  branch: string;
+}
+
 /**
  * Arguments to `getMergeRequestApprovals`. `projectId` may differ from the
  * provider's default project (e.g. the workflow repo is `org/mnm-demo` but
@@ -174,4 +193,20 @@ export interface GitProvider {
    * no notion of merge requests — it throws when called.
    */
   getMergeRequestApprovals?(args: GetMrApprovalsArgs): Promise<MrApprovalsResult>;
+  /**
+   * Merge `sourceBranch` into `targetBranch`. With `noFf: true` (default),
+   * a merge commit is always created — useful for preserving the boundary
+   * of a logical unit of work like a workflow run.
+   *
+   * Implementations:
+   * - GitLab: creates a temporary MR + accepts with `squash: false`. The MR
+   *   is visible in the GitLab UI but is closed immediately.
+   * - LocalBareRepo: native git merge with --no-ff in a worktree.
+   */
+  mergeBranch(args: MergeBranchArgs): Promise<MergeBranchResult>;
+  /**
+   * Delete a branch from the remote / repo. Idempotent: deleting a
+   * non-existent branch should not throw `not_found` (return without error).
+   */
+  deleteBranch(args: DeleteBranchArgs): Promise<void>;
 }

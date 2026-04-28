@@ -199,3 +199,72 @@ function getFileExtension(path: string): string {
   const i = path.lastIndexOf(".");
   return i >= 0 ? path.slice(i) : "";
 }
+
+export interface MergeRunBranchArgs {
+  gitProvider: GitProvider;
+  runId: string;
+  workflowName: string;
+  ticket: string | null;
+  status: "completed" | "cancelled";
+  stepsSummary: Array<{ stepId: string; state: string }>;
+  startedAt: Date | null;
+  completedAt: Date;
+  triggeredBy: string;
+  author: { name: string; email: string };
+}
+
+/**
+ * Finalises a run's branch:
+ * 1. Commits `_run.json` summarizing the run on `mnm-runs/<runId>`.
+ * 2. Merges `mnm-runs/<runId>` into master with --no-ff.
+ * 3. Deletes `mnm-runs/<runId>`.
+ *
+ * Caller is responsible for ensuring this runs OUTSIDE the DB transaction
+ * (Git operations may take seconds; we don't want to hold an XACT lock).
+ */
+export async function mergeRunBranch(args: MergeRunBranchArgs): Promise<void> {
+  const branch = runBranchName(args.runId);
+
+  // Step 1: commit _run.json summarising the run
+  const runJson = JSON.stringify(
+    {
+      run_id: args.runId,
+      workflow_name: args.workflowName,
+      ticket: args.ticket,
+      status: args.status,
+      steps: args.stepsSummary,
+      started_at: args.startedAt?.toISOString() ?? null,
+      completed_at: args.completedAt.toISOString(),
+      triggered_by: args.triggeredBy,
+    },
+    null,
+    2,
+  );
+
+  await args.gitProvider.commitMultipleFiles({
+    branch,
+    startBranch: "master",
+    commitMessage: `run ${args.runId}: finalize (${args.status})`,
+    authorName: args.author.name,
+    authorEmail: args.author.email,
+    actions: [{ path: `artifacts/runs/${args.runId}/_run.json`, content: runJson }],
+  });
+
+  // Step 2: merge --no-ff into master
+  const stepsLine = args.stepsSummary
+    .map((s) => `${s.stepId} ${s.state === "succeeded" ? "✓" : "✗"}`)
+    .join(", ");
+  const mergeMessage = `Run ${args.runId}: ${args.workflowName}${args.ticket ? ` (${args.ticket})` : ""} — ${args.status}\n\nSteps: ${stepsLine}\nTriggered by: ${args.triggeredBy}`;
+
+  await args.gitProvider.mergeBranch({
+    sourceBranch: branch,
+    targetBranch: "master",
+    commitMessage: mergeMessage,
+    noFf: true,
+    authorName: args.author.name,
+    authorEmail: args.author.email,
+  });
+
+  // Step 3: delete the run branch (idempotent)
+  await args.gitProvider.deleteBranch({ branch });
+}
