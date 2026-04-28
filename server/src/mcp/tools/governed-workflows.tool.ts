@@ -11,6 +11,7 @@ import {
   RegisterDefinitionNameMismatchError,
 } from "../../services/governed-workflows-extensions.js";
 import { setTenantContext } from "../../middleware/tenant-context.js";
+import { publishLiveEvent } from "../../services/index.js";
 
 const outputInputSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -786,6 +787,80 @@ export default defineMcpTools(({ tool, services }) => {
         });
         return {
           content: [{ type: "text" as const, text: JSON.stringify(r) }],
+        };
+      });
+    },
+  });
+
+  // ── Task 9 — cancelGovernedWorkflowRun + reactivateGovernedWorkflowRun ────
+
+  tool("cancel_governed_workflow_run", {
+    permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
+    description:
+      "[Governed Workflows] Cancel a run. Cascades to running/pending/gate_eval step executions, " +
+      "blocks subsequent launch/complete calls until reactivated. " +
+      "Auth: initiator OR `workflows:cancel_run` permission. Reason min 5 chars. " +
+      "Returns {run_id, cancelled_at, cancelled_step_ids}.",
+    input: z.object({
+      run_id: z.string().uuid(),
+      reason: z.string().min(5, "reason must be at least 5 characters"),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.cancelRun({
+          runId: input.run_id,
+          companyId: actor.companyId,
+          actor: { type: actor.type, id: actor.userId ?? actor.agentId! },
+          reason: input.reason,
+          // Use the injected publisher when the test harness provides one
+          // (services.publishLiveEvent), otherwise fall back to the live-events
+          // singleton imported from services/index.js.
+          publishLiveEvent: services.publishLiveEvent ?? publishLiveEvent,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              run_id: r.runId,
+              cancelled_at: r.cancelledAt.toISOString(),
+              cancelled_step_ids: r.cancelledStepIds,
+            }),
+          }],
+        };
+      });
+    },
+  });
+
+  tool("reactivate_governed_workflow_run", {
+    permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
+    description:
+      "[Governed Workflows] Reactivate a cancelled run. Restores cancelled step executions to " +
+      "pending (if never started) or running (if started_at is set). " +
+      "Auth: initiator OR `workflows:cancel_run` permission. " +
+      "Returns {run_id, reactivated_step_ids}.",
+    input: z.object({
+      run_id: z.string().uuid(),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      return wrap(actor, async () => {
+        await setTenantContext(services.db, actor.companyId);
+        const r = await services.governedWorkflows.reactivateRun({
+          runId: input.run_id,
+          companyId: actor.companyId,
+          actor: { type: actor.type, id: actor.userId ?? actor.agentId! },
+          publishLiveEvent: services.publishLiveEvent ?? publishLiveEvent,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              run_id: r.runId,
+              reactivated_step_ids: r.reactivatedStepIds,
+            }),
+          }],
         };
       });
     },

@@ -189,6 +189,10 @@ describe("governed-workflows.tool", () => {
       status: "active",
       started_at: "2026-04-27T01:40:00.000Z",
       completed_at: null,
+      cancelled_at: null,
+      cancellation_reason: null,
+      cancelled_by_actor_id: null,
+      cancelled_by_actor_type: null,
       git_tag: "cba-feature-dev/v1.0.3",
       git_sha: "045419d",
       initiated_by_actor_type: "user",
@@ -825,5 +829,101 @@ describe("archiveGovernedWorkflow tool (U6.3)", () => {
     expect(r.isError).toBe(true);
     const body = JSON.parse(r.content[0]!.text);
     expect(body.error_code).toBe("WORKFLOW_NOT_FOUND");
+  });
+});
+
+// ── Task 9 — cancel_governed_workflow_run + reactivate_governed_workflow_run ─
+
+describe("MCP — cancel_governed_workflow_run", () => {
+  const RUN_ID = "00000000-0000-0000-0000-0000000000aa";
+  const CANCELLED_AT = new Date("2026-04-27T12:00:00.000Z");
+
+  it("cancels via MCP, returns run_id + cancelled_at + cancelled_step_ids", async () => {
+    const cancelSpy = vi.fn(async () => ({
+      runId: RUN_ID,
+      cancelledAt: CANCELLED_AT,
+      cancelledStepIds: ["step-1", "step-2"],
+    }));
+    const publishSpy = vi.fn();
+    const services = mkServices(
+      { cancelRun: cancelSpy },
+      { publishLiveEvent: publishSpy },
+    );
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const cancel = tools.find((t) => t.name === "cancel_governed_workflow_run")!;
+    expect(cancel, "cancel_governed_workflow_run tool must be registered").toBeDefined();
+
+    const r = await cancel.handler({
+      input: { run_id: RUN_ID, reason: "tom mis-launched" },
+      actor: mkActor(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.run_id).toBe(RUN_ID);
+    expect(body.cancelled_at).toBe("2026-04-27T12:00:00.000Z");
+    expect(body.cancelled_step_ids).toEqual(["step-1", "step-2"]);
+
+    // Verify the tool forwarded the right shape to the service.
+    expect(cancelSpy).toHaveBeenCalledWith(expect.objectContaining({
+      runId: RUN_ID,
+      companyId: "00000000-0000-0000-0000-000000000a01",
+      actor: { type: "user", id: "u-1" },
+      reason: "tom mis-launched",
+      publishLiveEvent: publishSpy,
+    }));
+  });
+
+  it("rejects reason < 5 chars at the Zod layer", async () => {
+    const cancelSpy = vi.fn();
+    const services = mkServices({ cancelRun: cancelSpy });
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const cancel = tools.find((t) => t.name === "cancel_governed_workflow_run")!;
+
+    // Zod rejection happens at the input schema, before the handler is invoked.
+    // The MCP transport pipes raw input through input.parse(); reproduce that
+    // path here by validating the tool's declared input schema directly.
+    const parsed = cancel.input.safeParse({ run_id: RUN_ID, reason: "no" });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]!.message).toMatch(/at least 5 characters/);
+    }
+    expect(cancelSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("MCP — reactivate_governed_workflow_run", () => {
+  const RUN_ID = "00000000-0000-0000-0000-0000000000aa";
+
+  it("reactivates via MCP, returns run_id + reactivated_step_ids", async () => {
+    const reactivateSpy = vi.fn(async () => ({
+      runId: RUN_ID,
+      reactivatedStepIds: ["step-1", "step-2"],
+    }));
+    const publishSpy = vi.fn();
+    const services = mkServices(
+      { reactivateRun: reactivateSpy },
+      { publishLiveEvent: publishSpy },
+    );
+    const tools = collectTools(governedWorkflowTools, services as any, services.db as any);
+    const reactivate = tools.find((t) => t.name === "reactivate_governed_workflow_run")!;
+    expect(reactivate, "reactivate_governed_workflow_run tool must be registered").toBeDefined();
+
+    const r = await reactivate.handler({
+      input: { run_id: RUN_ID },
+      actor: mkActor(),
+    });
+
+    expect(r.isError).toBeFalsy();
+    const body = JSON.parse(r.content[0]!.text);
+    expect(body.run_id).toBe(RUN_ID);
+    expect(body.reactivated_step_ids).toEqual(["step-1", "step-2"]);
+
+    expect(reactivateSpy).toHaveBeenCalledWith(expect.objectContaining({
+      runId: RUN_ID,
+      companyId: "00000000-0000-0000-0000-000000000a01",
+      actor: { type: "user", id: "u-1" },
+      publishLiveEvent: publishSpy,
+    }));
   });
 });
