@@ -3,7 +3,7 @@
 > **Statut** : exécution 2026-04-28
 > **Branche de travail** : `claude/open-source-phase-1` (forkée de `claude/open-source-phase-zero-d5drS`)
 > **Owner public** : Alpha Luppi (Studio Manifeste). Repo restera sous `github.com/AlphaLuppi/mnm`.
-> **But** : finir le strict nécessaire pour publier proprement avant que Tom forke chez EnterpriseCustomer pour usage interne.
+> **But** : finir le strict nécessaire pour publier proprement avant publication publique.
 
 ## Contexte
 
