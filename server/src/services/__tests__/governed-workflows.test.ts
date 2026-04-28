@@ -2263,3 +2263,90 @@ describe("governedWorkflowsService — cancelled run guard", () => {
     });
   });
 });
+
+describe("governedWorkflowsService — listRuns + getRun cancellation fields", () => {
+  let db: Db;
+
+  function mkSvc() {
+    return governedWorkflowService(db, {
+      resolveGitProvider: (async () => stubProvider) as any,
+      shaCache: { get: () => undefined, set: () => undefined } as any,
+    });
+  }
+
+  // Seed company + workflow definition. Mirrors the cancelRun/reactivateRun
+  // suites so the tests run in isolation without cross-test pollution.
+  async function seedCompany(suffix: string): Promise<string> {
+    const companyId = crypto.randomUUID();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    await db.execute(
+      sql`INSERT INTO companies (id, name, issue_prefix) VALUES (${companyId}, ${"SurfaceCancel-" + suffix + "-" + rand}, ${"SC" + rand})`,
+    );
+    await db.execute(
+      sql`INSERT INTO governed_workflow_definitions (company_id, name, latest_git_tag) VALUES (${companyId}, 'hello-world', 'v1.0.0')`,
+    );
+    return companyId;
+  }
+
+  async function launchAndCancel(reason: string): Promise<{
+    companyId: string;
+    runId: string;
+    actor: { type: "user"; id: string };
+  }> {
+    const userId = `init-${crypto.randomUUID()}`;
+    const companyId = await seedCompany(userId.slice(0, 6));
+    await setTenantContext(db, companyId);
+    const svc = mkSvc();
+    const { runId } = await svc.launchWorkflow({
+      companyId,
+      name: "hello-world",
+      params: {},
+      actor: { type: "user", id: userId },
+    });
+    const actor = { type: "user" as const, id: userId };
+    await svc.cancelRun({
+      runId,
+      companyId,
+      actor,
+      reason,
+      publishLiveEvent: vi.fn(),
+    });
+    return { companyId, runId, actor };
+  }
+
+  beforeAll(async () => {
+    db = await setupTestDb();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(db);
+  });
+
+  afterEach(async () => {
+    await clearTenantContext(db);
+  });
+
+  it("listRuns returns cancelled_at + cancellation_reason for cancelled runs", async () => {
+    const reason = "tom mis-launched";
+    const { companyId, runId } = await launchAndCancel(reason);
+
+    // listRuns returns drizzle full-row items in camelCase. The MCP tool
+    // layer maps them to snake_case (verified separately by tool tests).
+    const result = await mkSvc().listRuns({ companyId, workflowName: "hello-world" });
+    const row = result.items.find((r) => r.id === runId);
+    expect(row).toBeDefined();
+    expect(row!.cancelledAt).toBeInstanceOf(Date);
+    expect(row!.cancellationReason).toBe(reason);
+  });
+
+  it("getRun returns the 4 cancellation fields for cancelled runs", async () => {
+    const reason = "wrong git tag";
+    const { companyId, runId, actor } = await launchAndCancel(reason);
+
+    const run = await mkSvc().getRun({ companyId, runId });
+    expect(run.cancelledAt).toBeInstanceOf(Date);
+    expect(run.cancellationReason).toBe(reason);
+    expect(run.cancelledByActorId).toBe(actor.id);
+    expect(run.cancelledByActorType).toBe("user");
+  });
+});
