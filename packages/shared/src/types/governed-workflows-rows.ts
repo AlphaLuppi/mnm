@@ -32,6 +32,10 @@ export interface GovernedRunRow {
   startedAt: string | null;
   completedAt: string | null;
   paramsJson: Record<string, unknown>;
+  cancelledAt: string | null;
+  cancelledByActorId: string | null;
+  cancelledByActorType: "user" | "agent" | "system" | null;
+  cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
