@@ -1,0 +1,12 @@
+import { describe, it, expect } from "vitest";
+import { WORKFLOW_ERROR_CODES } from "../errors.js";
+
+describe("WORKFLOW_ERROR_CODES — cancellation codes", () => {
+  it("exports the 5 cancellation-related codes", () => {
+    expect(WORKFLOW_ERROR_CODES.WORKFLOW_RUN_CANCELLED).toBe("WORKFLOW_RUN_CANCELLED");
+    expect(WORKFLOW_ERROR_CODES.WORKFLOW_RUN_ALREADY_CANCELLED).toBe("WORKFLOW_RUN_ALREADY_CANCELLED");
+    expect(WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_CANCELLED).toBe("WORKFLOW_RUN_NOT_CANCELLED");
+    expect(WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_ACTIVE).toBe("WORKFLOW_RUN_NOT_ACTIVE");
+    expect(WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN).toBe("WORKFLOW_FORBIDDEN");
+  });
+});

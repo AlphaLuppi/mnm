@@ -35,24 +35,22 @@ function withLocalImplicitActor(app: Express) {
 // We import the real route factory but inject a mock db + git provider so no
 // real I/O happens.
 
-vi.mock("../services/governed-workflows.js", () => ({
-  governedWorkflowService: vi.fn(() => ({
-    listDefinitions: vi.fn().mockResolvedValue([
-      {
-        id: "wf-id-1",
-        companyId: "company-1",
-        name: "hello-world",
-        description: null,
-        latestGitTag: "hello-world/v1.0.0",
-        enabled: true,
-        archivedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ]),
-    getDefinition: vi.fn().mockImplementation(({ name }: { name: string }) => {
-      if (name === "hello-world") {
-        return Promise.resolve({
+// Per-test mocks for cancelRun / reactivateRun. We expose them at module scope
+// so individual tests can swap success vs. error responses without re-mounting
+// the whole service mock.
+const cancelRunMock = vi.fn();
+const reactivateRunMock = vi.fn();
+
+vi.mock("../services/governed-workflows.js", async (importOriginal) => {
+  // Preserve the real GovernedWorkflowError class so tests can throw it
+  // through cancelRunMock/reactivateRunMock and the route's
+  // sendRunLifecycleError helper recognizes it via instanceof.
+  const orig = await importOriginal<typeof import("../services/governed-workflows.js")>();
+  return {
+    ...orig,
+    governedWorkflowService: vi.fn(() => ({
+      listDefinitions: vi.fn().mockResolvedValue([
+        {
           id: "wf-id-1",
           companyId: "company-1",
           name: "hello-world",
@@ -62,23 +60,49 @@ vi.mock("../services/governed-workflows.js", () => ({
           archivedAt: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
-      }
-      return Promise.resolve(null);
-    }),
-    getWorkflowParsed: vi.fn().mockResolvedValue({
-      workflow: { name: "hello-world", steps: [] },
-      gitTag: "hello-world/v1.0.0",
-      gitSha: "deadbeef",
-      workflowRepoPath: "hello-world/workflow.json",
-    }),
-    launchWorkflow: vi.fn().mockResolvedValue({
-      runId: "run-id-1",
-      firstStep: "step-1",
-      gitTag: "hello-world/v1.0.0",
-      gitSha: "deadbeef",
-    }),
-  })),
+        },
+      ]),
+      getDefinition: vi.fn().mockImplementation(({ name }: { name: string }) => {
+        if (name === "hello-world") {
+          return Promise.resolve({
+            id: "wf-id-1",
+            companyId: "company-1",
+            name: "hello-world",
+            description: null,
+            latestGitTag: "hello-world/v1.0.0",
+            enabled: true,
+            archivedAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        return Promise.resolve(null);
+      }),
+      getWorkflowParsed: vi.fn().mockResolvedValue({
+        workflow: { name: "hello-world", steps: [] },
+        gitTag: "hello-world/v1.0.0",
+        gitSha: "deadbeef",
+        workflowRepoPath: "hello-world/workflow.json",
+      }),
+      launchWorkflow: vi.fn().mockResolvedValue({
+        runId: "run-id-1",
+        firstStep: "step-1",
+        gitTag: "hello-world/v1.0.0",
+        gitSha: "deadbeef",
+      }),
+      cancelRun: (...args: unknown[]) => cancelRunMock(...args),
+      reactivateRun: (...args: unknown[]) => reactivateRunMock(...args),
+    })),
+  };
+});
+
+// Stub publishLiveEvent so cancel/reactivate routes don't try to fan out to
+// real SSE subscribers in test land. The service itself is mocked, but the
+// import chain still loads the live-events module.
+vi.mock("../services/live-events.js", () => ({
+  publishLiveEvent: vi.fn(),
+  subscribeCompanyLiveEvents: vi.fn(),
+  subscribeAllLiveEvents: vi.fn(),
 }));
 
 vi.mock("../services/governed-workflows-extensions.js", () => ({
@@ -325,5 +349,134 @@ describe("POST /api/companies/:companyId/governed-workflows/:name/runs", () => {
       .send({ params: {}, gitTagPreference: "latest" })
       .expect(201);
     expect(res.body.runId).toBeDefined();
+  });
+});
+
+describe("POST /api/companies/:companyId/governed-workflows/runs/:runId/cancel", () => {
+  beforeEach(() => {
+    cancelRunMock.mockReset();
+  });
+
+  it("returns 200 with cancellation result when reason is valid and actor is initiator", async () => {
+    const cancelledAt = new Date("2026-04-27T10:00:00.000Z");
+    cancelRunMock.mockResolvedValueOnce({
+      runId: "run-1",
+      cancelledAt,
+      cancelledStepIds: ["step-a", "step-b"],
+    });
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/companies/company-1/governed-workflows/runs/run-1/cancel")
+      .send({ reason: "stopping for incident triage" })
+      .expect(200);
+    expect(res.body.runId).toBe("run-1");
+    expect(res.body.cancelledAt).toBe(cancelledAt.toISOString());
+    expect(res.body.cancelledStepIds).toEqual(["step-a", "step-b"]);
+    expect(cancelRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-1",
+        companyId: "company-1",
+        actor: { type: "user", id: "dev-user" },
+        reason: "stopping for incident triage",
+        publishLiveEvent: expect.any(Function),
+      }),
+    );
+  });
+
+  it("returns 400 for reason < 5 chars", async () => {
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/companies/company-1/governed-workflows/runs/run-1/cancel")
+      .send({ reason: "no" })
+      .expect(400);
+    expect(res.body.isError).toBe(true);
+    expect(res.body.error_code).toBe("WORKFLOW_INVALID_INPUT");
+    // Service must not have been invoked when Zod rejects.
+    expect(cancelRunMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when already cancelled (WORKFLOW_RUN_ALREADY_CANCELLED)", async () => {
+    const { GovernedWorkflowError } = await import(
+      "../services/governed-workflows.js"
+    );
+    const { WORKFLOW_ERROR_CODES } = await import("@mnm/governed-workflows");
+    cancelRunMock.mockRejectedValueOnce(
+      new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_ALREADY_CANCELLED,
+        "Run is already cancelled",
+      ),
+    );
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/companies/company-1/governed-workflows/runs/run-1/cancel")
+      .send({ reason: "redundant cancel attempt" })
+      .expect(409);
+    expect(res.body.error_code).toBe("WORKFLOW_RUN_ALREADY_CANCELLED");
+  });
+
+  it("returns 403 when actor is not initiator and lacks permission (WORKFLOW_FORBIDDEN)", async () => {
+    const { GovernedWorkflowError } = await import(
+      "../services/governed-workflows.js"
+    );
+    const { WORKFLOW_ERROR_CODES } = await import("@mnm/governed-workflows");
+    cancelRunMock.mockRejectedValueOnce(
+      new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN,
+        "Only the initiator or workflows:cancel_run can cancel this run",
+      ),
+    );
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/companies/company-1/governed-workflows/runs/run-1/cancel")
+      .send({ reason: "stranger trying to cancel" })
+      .expect(403);
+    expect(res.body.error_code).toBe("WORKFLOW_FORBIDDEN");
+  });
+});
+
+describe("POST /api/companies/:companyId/governed-workflows/runs/:runId/reactivate", () => {
+  beforeEach(() => {
+    reactivateRunMock.mockReset();
+  });
+
+  it("returns 200 when run is cancelled and actor is initiator", async () => {
+    reactivateRunMock.mockResolvedValueOnce({
+      runId: "run-1",
+      reactivatedStepIds: ["step-a"],
+    });
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/companies/company-1/governed-workflows/runs/run-1/reactivate")
+      .send({})
+      .expect(200);
+    expect(res.body.runId).toBe("run-1");
+    expect(res.body.reactivatedStepIds).toEqual(["step-a"]);
+    expect(reactivateRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-1",
+        companyId: "company-1",
+        actor: { type: "user", id: "dev-user" },
+        publishLiveEvent: expect.any(Function),
+      }),
+    );
+  });
+
+  it("returns 409 when run is not cancelled (WORKFLOW_RUN_NOT_CANCELLED)", async () => {
+    const { GovernedWorkflowError } = await import(
+      "../services/governed-workflows.js"
+    );
+    const { WORKFLOW_ERROR_CODES } = await import("@mnm/governed-workflows");
+    reactivateRunMock.mockRejectedValueOnce(
+      new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_CANCELLED,
+        "Run is not cancelled",
+      ),
+    );
+    const app = makeApp();
+    const res = await request(app)
+      .post("/api/companies/company-1/governed-workflows/runs/run-1/reactivate")
+      .send({})
+      .expect(409);
+    expect(res.body.error_code).toBe("WORKFLOW_RUN_NOT_CANCELLED");
   });
 });

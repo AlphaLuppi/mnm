@@ -48,6 +48,8 @@ function makeStubProvider(overrides: StubOverrides = {}): GitProvider {
       if (overrides.onCommit) return overrides.onCommit(a);
       return { sha: "commitsha001" };
     }),
+    mergeBranch: vi.fn(async () => ({ sha: "mergesha001" })),
+    deleteBranch: vi.fn(async () => undefined),
   };
 }
 

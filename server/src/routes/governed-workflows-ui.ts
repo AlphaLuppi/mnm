@@ -13,9 +13,10 @@ import { Router } from "express";
 import { z } from "zod";
 import type { Db } from "@mnm/db";
 import { PERMISSIONS } from "@mnm/shared";
-import { workflowDefinitionSchema } from "@mnm/governed-workflows";
+import { workflowDefinitionSchema, WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { requirePermission } from "../middleware/require-permission.js";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
+import { publishLiveEvent } from "../services/live-events.js";
 import {
   saveDefinition,
   archiveDefinition,
@@ -43,6 +44,50 @@ export function apiError(
   return res.status(status).json({ isError: true, error_code, message, hints });
 }
 
+/**
+ * Map a GovernedWorkflowError raised by cancelRun/reactivateRun onto the 4xx
+ * HTTP contract. Returns true when the error was translated, false when the
+ * caller should fall through to `next(err)` (500). Mirrors the pattern from
+ * `governed-workflows-files.ts` so error handling stays consistent across the
+ * cockpit surface.
+ *
+ * Mapping rationale:
+ *   - 423 Locked for WORKFLOW_RUN_CANCELLED — semantically a "locked" run, the
+ *     RFC 4918 status fits the "the resource is in a state preventing this"
+ *     intent better than a generic 409.
+ *   - 409 Conflict for the lifecycle-state errors (already cancelled, not
+ *     cancelled, not active) — concurrent state changes.
+ *   - 403 Forbidden for permission failures.
+ *   - 400 Bad Request for invalid input (reason too short, non-uuid, etc.).
+ */
+function sendRunLifecycleError(
+  res: import("express").Response,
+  err: unknown,
+): boolean {
+  if (!(err instanceof GovernedWorkflowError)) return false;
+  switch (err.code) {
+    case WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND:
+      apiError(res, 404, err.code, err.message, err.hints);
+      return true;
+    case WORKFLOW_ERROR_CODES.WORKFLOW_RUN_CANCELLED:
+      apiError(res, 423, err.code, err.message, err.hints);
+      return true;
+    case WORKFLOW_ERROR_CODES.WORKFLOW_RUN_ALREADY_CANCELLED:
+    case WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_CANCELLED:
+    case WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_ACTIVE:
+      apiError(res, 409, err.code, err.message, err.hints);
+      return true;
+    case WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN:
+      apiError(res, 403, err.code, err.message, err.hints);
+      return true;
+    case WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT:
+      apiError(res, 400, err.code, err.message, err.hints);
+      return true;
+    default:
+      return false;
+  }
+}
+
 // ── Body schemas ──────────────────────────────────────────────────────────────
 
 const saveBodySchema = z.object({
@@ -58,6 +103,13 @@ const patchEnabledSchema = z.object({
 const launchBodySchema = z.object({
   params: z.record(z.unknown()).optional().default({}),
   gitTagPreference: z.enum(["latest", "HEAD"]).optional().default("latest"),
+});
+
+// Body for POST /runs/:runId/cancel — `reason` is mandatory and surfaced in
+// the audit log + live event payload. Min length matches the service-side
+// guard so client-side feedback is symmetric with the server invariant.
+const cancelRunBodySchema = z.object({
+  reason: z.string().min(5, "Cancellation reason must be at least 5 characters."),
 });
 
 // Body for PUT /git-provider-config — sets the per-company git_provider
@@ -611,6 +663,100 @@ export function governedWorkflowUiRoutes(db: Db) {
             details: err.details,
           });
         }
+        next(err);
+      }
+    },
+  );
+
+  // ── POST /governed-workflows/runs/:runId/cancel ────────────────────────────
+  // Cancel an active run. Cascades step executions (pending/running/gate_eval
+  // → cancelled), blocks subsequent launch/complete calls until reactivated.
+  // Auth: initiator OR `workflows:cancel_run` permission (enforced by the
+  // service layer, not the route — same shape as the MCP tool). The route
+  // gate is `workflows:enforce` (matches launch) so non-privileged board
+  // users can't even reach the service-level auth check.
+  router.post(
+    "/runs/:runId/cancel",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const runId = req.params.runId as string;
+        const body = cancelRunBodySchema.safeParse(req.body);
+        if (!body.success) {
+          return apiError(
+            res,
+            400,
+            WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+            body.error.issues[0]?.message ?? "Invalid cancel payload",
+            ["Send { reason: string (min 5 chars) }"],
+          );
+        }
+
+        // Resolve actor for the cancel call. Same translation as launchWorkflow.
+        let actorType: "user" | "agent" | "system" = "system";
+        let actorId = "system";
+        if (req.actor.type === "board" && req.actor.userId) {
+          actorType = "user";
+          actorId = req.actor.userId;
+        } else if (req.actor.type === "agent" && req.actor.agentId) {
+          actorType = "agent";
+          actorId = req.actor.agentId;
+        }
+
+        const result = await svc.cancelRun({
+          runId,
+          companyId,
+          actor: { type: actorType, id: actorId },
+          reason: body.data.reason,
+          publishLiveEvent,
+        });
+        res.json({
+          runId: result.runId,
+          cancelledAt: result.cancelledAt.toISOString(),
+          cancelledStepIds: result.cancelledStepIds,
+        });
+      } catch (err) {
+        if (sendRunLifecycleError(res, err)) return;
+        next(err);
+      }
+    },
+  );
+
+  // ── POST /governed-workflows/runs/:runId/reactivate ────────────────────────
+  // Reactivate a cancelled run. Restores cancelled step executions to
+  // `pending` (if never started) or `running` (if started_at is set).
+  // Auth: same model as cancel (initiator OR `workflows:cancel_run`).
+  router.post(
+    "/runs/:runId/reactivate",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const runId = req.params.runId as string;
+
+        let actorType: "user" | "agent" | "system" = "system";
+        let actorId = "system";
+        if (req.actor.type === "board" && req.actor.userId) {
+          actorType = "user";
+          actorId = req.actor.userId;
+        } else if (req.actor.type === "agent" && req.actor.agentId) {
+          actorType = "agent";
+          actorId = req.actor.agentId;
+        }
+
+        const result = await svc.reactivateRun({
+          runId,
+          companyId,
+          actor: { type: actorType, id: actorId },
+          publishLiveEvent,
+        });
+        res.json({
+          runId: result.runId,
+          reactivatedStepIds: result.reactivatedStepIds,
+        });
+      } catch (err) {
+        if (sendRunLifecycleError(res, err)) return;
         next(err);
       }
     },

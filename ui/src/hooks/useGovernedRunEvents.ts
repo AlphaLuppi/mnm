@@ -5,8 +5,9 @@
  * invalidates the runDetail query whenever a step or gate transitions.
  *
  * Real-time delivery relies on the global `LiveUpdatesProvider` WebSocket
- * connection. The provider already handles `governed_run.step_updated` and
- * `governed_run.gate_evaluated` events by calling:
+ * connection. The provider already handles `governed_run.step_updated`,
+ * `governed_run.gate_evaluated`, `governed_run.cancelled`, and
+ * `governed_run.reactivated` events by calling:
  *
  *   queryClient.invalidateQueries({ queryKey: queryKeys.governedWorkflows.runDetail(companyId, runId) })
  *

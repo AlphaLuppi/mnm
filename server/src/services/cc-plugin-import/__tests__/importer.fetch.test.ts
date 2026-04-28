@@ -18,6 +18,8 @@ function mockProvider(blobs: Record<string, string>, sha = "abc123"): GitProvide
     commitFile: async () => ({ sha: "n" }),
     commitMultipleFiles: async () => ({ sha: "n" }),
     createTag: async () => ({ sha: "n" }),
+    mergeBranch: async () => ({ sha: "n" }),
+    deleteBranch: async () => {},
   };
 }
 
