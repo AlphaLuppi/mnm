@@ -11,9 +11,9 @@ import { formatDateTime } from "../lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ExternalLink, FileText, Folder } from "lucide-react";
 import type { StepWithGates } from "../api/governed-workflows";
-import type { GateResultRow } from "@mnm/shared";
+import type { GateResultRow, OutputPersisted } from "@mnm/shared";
 
 const stepStateVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "secondary",
@@ -87,16 +87,56 @@ function GatesTable({ gates }: { gates: GateResultRow[] }) {
   );
 }
 
+function OutputRow({ output }: { output: OutputPersisted }) {
+  if (output.kind === "external_url") {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="font-medium">{output.name}</span>
+        <a
+          href={output.url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary hover:underline truncate"
+        >
+          {output.url}
+        </a>
+      </div>
+    );
+  }
+  if (output.kind === "git_file") {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="font-medium">{output.name}</span>
+        <span className="font-mono text-xs text-muted-foreground truncate">{output.path}</span>
+        <span className="text-xs text-muted-foreground ml-auto">{output.bytes} bytes</span>
+        {/* TODO: when repoUrl is available, link to GitLab blob */}
+      </div>
+    );
+  }
+  // git_folder
+  return (
+    <div className="text-sm">
+      <div className="flex items-center gap-2">
+        <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="font-medium">{output.name}</span>
+        <span className="font-mono text-xs text-muted-foreground truncate">{output.path}</span>
+      </div>
+      <ul className="mt-1 ml-6 list-disc text-xs text-muted-foreground space-y-0.5">
+        {output.files.map((f) => (
+          <li key={f} className="font-mono">{f}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function StepCard({ step, index }: { step: StepWithGates; index: number }) {
   const promptContext = step.artifactsJson?.promptContext;
   const inputContent = promptContext
     ? JSON.stringify(promptContext, null, 2)
     : "— Aucun contexte disponible —";
-
-  const outputContent =
-    step.artifactsJson && Object.keys(step.artifactsJson).length > 0
-      ? JSON.stringify(step.artifactsJson, null, 2)
-      : "— Non exécuté —";
 
   return (
     <Card className="py-0">
@@ -129,10 +169,50 @@ function StepCard({ step, index }: { step: StepWithGates; index: number }) {
               {inputContent}
             </pre>
           </TabsContent>
-          <TabsContent value="output" className="mt-3">
-            <pre className="text-xs bg-muted/40 rounded p-3 overflow-auto max-h-48 whitespace-pre-wrap">
-              {outputContent}
-            </pre>
+          <TabsContent value="output" className="mt-3 space-y-4">
+            {step.artifactsJson && typeof step.artifactsJson === "object" ? (
+              <>
+                {Array.isArray((step.artifactsJson as { outputs?: unknown }).outputs) &&
+                  ((step.artifactsJson as { outputs: OutputPersisted[] }).outputs).length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                        Livrables
+                      </h4>
+                      <div className="space-y-2">
+                        {((step.artifactsJson as { outputs: OutputPersisted[] }).outputs).map((o) => (
+                          <OutputRow key={o.name} output={o} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                {(step.artifactsJson as { data?: Record<string, unknown> }).data &&
+                  Object.keys((step.artifactsJson as { data: Record<string, unknown> }).data).length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                        Données
+                      </h4>
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {Object.entries(
+                            (step.artifactsJson as { data: Record<string, unknown> }).data,
+                          ).map(([k, v]) => (
+                            <tr key={k} className="border-b last:border-0">
+                              <td className="px-2 py-1 font-mono text-muted-foreground w-1/3">{k}</td>
+                              <td className="px-2 py-1 font-mono">
+                                {typeof v === "object" && v !== null
+                                  ? JSON.stringify(v)
+                                  : String(v)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">— Non exécuté —</p>
+            )}
           </TabsContent>
           <TabsContent value="gates" className="mt-3">
             <GatesTable gates={step.gateResults} />
