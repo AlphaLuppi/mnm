@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { setTenantContext, clearTenantContext } from "../../middleware/tenant-context.js";
 import { buildGateHelpers } from "../governed-workflows-helpers.js";
@@ -79,5 +79,50 @@ describe("buildGateHelpers", () => {
     const h = buildGateHelpers({ db, companyId: companyB });
     await setTenantContext(db, companyB);
     expect(await h.checkWorkflowExists("hello-world")).toBe(false);
+  });
+});
+
+describe("fetchHandoff helper", () => {
+  it("fetches blob content via gitProvider with ref=git_sha", async () => {
+    const fakeProvider = {
+      fetchBlob: vi.fn().mockResolvedValue("# Design content"),
+    };
+    const helpers = buildGateHelpers({
+      db: {} as any,
+      companyId: "c1",
+      resolveGitProvider: async () => fakeProvider as any,
+    });
+    const content = await helpers.fetchHandoff({ git_sha: "abc123", path: "design.md" });
+    expect(content).toBe("# Design content");
+    expect(fakeProvider.fetchBlob).toHaveBeenCalledWith({ ref: "abc123", path: "design.md" });
+  });
+
+  it("throws when resolveGitProvider not wired", async () => {
+    const helpers = buildGateHelpers({ db: {} as any, companyId: "c1" });
+    await expect(
+      helpers.fetchHandoff({ git_sha: "abc", path: "x.md" }),
+    ).rejects.toThrow(/resolveGitProvider not wired/);
+  });
+
+  it("throws on missing/empty git_sha", async () => {
+    const helpers = buildGateHelpers({
+      db: {} as any,
+      companyId: "c1",
+      resolveGitProvider: async () => ({ fetchBlob: vi.fn() }) as any,
+    });
+    await expect(
+      helpers.fetchHandoff({ git_sha: "", path: "x.md" }),
+    ).rejects.toThrow(/git_sha .*required/);
+  });
+
+  it("throws on missing/empty path", async () => {
+    const helpers = buildGateHelpers({
+      db: {} as any,
+      companyId: "c1",
+      resolveGitProvider: async () => ({ fetchBlob: vi.fn() }) as any,
+    });
+    await expect(
+      helpers.fetchHandoff({ git_sha: "abc", path: "" }),
+    ).rejects.toThrow(/path .*required/);
   });
 });
