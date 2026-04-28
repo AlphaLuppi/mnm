@@ -116,9 +116,18 @@ export function costRoutes(db: Db) {
   });
 
   router.patch("/companies/:companyId/agents/:agentId/budgets", validate(updateBudgetSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
     const agentId = req.params.agentId as string;
     const agent = await agents.getById(agentId);
     if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    // Z1 (upstream PR #4122): the agent must belong to the company in the path,
+    // otherwise a board user with access to companyA could mutate budgets of
+    // agents in companyB by passing /companies/companyA/agents/<agentB-id>/budgets.
+    if (agent.companyId !== companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }

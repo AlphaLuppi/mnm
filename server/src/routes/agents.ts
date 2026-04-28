@@ -876,6 +876,24 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     await assertCanCreateAgentsForCompany(req, companyId);
 
+    // Z5 (upstream PR #4122): direct creation must not bypass the board-approval gate.
+    // Companies that require approval for new agents must go through /agent-hires,
+    // which creates a pending-approval agent + an approval request.
+    const company = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (company.requireBoardApprovalForNewAgents) {
+      throw conflict(
+        `New agents require board approval in this company. Use POST /api/companies/${companyId}/agent-hires instead.`,
+      );
+    }
+
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
       req.body.adapterType,
       ((req.body.adapterConfig ?? {}) as Record<string, unknown>),
