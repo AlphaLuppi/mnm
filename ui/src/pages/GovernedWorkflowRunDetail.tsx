@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
@@ -9,9 +9,24 @@ import { queryKeys } from "../lib/queryKeys";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { formatDateTime } from "../lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, XCircle, Clock, ExternalLink, FileText, Folder } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ExternalLink,
+  FileText,
+  Folder,
+  Ban,
+  RotateCcw,
+  X,
+} from "lucide-react";
+import { useReactivateRun } from "@/hooks/useWorkflowRunActions";
+import { CancelRunDialog } from "@/components/workflows/CancelRunDialog";
 import type { StepWithGates } from "../api/governed-workflows";
 import type { GateResultRow, OutputPersisted } from "@mnm/shared";
 
@@ -21,6 +36,7 @@ const stepStateVariant: Record<string, "default" | "secondary" | "outline" | "de
   gate_eval: "default",
   succeeded: "outline",
   failed: "destructive",
+  cancelled: "secondary",
 };
 
 const runStatusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -33,6 +49,7 @@ const runStatusVariant: Record<string, "default" | "secondary" | "outline" | "de
 function StateIcon({ state }: { state: string }) {
   if (state === "succeeded") return <CheckCircle2 className="h-4 w-4 text-green-500" />;
   if (state === "failed") return <XCircle className="h-4 w-4 text-destructive" />;
+  if (state === "cancelled") return <Ban className="h-4 w-4 text-muted-foreground" />;
   return <Clock className="h-4 w-4 text-muted-foreground" />;
 }
 
@@ -137,18 +154,33 @@ function StepCard({ step, index }: { step: StepWithGates; index: number }) {
   const inputContent = promptContext
     ? JSON.stringify(promptContext, null, 2)
     : "— Aucun contexte disponible —";
+  const isCancelled = step.state === "cancelled";
 
   return (
-    <Card className="py-0">
+    <Card className={`py-0${isCancelled ? " opacity-70 text-muted-foreground" : ""}`}>
       <CardHeader className="px-4 py-3 border-b">
         <div className="flex items-center gap-2">
           <StateIcon state={step.state} />
           <CardTitle className="text-sm font-semibold">
             {index + 1}. {step.stepIdInJson}
           </CardTitle>
-          <Badge variant={stepStateVariant[step.state] ?? "secondary"} className="text-xs ml-auto">
-            {step.state}
-          </Badge>
+          {isCancelled ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-auto inline-flex items-center text-xs text-muted-foreground opacity-70">
+                  <Ban className="h-4 w-4 mr-1" />
+                  Annulé
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Annulé en cascade lors de l'annulation du run
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Badge variant={stepStateVariant[step.state] ?? "secondary"} className="text-xs ml-auto">
+              {step.state}
+            </Badge>
+          )}
         </div>
         {(step.startedAt || step.completedAt) && (
           <div className="flex gap-4 text-xs text-muted-foreground mt-1">
@@ -246,6 +278,12 @@ export function GovernedWorkflowRunDetail() {
     enabled: !!selectedCompanyId && !!name && !!runId,
   });
 
+  // Cancel/reactivate state — hooks must run unconditionally before any early
+  // return. The mutation is bound to `runId ?? ""`; it is only triggered from
+  // the banner / action bar which themselves only render once `data` exists.
+  const reactivate = useReactivateRun(runId ?? "");
+  const [cancelOpen, setCancelOpen] = useState(false);
+
   if (isLoading) return <PageSkeleton variant="detail" />;
 
   if (error) {
@@ -271,6 +309,17 @@ export function GovernedWorkflowRunDetail() {
           <Badge variant={runStatusVariant[run.status] ?? "secondary"}>
             {run.status}
           </Badge>
+          {/* Action bar — cancel button only when run is active and not yet cancelled */}
+          {!run.cancelledAt && run.status === "active" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setCancelOpen(true)}
+            >
+              <X className="h-4 w-4 mr-2" /> Annuler le run
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span>Tag: <span className="font-mono">{run.workflowGitTag}</span></span>
@@ -279,6 +328,45 @@ export function GovernedWorkflowRunDetail() {
           {run.completedAt && <span>Terminé: {formatDateTime(run.completedAt)}</span>}
         </div>
       </div>
+
+      {/* Cancellation banner — visible whenever the run carries cancellation
+          metadata, regardless of the lifecycle status (handles reactivate races
+          where status is no longer "cancelled" but cancelledAt is still set in
+          the cached payload until the next refetch resolves). */}
+      {run.cancelledAt && (
+        <Alert variant="destructive">
+          <Ban className="h-4 w-4" />
+          <AlertTitle>Run annulé</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <div>
+              Annulé le {formatDateTime(run.cancelledAt)}
+              {run.cancelledByActorId && <> par <span className="font-mono">{run.cancelledByActorId}</span></>}
+            </div>
+            <div>
+              Raison : {run.cancellationReason ?? "(aucune)"}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => reactivate.mutate()}
+              disabled={reactivate.isPending}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              {reactivate.isPending ? "Réactivation..." : "Réactiver"}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Cancel dialog — mounted at page level so it survives action-bar
+          re-renders. Uses the current name as a fallback display label since
+          this page receives the workflow name from the URL params. */}
+      <CancelRunDialog
+        runId={run.id}
+        workflowName={name ?? "(workflow inconnu)"}
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+      />
 
       {/* Steps timeline */}
       <div className="space-y-4">
