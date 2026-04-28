@@ -122,6 +122,21 @@ Le compute agent se fait principalement cote client (MCP, Desktop, CLI locale). 
 
 ---
 
+## Governed Workflows
+
+Feature phare entreprise. Workflows-as-code versionnés en git, avec parité REST + MCP complète.
+
+- **Storage git-first** : chaque workflow est un dossier (`agents/`, `gates/`, `workflow.json`) committé dans un repo git. Provider abstrait (`packages/git-provider/`) avec deux implémentations : local (bare repo) + GitLab self-hosted (REST API + OAuth 2.1).
+- **Workflow Studio** (`ui/src/pages/workflows/WorkflowStudio.tsx`) : éditeur multi-fichiers Monaco avec FileTree, modèles lazy-loaded, batch atomic commit, JSON schema autocomplete + validation. Remplace l'ancien single-file editor. Le mode `/workflows/new` reste sur l'éditeur create-mode simplifié.
+- **AI Assistant Panel** (`ui/src/components/workflows/AiAssistantPanel.tsx`) : SSE `/ai/chat` qui streame Claude Sonnet avec un system prompt français incluant le `workflow.json` courant + JSON schema + gates canoniques + gates locaux. Le hook `useAiAssistant` parse les file proposals et pousse des cards Appliquer / Rejeter dans le `useWorkflowFiles` lazy state.
+- **Gates canoniques** (`packages/gate-runner/canonical/`) : 4 gates shippées (`artifact-exists`, `artifacts-bundle`, `step-succeeded`, `review-pass`). Les gates locaux sont définis dans le repo de la company (DSL JS).
+- **HITL** : ValidationBadge overlay + Sheet drawer pour les transitions de step nécessitant une approbation humaine. Le run reste bloqué jusqu'à la décision.
+- **REST + MCP parité** : 14 endpoints `server/src/routes/governed-workflows-{ui,files}.ts` exposés en HTTP, mêmes opérations en MCP via `server/src/mcp/tools/governed-workflows.tool.ts`. L'agent Claude Code peut concevoir et lancer un workflow via MCP sans toucher à l'UI.
+- **Auteurs préservés** : les commits sont signés avec l'identité BetterAuth de l'utilisateur (récupérée via `resolveAuthor()`), pas un `uuid@mnm.local` opaque. En agent ou local_trusted, fallback sur identité synthétique.
+- **Live events** : SSE `/events/ws` pour mises à jour temps réel des runs, validation badges, et streaming AI.
+
+---
+
 ## MCP Server
 
 MnM expose un serveur MCP (Model Context Protocol) complet :
