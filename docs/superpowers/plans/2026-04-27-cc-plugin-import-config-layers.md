@@ -2112,7 +2112,7 @@ bun run dev
 
 - [ ] **Step 2: Vérifier git_provider config layer du company de test**
 
-S'assurer que la company a un PAT GitLab self-hosted configuré (cf `docs/governed-workflows-gitlab-setup.md`).
+S'assurer que la company a un PAT GitLab self-hosted configuré (cf `docs/governed-workflows/oauth-setup.md`).
 
 - [ ] **Step 3: Importer le plugin**
 

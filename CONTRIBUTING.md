@@ -145,9 +145,9 @@ packages/
 cli/                 CLI MnM (@mnm/cli, publie sur npm)
 skills/              Skills Claude Code
 e2e/                 Tests Playwright E2E
-docs/                Documentation (architecture, history)
+docs/                Documentation : ARCHITECTURE, governed-workflows/, superpowers/ (workflow vivant), history/ (brainstorms+visions), research/, archive/ (epics livres + abandons + reviews)
 _bmad/               Framework BMAD (NE PAS MODIFIER)
-_bmad-output/        Artifacts de planning, brainstorms, reviews, stories
+_bmad-output/        Legacy BMAD : stories triees (_shipped/_pending/_abandoned), 2 tech specs ready-for-dev, MCP server design (la majorite des planning artifacts a migre vers docs/archive/)
 ```
 
 ---

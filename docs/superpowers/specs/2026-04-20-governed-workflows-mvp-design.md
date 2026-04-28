@@ -9,9 +9,9 @@
 
 ## Sources et contexte
 
-- **Design consolidé** (vision) : `_bmad-output/governed-workflows-consolidated-2026-04-17.md`
-- **Récap session 1 abandonnée** : `_bmad-output/brainstorming/implementation-governed-workflows-session-2026-04-20.md`
-- **Récap session 2 (brainstorm)** : `_bmad-output/brainstorming/implementation-governed-workflows-2026-04-20-session2.md`
+- **Design consolidé** (vision) : `docs/history/visions/governed-workflows-consolidated-2026-04-17.md`
+- **Récap session 1 abandonnée** : `docs/history/brainstorms/implementation-governed-workflows-session-2026-04-20.md`
+- **Récap session 2 (brainstorm)** : `docs/history/brainstorms/implementation-governed-workflows-2026-04-20-session2.md`
 
 Ce document **consolide** la session 2 de brainstorm après adversarial review, et présente une spec implémentable en 7 tranches testables.
 

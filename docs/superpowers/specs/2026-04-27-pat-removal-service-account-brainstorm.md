@@ -20,7 +20,7 @@ Aujourd'hui, MnM utilise un PAT GitLab (Personal Access Token) stocké en clair 
 2. **`server/src/services/cc-plugin-import/source-provider-factory.ts` — `buildSourceProvider`**
    - Même pattern (commit `5b45786`) : OAuth-first, PAT fallback.
 
-3. **`docs/governed-workflows-gitlab-setup.md`**
+3. **`docs/governed-workflows/oauth-setup.md`**
    - Tout le doc d'onboarding parle de "PAT GitLab → curl PUT git-provider-config".
 
 4. **Mode `local_trusted` (dev solo, zero auth)**
@@ -83,7 +83,7 @@ Aujourd'hui, MnM utilise un PAT GitLab (Personal Access Token) stocké en clair 
 | `packages/db/src/schema/auth-accounts.ts` (ou nouvelle table) | Schema change selon option 1.A/B/C |
 | Migration | Convertir les rows `config_layer_items` type=`git_provider` → service account row |
 | UI admin (Alex) | Page de config service account (formulaire OAuth flow ou refresh_token paste) |
-| `docs/governed-workflows-gitlab-setup.md` | Réécrire entièrement |
+| `docs/governed-workflows/oauth-setup.md` | Réécrire entièrement |
 | Mode dev | Décider si on garde le PAT côté `local_trusted` ou si bare repo local suffit |
 
 ---

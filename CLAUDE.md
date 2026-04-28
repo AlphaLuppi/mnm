@@ -11,7 +11,7 @@ Language: French for planning documents. See README.md for full project docs.
 - U13: Workflow Studio — multi-file editor (FileTree + Monaco multi-model + useWorkflowFiles lazy loading + batch atomic commit). Replaces the legacy single-file editor on /workflows/:name; `/workflows/new` still uses the simpler create-mode editor.
 - U14: AI Assistant Panel — SSE `/ai/chat` streams Claude Sonnet with French system prompt (current workflow.json + JSON schema + canonical gates + local gates). UI: useAiAssistant hook + AiAssistantPanel (3rd column) with inline file-proposal cards (Appliquer/Rejeter → useWorkflowFiles) + ValidationBadge overlay with Sheet drawer.
 - U15: 4 canonical gates shipped to `packages/gate-runner/canonical/` (artifact-exists, artifacts-bundle, step-succeeded, review-pass).
-- Plans: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md` (U1–U8), `docs/superpowers/plans/2026-04-24-workflow-studio.md` (U12–U15), progress log at `docs/superpowers/plans/progress-2026-04-24-governed-workflows-ui.md`.
+- Plans: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md` (U1–U8), `docs/superpowers/plans/2026-04-24-workflow-studio.md` (U12–U15), progress log at `docs/archive/sessions-completed/2026-04-24-governed-workflows-ui/progress-2026-04-24-governed-workflows-ui.md`.
 - Remove this block after sign-off.
 
 ## Critical Rules
