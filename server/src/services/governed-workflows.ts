@@ -18,12 +18,14 @@ import {
 } from "@mnm/governed-workflows";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
-import type { ArtifactInput, AuditActorType, MergedConfigItem } from "@mnm/shared";
+import type { ArtifactInput, AuditActorType, Handoff, MergedConfigItem } from "@mnm/shared";
 import { PERMISSIONS } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
 import {
   commitHandoffArtifacts,
   resolveCommitAuthor,
+  runBranchName,
+  buildHandoffsForStep,
 } from "./governed-workflows-artifacts.js";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
@@ -155,6 +157,8 @@ export interface LaunchStepResult {
   agentName: string;
   promptContext: Record<string, unknown>;
   subagentType: string;
+  handoffs: Handoff[];
+  runBranch: string;
 }
 
 export interface CompleteStepArgs {
@@ -588,6 +592,34 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   // ─── Step lifecycle ──────────────────────────────────────────────
 
   /**
+   * Throws WORKFLOW_RUN_CANCELLED when the run row is in a cancelled state
+   * (cancelledAt IS NOT NULL). Used by launchStep / completeStep to refuse
+   * any state mutation on a cancelled run BEFORE running cheaper checks
+   * (deps, step state) — the user must see "this run is cancelled" first,
+   * not a misleading "step isn't in running state" that would surface once
+   * the cancel cascade has moved the step to `cancelled`.
+   *
+   * The third arg of GovernedWorkflowError is `hints: string[]` — we pack
+   * the reason and a recovery suggestion there so the harness can render
+   * them next to the error message verbatim.
+   */
+  function assertRunNotCancelled(run: {
+    cancelledAt: Date | null;
+    cancellationReason: string | null;
+    id: string;
+  }): void {
+    if (run.cancelledAt === null) return;
+    throw new GovernedWorkflowError(
+      WORKFLOW_ERROR_CODES.WORKFLOW_RUN_CANCELLED,
+      `Run ${run.id} is cancelled (since ${run.cancelledAt.toISOString()}).`,
+      [
+        `Reason: ${run.cancellationReason ?? "(none)"}`,
+        "Use mcp__plugin_mnm_mnm__reactivate_governed_workflow_run to resume.",
+      ],
+    );
+  }
+
+  /**
    * Authorize a step launch. Verifies all deps are `succeeded`, evaluates
    * the entry gate block (if any) through `runGateBlock`, persists the
    * gate_result rows, and returns the {agent, prompt_context, subagent_type}
@@ -601,6 +633,35 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
    */
   async function launchStep(args: LaunchStepArgs): Promise<LaunchStepResult> {
     const run = await getRun({ companyId: args.companyId, runId: args.runId });
+
+    // Cancelled-run guard. Runs BEFORE any state mutation (or even the
+    // workflow re-parse) so that the harness gets a clear
+    // WORKFLOW_RUN_CANCELLED error rather than the WORKFLOW_DEPENDENCY_UNMET
+    // / WORKFLOW_STEP_NOT_FOUND it would otherwise hit on a cancelled run
+    // whose steps have been cascaded to `cancelled`.
+    const [runRow] = await db
+      .select({
+        id: governedWorkflowRuns.id,
+        cancelledAt: governedWorkflowRuns.cancelledAt,
+        cancellationReason: governedWorkflowRuns.cancellationReason,
+      })
+      .from(governedWorkflowRuns)
+      .where(
+        and(
+          eq(governedWorkflowRuns.id, args.runId),
+          eq(governedWorkflowRuns.companyId, args.companyId),
+        ),
+      );
+    // getRun already threw WORKFLOW_RUN_NOT_FOUND if the row was missing,
+    // so runRow is guaranteed defined here. Defensive guard kept in case
+    // of a TOCTOU race (run deleted between getRun and this SELECT).
+    if (!runRow) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+        `Run '${args.runId}' not found`,
+      );
+    }
+    assertRunNotCancelled(runRow);
 
     // Re-parse the workflow at the run's pinned sha.
     const defInfo = await getDefByRun(args.companyId, args.runId);
@@ -862,10 +923,22 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       { variables: params, steps: previousArtifacts },
     );
 
+    const prevStepRows = await db
+      .select({
+        stepIdInJson: governedStepExecutions.stepIdInJson,
+        state: governedStepExecutions.state,
+        artifactsJson: governedStepExecutions.artifactsJson,
+      })
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId));
+    const handoffs = buildHandoffsForStep(prevStepRows as any);
+
     return {
       agentName: step.agent,
       promptContext,
       subagentType: `mnm--${step.agent}`,
+      handoffs,
+      runBranch: runBranchName(args.runId),
     };
   }
 
@@ -1040,6 +1113,33 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:complete:" + args.runId + ":" + args.stepId}))`,
       );
+
+      // Cancelled-run guard FIRST — fetched inside the tx so it shares the
+      // advisory lock's serialization. We want WORKFLOW_RUN_CANCELLED to
+      // surface BEFORE any step-state check; otherwise a step cascaded to
+      // `cancelled` by cancelRun would slip past the
+      // WORKFLOW_ALREADY_COMPLETED check (which only fires for
+      // succeeded/failed) and hit commitHandoffArtifacts mid-tx.
+      const [runRow] = await tx
+        .select({
+          id: governedWorkflowRuns.id,
+          cancelledAt: governedWorkflowRuns.cancelledAt,
+          cancellationReason: governedWorkflowRuns.cancellationReason,
+        })
+        .from(governedWorkflowRuns)
+        .where(
+          and(
+            eq(governedWorkflowRuns.id, args.runId),
+            eq(governedWorkflowRuns.companyId, args.companyId),
+          ),
+        );
+      if (!runRow) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+          `Run '${args.runId}' not found`,
+        );
+      }
+      assertRunNotCancelled(runRow);
 
       const [stepExec] = await tx
         .select()

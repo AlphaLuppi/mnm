@@ -319,6 +319,8 @@ export default defineMcpTools(({ tool, services }) => {
               agent_name: r.agentName,
               prompt_context: r.promptContext,
               subagent_type: r.subagentType,
+              handoffs: r.handoffs,
+              run_branch: r.runBranch,
             }),
           }],
         };
