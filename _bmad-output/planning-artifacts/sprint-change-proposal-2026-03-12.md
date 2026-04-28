@@ -1,9 +1,9 @@
 # Sprint Change Proposal — MnM B2B Transformation
 
 **Date** : 2026-03-12 (maj 2026-03-17)
-**Auteur** : Gabri (avec Claude)
-**A discuter avec** : Tom
-**Statut** : Draft enrichi par brainstorming Gab + session Tom
+**Auteur** : MnM co-founder dev (avec Claude)
+**A discuter avec** : MnM founder
+**Statut** : Draft enrichi par brainstorming co-founder-dev + session MnM founder
 
 ---
 
@@ -97,8 +97,8 @@ MnM Platform (Docker Compose)
 
 - **Runtime agents** : Docker API directe (pas K8s pour le MVP, migration possible plus tard)
 - **Editeur workflow** : React Flow (drag & drop, 34k stars GitHub)
-- **Backend workflow** : a determiner avec Tom — bpmn-engine vs extension du systeme de stages existant
-- **Frontend** : React 19 existant (Paperclip fork)
+- **Backend workflow** : a determiner avec MnM founder — bpmn-engine vs extension du systeme de stages existant
+- **Frontend** : React 19 existant (fork upstream)
 - **Backend** : Express existant
 - **BDD** : PostgreSQL existant
 
@@ -106,7 +106,7 @@ MnM Platform (Docker Compose)
 
 ## 5. Plan d'action revise
 
-### Etat des lieux — Ce que Tom a deja fait (branche tom-paperclip)
+### Etat des lieux — Ce que MnM founder a deja fait (branche de travail)
 
 | Feature | Statut | Fichier |
 |---|---|---|
@@ -156,10 +156,10 @@ MnM Platform (Docker Compose)
 
 ---
 
-## 6. Points ouverts pour discussion avec Tom
+## 6. Points ouverts pour discussion avec MnM founder
 
 1. **Container runtime** — Docker API directe : quelle lib Node.js ? dockerode ? Comment gerer le lifecycle ?
-2. **Workflow engine backend** — Tom a deja des stages dans les workflows. On etend ca ou on part sur bpmn-engine ?
+2. **Workflow engine backend** — MnM founder a deja des stages dans les workflows. On etend ca ou on part sur bpmn-engine ?
 3. **Editeur visuel** — React Flow, quel niveau de complexite Phase 1 ? Lineaire + conditions suffit ?
 4. **Network policies** — Docker networks natifs ou abstraction MnM ? Quelle granularite ?
 5. **Migration progressive** — Comment passer du modele actuel (subprocess) a container-per-agent sans tout casser ?
@@ -172,8 +172,8 @@ MnM Platform (Docker Compose)
 **Scope : MAJEUR** — Reorientation produit fondamentale
 
 **Handoff** :
-- **Tom (Architecte/Dev)** : Valider l'archi container-per-agent, evaluer Docker API vs alternatives, proposer le plan technique
-- **Gabri (Produit)** : Valider la vision, prioriser les etapes, definir le scope MVP B2B, preparer le pitch client
-- **Ensemble** : Trancher les points ouverts, redefinir les epics, merger les brainstorms (Tom + Gab)
+- **MnM founder (Architecte/Dev)** : Valider l'archi container-per-agent, evaluer Docker API vs alternatives, proposer le plan technique
+- **MnM co-founder dev (Produit)** : Valider la vision, prioriser les etapes, definir le scope MVP B2B, preparer le pitch client
+- **Ensemble** : Trancher les points ouverts, redefinir les epics, merger les brainstorms (MnM founder + co-founder-dev)
 
-**Brainstorming associe** : `_bmad-output/brainstorming/B2B-Gab-2026-03-12.md` (23 idees) + session Tom (brainstorming-session-2026-03-12.md, 29 verites)
+**Brainstorming associe** : `_bmad-output/brainstorming/B2B-co-founder-dev-2026-03-12.md` (23 idees) + session MnM founder (brainstorming-session-2026-03-12.md, 29 verites)
