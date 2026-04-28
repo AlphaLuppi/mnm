@@ -288,6 +288,8 @@ export const LIVE_EVENT_TYPES = [
   // GOVERNED-WORKFLOWS: Run lifecycle live events
   "governed_run.step_updated",
   "governed_run.gate_evaluated",
+  "governed_run.cancelled",
+  "governed_run.reactivated",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

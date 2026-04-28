@@ -106,6 +106,29 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // git provider. Distinct from AGENT_NOT_REGISTERED (DB row issue) — this is
   // a missing git file that prevents the agent from ever being usable.
   AGENT_GIT_FILE_MISSING: "AGENT_GIT_FILE_MISSING",
+  // Emitted by cancelRun on success path metadata, and by completeStep /
+  // launchStep when the targeted run is in `cancelled` status. The mutation is
+  // refused to keep cancelled runs immutable from the harness perspective.
+  WORKFLOW_RUN_CANCELLED: "WORKFLOW_RUN_CANCELLED",
+  // Emitted by cancelRun when the run is already in `cancelled` status.
+  // Idempotent-ish guard so double-cancel from the UI surfaces a clear message
+  // rather than silently no-op.
+  WORKFLOW_RUN_ALREADY_CANCELLED: "WORKFLOW_RUN_ALREADY_CANCELLED",
+  // Emitted by reactivateRun when the run is NOT in `cancelled` status.
+  // Reactivation only makes sense from a cancelled state.
+  WORKFLOW_RUN_NOT_CANCELLED: "WORKFLOW_RUN_NOT_CANCELLED",
+  // Emitted by cancelRun when the run is in a terminal status (`completed` or
+  // `failed`). Only active (`running`) runs can be cancelled.
+  WORKFLOW_RUN_NOT_ACTIVE: "WORKFLOW_RUN_NOT_ACTIVE",
+  // Emitted by cancelRun / reactivateRun when the actor lacks the required
+  // permission within the run's company. Distinct from cross-tenant access
+  // (which surfaces WORKFLOW_RUN_NOT_FOUND to avoid leaking existence).
+  WORKFLOW_FORBIDDEN: "WORKFLOW_FORBIDDEN",
+  // Emitted when a service-method input fails a basic shape/length check
+  // (e.g. cancelRun with reason shorter than 5 chars). Distinct from
+  // WORKFLOW_VALIDATION (zod failure on a workflow definition body) — this
+  // is a per-call argument validation, not a definition body validation.
+  WORKFLOW_INVALID_INPUT: "WORKFLOW_INVALID_INPUT",
 } as const);
 
 export type WorkflowErrorCode =

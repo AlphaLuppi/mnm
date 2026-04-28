@@ -949,3 +949,5 @@ export type {
   GovernedStepExecutionRow,
   GateResultRow,
 } from "./types/index.js";
+
+export * from "./types/governed-workflows.js";

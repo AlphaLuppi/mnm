@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
   governedStepExecutions,
   gateResults,
   agents,
+  auditEvents,
+  authUsers,
   type Db,
 } from "@mnm/db";
 import {
@@ -17,17 +19,29 @@ import {
 } from "@mnm/governed-workflows";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
-import type { AuditActorType, MergedConfigItem } from "@mnm/shared";
+import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem, OutputPersisted } from "@mnm/shared";
+import { PERMISSIONS } from "@mnm/shared";
 import { runGateBlock, CompiledCache } from "@mnm/gate-runner";
+import {
+  commitHandoffArtifacts,
+  resolveCommitAuthor,
+  runBranchName,
+  buildHandoffsForStep,
+  mergeRunBranch,
+} from "./governed-workflows-artifacts.js";
 import { makeResolveSource } from "./governed-workflows-source-resolver.js";
 import { buildGateHelpers } from "./governed-workflows-helpers.js";
 import { resolveResourcePath, type ProviderWithPaths } from "./git-resource-path.js";
 import { listRuns as listRunsExt, type ListRunsArgs, type ListRunsResult } from "./governed-workflows-extensions.js";
 import { configLayerConflictService } from "./config-layer-conflict.js";
+import { accessService } from "./access.js";
 import { publishLiveEvent } from "./live-events.js";
 import {
   emitStepUpdated,
   emitGateEvaluated,
+  emitRunCancelled,
+  emitRunReactivated,
+  type PublishFn,
 } from "../realtime/emitters/governed-run-events.js";
 
 // Constant providerId for ShaCache (providerId, path, sha) tuple.
@@ -110,6 +124,10 @@ export interface GetRunResult {
   status: string;
   startedAt: Date | null;
   completedAt: Date | null;
+  cancelledAt: Date | null;
+  cancelledByActorId: string | null;
+  cancelledByActorType: AuditActorType | null;
+  cancellationReason: string | null;
   steps: RunStepSummary[];
   lastGateResult: {
     gateIdInJson: string;
@@ -145,13 +163,15 @@ export interface LaunchStepResult {
   agentName: string;
   promptContext: Record<string, unknown>;
   subagentType: string;
+  handoffs: Handoff[];
+  runBranch: string;
 }
 
 export interface CompleteStepArgs {
   companyId: string;
   runId: string;
   stepId: string;
-  artifact: unknown;
+  artifact: ArtifactInput;
   actor: { type: AuditActorType; id: string };
 }
 
@@ -252,6 +272,132 @@ export interface PushLocalStateResult {
   /** Relative path under `${CLAUDE_PLUGIN_DATA}/` the harness should write to. */
   targetRelativePath: string;
   content: PushLocalStatePayload;
+}
+
+/**
+ * Actor shape consumed by mutation methods (cancelRun, reactivateRun). Matches
+ * the existing `{ type: AuditActorType; id: string }` pattern used by
+ * launchWorkflow/launchStep/completeStep so callsites don't need to translate.
+ */
+export type Actor = { type: AuditActorType; id: string };
+
+export interface CancelRunArgs {
+  runId: string;
+  companyId: string;
+  actor: Actor;
+  reason: string;
+  /**
+   * SSE/WS publisher. Injected (rather than imported as a module-level
+   * default) so unit tests can substitute a `vi.fn()` and assert the
+   * `governed_run.cancelled` payload without mocking the live-events
+   * singleton.
+   */
+  publishLiveEvent: PublishFn;
+}
+
+export interface CancelRunResult {
+  runId: string;
+  cancelledAt: Date;
+  cancelledStepIds: string[];
+}
+
+export interface ReactivateRunArgs {
+  runId: string;
+  companyId: string;
+  actor: Actor;
+  /**
+   * SSE/WS publisher. Injected (rather than imported as a module-level
+   * default) so unit tests can substitute a `vi.fn()` and assert the
+   * `governed_run.reactivated` payload without mocking the live-events
+   * singleton.
+   */
+  publishLiveEvent: PublishFn;
+}
+
+export interface ReactivateRunResult {
+  runId: string;
+  reactivatedStepIds: string[];
+}
+
+/**
+ * Walks the prompt_context template tree and replaces `{{path}}` placeholders
+ * with resolved values from `scope`. When the resolved leaf is an
+ * OutputPersisted (has a `kind` field), applies kind-specific eager resolution:
+ *   - git_file  → fetches blob content from Git (text inlined)
+ *   - git_folder → placeholder string  (folders shouldn't be inlined)
+ *   - external_url → inlines the URL string
+ *
+ * Unknown placeholders are left as literal `{{path}}` strings so that
+ * downstream validators can report them clearly.
+ *
+ * Exported at module level so it can be unit-tested independently of the
+ * service factory.
+ */
+export async function interpolatePromptContext(
+  template: Record<string, unknown>,
+  scope: { variables: Record<string, unknown>; steps: Record<string, unknown> },
+  gitProvider: GitProvider,
+): Promise<Record<string, unknown>> {
+  const walk = async (v: unknown): Promise<unknown> => {
+    if (typeof v === "string") {
+      // Allow `-` in identifiers — workflow step IDs use kebab-case
+      // (`tech-design`, `merge-tag`). Without this, any path containing
+      // a step ID with a hyphen returned the literal `{{...}}`.
+      const regex = /\{\{\s*([a-zA-Z0-9_.\-]+)\s*\}\}/g;
+      const matches = [...v.matchAll(regex)];
+      if (matches.length === 0) return v;
+
+      const replacements = await Promise.all(
+        matches.map(async (m) => {
+          const path = m[1]!;
+          const parts = path.split(".");
+          let cur: any = scope;
+          for (const p of parts) {
+            cur = cur?.[p];
+            if (cur === undefined) return `{{${path}}}`;
+          }
+          // If the resolved leaf is an OutputPersisted, apply kind-specific
+          // eager resolution so downstream agents receive content, not JSON.
+          if (cur && typeof cur === "object" && "kind" in cur) {
+            const output = cur as OutputPersisted;
+            if (output.kind === "git_file") {
+              return await gitProvider.fetchBlob({ ref: output.git_sha, path: output.path });
+            }
+            if (output.kind === "external_url") {
+              return output.url;
+            }
+            if (output.kind === "git_folder") {
+              return `<folder: ${output.path}, ${(output.files ?? []).length} files>`;
+            }
+          }
+          return typeof cur === "string" || typeof cur === "number"
+            ? String(cur)
+            : JSON.stringify(cur);
+        }),
+      );
+
+      // Rebuild the string by substituting each match in order.
+      let result = "";
+      let lastIdx = 0;
+      for (let i = 0; i < matches.length; i++) {
+        const m = matches[i]!;
+        result += v.slice(lastIdx, m.index!);
+        result += replacements[i];
+        lastIdx = m.index! + m[0].length;
+      }
+      result += v.slice(lastIdx);
+      return result;
+    }
+    if (Array.isArray(v)) return await Promise.all(v.map(walk));
+    if (v && typeof v === "object") {
+      const entries = await Promise.all(
+        Object.entries(v).map(async ([k, val]) => [k, await walk(val)] as const),
+      );
+      return Object.fromEntries(entries);
+    }
+    return v;
+  };
+  return (await walk(template)) as Record<string, unknown>;
 }
 
 /**
@@ -509,6 +655,10 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       status: run.status,
       startedAt: run.startedAt,
       completedAt: run.completedAt,
+      cancelledAt: run.cancelledAt,
+      cancelledByActorId: run.cancelledByActorId,
+      cancelledByActorType: run.cancelledByActorType,
+      cancellationReason: run.cancellationReason,
       steps: steps.map((s) => ({
         id: s.stepIdInJson,
         state: s.state,
@@ -533,6 +683,34 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   // ─── Step lifecycle ──────────────────────────────────────────────
 
   /**
+   * Throws WORKFLOW_RUN_CANCELLED when the run row is in a cancelled state
+   * (cancelledAt IS NOT NULL). Used by launchStep / completeStep to refuse
+   * any state mutation on a cancelled run BEFORE running cheaper checks
+   * (deps, step state) — the user must see "this run is cancelled" first,
+   * not a misleading "step isn't in running state" that would surface once
+   * the cancel cascade has moved the step to `cancelled`.
+   *
+   * The third arg of GovernedWorkflowError is `hints: string[]` — we pack
+   * the reason and a recovery suggestion there so the harness can render
+   * them next to the error message verbatim.
+   */
+  function assertRunNotCancelled(run: {
+    cancelledAt: Date | null;
+    cancellationReason: string | null;
+    id: string;
+  }): void {
+    if (run.cancelledAt === null) return;
+    throw new GovernedWorkflowError(
+      WORKFLOW_ERROR_CODES.WORKFLOW_RUN_CANCELLED,
+      `Run ${run.id} is cancelled (since ${run.cancelledAt.toISOString()}).`,
+      [
+        `Reason: ${run.cancellationReason ?? "(none)"}`,
+        "Use mcp__plugin_mnm_mnm__reactivate_governed_workflow_run to resume.",
+      ],
+    );
+  }
+
+  /**
    * Authorize a step launch. Verifies all deps are `succeeded`, evaluates
    * the entry gate block (if any) through `runGateBlock`, persists the
    * gate_result rows, and returns the {agent, prompt_context, subagent_type}
@@ -546,6 +724,35 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
    */
   async function launchStep(args: LaunchStepArgs): Promise<LaunchStepResult> {
     const run = await getRun({ companyId: args.companyId, runId: args.runId });
+
+    // Cancelled-run guard. Runs BEFORE any state mutation (or even the
+    // workflow re-parse) so that the harness gets a clear
+    // WORKFLOW_RUN_CANCELLED error rather than the WORKFLOW_DEPENDENCY_UNMET
+    // / WORKFLOW_STEP_NOT_FOUND it would otherwise hit on a cancelled run
+    // whose steps have been cascaded to `cancelled`.
+    const [runRow] = await db
+      .select({
+        id: governedWorkflowRuns.id,
+        cancelledAt: governedWorkflowRuns.cancelledAt,
+        cancellationReason: governedWorkflowRuns.cancellationReason,
+      })
+      .from(governedWorkflowRuns)
+      .where(
+        and(
+          eq(governedWorkflowRuns.id, args.runId),
+          eq(governedWorkflowRuns.companyId, args.companyId),
+        ),
+      );
+    // getRun already threw WORKFLOW_RUN_NOT_FOUND if the row was missing,
+    // so runRow is guaranteed defined here. Defensive guard kept in case
+    // of a TOCTOU race (run deleted between getRun and this SELECT).
+    if (!runRow) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+        `Run '${args.runId}' not found`,
+      );
+    }
+    assertRunNotCancelled(runRow);
 
     // Re-parse the workflow at the run's pinned sha.
     const defInfo = await getDefByRun(args.companyId, args.runId);
@@ -800,17 +1007,38 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     // `{{steps.greet.artifact.greeting}}`) against the run's params +
     // previous artifacts. Loaded async from the DB so completed-step
     // artifacts are actually substituted (see `interpolatePromptContext`).
+    // gitProvider is needed for eager git_file resolution; resolve it here
+    // unconditionally (it may already be resolved above inside the entry gate
+    // block, but that branch is conditional so we can't rely on it).
+    const launchStepGitProvider = await resolveGitProvider({
+      companyId: args.companyId,
+      userId: args.actor.type === "user" ? args.actor.id : null,
+      resourceType: "workflow",
+    });
     const params = await fetchRunParams(args.companyId, args.runId);
     const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
-    const promptContext = interpolatePromptContext(
+    const promptContext = await interpolatePromptContext(
       step.prompt_context,
       { variables: params, steps: previousArtifacts },
+      launchStepGitProvider,
     );
+
+    const prevStepRows = await db
+      .select({
+        stepIdInJson: governedStepExecutions.stepIdInJson,
+        state: governedStepExecutions.state,
+        artifactsJson: governedStepExecutions.artifactsJson,
+      })
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId));
+    const handoffs = buildHandoffsForStep(prevStepRows as any);
 
     return {
       agentName: step.agent,
       promptContext,
       subagentType: `mnm--${step.agent}`,
+      handoffs,
+      runBranch: runBranchName(args.runId),
     };
   }
 
@@ -929,44 +1157,6 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   }
 
   /**
-   * Very small interpolation: walks the prompt_context tree, replaces any
-   * string value matching `{{variables.<key>}}` or `{{steps.<id>.artifact.<path>}}`
-   * with the resolved value. Unknown placeholders remain as literal
-   * strings — a zod-style runtime validator catches this upstream at
-   * complete_step time if the author expected a value.
-   */
-  function interpolatePromptContext(
-    template: Record<string, unknown>,
-    scope: { variables: Record<string, unknown>; steps: Record<string, unknown> },
-  ): Record<string, unknown> {
-    const walk = (v: unknown): unknown => {
-      if (typeof v === "string") {
-        return v.replace(
-          // Allow `-` in identifiers — workflow step IDs use kebab-case
-          // (`tech-design`, `merge-tag`). Without this, any path containing
-          // a step ID with a hyphen returned the literal `{{...}}`.
-          /\{\{\s*([a-zA-Z0-9_.\-]+)\s*\}\}/g,
-          (_, path: string) => {
-            const parts = path.split(".");
-            let cur: any = scope;
-            for (const p of parts) {
-              cur = cur?.[p];
-              if (cur === undefined) return `{{${path}}}`;
-            }
-            return typeof cur === "string" || typeof cur === "number" ? String(cur) : JSON.stringify(cur);
-          },
-        );
-      }
-      if (Array.isArray(v)) return v.map(walk);
-      if (v && typeof v === "object") {
-        return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, walk(val)]));
-      }
-      return v;
-    };
-    return walk(template) as Record<string, unknown>;
-  }
-
-  /**
    * Finalise a step. Persists the artifact, evaluates the exit gate block
    * (if any), and on pass transitions the step to `succeeded`. If every
    * step on the run is now `succeeded`, the run status transitions to
@@ -981,10 +1171,53 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   async function completeStep(args: CompleteStepArgs): Promise<CompleteStepResult> {
     // Serialize per-step completion to avoid races where two harness
     // replies race on the same step.
-    return await db.transaction(async (tx) => {
+
+    // Data needed for post-tx mergeRunBranch — populated inside the tx and
+    // used after commit so Git ops don't extend the DB transaction window.
+    // Wrapped in an object so TypeScript cross-closure mutation tracking works.
+    const pendingMerge: {
+      data: {
+        gitProvider: GitProvider;
+        workflowName: string;
+        startedAt: Date | null;
+        completedAt: Date;
+        triggeredBy: string;
+        author: { name: string; email: string };
+        stepsSummary: Array<{ stepId: string; state: string }>;
+      } | null;
+    } = { data: null };
+
+    const txResult = await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:complete:" + args.runId + ":" + args.stepId}))`,
       );
+
+      // Cancelled-run guard FIRST — fetched inside the tx so it shares the
+      // advisory lock's serialization. We want WORKFLOW_RUN_CANCELLED to
+      // surface BEFORE any step-state check; otherwise a step cascaded to
+      // `cancelled` by cancelRun would slip past the
+      // WORKFLOW_ALREADY_COMPLETED check (which only fires for
+      // succeeded/failed) and hit commitHandoffArtifacts mid-tx.
+      const [runRow] = await tx
+        .select({
+          id: governedWorkflowRuns.id,
+          cancelledAt: governedWorkflowRuns.cancelledAt,
+          cancellationReason: governedWorkflowRuns.cancellationReason,
+        })
+        .from(governedWorkflowRuns)
+        .where(
+          and(
+            eq(governedWorkflowRuns.id, args.runId),
+            eq(governedWorkflowRuns.companyId, args.companyId),
+          ),
+        );
+      if (!runRow) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+          `Run '${args.runId}' not found`,
+        );
+      }
+      assertRunNotCancelled(runRow);
 
       const [stepExec] = await tx
         .select()
@@ -1025,6 +1258,28 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         );
       }
 
+      // Resolve commit author and git provider, then commit inline outputs to Git
+      // before persisting. If git commit fails the tx rolls back, keeping the
+      // step in its current state for a clean retry.
+      const author = await resolveCommitAuthor({
+        db: tx as unknown as Db,
+        companyId: args.companyId,
+        actor: args.actor,
+      });
+      const gitProvider = await resolveGitProvider({
+        companyId: args.companyId,
+        userId: args.actor.type === "user" ? args.actor.id : null,
+        resourceType: "workflow",
+      });
+      const persistedArtifact = await commitHandoffArtifacts({
+        gitProvider,
+        runId: args.runId,
+        stepId: args.stepId,
+        input: args.artifact,
+        author,
+        startBranch: "master", // EnterpriseCustomer convention; multi-tenant should source from company config later
+      });
+
       // Persist artifact immediately (even before gate eval). If gate
       // fails we'll still have the last attempt's artifact on the step
       // execution for audit.
@@ -1032,7 +1287,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         .update(governedStepExecutions)
         .set({
           state: step.gates?.exit ? "gate_eval" : "running",
-          artifactsJson: args.artifact as Record<string, unknown>,
+          artifactsJson: persistedArtifact as unknown as Record<string, unknown>,
         })
         .where(eq(governedStepExecutions.id, stepExec.id));
 
@@ -1046,15 +1301,11 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
 
       const exitBlock = step.gates?.exit as GateBlock | undefined;
       if (exitBlock && exitBlock.length > 0) {
-        const gitProvider = await resolveGitProvider({
-          companyId: args.companyId,
-          userId: args.actor.type === "user" ? args.actor.id : null,
-          resourceType: "workflow",
-        });
+        // gitProvider already resolved above — reuse it here.
         const helpers = buildGateHelpers({ db, companyId: args.companyId, resolveGitProvider });
         const previousArtifacts = await fetchSucceededArtifacts(tx as unknown as Db, args.runId);
         const context: GateContext = {
-          artifact: args.artifact,
+          artifact: persistedArtifact, // gates see the persisted form (git_file/git_folder refs)
           run: {
             id: args.runId,
             workflow_name: parsed.workflow.name,
@@ -1168,11 +1419,53 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           ),
         );
       const allDone = pending[0]!.count === 0;
+      const completedAt = new Date();
       if (allDone) {
         await tx
           .update(governedWorkflowRuns)
-          .set({ status: "completed", completedAt: new Date() })
+          .set({ status: "completed", completedAt })
           .where(eq(governedWorkflowRuns.id, args.runId));
+
+        // Capture data needed for post-tx mergeRunBranch (Git ops must not
+        // run inside the DB transaction — they can take seconds).
+        const [runForMerge] = await tx
+          .select({
+            startedAt: governedWorkflowRuns.startedAt,
+            paramsJson: governedWorkflowRuns.paramsJson,
+            initiatedByActorId: governedWorkflowRuns.initiatedByActorId,
+            initiatedByActorType: governedWorkflowRuns.initiatedByActorType,
+          })
+          .from(governedWorkflowRuns)
+          .where(eq(governedWorkflowRuns.id, args.runId));
+
+        const allSteps = await tx
+          .select({
+            stepIdInJson: governedStepExecutions.stepIdInJson,
+            state: governedStepExecutions.state,
+          })
+          .from(governedStepExecutions)
+          .where(eq(governedStepExecutions.runId, args.runId));
+
+        let triggeredBy: string;
+        if (args.actor.type === "user") {
+          const [u] = await tx
+            .select({ email: authUsers.email })
+            .from(authUsers)
+            .where(eq(authUsers.id, args.actor.id));
+          triggeredBy = u?.email ?? args.actor.id;
+        } else {
+          triggeredBy = args.actor.id;
+        }
+
+        pendingMerge.data = {
+          gitProvider,
+          workflowName: def.name,
+          startedAt: runForMerge?.startedAt ?? null,
+          completedAt,
+          triggeredBy,
+          author,
+          stepsSummary: allSteps.map((s) => ({ stepId: s.stepIdInJson, state: s.state })),
+        };
       }
 
       return {
@@ -1180,6 +1473,38 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         runStatus: allDone ? ("completed" as const) : ("active" as const),
       };
     });
+
+    // Post-tx: merge the run branch into master (outside any DB transaction so
+    // we don't hold XACT locks while git operations run). Log on failure and
+    // continue — the run status is already committed.
+    if (pendingMerge.data !== null) {
+      const mrd = pendingMerge.data;
+      const runParams = await db
+        .select({ paramsJson: governedWorkflowRuns.paramsJson })
+        .from(governedWorkflowRuns)
+        .where(eq(governedWorkflowRuns.id, args.runId));
+      const ticket = (runParams[0]?.paramsJson as Record<string, unknown> | undefined)?.ticket as string | null ?? null;
+      try {
+        await mergeRunBranch({
+          gitProvider: mrd.gitProvider,
+          runId: args.runId,
+          workflowName: mrd.workflowName,
+          ticket,
+          status: "completed",
+          stepsSummary: mrd.stepsSummary,
+          startedAt: mrd.startedAt,
+          completedAt: mrd.completedAt,
+          triggeredBy: mrd.triggeredBy,
+          author: mrd.author,
+        });
+      } catch (err) {
+        console.error(
+          `[governed-workflows] mergeRunBranch failed for run ${args.runId} (completed): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return txResult;
   }
 
   async function fetchSucceededArtifacts(
@@ -1200,7 +1525,24 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     const out: Record<string, unknown> = {};
     for (const r of rows) {
-      out[r.stepId] = { artifact: r.artifacts };
+      const a = r.artifacts as ArtifactPersisted | null;
+      if (!a) continue;
+      // Project outputs[] into a name-keyed map so that
+      // `{{steps.X.artifact.outputs.design}}` resolves to a single
+      // OutputPersisted object (not the whole array). The interpolation
+      // walker then applies kind-specific eager resolution (git_file → blob).
+      const outputsByName: Record<string, OutputPersisted> = {};
+      if (Array.isArray(a.outputs)) {
+        for (const o of a.outputs) {
+          outputsByName[o.name] = o;
+        }
+      }
+      out[r.stepId] = {
+        artifact: {
+          outputs: outputsByName,
+          data: a.data ?? {},
+        },
+      };
     }
     return out;
   }
@@ -1419,6 +1761,566 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     return listRunsExt(db, args);
   }
 
+  /**
+   * Cancel an active governed-workflow run. Idempotent guard via
+   * `cancelled_at IS NULL` + `status = 'active'`. Cascades step executions
+   * in `pending|running|gate_eval` to `cancelled` (terminal states are
+   * preserved for audit).
+   *
+   * Authorization (spec §4): the run's initiator can always cancel; any
+   * other actor needs `workflows:cancel_run`. Cross-tenant access falls
+   * through as `WORKFLOW_RUN_NOT_FOUND` (the `companyId` filter on the
+   * SELECT) — never `WORKFLOW_FORBIDDEN`, so existence is not leaked.
+   *
+   * Atomicity: run UPDATE + step cascade + audit insert run inside a
+   * single TX with `FOR UPDATE` on the run row to serialize concurrent
+   * cancels. The live event is published from inside the TX after all
+   * writes; if the publish itself throws, the TX rolls back and the user
+   * sees a clean failure rather than half-cancelled state.
+   */
+  async function cancelRun(args: CancelRunArgs): Promise<CancelRunResult> {
+    // Reason length check first — cheap, fail fast, no DB hit.
+    if (typeof args.reason !== "string" || args.reason.trim().length < 5) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+        "Cancellation reason must be at least 5 characters.",
+        ["Provide a clear reason explaining why the run is being cancelled."],
+      );
+    }
+
+    // Data needed for post-tx mergeRunBranch — populated inside the tx.
+    // Wrapped in an object so TypeScript cross-closure mutation tracking works.
+    const pendingCancelMerge: {
+      data: {
+        gitProvider: GitProvider;
+        workflowName: string;
+        startedAt: Date | null;
+        ticket: string | null;
+        cancelledAt: Date;
+        triggeredBy: string;
+        author: { name: string; email: string };
+        stepsSummary: Array<{ stepId: string; state: string }>;
+      } | null;
+    } = { data: null };
+
+    const txResult = await db.transaction(async (tx) => {
+      // Lock the run row with FOR UPDATE so concurrent cancel calls serialize
+      // — the second one will see cancelledAt != null and reject cleanly.
+      const [run] = await tx
+        .select()
+        .from(governedWorkflowRuns)
+        .where(
+          and(
+            eq(governedWorkflowRuns.id, args.runId),
+            eq(governedWorkflowRuns.companyId, args.companyId),
+          ),
+        )
+        .for("update");
+
+      if (!run) {
+        // Cross-tenant or missing — both surface as NOT_FOUND so existence
+        // is not leaked across tenants (mirrors getRun behaviour).
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+          `Run '${args.runId}' not found.`,
+        );
+      }
+
+      if (run.status !== "active") {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_ACTIVE,
+          `Run is '${run.status}', only active runs can be cancelled.`,
+          ["Only runs with status='active' can be cancelled."],
+        );
+      }
+
+      if (run.cancelledAt !== null) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_ALREADY_CANCELLED,
+          `Run '${args.runId}' is already cancelled (since ${run.cancelledAt.toISOString()}).`,
+        );
+      }
+
+      // Authorization: initiator OR has workflows:cancel_run. We delegate
+      // permission resolution to accessService (one source of truth) and
+      // reuse the `tx` connection so the check honours the same RLS scope
+      // as the run lookup. accessService.hasPermission already handles
+      // both 'user' and 'agent' principal types (with agent fallback to
+      // direct agent_permissions rows).
+      const isInitiator = args.actor.id === run.initiatedByActorId;
+      let allowed = isInitiator;
+      if (!allowed && (args.actor.type === "user" || args.actor.type === "agent")) {
+        const access = accessService(tx as unknown as Db);
+        allowed = await access.hasPermission(
+          args.companyId,
+          args.actor.type,
+          args.actor.id,
+          PERMISSIONS.WORKFLOWS_CANCEL_RUN,
+        );
+      }
+      if (!allowed) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN,
+          "You can only cancel runs you initiated, or you need the workflows:cancel_run permission.",
+          [
+            "Ask an admin to grant workflows:cancel_run, or have the run's initiator cancel it.",
+          ],
+        );
+      }
+
+      // Single Date instance reused across UPDATE / audit / live event so
+      // every consumer agrees on the cancellation timestamp (no microsecond
+      // drift between two `new Date()` calls).
+      const cancelledAt = new Date();
+
+      await tx
+        .update(governedWorkflowRuns)
+        .set({
+          cancelledAt,
+          cancelledByActorId: args.actor.id,
+          cancelledByActorType: args.actor.type,
+          cancellationReason: args.reason,
+          updatedAt: cancelledAt,
+        })
+        .where(eq(governedWorkflowRuns.id, args.runId));
+
+      // Cascade only touches in-flight states. Terminal states
+      // (succeeded/failed) are preserved as-is for audit.
+      const cascaded = await tx
+        .update(governedStepExecutions)
+        .set({ state: "cancelled", updatedAt: cancelledAt })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            inArray(governedStepExecutions.state, ["pending", "running", "gate_eval"]),
+          ),
+        )
+        .returning({ id: governedStepExecutions.id });
+      const cancelledStepIds = cascaded.map((r) => r.id);
+
+      // Audit — written directly in the TX so it's atomic with the state
+      // change. We bypass auditService(db).emit() here because that helper
+      // opens its own connection (for prev_hash chaining) and would commit
+      // even if our TX rolls back — leaving an orphan audit row. The
+      // prev_hash chain will self-heal on the next emit() since chaining
+      // looks at the latest row by created_at.
+      await tx.insert(auditEvents).values({
+        companyId: args.companyId,
+        actorId: args.actor.id,
+        actorType: args.actor.type,
+        action: "governed_run.cancelled",
+        targetType: "workflow",
+        targetId: args.runId,
+        metadata: {
+          runId: args.runId,
+          reason: args.reason,
+          cancelledStepIds,
+        },
+        severity: "info",
+        createdAt: cancelledAt,
+      });
+
+      // Publish the live event INSIDE the TX so a failure to dispatch
+      // (publisher throws) rolls the cancellation back. Acceptable because
+      // PublishFn is fire-and-forget against an in-memory bus — the only
+      // realistic failure is a programming error in the emitter.
+      emitRunCancelled({
+        publish: args.publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        cancelledAt,
+        cancelledByActorId: args.actor.id,
+        cancelledByActorType: args.actor.type,
+        reason: args.reason,
+        cancelledStepIds,
+      });
+
+      // Capture data for post-tx mergeRunBranch.
+      try {
+        const defInfo = await getDefByRun(args.companyId, args.runId);
+        const allSteps = await tx
+          .select({
+            stepIdInJson: governedStepExecutions.stepIdInJson,
+            state: governedStepExecutions.state,
+          })
+          .from(governedStepExecutions)
+          .where(eq(governedStepExecutions.runId, args.runId));
+
+        const gitProvider = await resolveGitProvider({
+          companyId: args.companyId,
+          userId: args.actor.type === "user" ? args.actor.id : null,
+          resourceType: "workflow",
+        });
+        const author = await resolveCommitAuthor({
+          db: tx as unknown as Db,
+          companyId: args.companyId,
+          actor: args.actor,
+        });
+
+        let triggeredBy: string;
+        if (args.actor.type === "user") {
+          const [u] = await tx
+            .select({ email: authUsers.email })
+            .from(authUsers)
+            .where(eq(authUsers.id, args.actor.id));
+          triggeredBy = u?.email ?? args.actor.id;
+        } else {
+          triggeredBy = args.actor.id;
+        }
+
+        pendingCancelMerge.data = {
+          gitProvider,
+          workflowName: defInfo.name,
+          startedAt: run.startedAt,
+          ticket: (run.paramsJson as Record<string, unknown> | undefined)?.ticket as string | null ?? null,
+          cancelledAt,
+          triggeredBy,
+          author,
+          stepsSummary: allSteps.map((s) => ({ stepId: s.stepIdInJson, state: s.state })),
+        };
+      } catch {
+        // Non-fatal: if we can't gather merge data, skip the post-tx merge.
+      }
+
+      return { runId: args.runId, cancelledAt, cancelledStepIds };
+    });
+
+    // Post-tx: merge the run branch into master (outside any DB transaction so
+    // we don't hold XACT locks while git operations run). Log on failure and
+    // continue — the run status is already committed.
+    if (pendingCancelMerge.data !== null) {
+      const cmd = pendingCancelMerge.data;
+      try {
+        await mergeRunBranch({
+          gitProvider: cmd.gitProvider,
+          runId: args.runId,
+          workflowName: cmd.workflowName,
+          ticket: cmd.ticket,
+          status: "cancelled",
+          stepsSummary: cmd.stepsSummary,
+          startedAt: cmd.startedAt,
+          completedAt: cmd.cancelledAt,
+          triggeredBy: cmd.triggeredBy,
+          author: cmd.author,
+        });
+      } catch (err) {
+        console.error(
+          `[governed-workflows] mergeRunBranch failed for run ${args.runId} (cancelled): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return txResult;
+  }
+
+  /**
+   * Reactivate a previously cancelled governed-workflow run. Mirrors
+   * `cancelRun`: same TX+lock+permission pattern, same audit/event shape
+   * (action `governed_run.reactivated`).
+   *
+   * Authorization: same rule as cancel — initiator OR
+   * `workflows:cancel_run` (we deliberately reuse the cancel permission
+   * rather than minting a separate `workflows:reactivate_run`; the
+   * capability is symmetric and operationally always granted together).
+   *
+   * Step restore policy: `cancelled` step executions are restored to
+   * `pending` if they never started (`started_at IS NULL`) or to
+   * `running` otherwise. Two UPDATEs are clearer than a CASE expression
+   * and keep the `updated_at` write consistent with the rest of the file.
+   */
+  async function reactivateRun(args: ReactivateRunArgs): Promise<ReactivateRunResult> {
+    return await db.transaction(async (tx) => {
+      // Lock the run row with FOR UPDATE so concurrent reactivate calls
+      // serialize — the second one will see cancelledAt === null and
+      // reject cleanly with WORKFLOW_RUN_NOT_CANCELLED.
+      const [run] = await tx
+        .select()
+        .from(governedWorkflowRuns)
+        .where(
+          and(
+            eq(governedWorkflowRuns.id, args.runId),
+            eq(governedWorkflowRuns.companyId, args.companyId),
+          ),
+        )
+        .for("update");
+
+      if (!run) {
+        // Cross-tenant or missing — both surface as NOT_FOUND so existence
+        // is not leaked across tenants (mirrors getRun/cancelRun behaviour).
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+          `Run '${args.runId}' not found.`,
+        );
+      }
+
+      if (run.cancelledAt === null) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_CANCELLED,
+          `Run '${args.runId}' is not cancelled.`,
+          ["Only cancelled runs can be reactivated."],
+        );
+      }
+
+      // Authorization: initiator OR has workflows:cancel_run. Same logic
+      // as cancelRun (kept inline rather than extracted because the
+      // duplication is short, readable, and lets each method own its own
+      // error message).
+      const isInitiator = args.actor.id === run.initiatedByActorId;
+      let allowed = isInitiator;
+      if (!allowed && (args.actor.type === "user" || args.actor.type === "agent")) {
+        const access = accessService(tx as unknown as Db);
+        allowed = await access.hasPermission(
+          args.companyId,
+          args.actor.type,
+          args.actor.id,
+          PERMISSIONS.WORKFLOWS_CANCEL_RUN,
+        );
+      }
+      if (!allowed) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_FORBIDDEN,
+          "You can only reactivate runs you initiated, or you need the workflows:cancel_run permission.",
+          [
+            "Ask an admin to grant workflows:cancel_run, or have the run's initiator reactivate it.",
+          ],
+        );
+      }
+
+      // Single Date instance reused across UPDATE / audit / live event so
+      // every consumer agrees on the reactivation timestamp.
+      const reactivatedAt = new Date();
+
+      await tx
+        .update(governedWorkflowRuns)
+        .set({
+          cancelledAt: null,
+          cancelledByActorId: null,
+          cancelledByActorType: null,
+          cancellationReason: null,
+          updatedAt: reactivatedAt,
+        })
+        .where(eq(governedWorkflowRuns.id, args.runId));
+
+      // Restore steps: cancelled → pending if never started, running otherwise.
+      // Two UPDATEs (rather than a single CASE expression) — clearer intent
+      // and the partition is small enough that perf doesn't matter.
+      const restoredToPending = await tx
+        .update(governedStepExecutions)
+        .set({ state: "pending", updatedAt: reactivatedAt })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.state, "cancelled"),
+            isNull(governedStepExecutions.startedAt),
+          ),
+        )
+        .returning({ id: governedStepExecutions.id });
+
+      const restoredToRunning = await tx
+        .update(governedStepExecutions)
+        .set({ state: "running", updatedAt: reactivatedAt })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.state, "cancelled"),
+            isNotNull(governedStepExecutions.startedAt),
+          ),
+        )
+        .returning({ id: governedStepExecutions.id });
+
+      const reactivatedStepIds = [
+        ...restoredToPending.map((r) => r.id),
+        ...restoredToRunning.map((r) => r.id),
+      ];
+
+      // Audit — written directly in the TX so it's atomic with the state
+      // change. We bypass auditService(db).emit() here for the same
+      // prev_hash skip rationale documented on cancelRun: the chain
+      // self-heals on the next emit() since chaining looks at the latest
+      // row by created_at.
+      await tx.insert(auditEvents).values({
+        companyId: args.companyId,
+        actorId: args.actor.id,
+        actorType: args.actor.type,
+        action: "governed_run.reactivated",
+        targetType: "workflow",
+        targetId: args.runId,
+        metadata: {
+          runId: args.runId,
+          reactivatedStepIds,
+        },
+        severity: "info",
+        createdAt: reactivatedAt,
+      });
+
+      // Publish the live event INSIDE the TX (same rationale as cancelRun).
+      emitRunReactivated({
+        publish: args.publishLiveEvent,
+        companyId: args.companyId,
+        runId: args.runId,
+        reactivatedByActorId: args.actor.id,
+        reactivatedByActorType: args.actor.type,
+        reactivatedStepIds,
+      });
+
+      return { runId: args.runId, reactivatedStepIds };
+    });
+  }
+
+  /**
+   * Resume a governed workflow run from a fresh client session.
+   *
+   * Returns the full history of succeeded steps (with outputs + data from
+   * artifactsJson) and the launch payload for the current pending/running
+   * step so the harness can Task() into the right agent without calling
+   * launchStep again (which would re-evaluate entry gates and mutate state).
+   *
+   * Choice: compute the launch payload INLINE here (no state change, no gate
+   * evaluation) rather than delegating to launchStep. This avoids the
+   * double-transition problem when the next step is already `running` (e.g.
+   * the agent was dispatched but the client session was cleared). A TODO is
+   * left for a future refactor that extracts `computeStepLaunchPayload` from
+   * launchStep so the two paths share code.
+   *
+   * TODO(refactor): extract the prompt-context interpolation + handoff-build
+   * portion of launchStep into a shared helper `computeStepLaunchPayload` so
+   * resumeRun and launchStep stay in sync if the interpolation logic changes.
+   */
+  async function resumeRun(args: { companyId: string; runId: string }) {
+    // Load the run row — same cross-tenant defense as getRun/cancelRun.
+    const [runRow] = await db
+      .select()
+      .from(governedWorkflowRuns)
+      .where(
+        and(
+          eq(governedWorkflowRuns.id, args.runId),
+          eq(governedWorkflowRuns.companyId, args.companyId),
+        ),
+      );
+    if (!runRow) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+        `Run '${args.runId}' not found.`,
+      );
+    }
+
+    // Load all step rows ordered by creation (= workflow step order).
+    const steps = await db
+      .select()
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId))
+      .orderBy(governedStepExecutions.createdAt);
+
+    // Build the history array from succeeded steps.
+    const succeededSteps = steps.filter((s) => s.state === "succeeded");
+    const history = await Promise.all(
+      succeededSteps.map(async (s) => {
+        // Resolve the email of the user who launched this step (null for agents).
+        let completedBy: string | null = null;
+        if (s.launchedByActorType === "user" && s.launchedByActorId) {
+          const [userRow] = await db
+            .select({ email: authUsers.email })
+            .from(authUsers)
+            .where(eq(authUsers.id, s.launchedByActorId));
+          completedBy = userRow?.email ?? null;
+        }
+        const artifact = s.artifactsJson as ArtifactPersisted | null;
+        return {
+          step_id: s.stepIdInJson,
+          state: s.state,
+          outputs: artifact?.outputs ?? [],
+          data: artifact?.data ?? {},
+          started_at: s.startedAt?.toISOString() ?? null,
+          completed_at: s.completedAt?.toISOString() ?? null,
+          completed_by: completedBy,
+        };
+      }),
+    );
+
+    // Find the current step: first non-succeeded, non-terminal step.
+    const nextStep = steps.find(
+      (s) => s.state === "pending" || s.state === "running" || s.state === "gate_eval",
+    );
+
+    // Resolve the definition name (needed to re-parse the workflow JSON).
+    const defInfo = await getDefByRun(args.companyId, args.runId);
+
+    if (!nextStep) {
+      // Run is fully done (all steps succeeded, or was completed/failed/cancelled).
+      return {
+        run_id: runRow.id,
+        workflow_name: defInfo.name,
+        workflow_git_tag: runRow.workflowGitTag,
+        status: runRow.status,
+        history,
+        current_step: null,
+      };
+    }
+
+    // Compute the launch payload for the current step WITHOUT mutating state
+    // (no gate evaluation, no running transition). This is safe to call for
+    // both pending (never launched) and running (launched but session cleared)
+    // steps because we skip the entry gate — the gate was either already
+    // passed (running) or will be evaluated on the next explicit launchStep.
+    const parsed = await getWorkflowParsed({
+      companyId: args.companyId,
+      name: defInfo.name,
+      gitTag: defInfo.workflowGitTag,
+      userId: null, // resumeRun has no actor — use company-level git access
+    });
+
+    const stepDef = parsed.workflow.steps.find((s) => s.id === nextStep.stepIdInJson);
+    if (!stepDef) {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_STEP_NOT_FOUND,
+        `Step '${nextStep.stepIdInJson}' not found in workflow definition.`,
+      );
+    }
+
+    // Interpolate prompt_context (mirrors launchStep lines 919-924).
+    // resolveGitProvider uses userId=null — resumeRun has no human actor.
+    const resumeRunGitProvider = await resolveGitProvider({
+      companyId: args.companyId,
+      userId: null,
+      resourceType: "workflow",
+    });
+    const params = await fetchRunParams(args.companyId, args.runId);
+    const previousArtifacts = await fetchSucceededArtifacts(db, args.runId);
+    const promptContext = await interpolatePromptContext(
+      stepDef.prompt_context,
+      { variables: params, steps: previousArtifacts },
+      resumeRunGitProvider,
+    );
+
+    // Build handoffs (mirrors launchStep lines 926-934).
+    const prevStepRows = await db
+      .select({
+        stepIdInJson: governedStepExecutions.stepIdInJson,
+        state: governedStepExecutions.state,
+        artifactsJson: governedStepExecutions.artifactsJson,
+      })
+      .from(governedStepExecutions)
+      .where(eq(governedStepExecutions.runId, args.runId));
+    const handoffs = buildHandoffsForStep(prevStepRows as any);
+
+    return {
+      run_id: runRow.id,
+      workflow_name: defInfo.name,
+      workflow_git_tag: runRow.workflowGitTag,
+      status: runRow.status,
+      history,
+      current_step: {
+        step_id: nextStep.stepIdInJson,
+        state: nextStep.state,
+        agent_name: stepDef.agent,
+        prompt_context: promptContext,
+        subagent_type: `mnm--${stepDef.agent}`,
+        handoffs,
+        run_branch: runBranchName(args.runId),
+      },
+    };
+  }
+
   return {
     listDefinitions,
     getDefinition,
@@ -1431,6 +2333,9 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     setupWorkspace,
     pushLocalState,
     listRuns,
+    cancelRun,
+    reactivateRun,
+    resumeRun,
   };
 }
 

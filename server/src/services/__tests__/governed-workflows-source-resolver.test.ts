@@ -13,6 +13,8 @@ function stubProvider(overrides: Partial<GitProvider> = {}): GitProvider {
     createTag: vi.fn(async () => ({ sha: "x" })),
     fetchTree: vi.fn(async () => []),
     commitMultipleFiles: vi.fn(async () => ({ sha: "x" })),
+    mergeBranch: vi.fn(async () => ({ sha: "x" })),
+    deleteBranch: vi.fn(async () => undefined),
     ...overrides,
   };
 }

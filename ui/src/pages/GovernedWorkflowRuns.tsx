@@ -29,8 +29,10 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Play, GitBranch } from "lucide-react";
 import type { GovernedRunRow } from "@mnm/shared";
+import { RunActionButton } from "@/components/workflows/RunActionButton";
 
 const ALL_STATUSES_SENTINEL = "__all__";
 const STATUS_OPTIONS = ["", "draft", "active", "completed", "failed"] as const;
@@ -197,6 +199,7 @@ export function GovernedWorkflowRuns() {
                 <th className="px-4 py-2 text-left font-medium">Terminé le</th>
                 <th className="px-4 py-2 text-left font-medium">Lancé par</th>
                 <th className="px-4 py-2 text-left font-medium">Tag git</th>
+                <th className="px-4 py-2 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -208,9 +211,23 @@ export function GovernedWorkflowRuns() {
                 >
                   <td className="px-4 py-2 font-mono text-xs">{row.id.slice(0, 8)}</td>
                   <td className="px-4 py-2">
-                    <Badge variant={(runStatusVariant[row.status] ?? "secondary") as "default" | "secondary" | "outline" | "destructive"}>
-                      {row.status}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant={(runStatusVariant[row.status] ?? "secondary") as "default" | "secondary" | "outline" | "destructive"}>
+                        {row.status}
+                      </Badge>
+                      {row.cancelledAt && (
+                        row.cancellationReason ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="secondary" className="cursor-help">Annulé</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>{row.cancellationReason}</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Badge variant="secondary">Annulé</Badge>
+                        )
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-muted-foreground text-xs">
                     {row.startedAt ? formatDateTime(row.startedAt) : "—"}
@@ -229,6 +246,14 @@ export function GovernedWorkflowRuns() {
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <RunActionButton
+                      runId={row.id}
+                      status={row.status}
+                      cancelledAt={row.cancelledAt}
+                      workflowName={name!}
+                    />
                   </td>
                 </tr>
               ))}

@@ -245,6 +245,14 @@ describe("schema barrel exports", () => {
   it("exposes the state + status const tuples", async () => {
     const { GOVERNED_RUN_STATUSES, GOVERNED_STEP_STATES } = await import("../schema/index.js");
     expect(GOVERNED_RUN_STATUSES).toEqual(["draft", "active", "completed", "failed"]);
-    expect(GOVERNED_STEP_STATES).toEqual(["pending", "running", "gate_eval", "succeeded", "failed"]);
+    // 'cancelled' added in migration 0069 (workflow run cancellation).
+    expect(GOVERNED_STEP_STATES).toEqual([
+      "pending",
+      "running",
+      "gate_eval",
+      "succeeded",
+      "failed",
+      "cancelled",
+    ]);
   });
 });

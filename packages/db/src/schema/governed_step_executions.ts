@@ -17,6 +17,7 @@ export const GOVERNED_STEP_STATES = [
   "gate_eval",
   "succeeded",
   "failed",
+  "cancelled",
 ] as const;
 export type GovernedStepState = (typeof GOVERNED_STEP_STATES)[number];
 

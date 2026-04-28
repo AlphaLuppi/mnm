@@ -24,6 +24,8 @@ function fixtureProvider(blobs = FIXTURE_BLOBS, sha = "src-sha"): GitProvider {
     commitFile: async () => ({ sha: "n" }),
     commitMultipleFiles: async () => ({ sha: "n" }),
     createTag: async () => ({ sha: "n" }),
+    mergeBranch: async () => ({ sha: "n" }),
+    deleteBranch: async () => {},
   };
 }
 
@@ -46,6 +48,8 @@ function recordingDestProvider(commitSha = "dst-sha") {
       recorded.tag = args.name;
       return { sha: args.ref };
     },
+    mergeBranch: async () => ({ sha: commitSha }),
+    deleteBranch: async () => {},
   };
   return { provider, recorded };
 }

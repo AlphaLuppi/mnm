@@ -33,6 +33,10 @@ type ResolveGitProviderFn = (args: {
  *    `resourceType: "workflow"` so it picks up the company-scoped
  *    config; userId stays null because gates run after the run is
  *    underway, with no per-call user context.
+ *  - `fetchHandoff({git_sha, path})` — fetch a Git blob by sha+path via
+ *    the company's workflow GitProvider. Used by gates that need to
+ *    inspect the actual content of a previous step's persisted artifact
+ *    (e.g. lint a design.md, parse a JSON spec, etc.).
  *
  * Future helpers land additively — the `helpers` record is extensible.
  */
@@ -120,5 +124,25 @@ export function buildGateHelpers(deps: {
     });
   }
 
-  return { queryTraces, checkWorkflowExists, getMergeRequestApprovals };
+  async function fetchHandoff(args: { git_sha: string; path: string }) {
+    if (!resolveGitProvider) {
+      throw new Error(
+        "fetchHandoff helper unavailable: resolveGitProvider not wired",
+      );
+    }
+    if (typeof args?.git_sha !== "string" || args.git_sha.length === 0) {
+      throw new Error("fetchHandoff: git_sha (string) required");
+    }
+    if (typeof args?.path !== "string" || args.path.length === 0) {
+      throw new Error("fetchHandoff: path (string) required");
+    }
+    const provider = await resolveGitProvider({
+      companyId,
+      userId: null,
+      resourceType: "workflow",
+    });
+    return provider.fetchBlob({ ref: args.git_sha, path: args.path });
+  }
+
+  return { queryTraces, checkWorkflowExists, getMergeRequestApprovals, fetchHandoff };
 }
