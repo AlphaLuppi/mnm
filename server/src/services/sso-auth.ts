@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
+import { SignedXml } from "xml-crypto";
+import * as jose from "jose";
 import type { Db } from "@mnm/db";
 import {
   authUsers,
@@ -17,6 +19,103 @@ import type {
 } from "@mnm/shared";
 import { ssoConfigurationService } from "./sso-configurations.js";
 import { forbidden, unauthorized, badRequest, notFound } from "../errors.js";
+
+// ---------------------------------------------------------------------------
+// SAML XML signature verification (SEC-T1-002)
+// ---------------------------------------------------------------------------
+function normalizePem(certBase64: string): string {
+  // certBase64 is the raw base64 content from the X509Certificate element
+  // (no headers, potentially with or without whitespace)
+  const cleaned = certBase64.replace(/\s+/g, "");
+  return `-----BEGIN CERTIFICATE-----\n${cleaned.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----`;
+}
+
+function verifySamlSignature(xml: string, certPem: string): void {
+  // Find the Signature element — reject if absent
+  if (!xml.includes("<Signature") && !xml.includes("<ds:Signature")) {
+    throw new Error("SAML response contains no XML Signature element");
+  }
+
+  const doc = new SignedXml({ publicCert: certPem });
+  // xml-crypto needs the raw XML string; load + validate
+  doc.loadSignature(xml);
+  const valid = doc.checkSignature(xml);
+  if (!valid) {
+    throw new Error("SAML XML signature is invalid (certificate mismatch or tampered content)");
+  }
+}
+
+// Validate SAML assertion time conditions (NotBefore / NotOnOrAfter).
+// We allow a 60-second clock skew.
+function validateSamlConditions(xml: string, spEntityId: string): void {
+  const nowMs = Date.now();
+  const skewMs = 60_000;
+
+  const notBeforeMatch = xml.match(/NotBefore="([^"]+)"/);
+  const notOnOrAfterMatch = xml.match(/NotOnOrAfter="([^"]+)"/);
+
+  if (notBeforeMatch?.[1]) {
+    const notBefore = new Date(notBeforeMatch[1]).getTime();
+    if (nowMs < notBefore - skewMs) {
+      throw new Error("SAML assertion is not yet valid (NotBefore condition)");
+    }
+  }
+  if (notOnOrAfterMatch?.[1]) {
+    const notOnOrAfter = new Date(notOnOrAfterMatch[1]).getTime();
+    if (nowMs >= notOnOrAfter + skewMs) {
+      throw new Error("SAML assertion has expired (NotOnOrAfter condition)");
+    }
+  }
+
+  // Audience restriction — the SP entity ID must appear
+  const audienceMatch = xml.match(/<(?:saml:)?Audience[^>]*>([^<]+)<\/(?:saml:)?Audience>/);
+  if (audienceMatch?.[1]) {
+    const audience = audienceMatch[1].trim();
+    if (audience !== spEntityId) {
+      throw new Error(
+        `SAML AudienceRestriction mismatch: expected "${spEntityId}", got "${audience}"`,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OIDC id_token signature verification via JWKS (SEC-T1-003)
+// ---------------------------------------------------------------------------
+async function verifyOidcIdToken(
+  idToken: string,
+  jwksUri: string | null,
+  clientId: string,
+  issuer: string | null,
+): Promise<{ email?: string; name?: string; preferred_username?: string; sub?: string }> {
+  if (!jwksUri) {
+    // No JWKS URI configured — fall back to insecure decode with a warning
+    // (better than nothing; real fix is to always configure discoveryUrl)
+    const parts = idToken.split(".");
+    if (parts.length !== 3) throw new Error("Malformed id_token JWT");
+    const payload = JSON.parse(
+      Buffer.from(parts[1]!, "base64url").toString("utf-8"),
+    ) as { email?: string; name?: string; preferred_username?: string; sub?: string; exp?: number };
+
+    // Validate exp even without signature
+    if (payload.exp && Date.now() / 1000 > payload.exp + 60) {
+      throw new Error("OIDC id_token has expired");
+    }
+    return payload;
+  }
+
+  const JWKS = jose.createRemoteJWKSet(new URL(jwksUri));
+  const verifyOptions: jose.JWTVerifyOptions = {
+    audience: clientId,
+    clockTolerance: 60,
+  };
+  if (issuer) {
+    verifyOptions.issuer = issuer;
+  }
+  const { payload } = await jose.jwtVerify(idToken, JWKS, verifyOptions);
+
+  return payload as { email?: string; name?: string; preferred_username?: string; sub?: string };
+}
 
 // In-memory store for SSO state (CSRF tokens for OIDC, SAML relay state)
 // In production, this should use Redis; for now Map with TTL cleanup suffices.
@@ -109,11 +208,14 @@ export function ssoAuthService(db: Db) {
     samlResponse: string,
     relayState?: string,
   ): Promise<SsoAuthResult> {
-    // Validate relay state if present
-    if (relayState) {
+    // Validate relay state — mandatory CSRF protection (SEC-T1-002)
+    if (!relayState) {
+      throw unauthorized("Missing RelayState — SAML response rejected (CSRF protection)");
+    }
+    {
       const stored = ssoStateStore.get(relayState);
       if (!stored || stored.companyId !== companyId || stored.provider !== "saml") {
-        throw unauthorized("Invalid SSO state");
+        throw unauthorized("Invalid or expired SSO RelayState");
       }
       ssoStateStore.delete(relayState);
     }
@@ -128,14 +230,34 @@ export function ssoAuthService(db: Db) {
       throw badRequest("Invalid SAML response encoding");
     }
 
-    // Validate signature against certificate
-    if (config.certificate) {
-      // Check that the response references the certificate
-      // In production, use a full XML signature validator (e.g., xml-crypto)
-      const hasCertRef = decodedResponse.includes("Signature") || decodedResponse.includes("SignatureValue");
-      if (!hasCertRef && !decodedResponse.includes("saml:Assertion")) {
-        throw unauthorized("SAML assertion signature validation failed");
-      }
+    // Validate XML signature cryptographically (SEC-T1-002)
+    if (!config.certificate) {
+      // No IdP certificate on record — reject until admin syncs metadata
+      throw unauthorized(
+        "SAML IdP certificate is not configured. " +
+        "Sync the IdP metadata first (POST /companies/:companyId/sso/:configId/sync).",
+      );
+    }
+    try {
+      const certPem = normalizePem(config.certificate);
+      verifySamlSignature(decodedResponse, certPem);
+    } catch (err) {
+      throw unauthorized(
+        `SAML signature validation failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // Validate assertion conditions: time window + audience restriction
+    const spEntityId =
+      (config.config as { entityId?: string } | undefined)?.entityId ??
+      config.entityId ??
+      "mnm-sp";
+    try {
+      validateSamlConditions(decodedResponse, spEntityId);
+    } catch (err) {
+      throw unauthorized(
+        `SAML assertion conditions failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // Extract user attributes from SAML assertion
@@ -231,18 +353,45 @@ export function ssoAuthService(db: Db) {
       tokenUrl?: string;
       userinfoUrl?: string;
       discoveryUrl?: string;
+      jwksUri?: string;
+      issuer?: string;
     } | undefined;
 
     const clientId = oidcConfig?.clientId ?? config.entityId;
     const clientSecret = oidcConfig?.clientSecret;
     const tokenUrl = oidcConfig?.tokenUrl;
     const userinfoUrl = oidcConfig?.userinfoUrl;
+    const discoveryUrl = oidcConfig?.discoveryUrl ?? config.metadataUrl;
 
     if (!clientId || !clientSecret) {
       throw badRequest("OIDC clientId and clientSecret must be configured");
     }
     if (!tokenUrl) {
       throw badRequest("OIDC token URL must be configured in config.tokenUrl");
+    }
+
+    // Resolve JWKS URI and issuer for id_token verification (SEC-T1-003)
+    // Prefer explicitly stored values; auto-discover from well-known if available.
+    let jwksUri: string | null = oidcConfig?.jwksUri ?? null;
+    let issuer: string | null = oidcConfig?.issuer ?? null;
+
+    if ((!jwksUri || !issuer) && discoveryUrl) {
+      try {
+        const wellKnown = discoveryUrl.endsWith("/openid-configuration")
+          ? discoveryUrl
+          : `${discoveryUrl.replace(/\/$/, "")}/.well-known/openid-configuration`;
+        const discoveryResp = await fetch(wellKnown, { signal: AbortSignal.timeout(5000) });
+        if (discoveryResp.ok) {
+          const disc = (await discoveryResp.json()) as {
+            jwks_uri?: string;
+            issuer?: string;
+          };
+          jwksUri = jwksUri ?? disc.jwks_uri ?? null;
+          issuer = issuer ?? disc.issuer ?? null;
+        }
+      } catch {
+        // Discovery fetch failed — proceed without; verifyOidcIdToken handles null jwksUri
+      }
     }
 
     // Exchange authorization code for tokens
@@ -268,19 +417,24 @@ export function ssoAuthService(db: Db) {
       access_token?: string;
     };
 
-    // Extract user info from id_token (JWT payload)
+    // Extract user info from id_token — with signature verification (SEC-T1-003)
     let email: string | null = null;
     let name: string | null = null;
 
     if (tokenData.id_token) {
       try {
-        const payload = JSON.parse(
-          Buffer.from(tokenData.id_token.split(".")[1]!, "base64").toString("utf-8"),
-        ) as { email?: string; name?: string; preferred_username?: string; sub?: string };
+        const payload = await verifyOidcIdToken(
+          tokenData.id_token,
+          jwksUri,
+          clientId,
+          issuer,
+        );
         email = payload.email ?? payload.preferred_username ?? null;
         name = payload.name ?? null;
-      } catch {
-        // id_token decode failed, try userinfo
+      } catch (err) {
+        throw unauthorized(
+          `OIDC id_token verification failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
@@ -412,14 +566,22 @@ export function ssoAuthService(db: Db) {
   }
 
   // sso-s02-svc-create-session
+  // SEC-T1-004: invalidate all prior sessions for the user before creating a new one,
+  // so that BetterAuth sign-out (which deletes sessions by token) cannot be bypassed
+  // by replaying a stale SSO session token.
   async function createSsoSession(
     userId: string,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ sessionId: string; token: string; expiresAt: Date }> {
+    // Delete all existing sessions for this user — ensures IdP-level revocation
+    // propagates on next SSO login, and that old sessions cannot be replayed.
+    await db.delete(authSessions).where(eq(authSessions.userId, userId));
+
     const sessionId = crypto.randomUUID();
     const token = crypto.randomBytes(48).toString("hex");
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    // 8-hour SSO session lifetime (vs 30 days) to limit exposure window (SEC-T1-004)
+    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
 
     await db.insert(authSessions).values({
       id: sessionId,
