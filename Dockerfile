@@ -12,9 +12,25 @@ FROM node:lts-trixie-slim AS base
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git unzip \
   && rm -rf /var/lib/apt/lists/*
-# Install bun (project package manager)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
+# SEC-T10-003: Pin bun to a specific version and verify SHA256 checksum.
+# DO NOT use curl|bash — that executes untrusted code without any verification.
+# To update: change BUN_VERSION + BUN_SHA256 (from https://github.com/oven-sh/bun/releases).
+ENV BUN_VERSION=1.2.10
+ENV BUN_SHA256=63cf4048a74f5e37ebd53e2d2e97b54fbe3a38f76706d4ca4d42de1d2d5e98c7
+RUN arch="$(uname -m)"; \
+    case "$arch" in \
+      x86_64)  BUN_ARCH="x64" ;; \
+      aarch64) BUN_ARCH="aarch64" ;; \
+      *) echo "Unsupported arch: $arch" && exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${BUN_ARCH}.zip" \
+      -o /tmp/bun.zip \
+    && echo "${BUN_SHA256}  /tmp/bun.zip" | sha256sum -c - \
+    && unzip /tmp/bun.zip -d /tmp \
+    && mv "/tmp/bun-linux-${BUN_ARCH}/bun" /usr/local/bin/bun \
+    && chmod +x /usr/local/bin/bun \
+    && rm -rf /tmp/bun.zip "/tmp/bun-linux-${BUN_ARCH}"
+ENV PATH="/usr/local/bin:$PATH"
 
 FROM base AS deps
 WORKDIR /app
