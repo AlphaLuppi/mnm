@@ -133,6 +133,13 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
   const trustedOrigins = new Set<string>();
 
+  // Packaged Tauri desktop origins. The webview loads from `tauri://localhost`
+  // on macOS/Linux and `http://tauri.localhost` on Windows — both must be
+  // trusted by Better Auth so cross-origin /api/auth/* calls succeed.
+  trustedOrigins.add("tauri://localhost");
+  trustedOrigins.add("http://tauri.localhost");
+  trustedOrigins.add("https://tauri.localhost");
+
   if (baseUrl) {
     try {
       trustedOrigins.add(new URL(baseUrl).origin);

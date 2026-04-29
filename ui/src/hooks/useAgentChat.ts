@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ChatServerPayload } from "@mnm/shared";
 import { chatApi, type ChatMessage } from "../api/chat";
 import { queryKeys } from "../lib/queryKeys";
+import { resolveWsUrl } from "../lib/api-base";
 
 // chat-s04-connection-state
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
@@ -86,8 +87,7 @@ export function useAgentChat(opts: UseAgentChatOptions): UseAgentChatResult {
     const connect = () => {
       if (closed) return;
 
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws/chat/${channelId}`;
+      const wsUrl = resolveWsUrl(`/ws/chat/${channelId}`);
 
       setConnectionState("connecting");
       socket = new WebSocket(wsUrl);

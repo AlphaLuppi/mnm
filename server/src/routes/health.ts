@@ -14,6 +14,13 @@ export function healthRoutes(
     authReady: boolean;
     companyDeletionEnabled: boolean;
     redisState?: RedisState | null;
+    /**
+     * Minimum desktop client version the backend still accepts, e.g.
+     * "0.1.0". When set, /api/health advertises it so desktop builds
+     * below this version can show an update banner. `null` means no
+     * minimum is enforced.
+     */
+    minClientVersion?: string | null;
   } = {
     deploymentMode: "local_trusted",
     deploymentExposure: "private",
@@ -23,9 +30,11 @@ export function healthRoutes(
 ) {
   const router = Router();
 
+  const minClientVersion = opts.minClientVersion ?? null;
+
   router.get("/", async (_req, res) => {
     if (!db) {
-      res.json({ status: "ok" });
+      res.json({ status: "ok", minClientVersion });
       return;
     }
 
@@ -129,6 +138,7 @@ export function healthRoutes(
       features: {
         companyDeletionEnabled: opts.companyDeletionEnabled,
       },
+      minClientVersion,
     });
   });
 

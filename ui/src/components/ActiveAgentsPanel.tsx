@@ -7,6 +7,7 @@ import { issuesApi } from "../api/issues";
 import { getUIAdapter } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
 import { queryKeys } from "../lib/queryKeys";
+import { resolveWsUrl } from "../lib/api-base";
 import { cn, relativeTime } from "../lib/utils";
 import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
@@ -292,8 +293,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(companyId)}/events/ws`;
+      const url = resolveWsUrl(`/api/companies/${encodeURIComponent(companyId)}/events/ws`);
       socket = new WebSocket(url);
 
       socket.onmessage = (message) => {

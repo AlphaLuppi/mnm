@@ -35,6 +35,7 @@ import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
+import { resolveWsUrl } from "../lib/api-base";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { LensSelector } from "../components/traces/LensSelector";
 import { LensAnalysisResult } from "../components/traces/LensAnalysisResult";
@@ -167,8 +168,7 @@ export function TraceDetail() {
   useEffect(() => {
     if (!selectedCompanyId || !traceId || !trace || trace.status !== "running") return;
 
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(selectedCompanyId)}/events/ws`;
+    const url = resolveWsUrl(`/api/companies/${encodeURIComponent(selectedCompanyId)}/events/ws`);
 
     let socket: WebSocket | null = null;
     let closed = false;

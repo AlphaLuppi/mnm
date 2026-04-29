@@ -238,6 +238,23 @@
     height: 100%;
     overflow: hidden;
   }
+  /*
+   * Packaged desktop shell: DesktopTitleBar owns the top 36px of the
+   * window for drag region + profile switcher. Push body content below
+   * it. Class is stamped on <html> by main.tsx only when running in
+   * packaged Tauri (not in web build, not in Tauri dev with HMR).
+   */
+  html.tauri-shell body {
+    padding-top: 36px;
+  }
+  /*
+   * Client-version warning banner sits immediately below the title bar
+   * when a min-version mismatch is detected. ClientVersionBanner toggles
+   * `tauri-banner-visible` on <html> to reserve an extra 36px.
+   */
+  html.tauri-shell.tauri-banner-visible body {
+    padding-top: 72px;
+  }
   .font-mono, code, pre, kbd, samp {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }

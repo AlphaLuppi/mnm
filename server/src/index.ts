@@ -625,6 +625,7 @@ const app = await createApp(db as any, {
   redisState,
   betterAuthHandler,
   resolveSession,
+  minClientVersion: process.env.MNM_MIN_CLIENT_VERSION ?? null,
 });
 const server = createServer(app as unknown as Parameters<typeof createServer>[0]);
 const listenPort = await detectPort(config.port);

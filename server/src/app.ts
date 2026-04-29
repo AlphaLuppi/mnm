@@ -126,9 +126,49 @@ export async function createApp(
     redisState?: RedisState | null;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
+    /**
+     * Minimum desktop client version the backend still accepts. Surfaced
+     * via /api/health so out-of-date desktop builds can show an update
+     * banner. `null` means no minimum is enforced.
+     */
+    minClientVersion?: string | null;
   },
 ) {
   const app = express();
+
+  // ── CORS for the packaged Tauri desktop client ───────────────────────────
+  // The webview loads from `tauri://localhost` (macOS/Linux) or
+  // `http://tauri.localhost` (Windows) and talks to the backend cross-origin.
+  // Express alone doesn't ship CORS headers, so without this the desktop app
+  // can't reach any endpoint. Better Auth handles its own /api/auth/* routes
+  // via trustedOrigins — this middleware covers every other path.
+  const DESKTOP_CORS_ORIGINS = new Set([
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+  ]);
+  app.use((req, res, next) => {
+    const origin = req.header("origin");
+    if (origin && DESKTOP_CORS_ORIGINS.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type, X-MnM-Client-Version",
+      );
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      );
+      res.setHeader("Access-Control-Expose-Headers", "X-MnM-Deployment");
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
 
   // ── Trust proxy (SEC-T5-005) ──────────────────────────────────────────────
   // In authenticated (prod) mode the server sits behind a reverse proxy / load
