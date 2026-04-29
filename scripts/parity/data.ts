@@ -519,15 +519,9 @@ export const parityData: ParityData = {
           id: "profile-dynamic-csp",
           name: "Strict CSP resolved from the active profile",
           description:
-            "Replace the current `null` CSP with a strict one whose connect-src is derived from the active profile's apiBaseUrl. Regenerate on profile switch.",
+            "Rust csp.rs builds a strict CSP whose connect-src is derived from the active profile's apiBaseUrl (with ws/wss origin auto-derived). Tauri command csp_for_active_profile + applyDynamicCsp() stamps a <meta http-equiv> tag at boot before any fetch fires. 15 unit tests cover URL parsing, ws/wss derivation, malformed URLs, no leakage.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            code: [
-              "Rust helper: build_csp(profile) → CSP header string",
-              "Apply via tauri runtime CSP or per-window config on profile switch",
-            ],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "profile-health-check",
@@ -541,17 +535,17 @@ export const parityData: ParityData = {
           id: "profile-switcher-ui",
           name: "Title bar profile switcher (Slack-style)",
           description:
-            "Compact switcher in the title bar showing the active profile + dropdown to switch. Company logo / color per profile for instant recognition.",
+            "DesktopTitleBar component (36px overlay, draggable region) hosts ProfileSwitcher: pill with deterministic FNV-1a color avatar + name + chevron, dropdown of profiles with active indicator, 'Add instance' opens AddProfileDialog. Profile switch triggers setActiveProfile + window.location.reload to repaint with the new profile's CSP/auth.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "first-run-wizard",
           name: "First-run wizard: Local vs Remote instance",
           description:
-            "Welcome screen on first launch. Explains the two modes and gates users without a backend toward the private repo (via `backend-setup-link`).",
+            "NoProfileGate renders a 2-step wizard pre-mount: WelcomeStep with ModeCard (Local pre-fills name='Local' + URL='http://localhost:3100'; Remote starts empty with admin-URL hint), then ConnectStep collects + validates and calls addProfile() without auto-switching (lets user review before committing). Drag region scoped to title bar only.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "backend-setup-link",
@@ -570,16 +564,9 @@ export const parityData: ParityData = {
           id: "api-version-compat",
           name: "API version compatibility check",
           description:
-            "Desktop sends `X-MnM-Client-Version` on every request. Backend responds with a compatibility header; desktop surfaces a non-blocking warning banner when the client is below the minimum supported version.",
+            "Backend reads MNM_MIN_CLIENT_VERSION env var, exposes it on /api/health (top-level field). Desktop initClientVersion() at boot reads response, setMinClientVersion() compares against package.json semver via compareClientVersion (MAJOR.MINOR.PATCH), and ClientVersionBanner uses useSyncExternalStore to render an amber strip below the title bar with a per-version sessionStorage dismiss + GitHub releases CTA.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
-          todo: {
-            code: [
-              "UI: interceptor to inject version header on every fetch/WS connection",
-              "Backend: min-supported-client header on /health (or similar)",
-              "UI: banner with 'update desktop app' CTA pointing to the releases page",
-            ],
-          },
+          desktop: { status: "done", since: "0.1.2" },
         },
       ],
     },
@@ -649,18 +636,21 @@ export const parityData: ParityData = {
           name: "Strict Content Security Policy (nonce-based)",
           web: WEB_NA,
           desktop: {
-            status: "missing",
-            notes: "Currently CSP is null for POC iteration.",
+            status: "partial",
+            notes:
+              "Strict CSP shipped via dynamic <meta http-equiv> at boot (connect-src derived from active profile, ws/wss origin auto-derived). Nonce-based inline-script lockdown still pending — splash IIFE + theme bootstrap currently rely on 'unsafe-inline'.",
           },
           todo: {
-            config: ["Move to strict CSP with nonce for inline scripts"],
+            config: ["Move splash + theme inline scripts to nonce'd hashes"],
           },
         },
         {
           id: "keychain-tokens",
           name: "Keychain-stored OAuth tokens (tauri-plugin-keyring)",
+          description:
+            "Session token persisted via tauri-plugin-keyring + keyring crate (apple-native). secrets.rs commands: secret_set/get/delete keyed by profile id, cascade delete on profile_remove. TS layer: secrets-client.ts with in-memory cache + initSessionToken() at boot, signIn/signUp extract session.token to keychain, signOut clears, API client injects Authorization: Bearer from cache.",
           web: WEB_NA,
-          desktop: DESKTOP_MISSING,
+          desktop: { status: "done", since: "0.1.2" },
         },
         {
           id: "native-menus-traffic-lights",
