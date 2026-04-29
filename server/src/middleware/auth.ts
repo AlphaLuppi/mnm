@@ -87,6 +87,12 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       .where(and(eq(agentApiKeys.keyHash, tokenHash), isNull(agentApiKeys.revokedAt)))
       .then((rows) => rows[0] ?? null);
 
+    // SEC-T8-07: reject expired API keys
+    if (key && key.expiresAt && key.expiresAt < new Date()) {
+      next();
+      return;
+    }
+
     if (!key) {
       const claims = verifyLocalAgentJwt(token);
       if (!claims) {

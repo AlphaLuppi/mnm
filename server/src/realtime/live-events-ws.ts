@@ -6,6 +6,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { agentApiKeys, companyMemberships, instanceUserRoles } from "@mnm/db";
 import type { DeploymentMode, LiveEvent } from "@mnm/shared";
+import { isUuidLike } from "@mnm/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
 import { accessService } from "../services/access.js";
@@ -13,6 +14,12 @@ import { resolveActorTagContext } from "../services/tag-scope-resolver.js";
 import { subscribeCompanyLiveEvents } from "../services/live-events.js";
 import { agentTagCache } from "./agent-tag-cache.js";
 import { canReceiveEvent } from "./event-visibility.js";
+import {
+  parseAllowedWsOrigins,
+  isOriginAllowed,
+  WS_MAX_PAYLOAD_BYTES,
+  MAX_WS_CONNECTIONS_PER_ACTOR,
+} from "./ws-security.js";
 
 interface WsSocket {
   readyState: number;
@@ -41,7 +48,7 @@ interface WsServer {
 const require = createRequire(import.meta.url);
 const { WebSocket, WebSocketServer } = require("ws") as {
   WebSocket: { OPEN: number };
-  WebSocketServer: new (opts: { noServer: boolean }) => WsServer;
+  WebSocketServer: new (opts: { noServer: boolean; maxPayload?: number }) => WsServer;
 };
 
 interface UpgradeContext {
@@ -108,11 +115,35 @@ async function authorizeUpgrade(
   opts: {
     deploymentMode: DeploymentMode;
     resolveSessionFromHeaders?: (headers: Headers) => Promise<BetterAuthSessionResult | null>;
+    allowedOrigins: string[];
   },
 ): Promise<UpgradeContext | null> {
+  // SEC-T2-005: validate companyId is a well-formed UUID before any DB query
+  if (!isUuidLike(companyId)) {
+    logger.warn({ companyId }, "ws upgrade rejected: invalid companyId format");
+    return null;
+  }
+
+  // SEC-T8-01: Origin validation (CSWSH). Skip in local_trusted (dev) mode.
+  if (opts.deploymentMode !== "local_trusted") {
+    const origin = req.headers["origin"];
+    if (!isOriginAllowed(origin, opts.allowedOrigins)) {
+      logger.warn({ origin, companyId }, "ws upgrade rejected: origin not in allowlist");
+      return null;
+    }
+  }
+
+  // SEC-T8-02 / T6-04: Do NOT use ?token= query param — tokens in URLs are logged.
+  // Agents MUST pass Authorization: Bearer <token>. Log a warning if they still use query param.
   const queryToken = url.searchParams.get("token")?.trim() ?? "";
+  if (queryToken.length > 0) {
+    logger.warn(
+      { companyId, hasQueryToken: true },
+      "ws upgrade: token passed via query string is deprecated and ignored; use Authorization: Bearer header",
+    );
+  }
   const authToken = parseBearerToken(req.headers.authorization);
-  const token = authToken ?? (queryToken.length > 0 ? queryToken : null);
+  const token = authToken ?? null; // query-string token REJECTED
 
   const access = accessService(db);
 
@@ -184,6 +215,12 @@ async function authorizeUpgrade(
     return null;
   }
 
+  // SEC-T8-07: reject expired keys
+  if (key.expiresAt && key.expiresAt < new Date()) {
+    logger.warn({ keyId: key.id, companyId }, "ws upgrade rejected: API key expired");
+    return null;
+  }
+
   await db
     .update(agentApiKeys)
     .set({ lastUsedAt: new Date() })
@@ -218,11 +255,19 @@ export function setupLiveEventsWebSocketServer(
   opts: {
     deploymentMode: DeploymentMode;
     resolveSessionFromHeaders?: (headers: Headers) => Promise<BetterAuthSessionResult | null>;
+    allowedOrigins?: string[];
   },
 ) {
-  const wss = new WebSocketServer({ noServer: true });
+  // SEC-T8-01: parse allowed origins from opts or env
+  const allowedOrigins = opts.allowedOrigins ?? parseAllowedWsOrigins();
+
+  // SEC-T8-06: cap incoming frame size to prevent memory bombs
+  const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD_BYTES });
   const cleanupByClient = new Map<WsSocket, () => void>();
   const aliveByClient = new Map<WsSocket, boolean>();
+
+  // SEC-T8-03: per-actor connection limit (keyed by actorId)
+  const connCountByActor = new Map<string, number>();
 
   const pingInterval = setInterval(() => {
     for (const socket of wss.clients) {
@@ -236,11 +281,18 @@ export function setupLiveEventsWebSocketServer(
   }, 30000);
   pingInterval.unref();
 
-  const cleanupSocket = (socket: WsSocket) => {
+  const cleanupSocket = (socket: WsSocket, actorId?: string) => {
     const cleanup = cleanupByClient.get(socket);
     if (cleanup) cleanup();
     cleanupByClient.delete(socket);
     aliveByClient.delete(socket);
+    // SEC-T8-03: decrement actor connection counter
+    if (actorId) {
+      const prev = connCountByActor.get(actorId) ?? 1;
+      const next = prev - 1;
+      if (next <= 0) connCountByActor.delete(actorId);
+      else connCountByActor.set(actorId, next);
+    }
   };
 
   // WS-SEC-05: Shared agent tag cache for all connections
@@ -253,6 +305,19 @@ export function setupLiveEventsWebSocketServer(
       return;
     }
     const ctx = maybeContext; // narrowed, captured for closures
+
+    // SEC-T8-03: enforce per-actor connection limit
+    const actorConnKey = `${ctx.companyId}:${ctx.actorId}`;
+    const currentConns = connCountByActor.get(actorConnKey) ?? 0;
+    if (currentConns >= MAX_WS_CONNECTIONS_PER_ACTOR) {
+      logger.warn(
+        { companyId: ctx.companyId, actorId: ctx.actorId, currentConns },
+        "ws connection rejected: per-actor limit reached",
+      );
+      socket.close(1008, "connection limit reached");
+      return;
+    }
+    connCountByActor.set(actorConnKey, currentConns + 1);
 
     // WS-SEC-05: Build the actor and overlap resolver for this connection
     const actor = {
@@ -335,12 +400,12 @@ export function setupLiveEventsWebSocketServer(
     });
 
     socket.on("close", () => {
-      cleanupSocket(socket);
+      cleanupSocket(socket, actorConnKey);
     });
 
     socket.on("error", (err: Error) => {
       logger.warn({ err, companyId: ctx.companyId }, "live websocket client error");
-      cleanupSocket(socket);
+      cleanupSocket(socket, actorConnKey);
     });
   });
 
@@ -364,6 +429,7 @@ export function setupLiveEventsWebSocketServer(
     void authorizeUpgrade(db, req, companyId, url, {
       deploymentMode: opts.deploymentMode,
       resolveSessionFromHeaders: opts.resolveSessionFromHeaders,
+      allowedOrigins,
     })
       .then((context) => {
         if (!context) {

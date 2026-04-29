@@ -626,6 +626,8 @@ export function agentService(db: Db) {
 
       const token = createToken();
       const keyHash = hashToken(token);
+      // SEC-T8-07: set expiry 90 days from now for all new keys
+      const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
       const created = await db
         .insert(agentApiKeys)
         .values({
@@ -633,6 +635,7 @@ export function agentService(db: Db) {
           companyId: existing.companyId,
           name,
           keyHash,
+          expiresAt,
         })
         .returning()
         .then((rows) => rows[0]);

@@ -14,6 +14,12 @@ import {
   type ChatWsManager,
 } from "../services/chat-ws-manager.js";
 import type { RedisState } from "../redis.js";
+import {
+  parseAllowedWsOrigins,
+  isOriginAllowed,
+  WS_MAX_PAYLOAD_BYTES,
+  MAX_WS_CONNECTIONS_PER_ACTOR,
+} from "./ws-security.js";
 
 const logger = parentLogger.child({ module: "chat-ws" });
 
@@ -48,7 +54,7 @@ interface WsServer {
 const require = createRequire(import.meta.url);
 const { WebSocket, WebSocketServer } = require("ws") as {
   WebSocket: { OPEN: number };
-  WebSocketServer: new (opts: { noServer: boolean }) => WsServer;
+  WebSocketServer: new (opts: { noServer: boolean; maxPayload?: number }) => WsServer;
 };
 
 interface UpgradeContext {
@@ -122,11 +128,21 @@ async function authorizeChatUpgrade(
     resolveSessionFromHeaders?: (
       headers: Headers,
     ) => Promise<BetterAuthSessionResult | null>;
+    allowedOrigins: string[];
   },
 ): Promise<
   | { ok: true; context: UpgradeContext }
   | { ok: false; statusLine: string; message: string }
 > {
+  // SEC-T8-01: Origin validation (CSWSH). Skip in local_trusted (dev) mode.
+  if (opts.deploymentMode !== "local_trusted") {
+    const origin = req.headers["origin"];
+    if (!isOriginAllowed(origin, opts.allowedOrigins)) {
+      logger.warn({ origin }, "chat ws upgrade rejected: origin not in allowlist");
+      return { ok: false, statusLine: "403 Forbidden", message: "Origin not allowed" };
+    }
+  }
+
   // 1. Verify channel exists and is open
   const channel = await db
     .select()
@@ -145,9 +161,17 @@ async function authorizeChatUpgrade(
   const companyId = channel.companyId;
 
   // 2. Authenticate the actor
+  // SEC-T8-02 / T6-04: Do NOT accept token via ?token= query param — tokens in URLs are logged.
+  // Agents MUST pass Authorization: Bearer <token>. Warn and ignore if still using query param.
   const queryToken = url.searchParams.get("token")?.trim() ?? "";
+  if (queryToken.length > 0) {
+    logger.warn(
+      { channelId, hasQueryToken: true },
+      "chat ws upgrade: token passed via query string is deprecated and ignored; use Authorization: Bearer header",
+    );
+  }
   const authToken = parseBearerToken(req.headers.authorization);
-  const token = authToken ?? (queryToken.length > 0 ? queryToken : null);
+  const token = authToken ?? null; // query-string token REJECTED
 
   if (!token) {
     // No token: local_trusted or session-based auth
@@ -252,6 +276,16 @@ async function authorizeChatUpgrade(
     };
   }
 
+  // SEC-T8-07: reject expired keys
+  if (key.expiresAt && key.expiresAt < new Date()) {
+    logger.warn({ keyId: key.id, channelId }, "chat ws upgrade rejected: API key expired");
+    return {
+      ok: false,
+      statusLine: "403 Forbidden",
+      message: "API key expired",
+    };
+  }
+
   // Update last used
   await db
     .update(agentApiKeys)
@@ -278,10 +312,18 @@ export function setupChatWebSocketServer(
       headers: Headers,
     ) => Promise<BetterAuthSessionResult | null>;
     redisState?: RedisState | null;
+    allowedOrigins?: string[];
   },
 ): { wss: WsServer; manager: ChatWsManager } {
-  const wss = new WebSocketServer({ noServer: true });
+  // SEC-T8-01: parse allowed origins from opts or env
+  const allowedOrigins = opts.allowedOrigins ?? parseAllowedWsOrigins();
+
+  // SEC-T8-06: cap incoming frame size
+  const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD_BYTES });
   const aliveByClient = new Map<WsSocket, boolean>();
+
+  // SEC-T8-03: per-actor connection limit (keyed by actorId)
+  const connCountByActor = new Map<string, number>();
 
   const manager = createChatWsManager({
     db,
@@ -310,6 +352,19 @@ export function setupChatWebSocketServer(
     }
 
     const { channelId, companyId, actorId, actorType, actorName } = context;
+
+    // SEC-T8-03: enforce per-actor connection limit
+    const actorConnKey = `${companyId}:${actorId}`;
+    const currentConns = connCountByActor.get(actorConnKey) ?? 0;
+    if (currentConns >= MAX_WS_CONNECTIONS_PER_ACTOR) {
+      logger.warn(
+        { companyId, actorId, currentConns },
+        "chat ws connection rejected: per-actor limit reached",
+      );
+      socket.close(1008, "connection limit reached");
+      return;
+    }
+    connCountByActor.set(actorConnKey, currentConns + 1);
 
     // Register connection
     void manager.addConnection(channelId, socket, actorId, actorType, actorName);
@@ -401,9 +456,17 @@ export function setupChatWebSocketServer(
         });
     });
 
+    const releaseConnSlot = () => {
+      const prev = connCountByActor.get(actorConnKey) ?? 1;
+      const next = prev - 1;
+      if (next <= 0) connCountByActor.delete(actorConnKey);
+      else connCountByActor.set(actorConnKey, next);
+    };
+
     socket.on("close", () => {
       manager.removeConnection(channelId, socket);
       aliveByClient.delete(socket);
+      releaseConnSlot();
     });
 
     socket.on("error", (err: Error) => {
@@ -413,6 +476,7 @@ export function setupChatWebSocketServer(
       );
       manager.removeConnection(channelId, socket);
       aliveByClient.delete(socket);
+      releaseConnSlot();
     });
   });
 
@@ -434,6 +498,7 @@ export function setupChatWebSocketServer(
     void authorizeChatUpgrade(db, req, channelId, url, {
       deploymentMode: opts.deploymentMode,
       resolveSessionFromHeaders: opts.resolveSessionFromHeaders,
+      allowedOrigins,
     })
       .then((authResult) => {
         if (!authResult.ok) {
