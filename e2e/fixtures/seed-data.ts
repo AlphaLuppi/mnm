@@ -107,7 +107,10 @@ export const runtimeIds: Record<string, string> = { ...IDS };
 
 // ─── Auth Credentials ───────────────────────────────────────────────────────
 
-export const TEST_PASSWORD = "E2eTestPass!2026";
+// SEC-T10-005: password loaded from env to avoid committed credentials.
+// Set E2E_TEST_PASSWORD in .env.test (gitignored) or CI secrets.
+// Falls back to a default only in non-production environments.
+export const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? "E2eTestPass!2026";
 
 export const USERS = {
   novaTechAdmin: {

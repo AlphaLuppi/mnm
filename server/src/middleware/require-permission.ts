@@ -101,12 +101,9 @@ export function requirePermission(
         if (!agentId) {
           throw forbidden("Agent identity required");
         }
-        // Agents inherit permissions from their creator (the user whose sandbox they run in)
-        // First try agent's own permissions, then fall back to creator's permissions
-        let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey);
-        if (!allowed && req.actor.creatorUserId) {
-          allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey);
-        }
+        // SEC-T1-006: Agents must be explicitly granted permissions — no creator inheritance.
+        // A compromised agent token must never escalate to its creator's full permission set.
+        const allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey);
         if (!allowed) {
           logger.warn({
             event: "access.denied",
@@ -191,11 +188,8 @@ export async function assertCompanyPermission(
     if (!agentId) {
       throw forbidden("Agent identity required");
     }
-    // Agents inherit permissions from their creator
-    let allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey);
-    if (!allowed && req.actor.creatorUserId) {
-      allowed = await access.canUser(companyId, req.actor.creatorUserId, permissionKey);
-    }
+    // SEC-T1-006: Agents must be explicitly granted permissions — no creator inheritance.
+    const allowed = await access.hasPermission(companyId, "agent", agentId, permissionKey);
     if (!allowed) {
       logger.warn({
         event: "access.denied",
