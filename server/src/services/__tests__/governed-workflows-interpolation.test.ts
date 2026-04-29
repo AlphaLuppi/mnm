@@ -13,7 +13,7 @@ function makeGitProvider(blobContent = "fetched blob content"): GitProvider {
 
 describe("interpolatePromptContext", () => {
   it("inlines git_file blob content — happy path", async () => {
-    const gitProvider = makeGitProvider("# Design ISSUE-NN\n\nContent here.");
+    const gitProvider = makeGitProvider("# Design ISSUE-1\n\nContent here.");
 
     const scope = {
       variables: {},
@@ -43,7 +43,7 @@ describe("interpolatePromptContext", () => {
     );
 
     expect(result).toEqual({
-      system: "Use this design:\n# Design ISSUE-NN\n\nContent here.",
+      system: "Use this design:\n# Design ISSUE-1\n\nContent here.",
     });
     expect(gitProvider.fetchBlob).toHaveBeenCalledOnce();
     expect(gitProvider.fetchBlob).toHaveBeenCalledWith({
@@ -140,7 +140,7 @@ describe("interpolatePromptContext", () => {
     const gitProvider = makeGitProvider();
 
     const scope = {
-      variables: { ticket: "ISSUE-NN", environment: "qualif1" },
+      variables: { ticket: "ISSUE-4321", environment: "qualif" },
       steps: {},
     };
 
@@ -154,8 +154,8 @@ describe("interpolatePromptContext", () => {
     );
 
     expect(result).toEqual({
-      system: "Working on ISSUE-NN in qualif1",
-      nested: { detail: "ticket=ISSUE-NN" },
+      system: "Working on ISSUE-4321 in qualif",
+      nested: { detail: "ticket=ISSUE-4321" },
     });
     expect(gitProvider.fetchBlob).not.toHaveBeenCalled();
   });

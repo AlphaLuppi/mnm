@@ -355,7 +355,7 @@ the lead developer est en hackathon IA à your organization avec Claude Code ill
 **QA (vue de the lead developer) :**
 - Phase transition : les testeurs expliquent leurs tests manuels à MnM qui les automatise
 - Vraie plus-value : connaissance produit ultra-profonde (testent manuellement depuis longtemps), edge cases tricky que personne d'autre ne voit
-- Exemple concret : "vous avez pensé au cas où l'utilisateur est remplaçant d'une infirmière, et qu'il soigne un patient <redacted-acronym> + diabétique avec une mutuelle en <redacted-region> ?"
+- Exemple concret : "vous avez pensé au cas où l'utilisateur est remplaçant d'une infirmière, et qu.il soigne un edge case combinatoire avec plusieurs param.tres m.tier ?"
 - **"Si demain toute la chaîne est SUPER propre et IA boostée, effectivement ils perdraient leur utilité"**
 
 **CEO/DSI (vue de the lead developer) :**
@@ -370,7 +370,7 @@ the lead developer est en hackathon IA à your organization avec Claude Code ill
 PO et QA ont de la valeur parce qu'ils connaissent le métier/produit sur le bout des doigts. Si cette connaissance était capturée et accessible, le rôle-enveloppe devient questionnable.
 
 **Vérité #27 — L'edge case métier est la dernière forteresse humaine**
-"Patient <redacted-acronym> + diabétique + mutuelle <redacted-region>" = connaissance tellement contextuelle et combinatoire que seule l'expérience humaine la détecte. Mais une fois formalisée, l'IA peut l'apprendre.
+"<redacted-medical-context> <redacted-region>" = connaissance tellement contextuelle et combinatoire que seule l'expérience humaine la détecte. Mais une fois formalisée, l'IA peut l'apprendre.
 
 **Vérité #28 — La capture de savoir tacite est la clé de la transformation**
 Si MnM capture progressivement le savoir tribal (tests dans la tête du QA, contexte métier du PO), il accumule un actif qui rend les rôles-intermédiaires progressivement remplaçables. C'est le mécanisme de "faire péter les rôles".

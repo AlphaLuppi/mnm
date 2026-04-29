@@ -44,7 +44,7 @@ describe("GovernedWorkflowRuns — data helpers", () => {
         status: "active",
         startedAt: "2026-04-24T10:00:00Z",
         completedAt: null,
-        initiatedByActorId: "user-tom",
+        initiatedByActorId: "user-deadbeef",
         workflowGitTag: "my-workflow/v2",
       },
     ];

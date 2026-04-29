@@ -30,7 +30,7 @@ Language: French for planning documents. See README.md for full project docs.
 - NE PAS commiter de secrets dans VULNERABILITIES.md (juste référencer file:line)
 - Patch minimal, pas de refacto
 
-## Governed Workflows UI — Status: Workflow Studio + AI Assistant landed 2026-04-24 — pending Tom's morning review.
+## Governed Workflows UI — Status: Workflow Studio + AI Assistant landed 2026-04-24 — pending technical review.
 
 - U1–U8: nuke legacy, REST endpoints, live events, UI API client, 4 canonical pages, MCP tool parity, polish, Monaco autocomplete + JSON schema.
 - U12.1: silent-fail fix on GET /:name (surfaces git-fetch errors).

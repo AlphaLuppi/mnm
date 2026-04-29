@@ -164,7 +164,7 @@ Exécute ce dispatch, récupère l'artifact JSON `{ "greeting": "..." }`, puis :
 mnm.complete_governed_step  with  { run_id: "<id>", step_id: "greet", artifact: { "greeting": "Hello the maintainer!" } }
 ```
 
-La gate `greeting-ok` s'évalue (check que `greeting` est non-vide), le step `shout` devient dispatchable. Tu répètes pour `shout` → artifact `{ "shouted": "HELLO TOM!" }` → gate `uppercase-ok` passe → **workflow terminé**.
+La gate `greeting-ok` s'évalue (check que `greeting` est non-vide), le step `shout` devient dispatchable. Tu répètes pour `shout` → artifact `{ "shouted": "HELLO WORLD!" }` → gate `uppercase-ok` passe → **workflow terminé**.
 
 ---
 

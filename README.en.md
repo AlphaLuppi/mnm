@@ -19,7 +19,7 @@ MnM is a platform that orchestrates and supervises the AI agents used across you
 
 Three deployment modes: full local for solo devs, self-hosted single-company for teams, or hosted multi-company backend for large-scale distribution. Agent compute happens client-side (MCP, Desktop, local CLI) — the server is an API/data/orchestration layer.
 
-Built by Studio Manifeste. In production on 50+ developer teams.
+Built by Studio Manifeste. Currently being deployed in production with an enterprise pilot customer.
 
 ## 🚀 Flagship feature: Governed Workflows
 
@@ -123,7 +123,7 @@ The flywheel: the agent runs, the Quality Profile scores, the Gate Review decide
 
 ### Q3 2026 goal
 
-MnM in production on 50+ developer teams, the 3 pillars operational, first paying customers.
+MnM in production on cross-functional teams, the 3 pillars operational, first paying customers.
 
 ## Try MnM
 

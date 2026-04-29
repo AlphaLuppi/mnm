@@ -21,7 +21,6 @@ Acteurs récurrents :
 - Tom (co-fondateur, vision produit)
 - Gab (dev, B2B/architecture)
 - Niko (CEO)
-- <external-stakeholder> (EnterpriseCustomer, sessions stratégie)
 
 Thèmes principaux :
 - Tracing et observabilité (langfuse, gold/silver/bronze)
@@ -29,7 +28,7 @@ Thèmes principaux :
 - Governed workflows (DAG steps/gates)
 - View presets (abandonné — voir archive)
 - Pods et déploiements multi-tenant
-- B2B enterprise (EnterpriseCustomer, hackathon, interviews)
+- B2B enterprise (terrain, interviews)
 
 Voir [brainstorms/](brainstorms/) pour la liste complète (~17 fichiers).
 

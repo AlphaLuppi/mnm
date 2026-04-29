@@ -5,10 +5,6 @@ Artifacts post-livraison conservés pour traçabilité. Non maintenus activement
 Pour la pensée produit historique (visions, brainstormings) voir [../history/](../history/).
 Pour le travail courant voir [../superpowers/](../superpowers/).
 
-## historical-prd.md
-
-[historical-prd.md](historical-prd.md) — Ancien PRD interne (internal-product, refonte auth). Snapshot d'une étape antérieure du produit. Conservé pour contexte historique uniquement.
-
 ## sessions-completed/
 
 [sessions-completed/](sessions-completed/) — Prompts et progress logs de sessions Superpowers terminées. Permet de retracer comment une feature a été livrée step-by-step.
@@ -18,9 +14,8 @@ Pour le travail courant voir [../superpowers/](../superpowers/).
 
 ## shipped-epics/
 
-[shipped-epics/](shipped-epics/) — Epics BMAD livrées. ~21 fichiers couvrant :
+[shipped-epics/](shipped-epics/) — Epics BMAD livrées. Fichiers couvrant :
 
-- B2B enterprise transformation (`prd-b2b`, `ux-design-b2b`, `EXECUTION-TRACKER-V2`)
 - Pods et déploiements (`epic-pod`, `epic-deploy`)
 - Collaborative chat (`epic-chat`)
 - Config layers (`epics-config-layers`)

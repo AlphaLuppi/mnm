@@ -12,7 +12,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    allowedHosts: ["dev-host.example"],
+    // Add your tunnel/dev host via VITE_ALLOWED_HOSTS env var (comma-separated) if needed
+    allowedHosts: process.env.VITE_ALLOWED_HOSTS?.split(",").map((h) => h.trim()),
     proxy: {
       "/api": {
         target: "http://localhost:3100",

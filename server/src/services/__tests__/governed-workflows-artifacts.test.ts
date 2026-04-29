@@ -26,7 +26,7 @@ describe("commitHandoffArtifacts", () => {
         runId: "abc-123",
         stepId: "tech-design",
         input,
-        author: { name: "the maintainer", email: "tom@example.com" },
+        author: { name: "the maintainer", email: "alice@example.com" },
         startBranch: "main",
       });
 

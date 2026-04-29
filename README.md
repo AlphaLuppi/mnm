@@ -17,7 +17,7 @@ MnM est une plateforme qui orchestre et supervise les agents IA utilisés par to
 
 Trois modes de déploiement : full local pour les devs solo, self-hosted single company pour les équipes, ou backend hébergé multi-company pour distribuer à grande échelle. Le compute agent se fait côté client (MCP, Desktop, CLI locale) — le serveur est un API/data/orchestration layer.
 
-Fait par Studio Manifeste. En production sur des équipes 50+ devs.
+Fait par Studio Manifeste. En cours de déploiement en production avec un client pilote enterprise.
 
 ## 🚀 Feature phare : Governed Workflows
 
@@ -121,7 +121,7 @@ Le flywheel : l'agent exécute, le Quality Profile score, la Gate Review tranche
 
 ### Objectif T3 2026
 
-MnM en production en entreprise (50+ devs multi-métiers), les 3 piliers opérationnels, premiers clients payants.
+MnM en production sur des équipes pluri-disciplinaires, les 3 piliers opérationnels, premiers clients payants.
 
 ## Essayer MnM
 

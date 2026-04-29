@@ -9,13 +9,15 @@ Point d'entrée de la documentation MnM. Tous les liens sont relatifs à `docs/`
 - [`../AGENTS.md`](../AGENTS.md) — Guide opérationnel pour les agents intervenant sur le repo.
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — Workflow de contribution, commits, branches.
 
+## Vision & produit
+
+- [`product/`](product/) — Vision produit live : 3 piliers, autonomy continuum, product brief consolidé.
+
 ## Architecture & roadmap
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — Architecture canonique (multi-tenant, middleware chain, trace pipeline, config layers, CAO).
 - [`B2B-enterprise-roadmap.md`](B2B-enterprise-roadmap.md) — Roadmap entreprise B2B consolidée.
 - [`HISTORY.md`](HISTORY.md) — Historique condensé des décisions et pivots produit.
-- [`../ROADMAP-B2B-REMAINING.md`](../ROADMAP-B2B-REMAINING.md) — Reste à faire B2B (suite de `RELEASE-NOTES-B2B.md`).
-- [`../RELEASE-NOTES-B2B.md`](../RELEASE-NOTES-B2B.md) — Release notes du tronc B2B livré.
 
 ## Governed Workflows
 
@@ -44,7 +46,7 @@ Voir [`superpowers/`](superpowers/) pour la liste complète des plans actifs et 
 Brainstorms, visions, architectures intermédiaires, sessions de discovery. Utile pour comprendre le « pourquoi » des choix actuels — pas la source de vérité courante (voir `ARCHITECTURE.md` et `B2B-enterprise-roadmap.md` pour ça).
 
 - [`history/visions/`](history/visions/) — 4 visions consolidées (governed-workflows, product brief v3, vision MnM 2026-04-07, vision Projects v2).
-- [`history/brainstorms/`](history/brainstorms/) — ~17 sessions (Tom, Gab, Niko, EnterpriseCustomer, view presets, dashboard v2, governed workflows, langfuse tracing, projects v2, pods, traces).
+- [`history/brainstorms/`](history/brainstorms/) — ~17 sessions (Tom, Gab, Niko, view presets, dashboard v2, governed workflows, langfuse tracing, projects v2, pods, traces).
 - [`history/architectures/`](history/architectures/) — Architecture multi-tenant 2026-04-12, blocks platform progress.
 - [`history/discovery/`](history/discovery/) — DM hackathon, questions d'interview.
 
@@ -52,13 +54,9 @@ Brainstorms, visions, architectures intermédiaires, sessions de discovery. Util
 
 Artefacts post-livraison conservés pour traçabilité. Pas à lire pour onboarder.
 
-- [`archive/historical-prd.md`](archive/historical-prd.md) — PRD historique (figé).
 - [`archive/sessions-completed/`](archive/sessions-completed/) — Prompts de session terminés et progress logs.
-- [`archive/shipped-epics/`](archive/shipped-epics/) — ~21 epics livrés.
+- [`archive/shipped-epics/`](archive/shipped-epics/) — Epics livrés (pods, deploy, collaborative chat, config layers, roles & tags).
 - [`archive/abandoned/`](archive/abandoned/) — Pistes abandonnées (sandbox, scale, observability suite).
 - [`archive/reviews/`](archive/reviews/) — Reviews et audits passés.
 - [`archive/2026-04-07-historical-specs/`](archive/2026-04-07-historical-specs/) — 3 specs ponctuelles archivées.
-
-## Stories BMAD legacy
-
-Stories BMAD antérieures, conservées sous `_bmad-output/stories/`. Triage par statut dans le dossier (done / in-progress / abandoned). Le framework BMAD n'est plus utilisé pour les nouveaux développements — privilégier `superpowers/`.
+- [`archive/_bmad-legacy/`](archive/_bmad-legacy/) — Artefacts BMAD legacy (stories, specs, implementation artifacts, dashboard-v2, blocks-platform, sprint plans). Le framework BMAD n'est plus utilisé pour les nouveaux développements — privilégier `superpowers/`.

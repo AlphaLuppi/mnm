@@ -835,7 +835,7 @@ export function DesignGuide() {
                 <PriorityIcon priority="high" />
               </>
             }
-            identifier="PAP-001"
+            identifier="MNM-001"
             title="Implement authentication flow"
             subtitle="Assigned to Agent Alpha"
             trailing={<StatusBadge status="in_progress" />}
@@ -848,7 +848,7 @@ export function DesignGuide() {
                 <PriorityIcon priority="medium" />
               </>
             }
-            identifier="PAP-002"
+            identifier="MNM-002"
             title="Set up CI/CD pipeline"
             subtitle="Completed 2 days ago"
             trailing={<StatusBadge status="done" />}
@@ -861,7 +861,7 @@ export function DesignGuide() {
                 <PriorityIcon priority="low" />
               </>
             }
-            identifier="PAP-003"
+            identifier="MNM-003"
             title="Write API documentation"
             trailing={<StatusBadge status="todo" />}
             onClick={() => {}}
@@ -873,9 +873,9 @@ export function DesignGuide() {
                 <PriorityIcon priority="critical" />
               </>
             }
-            identifier="PAP-004"
+            identifier="MNM-004"
             title="Deploy to production"
-            subtitle="Blocked by PAP-001"
+            subtitle="Blocked by MNM-001"
             trailing={<StatusBadge status="blocked" />}
             selected
           />
@@ -1053,9 +1053,9 @@ export function DesignGuide() {
       <Section title="Log Viewer">
         <div className="bg-neutral-950 rounded-lg p-3 font-mono text-xs max-h-80 overflow-y-auto">
           <div className="text-foreground">[12:00:01] INFO  Agent started successfully</div>
-          <div className="text-foreground">[12:00:02] INFO  Processing task PAP-001</div>
+          <div className="text-foreground">[12:00:02] INFO  Processing task MNM-001</div>
           <div className="text-yellow-400">[12:00:05] WARN  Rate limit approaching (80%)</div>
-          <div className="text-foreground">[12:00:08] INFO  Task PAP-001 completed</div>
+          <div className="text-foreground">[12:00:08] INFO  Task MNM-001 completed</div>
           <div className="text-red-400">[12:00:12] ERROR Connection timeout to upstream service</div>
           <div className="text-blue-300">[12:00:12] SYS   Retrying connection in 5s...</div>
           <div className="text-foreground">[12:00:17] INFO  Reconnected successfully</div>
@@ -1151,13 +1151,13 @@ export function DesignGuide() {
           <div className="border border-border rounded-b-md">
             <EntityRow
               leading={<PriorityIcon priority="high" />}
-              identifier="PAP-101"
+              identifier="MNM-101"
               title="Build agent heartbeat system"
               onClick={() => {}}
             />
             <EntityRow
               leading={<PriorityIcon priority="medium" />}
-              identifier="PAP-102"
+              identifier="MNM-102"
               title="Add cost tracking dashboard"
               onClick={() => {}}
             />

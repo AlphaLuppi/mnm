@@ -310,7 +310,7 @@ Restart MnM. Un bouton "Sign in with Microsoft" apparaît à côté de email/pas
 
 - `common` — n'importe quel compte Microsoft, y compris perso. Dev-friendly, pas prod-safe.
 - `organizations` — n'importe quel tenant Azure AD, pas de perso. Multi-tenant SaaS.
-- `<enterprise tenant UUID>` — uniquement employés EnterpriseCustomer. **Use this in production.** Le UUID est sous Azure Portal → Entra ID → Overview.
+- `<enterprise tenant UUID>` — uniquement tenant employees. **Use this in production.** Le UUID est sous Azure Portal → Entra ID → Overview.
 
 ### Prompt behavior
 

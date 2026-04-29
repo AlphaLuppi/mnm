@@ -19,7 +19,7 @@ const execFileAsync = promisify(execFile);
 
 const SENIOR_DEV_AGENT_MD = `---
 name: senior-dev
-description: Tech lead for AY features
+description: Tech lead for example features
 ---
 
 # Senior Dev agent

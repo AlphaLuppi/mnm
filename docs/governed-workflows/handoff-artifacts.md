@@ -242,7 +242,7 @@ When a user clears their orchestrator session mid-run, the `resume_governed_work
       "data": {"ticket": "FEAT-001", "approval": {...}},
       "started_at": "2026-04-28T13:00:00Z",
       "completed_at": "2026-04-28T13:05:00Z",
-      "completed_by": "tom@example.com"
+      "completed_by": "alice@example.com"
     }
   ],
   "current_step": {

@@ -50,7 +50,12 @@ test-results/
 # Claude Code / Superpowers ephemeral state
 .superpowers/
 .collaborator
+.claude/worktrees/
+.claude/scheduled_tasks.lock
 
 # Git worktrees
 .worktrees/
 .claude/settings.local.json
+
+# Internal planning / private archives (not for public distribution)
+_bmad-output/
