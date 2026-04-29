@@ -316,6 +316,20 @@
       "when": 1745971200000,
       "tag": "0071_security_audit_rls_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1745971200001,
+      "tag": "0072_agent_api_keys_expires_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1746057600000,
+      "tag": "0073_company_attachment_max_bytes",
+      "breakpoints": true
     }
   ]
 }

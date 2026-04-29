@@ -13,8 +13,33 @@
 | Remote upstream | `https://github.com/paperclipai/paperclip.git` |
 | Dernier merge upstream | commit `14258051` (`Merge branch 'tom-paperclip' into master`) le **2026-03-13** |
 | Stratégie | **Fork stratégique permanent**. Pas de `git merge upstream/master`. Cherry-picks dirigés + portage architectural + vol de patterns. |
-| Dernier audit complet | **2026-04-28** (releases v2026.318.0 → v2026.427.0) |
+| Dernier audit complet | **2026-04-29** (releases v2026.318.0 → **v2026.428.0**) |
 | Prochain audit | **2026-05-28** (mensuel) |
+
+---
+
+## Audit 2026-04-29 — release v2026.428.0 (incremental)
+
+Released 2026-04-28T22:56Z. 4 DB migrations upstream (0071-0074), one author (@cryppadotta).
+
+### Triage
+
+| PR | Sujet | Verdict |
+|---|---|---|
+| [#4700](https://github.com/paperclipai/paperclip/pull/4700) | Per-company `attachmentMaxBytes` cap | 🟡 **PORTING** — MnM has env-only `MNM_ATTACHMENT_MAX_BYTES`. Add `companies.attachment_max_bytes` column + min(env, company) at upload. |
+| [#4615](https://github.com/paperclipai/paperclip/pull/4615) | Manual routine runs stay in runner inbox (touch issueReadStates on coalesce/skip) | 🟡 **PORTING** — MnM has routines. Bug present: coalesced/skipped manual runs don't surface in operator inbox. Effort S. |
+| [#4700](https://github.com/paperclipai/paperclip/pull/4700) | "Peer agents can't mutate issues they don't own" | ✅ **ALREADY DONE** in our Z7 port (commit `17607640e`). Verify nuances. |
+| [#4600](https://github.com/paperclipai/paperclip/pull/4600) | Newly-created companies default `requireBoardApprovalForNewAgents=false` | ⏸️ **PRODUCT DECISION** — MnM default is currently `true` (more conservative). Tom to validate flip. |
+| [#4600](https://github.com/paperclipai/paperclip/pull/4600) | Stranded recovery: redact retry-failure details, dispatch single recovery origin, honor maxConcurrentRuns | ⏭️ **N/A** — MnM has no `stranded_issue_recovery` issue-type / Paperclip-specific watchdog. |
+| [#4614](https://github.com/paperclipai/paperclip/pull/4614) | Dispatch assigned `todo` issues during recovery sweeps | ⏭️ **N/A** — Same reason. |
+| [#4616](https://github.com/paperclipai/paperclip/pull/4616) | Sidebar pause/resume agents | ⏭️ **DEFER** — UI sidebar Paperclip-specific layout, not aligned with MnM dashboard widgets. |
+| [#4701](https://github.com/paperclipai/paperclip/pull/4701) | Issue thread virtualization, scroll anchoring, latest-comment jump | ⏭️ **DEFER** — Upstream uses assistant-ui, MnM uses TanStack table. Different libs, different solutions. |
+| [#4701](https://github.com/paperclipai/paperclip/pull/4701) | Issues list cursor pagination | ⏭️ **DEFER** — Worth a dedicated session if list perf becomes a problem. |
+| [#4701](https://github.com/paperclipai/paperclip/pull/4701) | Routine variable inline help + mention support | ⏭️ **DEFER** — UX polish. |
+| [#4700](https://github.com/paperclipai/paperclip/pull/4700) + [#4701](https://github.com/paperclipai/paperclip/pull/4701) | Productivity review service (auto-open review issues for stalled work) | ⏭️ **DEFER** — Heavy feature, dedicated sprint required. Aligned with MnM Trace Pipeline + CAO watchdog vision but design pivot needed. |
+| [#4617](https://github.com/paperclipai/paperclip/pull/4617) | Inline selector keyboard handling | ⏭️ **DEFER** — UI-specific. |
+| [#4601](https://github.com/paperclipai/paperclip/pull/4601) | Reject stale company skill refreshes | ⏭️ **DEFER** — MnM company-skills are partial (cc-plugin-import does most), low priority. |
+| [#4602](https://github.com/paperclipai/paperclip/pull/4602) | Ignore stale stored company selections | ⏭️ **MAYBE** — MnM has CompanyProvider, check if same race exists. Defer pending audit. |
 
 ---
 

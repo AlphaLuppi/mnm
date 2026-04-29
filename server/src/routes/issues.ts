@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import type { Db } from "@mnm/db";
+import { companies } from "@mnm/db";
+import { eq } from "drizzle-orm";
 import { PERMISSIONS,
   addIssueCommentSchema,
   createIssueAttachmentMetadataSchema,
@@ -1316,6 +1318,22 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     if (file.buffer.length <= 0) {
       res.status(422).json({ error: "Attachment is empty" });
+      return;
+    }
+
+    // v2026.428.0 #4700 — per-company attachment cap (in addition to the
+    // process-level multer limit). The smaller of (env, company) wins.
+    const company = await db
+      .select({ attachmentMaxBytes: companies.attachmentMaxBytes })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+    const companyCap = company?.attachmentMaxBytes ?? MAX_ATTACHMENT_BYTES;
+    const effectiveCap = Math.min(MAX_ATTACHMENT_BYTES, companyCap);
+    if (file.buffer.length > effectiveCap) {
+      res.status(422).json({
+        error: `Attachment exceeds the per-company cap of ${effectiveCap} bytes`,
+      });
       return;
     }
 
