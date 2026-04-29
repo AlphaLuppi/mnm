@@ -1,0 +1,91 @@
+/**
+ * Thin typed wrapper around the Tauri `invoke` bridge for connection-profile
+ * storage. Safe to import from web builds — all non-init functions throw if
+ * called outside Tauri, and `initActiveProfile` no-ops in web mode.
+ *
+ * Mutation rule: the cached active profile is immutable. Any update assigns a
+ * brand-new object to `cachedActiveProfile`.
+ */
+import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "./runtime";
+import type {
+  Profile,
+  ProfileCreateInput,
+  ProfilePatch,
+} from "./profile-types";
+
+let cachedActiveProfile: Profile | null = null;
+
+function assertTauri(fn: string): void {
+  if (!isTauri()) {
+    throw new Error(`profile-client: ${fn} is not available in web mode`);
+  }
+}
+
+/**
+ * Boots the profile cache. MUST be called once at app startup, before any
+ * code reads `getCachedActiveProfile()` or calls `apiBase()` in a packaged
+ * desktop build. No-ops (and returns null) in web mode.
+ */
+export async function initActiveProfile(): Promise<Profile | null> {
+  if (!isTauri()) {
+    cachedActiveProfile = null;
+    return null;
+  }
+const profile = await invoke<Profile | null>("profile_get_active");
+  cachedActiveProfile = profile;
+  return profile;
+}
+
+/**
+ * Synchronously returns the cached active profile. Returns null before
+ * `initActiveProfile()` has completed or in web mode.
+ */
+export function getCachedActiveProfile(): Profile | null {
+  return cachedActiveProfile;
+}
+
+export async function listProfiles(): Promise<Profile[]> {
+  assertTauri("listProfiles");
+return invoke<Profile[]>("profile_list");
+}
+
+export async function addProfile(
+  input: ProfileCreateInput,
+): Promise<Profile> {
+  assertTauri("addProfile");
+const created = await invoke<Profile>("profile_add", { input });
+  // If no profile was active before, the new one becomes the active one.
+  if (cachedActiveProfile === null) {
+    cachedActiveProfile = created;
+  }
+  return created;
+}
+
+export async function updateProfile(
+  id: string,
+  patch: ProfilePatch,
+): Promise<Profile> {
+  assertTauri("updateProfile");
+const updated = await invoke<Profile>("profile_update", { id, patch });
+  if (cachedActiveProfile?.id === updated.id) {
+    // Assign a brand-new object — never mutate the cached profile.
+    cachedActiveProfile = { ...updated };
+  }
+  return updated;
+}
+
+export async function removeProfile(id: string): Promise<void> {
+  assertTauri("removeProfile");
+await invoke<void>("profile_remove", { id });
+  if (cachedActiveProfile?.id === id) {
+    cachedActiveProfile = null;
+  }
+}
+
+export async function setActiveProfile(id: string): Promise<Profile> {
+  assertTauri("setActiveProfile");
+const active = await invoke<Profile>("profile_set_active", { id });
+  cachedActiveProfile = active;
+  return active;
+}

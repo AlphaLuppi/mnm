@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Sprint 1 minimal capability set. Sprint 2 will scope per-window and add fs/keychain plugins.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:event:default",
+    "keyring:default"
+  ]
+}

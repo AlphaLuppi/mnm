@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="55%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full opaque 1024x1024 background. macOS applies its own squircle mask
+       at render time; Windows/Linux show the full square, which is fine. -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Subtle top specular highlight (optional; helps the icon read as a
+       physical surface when the OS applies its rounded mask) -->
+  <rect width="1024" height="180" fill="#ffffff" opacity="0.04"/>
+
+  <!-- ASCII MnM mark — content centered within Apple's safe area (~824x824).
+       All text sits comfortably inside the central ~80% of the canvas so
+       nothing gets clipped by the squircle. -->
+  <g font-family="'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace"
+     font-size="110"
+     font-weight="700"
+     fill="#fafaf9"
+     text-anchor="middle"
+     xml:space="preserve">
+    <text x="512" y="420">███╗ ███╗</text>
+    <text x="512" y="495">████╗████║</text>
+    <text x="512" y="570">██╔██╔██║</text>
+    <text x="512" y="645">██║ ╚═╝██║</text>
+  </g>
+</svg>
