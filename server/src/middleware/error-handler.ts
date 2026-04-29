@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { HttpError } from "../errors.js";
+import { sanitizeRecord } from "../redaction.js";
 
 export interface ErrorContext {
   error: { message: string; stack?: string; name?: string; details?: unknown; raw?: unknown };
@@ -17,11 +18,15 @@ function attachErrorContext(
   payload: ErrorContext["error"],
   rawError?: Error,
 ) {
+  // Redact sensitive fields (passwords, tokens, secrets) before attaching to error context
+  const safeBody = req.body && typeof req.body === "object"
+    ? sanitizeRecord(req.body as Record<string, unknown>)
+    : req.body;
   (res as any).__errorContext = {
     error: payload,
     method: req.method,
     url: req.originalUrl,
-    reqBody: req.body,
+    reqBody: safeBody,
     reqParams: req.params,
     reqQuery: req.query,
   } satisfies ErrorContext;

@@ -177,7 +177,17 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
 
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
-  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.MNM_AGENT_JWT_SECRET ?? "mnm-dev-secret";
+  const secret =
+    process.env.BETTER_AUTH_SECRET?.trim() ??
+    process.env.MNM_AGENT_JWT_SECRET?.trim() ??
+    (process.env.MNM_DEPLOYMENT_MODE !== "authenticated" ? "mnm-dev-secret" : undefined);
+  if (!secret) {
+    // Startup guard: index.ts checks this before calling createBetterAuthInstance, but
+    // guard here too so the function is safe to call in isolation (e.g. tests).
+    throw new Error(
+      "FATAL: BETTER_AUTH_SECRET (or MNM_AGENT_JWT_SECRET) is required in authenticated mode",
+    );
+  }
   const effectiveTrustedOrigins = trustedOrigins ?? deriveAuthTrustedOrigins(config);
 
   const publicUrl = process.env.MNM_PUBLIC_URL ?? baseUrl;

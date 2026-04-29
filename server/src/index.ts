@@ -64,6 +64,16 @@ type EmbeddedPostgresCtor = new (opts: {
 }) => EmbeddedPostgresInstance;
 
 const config = loadConfig();
+
+// SECURITY: MNM_E2E_SEED=true disables all rate limiting and exposes
+// unauthenticated privilege-escalation routes (/api/e2e-seed/*).
+// It MUST NOT be set in authenticated (production) mode.
+if (process.env.MNM_E2E_SEED === "true" && config.deploymentMode === "authenticated") {
+  throw new Error(
+    "FATAL: MNM_E2E_SEED must NEVER be set in authenticated mode — it disables all rate limiting and exposes unauthenticated admin routes",
+  );
+}
+
 if (process.env.MNM_SECRETS_PROVIDER === undefined) {
   process.env.MNM_SECRETS_PROVIDER = config.secretsProvider;
 }

@@ -4,6 +4,7 @@ import pino from "pino";
 import { pinoHttp } from "pino-http";
 import { readConfigFile } from "../config-file.js";
 import { resolveDefaultLogsDir, resolveHomeAwarePath } from "../home-paths.js";
+import { sanitizeRecord } from "../redaction.js";
 
 function resolveServerLogDir(): string {
   const envOverride = process.env.MNM_LOG_DIR?.trim();
@@ -63,7 +64,10 @@ export const httpLogger = pinoHttp({
       if (ctx) {
         return {
           errorContext: ctx.error,
-          reqBody: ctx.reqBody,
+          // Redact sensitive fields (passwords, tokens, secrets) before logging
+          reqBody: ctx.reqBody && typeof ctx.reqBody === "object"
+            ? sanitizeRecord(ctx.reqBody as Record<string, unknown>)
+            : undefined,
           reqParams: ctx.reqParams,
           reqQuery: ctx.reqQuery,
         };
@@ -71,7 +75,8 @@ export const httpLogger = pinoHttp({
       const props: Record<string, unknown> = {};
       const { body, params, query } = req as any;
       if (body && typeof body === "object" && Object.keys(body).length > 0) {
-        props.reqBody = body;
+        // Redact sensitive fields (passwords, tokens, secrets) before logging
+        props.reqBody = sanitizeRecord(body as Record<string, unknown>);
       }
       if (params && typeof params === "object" && Object.keys(params).length > 0) {
         props.reqParams = params;

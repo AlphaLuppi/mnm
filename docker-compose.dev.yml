@@ -17,6 +17,8 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: mnm
+      # DEV-ONLY: hardcoded password is intentional — this compose file is local-only (not internet-exposed).
+      # Production uses docker-compose.yml which requires POSTGRES_PASSWORD env var.
       POSTGRES_PASSWORD: mnm_dev
       POSTGRES_DB: mnm
     healthcheck:
