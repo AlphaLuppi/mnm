@@ -48,7 +48,6 @@ Brainstorms, visions, architectures intermédiaires, sessions de discovery. Util
 - [`history/visions/`](history/visions/) — 4 visions consolidées (governed-workflows, product brief v3, vision MnM 2026-04-07, vision Projects v2).
 - [`history/brainstorms/`](history/brainstorms/) — ~17 sessions (Tom, Gab, Niko, view presets, dashboard v2, governed workflows, langfuse tracing, projects v2, pods, traces).
 - [`history/architectures/`](history/architectures/) — Architecture multi-tenant 2026-04-12, blocks platform progress.
-- [`history/discovery/`](history/discovery/) — DM hackathon, questions d'interview.
 
 ## Archives
 

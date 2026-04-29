@@ -383,8 +383,8 @@ Si MnM capture progressivement le savoir tribal (tests dans la tête du QA, cont
 ---
 
 **Statut Phase 1 :** TERMINÉE — 29 vérités fondamentales extraites.
-**Fichier questions terrain :** `_bmad-output/brainstorming/tactical-deleted.md`
-**Fichier DM prêts :** `_bmad-output/brainstorming/tactical-deleted.md`
+**Fichier questions terrain :** (content tactique supprimé)
+**Fichier DM prêts :** (content tactique supprimé)
 
 ---
 
@@ -898,6 +898,6 @@ Le produit peut être parfait — si personne ne le confronte aux vrais décideu
 
 ### Fichiers de session
 - `_bmad-output/brainstorming/brainstorming-session-2026-03-12.md` (ce fichier)
-- `_bmad-output/brainstorming/tactical-deleted.md` (questions complètes)
-- `_bmad-output/brainstorming/tactical-deleted.md` (messages DM prêts à envoyer)
+- (content tactique supprimé) (questions complètes)
+- (content tactique supprimé) (messages DM prêts à envoyer)
 

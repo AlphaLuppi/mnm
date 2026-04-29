@@ -38,10 +38,3 @@ Décisions architecturales préservées pour traçabilité.
 
 - [architectures/architecture-multi-tenant-2026-04-12.md](architectures/architecture-multi-tenant-2026-04-12.md) — Pivot multi-tenant distribué. Base du middleware chain actuel.
 - [architectures/blocks-platform-progress.md](architectures/blocks-platform-progress.md) — Blocks Platform (json-render). 4 features cibles : View Presets, Dashboard CAO, Agent Forms, Inbox Interactive.
-
-## Discovery
-
-Interviews et préparation hackathon B2B.
-
-- [discovery/tactical-deleted.md](discovery/tactical-deleted.md)
-- [discovery/tactical-deleted.md](discovery/tactical-deleted.md)
