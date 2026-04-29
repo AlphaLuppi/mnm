@@ -1,6 +1,7 @@
 // onb-s03-validators
 
 import { z } from "zod";
+import { assertSafePublicUrl } from "./ssrf-guard.js";
 
 // Schema for Jira connection credentials
 export const jiraConnectionSchema = z.object({
@@ -9,6 +10,16 @@ export const jiraConnectionSchema = z.object({
     .url("baseUrl must be a valid URL")
     .refine((url) => url.startsWith("https://") || url.startsWith("http://"), {
       message: "baseUrl must start with http:// or https://",
+    })
+    .superRefine(async (url, ctx) => {
+      try {
+        await assertSafePublicUrl(url);
+      } catch (err: unknown) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: err instanceof Error ? err.message : "baseUrl points to a blocked address",
+        });
+      }
     }),
   email: z.string().email("email must be a valid email address"),
   apiToken: z.string().min(1, "apiToken must not be empty"),
@@ -16,7 +27,19 @@ export const jiraConnectionSchema = z.object({
 
 // Schema for import configuration
 export const importConfigSchema = z.object({
-  baseUrl: z.string().url(),
+  baseUrl: z
+    .string()
+    .url()
+    .superRefine(async (url, ctx) => {
+      try {
+        await assertSafePublicUrl(url);
+      } catch (err: unknown) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: err instanceof Error ? err.message : "baseUrl points to a blocked address",
+        });
+      }
+    }),
   email: z.string().email(),
   apiToken: z.string().min(1),
   projectKeys: z.array(z.string().min(1)).min(1, "At least one project key is required"),

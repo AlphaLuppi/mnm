@@ -1,6 +1,7 @@
 // onb-s03-jira-client
 
 import type { JiraIssue, JiraProject } from "./jira-field-mapping.js";
+import { assertSafePublicUrl } from "./ssrf-guard.js";
 
 export interface JiraClientConfig {
   baseUrl: string;
@@ -21,7 +22,10 @@ export interface JiraServerInfo {
   serverTitle: string;
 }
 
-export function createJiraClient(baseUrl: string, email: string, apiToken: string) {
+export async function createJiraClient(baseUrl: string, email: string, apiToken: string) {
+  // SSRF guard — reject private/loopback/link-local addresses before any fetch
+  await assertSafePublicUrl(baseUrl);
+
   // Normalize baseUrl: remove trailing slash
   const normalizedBase = baseUrl.replace(/\/+$/, "");
 

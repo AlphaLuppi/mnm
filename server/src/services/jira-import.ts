@@ -66,7 +66,7 @@ export function jiraImportService(db: Db) {
 
   // onb-s03-svc-processImport
   async function processImport(jobId: string, companyId: string, config: StartImportInput) {
-    const client = createJiraClient(config.baseUrl, config.email, config.apiToken);
+    const client = await createJiraClient(config.baseUrl, config.email, config.apiToken);
 
     // Mark as running
     await db

@@ -19,6 +19,7 @@ import { notFound, unprocessable } from "../errors.js";
 import { accessService } from "./access.js";
 import { agentService } from "./agents.js";
 import { companyService } from "./companies.js";
+import { assertSafePublicUrl } from "./ssrf-guard.js";
 
 const DEFAULT_INCLUDE: CompanyPortabilityInclude = {
   company: true,
@@ -489,6 +490,9 @@ export function companyPortabilityService(db: Db) {
     }
 
     if (source.type === "url") {
+      // SSRF guard — reject private/loopback/link-local addresses before any fetch
+      await assertSafePublicUrl(source.url);
+
       const manifestJson = await fetchJson(source.url);
       const manifest = portabilityManifestSchema.parse(manifestJson);
       const base = new URL(".", source.url);
@@ -497,11 +501,16 @@ export function companyPortabilityService(db: Db) {
 
       if (manifest.company?.path) {
         const companyPath = ensureMarkdownPath(manifest.company.path);
-        files[companyPath] = await fetchText(new URL(companyPath, base).toString());
+        const companyUrl = new URL(companyPath, base).toString();
+        // Guard each resolved URL — manifest paths could be absolute, overriding base
+        await assertSafePublicUrl(companyUrl);
+        files[companyPath] = await fetchText(companyUrl);
       }
       for (const agent of manifest.agents) {
         const filePath = ensureMarkdownPath(agent.path);
-        files[filePath] = await fetchText(new URL(filePath, base).toString());
+        const fileUrl = new URL(filePath, base).toString();
+        await assertSafePublicUrl(fileUrl);
+        files[filePath] = await fetchText(fileUrl);
       }
 
       return { manifest, files, warnings };

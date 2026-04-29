@@ -29,7 +29,7 @@ export function jiraImportRoutes(db: Db) {
         throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
       }
 
-      const client = createJiraClient(parsed.data.baseUrl, parsed.data.email, parsed.data.apiToken);
+      const client = await createJiraClient(parsed.data.baseUrl, parsed.data.email, parsed.data.apiToken);
       const serverInfo = await client.testConnection();
 
       res.json({ connected: true, serverInfo });
@@ -50,7 +50,7 @@ export function jiraImportRoutes(db: Db) {
         throw badRequest(parsed.error.issues.map((i) => i.message).join(", "));
       }
 
-      const client = createJiraClient(parsed.data.baseUrl, parsed.data.email, parsed.data.apiToken);
+      const client = await createJiraClient(parsed.data.baseUrl, parsed.data.email, parsed.data.apiToken);
       const jiraProjects = await client.fetchProjects();
 
       const projectsWithCounts = await Promise.all(
