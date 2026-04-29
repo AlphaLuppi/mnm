@@ -26,8 +26,8 @@ Released 2026-04-28T22:56Z. 4 DB migrations upstream (0071-0074), one author (@c
 
 | PR | Sujet | Verdict |
 |---|---|---|
-| [#4700](https://github.com/paperclipai/paperclip/pull/4700) | Per-company `attachmentMaxBytes` cap | 🟡 **PORTING** — MnM has env-only `MNM_ATTACHMENT_MAX_BYTES`. Add `companies.attachment_max_bytes` column + min(env, company) at upload. |
-| [#4615](https://github.com/paperclipai/paperclip/pull/4615) | Manual routine runs stay in runner inbox (touch issueReadStates on coalesce/skip) | 🟡 **PORTING** — MnM has routines. Bug present: coalesced/skipped manual runs don't surface in operator inbox. Effort S. |
+| [#4700](https://github.com/paperclipai/paperclip/pull/4700) | Per-company `attachmentMaxBytes` cap | ✅ **DONE** 2026-04-29 — added `companies.attachment_max_bytes` column (migration `0073`) + `min(env, company)` enforcement at upload (commit `2c37828f1`). |
+| [#4615](https://github.com/paperclipai/paperclip/pull/4615) | Manual routine runs stay in runner inbox (touch issueReadStates on coalesce/skip) | ✅ **DONE** 2026-04-29 — `touchIssueForUserInbox` helper added in `routines.ts`, called in `skip_if_active` + `coalesce_if_active` branches when `data.source==="manual"` with an actor userId. MnM lacks `issueInboxArchives` table (Paperclip-only), so the upsert on `issue_read_states` is the only side-effect — sufficient for inbox visibility. |
 | [#4700](https://github.com/paperclipai/paperclip/pull/4700) | "Peer agents can't mutate issues they don't own" | ✅ **ALREADY DONE** in our Z7 port (commit `17607640e`). Verify nuances. |
 | [#4600](https://github.com/paperclipai/paperclip/pull/4600) | Newly-created companies default `requireBoardApprovalForNewAgents=false` | ⏸️ **PRODUCT DECISION** — MnM default is currently `true` (more conservative). Tom to validate flip. |
 | [#4600](https://github.com/paperclipai/paperclip/pull/4600) | Stranded recovery: redact retry-failure details, dispatch single recovery origin, honor maxConcurrentRuns | ⏭️ **N/A** — MnM has no `stranded_issue_recovery` issue-type / Paperclip-specific watchdog. |
