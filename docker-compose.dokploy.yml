@@ -8,6 +8,28 @@ services:
     deploy:
       replicas: 0  # Never run — just build the image
 
+  # SEC-T10-001: Docker socket proxy — replaces direct /var/run/docker.sock bind-mount.
+  # Allowlists only CONTAINERS+IMAGES+NETWORKS for sandbox management. No exec, no build, no swarm.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      POST: 1
+      BUILD: 0
+      EVENTS: 0
+      INFO: 0
+      PING: 1
+      SWARM: 0
+      VOLUMES: 0
+      EXEC: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-proxy-net
+
   server:
     env_file:
       - .env
@@ -17,6 +39,8 @@ services:
     image: ${CI_REGISTRY_IMAGE:-mnm}/server:${APP_VERSION:-latest}
     depends_on:
       agent:
+        condition: service_started
+      docker-socket-proxy:
         condition: service_started
     expose:
       - ${PORT:-3100}
@@ -35,6 +59,8 @@ services:
       - MNM_ALLOWED_HOSTNAMES=${MNM_ALLOWED_HOSTNAMES:-localhost}
       - MNM_E2E_SEED=false
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # SEC-T10-001: Use filtered socket proxy instead of raw socket
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mnm-server.rule=Host(`${MNM_DOMAIN:-mnm.localhost}`)"
@@ -43,9 +69,9 @@ services:
       - "traefik.http.services.mnm-server.loadbalancer.server.port=${PORT:-3100}"
     volumes:
       - mnm-data:/mnm
-      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - dokploy-network
+      - docker-proxy-net
 
 volumes:
   mnm-data:
@@ -53,3 +79,5 @@ volumes:
 networks:
   dokploy-network:
     external: true
+  docker-proxy-net:
+    internal: true  # proxy net is isolated — only server can reach it

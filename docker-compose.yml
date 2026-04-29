@@ -57,6 +57,28 @@ services:
     volumes:
       - redisdata:/data
 
+  # SEC-T10-001: Docker socket proxy — allowlist only the API calls the server needs
+  # (container create/start/stop/kill, image pull). Direct socket bind-mount removed.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      POST: 1
+      BUILD: 0
+      EVENTS: 0
+      INFO: 0
+      PING: 1
+      SWARM: 0
+      VOLUMES: 0
+      EXEC: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-proxy-net
+
   server:
     build: .
     restart: unless-stopped
@@ -83,6 +105,8 @@ services:
       MNM_MIGRATION_AUTO_APPLY: "true"
       MNM_E2E_SEED: "${MNM_E2E_SEED:-false}"
       MNM_ALLOWED_HOSTNAMES: "localhost,127.0.0.1"
+      # SEC-T10-001: Use filtered socket proxy instead of raw socket
+      DOCKER_HOST: "tcp://docker-socket-proxy:2375"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3100/api/health || exit 1"]
       interval: 15s
@@ -91,14 +115,22 @@ services:
       start_period: 30s
     volumes:
       - mnm-data:/mnm
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      docker-socket-proxy:
+        condition: service_started
+    networks:
+      - default
+      - docker-proxy-net
 
 volumes:
   pgdata:
   redisdata:
   mnm-data:
+
+networks:
+  docker-proxy-net:
+    internal: true  # proxy net is isolated — only server can reach it
