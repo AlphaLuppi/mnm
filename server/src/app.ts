@@ -1,4 +1,5 @@
 import express, { Router, type Request as ExpressRequest } from "express";
+import helmet from "helmet";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -128,6 +129,59 @@ export async function createApp(
   },
 ) {
   const app = express();
+
+  // ── Trust proxy (SEC-T5-005) ──────────────────────────────────────────────
+  // In authenticated (prod) mode the server sits behind a reverse proxy / load
+  // balancer. Setting trust proxy to 1 makes Express read the real client IP
+  // from X-Forwarded-For so rate limiting and audit logs work correctly.
+  // Adjust to the actual number of proxy hops in your deployment if > 1.
+  // In local_trusted mode the server is accessed directly — no proxy needed.
+  if (opts.deploymentMode === "authenticated") {
+    app.set("trust proxy", 1);
+  }
+
+  // ── Security headers (SEC-T4-01) ─────────────────────────────────────────
+  // Helmet sets a strong baseline of HTTP security headers on every response.
+  // CSP is enforced (not report-only) for maximum hardening.
+  // Vite HMR in dev mode requires connectSrc wss: so that is always allowed.
+  // style-src keeps 'unsafe-inline' because the app uses Tailwind dynamic
+  // classes / CSS-in-JS patterns that cannot easily be nonce-hashed.
+  // HSTS is sent only in authenticated (prod) mode — in local_trusted dev the
+  // app is served over plain HTTP so HSTS would break local access.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          connectSrc: ["'self'", "ws:", "wss:"],
+          imgSrc: ["'self'", "data:", "blob:"],
+          fontSrc: ["'self'", "data:"],
+          frameSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+        },
+      },
+      // HSTS: only send in prod (authenticated mode).
+      hsts: opts.deploymentMode === "authenticated"
+        ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+        : false,
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      xFrameOptions: { action: "deny" },
+      permissionsPolicy: {
+        features: {
+          camera: [],
+          microphone: [],
+          geolocation: [],
+          payment: [],
+          usb: [],
+        },
+      },
+    }),
+  );
 
   // JSON body parser with cp1252→UTF-8 fallback for Windows agents.
   // On French Windows, Claude Code's shell subprocesses may send request bodies
@@ -366,7 +420,18 @@ export async function createApp(
   app.use("/api", api);
 
   // DEPLOY-03: Deployment preview proxy (mounted outside /api for clean URLs)
-  app.use(deploymentProxyMiddleware(db));
+  // Build allowed CORS origins from the configured hostname allowlist so that
+  // the UI origin can load preview frames while third-party origins are blocked.
+  const deploymentProxyAllowedOrigins = opts.allowedHostnames.flatMap((h) => [
+    `https://${h}`,
+    `http://${h}`,
+  ]);
+  app.use(
+    deploymentProxyMiddleware(db, {
+      deploymentMode: opts.deploymentMode,
+      allowedOrigins: deploymentProxyAllowedOrigins,
+    }),
+  );
 
   // E2E seed endpoint — only active when MNM_E2E_SEED=true
   if (process.env.MNM_E2E_SEED === "true") {
