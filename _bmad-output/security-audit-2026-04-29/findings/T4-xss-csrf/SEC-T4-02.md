@@ -5,6 +5,7 @@ category: OWASP A05 / CWE-693 — Wildcard CORS on deployment preview proxy
 title: Access-Control-Allow-Origin: * on /preview/:deploymentId/* allows any origin to read authenticated deployment content
 file: server/src/middleware/deployment-proxy.ts:63
 status: fixed
+fixed_by: 9c16551e
 ---
 
 ## Description
