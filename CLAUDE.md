@@ -4,6 +4,32 @@ MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
 Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
 Language: French for planning documents. See README.md for full project docs.
 
+## ACTIVE MISSION — Night Security Audit (2026-04-29 → 2026-04-30)
+
+**Tom dort. Mission autonome jusqu'à son réveil :**
+
+> GIGA mega audit sécurité / pentesting sur toute la plateforme. 10 agents teams successives (4–10 agents par team, whitehat/redhat/blackhat). Fix team finale + document récap. Doit survivre aux /compact automatiques.
+
+**Plan détaillé** : `docs/superpowers/plans/2026-04-29-night-security-audit.md`
+**Progress log** (live) : `_bmad-output/security-audit-2026-04-29/progress.md`
+**Findings** : `_bmad-output/security-audit-2026-04-29/findings/T*/`
+**Rapport final** : `_bmad-output/security-audit-2026-04-29/SECURITY-AUDIT-REPORT.md`
+
+**Si /compact se déclenche pendant la nuit, RELIRE dans cet ordre :**
+1. Cette section CLAUDE.md
+2. Le plan complet (lien ci-dessus)
+3. Le progress log (lien ci-dessus) → trouver la 1re ligne `[ ]` non cochée
+4. `git log --oneline -30` pour voir où on en est sur les fix
+5. Reprendre à la prochaine étape pending
+
+**Règles spéciales mission de nuit :**
+- Pas de PR, push direct sur master autorisé (Tom solo dev)
+- Atomic commit + push après chaque fix
+- Pas de Co-Authored-By Claude
+- Si GPG signing timeout : retry avec `-c commit.gpgsign=false`
+- NE PAS commiter de secrets dans VULNERABILITIES.md (juste référencer file:line)
+- Patch minimal, pas de refacto
+
 ## Governed Workflows UI — Status: Workflow Studio + AI Assistant landed 2026-04-24 — pending Tom's morning review.
 
 - U1–U8: nuke legacy, REST endpoints, live events, UI API client, 4 canonical pages, MCP tool parity, polish, Monaco autocomplete + JSON schema.
