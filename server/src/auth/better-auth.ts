@@ -228,15 +228,15 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       accountLinking: {
         enabled: true,
         trustedProviders: ["gitlab", "microsoft"],
-        // your organization / corporate scenario: a user's MnM email (signup-supplied) often
-        // differs from their GitLab/Entra email (LDAP alias, employee number,
-        // legacy address). Without this, BetterAuth refuses to link with
-        // `error=email_doesn't_match` even when the user is clearly the legit
-        // owner of both accounts. Account takeover risk is mitigated by the
-        // OAuth flow itself: the user must already be authenticated on MnM
-        // with their password before initiating link-social, and the OAuth
-        // provider asserts identity on the GitLab/Microsoft side.
-        allowDifferentEmails: true,
+        // SEC-T1-005: allowDifferentEmails MUST be false.
+        // If an attacker can initiate a link-social flow from a victim's active
+        // session, they could link their own GitLab/Microsoft identity to the
+        // victim's account. With allowDifferentEmails=false, BetterAuth rejects
+        // any link attempt where the OAuth email does not match the MnM account
+        // email, preventing this class of account takeover.
+        // If a user legitimately has a different GitLab/Entra email, the admin
+        // can merge accounts manually via the members panel.
+        allowDifferentEmails: false,
       },
     },
     ...(gitlabProviderConfig || microsoftProviderConfig
