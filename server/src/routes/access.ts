@@ -15,6 +15,7 @@ import type { Db } from "@mnm/db";
 import {
   agentApiKeys,
   authAccounts,
+  authSessions,
   authUsers,
   companies,
   companyMemberships,
@@ -2958,8 +2959,8 @@ export function accessRoutes(
       throw notFound("Member not found in this company");
     }
 
-    // Generate a temporary password
-    const tempPassword = randomBytes(6).toString("base64url");
+    // SEC-T1-007: 128-bit entropy (16 bytes) temporary password
+    const tempPassword = randomBytes(16).toString("base64url");
 
     // Hash with better-auth's hasher
     const hashed = await hashPassword(tempPassword);
@@ -2980,6 +2981,10 @@ export function accessRoutes(
       throw notFound("No credential account found for this user");
     }
 
+    // SEC-T1-007: invalidate all existing sessions for the target user so that
+    // the old password/session can no longer be used after a reset.
+    await db.delete(authSessions).where(eq(authSessions.userId, userId));
+
     await emitAudit({
       req,
       db,
@@ -2990,6 +2995,9 @@ export function accessRoutes(
       metadata: {},
     });
 
+    // NOTE: The temporary password is returned once in the response body.
+    // Ensure your HTTP access logger is configured NOT to capture response bodies
+    // for this endpoint to prevent plaintext exposure in logs.
     res.json({ temporaryPassword: tempPassword });
   });
 
