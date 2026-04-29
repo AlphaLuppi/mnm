@@ -512,7 +512,8 @@ export function agentRoutes(db: Db) {
   router.get("/companies/:companyId/agents/:id", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -537,7 +538,8 @@ export function agentRoutes(db: Db) {
   router.get("/companies/:companyId/agents/:id/configuration", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -552,7 +554,8 @@ export function agentRoutes(db: Db) {
   router.get("/companies/:companyId/agents/:id/config-revisions", async (req, res) => {
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -569,7 +572,8 @@ export function agentRoutes(db: Db) {
     const id = req.params.id as string;
     const revisionId = req.params.revisionId as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -590,7 +594,8 @@ export function agentRoutes(db: Db) {
     const id = req.params.id as string;
     const revisionId = req.params.revisionId as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!existing || existing.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -637,7 +642,8 @@ export function agentRoutes(db: Db) {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -656,7 +662,8 @@ export function agentRoutes(db: Db) {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -680,7 +687,8 @@ export function agentRoutes(db: Db) {
     assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
-    if (!agent) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!agent || agent.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -919,7 +927,8 @@ export function agentRoutes(db: Db) {
   router.get("/companies/:companyId/agents/:id/direct-permissions", async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!existing || existing.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
@@ -936,7 +945,8 @@ export function agentRoutes(db: Db) {
   router.patch("/companies/:companyId/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
-    if (!existing) {
+    // SEC-T2-006: reject if path companyId doesn't match agent's actual company
+    if (!existing || existing.companyId !== req.params.companyId) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
