@@ -48,5 +48,5 @@ An operator deploying via a mechanism other than the provided `docker-compose.ym
 
 ## Status
 **Fixed** : 2026-04-29
-**Commit** : TBD
+**Commit** : 00ee0f9a8100e9cfa632bab2d326d1358d04a724
 **Fix description** : Added `MNM_MCP_JWT_SECRET`, `MNM_AGENT_JWT_SECRET`, `MNM_SECRETS_KEY`, and `MNM_SECRETS_MASTER_KEY` to `.env.example` under a new "Secrets & signing keys" section, each with a comment explaining they are required in `authenticated` mode and how to generate them. The server-side throw on missing `MNM_MCP_JWT_SECRET` in authenticated mode already existed in `mcp-auth-config.ts` — documentation gap is now closed.

@@ -54,5 +54,5 @@ Alternatively, remove the hardcoded fallback entirely and rely on the startup-ba
 
 ## Status
 **Fixed** : 2026-04-29
-**Commit** : TBD
+**Commit** : 00ee0f9a8100e9cfa632bab2d326d1358d04a724
 **Fix description** : `createBetterAuthInstance` in `server/src/auth/better-auth.ts` now gates the `"mnm-dev-secret"` fallback on `MNM_DEPLOYMENT_MODE !== "authenticated"`. In `authenticated` mode with no secret set, it throws `FATAL: BETTER_AUTH_SECRET (or MNM_AGENT_JWT_SECRET) is required in authenticated mode`. Identical to the guard that already existed in `agent-auth-jwt.ts`.

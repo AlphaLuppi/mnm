@@ -50,5 +50,5 @@ For the embedded-postgres mode, the hardcoded password is intentional and accept
 
 ## Status
 **Fixed** : 2026-04-29
-**Commit** : TBD
+**Commit** : 00ee0f9a8100e9cfa632bab2d326d1358d04a724
 **Fix description** : `docker-compose.yml` production stack: `POSTGRES_PASSWORD: mnm` replaced with `"${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (generate: openssl rand -hex 16)}"` (Docker Compose fail-fast syntax). `DATABASE_URL` updated to `"postgres://mnm:${POSTGRES_PASSWORD}@db:5432/mnm"`. Header comment updated to list `POSTGRES_PASSWORD` as a required env var. `docker-compose.dev.yml` left unchanged but annotated with a comment clarifying it is local-only and intentionally uses a static dev password. `POSTGRES_PASSWORD` added to `.env.example`. Embedded-postgres hardcoded credentials (`server/src/index.ts:474-480`) not touched — they are loopback-only and acceptable risk per the finding recommendation.

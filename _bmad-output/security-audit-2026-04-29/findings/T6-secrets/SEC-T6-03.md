@@ -68,5 +68,5 @@ Additionally, consider raising the log level for `reqBody` from `debug` to only 
 
 ## Status
 **Fixed** : 2026-04-29
-**Commit** : TBD
+**Commit** : 00ee0f9a8100e9cfa632bab2d326d1358d04a724
 **Fix description** : `server/src/middleware/logger.ts` now imports `sanitizeRecord` from `../redaction.js` and applies it to `req.body` (and `ctx.reqBody`) before writing to the log in `customProps`. `server/src/middleware/error-handler.ts` likewise applies `sanitizeRecord` to `req.body` before attaching it to `__errorContext`. Fields matching `SECRET_PAYLOAD_KEY_RE` (password, secret, token, key, etc.) are replaced with `***REDACTED***`.
