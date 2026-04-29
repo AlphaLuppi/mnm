@@ -150,6 +150,19 @@ interface ClaudeRuntimeConfig {
   timeoutSec: number;
   graceSec: number;
   extraArgs: string[];
+  /** Temp directory created for git credential store file — caller must clean it up. */
+  credentialsTmpDir: string | null;
+}
+
+/**
+ * Validate a git hostname for safe use in credential helpers.
+ * Allows only RFC-1123 hostname characters plus an optional :port suffix.
+ * Rejects anything with shell metacharacters, wildcards, or injection attempts.
+ */
+function isValidGitHostname(host: string): boolean {
+  // Allow: labels of [a-zA-Z0-9-], dot-separated, optional :port
+  // Max label length 63, total hostname length <= 253
+  return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*(:[0-9]{1,5})?$/.test(host);
 }
 
 function buildLoginResult(input: {
@@ -288,9 +301,11 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     env.CLAUDE_CODE_OAUTH_TOKEN = input.claudeOauthToken;
   }
 
-  // GIT CREDENTIALS: inject per-host tokens for workspace repos
-  // Injects tokens as GIT_TOKEN_<HOST> env vars and configures a git credential helper
-  // via GIT_CONFIG_COUNT/KEY/VALUE that reads from those env vars.
+  // GIT CREDENTIALS: inject per-host tokens for workspace repos via a temp credential-store file.
+  // Security: uses `git credential-store --file <path>` (no shell eval) instead of a shell function.
+  // Each host is validated against a strict RFC-1123 hostname regex before use — any URL with
+  // shell metacharacters, wildcards, or non-hostname chars is silently skipped.
+  let credentialsTmpDir: string | null = null;
   if (input.gitProviders && input.gitProviders.length > 0 && workspaceHints.length > 0) {
     const tokensByHost = new Map<string, string>();
 
@@ -299,6 +314,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
       if (!repoUrl) continue;
       const parsed = parseRepoUrl(repoUrl as string);
       if (!parsed || tokensByHost.has(parsed.host)) continue;
+      // Strict hostname validation — reject any host that is not a plain RFC-1123 label sequence
+      // (plus optional :port). This prevents shell injection, wildcard injection, and path traversal.
+      if (!isValidGitHostname(parsed.host)) continue;
       const matchingProvider = input.gitProviders.find((gp) => gp.host === parsed.host);
       if (matchingProvider?.token) {
         tokensByHost.set(parsed.host, matchingProvider.token);
@@ -306,18 +324,29 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     }
 
     if (tokensByHost.size > 0) {
-      for (const [host, token] of tokensByHost) {
-        env[`GIT_TOKEN_${sanitizeEnvKey(host)}`] = token;
+      // Write a git credential-store file: one line per host in the format
+      // https://x-access-token:<token>@<host>
+      // Tokens may contain arbitrary characters; URL-encode them to keep the line format valid.
+      const credLines = [...tokensByHost.entries()]
+        .map(([host, token]) => `https://x-access-token:${encodeURIComponent(token)}@${host}`)
+        .join("\n");
+      credentialsTmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnm-creds-"));
+      const credFile = path.join(credentialsTmpDir, ".git-credentials");
+      await fs.writeFile(credFile, credLines + "\n", { mode: 0o600 });
+      // git config: forward slashes work on all platforms (including Windows); backslashes
+      // would need extra escaping in git config values.
+      const credFileForGit = credFile.replace(/\\/g, "/");
+      // Guard: if the resolved path somehow contains whitespace (rare but possible on some
+      // systems where os.tmpdir() includes spaces), skip injection rather than producing a
+      // broken or exploitable config value.  Credentials will be unavailable for that run,
+      // which is the safe fallback.
+      if (!/\s/.test(credFileForGit)) {
+        // Use `git credential-store --file <path>` — pure git, zero shell eval
+        env.GIT_CONFIG_COUNT = "1";
+        env.GIT_CONFIG_KEY_0 = "credential.helper";
+        env.GIT_CONFIG_VALUE_0 = `store --file ${credFileForGit}`;
+        env.GIT_TERMINAL_PROMPT = "0";
       }
-      // Build a credential helper shell function that maps hosts to their token env vars.
-      // Git calls `credential.helper get` with host info on stdin and expects username/password on stdout.
-      const cases = [...tokensByHost.keys()]
-        .map((host) => `*${host}*) echo "username=x-access-token"; echo "password=$GIT_TOKEN_${sanitizeEnvKey(host)}";;`)
-        .join(" ");
-      env.GIT_CONFIG_COUNT = "1";
-      env.GIT_CONFIG_KEY_0 = "credential.helper";
-      env.GIT_CONFIG_VALUE_0 = `!f() { host=$(cat); case "$host" in ${cases} esac; }; f`;
-      env.GIT_TERMINAL_PROMPT = "0";
     }
   }
 
@@ -355,6 +384,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     timeoutSec,
     graceSec,
     extraArgs,
+    credentialsTmpDir,
   };
 }
 
@@ -444,6 +474,7 @@ Continue your MnM work. Check for assigned issues and tasks.
     timeoutSec,
     graceSec,
     extraArgs,
+    credentialsTmpDir,
   } = runtimeConfig;
   const billingType = resolveClaudeBillingType(env);
   // Skip local skills dir + instructions file when running in Docker
@@ -660,5 +691,6 @@ Continue your MnM work. Check for assigned issues and tasks.
     return toAdapterResult(initial, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
   } finally {
     if (skillsDir) fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
+    if (credentialsTmpDir) fs.rm(credentialsTmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
