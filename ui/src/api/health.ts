@@ -8,6 +8,11 @@ export type HealthStatus = {
   features?: {
     companyDeletionEnabled?: boolean;
   };
+  /**
+   * Minimum desktop client version the backend still accepts. When set,
+   * out-of-date desktop builds surface a non-blocking update banner.
+   */
+  minClientVersion?: string | null;
 };
 
 export const healthApi = {
