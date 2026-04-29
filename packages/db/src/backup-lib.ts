@@ -2,6 +2,20 @@ import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "node:f
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import postgres from "postgres";
+import * as schema from "./schema/index.js";
+
+// SEC-T3-2: Build an explicit whitelist of table names from the Drizzle schema.
+// Only tables exported from schema/index.ts are eligible for backup.
+// Any table name returned by pg_class that is NOT in this set is silently skipped,
+// preventing injection via adversarial catalog entries and limiting the blast radius
+// of this all-tenant code path.
+const DRIZZLE_NAME_SYM = Symbol.for("drizzle:Name");
+const BACKUP_TABLE_ALLOWLIST: ReadonlySet<string> = new Set(
+  Object.values(schema as Record<string, unknown>)
+    .filter((v) => v !== null && typeof v === "object" && DRIZZLE_NAME_SYM in (v as object))
+    .map((v) => (v as Record<symbol, string>)[DRIZZLE_NAME_SYM])
+    .filter((name): name is string => typeof name === "string"),
+);
 
 export type RunDatabaseBackupOptions = {
   connectionString: string;
@@ -95,6 +109,8 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
 
     // Get full CREATE TABLE DDL via column info
     for (const { tablename } of tables) {
+      // SEC-T3-2: Skip any table not in the Drizzle schema allowlist.
+      if (!BACKUP_TABLE_ALLOWLIST.has(tablename)) continue;
       const columns = await sql<{
         column_name: string;
         data_type: string;
@@ -253,6 +269,9 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
 
     // Dump data for each table
     for (const { tablename } of tables) {
+      // SEC-T3-2: Skip any table not in the Drizzle schema allowlist.
+      if (!BACKUP_TABLE_ALLOWLIST.has(tablename)) continue;
+
       const count = await sql<{ n: number }[]>`
         SELECT count(*)::int AS n FROM ${sql(tablename)}
       `;
@@ -295,6 +314,14 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
     if (sequences.length > 0) {
       emit("-- Sequence values");
       for (const seq of sequences) {
+        // SEC-T3-2: Only read sequences that are associated with whitelisted tables.
+        // Sequence names follow the pattern "<tablename>_<column>_seq" — the prefix
+        // check is a defense-in-depth guard against adversarial catalog entries.
+        const seqAssociatedWithKnownTable = [...BACKUP_TABLE_ALLOWLIST].some(
+          (t) => seq.sequence_name.startsWith(t + "_"),
+        );
+        if (!seqAssociatedWithKnownTable) continue;
+
         const val = await sql<{ last_value: string }[]>`
           SELECT last_value::text FROM ${sql(seq.sequence_name)}
         `;

@@ -10,10 +10,11 @@ import {
   registerDefinition,
   RegisterDefinitionNameMismatchError,
 } from "../../services/governed-workflows-extensions.js";
-import { setTenantContext } from "../../middleware/tenant-context.js";
+import { setTenantContext, clearTenantContext } from "../../middleware/tenant-context.js";
 import { runImport, PluginImportError } from "../../services/cc-plugin-import/orchestrator.js";
 import { buildSourceProvider } from "../../services/cc-plugin-import/source-provider-factory.js";
 import { publishLiveEvent } from "../../services/index.js";
+import type { Db } from "@mnm/db";
 
 const outputInputSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -67,8 +68,13 @@ function governedError(err: GovernedWorkflowError) {
  * Wrap a tool body so a thrown GovernedWorkflowError surfaces as the
  * uniform MCP error contract, and other throws fall through to the
  * registry's generic handler (INTERNAL_ERROR).
+ *
+ * SEC-T3-9 fix: setTenantContext is called HERE and cleared in `finally`
+ * so every handler is guaranteed cleanup regardless of success/failure.
+ * Handlers must NOT call setTenantContext themselves — it is done once here.
  */
 async function wrap<T>(
+  db: Db,
   actor: { companyId: string },
   fn: () => Promise<T>,
 ): Promise<
@@ -82,6 +88,7 @@ async function wrap<T>(
   // re-asserted here so the RLS filter applies.
   // (The existing MnM MCP wiring does NOT yet run tenantContextMiddleware
   // for /mcp endpoints — this is where we make it explicit.)
+  await setTenantContext(db, actor.companyId);
   try {
     const result = await fn();
     return result;
@@ -101,6 +108,10 @@ async function wrap<T>(
       );
     }
     throw err;
+  } finally {
+    // Always clear the tenant context on this connection before it returns
+    // to the pool. Failure here is logged but must not mask the original error.
+    await clearTenantContext(db).catch(() => {});
   }
 }
 
@@ -115,8 +126,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const rows = await services.governedWorkflows.listDefinitions({
           companyId: actor.companyId,
           enabled: input.enabled,
@@ -149,8 +159,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.getWorkflowParsed({
           companyId: actor.companyId,
           name: input.name,
@@ -188,8 +197,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.listRuns({
           companyId: actor.companyId,
           workflowName: input.name,
@@ -232,8 +240,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.getRun({
           companyId: actor.companyId,
           runId: input.run_id,
@@ -276,8 +283,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.launchWorkflow({
           companyId: actor.companyId,
           name: input.name,
@@ -313,8 +319,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.launchStep({
           companyId: actor.companyId,
           runId: input.run_id,
@@ -350,8 +355,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.completeStep({
           companyId: actor.companyId,
           runId: input.run_id,
@@ -382,8 +386,7 @@ export default defineMcpTools(({ tool, services }) => {
     input: z.object({}),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.setupWorkspace({
           companyId: actor.companyId,
           userId: actor.userId ?? null,
@@ -413,8 +416,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.pushLocalState({
           companyId: actor.companyId,
           pluginVersion: input.plugin_version,
@@ -442,8 +444,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.syncEnvironment({
           companyId: actor.companyId,
           lastSyncedSha: input.last_synced_sha,
@@ -479,9 +480,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
-
+      return wrap(services.db, actor, async () => {
         // Validate definition name is non-empty (workflowDefinitionSchema already
         // enforces the shape, but we surface validation failures with WORKFLOW_VALIDATION).
         const parsed = workflowDefinitionSchema.safeParse(input.definition);
@@ -560,9 +559,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
-
+      return wrap(services.db, actor, async () => {
         try {
           const result = await registerDefinition(services.db, {
             companyId: actor.companyId,
@@ -647,9 +644,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
-
+      return wrap(services.db, actor, async () => {
         // Guard: name in URL must match definition.name
         if (input.name !== input.definition.name) {
           return {
@@ -738,8 +733,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const archived = await archiveDefinition(services.db, {
           companyId: actor.companyId,
           name: input.name,
@@ -785,9 +779,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
-
+      return wrap(services.db, actor, async () => {
         const destProvider = await services.resolveGitProvider({
           companyId: actor.companyId,
           userId: actor.userId ?? null,
@@ -874,8 +866,7 @@ export default defineMcpTools(({ tool, services }) => {
     // launchStep and therefore does NOT transition any step to running.
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.resumeRun({
           companyId: actor.companyId,
           runId: input.run_id,
@@ -902,8 +893,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.cancelRun({
           runId: input.run_id,
           companyId: actor.companyId,
@@ -940,8 +930,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
-      return wrap(actor, async () => {
-        await setTenantContext(services.db, actor.companyId);
+      return wrap(services.db, actor, async () => {
         const r = await services.governedWorkflows.reactivateRun({
           runId: input.run_id,
           companyId: actor.companyId,
