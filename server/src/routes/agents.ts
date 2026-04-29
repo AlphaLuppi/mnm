@@ -1101,6 +1101,27 @@ export function agentRoutes(db: Db) {
     }
 
     const patchData = { ...(req.body as Record<string, unknown>) };
+
+    // SEC-T11-01: Strip immutable / privileged top-level fields that must
+    // never be overwritten via PATCH regardless of what the caller sends.
+    delete patchData.companyId;
+    delete patchData.createdByUserId;
+
+    // Strip privileged metadata keys (isCAO, etc.).
+    // Only the system is allowed to set these; callers may still update
+    // non-privileged metadata fields.
+    if (Object.prototype.hasOwnProperty.call(patchData, "metadata")) {
+      const rawMeta = patchData.metadata as Record<string, unknown> | null | undefined;
+      if (rawMeta && typeof rawMeta === "object") {
+        const PROTECTED_METADATA_KEYS = ["isCAO", "adapter_type", "createdBy", "systemManaged"] as const;
+        const safeMeta = { ...rawMeta };
+        for (const key of PROTECTED_METADATA_KEYS) {
+          delete safeMeta[key];
+        }
+        patchData.metadata = safeMeta;
+      }
+    }
+
     if (Object.prototype.hasOwnProperty.call(patchData, "adapterConfig")) {
       const adapterConfig = asRecord(patchData.adapterConfig);
       if (!adapterConfig) {
