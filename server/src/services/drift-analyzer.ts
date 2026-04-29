@@ -1,10 +1,39 @@
 import { z } from "zod";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { logger } from "../middleware/logger.js";
 import { buildDriftPrompt } from "./drift-prompts.js";
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Run a command with stdin piped, returning stdout/stderr strings.
+ * Works around Node's `execFile` not supporting the `input` option in types.
+ */
+function spawnWithStdin(
+  cmd: string,
+  args: string[],
+  input: string,
+  opts: { maxBuffer?: number; timeout?: number } = {},
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
+    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) reject(new Error(`Process exited with code ${code}: ${stderr}`));
+      else resolve({ stdout, stderr });
+    });
+    if (opts.timeout) {
+      setTimeout(() => { child.kill(); reject(new Error("Process timeout")); }, opts.timeout);
+    }
+    child.stdin.write(input);
+    child.stdin.end();
+  });
+}
 
 /**
  * Zod schema for a single drift item returned by the Claude API.
@@ -52,13 +81,14 @@ async function analyzeDriftViaCLI(
   const startTime = Date.now();
 
   try {
-    // SEC-T10-002: Use execFile with explicit argument array instead of bash -c.
-    // Pass prompt via stdin (input option) — no shell interpretation, no temp file,
+    // SEC-T10-002: Use spawn with stdin pipe instead of bash -c.
+    // Pass prompt via stdin — no shell interpretation, no temp file,
     // no TOCTOU on /tmp. --dangerously-skip-permissions removed (SEC-T9-05).
-    const { stdout } = await execFileAsync(
+    const { stdout } = await spawnWithStdin(
       "claude",
       ["-p", "-", "--output-format", "text"],
-      { input: prompt, maxBuffer: 10 * 1024 * 1024, timeout: 120_000 },
+      prompt,
+      { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 },
     );
 
     const elapsed = Date.now() - startTime;
