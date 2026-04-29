@@ -1,5 +1,6 @@
 {
   "name": "mnm",
+  "private": true,
   "version": "0.2.7",
   "description": "MnM CLI — orchestrate AI agent teams to run a business",
   "type": "module",

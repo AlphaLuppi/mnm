@@ -1,5 +1,6 @@
 {
   "name": "@mnm/server",
+  "private": true,
   "version": "0.2.7",
   "type": "module",
   "exports": {

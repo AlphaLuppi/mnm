@@ -1,5 +1,6 @@
 {
   "name": "@mnm/git-provider",
+  "private": true,
   "version": "0.1.0",
   "type": "module",
   "exports": {
