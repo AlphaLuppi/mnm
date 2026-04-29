@@ -508,6 +508,18 @@ if (config.databaseUrl) {
   startupDbInfo = { mode: "embedded-postgres", dataDir, port };
 }
 
+// SEC-T2-008: FATAL guard — local_trusted must never run in a production environment.
+// Multi-tenant isolation is completely disabled in this mode.
+if (
+  config.deploymentMode === "local_trusted" &&
+  (process.env.NODE_ENV === "production" || process.env.MNM_PROD === "true")
+) {
+  throw new Error(
+    "FATAL: local_trusted mode is not allowed when NODE_ENV=production or MNM_PROD=true. " +
+      "Set MNM_DEPLOYMENT_MODE=authenticated for production deployments.",
+  );
+}
+
 if (config.deploymentMode === "local_trusted" && !isLoopbackHost(config.host)) {
   throw new Error(
     `local_trusted mode requires loopback host binding (received: ${config.host}). ` +
