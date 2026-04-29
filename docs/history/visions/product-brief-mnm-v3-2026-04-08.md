@@ -412,8 +412,8 @@ Même backend, même data, même auth. Projections du même système.
 | Tier | Cible | Prix estimé | Inclus |
 |------|-------|-------------|--------|
 | **Connected** (gratuit) | Dev solo | 0 EUR | MnM MCP Server, scoring basique, 1 agent |
-| **Team** | Équipe 5-20 | <redacted-pricing> | Multi-agents, Quality Profiles, Improvement Cockpit |
-| **Enterprise** | 20-200+ | <redacted-pricing> | Continuum complet, Shadow Mode, SSO, audit, SLA |
+| **Team** | Équipe 5-20 | <redacted-financials>/an | Multi-agents, Quality Profiles, Improvement Cockpit |
+| **Enterprise** | 20-200+ | <redacted-financials>/an | Continuum complet, Shadow Mode, SSO, audit, SLA |
 
 ### Flywheel d'acquisition
 

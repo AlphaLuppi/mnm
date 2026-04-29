@@ -8,7 +8,7 @@ agnostique du provider de code source.
 
 ---
 
-## 1. Contexte : priorisation MnM pour enterprise tier 2
+## 1. Contexte : priorisation MnM pour enterprise (tier 2)
 
 Lecture du plan `team-mnm-transformation.md`. L'ordre de construction recommandé (section 7) :
 
