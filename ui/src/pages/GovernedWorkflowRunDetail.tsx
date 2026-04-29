@@ -8,6 +8,7 @@ import { governedWorkflowsApi } from "../api/governed-workflows";
 import { queryKeys } from "../lib/queryKeys";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { formatDateTime } from "../lib/utils";
+import { safeExternalHref } from "../lib/safeHref";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,7 +112,7 @@ function OutputRow({ output }: { output: OutputPersisted }) {
         <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="font-medium">{output.name}</span>
         <a
-          href={output.url}
+          href={safeExternalHref(output.url)}
           target="_blank"
           rel="noreferrer"
           className="text-primary hover:underline truncate"

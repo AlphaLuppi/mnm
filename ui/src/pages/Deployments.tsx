@@ -21,6 +21,7 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "../lib/timeAgo";
+import { safeExternalHref } from "../lib/safeHref";
 
 function statusIcon(status: DeploymentStatus) {
   switch (status) {
@@ -147,7 +148,7 @@ export function Deployments() {
 
                 {deployment.status === "running" && deployment.url && (
                   <a
-                    href={deployment.url}
+                    href={safeExternalHref(deployment.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-400 font-medium"

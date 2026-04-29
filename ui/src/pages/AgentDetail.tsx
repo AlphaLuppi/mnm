@@ -70,6 +70,7 @@ import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@mnm/shared";
 import { agentRouteRef } from "../lib/utils";
+import { safeExternalHref } from "../lib/safeHref";
 import { projectsApi } from "../api/projects";
 import { tagsApi } from "../api/tags";
 import { AgentLayersTab } from "../components/config-layers/AgentLayersTab";
@@ -1898,7 +1899,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
                   <p className="text-xs">
                     Login URL:
                     <a
-                      href={claudeLoginResult.loginUrl}
+                      href={safeExternalHref(claudeLoginResult.loginUrl)}
                       className="text-blue-600 underline underline-offset-2 ml-1 break-all dark:text-blue-400"
                       target="_blank"
                       rel="noreferrer"

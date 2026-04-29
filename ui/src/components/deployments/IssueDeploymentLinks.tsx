@@ -17,6 +17,7 @@ import { queryKeys } from "../../lib/queryKeys";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { timeAgo } from "../../lib/timeAgo";
+import { safeExternalHref } from "../../lib/safeHref";
 
 function statusIcon(status: DeploymentStatus) {
   switch (status) {
@@ -115,7 +116,7 @@ export function IssueDeploymentLinks({ issueId }: { issueId: string }) {
                     <Copy className="h-3 w-3" />
                   </Button>
                   <a
-                    href={deployment.url}
+                    href={safeExternalHref(deployment.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-400 font-medium"

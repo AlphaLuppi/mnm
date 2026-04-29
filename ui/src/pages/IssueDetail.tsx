@@ -14,6 +14,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { relativeTime, cn, formatTokens } from "../lib/utils";
+import { safeHref } from "../lib/safeHref";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
 import { IssueProperties } from "../components/IssueProperties";
@@ -722,7 +723,7 @@ export function IssueDetail() {
               <div key={attachment.id} className="border border-border rounded-md p-2">
                 <div className="flex items-center justify-between gap-2">
                   <a
-                    href={attachment.contentPath}
+                    href={safeHref(attachment.contentPath)}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs hover:underline truncate"
@@ -744,9 +745,9 @@ export function IssueDetail() {
                   {attachment.contentType} · {(attachment.byteSize / 1024).toFixed(1)} KB
                 </p>
                 {isImageAttachment(attachment) && (
-                  <a href={attachment.contentPath} target="_blank" rel="noreferrer">
+                  <a href={safeHref(attachment.contentPath)} target="_blank" rel="noreferrer">
                     <img
-                      src={attachment.contentPath}
+                      src={safeHref(attachment.contentPath)}
                       alt={attachment.originalFilename ?? "attachment"}
                       className="mt-2 max-h-56 rounded border border-border object-contain bg-accent/10"
                       loading="lazy"

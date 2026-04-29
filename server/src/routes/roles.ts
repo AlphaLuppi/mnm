@@ -98,14 +98,27 @@ export function rolesRoutes(db: Db) {
         if (parent.inheritsFromId) throw badRequest("Cannot inherit from a role that already inherits (max 1 level)");
       }
 
-      // Hierarchy check: actor can only create roles at their level or below
+      // Hierarchy check: actor can only create roles at their level or below.
+      // SEC-T11-03: Also guard bypassTagFilter — only an actor that already
+      // holds bypassTagFilter (or is an instance_admin) may create a role
+      // that grants the flag to others.
       if (req.actor.type === "board" && req.actor.userId) {
         const actorRole = await access.resolveRole(companyId, "user", req.actor.userId);
-        if (actorRole && !actorRole.bypassTagFilter) {
+        const actorHasBypass = req.actor.isInstanceAdmin || Boolean(actorRole?.bypassTagFilter);
+
+        if (!actorHasBypass) {
           const targetLevel = hierarchyLevel ?? 100;
-          if (targetLevel < actorRole.hierarchyLevel) {
+          if (actorRole && targetLevel < actorRole.hierarchyLevel) {
             throw forbidden("Cannot create a role above your own hierarchy level");
           }
+          if (bypassTagFilter) {
+            throw forbidden("Cannot grant bypassTagFilter to a role without holding it yourself");
+          }
+        }
+      } else if (req.actor.type !== "board") {
+        // Non-board actors (agents) cannot set bypassTagFilter
+        if (bypassTagFilter) {
+          throw forbidden("Cannot grant bypassTagFilter to a role without holding it yourself");
         }
       }
 
@@ -175,6 +188,21 @@ export function rolesRoutes(db: Db) {
         .where(and(eq(roles.id, roleId), eq(roles.companyId, companyId)));
 
       if (!existing) throw notFound("Role not found");
+
+      // SEC-T11-03: Guard bypassTagFilter escalation on PATCH as well.
+      // An actor without bypassTagFilter cannot enable the flag on an
+      // existing role (turning false → true) or keep it if it was already
+      // true (no-op is fine; explicit true from an unprivileged actor is not).
+      if (bypassTagFilter === true) {
+        let actorHasBypass = req.actor.isInstanceAdmin ?? false;
+        if (!actorHasBypass && req.actor.type === "board" && req.actor.userId) {
+          const actorRole = await access.resolveRole(companyId, "user", req.actor.userId);
+          actorHasBypass = Boolean(actorRole?.bypassTagFilter);
+        }
+        if (!actorHasBypass) {
+          throw forbidden("Cannot grant bypassTagFilter to a role without holding it yourself");
+        }
+      }
 
       // Build update set
       const updates: Partial<typeof roles.$inferInsert> = {};

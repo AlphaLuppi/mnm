@@ -171,17 +171,17 @@ export async function createApp(
         : false,
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
       xFrameOptions: { action: "deny" },
-      permissionsPolicy: {
-        features: {
-          camera: [],
-          microphone: [],
-          geolocation: [],
-          payment: [],
-          usb: [],
-        },
-      },
     }),
   );
+  // Permissions-Policy is not included in helmet v8 — set it manually.
+  // Restrict access to sensitive browser features that MnM does not use.
+  app.use((_req, res, next) => {
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    );
+    next();
+  });
 
   // JSON body parser with cp1252→UTF-8 fallback for Windows agents.
   // On French Windows, Claude Code's shell subprocesses may send request bodies
