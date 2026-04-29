@@ -18,8 +18,77 @@ import {
   type UpdateRoutineTrigger,
   type RunRoutine,
 } from "@mnm/shared";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { notFound, conflict, unprocessable, badRequest } from "../errors.js";
 import { publishLiveEvent } from "./live-events.js";
+
+// ── Webhook secret encryption (SEC-T11-04) ──────────────────────────────────
+// Secrets are encrypted at rest with AES-256-GCM using the same master key
+// as the local-encrypted secrets provider (MNM_SECRETS_MASTER_KEY env var or
+// data/secrets/master.key file).  The column keeps its text type; encrypted
+// blobs are prefixed with "enc:" so legacy plaintext rows degrade gracefully
+// (they are returned as-is and will be re-encrypted on next rotation).
+
+const WEBHOOK_SECRET_ENC_PREFIX = "enc:";
+
+function loadWebhookMasterKey(): Buffer {
+  const envKeyRaw = process.env.MNM_SECRETS_MASTER_KEY;
+  if (envKeyRaw && envKeyRaw.trim().length > 0) {
+    const t = envKeyRaw.trim();
+    if (/^[A-Fa-f0-9]{64}$/.test(t)) return Buffer.from(t, "hex");
+    const b64 = Buffer.from(t, "base64");
+    if (b64.length === 32) return b64;
+    const utf8buf = Buffer.from(t, "utf8");
+    if (utf8buf.length === 32) return utf8buf;
+    throw new Error("Invalid MNM_SECRETS_MASTER_KEY — expected 32-byte hex/base64/utf8");
+  }
+  const keyPath = (process.env.MNM_SECRETS_MASTER_KEY_FILE ?? "").trim()
+    || `${process.cwd()}/data/secrets/master.key`;
+  if (existsSync(keyPath)) {
+    const raw = readFileSync(keyPath, "utf8").trim();
+    if (/^[A-Fa-f0-9]{64}$/.test(raw)) return Buffer.from(raw, "hex");
+    const b64 = Buffer.from(raw, "base64");
+    if (b64.length === 32) return b64;
+    throw new Error(`Invalid secrets master key at ${keyPath}`);
+  }
+  // Auto-generate and persist (first-run bootstrap)
+  const dir = keyPath.substring(0, keyPath.lastIndexOf("/"));
+  mkdirSync(dir, { recursive: true });
+  const generated = crypto.randomBytes(32);
+  writeFileSync(keyPath, generated.toString("base64"), { encoding: "utf8", mode: 0o600 });
+  try { chmodSync(keyPath, 0o600); } catch { /* best effort */ }
+  return generated;
+}
+
+function encryptWebhookSecret(plaintext: string): string {
+  const masterKey = loadWebhookMasterKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", masterKey, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return WEBHOOK_SECRET_ENC_PREFIX + JSON.stringify({
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    ct: ciphertext.toString("base64"),
+  });
+}
+
+function decryptWebhookSecret(stored: string): string {
+  if (!stored.startsWith(WEBHOOK_SECRET_ENC_PREFIX)) {
+    // Legacy plaintext row — return as-is so existing webhooks keep working.
+    return stored;
+  }
+  const masterKey = loadWebhookMasterKey();
+  const payload = JSON.parse(stored.slice(WEBHOOK_SECRET_ENC_PREFIX.length)) as {
+    iv: string; tag: string; ct: string;
+  };
+  const iv = Buffer.from(payload.iv, "base64");
+  const tag = Buffer.from(payload.tag, "base64");
+  const ct = Buffer.from(payload.ct, "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", masterKey, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
+}
 
 // ── Cron parsing ────────────────────────────────────────────────────────────
 
@@ -723,10 +792,12 @@ export function routineService(db: Db) {
         values.nextRunAt = nextCronTick(data.cronExpression, data.timezone);
       }
 
+      // SEC-T11-04: encrypt webhook secrets at rest
+      let webhookPlaintextSecret: string | undefined;
       if (data.kind === "webhook") {
         values.publicId = crypto.randomBytes(16).toString("hex");
-        const secret = crypto.randomBytes(32).toString("hex");
-        values.secretHash = secret; // stored as hex; verified via HMAC or bearer comparison
+        webhookPlaintextSecret = crypto.randomBytes(32).toString("hex");
+        values.secretHash = encryptWebhookSecret(webhookPlaintextSecret);
         values.signingMode = data.signingMode;
         values.replayWindowSec = data.replayWindowSec;
         values.lastRotatedAt = new Date();
@@ -744,11 +815,11 @@ export function routineService(db: Db) {
         visibility: { scope: "company-wide" },
       });
 
-      // For webhooks, include the secret in the response (only shown once at creation)
-      if (data.kind === "webhook") {
+      // For webhooks, include the plaintext secret in the response (shown only once at creation)
+      if (data.kind === "webhook" && webhookPlaintextSecret !== undefined) {
         return {
           ...trigger!,
-          secret: values.secretHash,
+          secret: webhookPlaintextSecret,
         };
       }
 
@@ -1007,7 +1078,8 @@ export function routineService(db: Db) {
       if (!routine) throw notFound("Routine not found");
       if (routine.status !== "active") throw conflict("Routine is not active");
 
-      const secret = trigger.secretHash!;
+      // SEC-T11-04: decrypt the stored secret before using it for comparison
+      const secret = decryptWebhookSecret(trigger.secretHash!);
 
       if (trigger.signingMode === "bearer") {
         const token = headers.authorization?.replace(/^Bearer\s+/i, "");
