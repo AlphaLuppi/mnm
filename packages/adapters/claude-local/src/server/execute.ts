@@ -444,7 +444,10 @@ Continue your MnM work. Check for assigned issues and tasks.
   const effort = asString(config.effort, "high");
   const chrome = asBoolean(config.chrome, false);
   const maxTurns = asNumber(config.maxTurnsPerRun, 0);
-  const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, true);
+  // SEC-T9-05: default is now FALSE — operators must explicitly opt-in per agent.
+  // Setting to true bypasses all Claude Code tool permission prompts and should
+  // only be used for fully-trusted automation environments.
+  const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const instructionsFileDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
   const commandNotes = instructionsFilePath
