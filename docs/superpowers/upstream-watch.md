@@ -1,8 +1,10 @@
 # Upstream watch — paperclipai/paperclip
 
 > **But** : tracker ce qui sort côté upstream Paperclip et notre verdict (port / skip / re-implement / pattern stolen).
-> **Cadence** : audit mensuel manuel (à automatiser via `/schedule` une fois Phase 1 done).
+> **Cadence** : audit mensuel — script de triage `bun run upstream-watch` produit le patch initial (Phase 6 done 2026-04-30).
 > **Plan associé** : `docs/superpowers/plans/2026-04-28-paperclip-upstream-merge.md`
+> **Process** : `docs/superpowers/upstream-watch-process.md` (comment utiliser le script, qui valide, fréquence)
+> **Phases parallèles** : Phase 2 / 3 / 4 lancées et trackées sur leurs branches dédiées (`feat/paperclip-phase2-inbox-interactive`, `feat/paperclip-phase3-environments`, `feat/paperclip-phase4-liveness`). Voir le plan §7 pour le statut concret de chaque pattern volé.
 
 ---
 
@@ -159,13 +161,38 @@ Released 2026-04-28T22:56Z. 4 DB migrations upstream (0071-0074), one author (@c
 5. Si fix sécurité **CRITICAL** : créer issue + PR dans la semaine
 6. Sinon : batch dans le prochain plan
 
-### Automation candidate (post-Phase 1)
+### Process automation — done 2026-04-30 (Phase 6)
 
-`/schedule` un agent mensuel (1er du mois) qui :
-1. Pull `upstream`
-2. Liste les nouvelles releases
-3. Crée PR draft `feat/upstream-watch-YYYY-MM` avec triage initial
-4. Ping Tom pour validation
+✅ Script de triage : `scripts/upstream-watch.mjs` + `bun run upstream-watch`.
+
+```bash
+# Patch markdown à appendre (défaut)
+bun run upstream-watch
+
+# Plan dédié (écrit docs/superpowers/plans/YYYY-MM-DD-upstream-watch-batch.md)
+bun run upstream-watch -- --mode=plan
+
+# JSON pour tooling
+bun run upstream-watch -- --mode=json
+
+# Replay / debug : forcer la date "depuis"
+bun run upstream-watch -- --since=2026-04-29
+
+# Hors-ligne (utilise scripts/upstream-watch.fixture.json)
+bun run upstream-watch -- --no-gh --dry-run
+```
+
+Documentation complète du process : `docs/superpowers/upstream-watch-process.md`.
+
+### Wiring `/schedule` (à faire dans une autre mission)
+
+Étape suivante optionnelle : `/schedule` un agent mensuel (1er du mois) qui :
+1. `git checkout -b feat/upstream-watch-YYYY-MM`
+2. `bun run upstream-watch -- --mode=plan`
+3. `git add docs/superpowers/plans/YYYY-MM-DD-upstream-watch-batch.md`
+4. `gh pr create --draft` + ping Tom
+
+L'agent ne fait pas de cherry-pick lui-même — il prépare le terrain, Tom valide.
 
 ---
 
@@ -174,3 +201,5 @@ Released 2026-04-28T22:56Z. 4 DB migrations upstream (0071-0074), one author (@c
 | Date | Auditeur | Couvre | Notes |
 |---|---|---|---|
 | 2026-04-28 | Claude (Tom session) | v2026.318.0 → v2026.427.0 | Audit initial post-création de ce doc. Phase 0 complète. |
+| 2026-04-29 | Claude (Tom session) | v2026.428.0 (incremental) | Phase 1 closed (sécu CRITICAL portée). |
+| 2026-04-30 | Claude (night agent) | Phase 5 + Phase 6 | Patterns volés (typed activity events + productivity-review hooks) intégrés dans `feat/paperclip-phase5-6-automation-productivity`. Process automation : `bun run upstream-watch` + doc `upstream-watch-process.md`. |
