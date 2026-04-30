@@ -31,6 +31,8 @@ import { auditService } from "../services/audit.js";
 import { a2aBusService } from "../services/a2a-bus.js";
 import { a2aPermissionsService } from "../services/a2a-permissions.js";
 import { heartbeatService } from "../services/heartbeat.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+import { threadInteractionsService } from "../services/thread-interactions.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
@@ -466,5 +468,7 @@ export function buildMcpServices(db: Db): McpServices {
     a2aPermissions: a2aPermissionsService(db),
     heartbeat: heartbeatService(db),
     governedWorkflows: governedWorkflowService(db, { resolveGitProvider, shaCache }),
+    // PAPERCLIP-PHASE2: structured thread interactions
+    threadInteractions: threadInteractionsService(db),
   };
 }
