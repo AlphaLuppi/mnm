@@ -332,6 +332,20 @@
       "breakpoints": true
     },
     {
+      "idx": 75,
+      "version": "7",
+      "when": 1746230400000,
+      "tag": "0075_environments",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1746230401000,
+      "tag": "0076_environment_leases",
+      "breakpoints": true
+    },
+    {
       "idx": 77,
       "version": "7",
       "when": 1746489600000,

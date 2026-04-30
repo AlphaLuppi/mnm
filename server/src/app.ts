@@ -59,6 +59,8 @@ import { credentialRoutes } from "./routes/credentials.js";
 import { sandboxRoutes } from "./routes/sandboxes.js";
 // POD-05: Sandbox exec (chat console, renamed from pod-exec)
 import { sandboxExecRoutes } from "./routes/sandbox-exec.js";
+// PHASE-3 (#4297): BETA Environments + lease lifecycle
+import { environmentRoutes } from "./routes/environments.js";
 // DEPLOY-04: Deployment routes
 import { deploymentRoutes } from "./routes/deployments.js";
 // DEPLOY-03: Deployment proxy
@@ -364,6 +366,8 @@ export async function createApp(
   api.use(sandboxRoutes(db));
   // POD-05: Sandbox exec (chat console)
   api.use(sandboxExecRoutes(db));
+  // PHASE-3 (#4297): BETA Environments + lease lifecycle
+  api.use(environmentRoutes(db));
   // DEPLOY-04: Deployment routes
   api.use(deploymentRoutes(db));
   // ROLES+TAGS: Dynamic roles + permissions CRUD
