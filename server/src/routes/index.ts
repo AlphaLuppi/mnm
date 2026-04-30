@@ -40,3 +40,5 @@ export { feedbackRoutes } from "./feedback.js";
 export { routineRoutes } from "./routines.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
 export { viewPresetRoutes } from "./view-presets.js";
+// PHASE-3 (#4297): BETA Environments + lease lifecycle
+export { environmentRoutes } from "./environments.js";
