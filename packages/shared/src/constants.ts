@@ -290,6 +290,13 @@ export const LIVE_EVENT_TYPES = [
   "governed_run.gate_evaluated",
   "governed_run.cancelled",
   "governed_run.reactivated",
+  // PAPERCLIP-PHASE2: Inbox Interactive — thread interaction lifecycle events
+  "thread_interaction.created",
+  "thread_interaction.accepted",
+  "thread_interaction.rejected",
+  "thread_interaction.answered",
+  "thread_interaction.expired",
+  "thread_interaction.superseded",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
