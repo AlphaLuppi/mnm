@@ -72,6 +72,35 @@ export interface LaunchRunResult {
   gitSha: string;
 }
 
+// ── Phase 4: liveness + auto-recovery ─────────────────────────────────────
+
+export interface RecoveryPolicySnapshot {
+  enabled: boolean;
+  retries: number;
+  backoffMs: number;
+  stallTimeoutSeconds: number;
+}
+
+export interface RunLivenessResponse {
+  runId: string;
+  status: "draft" | "active" | "completed" | "failed";
+  startedAt: string | null;
+  lastUsefulActionAt: string | null;
+  nextActionHint: string | null;
+  recoveryAttempts: number;
+  lastRecoveredAt: string | null;
+  resumableTokenPresent: boolean;
+  effectivePolicy: RecoveryPolicySnapshot;
+  isStalled: boolean;
+}
+
+export interface RecoverRunResponse {
+  runId: string;
+  recovered: true;
+  recoveryAttempts: number;
+  recoveredAt: string | null;
+}
+
 // ── Workflow Studio (multi-file editor) ──────────────────────────────────────
 
 export interface TreeEntry {
@@ -246,6 +275,36 @@ export const governedWorkflowsApi = {
     return api.post<LaunchRunResult>(
       `${BASE(companyId)}/${encodeURIComponent(name)}/runs`,
       input ?? {},
+    );
+  },
+
+  // ── Phase 4: Run liveness + auto-recovery ─────────────────────────────────
+
+  /**
+   * Fetch the liveness snapshot for a run. Used by LiveRunWidget + the run
+   * detail header to show stall state, recovery attempts, and the next
+   * action hint without refetching the whole run+steps payload.
+   */
+  getRunLiveness(companyId: string, runId: string) {
+    return api.get<RunLivenessResponse>(
+      `${BASE(companyId)}/runs/${encodeURIComponent(runId)}/liveness`,
+    );
+  },
+
+  /**
+   * Trigger a manual recovery wake on a stalled run (forceManual=true on
+   * the server, so it bypasses the `enabled=false` advisory mode but still
+   * respects the retry cap). 4xx response codes:
+   *   - 404 WORKFLOW_RUN_NOT_FOUND
+   *   - 409 WORKFLOW_RUN_NOT_ACTIVE
+   *   - 409 WORKFLOW_RUN_RECOVERY_EXHAUSTED
+   *   - 409 WORKFLOW_RUN_RECOVERY_DISABLED (defensive — shouldn't normally
+   *     fire because forceManual=true).
+   */
+  recoverRun(companyId: string, runId: string) {
+    return api.post<RecoverRunResponse>(
+      `${BASE(companyId)}/runs/${encodeURIComponent(runId)}/recover`,
+      {},
     );
   },
 
