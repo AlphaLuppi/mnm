@@ -182,15 +182,33 @@ PRs [#4083](https://github.com/paperclipai/paperclip/pull/4083) + [#4419](https:
 
 ## 7. Phase 5 — Patterns volés (intégrés au fil des phases)
 
-Ces patterns ne sont pas des chantiers à part : on les implémente **au sein** des phases 2/3/4. Listés ici comme tracker pour ne rien oublier.
+Ces patterns ne sont pas des chantiers à part : on les implémente **au sein** des phases 2/3/4 (et un dernier volé indépendamment sur la branche `feat/paperclip-phase5-6-automation-productivity`). Listés ici comme tracker.
 
-| # | Pattern | Source PR | Phase d'implémentation |
-|---|---|---|---|
-| 5.1 | **Idempotency keys** sur thread interactions (UNIQUE `(company_id, issue_id, idempotency_key)`) | #4244 | Phase 2 (4.3.2) |
-| 5.2 | **Resumable continuation tokens** sur governed runs | #4083 | Phase 4 (6.2.1) |
-| 5.3 | **ExecutionTarget abstraction** | #4358 | Phase 3 (5.3.3) |
-| 5.4 | **Plugin host RPC** — `POST /mcp/plugin/:id/host-rpc` au lieu d'accès DB direct par les plugins | #4114 | Phase 3 (5.3.5) ou phase MCP dédiée si besoin séparé |
-| 5.5 | **Typed activity events** — extension de `audit_events` MnM avec event-type enum + JSON payload + WebSocket broadcast | #3222 | Phase 2 (4.3.7) — pattern réutilisable |
+| # | Pattern | Source PR | Phase d'implémentation | Statut concret |
+|---|---|---|---|---|
+| 5.1 | **Idempotency keys** sur thread interactions (UNIQUE `(company_id, issue_id, idempotency_key)`) | #4244 | Phase 2 (4.3.2) | ✅ **DONE** sur `feat/paperclip-phase2-inbox-interactive` — `thread_interactions` table + service + 3 MCP tools (`propose_task`, `ask_questions`, `request_confirmation`). Voir commits `ef340856f`, `a5847e360`, `9de8786c7`. |
+| 5.2 | **Resumable continuation tokens** sur governed runs | #4083 | Phase 4 (6.2.1) | ✅ **DONE** sur `feat/paperclip-phase4-liveness` — migration `0077_resumable_tokens` + `governed-workflows-liveness` service + REST endpoints `/runs/:id/liveness` + `/runs/:id/recover`. Voir commits `b2a997d7e`, `05c104e81`, `f37059990`. |
+| 5.3 | **ExecutionTarget abstraction** | #4358 | Phase 3 (5.3.3) | ⏸ **EN COURS** sur `feat/paperclip-phase3-environments` (branche présente, pas encore de commits Phase 3 propres au moment de cette mise à jour). À reprendre via le plan dédié. |
+| 5.4 | **Plugin host RPC** — `POST /mcp/plugin/:id/host-rpc` au lieu d'accès DB direct par les plugins | #4114 | Phase 3 (5.3.5) ou phase MCP dédiée si besoin séparé | ⏸ **DEFER** — couplé à Phase 3. Quand Phase 3 reprend, on instancie le plugin host RPC en parallèle de l'`ExecutionTarget`. |
+| 5.5 | **Typed activity events** — extension de `audit_events` MnM avec event-type enum + JSON payload + WebSocket broadcast | #3222 / #4700 / #4701 | Phase 5 (extracted), réutilisé Phase 2 (4.3.7) | ✅ **DONE** sur `feat/paperclip-phase5-6-automation-productivity` (cette branche) — `server/src/services/productivity-review.ts` exporte `activityEventTypes` (`run.stalled`, `issue.no_comment_streak`, `issue.high_churn_loop`) + `detectStalledIssue` helper. Pas de migration : `audit_events.action` est déjà `text`, le typage est emit-time. 17 vitest cases. |
+
+### 7.1 Phase 5 — pourquoi pas de migration `0078_typed_activity_events.sql`
+
+L'audit du schéma MnM (`packages/db/src/schema/audit_events.ts` + `activity_log.ts`) montre que :
+
+- `audit_events.action` et `activity_log.action` sont déjà `text` (free-form).
+- Le typage Paperclip upstream se fait sur l'event **emitter** (TypeScript), pas en colonne enum PostgreSQL.
+
+Conclusion : on ne change pas le schéma. On expose `activityEventTypes` côté code pour que les emitters utilisent la constante au lieu d'un literal — typo à la compilation, refactor `Find Usages` propre. Si plus tard on veut **forcer** la liste (CHECK constraint), on ajoutera une migration dédiée.
+
+### 7.2 Phase 5 — productivity review hooks (pas de service complet)
+
+Le helper `detectStalledIssue(db, issueId, opts)` est livré avec 3 signaux (`run_stalled`, `no_comment_streak`, `high_churn_loop`). Il est **read-only** et **pure-function-tested**. Ce qui est livré :
+
+- `server/src/services/productivity-review.ts` — `detectStalledIssue` + `detectStalledIssuePure` + `activityEventTypes` + `PRODUCTIVITY_REVIEW_DEFAULTS`.
+- `server/src/services/productivity-review.test.ts` — 17 cases (terminal states / 3 signaux / priorité `recommendedEvent`).
+
+**Volontairement hors scope** : aucune création automatique de review issue, aucun watchdog tick. Le pattern est livré comme primitive ; quand un sprint dédié productivity-review démarre, il consomme ces helpers sans les réécrire.
 
 ---
 
@@ -203,11 +221,29 @@ Fichier `docs/superpowers/upstream-watch.md` avec :
 - Critères de décision documentés (alignement roadmap, conflit attendu, effort)
 
 ### 8.2 Automation candidate
-Une fois le doc en place, on peut `/schedule` un agent mensuel qui :
-1. Pull `upstream` refs
-2. Liste les nouvelles releases depuis le dernier check
-3. Propose un PR draft sur `feat/upstream-watch-YYYY-MM` avec le triage initial
-4. Tom valide / ajuste / merge
+
+✅ **DONE** sur `feat/paperclip-phase5-6-automation-productivity` — `scripts/upstream-watch.mjs` + `bun run upstream-watch`.
+
+Le script :
+1. Pull `upstream` refs (`git fetch upstream --prune --tags`)
+2. Parse `docs/superpowers/upstream-watch.md` pour récupérer la dernière date d'audit
+3. `gh api releases?per_page=20` pour les releases publiées depuis cette date
+4. Génère un patch markdown (mode `--mode=patch`, défaut), un plan dédié (mode `--mode=plan` qui écrit `docs/superpowers/plans/YYYY-MM-DD-upstream-watch-batch.md`), ou un JSON (mode `--mode=json` pour tooling)
+
+Le script est **read-only** : il ne modifie ni `upstream-watch.md`, ni l'état git. Les humains valident et appliquent.
+
+**Documentation process** : `docs/superpowers/upstream-watch-process.md` — cadence mensuelle, vocabulaire de verdicts, qui valide, comment scheduler.
+
+**Tests** : 21 vitest cases (`scripts/upstream-watch.test.mjs`) — parser, extracteur PR, blurb/sanitizer, renderers (patch/plan/release).
+
+**Wiring `/schedule`** : pas encore fait. Quand la mission Phase 6 reprend, il suffira de wirer un agent mensuel qui exécute :
+```bash
+git checkout -b "feat/upstream-watch-$(date +%Y-%m)"
+bun run upstream-watch -- --mode=plan
+git add docs/superpowers/plans/
+git commit -m "feat(upstream-watch): batch $(date +%Y-%m)"
+gh pr create --draft
+```
 
 ---
 
