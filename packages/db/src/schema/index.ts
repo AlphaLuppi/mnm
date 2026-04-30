@@ -97,3 +97,19 @@ export { governedWorkflowDefinitions } from "./governed_workflow_definitions.js"
 export { governedWorkflowRuns, GOVERNED_RUN_STATUSES, type GovernedRunStatus } from "./governed_workflow_runs.js";
 export { governedStepExecutions, GOVERNED_STEP_STATES, type GovernedStepState } from "./governed_step_executions.js";
 export { gateResults } from "./gate_results.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions (port of upstream #4244 + #4381)
+export {
+  threadInteractions,
+  THREAD_INTERACTION_KINDS,
+  THREAD_INTERACTION_STATUSES,
+  THREAD_INTERACTION_CONTINUATION_POLICIES,
+  THREAD_INTERACTION_IDEMPOTENCY_CONSTRAINT,
+  type ThreadInteractionKind,
+  type ThreadInteractionStatus,
+  type ThreadInteractionContinuationPolicy,
+  type ThreadInteractionPayload,
+  type ThreadInteractionResult,
+  type ThreadInteractionResumeToken,
+  type ThreadInteractionRow,
+  type NewThreadInteraction,
+} from "./thread_interactions.js";
