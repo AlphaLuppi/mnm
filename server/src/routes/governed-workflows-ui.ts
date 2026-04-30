@@ -25,6 +25,10 @@ import {
   upsertDefinition,
   setEnabled,
 } from "../services/governed-workflows-extensions.js";
+import {
+  getRunLiveness,
+  recoverRun,
+} from "../services/governed-workflows-liveness.js";
 import { createResolveGitProvider } from "../mcp/build-mcp-services.js";
 import { ShaCache } from "@mnm/git-provider";
 import { configLayers, configLayerItems, authUsers } from "@mnm/db";
@@ -757,6 +761,96 @@ export function governedWorkflowUiRoutes(db: Db) {
         });
       } catch (err) {
         if (sendRunLifecycleError(res, err)) return;
+        next(err);
+      }
+    },
+  );
+
+  // ── GET /governed-workflows/runs/:runId/liveness ───────────────────────────
+  // Phase 4 — Liveness snapshot for the UI (LiveRunWidget) + watchdog status
+  // probes. Returns:
+  //   { runId, status, startedAt, lastUsefulActionAt, nextActionHint,
+  //     recoveryAttempts, lastRecoveredAt, resumableTokenPresent,
+  //     effectivePolicy, isStalled }
+  // 404 with WORKFLOW_RUN_NOT_FOUND when the run is missing.
+  // Auth: any board member with workflows:read can probe liveness.
+  router.get(
+    "/runs/:runId/liveness",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_READ),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const runId = req.params.runId as string;
+        const snapshot = await getRunLiveness(db, { runId, companyId });
+        if (!snapshot) {
+          return apiError(
+            res,
+            404,
+            WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+            `Run '${runId}' not found`,
+            ["Verify the runId via GET /governed-workflows/:name/runs"],
+          );
+        }
+        res.json({
+          runId: snapshot.runId,
+          status: snapshot.status,
+          startedAt: snapshot.startedAt?.toISOString() ?? null,
+          lastUsefulActionAt: snapshot.lastUsefulActionAt?.toISOString() ?? null,
+          nextActionHint: snapshot.nextActionHint,
+          recoveryAttempts: snapshot.recoveryAttempts,
+          lastRecoveredAt: snapshot.lastRecoveredAt?.toISOString() ?? null,
+          resumableTokenPresent: snapshot.resumableTokenPresent,
+          effectivePolicy: snapshot.effectivePolicy,
+          isStalled: snapshot.isStalled,
+        });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── POST /governed-workflows/runs/:runId/recover ───────────────────────────
+  // Phase 4 — Manual operator-triggered recovery. Bypasses the policy
+  // `enabled=false` advisory mode (forceManual) but still respects the retry
+  // cap. Useful when the watchdog is in advisory mode (default) and an
+  // operator wants to wake a single stalled run.
+  // Auth: workflows:enforce — same gate as launch/cancel.
+  router.post(
+    "/runs/:runId/recover",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_ENFORCE),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const runId = req.params.runId as string;
+        const result = await recoverRun(
+          db,
+          { runId, companyId },
+          { publishLiveEvent, forceManual: true },
+        );
+        if (!result.recovered) {
+          // Translate the structured reason onto a 409/404 contract — same
+          // shape the cancel/reactivate routes use so the UI handlers can
+          // share the error parser.
+          const status = result.reason === "run_not_found" ? 404 : 409;
+          const code =
+            result.reason === "run_not_found"
+              ? WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND
+              : result.reason === "max_retries_exceeded"
+                ? "WORKFLOW_RUN_RECOVERY_EXHAUSTED"
+                : result.reason === "run_not_active"
+                  ? WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_ACTIVE
+                  : "WORKFLOW_RUN_RECOVERY_DISABLED";
+          return apiError(res, status, code, `Recovery skipped: ${result.reason}`, [
+            "Inspect GET /runs/:runId/liveness for the current snapshot",
+          ]);
+        }
+        res.json({
+          runId: result.runId,
+          recovered: result.recovered,
+          recoveryAttempts: result.recoveryAttempts,
+          recoveredAt: result.recoveredAt?.toISOString() ?? null,
+        });
+      } catch (err) {
         next(err);
       }
     },
