@@ -75,6 +75,8 @@ import { folderRoutes } from "./routes/folders.js";
 import { feedbackRoutes } from "./routes/feedback.js";
 // ROUTINES: Routine routes
 import { routineRoutes } from "./routes/routines.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+import { threadInteractionRoutes } from "./routes/thread-interactions.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
 import { viewPresetRoutes } from "./routes/view-presets.js";
 // BLOCKS-PLATFORM: User widgets + Inbox items
@@ -382,6 +384,8 @@ export async function createApp(
   api.use(feedbackRoutes(db));
   // ROUTINES: Routine routes
   api.use(routineRoutes(db));
+  // PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+  api.use(threadInteractionRoutes(db));
   // VIEW-PRESETS: Persona-based dashboard & navigation
   api.use(viewPresetRoutes(db));
   // BLOCKS-PLATFORM: User widgets + Inbox items + Block catalogue

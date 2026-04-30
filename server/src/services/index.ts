@@ -81,3 +81,9 @@ export { createIngestionQueue, createIngestionWorker } from "./document-ingestio
 export { ragService } from "./rag.js";
 // ROUTINES: Routine service
 export { routineService } from "./routines.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+export {
+  threadInteractionsService,
+  type ThreadInteractionsService,
+  type ThreadInteractionActor,
+} from "./thread-interactions.js";

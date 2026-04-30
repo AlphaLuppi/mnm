@@ -40,3 +40,5 @@ export { feedbackRoutes } from "./feedback.js";
 export { routineRoutes } from "./routines.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
 export { viewPresetRoutes } from "./view-presets.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+export { threadInteractionRoutes } from "./thread-interactions.js";
