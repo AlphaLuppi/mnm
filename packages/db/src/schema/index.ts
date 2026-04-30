@@ -114,3 +114,19 @@ export {
   type EnvironmentLeasePolicy,
   type EnvironmentLeaseCleanupStatus,
 } from "./environment_leases.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions (port of upstream #4244 + #4381)
+export {
+  threadInteractions,
+  THREAD_INTERACTION_KINDS,
+  THREAD_INTERACTION_STATUSES,
+  THREAD_INTERACTION_CONTINUATION_POLICIES,
+  THREAD_INTERACTION_IDEMPOTENCY_CONSTRAINT,
+  type ThreadInteractionKind,
+  type ThreadInteractionStatus,
+  type ThreadInteractionContinuationPolicy,
+  type ThreadInteractionPayload,
+  type ThreadInteractionResult,
+  type ThreadInteractionResumeToken,
+  type ThreadInteractionRow,
+  type NewThreadInteraction,
+} from "./thread_interactions.js";

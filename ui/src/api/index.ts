@@ -21,3 +21,5 @@ export { ssoApi } from "./sso";
 export { onboardingApi } from "./onboarding";
 // onb-s03-barrel-api
 export { jiraImportApi } from "./jira-import";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+export { threadInteractionsApi } from "./thread-interactions";

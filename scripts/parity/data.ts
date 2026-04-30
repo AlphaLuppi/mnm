@@ -260,6 +260,25 @@ export const parityData: ParityData = {
           web: WEB_DONE,
           desktop: BACKEND,
         },
+        {
+          // PAPERCLIP-PHASE2 — port of upstream PRs #4244 + #4381
+          id: "thread-interactions",
+          name: "Inbox Interactive — structured agent <-> user cards (suggest_tasks / ask_questions / request_confirmation)",
+          description:
+            "Structured cards in the issue thread with idempotency keys, resumable tokens, and live SSE refresh. " +
+            "Replaces 'agent asks yes/no in markdown' with explicit accept/reject UI. Backend + REST + 3 MCP tools shipped; UI in stub state.",
+          web: { status: "partial", since: "0.1.x", notes: "Hook + InteractionCard stub; multi-question forms and document target preview pending." },
+          desktop: BACKEND_SSE,
+          todo: {
+            code: [
+              "Polish: rich markdown body, multi-question form, suggested-task tree preview",
+              "Wire LiveUpdatesProvider to dispatch `thread_interaction:updated` DOM events",
+              "Plug InteractionCard into IssueDetail comment thread",
+              "Implement supersedeOnUserComment hook (issueComments insert → svc.supersede)",
+            ],
+            tests: ["E2E: agent propose → user accept → child issues created"],
+          },
+        },
       ],
     },
     {

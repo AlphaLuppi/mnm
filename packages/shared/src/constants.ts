@@ -293,6 +293,13 @@ export const LIVE_EVENT_TYPES = [
   // GOVERNED-WORKFLOWS: Liveness + auto-recovery (Phase 4 / migration 0077)
   "governed_run.stalled",
   "governed_run.auto_recovered",
+  // PAPERCLIP-PHASE2: Inbox Interactive — thread interaction lifecycle events
+  "thread_interaction.created",
+  "thread_interaction.accepted",
+  "thread_interaction.rejected",
+  "thread_interaction.answered",
+  "thread_interaction.expired",
+  "thread_interaction.superseded",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

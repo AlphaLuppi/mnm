@@ -42,3 +42,5 @@ export { routineRoutes } from "./routines.js";
 export { viewPresetRoutes } from "./view-presets.js";
 // PHASE-3 (#4297): BETA Environments + lease lifecycle
 export { environmentRoutes } from "./environments.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
+export { threadInteractionRoutes } from "./thread-interactions.js";
