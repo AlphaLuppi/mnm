@@ -31,13 +31,26 @@ END $$;--> statement-breakpoint
 ALTER TABLE user_credentials
   DROP CONSTRAINT IF EXISTS user_mcp_credentials_provider_check;--> statement-breakpoint
 ALTER TABLE user_credentials
+  DROP CONSTRAINT IF EXISTS user_credentials_provider_check;--> statement-breakpoint
+ALTER TABLE user_credentials
   ADD CONSTRAINT user_credentials_provider_check
   CHECK (provider IN ('oauth2', 'api_key', 'bearer', 'pat', 'custom'));--> statement-breakpoint
 
 -- GAP-01: Update CHECK constraint on config_layer_items.item_type to include 'git_provider'
-ALTER TABLE config_layer_items DROP CONSTRAINT IF EXISTS config_layer_items_item_type_check;--> statement-breakpoint
-ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check
-  CHECK (item_type IN ('mcp', 'skill', 'hook', 'setting', 'git_provider'));--> statement-breakpoint
+-- 2026-04-30 idempotency fix: 0062/0065 extend this constraint further (e.g. 'credential', 'agent').
+-- Skip the tighter 0061 version if such extended values are already present in data.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM config_layer_items
+    WHERE item_type NOT IN ('mcp', 'skill', 'hook', 'setting', 'git_provider')
+  ) THEN
+    ALTER TABLE config_layer_items DROP CONSTRAINT IF EXISTS config_layer_items_item_type_check;
+    ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check
+      CHECK (item_type IN ('mcp', 'skill', 'hook', 'setting', 'git_provider'));
+  END IF;
+END
+$$;--> statement-breakpoint
 
 ALTER TABLE user_credentials
   DROP CONSTRAINT IF EXISTS user_credentials_status_check;--> statement-breakpoint

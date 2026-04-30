@@ -3,7 +3,7 @@
 -- Adds the `environments` table: company-scoped, driver-typed (local|ssh|sandbox|plugin),
 -- status state machine. RLS-enforced (tenant isolation).
 
-CREATE TABLE "environments" (
+CREATE TABLE IF NOT EXISTS "environments" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "company_id" uuid NOT NULL REFERENCES "companies"("id") ON DELETE CASCADE,
   "name" text NOT NULL,
@@ -18,11 +18,11 @@ CREATE TABLE "environments" (
   CONSTRAINT "environments_status_check" CHECK ("status" IN ('active', 'archived'))
 );--> statement-breakpoint
 
-CREATE INDEX "environments_company_status_idx"
+CREATE INDEX IF NOT EXISTS "environments_company_status_idx"
   ON "environments" USING btree ("company_id", "status");--> statement-breakpoint
-CREATE UNIQUE INDEX "environments_company_driver_idx"
+CREATE UNIQUE INDEX IF NOT EXISTS "environments_company_driver_idx"
   ON "environments" USING btree ("company_id", "driver");--> statement-breakpoint
-CREATE INDEX "environments_company_name_idx"
+CREATE INDEX IF NOT EXISTS "environments_company_name_idx"
   ON "environments" USING btree ("company_id", "name");--> statement-breakpoint
 
 ALTER TABLE "environments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

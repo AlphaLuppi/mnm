@@ -81,7 +81,17 @@ CREATE TABLE IF NOT EXISTS "trace_lens_results" (
 CREATE INDEX IF NOT EXISTS "traces_company_date_idx" ON "traces" ("company_id", "started_at" DESC);
 CREATE INDEX IF NOT EXISTS "traces_agent_idx" ON "traces" ("agent_id");
 CREATE INDEX IF NOT EXISTS "traces_status_idx" ON "traces" ("status");
-CREATE INDEX IF NOT EXISTS "traces_workflow_idx" ON "traces" ("workflow_instance_id");
+-- 2026-04-30 idempotency fix: workflow_instance_id is dropped by 0066_nuke_legacy_workflows.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'traces' AND column_name = 'workflow_instance_id'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS "traces_workflow_idx" ON "traces" ("workflow_instance_id")';
+  END IF;
+END
+$$;
 CREATE INDEX IF NOT EXISTS "traces_parent_idx" ON "traces" ("parent_trace_id");
 CREATE INDEX IF NOT EXISTS "traces_heartbeat_idx" ON "traces" ("heartbeat_run_id");
 

@@ -121,7 +121,19 @@ CREATE TABLE IF NOT EXISTS "folders" (
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "folders_company_owner_idx" ON "folders"("company_id", "owner_user_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "folders_company_visibility_idx" ON "folders"("company_id", "visibility");--> statement-breakpoint
+-- 2026-04-30 idempotency fix: column "visibility" is dropped by 0056_folder_workspace,
+-- so re-running 0055 on a DB that already has 0056 applied (but missed 0055 in journal)
+-- would fail. Guard the index creation on column existence.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'folders' AND column_name = 'visibility'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS "folders_company_visibility_idx" ON "folders"("company_id", "visibility")';
+  END IF;
+END
+$$;--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "folder_items" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

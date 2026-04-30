@@ -1,4 +1,4 @@
-CREATE TABLE oauth_clients (
+CREATE TABLE IF NOT EXISTS oauth_clients (
   client_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_secret TEXT,
   client_name TEXT NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE oauth_clients (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE oauth_refresh_tokens (
+CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
   token_hash TEXT PRIMARY KEY,
   client_id UUID NOT NULL REFERENCES oauth_clients(client_id) ON DELETE CASCADE,
   user_id TEXT NOT NULL,
@@ -17,4 +17,4 @@ CREATE TABLE oauth_refresh_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX oauth_refresh_tokens_expires_idx ON oauth_refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS oauth_refresh_tokens_expires_idx ON oauth_refresh_tokens(expires_at);

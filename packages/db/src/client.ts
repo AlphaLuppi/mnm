@@ -363,32 +363,120 @@ async function constraintExists(
   return rows[0]?.exists ?? false;
 }
 
+async function policyExists(
+  sql: ReturnType<typeof postgres>,
+  policyName: string,
+  tableName: string,
+): Promise<boolean> {
+  const rows = await sql<{ exists: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename = ${tableName}
+        AND policyname = ${policyName}
+    ) AS exists
+  `;
+  return rows[0]?.exists ?? false;
+}
+
 async function migrationStatementAlreadyApplied(
   sql: ReturnType<typeof postgres>,
   statement: string,
 ): Promise<boolean> {
   const normalized = statement.replace(/\s+/g, " ").trim();
+  if (normalized.length === 0) return true;
 
-  const createTableMatch = normalized.match(/^CREATE TABLE(?: IF NOT EXISTS)? "([^"]+)"/i);
+  // Bare comment or whitespace-only statement.
+  if (/^--/.test(normalized) || /^\/\*/.test(normalized)) return true;
+
+  // 2026-04-30: extend matcher to cover more idempotent patterns commonly used
+  // in MnM migrations. Without these, reconcile breaks early on the first
+  // unrecognized statement (e.g. RLS policies in 0045) and gives up marking
+  // already-applied migrations as such.
+
+  // Naturally idempotent: any "DROP ... IF EXISTS"
+  if (/^DROP\s+\w+\s+IF\s+EXISTS/i.test(normalized)) return true;
+
+  // RLS knobs are idempotent (re-enabling RLS on a table that already has it is a no-op).
+  if (/^ALTER\s+TABLE\s+(?:"[^"]+"|\S+)\s+(?:ENABLE|DISABLE|FORCE|NO\s+FORCE)\s+ROW\s+LEVEL\s+SECURITY/i.test(normalized)) {
+    return true;
+  }
+
+  // DO $$ BEGIN ... END $$ blocks: assumed self-guarding (the SQL must use IF EXISTS / IF NOT EXISTS internally).
+  if (/^DO\s+\$\$/i.test(normalized)) return true;
+
+  // INSERT ... ON CONFLICT DO NOTHING / DO UPDATE: idempotent by construction.
+  if (/^INSERT\s+INTO/i.test(normalized) && /ON\s+CONFLICT/i.test(normalized)) {
+    return true;
+  }
+
+  // GRANT / REVOKE: idempotent at the postgres level (ok to re-run).
+  if (/^(GRANT|REVOKE)\s+/i.test(normalized)) return true;
+
+  // CREATE EXTENSION IF NOT EXISTS
+  if (/^CREATE\s+EXTENSION\s+IF\s+NOT\s+EXISTS/i.test(normalized)) return true;
+
+  // SET / RESET / COMMENT: harmless to re-run.
+  if (/^(SET\s|RESET\s|COMMENT\s)/i.test(normalized)) return true;
+
+  // Support both quoted ("name") and unquoted (name) identifiers.
+  const createTableMatch = normalized.match(/^CREATE TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:"([^"]+)"|(\w+))/i);
   if (createTableMatch) {
-    return tableExists(sql, createTableMatch[1]);
+    const tableName = createTableMatch[1] ?? createTableMatch[2];
+    if (tableName) return tableExists(sql, tableName);
   }
 
   const addColumnMatch = normalized.match(
-    /^ALTER TABLE "([^"]+)" ADD COLUMN(?: IF NOT EXISTS)? "([^"]+)"/i,
+    /^ALTER\s+TABLE\s+(?:"([^"]+)"|(\w+))\s+ADD\s+COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:"([^"]+)"|(\w+))/i,
   );
   if (addColumnMatch) {
-    return columnExists(sql, addColumnMatch[1], addColumnMatch[2]);
+    const tableName = addColumnMatch[1] ?? addColumnMatch[2];
+    const columnName = addColumnMatch[3] ?? addColumnMatch[4];
+    if (tableName && columnName) return columnExists(sql, tableName, columnName);
   }
 
-  const createIndexMatch = normalized.match(/^CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)? "([^"]+)"/i);
+  const createIndexMatch = normalized.match(/^CREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:"([^"]+)"|(\w+))/i);
   if (createIndexMatch) {
-    return indexExists(sql, createIndexMatch[1]);
+    const indexName = createIndexMatch[1] ?? createIndexMatch[2];
+    if (indexName) return indexExists(sql, indexName);
   }
 
-  const addConstraintMatch = normalized.match(/^ALTER TABLE "([^"]+)" ADD CONSTRAINT "([^"]+)"/i);
+  const addConstraintMatch = normalized.match(/^ALTER\s+TABLE\s+(?:"([^"]+)"|(\w+))\s+ADD\s+CONSTRAINT\s+(?:"([^"]+)"|(\w+))/i);
   if (addConstraintMatch) {
-    return constraintExists(sql, addConstraintMatch[2]);
+    const constraintName = addConstraintMatch[3] ?? addConstraintMatch[4];
+    if (constraintName) return constraintExists(sql, constraintName);
+  }
+
+  // CREATE POLICY "name" ON "table" ... (quoted or unquoted)
+  const createPolicyMatch = normalized.match(/^CREATE\s+POLICY\s+(?:"([^"]+)"|(\w+))\s+ON\s+(?:"([^"]+)"|(\w+))/i);
+  if (createPolicyMatch) {
+    const policyName = createPolicyMatch[1] ?? createPolicyMatch[2];
+    const tableName = createPolicyMatch[3] ?? createPolicyMatch[4];
+    if (policyName && tableName) return policyExists(sql, policyName, tableName);
+  }
+
+  // CREATE TYPE "name" AS ENUM (...)
+  const createTypeMatch = normalized.match(/^CREATE\s+TYPE\s+(?:"([^"]+)"|(\w+))\s+AS\s+/i);
+  if (createTypeMatch) {
+    const typeName = createTypeMatch[1] ?? createTypeMatch[2];
+    if (typeName) {
+      const rows = await sql<{ exists: boolean }[]>`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_type t
+          JOIN pg_namespace n ON n.oid = t.typnamespace
+          WHERE n.nspname = 'public' AND t.typname = ${typeName}
+        ) AS exists
+      `;
+      return rows[0]?.exists ?? false;
+    }
+  }
+
+  // Naked ALTER TABLE ... DROP COLUMN / DROP CONSTRAINT (without IF EXISTS) — assume schema is past it.
+  // We can't safely verify these are applied, but in MnM's schema-ahead-of-journal scenario these
+  // have run during a previous boot. Marking as applied is safe since re-running would error.
+  if (/^ALTER\s+TABLE\s+.+\sDROP\s+(COLUMN|CONSTRAINT)\s/i.test(normalized)) {
+    return true;
   }
 
   // If we cannot reason about a statement safely, require manual migration.
@@ -472,6 +560,70 @@ export type MigrationHistoryReconcileResult = {
   repairedMigrations: string[];
   remainingMigrations: string[];
 };
+
+/**
+ * 2026-04-30 — Force-mark every migration in the journal as applied in
+ * __drizzle_migrations, without inspecting individual statements. Used when
+ * the schema is verifiably ahead of __drizzle_migrations (rebuild scenario)
+ * and per-statement reconcile is unable to recognize all the patterns.
+ *
+ * Activated via MNM_DB_FORCE_RECONCILE=true. Use sparingly.
+ */
+async function markAllJournalEntriesAsApplied(url: string): Promise<string[]> {
+  const journalEntries = await listJournalMigrationEntries();
+  if (journalEntries.length === 0) return [];
+
+  const sql = postgres(url, { max: 1 });
+  const repaired: string[] = [];
+  try {
+    const migrationTableSchema = await discoverMigrationTableSchema(sql);
+    if (!migrationTableSchema) return [];
+    const columnNames = await getMigrationTableColumnNames(sql, migrationTableSchema);
+    const qualifiedTable = `${quoteIdentifier(migrationTableSchema)}.${quoteIdentifier(DRIZZLE_MIGRATIONS_TABLE)}`;
+
+    for (const entry of journalEntries) {
+      const migrationContent = await readMigrationFileContent(entry.fileName).catch(() => "");
+      const hash = createHash("sha256").update(migrationContent).digest("hex");
+
+      const existsByHash = columnNames.has("hash")
+        ? (await sql.unsafe<{ id: number }[]>(
+            `SELECT id FROM ${qualifiedTable} WHERE hash = ${quoteLiteral(hash)} LIMIT 1`,
+          )).length > 0
+        : false;
+      const existsByName = columnNames.has("name")
+        ? (await sql.unsafe<{ id: number }[]>(
+            `SELECT id FROM ${qualifiedTable} WHERE name = ${quoteLiteral(entry.fileName)} LIMIT 1`,
+          )).length > 0
+        : false;
+      if (existsByHash || existsByName) continue;
+
+      const insertColumns: string[] = [];
+      const insertValues: string[] = [];
+      if (columnNames.has("hash")) {
+        insertColumns.push(quoteIdentifier("hash"));
+        insertValues.push(quoteLiteral(hash));
+      }
+      if (columnNames.has("name")) {
+        insertColumns.push(quoteIdentifier("name"));
+        insertValues.push(quoteLiteral(entry.fileName));
+      }
+      if (columnNames.has("created_at")) {
+        insertColumns.push(quoteIdentifier("created_at"));
+        insertValues.push(quoteLiteral(String(entry.folderMillis)));
+      }
+      if (insertColumns.length === 0) break;
+
+      await sql.unsafe(
+        `INSERT INTO ${qualifiedTable} (${insertColumns.join(", ")}) VALUES (${insertValues.join(", ")})`,
+      );
+      repaired.push(entry.fileName);
+    }
+  } finally {
+    await sql.end();
+  }
+
+  return repaired;
+}
 
 export async function reconcilePendingMigrationHistory(
   url: string,
@@ -650,6 +802,31 @@ export async function inspectMigrations(url: string): Promise<MigrationState> {
 export async function applyPendingMigrations(url: string): Promise<void> {
   const initialState = await inspectMigrations(url);
   if (initialState.status === "upToDate") return;
+
+  // 2026-04-30: Pre-reconcile schema-already-applied migrations BEFORE running
+  // migratePg(). Without this, when the schema is ahead of __drizzle_migrations
+  // (e.g. journal had missing entries that we just rebuilt), a migration that
+  // re-creates an already-existing index/constraint would crash migratePg before
+  // the post-hoc reconcile gets a chance. By reconciling first, migratePg only
+  // sees migrations that are genuinely pending in the schema.
+  if (initialState.status === "needsMigrations" && initialState.reason === "pending-migrations") {
+    // MNM_DB_FORCE_RECONCILE=true: trust the journal, mark every entry as applied
+    // without inspecting individual statements. Use ONLY when the schema is
+    // verifiably ahead of __drizzle_migrations (e.g. after rebuilding the journal
+    // or recovering a partially-migrated DB). Risk: if a genuinely-new migration
+    // is in the journal but not yet applied, it will be silently skipped.
+    if (process.env.MNM_DB_FORCE_RECONCILE === "true") {
+      await markAllJournalEntriesAsApplied(url);
+      const stateAfterForce = await inspectMigrations(url);
+      if (stateAfterForce.status === "upToDate") return;
+    }
+
+    const earlyRepair = await reconcilePendingMigrationHistory(url);
+    if (earlyRepair.repairedMigrations.length > 0) {
+      const stateAfterEarlyRepair = await inspectMigrations(url);
+      if (stateAfterEarlyRepair.status === "upToDate") return;
+    }
+  }
 
   const sql = postgres(url, { max: 1 });
 

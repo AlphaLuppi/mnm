@@ -3,7 +3,7 @@
 -- keep references to issues + heartbeat_runs. Lease lifecycle = ephemeral
 -- by default; status state machine = active|released|expired|failed.
 
-CREATE TABLE "environment_leases" (
+CREATE TABLE IF NOT EXISTS "environment_leases" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "company_id" uuid NOT NULL REFERENCES "companies"("id") ON DELETE CASCADE,
   "environment_id" uuid NOT NULL REFERENCES "environments"("id") ON DELETE CASCADE,
@@ -27,15 +27,15 @@ CREATE TABLE "environment_leases" (
   CONSTRAINT "environment_leases_cleanup_check" CHECK ("cleanup_status" IS NULL OR "cleanup_status" IN ('pending', 'success', 'failed'))
 );--> statement-breakpoint
 
-CREATE INDEX "environment_leases_company_environment_status_idx"
+CREATE INDEX IF NOT EXISTS "environment_leases_company_environment_status_idx"
   ON "environment_leases" USING btree ("company_id", "environment_id", "status");--> statement-breakpoint
-CREATE INDEX "environment_leases_company_issue_idx"
+CREATE INDEX IF NOT EXISTS "environment_leases_company_issue_idx"
   ON "environment_leases" USING btree ("company_id", "issue_id");--> statement-breakpoint
-CREATE INDEX "environment_leases_heartbeat_run_idx"
+CREATE INDEX IF NOT EXISTS "environment_leases_heartbeat_run_idx"
   ON "environment_leases" USING btree ("heartbeat_run_id");--> statement-breakpoint
-CREATE INDEX "environment_leases_company_last_used_idx"
+CREATE INDEX IF NOT EXISTS "environment_leases_company_last_used_idx"
   ON "environment_leases" USING btree ("company_id", "last_used_at");--> statement-breakpoint
-CREATE INDEX "environment_leases_provider_lease_idx"
+CREATE INDEX IF NOT EXISTS "environment_leases_provider_lease_idx"
   ON "environment_leases" USING btree ("provider_lease_id");--> statement-breakpoint
 
 ALTER TABLE "environment_leases" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
