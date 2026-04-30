@@ -571,6 +571,13 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:launch:" + def.id}))`,
       );
 
+      // PHASE-4: seed lastUsefulActionAt with startedAt so the liveness
+      // watchdog has a baseline to compare against. Otherwise a freshly
+      // launched run would have NULL lastUsefulActionAt and slip past the
+      // detectStalledRuns filter forever (the watchdog skips NULLs as a
+      // bootstrapping window). nextActionHint mirrors what the runtime
+      // would set on its first useful tick.
+      const launchedAt = new Date();
       const [run] = await tx
         .insert(governedWorkflowRuns)
         .values({
@@ -581,7 +588,9 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           initiatedByActorType: args.actor.type,
           initiatedByActorId: args.actor.id,
           status: "active",
-          startedAt: new Date(),
+          startedAt: launchedAt,
+          lastUsefulActionAt: launchedAt,
+          nextActionHint: "run launched",
           paramsJson: args.params,
         })
         .returning({ id: governedWorkflowRuns.id });
@@ -1395,10 +1404,24 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       }
 
       // Transition to succeeded
+      const stepCompletedAt = new Date();
       await tx
         .update(governedStepExecutions)
-        .set({ state: "succeeded", completedAt: new Date() })
+        .set({ state: "succeeded", completedAt: stepCompletedAt })
         .where(eq(governedStepExecutions.id, stepExec.id));
+
+      // PHASE-4: a succeeded step is by definition "useful forward progress",
+      // so bump the run's last_useful_action_at + record the next-action hint
+      // (the step name acts as the implicit hint). This is what the liveness
+      // watchdog uses to decide a run is alive vs stalled.
+      await tx
+        .update(governedWorkflowRuns)
+        .set({
+          lastUsefulActionAt: stepCompletedAt,
+          nextActionHint: `step '${args.stepId}' completed`,
+          updatedAt: stepCompletedAt,
+        })
+        .where(eq(governedWorkflowRuns.id, args.runId));
 
       // Emit step_updated for the succeeded transition.
       emitStepUpdated({

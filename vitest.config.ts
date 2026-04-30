@@ -7,10 +7,12 @@ export default defineConfig({
       "packages/governed-workflows",
       "packages/git-provider",
       "packages/gate-runner",
+      "packages/execution-target",
       "packages/adapters/opencode-local",
       "server",
       "ui",
       "cli",
+      "scripts",
     ],
   },
 });

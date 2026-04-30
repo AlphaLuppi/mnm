@@ -122,6 +122,10 @@ export const PERMISSIONS = {
   ORG_VIEW: "org:view",
   // Inbox
   INBOX_READ: "inbox:read",
+  // PAPERCLIP-PHASE2: Inbox Interactive — thread interactions
+  THREAD_INTERACTIONS_READ: "thread_interactions:read",
+  THREAD_INTERACTIONS_CREATE: "thread_interactions:create",
+  THREAD_INTERACTIONS_RESOLVE: "thread_interactions:resolve",
 } as const;
 
 export type PermissionSlug = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -226,6 +230,9 @@ export const PERMISSION_META: Record<PermissionSlug, PermissionMeta> = {
   [PERMISSIONS.ROUTINES_MANAGE]: { category: "routines", description: "Gérer TOUTES les routines", destructive: false },
   [PERMISSIONS.ORG_VIEW]: { category: "org", description: "Voir l'organigramme", destructive: false },
   [PERMISSIONS.INBOX_READ]: { category: "inbox", description: "Voir la boîte de réception", destructive: false },
+  [PERMISSIONS.THREAD_INTERACTIONS_READ]: { category: "issues", description: "Voir les interactions structurées (suggested tasks, questions, confirmations)", destructive: false },
+  [PERMISSIONS.THREAD_INTERACTIONS_CREATE]: { category: "issues", description: "Créer des interactions structurées dans un thread d'issue (agents)", destructive: false },
+  [PERMISSIONS.THREAD_INTERACTIONS_RESOLVE]: { category: "issues", description: "Accepter / rejeter / répondre aux interactions structurées", destructive: false },
 };
 
 // ── MCP Scopes ──────────────────────────────────────────────────────────────

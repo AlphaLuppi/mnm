@@ -129,6 +129,15 @@
         "vitest": "^3.0.5",
       },
     },
+    "packages/execution-target": {
+      "name": "@mnm/execution-target",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^24.6.0",
+        "typescript": "^5.7.3",
+        "vitest": "^3.0.5",
+      },
+    },
     "packages/gate-runner": {
       "name": "@mnm/gate-runner",
       "version": "0.1.0",
@@ -228,7 +237,7 @@
         "ioredis": "^5.10.0",
         "jose": "^6.2.3",
         "js-yaml": "^4.1.1",
-        "multer": "^2.0.2",
+        "multer": "^2.1.1",
         "open": "^11.0.0",
         "pdf-parse": "^2.4.5",
         "pino": "^9.6.0",
@@ -829,6 +838,8 @@
     "@mnm/adapter-utils": ["@mnm/adapter-utils@workspace:packages/adapter-utils"],
 
     "@mnm/db": ["@mnm/db@workspace:packages/db"],
+
+    "@mnm/execution-target": ["@mnm/execution-target@workspace:packages/execution-target"],
 
     "@mnm/gate-runner": ["@mnm/gate-runner@workspace:packages/gate-runner"],
 

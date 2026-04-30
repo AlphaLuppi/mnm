@@ -245,6 +245,12 @@ export const queryKeys = {
       ["governed-workflows", "runs", companyId, name, filters ?? {}] as const,
     runDetail: (companyId: string, runId: string) =>
       ["governed-workflows", "runs", "detail", companyId, runId] as const,
+    // Phase 4: per-run liveness snapshot (LiveRunWidget + run detail header)
+    runLiveness: (companyId: string, runId: string) =>
+      ["governed-workflows", "runs", "liveness", companyId, runId] as const,
+    // Phase 4: stalled-run roll-up across the company (LiveRunWidget list)
+    activeRuns: (companyId: string) =>
+      ["governed-workflows", "runs", "active", companyId] as const,
     // U13.4: Workflow Studio file listings + single-file reads
     files: (companyId: string, name: string, ref?: string) =>
       ["governed-workflows", "files", companyId, name, ref ?? "latest"] as const,

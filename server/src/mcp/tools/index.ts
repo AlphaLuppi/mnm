@@ -13,5 +13,7 @@ import foldersTools from "./folders.tool.js";
 import artifactsTools from "./artifacts.tool.js";
 import projectTools from "./projects.tool.js";
 import governedWorkflowTools from "./governed-workflows.tool.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — propose_task / ask_questions / request_confirmation
+import threadInteractionTools from "./thread-interactions.tool.js";
 
-export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools];
+export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools];

@@ -1,321 +1,594 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1771300567463,
-      "tag": "0000_mature_masked_marvel",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771349039633,
-      "tag": "0001_fast_northstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771349403162,
-      "tag": "0002_big_zaladane",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1771456737635,
-      "tag": "0003_shallow_quentin_quire",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1771545600000,
-      "tag": "0004_issue_identifiers",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1771545601000,
-      "tag": "0005_chief_luke_cage",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1771545602000,
-      "tag": "0006_overjoyed_mister_sinister",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1771545603000,
-      "tag": "0007_new_quentin_quire",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1771534160426,
-      "tag": "0008_amused_zzzax",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1771534211029,
-      "tag": "0009_fast_jackal",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1771605173513,
-      "tag": "0010_stale_justin_hammer",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1771616419708,
-      "tag": "0011_windy_corsair",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1771619674673,
-      "tag": "0012_perpetual_ser_duncan",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1771623691139,
-      "tag": "0013_dashing_wasp",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1771691806349,
-      "tag": "0014_many_mikhail_rasputin",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1771865100000,
-      "tag": "0015_project_color_archived",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1771955900000,
-      "tag": "0016_agent_icon",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1771883888199,
-      "tag": "0017_tiresome_gabe_jones",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1771897769629,
-      "tag": "0018_flat_sleepwalker",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1772029333401,
-      "tag": "0019_public_victor_mancha",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1772032176413,
-      "tag": "0020_white_anita_blake",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1772122471656,
-      "tag": "0021_chief_vindicator",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1772186400000,
-      "tag": "0022_company_brand_color",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1772139727599,
-      "tag": "0023_fair_lethal_legion",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "7",
-      "when": 1772806603601,
-      "tag": "0024_far_beast",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "7",
-      "when": 1772807461603,
-      "tag": "0025_nasty_salo",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
-      "when": 1773273600000,
-      "tag": "0026_mnm_workflow_engine",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "7",
-      "when": 1773235320996,
-      "tag": "0027_gorgeous_leopardon",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "7",
-      "when": 1773481662583,
-      "tag": "0028_faulty_lorna_dane",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1773482242600,
-      "tag": "0029_fearless_chronomancer",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1773568800000,
-      "tag": "0030_rls_policies",
-      "breakpoints": true
-    },
-    {
-      "idx": 31,
-      "version": "7",
-      "when": 1773655200000,
-      "tag": "0031_business_role_admin_migration",
-      "breakpoints": true
-    },
-    {
-      "idx": 32,
-      "version": "7",
-      "when": 1773487652247,
-      "tag": "0033_minor_mephisto",
-      "breakpoints": true
-    },
-    {
-      "idx": 33,
-      "version": "7",
-      "when": 1773741600000,
-      "tag": "0034_add_company_invitation_only",
-      "breakpoints": true
-    },
-    {
-      "idx": 34,
-      "version": "7",
-      "when": 1773499755161,
-      "tag": "0034_tan_sleepwalker",
-      "breakpoints": true
-    },
-    {
-      "idx": 35,
-      "version": "7",
-      "when": 1773515807705,
-      "tag": "0035_special_lady_ursula",
-      "breakpoints": true
-    },
-    {
-      "idx": 36,
-      "version": "7",
-      "when": 1773522068187,
-      "tag": "0036_adorable_luke_cage",
-      "breakpoints": true
-    },
-    {
-      "idx": 37,
-      "version": "7",
-      "when": 1773786400000,
-      "tag": "0045_trace_vision",
-      "breakpoints": true
-    },
-    {
-      "idx": 38,
-      "version": "7",
-      "when": 1773851400000,
-      "tag": "0046_trace_vision_fixes",
-      "breakpoints": true
-    },
-    {
-      "idx": 39,
-      "version": "7",
-      "when": 1773937800000,
-      "tag": "0047_gold_prompts",
-      "breakpoints": true
-    },
-    {
-      "idx": 67,
-      "version": "7",
-      "when": 1745625600000,
-      "tag": "0067_agents_archived_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 68,
-      "version": "7",
-      "when": 1745712000000,
-      "tag": "0068_agents_company_name_unique",
-      "breakpoints": true
-    },
-    {
-      "idx": 69,
-      "version": "7",
-      "when": 1745798400000,
-      "tag": "0069_config_layers_source",
-      "breakpoints": true
-    },
-    {
-      "idx": 70,
-      "version": "7",
-      "when": 1745884800000,
-      "tag": "0070_workflow_run_cancellation",
-      "breakpoints": true
-    },
-    {
-      "idx": 71,
-      "version": "7",
-      "when": 1745971200000,
-      "tag": "0071_security_audit_rls_hardening",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1771300567463,
+			"tag": "0000_mature_masked_marvel",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1771349039633,
+			"tag": "0001_fast_northstar",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1771349403162,
+			"tag": "0002_big_zaladane",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1771456737635,
+			"tag": "0003_shallow_quentin_quire",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1771545600000,
+			"tag": "0004_issue_identifiers",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1771545601000,
+			"tag": "0005_chief_luke_cage",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1771545602000,
+			"tag": "0006_overjoyed_mister_sinister",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1771545603000,
+			"tag": "0007_new_quentin_quire",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1771545603001,
+			"tag": "0008_amused_zzzax",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1771545603002,
+			"tag": "0009_fast_jackal",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1771605173513,
+			"tag": "0010_stale_justin_hammer",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1771616419708,
+			"tag": "0011_windy_corsair",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1771619674673,
+			"tag": "0012_perpetual_ser_duncan",
+			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1771623691139,
+			"tag": "0013_dashing_wasp",
+			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1771691806349,
+			"tag": "0014_many_mikhail_rasputin",
+			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "7",
+			"when": 1771865100000,
+			"tag": "0015_project_color_archived",
+			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "7",
+			"when": 1771955900000,
+			"tag": "0016_agent_icon",
+			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "7",
+			"when": 1771955900001,
+			"tag": "0017_tiresome_gabe_jones",
+			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1771955900002,
+			"tag": "0018_flat_sleepwalker",
+			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "7",
+			"when": 1772029333401,
+			"tag": "0019_public_victor_mancha",
+			"breakpoints": true
+		},
+		{
+			"idx": 20,
+			"version": "7",
+			"when": 1772032176413,
+			"tag": "0020_white_anita_blake",
+			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "7",
+			"when": 1772122471656,
+			"tag": "0021_chief_vindicator",
+			"breakpoints": true
+		},
+		{
+			"idx": 22,
+			"version": "7",
+			"when": 1772186400000,
+			"tag": "0022_company_brand_color",
+			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1772186400001,
+			"tag": "0023_fair_lethal_legion",
+			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1772806603601,
+			"tag": "0024_far_beast",
+			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "7",
+			"when": 1772807461603,
+			"tag": "0025_nasty_salo",
+			"breakpoints": true
+		},
+		{
+			"idx": 26,
+			"version": "7",
+			"when": 1773273600000,
+			"tag": "0026_mnm_workflow_engine",
+			"breakpoints": true
+		},
+		{
+			"idx": 27,
+			"version": "7",
+			"when": 1773273600001,
+			"tag": "0027_gorgeous_leopardon",
+			"breakpoints": true
+		},
+		{
+			"idx": 27,
+			"version": "7",
+			"when": 1773632800000,
+			"tag": "0027_scoped_agents",
+			"breakpoints": true
+		},
+		{
+			"idx": 28,
+			"version": "7",
+			"when": 1773632800001,
+			"tag": "0028_faulty_lorna_dane",
+			"breakpoints": true
+		},
+		{
+			"idx": 29,
+			"version": "7",
+			"when": 1773632800002,
+			"tag": "0029_fearless_chronomancer",
+			"breakpoints": true
+		},
+		{
+			"idx": 30,
+			"version": "7",
+			"when": 1773632800003,
+			"tag": "0030_rls_policies",
+			"breakpoints": true
+		},
+		{
+			"idx": 31,
+			"version": "7",
+			"when": 1773655200000,
+			"tag": "0031_business_role_admin_migration",
+			"breakpoints": true
+		},
+		{
+			"idx": 32,
+			"version": "7",
+			"when": 1773655200001,
+			"tag": "0033_minor_mephisto",
+			"breakpoints": true
+		},
+		{
+			"idx": 33,
+			"version": "7",
+			"when": 1773741600000,
+			"tag": "0034_add_company_invitation_only",
+			"breakpoints": true
+		},
+		{
+			"idx": 34,
+			"version": "7",
+			"when": 1773741600001,
+			"tag": "0034_tan_sleepwalker",
+			"breakpoints": true
+		},
+		{
+			"idx": 35,
+			"version": "7",
+			"when": 1774324000000,
+			"tag": "0035_orch_s01_state_machine",
+			"breakpoints": true
+		},
+		{
+			"idx": 35,
+			"version": "7",
+			"when": 1774324000001,
+			"tag": "0035_special_lady_ursula",
+			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1774324000002,
+			"tag": "0036_adorable_luke_cage",
+			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1774410400000,
+			"tag": "0036_audit_events_immutability",
+			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "7",
+			"when": 1774496800000,
+			"tag": "0037_orch_s02_workflow_enforcer",
+			"breakpoints": true
+		},
+		{
+			"idx": 38,
+			"version": "7",
+			"when": 1774583200000,
+			"tag": "0038_orch_s03_hitl_validation",
+			"breakpoints": true
+		},
+		{
+			"idx": 39,
+			"version": "7",
+			"when": 1774669600000,
+			"tag": "0039_a2a_messages",
+			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "7",
+			"when": 1774756000000,
+			"tag": "0040_compaction_snapshots",
+			"breakpoints": true
+		},
+		{
+			"idx": 41,
+			"version": "7",
+			"when": 1774842400000,
+			"tag": "0041_a2a_permission_rules",
+			"breakpoints": true
+		},
+		{
+			"idx": 42,
+			"version": "7",
+			"when": 1774928800000,
+			"tag": "0042_sso_s01_configuration_enrichment",
+			"breakpoints": true
+		},
+		{
+			"idx": 43,
+			"version": "7",
+			"when": 1775015200000,
+			"tag": "0043_onboarding_tracking",
+			"breakpoints": true
+		},
+		{
+			"idx": 44,
+			"version": "7",
+			"when": 1775101600000,
+			"tag": "0044_cascade_hierarchy",
+			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "7",
+			"when": 1775101600001,
+			"tag": "0045_trace_vision",
+			"breakpoints": true
+		},
+		{
+			"idx": 38,
+			"version": "7",
+			"when": 1775101600002,
+			"tag": "0046_trace_vision_fixes",
+			"breakpoints": true
+		},
+		{
+			"idx": 39,
+			"version": "7",
+			"when": 1775101600003,
+			"tag": "0047_gold_prompts",
+			"breakpoints": true
+		},
+		{
+			"idx": 48,
+			"version": "7",
+			"when": 1775447200000,
+			"tag": "0048_user_pods_and_deployments",
+			"breakpoints": true
+		},
+		{
+			"idx": 49,
+			"version": "7",
+			"when": 1775533600000,
+			"tag": "0049_roles_tags_permissions",
+			"breakpoints": true
+		},
+		{
+			"idx": 50,
+			"version": "7",
+			"when": 1775620000000,
+			"tag": "0050_workflow_gold",
+			"breakpoints": true
+		},
+		{
+			"idx": 51,
+			"version": "7",
+			"when": 1775706400000,
+			"tag": "0051_sandbox_auth_token",
+			"breakpoints": true
+		},
+		{
+			"idx": 52,
+			"version": "7",
+			"when": 1775792800000,
+			"tag": "0052_config_layers",
+			"breakpoints": true
+		},
+		{
+			"idx": 53,
+			"version": "7",
+			"when": 1775879200000,
+			"tag": "0053_agent_base_layer_id",
+			"breakpoints": true
+		},
+		{
+			"idx": 54,
+			"version": "7",
+			"when": 1775965600000,
+			"tag": "0054_migrate_adapter_config",
+			"breakpoints": true
+		},
+		{
+			"idx": 55,
+			"version": "7",
+			"when": 1776052000000,
+			"tag": "0055_collaborative_chat",
+			"breakpoints": true
+		},
+		{
+			"idx": 55,
+			"version": "7",
+			"when": 1776052000001,
+			"tag": "0055_routines",
+			"breakpoints": true
+		},
+		{
+			"idx": 56,
+			"version": "7",
+			"when": 1776138400000,
+			"tag": "0056_feedback_votes",
+			"breakpoints": true
+		},
+		{
+			"idx": 56,
+			"version": "7",
+			"when": 1776138400001,
+			"tag": "0056_folder_workspace",
+			"breakpoints": true
+		},
+		{
+			"idx": 57,
+			"version": "7",
+			"when": 1776224800000,
+			"tag": "0057_view_presets",
+			"breakpoints": true
+		},
+		{
+			"idx": 58,
+			"version": "7",
+			"when": 1776311200000,
+			"tag": "0058_blocks_foundation",
+			"breakpoints": true
+		},
+		{
+			"idx": 59,
+			"version": "7",
+			"when": 1776397600000,
+			"tag": "0059_inbox_items",
+			"breakpoints": true
+		},
+		{
+			"idx": 60,
+			"version": "7",
+			"when": 1776484000000,
+			"tag": "0060_cleanup_legacy_columns",
+			"breakpoints": true
+		},
+		{
+			"idx": 61,
+			"version": "7",
+			"when": 1776570400000,
+			"tag": "0061_rename_user_credentials",
+			"breakpoints": true
+		},
+		{
+			"idx": 62,
+			"version": "7",
+			"when": 1776656800000,
+			"tag": "0062_agent_permissions",
+			"breakpoints": true
+		},
+		{
+			"idx": 62,
+			"version": "7",
+			"when": 1776656800001,
+			"tag": "0062_credential_item_type",
+			"breakpoints": true
+		},
+		{
+			"idx": 63,
+			"version": "7",
+			"when": 1776743200000,
+			"tag": "0063_oauth_tables",
+			"breakpoints": true
+		},
+		{
+			"idx": 64,
+			"version": "7",
+			"when": 1776829600000,
+			"tag": "0064_refresh_token_permissions",
+			"breakpoints": true
+		},
+		{
+			"idx": 65,
+			"version": "7",
+			"when": 1776916000000,
+			"tag": "0065_governed_workflows",
+			"breakpoints": true
+		},
+		{
+			"idx": 66,
+			"version": "7",
+			"when": 1777002400000,
+			"tag": "0066_nuke_legacy_workflows",
+			"breakpoints": true
+		},
+		{
+			"idx": 67,
+			"version": "7",
+			"when": 1777002400001,
+			"tag": "0067_agents_archived_at",
+			"breakpoints": true
+		},
+		{
+			"idx": 68,
+			"version": "7",
+			"when": 1777002400002,
+			"tag": "0068_agents_company_name_unique",
+			"breakpoints": true
+		},
+		{
+			"idx": 69,
+			"version": "7",
+			"when": 1777002400003,
+			"tag": "0069_config_layers_source",
+			"breakpoints": true
+		},
+		{
+			"idx": 70,
+			"version": "7",
+			"when": 1777002400004,
+			"tag": "0070_workflow_run_cancellation",
+			"breakpoints": true
+		},
+		{
+			"idx": 71,
+			"version": "7",
+			"when": 1777002400005,
+			"tag": "0071_security_audit_rls_hardening",
+			"breakpoints": true
+		},
+		{
+			"idx": 72,
+			"version": "7",
+			"when": 1777002400006,
+			"tag": "0072_agent_api_keys_expires_at",
+			"breakpoints": true
+		},
+		{
+			"idx": 73,
+			"version": "7",
+			"when": 1777002400007,
+			"tag": "0073_company_attachment_max_bytes",
+			"breakpoints": true
+		},
+		{
+			"idx": 74,
+			"version": "7",
+			"when": 1777002400008,
+			"tag": "0074_thread_interactions",
+			"breakpoints": true
+		},
+		{
+			"idx": 75,
+			"version": "7",
+			"when": 1777002400009,
+			"tag": "0075_environments",
+			"breakpoints": true
+		},
+		{
+			"idx": 76,
+			"version": "7",
+			"when": 1777002400010,
+			"tag": "0076_environment_leases",
+			"breakpoints": true
+		},
+		{
+			"idx": 77,
+			"version": "7",
+			"when": 1777002400011,
+			"tag": "0077_resumable_tokens_and_liveness",
+			"breakpoints": true
+		}
+	]
 }

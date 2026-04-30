@@ -260,6 +260,25 @@ export const parityData: ParityData = {
           web: WEB_DONE,
           desktop: BACKEND,
         },
+        {
+          // PAPERCLIP-PHASE2 — port of upstream PRs #4244 + #4381
+          id: "thread-interactions",
+          name: "Inbox Interactive — structured agent <-> user cards (suggest_tasks / ask_questions / request_confirmation)",
+          description:
+            "Structured cards in the issue thread with idempotency keys, resumable tokens, and live SSE refresh. " +
+            "Replaces 'agent asks yes/no in markdown' with explicit accept/reject UI. Backend + REST + 3 MCP tools shipped; UI in stub state.",
+          web: { status: "partial", since: "0.1.x", notes: "Hook + InteractionCard stub; multi-question forms and document target preview pending." },
+          desktop: BACKEND_SSE,
+          todo: {
+            code: [
+              "Polish: rich markdown body, multi-question form, suggested-task tree preview",
+              "Wire LiveUpdatesProvider to dispatch `thread_interaction:updated` DOM events",
+              "Plug InteractionCard into IssueDetail comment thread",
+              "Implement supersedeOnUserComment hook (issueComments insert → svc.supersede)",
+            ],
+            tests: ["E2E: agent propose → user accept → child issues created"],
+          },
+        },
       ],
     },
     {
@@ -801,6 +820,32 @@ export const parityData: ParityData = {
           todo: {
             code: [
               "Desktop: route SSE through connection profile once web ships",
+            ],
+          },
+        },
+        {
+          id: "governed-workflows-liveness-watchdog",
+          name: "Run liveness + auto-recovery watchdog (Phase 4)",
+          description:
+            "Resumable continuations + last-useful-action heartbeat for governed runs. Migration 0077 adds resumable_token, last_useful_action_at, next_action_hint, recovery_attempts, last_recovered_at, recovery_policy_json on governed_workflow_runs. detectStalledRuns + recoverRun service in server/src/services/governed-workflows-liveness.ts; in-process watchdog tick wired in server/src/index.ts. REST: GET /runs/:runId/liveness + POST /runs/:runId/recover. Two new live events governed_run.stalled / governed_run.auto_recovered. Web UI: LiveRunWidget shows the last 5 stall/recover events for the company. Auto-recovery is opt-in via LIVENESS_AUTO_RECOVERY=true env or per-run recovery_policy_json.enabled=true.",
+          web: {
+            status: "done",
+            since: "2026-04-30",
+            notes:
+              "Service + REST + dashboard widget shipped. Watchdog is single-leader (in-process timer) — multi-instance deploys still need a DB advisory lock (TODO).",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure server feature — desktop wrapper inherits it through the packaged backend.",
+          },
+          todo: {
+            code: [
+              "Multi-instance: add advisory lock around runWatchdogTick",
+              "CAO watchdog: post auto-comment on the related issue when a run stalls (deferred from §6.2.5)",
+            ],
+            tests: [
+              "E2E: kill agent mid-step, verify auto-recovery fires (plan §6.3 AC, will need adapter wiring first)",
             ],
           },
         },

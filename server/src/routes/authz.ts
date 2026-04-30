@@ -9,6 +9,18 @@ export function assertBoard(req: Request) {
   }
 }
 
+export function assertInstanceAdmin(req: Request) {
+  if (req.actor.type !== "board") {
+    throw forbidden("Board access required");
+  }
+  if (req.actor.source === "local_implicit") {
+    return;
+  }
+  if (!req.actor.isInstanceAdmin) {
+    throw forbidden("Instance admin required");
+  }
+}
+
 export function assertCompanyAccess(req: Request, companyId: string) {
   if (req.actor.type === "none") {
     throw unauthorized();

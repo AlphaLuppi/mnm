@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import type { Db } from "@mnm/db";
+import { companies } from "@mnm/db";
+import { eq } from "drizzle-orm";
 import { PERMISSIONS,
   addIssueCommentSchema,
   createIssueAttachmentMetadataSchema,
@@ -132,6 +134,32 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return null;
   }
 
+  // Z7 (upstream PR #4122) — peer agents cannot mutate someone else's
+  // active checkout. Override is granted by either:
+  // (a) explicit `tasks:manage_active_checkouts` permission slug (DB-driven RBAC),
+  // (b) actor being in the assignee's reporting chain (manager).
+  async function hasActiveCheckoutManagementOverride(
+    actorAgentId: string,
+    companyId: string,
+    assigneeAgentId: string,
+  ): Promise<boolean> {
+    const allowedByGrant = await access.hasPermission(
+      companyId,
+      "agent",
+      actorAgentId,
+      "tasks:manage_active_checkouts",
+    );
+    if (allowedByGrant) return true;
+    const companyAgents = await agentsSvc.list(companyId);
+    const byId = new Map(companyAgents.map((a) => [a.id, a] as const));
+    let cursor: string | null = byId.get(assigneeAgentId)?.reportsTo ?? null;
+    for (let depth = 0; cursor && depth < 50; depth += 1) {
+      if (cursor === actorAgentId) return true;
+      cursor = byId.get(cursor)?.reportsTo ?? null;
+    }
+    return false;
+  }
+
   async function assertAgentRunCheckoutOwnership(
     req: Request,
     res: Response,
@@ -143,9 +171,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(403).json({ error: "Agent authentication required" });
       return false;
     }
-    if (issue.status !== "in_progress" || issue.assigneeAgentId !== actorAgentId) {
+    // No active checkout to defend.
+    if (issue.status !== "in_progress" || !issue.assigneeAgentId) {
       return true;
     }
+    // Z7: peer agent (not the assignee) trying to mutate an active checkout.
+    if (issue.assigneeAgentId !== actorAgentId) {
+      const override = await hasActiveCheckoutManagementOverride(
+        actorAgentId,
+        issue.companyId,
+        issue.assigneeAgentId,
+      );
+      if (!override) {
+        res.status(409).json({
+          error: "Issue is checked out by another agent",
+          code: "ACTIVE_CHECKOUT_OWNED_BY_PEER",
+        });
+        return false;
+      }
+      return true;
+    }
+    // Assignee path — verify the run id matches the active checkout (existing logic).
     const runId = requireAgentRunId(req, res);
     if (!runId) return false;
     const ownership = await svc.assertCheckoutOwner(issue.id, actorAgentId, runId);
@@ -801,6 +847,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     await assertCompanyPermission(db, req, existing.companyId, PERMISSIONS.ISSUES_DELETE);
+    if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
     const attachments = await svc.listAttachments(id);
 
     const issue = await svc.remove(id);
@@ -1243,6 +1290,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(422).json({ error: "Issue does not belong to company" });
       return;
     }
+    if (!(await assertAgentRunCheckoutOwnership(req, res, issue))) return;
 
     try {
       await runSingleFileUpload(req, res);
@@ -1270,6 +1318,22 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     if (file.buffer.length <= 0) {
       res.status(422).json({ error: "Attachment is empty" });
+      return;
+    }
+
+    // v2026.428.0 #4700 — per-company attachment cap (in addition to the
+    // process-level multer limit). The smaller of (env, company) wins.
+    const company = await db
+      .select({ attachmentMaxBytes: companies.attachmentMaxBytes })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+    const companyCap = company?.attachmentMaxBytes ?? MAX_ATTACHMENT_BYTES;
+    const effectiveCap = Math.min(MAX_ATTACHMENT_BYTES, companyCap);
+    if (file.buffer.length > effectiveCap) {
+      res.status(422).json({
+        error: `Attachment exceeds the per-company cap of ${effectiveCap} bytes`,
+      });
       return;
     }
 

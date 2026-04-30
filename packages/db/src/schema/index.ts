@@ -94,6 +94,39 @@ export { oauthClients } from "./oauth-clients.js";
 export { oauthRefreshTokens } from "./oauth-refresh-tokens.js";
 // GOVERNED-WORKFLOWS: T2 — definition/run/step/gate metadata
 export { governedWorkflowDefinitions } from "./governed_workflow_definitions.js";
-export { governedWorkflowRuns, GOVERNED_RUN_STATUSES, type GovernedRunStatus } from "./governed_workflow_runs.js";
+export { governedWorkflowRuns, GOVERNED_RUN_STATUSES, type GovernedRunStatus, type GovernedRunRecoveryPolicy } from "./governed_workflow_runs.js";
 export { governedStepExecutions, GOVERNED_STEP_STATES, type GovernedStepState } from "./governed_step_executions.js";
 export { gateResults } from "./gate_results.js";
+// PHASE-3 (#4297): BETA Environments + lease lifecycle
+export {
+  environments,
+  ENVIRONMENT_DRIVERS,
+  ENVIRONMENT_STATUSES,
+  type EnvironmentDriver,
+  type EnvironmentStatus,
+} from "./environments.js";
+export {
+  environmentLeases,
+  ENVIRONMENT_LEASE_STATUSES,
+  ENVIRONMENT_LEASE_POLICIES,
+  ENVIRONMENT_LEASE_CLEANUP_STATUSES,
+  type EnvironmentLeaseStatus,
+  type EnvironmentLeasePolicy,
+  type EnvironmentLeaseCleanupStatus,
+} from "./environment_leases.js";
+// PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions (port of upstream #4244 + #4381)
+export {
+  threadInteractions,
+  THREAD_INTERACTION_KINDS,
+  THREAD_INTERACTION_STATUSES,
+  THREAD_INTERACTION_CONTINUATION_POLICIES,
+  THREAD_INTERACTION_IDEMPOTENCY_CONSTRAINT,
+  type ThreadInteractionKind,
+  type ThreadInteractionStatus,
+  type ThreadInteractionContinuationPolicy,
+  type ThreadInteractionPayload,
+  type ThreadInteractionResult,
+  type ThreadInteractionResumeToken,
+  type ThreadInteractionRow,
+  type NewThreadInteraction,
+} from "./thread_interactions.js";

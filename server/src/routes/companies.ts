@@ -7,12 +7,11 @@ import { PERMISSIONS,
   createCompanySchema,
   updateCompanySchema,
 } from "@mnm/shared";
-import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import { assertCompanyPermission } from "../middleware/require-permission.js";
 import { accessService, companyPortabilityService, companyService, emitAudit, logActivity } from "../services/index.js";
 import { bootstrapCompany } from "../services/cao.js";
-import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
 
 export function companyRoutes(db: Db) {
   const router = Router();
@@ -85,7 +84,7 @@ export function companyRoutes(db: Db) {
     if (req.body.target.mode === "existing_company") {
       assertCompanyAccess(req, req.body.target.companyId);
     } else {
-      assertBoard(req);
+      assertInstanceAdmin(req);
     }
     const preview = await portability.previewImport(req.body);
     res.json(preview);
@@ -95,7 +94,7 @@ export function companyRoutes(db: Db) {
     if (req.body.target.mode === "existing_company") {
       assertCompanyAccess(req, req.body.target.companyId);
     } else {
-      assertBoard(req);
+      assertInstanceAdmin(req);
     }
     const actor = getActorInfo(req);
     const result = await portability.importBundle(req.body, req.actor.type === "board" ? req.actor.userId : null);
@@ -128,10 +127,7 @@ export function companyRoutes(db: Db) {
   });
 
   router.post("/", validate(createCompanySchema), async (req, res) => {
-    assertBoard(req);
-    if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
-      throw forbidden("Instance admin required");
-    }
+    assertInstanceAdmin(req);
     const company = await svc.create(req.body);
     const adminUserId = req.actor.userId ?? "local-board";
     await access.ensureMembership(company.id, "user", adminUserId, "owner", "active");

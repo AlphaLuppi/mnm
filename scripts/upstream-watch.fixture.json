@@ -1,0 +1,20 @@
+[
+  {
+    "tag_name": "v2026.501.0",
+    "published_at": "2026-05-01T10:00:00Z",
+    "html_url": "https://github.com/paperclipai/paperclip/releases/tag/v2026.501.0",
+    "body": "## What's Changed\n\n* feat: new shiny thing by @alice in #5001\n* fix: races in worker by @bob in #5002\n* chore: bump deps in #5003"
+  },
+  {
+    "tag_name": "v2026.430.0",
+    "published_at": "2026-04-30T08:00:00Z",
+    "html_url": "https://github.com/paperclipai/paperclip/releases/tag/v2026.430.0",
+    "body": "## What's Changed\n\n* fix(security): patch for #4900 by @carol\n* feat: structured outputs in #4901\n\nNo notable backwards-incompatible changes."
+  },
+  {
+    "tag_name": "v2026.428.0",
+    "published_at": "2026-04-28T22:56:00Z",
+    "html_url": "https://github.com/paperclipai/paperclip/releases/tag/v2026.428.0",
+    "body": "Already audited release."
+  }
+]

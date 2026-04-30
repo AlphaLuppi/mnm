@@ -28,13 +28,17 @@ function parseNumber(value: string | undefined, fallback: number) {
 
 function jwtConfig() {
   const deploymentMode = process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted";
-  const rawSecret = process.env.MNM_AGENT_JWT_SECRET;
+  // Primary: MNM_AGENT_JWT_SECRET. Fallback: BETTER_AUTH_SECRET (aligns with upstream
+  // Paperclip PR #2866 — operators only need to configure one secret in production).
+  const rawSecret = process.env.MNM_AGENT_JWT_SECRET?.trim() || process.env.BETTER_AUTH_SECRET?.trim();
   // In local_trusted dev mode, fall back to a well-known dev secret so agents always
   // receive MNM_API_KEY without requiring `mnm onboard` to have been run.
   const secret = rawSecret || (deploymentMode === "local_trusted" ? "mnm-dev-secret" : null);
   if (!secret) {
     if (deploymentMode !== "local_trusted") {
-      throw new Error("MNM_AGENT_JWT_SECRET is required in non-local deployments");
+      throw new Error(
+        "MNM_AGENT_JWT_SECRET (or BETTER_AUTH_SECRET) is required in non-local deployments",
+      );
     }
     return null;
   }

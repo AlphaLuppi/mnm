@@ -20,6 +20,9 @@ export const companies = pgTable(
     maxUsers: integer("max_users").notNull().default(50),
     invitationOnly: boolean("invitation_only").notNull().default(false),
     forceLocalExecution: boolean("force_local_execution").notNull().default(false),
+    // Z6/v2026.428.0 — per-company attachment size cap (bytes). Process-level
+    // env MNM_ATTACHMENT_MAX_BYTES still acts as the final ceiling.
+    attachmentMaxBytes: integer("attachment_max_bytes").notNull().default(10 * 1024 * 1024),
     // a2a-s02-schema-company-col
     a2aDefaultPolicy: text("a2a_default_policy").notNull().default("allow"),
     // onb-s01-schema-onboarding-cols

@@ -3,7 +3,7 @@
 -- 1. NEW TABLES
 -- ===============================================================
 
-CREATE TABLE "config_layers" (
+CREATE TABLE IF NOT EXISTS "config_layers" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "name" text NOT NULL,
@@ -24,13 +24,13 @@ CREATE TABLE "config_layers" (
   CHECK (("scope" = 'private' AND "visibility" = 'private') OR ("scope" = 'shared' AND "visibility" IN ('team', 'public')) OR ("scope" = 'company' AND "visibility" = 'public')),
   CHECK ("is_base_layer" = false OR ("scope" = 'private' AND "visibility" = 'private'))
 );--> statement-breakpoint
-CREATE INDEX "config_layers_company_scope_idx" ON "config_layers"("company_id", "scope") WHERE "archived_at" IS NULL;--> statement-breakpoint
-CREATE INDEX "config_layers_company_enforced_idx" ON "config_layers"("company_id") WHERE "enforced" = true AND "archived_at" IS NULL;--> statement-breakpoint
-CREATE INDEX "config_layers_owner_idx" ON "config_layers"("company_id", "created_by_user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "config_layers_company_owner_name_uq" ON "config_layers"("company_id", "created_by_user_id", "name");--> statement-breakpoint
-CREATE UNIQUE INDEX "config_layers_company_name_scope_uq" ON "config_layers"("company_id", "name") WHERE "scope" = 'company' AND "archived_at" IS NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layers_company_scope_idx" ON "config_layers"("company_id", "scope") WHERE "archived_at" IS NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layers_company_enforced_idx" ON "config_layers"("company_id") WHERE "enforced" = true AND "archived_at" IS NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layers_owner_idx" ON "config_layers"("company_id", "created_by_user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "config_layers_company_owner_name_uq" ON "config_layers"("company_id", "created_by_user_id", "name");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "config_layers_company_name_scope_uq" ON "config_layers"("company_id", "name") WHERE "scope" = 'company' AND "archived_at" IS NULL;--> statement-breakpoint
 
-CREATE TABLE "config_layer_items" (
+CREATE TABLE IF NOT EXISTS "config_layer_items" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
@@ -49,10 +49,10 @@ CREATE TABLE "config_layer_items" (
   CHECK ("source_type" = 'inline' OR "source_url" IS NOT NULL),
   CHECK (octet_length("config_json"::text) <= 262144)
 );--> statement-breakpoint
-CREATE UNIQUE INDEX "config_layer_items_layer_name_uq" ON "config_layer_items"("layer_id", "item_type", "name");--> statement-breakpoint
-CREATE INDEX "config_layer_items_layer_enabled_idx" ON "config_layer_items"("layer_id", "item_type", "name") WHERE "enabled" = true;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "config_layer_items_layer_name_uq" ON "config_layer_items"("layer_id", "item_type", "name");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layer_items_layer_enabled_idx" ON "config_layer_items"("layer_id", "item_type", "name") WHERE "enabled" = true;--> statement-breakpoint
 
-CREATE TABLE "config_layer_files" (
+CREATE TABLE IF NOT EXISTS "config_layer_files" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "item_id" uuid NOT NULL REFERENCES "config_layer_items"("id") ON DELETE CASCADE,
@@ -64,10 +64,10 @@ CREATE TABLE "config_layer_files" (
   CHECK ("path" !~ '^/' AND "path" !~ '\.\.' AND "path" ~ '^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\/\.]*$'),
   CHECK (octet_length("content") <= 1048576)
 );--> statement-breakpoint
-CREATE UNIQUE INDEX "config_layer_files_item_path_uq" ON "config_layer_files"("item_id", "path");--> statement-breakpoint
-CREATE INDEX "config_layer_files_item_idx" ON "config_layer_files"("item_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "config_layer_files_item_path_uq" ON "config_layer_files"("item_id", "path");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layer_files_item_idx" ON "config_layer_files"("item_id");--> statement-breakpoint
 
-CREATE TABLE "config_layer_revisions" (
+CREATE TABLE IF NOT EXISTS "config_layer_revisions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
@@ -79,15 +79,15 @@ CREATE TABLE "config_layer_revisions" (
   "change_message" text,
   "created_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
-CREATE UNIQUE INDEX "config_layer_revisions_layer_version_uq" ON "config_layer_revisions"("layer_id", "version");--> statement-breakpoint
-CREATE INDEX "config_layer_revisions_layer_version_idx" ON "config_layer_revisions"("layer_id", "version" DESC);--> statement-breakpoint
-CREATE INDEX "config_layer_revisions_layer_created_idx" ON "config_layer_revisions"("layer_id", "created_at" DESC);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "config_layer_revisions_layer_version_uq" ON "config_layer_revisions"("layer_id", "version");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layer_revisions_layer_version_idx" ON "config_layer_revisions"("layer_id", "version" DESC);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "config_layer_revisions_layer_created_idx" ON "config_layer_revisions"("layer_id", "created_at" DESC);--> statement-breakpoint
 
 -- ===============================================================
 -- 2. JOIN TABLES
 -- ===============================================================
 
-CREATE TABLE "agent_config_layers" (
+CREATE TABLE IF NOT EXISTS "agent_config_layers" (
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "agent_id" uuid NOT NULL REFERENCES "agents"("id") ON DELETE CASCADE,
   "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
@@ -97,32 +97,57 @@ CREATE TABLE "agent_config_layers" (
   PRIMARY KEY ("agent_id", "layer_id")
 );--> statement-breakpoint
 
-CREATE TABLE "workflow_template_stage_layers" (
-  "company_id" uuid NOT NULL REFERENCES "companies"("id"),
-  "template_id" uuid NOT NULL REFERENCES "workflow_templates"("id") ON DELETE CASCADE,
-  "stage_order" integer NOT NULL CHECK ("stage_order" >= 0),
-  "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
-  "priority" integer NOT NULL DEFAULT 0 CHECK ("priority" >= 0 AND "priority" <= 498),
-  "attached_by" text NOT NULL,
-  "attached_at" timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY ("template_id", "stage_order", "layer_id")
-);--> statement-breakpoint
+-- 2026-04-30 idempotency fix: workflow_templates / stage_instances are dropped
+-- by 0066_nuke_legacy_workflows. Skip these joining tables if the referenced
+-- legacy tables no longer exist (DB has migrated past 0066).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'workflow_templates'
+  ) THEN
+    EXECUTE $sql$
+      CREATE TABLE IF NOT EXISTS "workflow_template_stage_layers" (
+        "company_id" uuid NOT NULL REFERENCES "companies"("id"),
+        "template_id" uuid NOT NULL REFERENCES "workflow_templates"("id") ON DELETE CASCADE,
+        "stage_order" integer NOT NULL CHECK ("stage_order" >= 0),
+        "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
+        "priority" integer NOT NULL DEFAULT 0 CHECK ("priority" >= 0 AND "priority" <= 498),
+        "attached_by" text NOT NULL,
+        "attached_at" timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY ("template_id", "stage_order", "layer_id")
+      )
+    $sql$;
+  END IF;
+END
+$$;--> statement-breakpoint
 
-CREATE TABLE "workflow_stage_config_layers" (
-  "company_id" uuid NOT NULL REFERENCES "companies"("id"),
-  "stage_instance_id" uuid NOT NULL REFERENCES "stage_instances"("id") ON DELETE CASCADE,
-  "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
-  "priority" integer NOT NULL DEFAULT 0 CHECK ("priority" >= 0 AND "priority" <= 498),
-  "attached_by" text NOT NULL,
-  "attached_at" timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY ("stage_instance_id", "layer_id")
-);--> statement-breakpoint
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'stage_instances'
+  ) THEN
+    EXECUTE $sql$
+      CREATE TABLE IF NOT EXISTS "workflow_stage_config_layers" (
+        "company_id" uuid NOT NULL REFERENCES "companies"("id"),
+        "stage_instance_id" uuid NOT NULL REFERENCES "stage_instances"("id") ON DELETE CASCADE,
+        "layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE CASCADE,
+        "priority" integer NOT NULL DEFAULT 0 CHECK ("priority" >= 0 AND "priority" <= 498),
+        "attached_by" text NOT NULL,
+        "attached_at" timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY ("stage_instance_id", "layer_id")
+      )
+    $sql$;
+  END IF;
+END
+$$;--> statement-breakpoint
 
 -- ===============================================================
 -- 3. CREDENTIALS
 -- ===============================================================
 
-CREATE TABLE "user_mcp_credentials" (
+CREATE TABLE IF NOT EXISTS "user_mcp_credentials" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "user_id" text NOT NULL,
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
@@ -136,9 +161,9 @@ CREATE TABLE "user_mcp_credentials" (
   "expires_at" timestamptz,
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
-CREATE UNIQUE INDEX "user_mcp_credentials_user_company_item_uq" ON "user_mcp_credentials"("user_id", "company_id", "item_id");--> statement-breakpoint
-CREATE INDEX "user_mcp_credentials_user_company_idx" ON "user_mcp_credentials"("user_id", "company_id");--> statement-breakpoint
-CREATE INDEX "user_mcp_credentials_expiring_idx" ON "user_mcp_credentials"("expires_at") WHERE "status" = 'connected' AND "expires_at" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "user_mcp_credentials_user_company_item_uq" ON "user_mcp_credentials"("user_id", "company_id", "item_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "user_mcp_credentials_user_company_idx" ON "user_mcp_credentials"("user_id", "company_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "user_mcp_credentials_expiring_idx" ON "user_mcp_credentials"("expires_at") WHERE "status" = 'connected' AND "expires_at" IS NOT NULL;--> statement-breakpoint
 
 -- ===============================================================
 -- 4. RLS ON ALL NEW TABLES

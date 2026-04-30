@@ -8,6 +8,7 @@ import {
   issues,
   companies,
   agents,
+  issueReadStates,
 } from "@mnm/db";
 import {
   resolveRoutineVariableValues,
@@ -443,6 +444,34 @@ export function routineService(db: Db) {
   }
 
   /**
+   * v2026.428.0 #4615 — when a manual runner triggers a routine and the run
+   * is coalesced/skipped (concurrency policy), surface the still-active issue
+   * in the runner's inbox by touching their `issue_read_states` row. Without
+   * this, manual runs disappear silently and the operator can't tell the
+   * trigger fired.
+   */
+  async function touchIssueForUserInbox(
+    companyId: string,
+    issueId: string,
+    userId: string,
+  ) {
+    const now = new Date();
+    await db
+      .insert(issueReadStates)
+      .values({
+        companyId,
+        issueId,
+        userId,
+        lastReadAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [issueReadStates.companyId, issueReadStates.issueId, issueReadStates.userId],
+        set: { lastReadAt: now, updatedAt: now },
+      });
+  }
+
+  /**
    * Core run logic — extracted so it can be called from both runRoutine and tickScheduledTriggers.
    */
   async function dispatchRun(
@@ -484,6 +513,12 @@ export function routineService(db: Db) {
     // 3. Check concurrency policy
     const activeExec = await findActiveExecutionIssue(routineId, companyId);
 
+    // v2026.428.0 #4615 — keep manual runs visible in the runner inbox even
+    // when coalesced/skipped. (MnM's Actor type only carries userId/agentId,
+    // so we condition on data.source==="manual" + actor.userId presence.)
+    const manualRunnerUserId =
+      data.source === "manual" && actor.userId ? actor.userId : null;
+
     if (activeExec?.issue) {
       if (routine.concurrencyPolicy === "skip_if_active") {
         const [skippedRun] = await db
@@ -499,6 +534,9 @@ export function routineService(db: Db) {
             failureReason: `Skipped: active issue ${activeExec.issue.id} already running`,
           })
           .returning();
+        if (manualRunnerUserId) {
+          await touchIssueForUserInbox(companyId, activeExec.issue.id, manualRunnerUserId);
+        }
         return { run: skippedRun!, coalesced: false, skipped: true };
       }
 
@@ -516,6 +554,9 @@ export function routineService(db: Db) {
             coalescedIntoRunId: activeExec.run.id,
           })
           .returning();
+        if (manualRunnerUserId) {
+          await touchIssueForUserInbox(companyId, activeExec.issue.id, manualRunnerUserId);
+        }
         return { run: coalescedRun!, coalesced: true, skipped: false };
       }
       // "always_enqueue" falls through

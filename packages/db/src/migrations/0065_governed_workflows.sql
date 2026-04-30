@@ -28,7 +28,7 @@ ALTER TABLE config_layer_items ADD CONSTRAINT config_layer_items_item_type_check
 
 -- 2a. governed_workflow_definitions — metadata only. No parsed workflow.json
 -- cached here; the server fetches by git_sha on demand (spec §2 fetch-on-demand).
-CREATE TABLE "governed_workflow_definitions" (
+CREATE TABLE IF NOT EXISTS "governed_workflow_definitions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "name" text NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE "governed_workflow_definitions" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
-CREATE UNIQUE INDEX "governed_workflow_definitions_company_name_uq"
+CREATE UNIQUE INDEX IF NOT EXISTS "governed_workflow_definitions_company_name_uq"
   ON "governed_workflow_definitions"("company_id", "name");--> statement-breakpoint
 
 ALTER TABLE "governed_workflow_definitions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -49,7 +49,7 @@ CREATE POLICY "tenant_isolation" ON "governed_workflow_definitions" AS RESTRICTI
 -- are the immutable ref captured at trigger time (spec §2).
 -- initiated_by_actor_type aligns to AUDIT_ACTOR_TYPES canonical tuple.
 -- status uses text + CHECK (no pgEnum in this codebase).
-CREATE TABLE "governed_workflow_runs" (
+CREATE TABLE IF NOT EXISTS "governed_workflow_runs" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "workflow_def_id" uuid NOT NULL REFERENCES "governed_workflow_definitions"("id"),
@@ -64,9 +64,9 @@ CREATE TABLE "governed_workflow_runs" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
-CREATE INDEX "governed_workflow_runs_company_status_idx"
+CREATE INDEX IF NOT EXISTS "governed_workflow_runs_company_status_idx"
   ON "governed_workflow_runs"("company_id", "status");--> statement-breakpoint
-CREATE INDEX "governed_workflow_runs_def_started_idx"
+CREATE INDEX IF NOT EXISTS "governed_workflow_runs_def_started_idx"
   ON "governed_workflow_runs"("workflow_def_id", "started_at" DESC);--> statement-breakpoint
 
 ALTER TABLE "governed_workflow_runs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -76,7 +76,7 @@ CREATE POLICY "tenant_isolation" ON "governed_workflow_runs" AS RESTRICTIVE FOR 
 -- 2c. governed_step_executions — one row per step per run.
 -- ON DELETE CASCADE on run_id so a cancelled/purged run cleans up its steps.
 -- launched_by_actor_* are nullable because a pending step has not been launched yet.
-CREATE TABLE "governed_step_executions" (
+CREATE TABLE IF NOT EXISTS "governed_step_executions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"("id") ON DELETE CASCADE,
@@ -90,9 +90,9 @@ CREATE TABLE "governed_step_executions" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
-CREATE UNIQUE INDEX "governed_step_executions_run_step_uq"
+CREATE UNIQUE INDEX IF NOT EXISTS "governed_step_executions_run_step_uq"
   ON "governed_step_executions"("run_id", "step_id_in_json");--> statement-breakpoint
-CREATE INDEX "governed_step_executions_run_state_idx"
+CREATE INDEX IF NOT EXISTS "governed_step_executions_run_state_idx"
   ON "governed_step_executions"("run_id", "state");--> statement-breakpoint
 
 ALTER TABLE "governed_step_executions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -103,7 +103,7 @@ CREATE POLICY "tenant_isolation" ON "governed_step_executions" AS RESTRICTIVE FO
 -- per spec §2 extensibility rule — adding a new gate type (on-failure, mid, ...)
 -- must NOT require a migration. Hints stored as text[] to match the GateOutput
 -- contract hints?: string[]. Both FKs cascade: a cancelled run deletes all its gates.
-CREATE TABLE "gate_results" (
+CREATE TABLE IF NOT EXISTS "gate_results" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "company_id" uuid NOT NULL REFERENCES "companies"("id"),
   "run_id" uuid NOT NULL REFERENCES "governed_workflow_runs"("id") ON DELETE CASCADE,
@@ -117,9 +117,9 @@ CREATE TABLE "gate_results" (
   "gate_git_sha" text NOT NULL,
   "evaluated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
-CREATE INDEX "gate_results_step_kind_evaluated_idx"
+CREATE INDEX IF NOT EXISTS "gate_results_step_kind_evaluated_idx"
   ON "gate_results"("step_exec_id", "kind", "evaluated_at" DESC);--> statement-breakpoint
-CREATE INDEX "gate_results_company_kind_idx"
+CREATE INDEX IF NOT EXISTS "gate_results_company_kind_idx"
   ON "gate_results"("company_id", "kind");--> statement-breakpoint
 
 ALTER TABLE "gate_results" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
