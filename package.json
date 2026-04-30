@@ -48,7 +48,8 @@
     "test:e2e:isolated": "node scripts/e2e-runner.mjs",
     "test:e2e:isolated:headed": "node scripts/e2e-runner.mjs --headed",
     "test:e2e:report": "npx playwright show-report",
-    "parity": "bun run scripts/parity/cli.ts"
+    "parity": "bun run scripts/parity/cli.ts",
+    "upstream-watch": "node scripts/upstream-watch.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
