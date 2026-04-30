@@ -615,6 +615,39 @@ function handleLiveEvent(
     return;
   }
 
+  // GOVERNED-WORKFLOWS: Phase 4 — liveness events. Invalidate the runLiveness
+  // query for the affected run + the activeRuns roll-up for the company so
+  // both the per-run badge and the dashboard widget refresh without polling.
+  if (
+    event.type === "governed_run.stalled" ||
+    event.type === "governed_run.auto_recovered"
+  ) {
+    const runId = readString(payload.runId);
+    if (runId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.governedWorkflows.runLiveness(expectedCompanyId, runId),
+      });
+    }
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.governedWorkflows.activeRuns(expectedCompanyId),
+    });
+    // LiveRunWidget subscribes via this DOM channel — it accumulates a small
+    // ring buffer of stall/recover events for an at-a-glance dashboard view.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("governed_run:liveness", {
+          detail: {
+            type: event.type,
+            companyId: expectedCompanyId,
+            runId: runId ?? null,
+            payload,
+          },
+        }),
+      );
+    }
+    return;
+  }
+
   // GOVERNED-WORKFLOWS: Run cancellation / reactivation — also invalidate the
   // runs list (status flips drive list filters) in addition to the run detail.
   // Payload runId is set by emitRunCancelled / emitRunReactivated server-side.

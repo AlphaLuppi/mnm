@@ -238,6 +238,35 @@ async function handleRunStatus(db: Db, event: LiveEvent): Promise<void> {
 }
 
 /**
+ * PHASE-4: Lightweight handler for governed_run.stalled events emitted by
+ * the liveness watchdog. We log a structured warning so operators have a
+ * trace, then defer to the live-event broadcast for UI badge wakeup. We
+ * intentionally do NOT auto-comment here (yet) to keep the cognitive load
+ * low — the inbox will surface the stall via the live-event already.
+ *
+ * If we want richer auto-commenting (CAO posts a "Run X looks stuck, here's
+ * the next-action hint" comment on the related issue), this is where it
+ * would land — same pattern as handleRunStatus above. Intentionally
+ * deferred: the plan §6.2.5 marks it as Phase 4 follow-up, and it requires
+ * the issueId to be in the run's resumable_token or paramsJson. Punting
+ * keeps this commit minimal-risk.
+ */
+function handleGovernedRunStalled(event: LiveEvent): void {
+  const payload = event.payload as Record<string, unknown> | undefined;
+  if (!payload) return;
+  logger.warn(
+    {
+      runId: payload.runId,
+      companyId: event.companyId,
+      lastUsefulActionAt: payload.lastUsefulActionAt,
+      recoveryAttempts: payload.recoveryAttempts,
+      nextActionHint: payload.nextActionHint,
+    },
+    "CAO watchdog observed governed_run.stalled",
+  );
+}
+
+/**
  * Start the CAO watchdog. Call once at server startup.
  * Returns an unsubscribe function for graceful shutdown.
  */
@@ -250,6 +279,12 @@ export function startCaoWatchdog(db: Db): () => void {
       handleRunStatus(db, event).catch((err) => {
         logger.error({ err }, "CAO watchdog unhandled error");
       });
+      return;
+    }
+    if (event.type === "governed_run.stalled") {
+      // Synchronous + cheap (just logs). Keep here so test harnesses that
+      // subscribe via this same wiring can assert on the warning.
+      handleGovernedRunStalled(event);
     }
   });
 

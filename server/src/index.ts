@@ -29,6 +29,9 @@ import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
 import { heartbeatService, subscribeDashboardRefreshEvents } from "./services/index.js";
 import { startCaoWatchdog } from "./services/cao-watchdog.js";
+import { startLivenessWatchdog } from "./services/governed-workflows-liveness.js";
+import { setTenantContext as setLivenessTenantContext } from "./middleware/tenant-context.js";
+import { publishLiveEvent as publishLivenessEvent } from "./services/live-events.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -658,6 +661,20 @@ subscribeDashboardRefreshEvents();
 
 // CAO-03: Start the CAO watchdog (monitors agent run anomalies, auto-comments)
 startCaoWatchdog(db as any);
+
+// PHASE-4: Start the governed-run liveness watchdog (stalled-run detection +
+// optional auto-recovery via LIVENESS_AUTO_RECOVERY=true). Default behaviour
+// is advisory-only — operators must opt-in per-run or via env. Single-leader
+// concern: in dev/desktop the server process owns the lease; multi-instance
+// deployments need an external scheduler/advisory-lock (TODO).
+const stopLivenessWatchdog = startLivenessWatchdog({
+  db: db as any,
+  publishLiveEvent: publishLivenessEvent,
+  setTenantContext: setLivenessTenantContext,
+  // intervalMs defaults to 30_000 (half the default 60s stall threshold)
+  // autoRecover left undefined → reads LIVENESS_AUTO_RECOVERY env at tick time
+});
+process.on("beforeExit", () => stopLivenessWatchdog());
 
 // PERM-BACKFILL: Ensure all companies have up-to-date permission slugs (roles are NOT force-created)
 void backfillPermissions(db as any).catch((err) => {

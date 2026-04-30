@@ -290,6 +290,9 @@ export const LIVE_EVENT_TYPES = [
   "governed_run.gate_evaluated",
   "governed_run.cancelled",
   "governed_run.reactivated",
+  // GOVERNED-WORKFLOWS: Liveness + auto-recovery (Phase 4 / migration 0077)
+  "governed_run.stalled",
+  "governed_run.auto_recovered",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

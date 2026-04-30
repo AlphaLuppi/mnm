@@ -330,6 +330,13 @@
       "when": 1746057600000,
       "tag": "0073_company_attachment_max_bytes",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1746489600000,
+      "tag": "0077_resumable_tokens_and_liveness",
+      "breakpoints": true
     }
   ]
 }
