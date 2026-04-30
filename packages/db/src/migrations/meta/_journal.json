@@ -330,6 +330,20 @@
       "when": 1746057600000,
       "tag": "0073_company_attachment_max_bytes",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1746230400000,
+      "tag": "0075_environments",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1746230401000,
+      "tag": "0076_environment_leases",
+      "breakpoints": true
     }
   ]
 }
