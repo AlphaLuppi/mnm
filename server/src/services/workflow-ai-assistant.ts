@@ -93,7 +93,8 @@ const CANONICAL_GATES_SECTION = `Gates canoniques disponibles dans @mnm/gate-run
 - artifact-exists.gate.ts — vérifie qu'un fichier existe (config: path, min_bytes?)
 - artifacts-bundle.gate.ts — vérifie qu'un bundle existe (config: required_paths[])
 - step-succeeded.gate.ts — vérifie qu'un step a succeeded (config: step)
-- review-pass.gate.ts — vérifie qu'une review passe un seuil (config: min_score, report_path)`;
+- review-pass.gate.ts — vérifie qu'une review passe un seuil (config: min_score, report_path)
+- session-file-bundled.gate.ts — exige le .jsonl Claude Code dans artifact.data.session_file (config: min_messages?, max_size_mb?). À utiliser comme exit gate pour matérialiser un step en heartbeat_run avec timeline reconstruite.`;
 
 /**
  * Injection patterns to strip from untrusted workflow content before embedding
