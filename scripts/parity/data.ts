@@ -849,6 +849,23 @@ export const parityData: ParityData = {
             ],
           },
         },
+        {
+          id: "governed-workflows-session-bundle",
+          name: "Session-bundle runs (Claude Code .jsonl → heartbeat_run timeline)",
+          description:
+            "Steps gouvernés exécutés côté MCP client (Claude Code) qui déclarent la gate canonique session-file-bundled.gate.ts dans leurs exit gates créent automatiquement un heartbeat_run mode=client à launch_governed_step. À complete_governed_step, le harness bundle son .jsonl dans artifact.data.session_file ; le serveur valide via la gate, parse via parser claude-code-jsonl-v1, matérialise trace + observations + rollup tokens, et lie au step via heartbeat_run_id. UI : badge SessionBundleBadge sur la step card du GovernedWorkflowRunDetail, cliquable → navigue vers la trace reconstruite. Path template paramétrable côté serveur via env vars MNM_SESSION_CAPTURE_*. Idempotence par sha256(bundle).",
+          web: {
+            status: "done",
+            since: "2026-04-30",
+            notes:
+              "Migration 0078, gate canonique, parser, finalize orchestrator, branchement launchStep/completeStep, badge UI cliquable, parity tracker. V1 = Claude Code only, opt-in par workflow.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure server feature — le wrapper desktop hérite via le backend packagé.",
+          },
+        },
       ],
     },
   ],

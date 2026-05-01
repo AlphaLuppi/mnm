@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useReactivateRun } from "@/hooks/useWorkflowRunActions";
 import { CancelRunDialog } from "@/components/workflows/CancelRunDialog";
+import { SessionBundleBadge } from "@/components/workflows/SessionBundleBadge";
 import type { StepWithGates } from "../api/governed-workflows";
 import type { GateResultRow, OutputPersisted } from "@mnm/shared";
 
@@ -150,7 +151,7 @@ function OutputRow({ output }: { output: OutputPersisted }) {
   );
 }
 
-function StepCard({ step, index }: { step: StepWithGates; index: number }) {
+function StepCard({ step, index, companyId }: { step: StepWithGates; index: number; companyId: string }) {
   const promptContext = step.artifactsJson?.promptContext;
   const inputContent = promptContext
     ? JSON.stringify(promptContext, null, 2)
@@ -181,6 +182,9 @@ function StepCard({ step, index }: { step: StepWithGates; index: number }) {
             <Badge variant={stepStateVariant[step.state] ?? "secondary"} className="text-xs ml-auto">
               {step.state}
             </Badge>
+          )}
+          {step.heartbeatRunId && !isCancelled && (
+            <SessionBundleBadge companyId={companyId} heartbeatRunId={step.heartbeatRunId} />
           )}
         </div>
         {(step.startedAt || step.completedAt) && (
@@ -374,7 +378,9 @@ export function GovernedWorkflowRunDetail() {
         {steps.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun step enregistré.</p>
         ) : (
-          steps.map((step, i) => <StepCard key={step.id} step={step} index={i} />)
+          steps.map((step, i) => (
+            <StepCard key={step.id} step={step} index={i} companyId={selectedCompanyId ?? ""} />
+          ))
         )}
       </div>
     </div>

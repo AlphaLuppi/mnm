@@ -51,6 +51,8 @@ export interface GovernedStepExecutionRow {
   artifactsJson: Record<string, unknown> | null;
   launchedByActorType: "user" | "agent" | "system" | null;
   launchedByActorId: string | null;
+  /** Set when the step launched a client-mode heartbeat_run (session-bundle path). */
+  heartbeatRunId: string | null;
   createdAt: string;
   updatedAt: string;
 }
