@@ -10,23 +10,37 @@
 
 ---
 
-## Questions ouvertes (à valider avec Tom AVANT le code)
+## Décisions arrêtées (signées Tom 2026-04-30)
 
-Sept points qui changent la forme de l'implémentation. Aucun n'est bloquant pour démarrer mais vaut mieux trancher en amont.
+1. **V1 = Claude Code uniquement.** Parser versionné `bundle_format: "claude-code-jsonl-v1"`. Codex/Cursor/OpenCode plus tard, sans bloquer la V1.
 
-1. **Format de session supporté en V1** — Claude Code uniquement (`.jsonl` Anthropic), ou aussi Codex / Cursor / OpenCode ? **Reco :** Claude Code only en V1, parser versionné (`bundle_format: "claude-code-jsonl-v1"`). Les autres adapters peuvent uploader leur format brut sans parsing — on aura le run + les logs, juste pas la timeline détaillée.
+2. **Gate opt-in par workflow.** `gates: ["session-file-bundled"]` dans le step concerné. Steps sans cette gate → pas de heartbeat_run client créé, comportement actuel inchangé.
 
-2. **Step sans session** — review humain, gate cron, validation manuelle : pas de session JSONL. Comment ça se comporte ? **Reco :** la gate `session-file-bundled` est **opt-in dans le `workflow.json`** du step (champ `gates: ["session-file-bundled"]`), pas globale. Steps sans cette gate → pas de heartbeat_run client créé.
+3. **Cap 100MB compressé.** Gzip + base64 côté client, décompression dans la gate, cap à 100MB après décompression. Au-delà → error code clair, REST upload renvoyé en V2.
 
-3. **Limite de taille MCP transport** — un JSONL Claude Code peut faire 50–200MB sur un long step. Le passer dans `artifact.data` en JSON-RPC va saturer. **Reco :** côté client, gzip + base64 (déjà supporté par `runLogStore.logCompressed`). Cap dur à 100MB compressé. Au-delà, fail clair avec hint "split your step or upload via REST" (REST = future feature, pas en V1).
+4. **Session incomplète tolérée.** L'entrée `tool_use:complete_governed_step` ne sera pas dans le `.jsonl` au moment où le client le lit (elle s'écrit après le retour MCP). Le parser tolère un trailing `assistant` ou `tool_use` sans `tool_result`. 99% du contenu est là, suffisant.
 
-4. **Session incomplète** — quand Claude Code appelle `complete_governed_step`, le tool_use de cet appel n'est pas encore écrit dans le `.jsonl` (il sera écrit après le retour MCP). **Reco :** acceptable. Le parser tolère un tool_use ouvert/manquant en queue. Les 99% du contenu sont là.
+5. **Convention Claude Code observée + paramétrable côté serveur.** Le fichier vit à `~/.claude/projects/<cwd-encoded>/<session-uuid>.jsonl` où :
+   - `<cwd-encoded>` = `cwd` avec `/` → `-` et préfixé `-` (ex: `/home/user/mnm` → `-home-user-mnm`)
+   - `<session-uuid>` = UUID v4, présent en clair dans chaque ligne JSONL au champ `sessionId`
+   - `CLAUDE_CODE_SESSION_ID` env var ≠ session UUID local (c'est le remote session id, format `cse_*`). NE PAS utiliser pour résoudre le path.
+   - Verbose : `~/.claude/projects/-home-user-mnm/fb8658fc-f19b-4a8c-ad2d-46ed944f509e.jsonl`
 
-5. **Lecture du fichier par Claude Code** — comment Claude Code sait où est son `.jsonl` ? Variable d'env `CLAUDE_PROJECT_DIR` + `CLAUDE_SESSION_ID` ? **À vérifier** — peut-être que la convention est documentée. Si oui, on l'écrit dans la description du tool `complete_governed_step` pour que le harness sache lire le bon fichier.
+   **Design paramétrable** : la réponse de `launch_governed_step` (path resolution) ET la réponse de la gate `session-file-bundled` (sur fail) renvoient un objet `session_capture` :
+   ```json
+   {
+     "method": "claude-code-jsonl-v1",
+     "path_template": "${HOME}/.claude/projects/${CWD_DASHED}/${SESSION_ID}.jsonl",
+     "session_id_source": "any line of the active jsonl, field 'sessionId'",
+     "encoding": "gzip+base64 if size > 5MB else raw string",
+     "where_to_put": "artifact.data.session_file"
+   }
+   ```
+   Le template est servi depuis une **config admin MnM** (table `company_settings` ou env var `MNM_SESSION_CAPTURE_TEMPLATE`). Si Anthropic change la convention, on patche le template côté serveur, le harness re-fetch à chaque step. Zéro hardcode côté client.
 
-6. **Idempotence** — si retry réseau de `complete_governed_step`, on parse 2× et duplique les observations ? **Reco :** dédupe sur `(runId, sha256(session_file))`. Si même hash → no-op, on retourne l'état actuel.
+6. **Idempotence par sha256(session_file).** Si retry réseau, le serveur reçoit 2× le même bundle. Sans dédupe → 2× observations, 2× tokens comptés, etc. Solution : `bundle_sha256` stocké sur le `heartbeat_run`, 2e appel avec même hash = no-op, on retourne le résultat de la 1re passe.
 
-7. **Secrets dans la session** — le `.jsonl` contient potentiellement des prompts user avec des secrets, des outputs de tool avec des tokens, etc. On les stocke en clair en DB. **Reco V1 :** documenter le risque dans `complete_governed_step` description + redaction côté serveur de patterns évidents (`sk-...`, `ghp_...`, `xoxb-...`) avant insert dans `trace_observations`. Le filtrage profond peut venir plus tard.
+7. **Pas de redaction en V1.** Le futur agent CAO-watcher scannera les sessions persistées et alertera admin/user si secrets détectés. Out of scope ici. **Doc V1 :** mention claire dans la description du tool MCP que tout le contenu de la session est stocké server-side.
 
 ---
 
@@ -77,8 +91,8 @@ complete_governed_step (MCP)
 - `packages/gate-runner/canonical/__tests__/session-file-bundled.gate.test.ts`
 - `server/src/services/session-bundle/parse-claude-code-jsonl.ts` — parser
 - `server/src/services/session-bundle/__tests__/parse-claude-code-jsonl.test.ts`
-- `server/src/services/session-bundle/redact-secrets.ts` — pré-filtre secrets
-- `server/src/services/session-bundle/__tests__/redact-secrets.test.ts`
+- `server/src/services/session-bundle/get-capture-config.ts` — template capture paramétrable
+- `server/src/services/session-bundle/__tests__/get-capture-config.test.ts`
 - `server/src/services/session-bundle/index.ts` — orchestration `finalizeClientRun`
 - `server/src/services/__tests__/session-bundle.e2e.test.ts` — E2E launch→complete
 - `ui/src/components/runs/SessionTimelineView.tsx` — timeline reconstruite
@@ -222,19 +236,26 @@ CREATE INDEX IF NOT EXISTS "governed_step_executions_heartbeat_run_id_idx"
 
 ---
 
-## Task 4 — Redaction secrets
+## Task 4 — Config session capture template
+
+**Décision Tom :** la convention de path Claude Code peut bouger. Servir le template depuis le serveur, paramétrable.
 
 **Files :**
-- Create : `server/src/services/session-bundle/redact-secrets.ts`
-- Create : `server/src/services/session-bundle/__tests__/redact-secrets.test.ts`
+- Modify : `packages/db/src/schema/company_settings.ts` (ou table équivalente — à vérifier dans le repo)
+- Create : `server/src/services/session-bundle/get-capture-config.ts`
+- Create : `server/src/services/session-bundle/__tests__/get-capture-config.test.ts`
 
-- [ ] **4.1 — Tests** : patterns `sk-[a-zA-Z0-9]{32,}`, `ghp_*`, `gho_*`, `xoxb-*`, `xoxp-*`, AWS access keys (`AKIA*`), JWT (`eyJ*.*.*`), private keys (`-----BEGIN`)
+- [ ] **4.1 — Identifier** la table de settings company (`company_settings`, `company_config`, etc.) ou créer un endpoint env-var fallback
 
-- [ ] **4.2 — Implémenter** : fonction pure `redactSecrets(text: string): string` remplace par `[REDACTED:type]`
+- [ ] **4.2 — Tests** : valeur par défaut Claude Code v1, override par company, override par env var `MNM_SESSION_CAPTURE_TEMPLATE`
 
-- [ ] **4.3 — Brancher depuis le parser quand `opts.redactSecrets=true`**
+- [ ] **4.3 — Implémenter** `getCaptureConfig(companyId): SessionCaptureConfig` retournant `{ method, path_template, session_id_source, encoding, where_to_put }`
 
-- [ ] **4.4 — Commit + push**
+- [ ] **4.4 — Exposer dans la réponse de `launch_governed_step`** quand le step a la gate `session-file-bundled` activée → champ `session_capture` à côté de `agent_name` / `prompt_context`
+
+- [ ] **4.5 — Exposer dans la réponse de gate fail** (avec hint "voici où trouver le fichier et comment l'envoyer")
+
+- [ ] **4.6 — Commit + push**
 
 ---
 
@@ -331,9 +352,9 @@ CREATE INDEX IF NOT EXISTS "governed_step_executions_heartbeat_run_id_idx"
 - Modify : `server/src/mcp/tools/governed-workflows.tool.ts` (descriptions de `launch_governed_step` et `complete_governed_step`)
 - Modify : `docs/superpowers/skills/mnm-governed-workflows/SKILL.md` (si existe) ou créer mémo court
 
-- [ ] **9.1 — Enrichir description `launch_governed_step`** : "Si le step déclare la gate `session-file-bundled`, un client run est créé. Le harness DOIT à la complétion lire son fichier `.jsonl` (path = `$CLAUDE_PROJECT_DIR/.claude/projects/<hash>/<session_id>.jsonl`) et le passer dans `complete_governed_step.artifact.data.session_file` (gzip+base64 si > 5MB)."
+- [ ] **9.1 — Enrichir description `launch_governed_step`** : "Si le step déclare la gate `session-file-bundled`, la réponse contient un objet `session_capture` avec le `path_template` à résoudre côté harness, le format attendu, et l'encodage (gzip+base64 si > 5MB). À la complétion, lire le fichier et le passer dans `complete_governed_step.artifact.data.session_file`."
 
-- [ ] **9.2 — Enrichir description `complete_governed_step`** : format attendu, taille max, conséquence si gate fail
+- [ ] **9.2 — Enrichir description `complete_governed_step`** : format attendu, taille max, conséquence si gate fail. **Mention explicite : "Tout le contenu de la session est stocké server-side. Ne pas inclure de secrets en clair dans vos prompts."**
 
 - [ ] **9.3 — Vérifier que c'est utilisable depuis Claude Code lui-même** (Read sur `.jsonl`, Bash gzip+base64)
 
@@ -366,7 +387,7 @@ CREATE INDEX IF NOT EXISTS "governed_step_executions_heartbeat_run_id_idx"
 | RLS pas appliqué au INSERT observations | HIGH (fuite cross-tenant) | `setTenantContext` déjà fait dans `wrap()` du tool (governed-workflows.tool.ts:91), `finalizeClientRun` reuse la même connexion transactionnelle |
 | Taille MCP transport saturée | MED (UX) | Cap 100MB, gzip côté client documenté, error code clair en V1, REST upload en V2 |
 | Format JSONL Anthropic change | MED (parsing casse) | Champ `bundleFormat` versionné, parser switch sur version, fallback "log brut visible" |
-| Secrets en clair en DB | MED (sécurité) | Redaction patterns évidents en V1, audit avec security team avant prod |
+| Secrets en clair en DB | MED (sécurité) | V1 = pas de redaction (décision Tom). Futur agent CAO-watcher scannera et alertera admin/user. Doc explicite côté tool MCP. |
 | Run orphelin si crash entre launch et complete | LOW (UX) | Cleanup task existante passe les runs `running` > 24h en `failed` (à vérifier dans heartbeat.ts) |
 | Idempotence cassée si client retry sans même hash | LOW | Dédupe par sha256 — si client renvoie un fichier différent on parse à nouveau (rare en prod, surtout test) |
 
