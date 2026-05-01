@@ -8,6 +8,7 @@ import {
   agents,
   auditEvents,
   authUsers,
+  heartbeatRuns,
   type Db,
 } from "@mnm/db";
 import {
@@ -43,6 +44,12 @@ import {
   emitRunReactivated,
   type PublishFn,
 } from "../realtime/emitters/governed-run-events.js";
+import {
+  finalizeClientRun,
+  getCaptureConfig,
+  type FinalizeDeps,
+  type SessionFileInput,
+} from "./session-bundle/index.js";
 
 // Constant providerId for ShaCache (providerId, path, sha) tuple.
 const PROVIDER_ID = "mnm-workflows";
@@ -86,6 +93,45 @@ export interface GovernedWorkflowServiceDeps {
    */
   resolveGitProvider: (args: { companyId: string; userId?: string | null; resourceType?: import("./git-resource-path.js").ResourceType }) => Promise<GitProvider>;
   shaCache: ShaCache;
+  /**
+   * Optional. When provided, steps that declare the canonical
+   * session-file-bundled gate in their exit block will spawn a client-mode
+   * heartbeat_run at launchStep and finalize it (parse bundle → trace +
+   * observations) at completeStep. If absent, the session-bundle feature is
+   * silently disabled (V1 backward compat for callers that don't wire it).
+   */
+  heartbeat?: {
+    createClientRun: (opts: {
+      companyId: string;
+      agentId: string;
+      invocationSource?: string;
+      triggerDetail?: string;
+      contextSnapshot?: Record<string, unknown>;
+    }) => Promise<{ id: string }>;
+  };
+  /** Optional. Required (paired with `heartbeat`) for the session-bundle finalize path. */
+  traceService?: {
+    create(
+      companyId: string,
+      input: {
+        heartbeatRunId: string;
+        agentId: string;
+        name: string;
+        metadata?: Record<string, unknown>;
+        tags?: string[];
+      },
+    ): Promise<{ id: string }>;
+    addObservation(
+      companyId: string,
+      traceId: string,
+      input: Record<string, unknown>,
+    ): Promise<{ id: string }>;
+    completeTrace(
+      companyId: string,
+      traceId: string,
+      input: { status: "completed" | "failed" },
+    ): Promise<unknown>;
+  };
 }
 
 export interface GetWorkflowParsedResult {
@@ -165,6 +211,13 @@ export interface LaunchStepResult {
   subagentType: string;
   handoffs: Handoff[];
   runBranch: string;
+  /**
+   * Set when the step's exit gates include the canonical
+   * session-file-bundled gate. The harness MUST resolve the path_template
+   * (with ${HOME}, ${CWD_DASHED}, ${SESSION_ID}) and bundle the resulting
+   * .jsonl into artifact.data.session_file at completeStep.
+   */
+  sessionCapture?: import("./session-bundle/index.js").SessionCaptureConfig;
 }
 
 export interface CompleteStepArgs {
@@ -408,6 +461,69 @@ export async function interpolatePromptContext(
  */
 export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDeps) {
   const { resolveGitProvider, shaCache } = deps;
+  const heartbeatDep = deps.heartbeat;
+  const traceDep = deps.traceService;
+
+  /**
+   * Detect whether a step opts into the session-bundle path by declaring
+   * the canonical gate `session-file-bundled` in its exit gates. The check
+   * is on the source path (workflow authors copy the canonical file into
+   * their workflow repo, typically as `gates/session-file-bundled.gate.ts`).
+   */
+  function usesSessionBundleGate(step: { gates?: { exit?: GateBlock } }): boolean {
+    const exit = step.gates?.exit;
+    if (!exit || exit.length === 0) return false;
+    // GateBlock entries can be a single GateItem or a GateItem[] (parallel).
+    // Flatten one level and check sources.
+    for (const entry of exit) {
+      const items = Array.isArray(entry) ? entry : [entry];
+      for (const item of items) {
+        if (
+          item.source.endsWith("session-file-bundled.gate.ts") ||
+          item.source.endsWith("session-file-bundled.gate.js")
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Build a FinalizeDeps adapter on the fly. Needs db (for the heartbeat_runs
+   * update) + the trace service. Used in completeStep when the step has a
+   * client heartbeat_run linked.
+   */
+  function buildFinalizeDeps(): FinalizeDeps | null {
+    if (!traceDep) return null;
+    return {
+      getRun: async (id) => {
+        const row = await db
+          .select({
+            id: heartbeatRuns.id,
+            companyId: heartbeatRuns.companyId,
+            agentId: heartbeatRuns.agentId,
+            status: heartbeatRuns.status,
+            bundleSha256: heartbeatRuns.bundleSha256,
+          })
+          .from(heartbeatRuns)
+          .where(eq(heartbeatRuns.id, id))
+          .then((r) => r[0] ?? null);
+        return row;
+      },
+      updateRun: async (id, patch) => {
+        await db
+          .update(heartbeatRuns)
+          .set({ ...patch, updatedAt: new Date() })
+          .where(eq(heartbeatRuns.id, id));
+      },
+      traceService: traceDep,
+      // Cast widening : finalize types its event type as string, the real
+      // publishLiveEvent is a strict literal union. We only ever publish
+      // "heartbeat.run.status" which IS in the union, so this is safe.
+      publishLiveEvent: publishLiveEvent as unknown as FinalizeDeps["publishLiveEvent"],
+    };
+  }
 
   // ─── Discovery ──────────────────────────────────────────────────
 
@@ -1042,12 +1158,62 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       .where(eq(governedStepExecutions.runId, args.runId));
     const handoffs = buildHandoffsForStep(prevStepRows as any);
 
+    // ── Session-bundle path : create the client heartbeat_run if the step
+    //    declares the session-file-bundled exit gate. Failures here are
+    //    logged but NEVER fail the launch — the harness can still produce
+    //    the artifact, the run will just be missing a timeline. ────────
+    let sessionCapture: ReturnType<typeof getCaptureConfig> | undefined;
+    if (heartbeatDep && usesSessionBundleGate(step)) {
+      try {
+        const agentRow = await db
+          .select({ id: agents.id })
+          .from(agents)
+          .where(and(eq(agents.companyId, args.companyId), eq(agents.name, step.agent)))
+          .then((rows) => rows[0]);
+
+        if (agentRow) {
+          const clientRun = await heartbeatDep.createClientRun({
+            companyId: args.companyId,
+            agentId: agentRow.id,
+            invocationSource: "governed_step",
+            triggerDetail: "mcp",
+            contextSnapshot: {
+              runId: args.runId,
+              stepId: args.stepId,
+              workflowName: parsed.workflow.name,
+              workflowGitTag: parsed.gitTag,
+            },
+          });
+
+          await db
+            .update(governedStepExecutions)
+            .set({ heartbeatRunId: clientRun.id, updatedAt: new Date() })
+            .where(
+              and(
+                eq(governedStepExecutions.runId, args.runId),
+                eq(governedStepExecutions.stepIdInJson, args.stepId),
+              ),
+            );
+
+          sessionCapture = getCaptureConfig({ companyId: args.companyId });
+        }
+      } catch (err) {
+        // Defensive : a client-run creation failure must not block the harness.
+        // Log via console (no logger import in this module yet) and proceed
+        // without sessionCapture; the gate will fail at completeStep with a
+        // clear hint, telling the harness the bundle is required.
+        // eslint-disable-next-line no-console
+        console.warn(`[governed-workflows] Failed to spawn client run for step ${args.stepId}:`, err);
+      }
+    }
+
     return {
       agentName: step.agent,
       promptContext,
       subagentType: `mnm--${step.agent}`,
       handoffs,
       runBranch: runBranchName(args.runId),
+      sessionCapture,
     };
   }
 
@@ -1180,6 +1346,14 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   async function completeStep(args: CompleteStepArgs): Promise<CompleteStepResult> {
     // Serialize per-step completion to avoid races where two harness
     // replies race on the same step.
+
+    // Data needed for post-tx finalize of the session-bundle client run.
+    // Populated inside the tx (we capture heartbeatRunId BEFORE we transition
+    // the step to succeeded), then used after commit to parse the .jsonl and
+    // build the trace + observations.
+    const pendingFinalize: {
+      data: { heartbeatRunId: string; sessionFile: SessionFileInput | undefined } | null;
+    } = { data: null };
 
     // Data needed for post-tx mergeRunBranch — populated inside the tx and
     // used after commit so Git ops don't extend the DB transaction window.
@@ -1410,6 +1584,18 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         .set({ state: "succeeded", completedAt: stepCompletedAt })
         .where(eq(governedStepExecutions.id, stepExec.id));
 
+      // ── Session-bundle path : capture heartbeatRunId + bundle for the
+      //    post-tx finalize. Reads from the local stepExec snapshot (set
+      //    during launchStep) so we don't need an extra SELECT. ─────────
+      if (stepExec.heartbeatRunId) {
+        const sessionFile = (args.artifact.data as { session_file?: SessionFileInput } | null | undefined)
+          ?.session_file;
+        pendingFinalize.data = {
+          heartbeatRunId: stepExec.heartbeatRunId,
+          sessionFile,
+        };
+      }
+
       // PHASE-4: a succeeded step is by definition "useful forward progress",
       // so bump the run's last_useful_action_at + record the next-action hint
       // (the step name acts as the implicit hint). This is what the liveness
@@ -1524,6 +1710,36 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         console.error(
           `[governed-workflows] mergeRunBranch failed for run ${args.runId} (completed): ${err instanceof Error ? err.message : String(err)}`,
         );
+      }
+    }
+
+    // ── Post-tx : finalize the client heartbeat_run if the step had one.
+    //    Best-effort : finalizeClientRun catches its own errors and tags
+    //    the run failed. The step is already succeeded — the finalize
+    //    failure is observable via the heartbeat_run errorCode. ───────
+    if (pendingFinalize.data) {
+      const finalizeDeps = buildFinalizeDeps();
+      if (finalizeDeps) {
+        if (pendingFinalize.data.sessionFile === undefined) {
+          // Should not happen — the gate would have failed. Defensive log.
+          console.warn(
+            `[governed-workflows] step ${args.stepId} has heartbeatRunId but no session_file in artifact — finalize skipped`,
+          );
+        } else {
+          try {
+            await finalizeClientRun(finalizeDeps, {
+              runId: pendingFinalize.data.heartbeatRunId,
+              sessionFile: pendingFinalize.data.sessionFile,
+            });
+          } catch (err) {
+            // finalizeClientRun is supposed to swallow errors. If one escapes
+            // (programmer error, e.g. run not found), log + drop. Don't fail
+            // completeStep — the step is already succeeded in DB.
+            console.error(
+              `[governed-workflows] finalizeClientRun threw for run ${pendingFinalize.data.heartbeatRunId}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
       }
     }
 

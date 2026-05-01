@@ -310,7 +310,11 @@ export default defineMcpTools(({ tool, services }) => {
     permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
     description:
       "[Governed Workflows] Authorize a step launch. Checks deps + evaluates the entry gate block if present. " +
-      "Returns {agent_name, prompt_context, subagent_type} for the harness to Task() into.",
+      "Returns {agent_name, prompt_context, subagent_type} for the harness to Task() into. " +
+      "If the step declares the canonical `session-file-bundled` exit gate, the response also " +
+      "includes `session_capture` with a path_template the harness MUST resolve (placeholders: " +
+      "${HOME}, ${CWD_DASHED} = cwd with '/' → '-' prefixed '-', ${SESSION_ID} = sessionId from any " +
+      "JSONL line) and bundle the .jsonl content into artifact.data.session_file at complete_governed_step.",
     input: z.object({
       run_id: z.string().uuid(),
       step_id: z.string().min(1),
@@ -337,6 +341,7 @@ export default defineMcpTools(({ tool, services }) => {
               subagent_type: r.subagentType,
               handoffs: r.handoffs,
               run_branch: r.runBranch,
+              ...(r.sessionCapture ? { session_capture: r.sessionCapture } : {}),
             }),
           }],
         };
@@ -347,7 +352,12 @@ export default defineMcpTools(({ tool, services }) => {
   tool("complete_governed_step", {
     permissions: [PERMISSIONS.WORKFLOWS_ENFORCE],
     description:
-      "[Governed Workflows] Finalise a step with its artifact. Evaluates the exit gate block. On pass: step=succeeded; if last step, run=completed.",
+      "[Governed Workflows] Finalise a step with its artifact. Evaluates the exit gate block. " +
+      "On pass: step=succeeded; if last step, run=completed. " +
+      "If the step uses the `session-file-bundled` exit gate, you MUST place your Claude Code " +
+      "session JSONL into artifact.data.session_file (raw string, or { encoding: 'gzip-base64', " +
+      "content } if larger than ~5MB). The server stores the entire session content in the run's " +
+      "trace observations — DO NOT include secrets in clear text in your prompts.",
     input: z.object({
       run_id: z.string().uuid(),
       step_id: z.string().min(1),

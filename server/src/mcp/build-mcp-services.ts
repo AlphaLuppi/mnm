@@ -443,6 +443,13 @@ function buildEnvFallbackProvider(): GitProvider {
 export function buildMcpServices(db: Db): McpServices {
   const resolveGitProvider = createResolveGitProvider(db);
   const shaCache = new ShaCache();
+  // Hoist services that are passed by reference into governedWorkflowService
+  // so the governed-workflow service shares the same heartbeat + trace
+  // instances as the rest of the app (live-events, state) instead of
+  // constructing parallel ones.
+  const traces = traceService(db);
+  const heartbeat = heartbeatService(db);
+
   return {
     db,
     resolveGitProvider,
@@ -451,7 +458,7 @@ export function buildMcpServices(db: Db): McpServices {
     issues: issueService(db),
     configLayers: configLayerService(db),
     configLayerConflict: configLayerConflictService(db),
-    traces: traceService(db),
+    traces,
     dashboard: dashboardService(db),
     chat: chatService(db),
     chatSharing: chatSharingService(db),
@@ -466,8 +473,21 @@ export function buildMcpServices(db: Db): McpServices {
     audit: auditService(db),
     a2aBus: a2aBusService(db),
     a2aPermissions: a2aPermissionsService(db),
-    heartbeat: heartbeatService(db),
-    governedWorkflows: governedWorkflowService(db, { resolveGitProvider, shaCache }),
+    heartbeat,
+    governedWorkflows: governedWorkflowService(db, {
+      resolveGitProvider,
+      shaCache,
+      // Session-bundle path (Task 7) : when a step declares the canonical
+      // session-file-bundled exit gate, launchStep spawns a client-mode
+      // heartbeat_run and completeStep parses the bundled .jsonl into
+      // trace + observations.
+      heartbeat: { createClientRun: heartbeat.createClientRun },
+      traceService: {
+        create: traces.create,
+        addObservation: traces.addObservation,
+        completeTrace: traces.completeTrace,
+      },
+    }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),
   };
