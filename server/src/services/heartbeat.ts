@@ -826,6 +826,12 @@ export function heartbeatService(db: Db) {
 
   async function claimQueuedRun(run: typeof heartbeatRuns.$inferSelect) {
     if (run.status !== "queued") return run;
+    // Defensive: client-owned runs are executed by the MCP harness, not by the
+    // server worker. If one slipped into a claim path (race between
+    // executionMode flag and a stale select), refuse to claim. Server-side
+    // execution would attempt to spawn a subprocess for a run that already
+    // has a remote owner.
+    if (run.executionMode === "client") return null;
     const claimedAt = new Date();
     const claimed = await db
       .update(heartbeatRuns)
@@ -1081,7 +1087,13 @@ export function heartbeatService(db: Db) {
       const queuedRuns = await db
         .select()
         .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
+        .where(
+          and(
+            eq(heartbeatRuns.agentId, agentId),
+            eq(heartbeatRuns.status, "queued"),
+            eq(heartbeatRuns.executionMode, "server"),
+          ),
+        )
         .orderBy(asc(heartbeatRuns.createdAt))
         .limit(availableSlots);
       if (queuedRuns.length === 0) return [];
@@ -1836,6 +1848,67 @@ export function heartbeatService(db: Db) {
     await startNextQueuedRunForAgent(promotedRun.agentId);
   }
 
+  /**
+   * Create a heartbeat_run owned by an MCP client (governed-step session-bundle path).
+   *
+   * Unlike enqueueWakeup, the run is born `running` (the client is already
+   * executing) and `executionMode='client'` so the server worker won't try to
+   * claim it. The caller (governedWorkflows.launchStep) is expected to link
+   * the resulting runId onto the matching governed_step_executions row.
+   *
+   * Finalisation happens in finalizeClientRun (Task 6) when the harness POSTs
+   * the session bundle through complete_governed_step.
+   *
+   * @returns the created heartbeat_run row (full record).
+   */
+  async function createClientRun(opts: {
+    companyId: string;
+    agentId: string;
+    invocationSource?: string;
+    triggerDetail?: string;
+    contextSnapshot?: Record<string, unknown>;
+  }): Promise<typeof heartbeatRuns.$inferSelect> {
+    const startedAt = new Date();
+    const inserted = await db
+      .insert(heartbeatRuns)
+      .values({
+        companyId: opts.companyId,
+        agentId: opts.agentId,
+        invocationSource: opts.invocationSource ?? "governed_step",
+        triggerDetail: opts.triggerDetail ?? "mcp",
+        status: "running",
+        startedAt,
+        executionMode: "client",
+        contextSnapshot: opts.contextSnapshot ?? {},
+      })
+      .returning()
+      .then((rows) => rows[0]);
+
+    if (!inserted) {
+      throw new Error("createClientRun: insert returned no row");
+    }
+
+    publishLiveEvent({
+      companyId: inserted.companyId,
+      type: "heartbeat.run.status",
+      payload: {
+        runId: inserted.id,
+        agentId: inserted.agentId,
+        status: inserted.status,
+        invocationSource: inserted.invocationSource,
+        triggerDetail: inserted.triggerDetail,
+        executionMode: inserted.executionMode,
+        startedAt: inserted.startedAt ? new Date(inserted.startedAt).toISOString() : null,
+        finishedAt: null,
+        error: null,
+        errorCode: null,
+      },
+      visibility: { scope: "agents", agentIds: [inserted.agentId] },
+    });
+
+    return inserted;
+  }
+
   async function enqueueWakeup(agentId: string, opts: WakeupOptions = {}) {
     const source = opts.source ?? "on_demand";
     const triggerDetail = opts.triggerDetail ?? null;
@@ -2424,6 +2497,8 @@ export function heartbeatService(db: Db) {
       }),
 
     wakeup: enqueueWakeup,
+
+    createClientRun,
 
     reapOrphanedRuns,
 
