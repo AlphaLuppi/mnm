@@ -61,6 +61,59 @@ Agents auto-update on every step launch: `launchStep` compares your local
 agent shas against the canonical git-pinned versions and returns new
 content if stale. Claude writes the update, then retries the step.
 
+## Session-bundle runs (timeline reconstruction)
+
+When a workflow step declares the canonical gate
+`gates/session-file-bundled.gate.ts` in its `gates.exit` block, MnM materialises
+that step as a real **heartbeat run with a full timeline**, reconstructed from
+your Claude Code session JSONL.
+
+How it works:
+
+1. **At `launch_governed_step`** the server creates a client-mode `heartbeat_run`
+   linked to the step. The response includes a `session_capture` object :
+   ```json
+   {
+     "method": "claude-code-jsonl-v1",
+     "path_template": "${HOME}/.claude/projects/${CWD_DASHED}/${SESSION_ID}.jsonl",
+     "session_id_source": "any line of the active jsonl, field 'sessionId' (UUID v4)",
+     "encoding": "gzip+base64 if size > 5MB else raw string",
+     "where_to_put": "artifact.data.session_file",
+     "max_size_mb": 100,
+     "gzip_threshold_mb": 5,
+     "instructions": "..."
+   }
+   ```
+2. **You do the step work normally.** Your `.jsonl` fills up at the resolved
+   path (`~/.claude/projects/<cwd-dashed>/<session-uuid>.jsonl`).
+   `<cwd-dashed>` = current working dir with `/` → `-` and prefixed `-`.
+   `<session-uuid>` = the `sessionId` field on any line of the active JSONL
+   (NOT the `CLAUDE_CODE_SESSION_ID` env var, which points to the remote
+   session and starts with `cse_`).
+3. **At `complete_governed_step`** read the file (`Read` tool) and pass its
+   content in `artifact.data.session_file`. If the raw size is over
+   `gzip_threshold_mb`, gzip + base64 it and use the wrapped form
+   `{ encoding: "gzip-base64", content: "<base64>" }`.
+4. The server validates the bundle via the gate, parses the JSONL, materialises
+   `traces` + `trace_observations` (one per assistant turn / tool call / user
+   message), rolls up tokens, and finalises the heartbeat run.
+5. The MnM UI shows a **"Session captured"** badge on the step card, cliquable
+   → timeline reconstruite avec coût et tokens.
+
+**Heads-up :** the entire session content is stored server-side. **Don't include
+secrets in clear text** in your prompts — a future CAO watcher will alert
+admin/users on detected secrets, but for now treat it as you would any log
+sent upstream.
+
+Customising the path template (server-side, env vars):
+
+```
+MNM_SESSION_CAPTURE_METHOD          # default: claude-code-jsonl-v1
+MNM_SESSION_CAPTURE_PATH_TEMPLATE   # default: ${HOME}/.claude/projects/${CWD_DASHED}/${SESSION_ID}.jsonl
+MNM_SESSION_CAPTURE_MAX_SIZE_MB     # default: 100
+MNM_SESSION_CAPTURE_GZIP_THRESHOLD_MB  # default: 5
+```
+
 ## Data locations
 
 - **User agents** : `~/.claude/agents/mnm--*.md`
