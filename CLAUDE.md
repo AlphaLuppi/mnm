@@ -1,188 +1,67 @@
 # CLAUDE.md
 
-MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
-Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
-Language: French for planning documents. See README.md for full project docs.
+MnM — Cockpit B2B de supervision pour orchestration d'agents IA.
+Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces (17 packages).
+Langue: français pour la doc et le planning, anglais pour les identifiants techniques.
 
-## Critical Rules
+## Lecture obligatoire avant intervention
 
-- **NEVER use polling (setInterval, refetchInterval)** — ALL real-time updates MUST use SSE/WebSocket via the live-events system (`/events/ws`).
-- **Always use UI library components** — Never create custom/inline implementations of standard UI primitives (Switch, Button, Dialog, Checkbox, etc.). Always use `ui/src/components/ui/`. If a component doesn't exist, create it there first.
-- **Multi-tenant** — 1 backend serves N companies. ALL company-scoped routes MUST have `/companies/:companyId/` prefix. No auto-injection, no URL rewrite. `company_id` is explicit in every API call, verified by `assertCompanyMembership` middleware, and enforced by PostgreSQL RLS (fail-closed).
-- **Dynamic RBAC** — Roles and permissions are in DB (`roles`, `permissions`, `role_permissions`), NOT hardcoded. No `BUSINESS_ROLES`, `AGENT_ROLES`, or `PERMISSION_KEYS` constants.
-- **Tag-based isolation** — Tags control visibility within a company. Users only see agents/issues/traces sharing at least 1 tag. Enforced via `TagScope` middleware (mounted on `api.use("/companies/:companyId", ...)` — NOT at app level).
-- **Agent permissions** — Agents inherit permissions from their creator (createdByUserId).
-- **Client-side compute** — Agent execution happens on the user's machine (MCP, Desktop, local CLI). The server is an API/data/orchestration layer. Docker sandboxes are optional for non-tech users.
-- **Deployment modes** — `local_trusted` (dev, zero auth, single company auto-created) or `authenticated` (prod, BetterAuth + OAuth 2.1, multi-company).
+1. [`docs/README.md`](docs/README.md) — entry point doc (par où commencer selon ton rôle)
+2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — stack, multi-tenant, traces, config layers, CAO
+3. [`docs/decision-log.md`](docs/decision-log.md) — décisions structurantes encore actives
 
-## Architecture Decisions
+Pour les conventions détaillées : [`docs/conventions/`](docs/conventions/).
+Pour les patterns scopés (backend, frontend, database, testing, gitnexus, governed-workflows) : [`.claude/rules/`](.claude/rules/) — ces fichiers sont chargés automatiquement quand tu touches aux fichiers concernés.
 
-### Multi-Tenant Middleware Chain
-- **Order**: `actorMiddleware` (app level) → `api` Router → `assertCompanyMembership` → `tenantContextMiddleware` → `tagScopeMiddleware` → route handlers.
-- ALL three company middlewares are mounted on `api.use("/companies/:companyId", ...)` so Express parses the param BEFORE they run. NEVER mount at app level.
-- `assertCompanyMembership` verifies the actor belongs to the company in the path. Board users check `actor.companyIds`, agents check `actor.companyId`. Validates UUID format. Fail-closed for unknown actor types.
-- `tenantContextMiddleware` sets PostgreSQL RLS context (`app.current_company_id`) from `req.params.companyId`. Does NOT inject into params.
-- The URL rewrite middleware is REMOVED. All company-scoped routes have explicit `/companies/:companyId/` prefix.
-- Rate limiting is per-tenant: key = `{companyId}:{actorId}`.
+## Règles absolues (non-négociables)
 
-### Trace Pipeline
-- **Gold** = DEFAULT view (scored phases, annotations, verdicts). **Silver** = grouped detail. **Bronze** = raw JSON debug.
-- Gold is AUTO-GENERATED at trace completion, not manual click.
-- Gold prompt is HIERARCHICAL: global → workflow → agent → issue context.
-- Traces are MIDDLEWARE on top of adapters (heartbeat.ts:onLog), NOT inside adapters.
-- LLM enrichment: `claude -p --model haiku`.
+- **Zero polling** — tous les updates temps réel via SSE/WebSocket sur `/events/ws`. Jamais `setInterval` ni `refetchInterval`. Détails : [`docs/conventions/no-polling.md`](docs/conventions/no-polling.md).
+- **UI library components** — toujours importer depuis `ui/src/components/ui/`. Si une primitive shadcn manque, la créer là d'abord. Pas d'inline.
+- **Multi-tenant explicite** — toutes les routes scopées company ont le préfixe `/companies/:companyId/`. Pas d'auto-injection, pas d'URL rewrite. Vérifié par middleware + RLS PostgreSQL fail-closed. Détails : [`docs/conventions/middleware-chain.md`](docs/conventions/middleware-chain.md).
+- **RBAC dynamique** — rôles et permissions en DB (`roles`, `permissions`, `role_permissions`), jamais hardcodés. Pas de constante `BUSINESS_ROLES` / `PERMISSION_KEYS`. Détails : [`docs/conventions/rbac-tags.md`](docs/conventions/rbac-tags.md).
+- **Tag-based isolation** — visibilité contrôlée par tags partagés (intersection non-vide). Enforced par `tagScopeMiddleware` monté sur `api.use("/companies/:companyId", ...)`.
+- **Compute côté client** — l'exécution agent se fait sur la machine user (Claude Code, MCP, Desktop, CLI locale). Le serveur est API/data/orchestration. Docker sandbox optionnel pour utilisateurs non-tech.
+- **Modes de déploiement** — `local_trusted` (dev, zéro auth, single-company auto) ou `authenticated` (prod, BetterAuth + OAuth 2.1, multi-company).
 
-### Config Layers
-- adapterConfig JSONB replaced by structured config layers. All agent config lives in layers.
-- Priority merge: Company enforced (999) > Base layer (500) > Additional (0-498).
-- Base layer auto-created per agent (migration 0054). Dual-path heartbeat for zero-downtime migration.
-- Advisory locks (`pg_advisory_xact_lock`) serialize concurrent layer attachments.
-- Tag-based visibility: private=creator only, team=shared tags, public=all, company=all.
+## Web/Desktop parity tracker
 
-### CAO (Chief Agent Officer)
-- adapter_type="claude_local", metadata.isCAO=true, auto-created, has all tags, Admin role.
-- Watchdog mode auto-comments on failures. Interactive via @cao mentions.
-
-## Web/Desktop Parity Tracking
-
-MnM ships as both a web app (`@mnm/ui`) and a Tauri desktop app (`apps/desktop`). To keep visibility on what's live where, we maintain a **typed parity tracker** at `scripts/parity/data.ts`.
-
-**You MUST update `scripts/parity/data.ts` whenever you:**
-- Add a new user-facing feature (page, panel, significant component, IPC command, or desktop-native capability)
-- Change the status of an existing feature on either platform (e.g. verify it in a packaged DMG, fix a blocker, add desktop polish)
-- Discover a new cross-platform gap or blocker
-
-**How to update:**
-1. Find the relevant domain in `scripts/parity/data.ts` (`auth`, `agents`, `traces`, `desktop-native`, etc.) or add a new one.
-2. Add/edit the `Feature` entry with `web` and `desktop` `PlatformState` objects. Status values: `done | dev-only | partial | missing | n/a`.
-3. For features that need work, fill the `todo` object (`code`, `config`, `tests`, `notes`) so remaining work is explicit.
-4. If a blocker is shared across features, reference an existing key from `sharedBlockers` rather than repeating the description.
-5. Run `bun run parity` to verify the report renders cleanly, and `bun run parity --missing` to see the updated gap list.
-
-**Parity commands:**
-```bash
-bun run parity                   # Full report
-bun run parity --missing         # Features done on web but not on desktop
-bun run parity --todo            # Features with open todo items
-bun run parity --domain=agents   # Filter to one domain
-bun run parity --json            # Raw JSON (for tooling)
-```
-
-**Rule of thumb:** any PR touching `ui/src/pages/`, `ui/src/components/`, `apps/desktop/src-tauri/`, or adding a new IPC command **should also touch `scripts/parity/data.ts`**. If you genuinely don't need to, mention it in the PR body so reviewers know it was considered.
-
-## Git Rules
-
-- **Always atomic commit + push** — Every commit must be immediately pushed. Never leave unpushed commits.
-- GPG signing often times out. If `git commit` fails with `gpg: signing failed: Timeout`, retry with `-c commit.gpgsign=false`.
-
-## Dev Commands
+MnM ship en web (`@mnm/ui`) et desktop (`apps/desktop` Tauri). Toute feature touchant `ui/src/pages/`, `ui/src/components/`, `apps/desktop/src-tauri/`, ou ajoutant un IPC command **doit aussi mettre à jour** [`scripts/parity/data.ts`](scripts/parity/data.ts) (status `done | dev-only | partial | missing | n/a`, `todo` rempli si reste du boulot).
 
 ```bash
-bun install         # Install all dependencies
-bun run dev         # Start dev (server + ui, embedded postgres)
-bun run build       # Build all packages
-bun run typecheck   # TypeScript check (13/13 packages pass)
-bun run test:e2e    # Run Playwright E2E tests
+bun run parity                 # rapport complet
+bun run parity --missing       # web ✅ / desktop ❌
+bun run parity --todo          # features avec todo ouvert
+bun run parity --domain=agents # filtrer par domaine
 ```
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+Si vraiment pas pertinent → mention dans le PR body. Détails dans [`.claude/rules/frontend.md`](.claude/rules/frontend.md).
 
-This project is indexed by GitNexus as **mnm** (8752 symbols, 21008 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+## Git
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+- **Atomic commit + push** — tout commit est immédiatement pushé. Jamais de commit local non pushé.
+- **GPG fallback** — si `gpg: signing failed: Timeout`, retry avec `git -c commit.gpgsign=false commit ...`.
+- **Pas de Co-Authored-By Claude/AI** — Tom est seul auteur.
+- Détails : [`docs/conventions/git.md`](docs/conventions/git.md).
 
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## When Debugging
-
-1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
-2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
-3. `READ gitnexus://repo/mnm/process/{processName}` — trace the full execution flow step by step
-4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
-
-## When Refactoring
-
-- **Renaming**: MUST use `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` first. Review the preview — graph edits are safe, text_search edits need manual review. Then run with `dry_run: false`.
-- **Extracting/Splitting**: MUST run `gitnexus_context({name: "target"})` to see all incoming/outgoing refs, then `gitnexus_impact({target: "target", direction: "upstream"})` to find all external callers before moving code.
-- After any refactor: run `gitnexus_detect_changes({scope: "all"})` to verify only expected files changed.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Tools Quick Reference
-
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
-
-## Impact Risk Levels
-
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK — direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED — indirect deps | Should test |
-| d=3 | MAY NEED TESTING — transitive | Test if critical path |
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/mnm/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/mnm/clusters` | All functional areas |
-| `gitnexus://repo/mnm/processes` | All execution flows |
-| `gitnexus://repo/mnm/process/{name}` | Step-by-step execution trace |
-
-## Self-Check Before Finishing
-
-Before completing any code modification task, verify:
-1. `gitnexus_impact` was run for all modified symbols
-2. No HIGH/CRITICAL risk warnings were ignored
-3. `gitnexus_detect_changes()` confirms changes match expected scope
-4. All d=1 (WILL BREAK) dependents were updated
-
-## Keeping the Index Fresh
-
-After committing code changes, the GitNexus index becomes stale. Re-run analyze to update it:
+## Dev commands
 
 ```bash
-npx gitnexus analyze
+bun install         # install deps
+bun run dev         # dev server + ui (postgres embedded)
+bun run build       # build all packages
+bun run typecheck   # 17/17 packages should pass
+bun run test        # vitest unit
+bun run test:e2e    # playwright E2E
 ```
 
-If the index previously included embeddings, preserve them by adding `--embeddings`:
+## Workflow Superpowers (planning)
 
-```bash
-npx gitnexus analyze --embeddings
-```
+Avant tout chantier non-trivial, écrire un plan dans [`docs/superpowers/plans/YYYY-MM-DD-{topic}.md`](docs/superpowers/plans/). Si besoin d'une passe d'archi : spec dans `superpowers/specs/`. Reviews structurées dans `superpowers/reviews/` à la livraison.
 
-To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
+Skip uniquement pour : typo, one-line fix, exploration pure, conversation.
 
-> Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
+## Outillage Claude
 
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+- **Subagents** : [`.claude/agents/`](.claude/agents/) — `mnm-architect`, `mnm-backend`, `mnm-frontend` (auto-délégation par `description`)
+- **Skills** : [`.claude/skills/`](.claude/skills/) — `mnm-codebase-tour` (tour guidé en 30 min), `gitnexus/*` (impact, refactor, debug…)
+- **Rules scopées** : [`.claude/rules/`](.claude/rules/) — chargées automatiquement par `paths:` quand tu édites les fichiers correspondants

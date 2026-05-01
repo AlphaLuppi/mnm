@@ -7,6 +7,7 @@ description: >
   parity tracker, intégration AI Assistant, Workflow Studio. Connaît les
   patterns shadcn et la règle no-polling.
 tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch
+paths: ["ui/**", "apps/desktop/**", "scripts/parity/**", "packages/shared/**"]
 ---
 
 # MnM Frontend

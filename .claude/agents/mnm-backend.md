@@ -7,6 +7,7 @@ description: >
   query, intégration MCP server, SSE handler, WebSocket. Connaît la
   middleware chain et les patterns RLS du projet.
 tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, KillShell, BashOutput
+paths: ["server/**", "packages/*/server/**", "packages/db/**", "packages/mcp-server/**", "packages/gate-runner/**"]
 ---
 
 # MnM Backend

@@ -2,10 +2,14 @@
 name: mnm-codebase-tour
 description: >
   Tour guidé de la codebase MnM pour onboarder rapidement sur le projet.
-  Utiliser quand un agent débarque sur le repo et a besoin de comprendre
+  À invoquer quand un agent débarque sur le repo et a besoin de comprendre
   l'architecture en moins de 30 minutes : structure monorepo, services
   backend clés, conventions, feature phare (Governed Workflows). Lit
-  proactivement les bons fichiers et résume la mental map.
+  proactivement les bons fichiers et résume la mental map. Utiliser via
+  `/mnm-codebase-tour` ou laisser Claude l'auto-invoquer quand l'utilisateur
+  pose une question d'orientation générale ("comment ça marche", "où est X",
+  "explique-moi le projet").
+allowed-tools: Read, Glob, Grep, LS
 ---
 
 # MnM Codebase Tour
