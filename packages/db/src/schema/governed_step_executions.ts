@@ -10,6 +10,7 @@ import {
 import type { AuditActorType } from "@mnm/shared";
 import { companies } from "./companies.js";
 import { governedWorkflowRuns } from "./governed_workflow_runs.js";
+import { heartbeatRuns } from "./heartbeat_runs.js";
 
 export const GOVERNED_STEP_STATES = [
   "pending",
@@ -34,6 +35,7 @@ export const governedStepExecutions = pgTable(
     artifactsJson: jsonb("artifacts_json").$type<Record<string, unknown>>(),
     launchedByActorType: text("launched_by_actor_type").$type<AuditActorType>(),
     launchedByActorId: text("launched_by_actor_id"),
+    heartbeatRunId: uuid("heartbeat_run_id").references(() => heartbeatRuns.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -42,5 +44,7 @@ export const governedStepExecutions = pgTable(
       .on(table.runId, table.stepIdInJson),
     runStateIdx: index("governed_step_executions_run_state_idx")
       .on(table.runId, table.state),
+    heartbeatRunIdx: index("governed_step_executions_heartbeat_run_id_idx")
+      .on(table.heartbeatRunId),
   }),
 );

@@ -589,6 +589,13 @@
 			"when": 1777002400011,
 			"tag": "0077_resumable_tokens_and_liveness",
 			"breakpoints": true
+		},
+		{
+			"idx": 78,
+			"version": "7",
+			"when": 1777002400012,
+			"tag": "0078_session_bundle_runs",
+			"breakpoints": true
 		}
 	]
 }

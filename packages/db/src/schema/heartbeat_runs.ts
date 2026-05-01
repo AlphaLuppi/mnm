@@ -32,6 +32,9 @@ export const heartbeatRuns = pgTable(
     errorCode: text("error_code"),
     externalRunId: text("external_run_id"),
     contextSnapshot: jsonb("context_snapshot").$type<Record<string, unknown>>(),
+    executionMode: text("execution_mode").$type<HeartbeatRunExecutionMode>().notNull().default("server"),
+    bundleFormat: text("bundle_format"),
+    bundleSha256: text("bundle_sha256"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -41,5 +44,10 @@ export const heartbeatRuns = pgTable(
       table.agentId,
       table.startedAt,
     ),
+    clientStatusIdx: index("heartbeat_runs_client_status_idx").on(table.status),
+    bundleSha256Idx: index("heartbeat_runs_bundle_sha256_idx").on(table.bundleSha256),
   }),
 );
+
+export const HEARTBEAT_RUN_EXECUTION_MODES = ["server", "client"] as const;
+export type HeartbeatRunExecutionMode = (typeof HEARTBEAT_RUN_EXECUTION_MODES)[number];

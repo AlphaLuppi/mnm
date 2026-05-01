@@ -85,8 +85,8 @@ complete_governed_step (MCP)
 ## File Map
 
 **Created :**
-- `packages/db/src/migrations/0070_session_bundle_runs.sql` — migration
-- `packages/db/src/migrations/0070_session_bundle_runs.test.ts` — test migration
+- `packages/db/src/migrations/0078_session_bundle_runs.sql` — migration
+- `packages/db/src/migrations/0078_session_bundle_runs.test.ts` — test migration
 - `packages/gate-runner/canonical/session-file-bundled.gate.ts` — nouvelle gate
 - `packages/gate-runner/canonical/__tests__/session-file-bundled.gate.test.ts`
 - `server/src/services/session-bundle/parse-claude-code-jsonl.ts` — parser
@@ -113,16 +113,16 @@ complete_governed_step (MCP)
 ## Task 1 — Migration DB + schémas Drizzle
 
 **Files :**
-- Create : `packages/db/src/migrations/0070_session_bundle_runs.sql`
-- Create : `packages/db/src/migrations/0070_session_bundle_runs.test.ts`
+- Create : `packages/db/src/migrations/0078_session_bundle_runs.sql`
+- Create : `packages/db/src/migrations/0078_session_bundle_runs.test.ts`
 - Modify : `packages/db/src/schema/heartbeat_runs.ts`
 - Modify : `packages/db/src/schema/governed_step_executions.ts`
 
 - [ ] **1.1 — Test migration (failing)**
 
 ```ts
-// 0070_session_bundle_runs.test.ts
-describe("migration 0070 — session bundle runs", () => {
+// 0078_session_bundle_runs.test.ts
+describe("migration 0078 — session bundle runs", () => {
   it("adds execution_mode + bundle_format + bundle_sha256 to heartbeat_runs", async () => {
     const cols = await db.execute(sql`
       SELECT column_name FROM information_schema.columns
