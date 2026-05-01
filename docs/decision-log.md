@@ -49,6 +49,38 @@ Pour le **pourquoi** produit, voir [`product/vision.md`](product/vision.md).
 
 **Code :** `server/src/routes/events.ts`, `ui/src/lib/sse.ts`, hooks `useLiveEvents`.
 
+### 1.7 Traçabilité humaine universelle
+
+**Décision :** TOUT ce qui se passe dans MnM (création, modification, exécution) est attribué à un utilisateur humain identifié. Aucune action anonyme, aucun « service account » impersonnel :
+- Un workflow run est déclenché par un user (`run.initiated_by_principal_id`).
+- Un step exécuté par un agent : l'agent a un `createdByUserId` qui est un humain — c'est cette identité qui porte les permissions et l'audit.
+- Un hook s'exécute avec l'auth (credentials externes, OAuth tokens user-level) du user qui a déclenché le run, pas un credential service partagé.
+- Le CAO et le watchdog « agissent » sous l'identité de l'admin instance qui les a setup. Pas d'identité fantôme.
+- Les commits git (Governed Workflows) sont signés avec l'identité BetterAuth réelle de l'user (pas `bot@mnm.local`).
+
+**Pourquoi vivant :** différenciateur enterprise vs n8n/Zapier (qui tournent avec des service accounts opaques). Permet l'audit complet « qui a déclenché quoi » exigé en compliance (SOC 2, GDPR). Force l'archi à exiger un user identifiable avant toute action automatisée. Pattern OAuth GitLab user-level déjà appliqué pour les commits Workflow Studio (cf. `oauth-setup.md`) — à étendre à tout connecteur externe (Jira, ClickUp, Slack, …) via le même pattern Config Layer + OAuth tokens user.
+
+**Conséquences code :**
+- Chaque table d'action a une colonne `actor_principal_id` non-null (ou `actor_user_id` + `actor_agent_id` avec `createdByUserId` chained).
+- Les hooks/integrations externes lookup les credentials via `account` (BetterAuth OAuth tokens) du user actor, pas un credential layer générique partagé.
+- Si un user n'a pas connecté un connecteur (ex: Jira), le hook qui en dépend fail explicitement : « connect your Jira account first ».
+
+**Code :** `server/src/services/governed-workflows.ts` (resolveAuthor), `server/src/auth/better-auth.ts` (account table OAuth), `server/src/middleware/auth.ts` (actor middleware), `docs/governed-workflows/oauth-setup.md` (pattern de référence).
+
+### 1.6 Modèle 3-tier visibility/assignment/sharing (universel)
+
+**Décision :** TOUTE feature MnM avec une notion de partage, visibilité ou assignation suit un modèle 3-tier strict. Pas d'exception, pas d'autre modèle :
+
+1. **Private** — seul le créateur (ou l'assigné direct) voit/utilise.
+2. **Public (= partagé)** avec deux modes : (2a) partagé à des **tags** (intersection non-vide), ou (2b) partagé à des **utilisateurs spécifiques** (principalIds explicites).
+3. **Company/Organisation enforced** — imposé par la company à TOUT le monde (priorité max, ne se contourne pas, sert pour audit/sécurité/policy).
+
+**Pourquoi vivant :** déjà appliqué aux Config Layers (private/team/public/company) et aux sandboxes (tag-routed). Sans formalisation cross-feature, chaque module ré-invente son propre modèle de share et l'UI explose en N pickers différents. Cette décision rend obligatoire un `<VisibilityPicker>` partagé, un helper service unique pour calculer l'access, et le même schema d'API (`visibility` + jointures `_tags`/`_principals`) sur toutes les nouvelles features. Bloque aussi le « 4e tier » imaginaire que chaque dev essaie d'inventer (« visible aux managers »…).
+
+**Code :** Config Layers (`server/src/services/configLayers.ts`) = référence canonique. Convention détaillée : [`docs/conventions/visibility-tiers.md`](conventions/visibility-tiers.md).
+
+**S'applique à :** Workflow Hooks, assignation steps/workflows, Skills, MCP servers, Credentials, Settings, et toute future entité partageable.
+
 ---
 
 ## 2. Trace & observabilité
@@ -104,6 +136,34 @@ Pour le **pourquoi** produit, voir [`product/vision.md`](product/vision.md).
 **Pourquoi vivant :** shipped, mentionnable dans les chats. Génère des commentaires automatiques sur traces. Supervise les workflows sans bloquer.
 
 **Code :** `server/src/services/cao.ts`, auto-création à l'onboarding company.
+
+### 4.5 LLM provider-agnostic
+
+**Décision :** MnM utilise des LLMs à plusieurs endroits (traces enrichment Bronze→Gold, Workflow AI Assistant, hooks). V0 = Anthropic (Claude) uniquement, mais l'architecture est conçue pour multi-provider :
+- Helpers abstraits (`helpers.llm({prompt, model})`, `traceEnrichmentService.enrich()`, etc.) qui ne hardcodent pas Anthropic.
+- Configuration provider via Config Layer (`instance_settings.llm_providers[]`) avec slot pour OpenAI / Azure OpenAI / AWS Bedrock / custom endpoint.
+- Mapping `model: "haiku"` → résolution selon le provider configuré ("claude-haiku" ou "gpt-4o-mini" ou "azure-gpt-4o-mini" ou autre).
+
+**Pourquoi vivant :** les clients enterprise ont des contraintes de provider (Azure obligatoire pour la conformité Microsoft, Bedrock pour l'AWS shop, hébergement souverain pour les banques européennes). Hardcoder Anthropic rend MnM invendable à 60% du marché enterprise européen.
+
+**Code :** à venir — pattern à appliquer dès qu'un nouveau use case LLM est ajouté. Aujourd'hui `server/src/services/traces/enrichment.ts` et hooks `helpers.llm` sont les points de référence à étendre.
+
+### 4.4 Workflow Hooks — code en git, sandbox isolated-vm avec helpers host-side
+
+**Décision :** les hooks (side-effects HTTP/LLM avant/après step ou run) sont du code TypeScript user-written stocké en git **à côté des gates** (`<workflow>/hooks/*.hook.ts`). Exécution dans `isolated-vm` (pas de `fs`/`net`/`require`). Tout I/O passe par `ctx.helpers.*` qui sont des bridges vers le process host. **Aucun helper n'expose un credential en clair à l'isolate** : `helpers.http({provider, path, ...})` et `helpers.llm({prompt, model})` injectent l'authentification côté host depuis le Config Layer chiffré, sans jamais retourner la valeur. Validation SSRF stricte sur `base_url` providers (DNS resolve + IP deny-list, re-vérifiée au runtime). Audit row pattern outbox (INSERT pre-call, UPDATE post-call). Détails techniques : [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md` § Détails techniques sécurité hooks](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md).
+
+**Exception au compute côté client (§1.4) :** les hooks tournent server-side et non client-side parce que (a) credentials chiffrés en DB inaccessibles côté client, (b) audit log fail-closed obligatoire, (c) tier 3 enforced doit être non-bypassable même si le client triche. Cette exception est explicite et bornée : c'est le **seul** code user-written qui tourne sur le serveur MnM.
+
+3 niveaux de résolution, parallèle exact aux gates :
+- **Canonical** : `packages/workflow-hooks/canonical/` shippés MnM (référence `"canonical:<name>"`).
+- **Shared** : repo gitlab `<company>/workflows/_shared/hooks/` (référence `"shared:<name>"`).
+- **Local** : `<workflow-repo>/hooks/` (référence `"local:<name>"`).
+
+Métadonnées en DB (`workflow_hooks_config`) : credential layer id, visibility tier (3-tier §1.6), enabled toggle, `enforced` flag (tier 3 = s'exécute sur tous les workflows company même non listés). Audit log dans `workflow_hook_executions`.
+
+**Pourquoi vivant :** permet à n'importe quel self-hoster d'écrire ses hooks sans toucher au code MnM, tout en gardant la sandbox SaaS-safe. Cohérence avec les gates : même runner, mêmes helpers étendus, même resolution. Le tier 3 (enforced) est l'inflexion enterprise : DSI/sécurité impose un audit hook que personne ne peut désactiver, même les auteurs de workflow.
+
+**Code (à venir) :** `packages/workflow-hooks/`, `<workflow-repo>/hooks/`, `server/src/services/workflow-hooks.ts`. Spec : [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md).
 
 ### 4.3 MCP Server — parité UI ↔ MCP, consentement granulaire
 
