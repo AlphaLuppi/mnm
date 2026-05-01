@@ -5,8 +5,6 @@ node_modules
 .env.*
 *.stackdump
 _legacy
-_bmad
-_bmad-output
 e2e
 dist
 **/dist

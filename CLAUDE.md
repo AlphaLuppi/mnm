@@ -4,42 +4,6 @@ MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
 Stack: React 18 + Express + PostgreSQL + Drizzle ORM. Monorepo bun workspaces.
 Language: French for planning documents. See README.md for full project docs.
 
-## ACTIVE MISSION — Night Security Audit (2026-04-29 → 2026-04-30)
-
-**Tom dort. Mission autonome jusqu'à son réveil :**
-
-> GIGA mega audit sécurité / pentesting sur toute la plateforme. 10 agents teams successives (4–10 agents par team, whitehat/redhat/blackhat). Fix team finale + document récap. Doit survivre aux /compact automatiques.
-
-**Plan détaillé** : `docs/superpowers/plans/2026-04-29-night-security-audit.md`
-**Progress log** (live) : `_bmad-output/security-audit-2026-04-29/progress.md`
-**Findings** : `_bmad-output/security-audit-2026-04-29/findings/T*/`
-**Rapport final** : `_bmad-output/security-audit-2026-04-29/SECURITY-AUDIT-REPORT.md`
-
-**Si /compact se déclenche pendant la nuit, RELIRE dans cet ordre :**
-1. Cette section CLAUDE.md
-2. Le plan complet (lien ci-dessus)
-3. Le progress log (lien ci-dessus) → trouver la 1re ligne `[ ]` non cochée
-4. `git log --oneline -30` pour voir où on en est sur les fix
-5. Reprendre à la prochaine étape pending
-
-**Règles spéciales mission de nuit :**
-- Pas de PR, push direct sur master autorisé (Tom solo dev)
-- Atomic commit + push après chaque fix
-- Pas de Co-Authored-By Claude
-- Si GPG signing timeout : retry avec `-c commit.gpgsign=false`
-- NE PAS commiter de secrets dans VULNERABILITIES.md (juste référencer file:line)
-- Patch minimal, pas de refacto
-
-## Governed Workflows UI — Status: Workflow Studio + AI Assistant landed 2026-04-24 — pending technical review.
-
-- U1–U8: nuke legacy, REST endpoints, live events, UI API client, 4 canonical pages, MCP tool parity, polish, Monaco autocomplete + JSON schema.
-- U12.1: silent-fail fix on GET /:name (surfaces git-fetch errors).
-- U13: Workflow Studio — multi-file editor (FileTree + Monaco multi-model + useWorkflowFiles lazy loading + batch atomic commit). Replaces the legacy single-file editor on /workflows/:name; `/workflows/new` still uses the simpler create-mode editor.
-- U14: AI Assistant Panel — SSE `/ai/chat` streams Claude Sonnet with French system prompt (current workflow.json + JSON schema + canonical gates + local gates). UI: useAiAssistant hook + AiAssistantPanel (3rd column) with inline file-proposal cards (Appliquer/Rejeter → useWorkflowFiles) + ValidationBadge overlay with Sheet drawer.
-- U15: 4 canonical gates shipped to `packages/gate-runner/canonical/` (artifact-exists, artifacts-bundle, step-succeeded, review-pass).
-- Plans: `docs/superpowers/plans/2026-04-24-governed-workflows-ui.md` (U1–U8), `docs/superpowers/plans/2026-04-24-workflow-studio.md` (U12–U15), progress log at `docs/archive/sessions-completed/2026-04-24-governed-workflows-ui/progress-2026-04-24-governed-workflows-ui.md`.
-- Remove this block after sign-off.
-
 ## Critical Rules
 
 - **NEVER use polling (setInterval, refetchInterval)** — ALL real-time updates MUST use SSE/WebSocket via the live-events system (`/events/ws`).
@@ -50,7 +14,6 @@ Language: French for planning documents. See README.md for full project docs.
 - **Agent permissions** — Agents inherit permissions from their creator (createdByUserId).
 - **Client-side compute** — Agent execution happens on the user's machine (MCP, Desktop, local CLI). The server is an API/data/orchestration layer. Docker sandboxes are optional for non-tech users.
 - **Deployment modes** — `local_trusted` (dev, zero auth, single company auto-created) or `authenticated` (prod, BetterAuth + OAuth 2.1, multi-company).
-- **`_bmad/`** — BMAD framework. Do NOT modify.
 
 ## Architecture Decisions
 

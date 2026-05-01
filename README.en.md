@@ -83,7 +83,7 @@ MnM is a fork of [Paperclip](https://github.com/paperclipai/paperclip). The two 
 | Agents | Heartbeats, org charts, delegation, goal alignment | Client-side compute (MCP/Desktop/CLI), optional Docker sandbox |
 | Traces | Tool-call tracing + audit log | Bronze/Silver/Gold pipeline with hierarchical LLM enrichment |
 | Communication | Threaded ticketing + goals | Real-time collaborative chat, artifacts, RAG, folders, @mentions |
-| Orchestration | Heartbeats + skills manager + scheduled routines | **Governed Workflows** (git-first, Monaco Studio + AI Assistant + canonical gates) + BMAD Workflows (XState legacy) + CAO + HITL |
+| Orchestration | Heartbeats + skills manager + scheduled routines | **Governed Workflows** (git-first, Monaco Studio + AI Assistant + canonical gates) + CAO + HITL |
 | Config | AGENTS.md + Skills Manager + governance with rollback | Structured Config Layers with priority merge + OAuth2 PKCE |
 | Scoring | No notion of objective quality | Quality Profiles + Agent Review Panel (in progress) |
 | Autonomy | Binary (agent or human) | 6-level KPI-driven continuum (in progress) |
@@ -102,7 +102,6 @@ The two can coexist. MnM is for companies that want to keep their developers and
 - Collaborative chat: real-time discussions with agents, versioned artifacts, pgvector documents and RAG, shared folders, slash commands, @mentions.
 - CAO (Chief Agent Officer): auto-created system agent, silent watchdog, interactive via `@cao`.
 - **Governed Workflows** (flagship enterprise feature): workflows-as-code versioned in git, multi-file Workflow Studio (Monaco + JSON schema + autocomplete), AI Assistant Panel (SSE Claude Sonnet) with inline file proposals, 4 canonical gates (`artifact-exists`, `artifacts-bundle`, `step-succeeded`, `review-pass`) + custom gates, HITL validation with live badge, OAuth 2.1 GitLab for user-attributed commits, REST + MCP parity (14 endpoints). See the dedicated section above.
-- BMAD Workflows: XState state machine to drive Brief → PRD → Architecture → Stories → Dev → Test, with HITL validation (legacy — will be progressively absorbed by Governed Workflows).
 - Immutable audit: month-partitioned table, TRIGGER-protected, auto-emitted on critical actions, UI export.
 - MCP server: 68 tools and 10 resources across 14 domains, OAuth 2.1 with PKCE, Dynamic Client Registration, granular consent screen. Any MCP client (Claude Code, Cursor, Claude Desktop) can drive the platform.
 - A2A communication: agent-to-agent bus with permission rules and audit trail.

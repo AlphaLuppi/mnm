@@ -57,8 +57,5 @@ test-results/
 .worktrees/
 .claude/settings.local.json
 
-# Internal planning / private archives (not for public distribution)
-_bmad-output/
-
 # Local QA artifacts (ChromeMCP screenshots, manual smoke captures)
 _qa/

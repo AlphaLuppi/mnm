@@ -1,61 +1,53 @@
-# MnM Documentation Index
+# MnM — Index documentation
 
-Point d'entrée de la documentation MnM. Tous les liens sont relatifs à `docs/`.
+Point d'entrée flat de la documentation MnM. Pour une lecture **guidée** orientée Claude, voir [`README.md`](README.md).
 
 ## Démarrage rapide
 
-- [`../README.md`](../README.md) — Présentation, install, dev commands.
-- [`../CLAUDE.md`](../CLAUDE.md) — Architecture rules, multi-tenant, RBAC, conventions critiques.
-- [`../AGENTS.md`](../AGENTS.md) — Guide opérationnel pour les agents intervenant sur le repo.
-- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — Workflow de contribution, commits, branches.
+- [`../README.md`](../README.md) — Présentation produit, install, dev commands
+- [`../CLAUDE.md`](../CLAUDE.md) — Règles opérationnelles + mission active
+- [`../AGENTS.md`](../AGENTS.md) — Guide pour les agents intervenant sur le repo
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — Workflow de contribution
+- [`./README.md`](./README.md) — Doc entry point Claude-friendly
 
-## Vision & produit
+## Architecture & décisions
 
-- [`product/`](product/) — Vision produit live : 3 piliers, autonomy continuum, product brief consolidé.
+- [`./ARCHITECTURE.md`](./ARCHITECTURE.md) — Stack technique, multi-tenant, middleware chain, traces, config layers, CAO
+- [`./decision-log.md`](./decision-log.md) — Décisions architecturales encore actives + recherches qui les justifient
 
-## Architecture & roadmap
+## Conventions
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — Architecture canonique (multi-tenant, middleware chain, trace pipeline, config layers, CAO).
-- [`B2B-enterprise-roadmap.md`](B2B-enterprise-roadmap.md) — Roadmap entreprise B2B consolidée.
-- [`HISTORY.md`](HISTORY.md) — Historique condensé des décisions et pivots produit.
+- [`./conventions/git.md`](./conventions/git.md) — Atomic commit + push, GPG, format des messages
+- [`./conventions/middleware-chain.md`](./conventions/middleware-chain.md) — Chaîne multi-tenant + 5 couches de sécurité
+- [`./conventions/no-polling.md`](./conventions/no-polling.md) — SSE/WebSocket exclusivement
+- [`./conventions/rbac-tags.md`](./conventions/rbac-tags.md) — Rôles dynamiques, tags additifs, isolation
 
-## Governed Workflows
+## Vision & roadmap
 
-DAG de steps/gates versionnés dans Git, exécutés par le gate-runner, observés via UI + MCP.
+- [`./product/vision.md`](./product/vision.md) — Vision MnM consolidée
+- [`./product/three-pillars.md`](./product/three-pillars.md) — Confiance / Contrôle / Transparence
+- [`./product/autonomy-continuum.md`](./product/autonomy-continuum.md) — 6 niveaux KPI-driven
+- [`./B2B-enterprise-roadmap.md`](./B2B-enterprise-roadmap.md) — Roadmap entreprise consolidée
+- [`./HISTORY.md`](./HISTORY.md) — Chronologie + métriques
 
-- [`governed-workflows/`](governed-workflows/README.md) — Index du sous-dossier (local-testing, scénarios, handoff artifacts, OAuth setup).
+## Governed Workflows (feature phare)
+
+- [`./governed-workflows/README.md`](./governed-workflows/README.md) — Index
+- [`./governed-workflows/local-testing.md`](./governed-workflows/local-testing.md)
+- [`./governed-workflows/scenarios.md`](./governed-workflows/scenarios.md)
+- [`./governed-workflows/handoff-artifacts.md`](./governed-workflows/handoff-artifacts.md)
+- [`./governed-workflows/oauth-setup.md`](./governed-workflows/oauth-setup.md)
 
 ## Workflow Superpowers
 
-Convention de planification vivante (remplace BMAD pour le travail courant). Trois types d'artefacts :
+Convention de planification vivante. 3 types d'artefacts :
 
-- `superpowers/plans/` — Plans datés `YYYY-MM-DD-{topic}.md` : phases, étapes, critères d'acceptation, risques, rollback.
-- `superpowers/specs/` — Designs détaillés (contrats, data flow, file-level changes) quand un plan a besoin d'une passe d'architecture.
-- `superpowers/reviews/` — Code reviews structurées sur les livraisons.
+- [`./superpowers/plans/`](./superpowers/plans/) — Plans datés `YYYY-MM-DD-{topic}.md`
+- [`./superpowers/specs/`](./superpowers/specs/) — Designs détaillés (contrats, data flow, file-level)
+- [`./superpowers/reviews/`](./superpowers/reviews/) — Code reviews structurées
 
-Voir [`superpowers/`](superpowers/) pour la liste complète des plans actifs et features livrées.
+## Archive privée
 
-## Recherches techniques
+Le repo public ne contient plus le framework BMAD, les artefacts legacy (stories, sprint plans, dashboard-v2, blocks-platform), les brainstorms historiques (`docs/history/`), ni les recherches techniques (`docs/research/`).
 
-Études et benchmarks utilisés pour cadrer les décisions d'architecture.
-
-- [`research/`](research/) — 9 documents : agent orchestration patterns, dashboard UX, Entire.io analysis, GitNexus eval, LLM workflow control, Nanoclaw, Openclaw (auth + deep dive), realtime workflows, synthèse globale.
-
-## Pensée produit historique
-
-Brainstorms, visions, architectures intermédiaires, sessions de discovery. Utile pour comprendre le « pourquoi » des choix actuels — pas la source de vérité courante (voir `ARCHITECTURE.md` et `B2B-enterprise-roadmap.md` pour ça).
-
-- [`history/visions/`](history/visions/) — 4 visions consolidées (governed-workflows, product brief v3, vision MnM 2026-04-07, vision Projects v2).
-- [`history/brainstorms/`](history/brainstorms/) — ~17 sessions (Tom, Gab, Niko, view presets, dashboard v2, governed workflows, langfuse tracing, projects v2, pods, traces).
-- [`history/architectures/`](history/architectures/) — Architecture multi-tenant 2026-04-12, blocks platform progress.
-
-## Archives
-
-Artefacts post-livraison conservés pour traçabilité. Pas à lire pour onboarder.
-
-- [`archive/sessions-completed/`](archive/sessions-completed/) — Prompts de session terminés et progress logs.
-- [`archive/shipped-epics/`](archive/shipped-epics/) — Epics livrés (pods, deploy, collaborative chat, config layers, roles & tags).
-- [`archive/abandoned/`](archive/abandoned/) — Pistes abandonnées (sandbox, scale, observability suite).
-- [`archive/reviews/`](archive/reviews/) — Reviews et audits passés.
-- [`archive/2026-04-07-historical-specs/`](archive/2026-04-07-historical-specs/) — 3 specs ponctuelles archivées.
-- [`archive/_bmad-legacy/`](archive/_bmad-legacy/) — Artefacts BMAD legacy (stories, specs, implementation artifacts, dashboard-v2, blocks-platform, sprint plans). Le framework BMAD n'est plus utilisé pour les nouveaux développements — privilégier `superpowers/`.
+Tout est conservé dans le repo privé [`AlphaLuppi/mnm-documentation`](https://github.com/AlphaLuppi/mnm-documentation). La synthèse de ce qui shape encore le code est dans [`./decision-log.md`](./decision-log.md).

@@ -166,8 +166,3 @@ Voir [CONTRIBUTING.md](../CONTRIBUTING.md#mcp-server-pour-les-devs) pour le get 
 - Le `companyId` est explicite dans chaque appel API — cote frontend via `companyApi(companyId)` factory, cote MCP via le token OAuth.
 - Routes sans company scope : `/health`, `/api/auth/*`, `/api/companies` (CRUD global), `/oauth/*`, `/sso/discover/*`.
 
----
-
-## `_bmad/`
-
-Framework BMAD (templates de workflows agents). **NE PAS MODIFIER** — c'est un framework externe.

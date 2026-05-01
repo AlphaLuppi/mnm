@@ -28,7 +28,7 @@ Cette page retrace la chronologie du projet, les sessions de brainstorming qui o
 
 ## Sessions de brainstorming
 
-Le projet a ete construit sur une reflexion approfondie documentee dans [`docs/history/`](history/) (brainstorms et visions consolidees) :
+Le projet a été construit sur une réflexion approfondie. Les brainstorms et visions sources sont archivés dans le repo privé [`AlphaLuppi/mnm-documentation`](https://github.com/AlphaLuppi/mnm-documentation). La synthèse vivante est dans [`./decision-log.md`](./decision-log.md) :
 
 - **Cross-Document Drift** (fev 19) — Detection de derive hierarchique entre documents de specs
 - **IDE for Agent-Driven Dev** (fev 21) — 45 idees via assumption-reversal, morphological analysis, cross-pollination. Paradigme : superviser, pas coder.
@@ -66,9 +66,8 @@ Le projet a ete construit sur une reflexion approfondie documentee dans [`docs/h
 
 ### Orchestration & Agents (5 stories)
 - CAO (Chief Agent Officer) : agent systeme auto-cree, watchdog silencieux + interactif via @cao
-- Machine a etats XState (12 transitions), WorkflowEnforcer, validation HITL
-- Workflow templates BMAD (Brief → PRD → Architecture → Stories → Dev → Test)
-- Editeur visuel de workflows
+- Governed Workflows (workflows-as-code git-first, Studio Monaco multi-fichiers, AI Assistant Panel SSE, 4 gates canoniques + DSL custom, parité REST + MCP)
+- Validation HITL avec badge live et drawer de détail
 
 ### Sandbox & Securite (5 stories)
 - Container Docker persistant par utilisateur
@@ -132,7 +131,7 @@ Le projet a ete construit sur une reflexion approfondie documentee dans [`docs/h
 
 | Item | Priorite | Description |
 |---|---|---|
-| **Projects v2 — Feature Map & Traceability** | P0 | Arbre de nodes generique (features, ACs, requirements) + entity_links (graph de liens). Feature Map comme vue centrale du projet. Coverage structurelle par feature. Voir [`docs/history/visions/vision-projects-v2-2026-04-06.md`](history/visions/vision-projects-v2-2026-04-06.md) |
+| **Projects v2 — Feature Map & Traceability** | P0 | Arbre de nodes generique (features, ACs, requirements) + entity_links (graph de liens). Feature Map comme vue centrale du projet. Coverage structurelle par feature. |
 | **GitNexus MCP par repo** | P0 | 1 MCP server par codebase exposant le knowledge graph du code. Agents + humains peuvent query l'architecture sans cloner. |
 | **Handoff Chat → Production** | P1 | Agent extracteur qui distille un brainstorm chat en document structure pour les equipes prod. |
 | Validation E2E complete | P1 | Deploy test instance, smoke test 8 enterprise scenarios |

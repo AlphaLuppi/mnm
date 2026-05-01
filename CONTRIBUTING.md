@@ -145,9 +145,8 @@ packages/
 cli/                 CLI MnM (@mnm/cli, publie sur npm)
 skills/              Skills Claude Code
 e2e/                 Tests Playwright E2E
-docs/                Documentation : ARCHITECTURE, governed-workflows/, superpowers/ (workflow vivant), history/ (brainstorms+visions), research/, archive/ (epics livres + abandons + reviews)
-_bmad/               Framework BMAD (NE PAS MODIFIER)
-_bmad-output/        Legacy BMAD : stories triees (_shipped/_pending/_abandoned), 2 tech specs ready-for-dev, MCP server design (la majorite des planning artifacts a migre vers docs/archive/)
+docs/                Documentation : README (entry point), ARCHITECTURE, decision-log, conventions/, governed-workflows/, product/, superpowers/ (workflow vivant), B2B-enterprise-roadmap, HISTORY
+.claude/             Claude Code config : agents/ (subagents MnM), skills/ (gitnexus, mnm-codebase-tour), commands/ (slash commands MnM)
 ```
 
 ---
@@ -187,7 +186,7 @@ Endpoints exposes :
 | `/.well-known/oauth-authorization-server` | Metadata AS |
 | `/oauth/register`, `/oauth/authorize`, `/oauth/token` | OAuth 2.1 AS |
 
-Details techniques et progression : `_bmad-output/specs/plans/mcp-progress.md`.
+Details techniques : `docs/ARCHITECTURE.md` et `packages/mcp-server/`.
 
 ---
 
