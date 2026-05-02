@@ -21,7 +21,9 @@ function lastFetchCall(fetchImpl: ReturnType<typeof vi.fn>): {
 const COMPANY_ID = "co-1";
 const ACTOR_USER_ID = "user-1";
 const RUN_ID = "run-1";
-const GIT_SHA = "deadbeef";
+// Full sha1 (40 hex chars, lowercase) — fetchHandoff regex requires
+// 40-64 hex; a short 8-char sha would now be rejected.
+const GIT_SHA = "deadbeefcafebabe0000000000000000abcdef01";
 
 function noopAssertSafeUrl(): Promise<void> {
   return Promise.resolve();
@@ -346,15 +348,180 @@ describe("buildHostHelpers — fetchHandoff", () => {
       },
       RUNTIME,
     );
+    const fullSha = "abcdef0123456789abcdef0123456789abcdef01"; // 40 hex
     const content = await helpers.fetchHandoff({
-      git_sha: "abcdef0123456789",
+      git_sha: fullSha,
       path: "outputs/report.md",
     });
     expect(content).toBe("<handoff content>");
     expect(gitProvider.fetchBlob).toHaveBeenCalledWith({
       path: "outputs/report.md",
-      ref: "abcdef0123456789",
+      ref: fullSha,
     });
+  });
+});
+
+describe("buildHostHelpers — http header sanitization (P0.1 hardening)", () => {
+  function buildHelpers(fetchImpl: ReturnType<typeof vi.fn>) {
+    return buildHostHelpers(
+      {
+        assertSafeUrl: noopAssertSafeUrl,
+        connectors: fakeConnectors(),
+        gitProvider: fakeGitProvider(),
+        llm: fakeLlm(),
+        fetchImpl,
+      },
+      RUNTIME,
+    );
+  }
+
+  it("[P0.1-a] strips x-forwarded-* and other reverse-proxy headers", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const helpers = buildHelpers(fetchImpl);
+    await helpers.http({
+      provider: "jira",
+      path: "/x",
+      headers: {
+        "X-Forwarded-For": "10.0.0.1",
+        "X-Forwarded-Host": "evil.example",
+        "X-Forwarded-Proto": "http",
+        "X-Real-IP": "10.0.0.2",
+        Host: "internal.svc",
+        "Proxy-Authenticate": "Basic ATTACKER",
+        "WWW-Authenticate": "Basic ATTACKER",
+        "X-Custom": "preserved",
+      },
+    });
+    const { init } = lastFetchCall(fetchImpl);
+    const headers = init.headers as Headers;
+    expect(headers.get("X-Forwarded-For")).toBeNull();
+    expect(headers.get("X-Forwarded-Host")).toBeNull();
+    expect(headers.get("X-Forwarded-Proto")).toBeNull();
+    expect(headers.get("X-Real-IP")).toBeNull();
+    expect(headers.get("Host")).toBeNull();
+    expect(headers.get("Proxy-Authenticate")).toBeNull();
+    expect(headers.get("WWW-Authenticate")).toBeNull();
+    expect(headers.get("X-Custom")).toBe("preserved");
+  });
+
+  it("[P0.1-b] rejects zero-width / NFKC bypasses on Authorization", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const helpers = buildHelpers(fetchImpl);
+    // Zero-width space (U+200B) inserted between "Auth" and "orization".
+    await helpers.http({
+      provider: "jira",
+      path: "/x",
+      headers: {
+        "Auth​orization": "Bearer ATTACKER",
+        // Trailing whitespace + uppercase variants — toLowerCase alone
+        // would not have stripped these unicode characters.
+        " AUTHORIZATION ": "Bearer ATTACKER2",
+      },
+    });
+    const { init } = lastFetchCall(fetchImpl);
+    const headers = init.headers as Headers;
+    // Only host-injected Bearer survives; both bypass attempts dropped.
+    expect(headers.get("Authorization")).toBe("Bearer tok-abc");
+  });
+
+  it("[P0.1-c] rejects CRLF in header name", async () => {
+    const helpers = buildHelpers(
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+    await expect(
+      helpers.http({
+        provider: "jira",
+        path: "/x",
+        headers: { "X-Foo\r\nAuthorization": "Bearer ATTACKER" },
+      }),
+    ).rejects.toThrow(/CR\/LF/);
+  });
+
+  it("[P0.1-d] rejects CRLF in header value", async () => {
+    const helpers = buildHelpers(
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+    await expect(
+      helpers.http({
+        provider: "jira",
+        path: "/x",
+        headers: { "X-Foo": "bar\r\nAuthorization: Bearer ATTACKER" },
+      }),
+    ).rejects.toThrow(/CR\/LF/);
+  });
+
+  it("[P0.1-e] rejects empty-after-normalization header name", async () => {
+    const helpers = buildHelpers(
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+    await expect(
+      helpers.http({
+        provider: "jira",
+        path: "/x",
+        // All zero-width / whitespace garbage — normalization strips to "".
+        headers: { "​‌‍﻿": "value" },
+      }),
+    ).rejects.toThrow(/empty after normalization/);
+  });
+});
+
+describe("buildHostHelpers — http response body cap (P1.3)", () => {
+  it("[P1.3] response body > 5 MiB throws HOOK_RESPONSE_TOO_LARGE", async () => {
+    // 6 MiB chunked stream — should trip the 5 MiB cap.
+    const oversized = new Uint8Array(6 * 1024 * 1024);
+    oversized.fill(0x41); // "A"
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(oversized, {
+          status: 200,
+          headers: { "content-type": "text/plain" },
+        }),
+    );
+    const helpers = buildHostHelpers(
+      {
+        assertSafeUrl: noopAssertSafeUrl,
+        connectors: fakeConnectors(),
+        gitProvider: fakeGitProvider(),
+        llm: fakeLlm(),
+        fetchImpl,
+      },
+      RUNTIME,
+    );
+    await expect(
+      helpers.http({ provider: "jira", path: "/big" }),
+    ).rejects.toMatchObject({
+      errorCode: "HOOK_RESPONSE_TOO_LARGE",
+    });
+  });
+});
+
+describe("buildHostHelpers — fetchHandoff strict regex (P2.1)", () => {
+  function helpersFor() {
+    return buildHostHelpers(
+      {
+        assertSafeUrl: noopAssertSafeUrl,
+        connectors: fakeConnectors(),
+        gitProvider: fakeGitProvider(),
+        llm: fakeLlm(),
+        fetchImpl: vi.fn(),
+      },
+      RUNTIME,
+    );
+  }
+
+  it("[P2.1-a] rejects 7-char short sha (was previously accepted)", async () => {
+    const helpers = helpersFor();
+    await expect(
+      helpers.fetchHandoff({ git_sha: "abc1234", path: "x.md" }),
+    ).rejects.toThrow(/hex sha or the run's pinned sha/);
+  });
+
+  it("[P2.1-b] rejects uppercase hex (lowercase only)", async () => {
+    const helpers = helpersFor();
+    const upper = "ABCDEF0123456789ABCDEF0123456789ABCDEF01";
+    await expect(
+      helpers.fetchHandoff({ git_sha: upper, path: "x.md" }),
+    ).rejects.toThrow(/hex sha or the run's pinned sha/);
   });
 });
 

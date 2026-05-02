@@ -28,7 +28,10 @@ export class HookHelperError extends Error {
 /**
  * Sensitive header names that the host strips from `HttpRequest.headers`
  * before issuing the outbound request. Authors cannot bypass auth
- * selection from inside the isolate. Comparison is case-insensitive.
+ * selection from inside the isolate. Comparison is case-insensitive
+ * AND unicode-normalized (NFKC + whitespace/zero-width strip) to defeat
+ * unicode/whitespace bypass attempts (e.g. zero-width space slipped into
+ * "authorization").
  */
 const FORBIDDEN_HEADERS = new Set([
   "authorization",
@@ -38,7 +41,55 @@ const FORBIDDEN_HEADERS = new Set([
   "x-amz-security-token",
   "cookie",
   "proxy-authorization",
+  "proxy-authenticate",
+  "www-authenticate",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-real-ip",
+  "host",
 ]);
+
+/**
+ * Strip unicode whitespace + zero-width / bidi / BOM characters that
+ * authors could splice into a header name to bypass the toLowerCase()
+ * check. Plain ASCII whitespace is also covered. Unicode categories Zs
+ * (space separator), Cf (format / zero-width / bidi), plus explicit BOM.
+ */
+function stripInvisibles(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)!;
+    // ASCII whitespace
+    if (ch === " " || ch === "\t") continue;
+    // Zero-width / bidi / format controls (U+200B..U+200F, U+202A..U+202E,
+    // U+2060..U+206F, U+FEFF) — covers ZWSP, ZWNJ, ZWJ, LRE/RLE/PDF/LRO/RLO,
+    // word joiner, BOM, etc.
+    if (
+      (cp >= 0x200b && cp <= 0x200f) ||
+      (cp >= 0x202a && cp <= 0x202e) ||
+      (cp >= 0x2060 && cp <= 0x206f) ||
+      cp === 0xfeff
+    ) {
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Normalize a header name for the forbidden-list check:
+ *   1. NFKC unicode normalization (collapses compatibility forms).
+ *   2. Strip ASCII whitespace + zero-width / bidi / BOM characters.
+ *   3. Lowercase.
+ *
+ * Returns "" when the result is empty (which we treat as invalid and
+ * reject).
+ */
+function normalizeHeaderName(name: string): string {
+  return stripInvisibles(name.normalize("NFKC")).toLowerCase();
+}
 
 export interface BuildHostHelpersDeps {
   /**
@@ -262,7 +313,33 @@ function sanitizeHeaders(input: Record<string, string> | undefined): Headers {
   if (!input) return headers;
   for (const [name, value] of Object.entries(input)) {
     if (typeof name !== "string" || typeof value !== "string") continue;
-    if (FORBIDDEN_HEADERS.has(name.toLowerCase())) continue;
+
+    // Reject names containing CRLF — header-injection attempt
+    // ("X-Foo: bar\r\nAuthorization: Bearer ATTACKER").
+    if (/[\r\n]/.test(name)) {
+      throw new HookHelperError(
+        HOOK_ERROR_CODES.HOOK_EXCEPTION,
+        `Invalid header name: contains CR/LF`,
+      );
+    }
+    // Reject values containing CRLF — same injection vector via value.
+    if (/[\r\n]/.test(value)) {
+      throw new HookHelperError(
+        HOOK_ERROR_CODES.HOOK_EXCEPTION,
+        `Invalid header value: contains CR/LF`,
+      );
+    }
+
+    const normalized = normalizeHeaderName(name);
+    // Empty after normalization → all-zero-width / whitespace garbage.
+    if (normalized.length === 0) {
+      throw new HookHelperError(
+        HOOK_ERROR_CODES.HOOK_EXCEPTION,
+        `Invalid header name: empty after normalization`,
+      );
+    }
+
+    if (FORBIDDEN_HEADERS.has(normalized)) continue;
     headers.set(name, value);
   }
   return headers;
@@ -287,16 +364,74 @@ function buildUrl(
   return url.toString();
 }
 
+/**
+ * Hard cap on outbound HTTP response bodies surfaced into the isolate.
+ * Prevents a malicious / misconfigured upstream from OOMing the host by
+ * streaming gigabytes back. Surface as `HOOK_RESPONSE_TOO_LARGE` if
+ * exceeded.
+ */
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MiB
+
 async function readResponseBody(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
+  const text = await readBoundedText(response, MAX_RESPONSE_BYTES);
   if (contentType.includes("application/json")) {
     try {
-      return await response.json();
+      return JSON.parse(text);
     } catch {
       return null;
     }
   }
-  return await response.text();
+  return text;
+}
+
+/**
+ * Stream the response body capped at `maxBytes`. Throws
+ * `HOOK_RESPONSE_TOO_LARGE` (via `HookHelperError`) once the running byte
+ * counter exceeds the cap, even if the upstream has not finished
+ * streaming. Falls back to `response.text()` only when no readable
+ * stream is exposed (test stubs); in that case the cap is enforced on
+ * the resulting string's UTF-8 byte length.
+ */
+async function readBoundedText(
+  response: Response,
+  maxBytes: number,
+): Promise<string> {
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    const fallback = await response.text();
+    if (Buffer.byteLength(fallback, "utf8") > maxBytes) {
+      throw new HookHelperError(
+        "HOOK_RESPONSE_TOO_LARGE" as HookErrorCode,
+        `HTTP response body exceeds ${maxBytes} bytes`,
+      );
+    }
+    return fallback;
+  }
+  const decoder = new TextDecoder("utf-8");
+  let received = 0;
+  let out = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      received += value.byteLength;
+      if (received > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          // Best-effort cancel; the body is being abandoned anyway.
+        }
+        throw new HookHelperError(
+          "HOOK_RESPONSE_TOO_LARGE" as HookErrorCode,
+          `HTTP response body exceeds ${maxBytes} bytes`,
+        );
+      }
+      out += decoder.decode(value, { stream: true });
+    }
+  }
+  out += decoder.decode();
+  return out;
 }
 
 /**
@@ -414,11 +549,14 @@ async function fetchHandoffHelper(
   if (typeof args.path !== "string" || args.path.length === 0) {
     throw new Error("fetchHandoff: path is required");
   }
-  // Pin the sha — refuse dynamic refs (TOCTOU). Implementation accepts
-  // arbitrary `ref` but we restrict to a 40-char hex sha or the
-  // workflow's pinned sha. Branch / tag refs are rejected.
+  // Pin the sha — refuse dynamic refs (TOCTOU). Restrict to a full hex
+  // sha (40 chars for sha1, up to 64 for sha256). Lowercase only —
+  // git canonicalises to lowercase, so an uppercase ref smells like
+  // user-supplied input we should reject. The workflow's pinned sha is
+  // also accepted by reference equality (covers any synthetic shape the
+  // orchestrator may use for canonical refs in tests).
   if (
-    !/^[0-9a-f]{7,64}$/i.test(args.git_sha) &&
+    !/^[0-9a-f]{40,64}$/.test(args.git_sha) &&
     args.git_sha !== runtime.workflowGitSha
   ) {
     throw new Error(

@@ -121,6 +121,72 @@ describe("runHook — error paths", () => {
   });
 });
 
+describe("runHook — hardening (P1.2 / P1.4)", () => {
+  it("[P1.4] inject without context_md surfaces HOOK_INVALID_OUTPUT cleanly", async () => {
+    // hookResultSchema is strict — a missing context_md triggers schema
+    // failure (clean error path), NOT a Buffer.byteLength TypeError.
+    // Defensive `?? ""` in runner.ts also covers the case if schema
+    // ever loosens.
+    const result = await runHook(
+      hookSource(`return { ok: true, inject: {} };`),
+      ctxFor("before_step"),
+      NOOP_HELPERS,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error_code).toBe("HOOK_INVALID_OUTPUT");
+  });
+
+  it("[P1.2] retryOnSandboxCrash=false does not retry (after_* phase pattern)", async () => {
+    // Stub attemptInvoke so the first call returns a synthetic
+    // HOOK_SANDBOX_CRASH. With retryOnSandboxCrash: false, the runner
+    // must not call it a second time — preventing duplicate side-effects
+    // for after_* hooks (Jira POST etc.).
+    let calls = 0;
+    const stubAttempt = async () => {
+      calls += 1;
+      return {
+        ok: false,
+        errorCode: "HOOK_SANDBOX_CRASH" as const,
+        report: "stub crash",
+      };
+    };
+    const result = await runHook(
+      hookSource(`return { ok: true };`),
+      ctxFor("after_step"),
+      NOOP_HELPERS,
+      {
+        attemptInvoke: stubAttempt,
+        options: { retryOnSandboxCrash: false },
+      },
+    );
+    expect(calls).toBe(1);
+    expect(result.error_code).toBe("HOOK_SANDBOX_CRASH");
+  });
+
+  it("[P1.2] retryOnSandboxCrash=true retries once (before_* default)", async () => {
+    let calls = 0;
+    const stubAttempt = async () => {
+      calls += 1;
+      return {
+        ok: false,
+        errorCode: "HOOK_SANDBOX_CRASH" as const,
+        report: "stub crash",
+      };
+    };
+    const result = await runHook(
+      hookSource(`return { ok: true };`),
+      ctxFor("before_step"),
+      NOOP_HELPERS,
+      {
+        attemptInvoke: stubAttempt,
+        options: { retryOnSandboxCrash: true },
+      },
+    );
+    expect(calls).toBe(2);
+    expect(result.error_code).toBe("HOOK_SANDBOX_CRASH");
+  });
+});
+
 describe("runHook — context immutability", () => {
   it("Object.freeze(ctx.run) prevents the assignment from taking effect (silent in non-strict, throws in strict)", async () => {
     // The CJS bundle emitted by esbuild does not auto-enable strict

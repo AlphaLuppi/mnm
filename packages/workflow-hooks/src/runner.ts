@@ -281,20 +281,32 @@ async function attemptInvokeInternal(
     const invoke = await jail.get("__invoke", { reference: true });
 
     // Outer wall-clock timeout — wraps the inner ivm timeout from the
-    // host side. Sized so a single helper call at the inner ceiling
-    // still leaves room for the body to run. Independent of the memory
-    // limit (which surfaces as HOOK_SANDBOX_CRASH via dispose).
+    // host side. Sized 1 s longer than the ivm timeout so the inner
+    // (ivm) timeout always wins the race in the normal path; the host
+    // setTimeout exists only to recover from an ivm Promise that never
+    // resolves (extreme edge case). The host handle is cleared in a
+    // finally block so it can never fire after the race is won and
+    // produce an unhandled rejection.
+    const ivmTimeoutMs = limits.outerTimeoutMs;
+    const outerTimeoutMs = ivmTimeoutMs + 1000;
     const invokePromise = invoke.apply(null, [], {
       result: { promise: true, copy: true },
-      timeout: limits.outerTimeoutMs,
+      timeout: ivmTimeoutMs,
     }) as Promise<string>;
-    const outerTimeout = new Promise<never>((_, reject) =>
-      setTimeout(
+
+    let outerHandle: ReturnType<typeof setTimeout> | undefined;
+    const outerTimeout = new Promise<never>((_, reject) => {
+      outerHandle = setTimeout(
         () => reject(new Error("Outer hook timeout")),
-        limits.outerTimeoutMs,
-      ),
-    );
-    const returnedJson = await Promise.race([invokePromise, outerTimeout]);
+        outerTimeoutMs,
+      );
+    });
+    let returnedJson: string;
+    try {
+      returnedJson = await Promise.race([invokePromise, outerTimeout]);
+    } finally {
+      if (outerHandle !== undefined) clearTimeout(outerHandle);
+    }
 
     return validateOutput(returnedJson, limits.maxInjectBytes);
   } catch (cause) {
@@ -343,8 +355,13 @@ function validateOutput(
 
   // Enforce inject size — uses Buffer.byteLength to count UTF-8 bytes
   // (not JS string length, which would over-count surrogate pairs).
+  // `?? ""` defends against a hook returning `inject: { context_md:
+  // null }` after passing the schema (Buffer.byteLength throws on
+  // non-string inputs, which would surface as HOOK_EXCEPTION rather
+  // than the cleaner HOOK_INVALID_OUTPUT). Empty string yields 0
+  // bytes — well below the cap.
   if (result.inject) {
-    const bytes = Buffer.byteLength(result.inject.context_md, "utf8");
+    const bytes = Buffer.byteLength(result.inject.context_md ?? "", "utf8");
     if (bytes > maxInjectBytes) {
       return {
         ok: false,

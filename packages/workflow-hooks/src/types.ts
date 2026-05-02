@@ -221,6 +221,74 @@ export interface ConnectorTokenSource {
   } | null>;
 }
 
+// ─── Hook metadata (P4-G: catalog / picker UI) ──────────────────────────────
+
+/**
+ * Describes a single configurable field on a hook. Used by the catalog
+ * endpoint so the picker UI can render typed inputs without each hook
+ * shipping a separate JSON Schema file.
+ */
+export interface HookConfigSchemaField {
+  type: "string" | "number" | "boolean" | "string[]" | "number[]";
+  required?: boolean;
+  description?: string;
+}
+
+export type HookConfigSchema = Record<string, HookConfigSchemaField>;
+
+/**
+ * Authoring-time metadata attached to a hook via the new
+ * `defineHook({ ...metadata, execute })` form. All fields are optional —
+ * a hook authored with the legacy `defineHook(fn)` form simply has no
+ * metadata (the registry surfaces an empty object as a safe default).
+ *
+ * The runner ignores metadata entirely; it is consumed only by the
+ * catalog endpoint + UI picker.
+ */
+export interface HookMetadata {
+  description?: string;
+  phase?: HookPhase;
+  /** OAuth scopes required by the hook (e.g. `["read:jira-work"]`). */
+  requiredScopes?: string[];
+  configSchema?: HookConfigSchema;
+  defaultConfig?: Record<string, unknown>;
+}
+
+/**
+ * Object form accepted by `defineHook`. Carries metadata + the execute
+ * function. Authors who don't need metadata may still pass a bare
+ * function (legacy form) — both are supported.
+ */
+export interface HookDefinition<
+  Artifact = unknown,
+  Config extends Record<string, unknown> = Record<string, unknown>,
+> extends HookMetadata {
+  /**
+   * Optional canonical name. Currently informational — the resolver
+   * derives the name from the ref / file path. Provided here so the
+   * catalog can sanity-check name vs ref when both are present.
+   */
+  name?: string;
+  execute: (
+    ctx: HookContext<Artifact, Config>,
+  ) => Promise<HookResult> | HookResult;
+}
+
+/**
+ * Runtime shape of a `defineHook(...)` return value. The function is the
+ * hook body (called by the runner with a `HookContext`). When the author
+ * provided metadata via the object form, it is attached as a `metadata`
+ * property so the registry can introspect it via host-side `vm`
+ * evaluation.
+ */
+export interface HookFunction<
+  Artifact = unknown,
+  Config extends Record<string, unknown> = Record<string, unknown>,
+> {
+  (ctx: HookContext<Artifact, Config>): Promise<HookResult> | HookResult;
+  metadata?: HookMetadata;
+}
+
 // ─── Resolved hook (what the resolver hands to the runner) ──────────────────
 
 /**
@@ -275,6 +343,17 @@ export interface HookRunnerOptions {
    * (64 KiB). Larger values surface as `HOOK_INJECT_TOO_LARGE`.
    */
   maxInjectBytes?: number;
-  /** Retry once on `HOOK_SANDBOX_CRASH`. Default true (parity with gates). */
+  /**
+   * Retry once on `HOOK_SANDBOX_CRASH`. Default true. Parity with gates,
+   * but **the orchestrator MUST pass `false` for `after_*` phases**: those
+   * hooks may have observable side-effects (Jira POST, Slack message…)
+   * that are NOT idempotent — retrying duplicates them. The recommended
+   * caller-side wiring is:
+   *
+   *     options: { retryOnSandboxCrash: phase.startsWith("before_") }
+   *
+   * `before_*` hooks read context but do not mutate external state, so
+   * retrying is safe and recovers from rare V8 isolate hiccups.
+   */
   retryOnSandboxCrash?: boolean;
 }
