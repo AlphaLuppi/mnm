@@ -309,4 +309,14 @@ export const queryKeys = {
     detail: (companyId: string, presetId: string) => ["view-presets", companyId, "detail", presetId] as const,
     myView: (companyId: string) => ["view-presets", companyId, "my-view"] as const,
   },
+  // CONNECTORS-PLATFORM: admin connectors + user-facing connected-accounts
+  connectors: {
+    list: (companyId: string) => ["connectors", companyId, "list"] as const,
+    detail: (companyId: string, connectorId: string) =>
+      ["connectors", companyId, "detail", connectorId] as const,
+    audit: (companyId: string, connectorId: string) =>
+      ["connectors", companyId, "audit", connectorId] as const,
+    templates: (companyId: string) => ["connectors", companyId, "templates"] as const,
+    myAccounts: (companyId: string) => ["connectors", companyId, "me", "accounts"] as const,
+  },
 };
