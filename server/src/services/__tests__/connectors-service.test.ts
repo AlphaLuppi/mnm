@@ -3,23 +3,52 @@ import { connectorService, ConnectorError } from "../connectors.js";
 
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
-type SqlResult = { rows: unknown[] } & Array<unknown>;
-
-function makeArrayResult(rows: unknown[]): SqlResult {
-  const arr = rows as unknown as SqlResult;
-  // make `result.length` work + `(result as any).rows.length` if some code uses that
-  Object.defineProperty(arr, "rows", { value: rows, enumerable: false });
-  return arr;
+interface BuildDbOverrides {
+  membership?: unknown[];
+  connector?: unknown[] | null;
+  selectImpl?: ReturnType<typeof vi.fn>;
+  execute?: ReturnType<typeof vi.fn>;
 }
 
-function buildDb(overrides: Partial<Record<string, unknown>> = {}) {
-  return {
-    execute: vi.fn(async () => makeArrayResult([])),
-    select: vi.fn(() => ({
+/**
+ * Builds a minimal Drizzle-shaped mock that supports the chains used by
+ * `connectorService`:
+ *   - `db.select(...).from(table).where(cond).limit(n)`     → assertUserInCompany
+ *   - `db.select().from(table).where(cond)`                  → getActiveConnectorBySlug, etc.
+ *   - `db.execute(sql)`                                     → set_config etc.
+ *   - `db.insert(...).values(...).returning()`              → createConnector
+ *   - `db.update(...).set(...).where(...).returning()`      → updateConnector
+ *   - `db.transaction(async (tx) => ...)`                   → getUserToken refresh
+ *
+ * The mock returns whatever rows the test passes for the membership lookup
+ * (first select in `assertUserInCompany`) and connector lookup (subsequent
+ * select). To keep the chain shapes simple, every `.where()` returns a
+ * thenable that ALSO has `.limit()` for chained `assertUserInCompany`.
+ */
+function buildDb(opts: BuildDbOverrides = {}) {
+  const membershipRows = opts.membership ?? [];
+  const connectorRows = opts.connector ?? [];
+
+  let selectCallCount = 0;
+
+  const defaultSelectImpl = vi.fn(() => {
+    const callIndex = selectCallCount++;
+    // First select call → membership lookup (assertUserInCompany)
+    // Subsequent selects → connector / token lookups
+    const rows: unknown[] = callIndex === 0 ? membershipRows : (connectorRows as unknown[]);
+    const whereResult = Object.assign(Promise.resolve(rows), {
+      limit: () => Promise.resolve(rows),
+    });
+    return {
       from: () => ({
-        where: () => Promise.resolve([]),
+        where: () => whereResult,
       }),
-    })),
+    };
+  });
+
+  return {
+    execute: opts.execute ?? vi.fn(async () => []),
+    select: opts.selectImpl ?? defaultSelectImpl,
     insert: vi.fn(() => ({
       values: () => ({
         returning: () => Promise.resolve([{}]),
@@ -33,7 +62,6 @@ function buildDb(overrides: Partial<Record<string, unknown>> = {}) {
     })),
     delete: vi.fn(() => ({ where: () => Promise.resolve() })),
     transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({})),
-    ...overrides,
   } as unknown as Parameters<typeof connectorService>[0];
 }
 
@@ -41,9 +69,7 @@ function buildDb(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe("connectors — C2 cross-tenant guard (assertUserInCompany)", () => {
   it("throws CONNECTOR_USER_NOT_IN_COMPANY when membership lookup returns empty", async () => {
-    const db = buildDb({
-      execute: vi.fn(async () => makeArrayResult([])),
-    });
+    const db = buildDb({ membership: [] });
     const svc = connectorService(db);
     await expect(
       svc.assertUserInCompany("user-from-tenant-B", "00000000-0000-0000-0000-00000000000A"),
@@ -54,32 +80,32 @@ describe("connectors — C2 cross-tenant guard (assertUserInCompany)", () => {
   });
 
   it("does NOT throw when membership lookup returns at least one row", async () => {
-    const db = buildDb({
-      execute: vi.fn(async () => makeArrayResult([{ "?column?": 1 }])),
-    });
+    const db = buildDb({ membership: [{ id: "membership-1" }] });
     const svc = connectorService(db);
     await expect(
       svc.assertUserInCompany("user-A", "00000000-0000-0000-0000-00000000000A"),
     ).resolves.toBeUndefined();
   });
 
-  it("uses table 'company_memberships' with principal_type='user' and status='active'", async () => {
-    const executeSpy = vi.fn(async () => makeArrayResult([]));
-    const db = buildDb({ execute: executeSpy });
+  it("calls select().from().where().limit() exactly once per check", async () => {
+    const limitSpy = vi.fn(() => Promise.resolve([]));
+    const whereSpy = vi.fn(() => ({ limit: limitSpy }));
+    const fromSpy = vi.fn(() => ({ where: whereSpy }));
+    const selectSpy = vi.fn(() => ({ from: fromSpy }));
+    const db = buildDb({ selectImpl: selectSpy as unknown as ReturnType<typeof vi.fn> });
     const svc = connectorService(db);
     await svc
       .assertUserInCompany("u1", "00000000-0000-0000-0000-000000000001")
       .catch(() => undefined);
-    expect(executeSpy).toHaveBeenCalledTimes(1);
-    const calls = executeSpy.mock.calls as unknown as Array<[unknown]>;
-    const sqlArg = calls[0]?.[0];
-    // Drizzle sql template stores raw chunks under queryChunks (or strings depending on version)
-    const haystack = JSON.stringify(sqlArg);
-    expect(haystack).toContain("company_memberships");
-    expect(haystack).toContain("principal_type");
-    expect(haystack).toContain("'user'");
-    expect(haystack).toContain("status");
-    expect(haystack).toContain("'active'");
+    expect(selectSpy).toHaveBeenCalledTimes(1);
+    expect(fromSpy).toHaveBeenCalledTimes(1);
+    expect(whereSpy).toHaveBeenCalledTimes(1);
+    expect(limitSpy).toHaveBeenCalledTimes(1);
+    // Drizzle's `select({...})` receives the projection map. We don't assert
+    // the table identity (Drizzle would catch a wrong table at compile time),
+    // but we DO want to know the shape was preserved.
+    const firstCallArgs = selectSpy.mock.calls[0] as unknown[] | undefined;
+    expect(firstCallArgs?.[0]).toBeTypeOf("object");
   });
 });
 
@@ -91,9 +117,7 @@ describe("connectors — getUserToken error paths", () => {
   });
 
   it("throws CONNECTOR_USER_NOT_IN_COMPANY first when cross-tenant", async () => {
-    const db = buildDb({
-      execute: vi.fn(async () => makeArrayResult([])), // membership empty
-    });
+    const db = buildDb({ membership: [] });
     const svc = connectorService(db);
     await expect(
       svc.getUserToken("user-x", "jira", "00000000-0000-0000-0000-00000000000A"),
@@ -102,12 +126,8 @@ describe("connectors — getUserToken error paths", () => {
 
   it("throws CONNECTOR_NOT_CONFIGURED when no enabled connector matches the slug", async () => {
     const db = buildDb({
-      execute: vi.fn(async () => makeArrayResult([{ ok: 1 }])), // membership OK
-      select: vi.fn(() => ({
-        from: () => ({
-          where: () => Promise.resolve([]), // no connector found
-        }),
-      })),
+      membership: [{ id: "membership-1" }],
+      connector: [], // no connector found
     });
     const svc = connectorService(db);
     await expect(

@@ -6,6 +6,7 @@ import {
   connectorTokens,
   userApiKeys,
   oauthConnectorsAudit,
+  companyMemberships,
 } from "@mnm/db";
 import { logger } from "../middleware/logger.js";
 import { badRequest, conflict, notFound } from "../errors.js";
@@ -173,8 +174,18 @@ export function connectorService(db: Db) {
     } catch {
       throw badRequest(`Invalid URL for ${fieldName}: ${url}`);
     }
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      throw badRequest(`URL ${fieldName} must use http(s)`);
+    const isProduction = process.env.NODE_ENV === "production";
+    // HIGH-S1 — production: HTTPS-only; dev: HTTP allowed for local providers.
+    if (isProduction) {
+      if (parsed.protocol !== "https:") {
+        throw badRequest(
+          `URL ${fieldName} must use HTTPS in production (got ${parsed.protocol})`,
+        );
+      }
+    } else {
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw badRequest(`URL ${fieldName} must use http(s)`);
+      }
     }
     // Block private/loopback IPs explicitly to prevent SSRF
     const host = parsed.hostname;
@@ -187,7 +198,7 @@ export function connectorService(db: Db) {
       /^::1$/,
       /^fe80:/i,
     ];
-    if (process.env.NODE_ENV === "production") {
+    if (isProduction) {
       // In dev, localhost is allowed for testing.
       // In prod, refuse private networks.
       for (const re of privateRanges) {
@@ -332,28 +343,41 @@ export function connectorService(db: Db) {
         ? encryptSecret(input.clientSecret)
         : null;
 
-    const [created] = await db
-      .insert(oauthConnectors)
-      .values({
-        companyId,
-        providerSlug: input.providerSlug,
-        displayName: input.displayName,
-        type: input.type,
-        authorizationUrl: input.authorizationUrl ?? null,
-        tokenUrl: input.tokenUrl ?? null,
-        userinfoUrl: input.userinfoUrl ?? null,
-        scopes: input.scopes ?? [],
-        redirectUri: input.redirectUri ?? null,
-        clientId: input.clientId ?? null,
-        clientSecretIv: encryptedSecret?.iv ?? null,
-        clientSecretCiphertext: encryptedSecret?.ciphertext ?? null,
-        clientSecretTag: encryptedSecret?.tag ?? null,
-        refreshSupported: input.refreshSupported ?? true,
-        apiKeyLabel: input.apiKeyLabel ?? null,
-        enabled: input.enabled ?? true,
-        createdByUserId: actorUserId,
-      })
-      .returning();
+    let created;
+    try {
+      [created] = await db
+        .insert(oauthConnectors)
+        .values({
+          companyId,
+          providerSlug: input.providerSlug,
+          displayName: input.displayName,
+          type: input.type,
+          authorizationUrl: input.authorizationUrl ?? null,
+          tokenUrl: input.tokenUrl ?? null,
+          userinfoUrl: input.userinfoUrl ?? null,
+          scopes: input.scopes ?? [],
+          redirectUri: input.redirectUri ?? null,
+          clientId: input.clientId ?? null,
+          clientSecretIv: encryptedSecret?.iv ?? null,
+          clientSecretCiphertext: encryptedSecret?.ciphertext ?? null,
+          clientSecretTag: encryptedSecret?.tag ?? null,
+          refreshSupported: input.refreshSupported ?? true,
+          apiKeyLabel: input.apiKeyLabel ?? null,
+          enabled: input.enabled ?? true,
+          createdByUserId: actorUserId,
+        })
+        .returning();
+    } catch (err) {
+      // MED-S1 — concurrent createConnector calls race past the select-then-insert
+      // check above. The DB unique constraint catches the duplicate; surface it
+      // as a clean 409 instead of a 500.
+      if ((err as { code?: string })?.code === "23505") {
+        throw conflict(
+          `Connector with slug '${input.providerSlug}' already exists for this company`,
+        );
+      }
+      throw err;
+    }
 
     await recordAudit({
       companyId,
@@ -446,15 +470,20 @@ export function connectorService(db: Db) {
   // ─── Cross-tenant guard (C2) ───────────────────────────────────────────────
 
   async function assertUserInCompany(userId: string, companyId: string): Promise<void> {
-    const result = await db.execute(
-      sql`SELECT 1 FROM company_memberships
-          WHERE principal_type = 'user'
-            AND principal_id = ${userId}
-            AND company_id = ${companyId}::uuid
-            AND status = 'active'
-          LIMIT 1`,
-    );
-    if ((result as unknown as { length: number }).length === 0) {
+    // HIGH-A2 — use a typed Drizzle select instead of raw SQL + ugly cast.
+    const rows = await db
+      .select({ id: companyMemberships.id })
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.principalId, userId),
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.status, "active"),
+        ),
+      )
+      .limit(1);
+    if (rows.length === 0) {
       throw new ConnectorError(
         "CONNECTOR_USER_NOT_IN_COMPANY",
         `User ${userId} is not an active member of company ${companyId}`,
@@ -815,10 +844,19 @@ export function connectorService(db: Db) {
 
         const refreshResult = await refreshOAuthTokenInner(connector, fresh);
         if (!refreshResult) {
-          // refresh failed — provider returned 401 (token revoked)
+          // MED-B1 — provider returned 401/400: the refresh_token is revoked.
+          // Null out the refresh material so the next getUserToken call surfaces
+          // CONNECTOR_TOKEN_EXPIRED_NO_REFRESH (forcing a clean reconnect)
+          // instead of looping on a dead refresh.
           await tx
             .update(connectorTokens)
-            .set({ lastRefreshFailedAt: new Date(), updatedAt: new Date() })
+            .set({
+              refreshTokenIv: null,
+              refreshTokenCiphertext: null,
+              refreshTokenTag: null,
+              lastRefreshFailedAt: new Date(),
+              updatedAt: new Date(),
+            })
             .where(eq(connectorTokens.id, fresh.id));
           return null;
         }
