@@ -890,30 +890,28 @@ export const parityData: ParityData = {
         },
         {
           id: "workflow-hooks",
-          name: "Workflow Hooks (configs UI partial — backend WIP)",
+          name: "Workflow Hooks (T2 + P4 hardening shipped)",
           description:
-            "Page /hooks (Tabs My configs / Catalog) + Sheet HookConfigDetail (form + VisibilityPicker + toggle enforced gated par hooks:enforce + Textarea JSON pour default_config + table d'exécutions). API client ui/src/api/hooks.ts + queryKeys hooks.{list,detail,executions,catalog}. SSE event hook.config.updated invalide les query keys (no polling). Migration 0081 + 5 schemas Drizzle livrés (T2.5). Backend service + REST + MCP encore à faire (T2.6/T2.7/T2.8).",
+            "Hooks système full-stack : runner V8 sandboxed (packages/workflow-hooks), 4 canonical hooks (Jira create/comment, ClickUp create/import), resolver canonical/shared/local, service backend (server/src/services/workflow-hooks.ts) avec CRUD + executeHook + resolveHooksForStep, wire 4 phases (before/after launchWorkflow + before/after launchStep + before/after completeStep) dans governed-workflows.ts, REST routes + 6 MCP tools, UI page /hooks (Tabs configs/catalog + Sheet detail + inline toggles + VisibilityPicker), migration 0081 + 5 schemas Drizzle (RLS double-policy fail-closed + perms seeded). Hardening P4 livré : sandbox headers/timeout/body cap/retry, REST principalId + assertBoard, UI optimistic toggles + formatApiError, catalog metadata (description/phase/configSchema/defaultConfig).",
           web: {
-            status: "partial",
+            status: "done",
             since: "2026-05-02",
             notes:
-              "T2.9 UI shippé. P4-E hardening : params catalog alignés sur le serveur (workflow_git_sha / shared_branch / include_shared / include_local), inline toggles enabled/enforced avec optimistic update + tooltips de permission, formatApiError pour messages Zod lisibles, pre-fill defaultConfigJson depuis le catalog. Backend (REST + service + wire) déjà livré (T2.6/T2.7/T2.8). Monaco lazy pour default_config_json à brancher (TODO en commentaire).",
+              "T2 (T2.1 → T2.9) + P4 (A → G) shippé. SSE event hook.config.updated invalide les query keys (no polling). Backend wire fire-and-forget pour after_run (P4-B). Tests : runner 35, host-helpers, resolver, canonical-hooks, service backend 684 LOC, REST routes 273 LOC, wire test 380 LOC. TODO mineur : Monaco lazy editor pour default_config_json (currently Textarea).",
           },
           desktop: {
             status: "missing",
             notes:
-              "Desktop wrapper inherits backend via connection profile. Aucun blocage spécifique côté desktop — sera dispo dès que la chaîne backend est prête.",
+              "Desktop wrapper inherits backend via connection profile. Aucun blocage spécifique côté desktop — sera dispo dès que la chaîne backend packagée est prête.",
           },
           todo: {
             code: [
-              "T2.6 — server/src/services/workflow-hooks.ts (resolveHooksForStep, executeHook, CRUD)",
-              "T2.7 — wire avant launchWorkflow / launchStep / completeStep",
-              "T2.8 — REST routes + 6 MCP tools",
               "Monaco lazy editor pour default_config_json (currently Textarea)",
-              "T2.2/T2.3/T2.4 — packages/workflow-hooks/ (runner, resolver, 4 canonical hooks)",
+              "V1 — HookProviderCatalog migré vers oauth_connectors.base_url (P3 finding)",
+              "V1 — durcissement SSRF DNS rebind (rebind-protected fetch)",
             ],
             tests: [
-              "E2E browser : créer config canonical:foo, basculer visibility, toggle enforced (perm hooks:enforce), supprimer",
+              "E2E browser ChromeMCP : créer config canonical:foo, basculer visibility, toggle enforced (perm hooks:enforce), supprimer",
             ],
           },
         },
