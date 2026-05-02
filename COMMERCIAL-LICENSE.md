@@ -1,7 +1,7 @@
 # Commercial License — MnM
 
 > **Steward**: Alpha Luppi (Studio Manifeste)
-> **Contact**: licensing@alphaluppi.com
+> **Contact**: licensing@alphaluppi.fr
 > **Version**: 1.0 — 2026-04-28
 
 ---
@@ -47,7 +47,7 @@ Les tarifs sont **sur demande** et dépendent de :
 
 ### Comment souscrire
 
-1. Contactez `licensing@alphaluppi.com` avec une description courte de votre projet, votre stack, et le périmètre d'usage envisagé.
+1. Contactez `licensing@alphaluppi.fr` avec une description courte de votre projet, votre stack, et le périmètre d'usage envisagé.
 2. Nous reviendrons vers Vous sous 5 jours ouvrés avec un devis et un brouillon de contrat.
 3. Signature électronique (DocuSign ou équivalent).
 4. Émission de la licence + (si applicable) clés d'activation des modules `ee/`.
@@ -99,7 +99,7 @@ Pricing is **on request** and depends on:
 
 ### How to subscribe
 
-1. Contact `licensing@alphaluppi.com` with a short description of your project, your stack, and the intended scope of use.
+1. Contact `licensing@alphaluppi.fr` with a short description of your project, your stack, and the intended scope of use.
 2. We will get back to You within 5 business days with a quote and a draft contract.
 3. Electronic signature (DocuSign or equivalent).
 4. License issuance + (if applicable) activation keys for `ee/` modules.

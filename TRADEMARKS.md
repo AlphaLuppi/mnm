@@ -1,7 +1,7 @@
 # Trademark Policy — MnM & Alpha Luppi
 
 > **Steward**: Alpha Luppi (Studio Manifeste)
-> **Contact**: trademarks@alphaluppi.com
+> **Contact**: trademarks@alphaluppi.fr
 > **Version**: 1.0 — 2026-04-28
 
 ---
@@ -16,9 +16,7 @@ Cette politique couvre les marques suivantes (collectivement « les Marques ») 
 - **« Alpha Luppi »** (mot)
 - **Logo MnM** (signe figuratif)
 
-**Statut INPI** : dépôt en cours auprès de l'Institut National de la Propriété Industrielle (INPI), classes 9 (logiciels) et 42 (services informatiques). *Registration pending.*
-
-Bien que l'enregistrement soit en cours, ces marques bénéficient d'une protection au titre du droit français de la concurrence déloyale et du parasitisme dès l'usage commercial effectif (depuis 2026-01).
+**Statut juridique** : aucune marque n'est déposée à ce jour, ni en France (INPI) ni à l'étranger. La présente politique exprime l'intention des mainteneurs et constitue un cadre communautaire d'usage des signes distinctifs du projet ; elle ne crée pas, par elle-même, de droit opposable au sens du droit des marques. Les mainteneurs se réservent le droit de procéder à un dépôt ultérieur ; toute mise à jour de cette politique sera versionnée dans le dépôt git.
 
 ### 2. Esprit de la politique
 
@@ -54,7 +52,7 @@ Exemple refusé : « MnM by Acme », « MnM Pro », « MnM Enterprise Edition »
 
 ### 5. Usages nécessitant une autorisation écrite
 
-Les usages suivants nécessitent une autorisation préalable écrite à `trademarks@alphaluppi.com` :
+Les usages suivants nécessitent une autorisation préalable écrite à `trademarks@alphaluppi.fr` :
 
 - Vente de produits ou services portant le nom « MnM » ou le logo MnM.
 - Nom de domaine contenant « mnm » ou « alphaluppi » (sauf usage personnel non commercial évident).
@@ -72,7 +70,7 @@ Les usages suivants nécessitent une autorisation préalable écrite à `tradema
 
 Toute question, demande d'autorisation ou signalement d'usage abusif :
 
-`trademarks@alphaluppi.com`
+`trademarks@alphaluppi.fr`
 
 Nous nous engageons à répondre sous 10 jours ouvrés.
 
@@ -88,9 +86,7 @@ This policy covers the following trademarks (collectively, "the Marks"):
 - **"Alpha Luppi"** (wordmark)
 - **MnM logo** (figurative mark)
 
-**INPI status**: filing in progress with the French National Institute of Industrial Property (INPI), classes 9 (software) and 42 (IT services). *Registration pending.*
-
-Although registration is pending, these marks benefit from protection under French unfair-competition and parasitism law from the moment of effective commercial use (since 2026-01).
+**Legal status**: no trademark is registered to date, in France or anywhere else. This policy reflects the maintainers' intent and provides a community framework for use of the project's distinctive signs; it does not, by itself, create any enforceable trademark right. The maintainers reserve the right to file later; any update to this policy will be versioned in the git repository.
 
 ### 2. Spirit of the policy
 
@@ -126,7 +122,7 @@ Refused example: "MnM by Acme", "MnM Pro", "MnM Enterprise Edition".
 
 ### 5. Uses requiring written permission
 
-The following uses require prior written authorization at `trademarks@alphaluppi.com`:
+The following uses require prior written authorization at `trademarks@alphaluppi.fr`:
 
 - Sale of products or services bearing the name "MnM" or the MnM logo.
 - Domain name containing "mnm" or "alphaluppi" (except obvious non-commercial personal use).
@@ -144,6 +140,6 @@ The following uses require prior written authorization at `trademarks@alphaluppi
 
 Any question, permission request, or abuse report:
 
-`trademarks@alphaluppi.com`
+`trademarks@alphaluppi.fr`
 
 We commit to respond within 10 business days.

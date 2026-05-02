@@ -48,13 +48,13 @@ L'usage de `EE=1` en production nécessite une **souscription Enterprise active*
 
 Le code dans ce dossier n'est **pas couvert par l'AGPL-3.0** ni par la licence commerciale du core. Il est régi par la **MnM Enterprise License** ([`./LICENSE`](./LICENSE)).
 
-Pour souscrire ou demander un devis : `licensing@alphaluppi.com` ou voir [`../COMMERCIAL-LICENSE.md`](../COMMERCIAL-LICENSE.md).
+Pour souscrire ou demander un devis : `licensing@alphaluppi.fr` ou voir [`../COMMERCIAL-LICENSE.md`](../COMMERCIAL-LICENSE.md).
 
 ### (e) Contributing
 
 Les contributions au dossier `ee/` sont les bienvenues mais nécessitent la signature d'un **Enterprise CLA spécifique**, distinct du CLA du core. Cet Enterprise CLA inclut une cession de droits adaptée au modèle propriétaire et des clauses de confidentialité supplémentaires.
 
-Pour obtenir le template de l'Enterprise CLA : `cla@alphaluppi.com`.
+Pour obtenir le template de l'Enterprise CLA : `cla@alphaluppi.fr`.
 
 ---
 
@@ -101,10 +101,10 @@ Using `EE=1` in production requires an **active Enterprise subscription** (see L
 
 Code in this folder is **not covered by AGPL-3.0** nor by the core commercial license. It is governed by the **MnM Enterprise License** ([`./LICENSE`](./LICENSE)).
 
-To subscribe or request a quote: `licensing@alphaluppi.com` or see [`../COMMERCIAL-LICENSE.md`](../COMMERCIAL-LICENSE.md).
+To subscribe or request a quote: `licensing@alphaluppi.fr` or see [`../COMMERCIAL-LICENSE.md`](../COMMERCIAL-LICENSE.md).
 
 ### (e) Contributing
 
 Contributions to the `ee/` folder are welcome but require signing a **specific Enterprise CLA**, distinct from the core CLA. This Enterprise CLA includes a rights assignment adapted to the proprietary model and additional confidentiality clauses.
 
-To request the Enterprise CLA template: `cla@alphaluppi.com`.
+To request the Enterprise CLA template: `cla@alphaluppi.fr`.

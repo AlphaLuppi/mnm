@@ -170,6 +170,6 @@ MnM is dual-licensed:
 
 - **Core (everything outside `ee/`)**: [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Free to use, modify, and self-host. Network distribution requires source disclosure.
 - **Enterprise modules (`ee/` directory)**: [MnM Enterprise License](ee/LICENSE) (source-available, requires a commercial license).
-- **Commercial / non-AGPL license**: available for organizations that cannot adopt AGPL — see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md). Contact `licensing@alphaluppi.com`.
+- **Commercial / non-AGPL license**: available for organizations that cannot adopt AGPL — see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md). Contact `licensing@alphaluppi.fr`.
 
 Trademarks (MnM, Alpha Luppi, MnM logo) — see [TRADEMARKS.md](TRADEMARKS.md). Contributing — see [CLA.md](CLA.md).

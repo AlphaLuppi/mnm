@@ -13,16 +13,52 @@ Origin and lineage
 MnM was forked from Paperclip (https://github.com/paperclipai/paperclip).
 The two projects have since diverged substantially in vision, scope, and
 architecture. Original portions of code derived from Paperclip retain their
-upstream copyright; modifications and new code are copyright Alpha Luppi.
+upstream copyright; modifications and new code are copyright the MnM
+contributors (collectively "Alpha Luppi" / Studio Manifeste).
+
+Paperclip is distributed under the MIT License. The MIT License is
+compatible with re-licensing under AGPL-3.0 (a more restrictive license),
+provided the original copyright notice and permission notice are preserved
+in any copy or substantial portion of the original code. Those notices are
+reproduced below as required by MIT.
+
+  ----------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2026 Paperclip (https://github.com/paperclipai/paperclip)
+
+  Permission is hereby granted, free of charge, to any person obtaining
+  a copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be
+  included in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  ----------------------------------------------------------------------
+
+For the canonical Paperclip LICENSE file, see the upstream repository.
 
 ================================================================================
 Trademarks
 ================================================================================
 
-"MnM" and the MnM logo are trademarks of Alpha Luppi. Use of the AGPL license
-on this source code does NOT grant any rights to use the MnM name or logo
-beyond what is required to identify the origin of the software (nominative
-fair use). See TRADEMARKS.md for details.
+"MnM", "Alpha Luppi" and the MnM logo are distinctive signs of the MnM
+project; no trademark is registered as of this version (see TRADEMARKS.md
+for the current legal status and intended community use policy). Use of
+the AGPL license on this source code does NOT grant any rights over those
+distinctive signs beyond what is required to identify the origin of the
+software (nominative fair use).
 
 ================================================================================
 Third-party software
@@ -39,8 +75,8 @@ non-exhaustive summary of license types observed at the time of writing:
   - MPL-2.0 (~3 packages)
   - Other permissive (CC0, BlueOak, 0BSD, Unlicense, etc.)
 
-A full SBOM and license summary will be generated in Phase 1 of the
-open-source preparation (see docs/open-source-migration-plan.md).
+A full SBOM and license summary will be generated as part of the
+open-source preparation, before public release of the repository.
 
 ================================================================================
 Known license caveats (under review)

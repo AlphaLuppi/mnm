@@ -13,7 +13,7 @@ Ce code s'applique à tous les espaces du projet : repository GitHub (issues, PR
 
 ### Pour signaler un comportement inacceptable
 
-Contactez l'équipe des mainteneurs en privé : **`conduct@alphaluppi.com`**.
+Contactez l'équipe des mainteneurs en privé : **`conduct@alphaluppi.fr`**.
 
 Tous les rapports sont traités avec sérieux et confidentialité. L'équipe accusera réception sous **72 heures** et communiquera la suite donnée au signalement.
 
@@ -31,7 +31,7 @@ This code applies to all project spaces: GitHub repository (issues, PRs, discuss
 
 ### Reporting unacceptable behavior
 
-Contact the maintainers privately: **`conduct@alphaluppi.com`**.
+Contact the maintainers privately: **`conduct@alphaluppi.fr`**.
 
 All reports are handled seriously and confidentially. The team will acknowledge receipt within **72 hours** and communicate the outcome of the report.
 

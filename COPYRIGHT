@@ -1,9 +1,16 @@
-Copyright (c) 2026 Alpha Luppi (Studio Manifeste)
+Copyright (c) 2026 The MnM contributors
+(collectively "Alpha Luppi" / Studio Manifeste, the project's maintainer
+collective; no separate legal entity is registered as of this version).
 
 MnM — Enterprise B2B supervision cockpit for AI agent orchestration.
 
 Licensed under the GNU Affero General Public License v3.0 or later
 (AGPL-3.0-or-later). See LICENSE for the full license text.
+
+Original portions of code derived from Paperclip
+(https://github.com/paperclipai/paperclip) are distributed under the MIT
+License; see NOTICE for the upstream copyright and permission notice
+required by MIT.
 
 For the list of contributors, see the git history of this repository or
 the AUTHORS file (when available).

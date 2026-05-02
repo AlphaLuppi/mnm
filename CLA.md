@@ -3,7 +3,7 @@
 > **Project**: MnM
 > **Steward**: Alpha Luppi (Studio Manifeste)
 > **Version**: 1.0 — 2026-04-28
-> **Contact**: cla@alphaluppi.com
+> **Contact**: cla@alphaluppi.fr
 
 ---
 
@@ -11,9 +11,11 @@
 
 ### 1. Préambule
 
-Ce Contributor License Agreement (« CLA ») est conclu entre Alpha Luppi (Studio Manifeste), entité française mainteneuse du projet MnM (« Alpha Luppi », « Nous »), et toute personne physique ou morale qui soumet une Contribution au projet (« Vous », « le Contributeur »).
+Ce Contributor License Agreement (« CLA ») est conclu entre les mainteneurs actuels du projet MnM, opérant collectivement sous le nom **Alpha Luppi (Studio Manifeste)** (« Alpha Luppi », « Nous »), et toute personne physique ou morale qui soumet une Contribution au projet (« Vous », « le Contributeur »).
 
-Le présent CLA s'inspire du Apache Individual Contributor License Agreement v2.0 et du Apache Entity Contributor License Agreement v2.0, simplifiés et adaptés au modèle de licence dual (AGPL-3.0 + licence commerciale) utilisé par Alpha Luppi.
+À la date de la présente version du CLA, Alpha Luppi opère sous forme de projet sans personne morale distincte enregistrée. Les droits cédés en vertu du présent CLA bénéficient au mainteneur principal personne physique du projet, et seront transférés de plein droit, par effet de novation et sans formalité supplémentaire à la charge du Contributeur, à toute structure juridique qui serait ultérieurement constituée pour assurer la continuité de la maintenance du projet (notamment une société commerciale, une association ou une fondation).
+
+Le présent CLA s'inspire du Apache Individual Contributor License Agreement v2.0 et du Apache Entity Contributor License Agreement v2.0, simplifiés et adaptés au modèle de licence dual (AGPL-3.0 + licence commerciale) utilisé par le projet MnM.
 
 ### 2. Définitions
 
@@ -53,7 +55,7 @@ Sauf accord contraire écrit, Vous fournissez Votre Contribution « TELLE QUELLE
 
 ### 7. Notification de changements
 
-Si Vous prenez connaissance d'un fait rendant l'une des déclarations ci-dessus inexacte (par exemple changement d'employeur, retrait d'autorisation), Vous Vous engagez à notifier Alpha Luppi à `cla@alphaluppi.com` dans les meilleurs délais.
+Si Vous prenez connaissance d'un fait rendant l'une des déclarations ci-dessus inexacte (par exemple changement d'employeur, retrait d'autorisation), Vous Vous engagez à notifier Alpha Luppi à `cla@alphaluppi.fr` dans les meilleurs délais.
 
 ### 8. Signature
 
@@ -75,9 +77,11 @@ Ce document ne constitue pas un avis juridique. Pour un usage en production ou e
 
 ### 1. Preamble
 
-This Contributor License Agreement (the "CLA") is entered into between Alpha Luppi (Studio Manifeste), a French entity maintaining the MnM project ("Alpha Luppi", "We"), and any natural or legal person who submits a Contribution to the project ("You", "the Contributor").
+This Contributor License Agreement (the "CLA") is entered into between the current maintainers of the MnM project, operating collectively under the name **Alpha Luppi (Studio Manifeste)** ("Alpha Luppi", "We"), and any natural or legal person who submits a Contribution to the project ("You", "the Contributor").
 
-This CLA is inspired by the Apache Individual Contributor License Agreement v2.0 and the Apache Entity Contributor License Agreement v2.0, simplified and adapted to the dual-licensing model (AGPL-3.0 + commercial license) used by Alpha Luppi.
+As of the date of this version of the CLA, Alpha Luppi operates as a project, without a distinct registered legal entity. Rights assigned under this CLA accrue to the project's principal maintainer (natural person), and will transfer automatically, by way of novation and without further action by the Contributor, to any legal entity subsequently formed to ensure continuity of the project's maintenance (for example a commercial company, an association, or a foundation).
+
+This CLA is inspired by the Apache Individual Contributor License Agreement v2.0 and the Apache Entity Contributor License Agreement v2.0, simplified and adapted to the dual-licensing model (AGPL-3.0 + commercial license) used by the MnM project.
 
 ### 2. Definitions
 
@@ -117,7 +121,7 @@ Unless otherwise agreed in writing, You provide Your Contribution "AS IS", witho
 
 ### 7. Notification of Changes
 
-If You become aware of any fact that makes any of the above representations inaccurate (e.g., change of employer, withdrawal of authorization), You agree to notify Alpha Luppi at `cla@alphaluppi.com` as soon as possible.
+If You become aware of any fact that makes any of the above representations inaccurate (e.g., change of employer, withdrawal of authorization), You agree to notify Alpha Luppi at `cla@alphaluppi.fr` as soon as possible.
 
 ### 8. Signature
 
