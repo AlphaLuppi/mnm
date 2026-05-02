@@ -57,6 +57,8 @@ import { traceRoutes } from "./routes/traces.js";
 import { credentialRoutes } from "./routes/credentials.js";
 // CONNECTORS-PLATFORM: OAuth callback dispatcher (NON tenant-scoped — provider can't know companyId at redirect time)
 import { connectorsCallbackRoutes } from "./routes/connectors-callback.js";
+// CONNECTORS-PLATFORM: REST routes (admin + user self-service, tenant-scoped)
+import { connectorRoutes } from "./routes/connectors.js";
 // POD-04: Sandbox routes (renamed from pods)
 import { sandboxRoutes } from "./routes/sandboxes.js";
 // POD-05: Sandbox exec (chat console, renamed from pod-exec)
@@ -374,6 +376,8 @@ export async function createApp(
   api.use(traceRoutes(db));
   // CONFIG-LAYERS: credentials + OAuth
   api.use(credentialRoutes(db));
+  // CONNECTORS-PLATFORM: admin CRUD + user self-service (templates, connect, api_key)
+  api.use(connectorRoutes(db));
   // POD-04: Sandbox routes
   api.use(sandboxRoutes(db));
   // POD-05: Sandbox exec (chat console)

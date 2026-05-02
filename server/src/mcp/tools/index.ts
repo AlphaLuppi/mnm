@@ -15,5 +15,7 @@ import projectTools from "./projects.tool.js";
 import governedWorkflowTools from "./governed-workflows.tool.js";
 // PAPERCLIP-PHASE2: Inbox Interactive — propose_task / ask_questions / request_confirmation
 import threadInteractionTools from "./thread-interactions.tool.js";
+// CONNECTORS-PLATFORM Sprint 2 — list / status / connect / wait / set_api_key
+import connectorTools from "./connectors.tool.js";
 
-export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools];
+export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools, connectorTools];

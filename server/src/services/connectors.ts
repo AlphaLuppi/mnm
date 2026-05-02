@@ -934,6 +934,150 @@ export function connectorService(db: Db) {
     };
   }
 
+  // ─── Audit log read (T5 admin route + UI) ──────────────────────────────────
+
+  async function listConnectorAudit(
+    companyId: string,
+    args: { connectorId?: string; limit?: number },
+  ) {
+    const limit = Math.min(args.limit ?? 50, 200);
+    const where = args.connectorId
+      ? and(
+          eq(oauthConnectorsAudit.companyId, companyId),
+          eq(oauthConnectorsAudit.connectorId, args.connectorId),
+        )
+      : eq(oauthConnectorsAudit.companyId, companyId);
+    return db
+      .select()
+      .from(oauthConnectorsAudit)
+      .where(where)
+      .orderBy(sql`${oauthConnectorsAudit.createdAt} DESC`)
+      .limit(limit);
+  }
+
+  // ─── Status projection for a user (T5 user routes + MCP get_connector_status) ──
+
+  /**
+   * For a given user × company, project the per-connector status:
+   *   "connected"   — token (oauth2) or api_key row present and not expired
+   *   "expired"     — oauth2 token row present but expiresAt <= now AND we have
+   *                   refresh material (next getUserToken will refresh)
+   *   "revoked"     — oauth2 token row had a refresh failure (lastRefreshFailedAt
+   *                   set AND refresh material nulled by MED-B1 ⇒ user must reconnect)
+   *   "disconnected"— no token / api_key row at all
+   *
+   * Never returns secret material. Used by the user UI and the MCP
+   * get_connector_status tool.
+   */
+  async function listConnectorsWithStatusForUser(userId: string, companyId: string) {
+    const connectors = await listConnectors(companyId);
+    const now = Date.now();
+    const results = await Promise.all(
+      connectors.map(async (c) => {
+        const base = {
+          id: c.id,
+          providerSlug: c.providerSlug,
+          displayName: c.displayName,
+          type: c.type as ConnectorType,
+          enabled: c.enabled,
+          scopes: c.scopes,
+          apiKeyLabel: c.apiKeyLabel,
+        };
+        if (c.type === "api_key") {
+          const apiKey = await getUserApiKey(userId, c.id, companyId);
+          return {
+            ...base,
+            status: apiKey ? ("connected" as const) : ("disconnected" as const),
+            scopesGranted: [] as string[],
+            expiresAt: null as Date | null,
+            lastUsedAt: apiKey?.lastUsedAt ?? null,
+          };
+        }
+        const tokenRow = await getConnectorTokenRow(userId, c.id);
+        if (!tokenRow) {
+          return {
+            ...base,
+            status: "disconnected" as const,
+            scopesGranted: [] as string[],
+            expiresAt: null as Date | null,
+            lastUsedAt: null as Date | null,
+          };
+        }
+        const isExpired =
+          tokenRow.expiresAt !== null && tokenRow.expiresAt.getTime() <= now;
+        const hasRefresh =
+          tokenRow.refreshTokenIv !== null &&
+          tokenRow.refreshTokenCiphertext !== null &&
+          tokenRow.refreshTokenTag !== null;
+        let status: "connected" | "expired" | "revoked";
+        if (!isExpired) {
+          status = "connected";
+        } else if (hasRefresh) {
+          status = "expired"; // refresh attempt will run on next getUserToken
+        } else {
+          // expired and no refresh material → either revoked (MED-B1 cleared it)
+          // or never had refresh material to begin with — both require reconnect.
+          status = "revoked";
+        }
+        return {
+          ...base,
+          status,
+          scopesGranted: tokenRow.scopesGranted ?? [],
+          expiresAt: tokenRow.expiresAt,
+          lastUsedAt: tokenRow.lastUsedAt,
+        };
+      }),
+    );
+    return results;
+  }
+
+  async function getUserConnectorStatus(args: {
+    userId: string;
+    companyId: string;
+    connectorId: string;
+  }) {
+    await assertUserInCompany(args.userId, args.companyId);
+    const all = await listConnectorsWithStatusForUser(args.userId, args.companyId);
+    const found = all.find((c) => c.id === args.connectorId);
+    if (!found) {
+      throw notFound(`Connector ${args.connectorId} not found in company`);
+    }
+    return found;
+  }
+
+  // ─── Sign authorize URL (T5 user POST /me/connect/:id + MCP connect_user_to_connector) ──
+
+  /**
+   * Builds a signed authorize URL for the given user × connector. The URL
+   * embeds a state JWT (HS256, 10min TTL) carrying companyId + connectorId +
+   * userId so the callback dispatcher can validate the round-trip.
+   */
+  async function signAuthorizeUrl(args: {
+    userId: string;
+    companyId: string;
+    connectorId: string;
+    redirectAfter?: string;
+  }): Promise<{ authorizeUrl: string }> {
+    await assertUserInCompany(args.userId, args.companyId);
+    const connector = await getConnectorById(args.connectorId, args.companyId);
+    if (!connector.enabled) {
+      throw badRequest(`Connector ${connector.providerSlug} is not enabled`);
+    }
+    if (connector.type !== "oauth2") {
+      throw badRequest(
+        `Connector ${connector.providerSlug} is not an OAuth2 connector — cannot start authorize flow`,
+      );
+    }
+    const state = await signConnectorState({
+      companyId: args.companyId,
+      connectorId: connector.id,
+      userId: args.userId,
+      redirectAfter: args.redirectAfter,
+    });
+    const authorizeUrl = buildAuthorizeUrl({ connector, state });
+    return { authorizeUrl };
+  }
+
   return {
     // CRUD
     listConnectors,
@@ -950,6 +1094,11 @@ export function connectorService(db: Db) {
     setUserApiKey,
     deleteUserApiKey,
     getUserApiKey,
+    // T5 — admin/audit + user status + authorize URL signing
+    listConnectorAudit,
+    listConnectorsWithStatusForUser,
+    getUserConnectorStatus,
+    signAuthorizeUrl,
     // helpers exposed for routes / OAuth callback
     assertUserInCompany,
     recordAudit,

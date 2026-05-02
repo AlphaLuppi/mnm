@@ -33,6 +33,8 @@ import { a2aPermissionsService } from "../services/a2a-permissions.js";
 import { heartbeatService } from "../services/heartbeat.js";
 // PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
 import { threadInteractionsService } from "../services/thread-interactions.js";
+// CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
+import { connectorService } from "../services/connectors.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
@@ -490,5 +492,7 @@ export function buildMcpServices(db: Db): McpServices {
     }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),
+    // CONNECTORS-PLATFORM: hub OAuth user-level + api_key store
+    connectors: connectorService(db),
   };
 }
