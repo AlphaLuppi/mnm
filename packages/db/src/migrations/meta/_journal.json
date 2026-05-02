@@ -596,6 +596,13 @@
 			"when": 1777002400012,
 			"tag": "0078_session_bundle_runs",
 			"breakpoints": true
+		},
+		{
+			"idx": 79,
+			"version": "7",
+			"when": 1777002400013,
+			"tag": "0079_connectors_platform",
+			"breakpoints": true
 		}
 	]
 }

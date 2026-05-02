@@ -130,3 +130,8 @@ export {
   type ThreadInteractionRow,
   type NewThreadInteraction,
 } from "./thread_interactions.js";
+// CONNECTORS-PLATFORM: OAuth/api_key connectors per-company + user-level tokens & api keys + audit
+export { oauthConnectors } from "./oauth_connectors.js";
+export { connectorTokens } from "./connector_tokens.js";
+export { userApiKeys } from "./user_api_keys.js";
+export { oauthConnectorsAudit } from "./oauth_connectors_audit.js";
