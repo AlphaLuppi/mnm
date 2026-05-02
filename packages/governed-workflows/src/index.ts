@@ -21,9 +21,21 @@ export {
   type WorkflowDefinition,
 } from "./workflow.js";
 
+// Hook ref schemas (T2.6)
+export {
+  hookRefSchema,
+  hookBlockSchema,
+  type HookRef,
+  type HookBlock,
+} from "./hook-ref.js";
+
 // JSON Schema (for Monaco editor autocomplete + live validation)
 export { workflowJsonSchema } from "./workflow.jsonschema.js";
 
 // Authoring helpers
 export { defineGate } from "./define-gate.js";
 export { defineWorkflow } from "./define-workflow.js";
+
+// Hook authoring helper (re-exported from @mnm/workflow-hooks for parity
+// with defineGate). Authors may import from either package.
+export { defineHook } from "./define-hook.js";

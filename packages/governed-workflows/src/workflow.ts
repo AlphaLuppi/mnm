@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { workflowStepSchema } from "./workflow-step.js";
+import { hookBlockSchema } from "./hook-ref.js";
 
 const variableDefSchema = z.object({
   type: z.enum(["string", "number", "boolean", "object"]).describe("Type de la variable d'entrée"),
@@ -10,6 +11,10 @@ const variableDefSchema = z.object({
  * Full workflow document (content of `workflow.json` in a workflow repo).
  * Validates both shape (zod object schema) and cross-step invariants
  * (duplicate ids, unknown deps) via `superRefine`.
+ *
+ * `hooks` (T2.6) at the root level fires for the WHOLE run:
+ *   - `before` runs before any step in phase `before_run`
+ *   - `after` runs after the run completes in phase `after_run`
  */
 export const workflowDefinitionSchema = z
   .object({
@@ -23,6 +28,7 @@ export const workflowDefinitionSchema = z
     description: z.string().optional().describe("Description courte affichée dans la liste des workflows"),
     variables: z.record(z.string().min(1), variableDefSchema).default({}).describe("Variables d'entrée disponibles dans les prompt_context des étapes"),
     steps: z.array(workflowStepSchema).min(1).describe("Séquence d'étapes exécutées par le workflow (au moins une)"),
+    hooks: hookBlockSchema.optional().describe("Hooks { before, after } au niveau workflow — phases before_run / after_run"),
   })
   .superRefine((wf, ctx) => {
     const seen = new Set<string>();

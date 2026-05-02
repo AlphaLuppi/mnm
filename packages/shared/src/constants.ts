@@ -311,6 +311,7 @@ export const LIVE_EVENT_TYPES = [
   // own visibility tier (private → actor-only ; tags/principals → tag-filtered ;
   // company → company-wide).
   "hook.config.updated",
+  "hook.config.deleted",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
