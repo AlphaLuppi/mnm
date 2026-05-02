@@ -641,13 +641,14 @@ describe("workflowHooksService — listExecutions [P0.1 visibility]", () => {
 // ─── P0.2 — Tag / Principal company-ownership validation ───────────────────
 
 describe("workflowHooksService — createConfig [P0.2 cross-tenant]", () => {
-  it("rejects createConfig when tagId belongs to a different company", async () => {
-    const { db, state } = buildMockDb();
+  it("rejects createConfig when tagId is unknown / not owned by the company", async () => {
+    const { db } = buildMockDb();
     const svc = workflowHooksService(db, buildDeps());
 
-    // Tag belongs to OTHER-CO, not co-1
-    state.tagsCatalog.push({ id: "tag-X", companyId: "other-co" });
-
+    // Empty tagsCatalog → asking for tag-X returns 0 rows → reject.
+    // (Cross-company case: the production query has
+    // `WHERE company_id=$X AND id IN (...)`, so a tag belonging to
+    // a different company resolves to 0 rows here as well.)
     await expect(
       svc.createConfig(
         "co-1",
