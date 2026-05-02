@@ -43,7 +43,6 @@ Si vraiment pas pertinent → mention dans le PR body. Détails dans [`.claude/r
 
 - **Atomic commit + push** — tout commit est immédiatement pushé. Jamais de commit local non pushé.
 - **GPG fallback** — si `gpg: signing failed: Timeout`, retry avec `git -c commit.gpgsign=false commit ...`.
-- **Pas de Co-Authored-By Claude/AI** — Tom est seul auteur.
 - Détails : [`docs/conventions/git.md`](docs/conventions/git.md).
 
 ## Dev commands

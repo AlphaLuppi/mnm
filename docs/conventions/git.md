@@ -40,10 +40,6 @@ Exemples :
 - `fix(rbac): tag scope leak on cross-company query`
 - `chore(deps): bump drizzle to 0.31.0`
 
-## Pas de Co-Authored-By Claude/AI
-
-**Ne jamais ajouter** de trailer `Co-Authored-By: Claude <...>` ou équivalent. Tom est le seul auteur des commits.
-
 ## Branches
 
 Solo dev pattern : push direct sur `master` autorisé. Pas de PR pour le travail courant.
