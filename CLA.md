@@ -59,9 +59,19 @@ Si Vous prenez connaissance d'un fait rendant l'une des déclarations ci-dessus 
 
 ### 8. Signature
 
-La signature du présent CLA s'effectue via **CLA Assistant** (workflow GitHub futur, déclenché automatiquement à l'ouverture d'une pull request). Le clic « I agree » sur l'interface CLA Assistant vaut signature électronique conformément au Règlement eIDAS et au Code civil français (article 1366).
+À ce stade du projet, la signature du présent CLA s'effectue par **validation manuelle** par les mainteneurs. Concrètement :
+
+1. À l'ouverture de Votre première pull request, un mainteneur Vous demandera de poster, en commentaire de cette PR, la phrase suivante seule sur sa ligne :
+
+   > I have read the CLA Document and I hereby sign the CLA
+
+2. Ce commentaire, posté depuis Votre compte GitHub authentifié, vaut signature électronique conformément au Règlement eIDAS et au Code civil français (article 1366) — le compte GitHub étant un identifiant fiable rattaché à Votre identité.
+
+3. Le mainteneur valide à la main et peut alors merger la PR. Vos PRs ultérieures ne nécessitent pas de re-signer (la signature couvre toutes Vos contributions futures sous la même version du CLA).
 
 Pour les signatures hors GitHub (contributions par email, patch, etc.), Vous pouvez signer en répondant à l'email d'onboarding avec la mention « I agree to the Alpha Luppi CLA v1.0 ».
+
+> Note : si le projet adopte ultérieurement un outil automatisé (CLA Assistant ou équivalent), cette section sera mise à jour. La validité juridique des signatures déjà collectées par le processus manuel n'en sera pas affectée.
 
 ### 9. Loi applicable
 
@@ -125,9 +135,19 @@ If You become aware of any fact that makes any of the above representations inac
 
 ### 8. Signature
 
-This CLA is signed via **CLA Assistant** (forthcoming GitHub workflow, automatically triggered upon pull request opening). Clicking "I agree" in the CLA Assistant interface constitutes an electronic signature in accordance with the eIDAS Regulation and Article 1366 of the French Civil Code.
+At this stage of the project, this CLA is signed via **manual validation** by the maintainers. Concretely:
+
+1. When You open Your first pull request, a maintainer will ask You to post, as a comment on that PR, the following sentence on its own line:
+
+   > I have read the CLA Document and I hereby sign the CLA
+
+2. This comment, posted from Your authenticated GitHub account, constitutes an electronic signature in accordance with the eIDAS Regulation and Article 1366 of the French Civil Code — Your GitHub account being a reliable identifier tied to Your identity.
+
+3. The maintainer manually validates and may then merge the PR. Subsequent PRs from You do not require re-signing (the signature covers all Your future contributions under the same version of the CLA).
 
 For signatures outside GitHub (email, patch contributions, etc.), You may sign by replying to the onboarding email with the statement "I agree to the Alpha Luppi CLA v1.0".
+
+> Note: if the project later adopts an automated tool (CLA Assistant or equivalent), this section will be updated. The legal validity of signatures already collected via the manual process will not be affected.
 
 ### 9. Governing Law
 

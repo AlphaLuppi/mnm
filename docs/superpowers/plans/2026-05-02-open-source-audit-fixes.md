@@ -148,7 +148,28 @@ Exclusion intentionnelle de l'identité Claude (cohérent avec la règle projet 
 ### 6.4 Restant pour publication publique effective
 
 - [ ] Réserver/activer un catch-all sur `@alphaluppi.fr` pour les 6 alias (licensing, trademarks, security, conduct, cla, legal)
-- [ ] Créer le repo `AlphaLuppi/cla-signatures` + secret PAT
 - [ ] Générer SBOM complet (script à écrire — `bun pm ls --json` + classificateur)
-- [ ] Renommer la branche par défaut si besoin (master → main, le workflow CLA pointe sur `master` actuellement)
 - [ ] Audit secret-scan une dernière fois avant `gh repo edit --visibility public`
+
+### 6.5 Decision update (2026-05-02 — même jour, après §6.2)
+
+**Décision** : abandonner le workflow CLA Assistant automatisé pour l'instant, passer en **validation manuelle**.
+
+**Raisons** :
+- Volume de contributeurs externes attendu très faible à l'ouverture (<10/mois) — l'automatisation est sur-dimensionnée.
+- Évite de créer un repo `AlphaLuppi/cla-signatures` séparé + de gérer un PAT.
+- Évite la dépendance sur `contributor-assistant/github-action` (action tierce, ajoute une supply chain à auditer).
+- Validité juridique identique : un commentaire GitHub authentifié reste une signature électronique au sens eIDAS, qu'il soit validé par un bot ou par un humain.
+
+**Actions effectuées** :
+- Suppression de `.github/workflows/cla-assistant.yml`.
+- Reformulation du §8 du [CLA.md](../../../CLA.md) (FR + EN) pour décrire le processus manuel : phrase de signature à coller en commentaire de PR, validation par un mainteneur avant merge, signature couvrant toutes les contributions futures.
+- Le §8 mentionne explicitement qu'un futur passage à un outil automatisé reste possible sans invalider les signatures déjà collectées.
+
+**Process d'onboarding contributeur en validation manuelle** :
+1. Contributeur ouvre une PR.
+2. Mainteneur (Tom ou autre) vérifie si le contributeur a déjà signé (recherche dans l'historique des PR).
+3. Si non : commenter sur la PR avec le texte du CLA + demander la phrase de signature.
+4. Contributeur poste la phrase en commentaire.
+5. Mainteneur ajoute un label `cla-signed` sur le contributeur (ou tient une liste dans un fichier privé) et merge.
+6. Plus de demande pour les PR ultérieures du même contributeur.
