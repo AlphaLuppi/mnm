@@ -51,7 +51,37 @@ function asStringArray(value: unknown): string[] | null {
   return value as string[];
 }
 
-export default defineHook<unknown, ClickUpImportConfig>(async (ctx) => {
+export default defineHook<unknown, ClickUpImportConfig>({
+  name: "clickup-import-task",
+  description:
+    "Imports one or more ClickUp tasks (with optional comments) into the upcoming step's prompt context as Markdown. Use it before_step so the agent can read the task brief, status, description, and recent comments before running.",
+  phase: "before_step",
+  requiredScopes: ["read:tasks"],
+  configSchema: {
+    taskIds: {
+      type: "string[]",
+      description:
+        "Explicit list of ClickUp task ids. Required unless taskIdsFromParam is set.",
+    },
+    taskIdsFromParam: {
+      type: "string",
+      description:
+        "Run-level param name from which to read the task ids (e.g. \"linked_clickup_tasks\").",
+    },
+    includeComments: {
+      type: "boolean",
+      description: "Whether to fetch and include task comments. Defaults to true.",
+    },
+    providerSlug: {
+      type: "string",
+      description: "Connector slug. Defaults to \"clickup\".",
+    },
+  },
+  defaultConfig: {
+    taskIdsFromParam: "linked_clickup_tasks",
+    includeComments: true,
+  },
+  execute: async (ctx) => {
   const directIds = asStringArray(ctx.config.taskIds);
   const paramName =
     typeof ctx.config.taskIdsFromParam === "string"
@@ -140,4 +170,5 @@ export default defineHook<unknown, ClickUpImportConfig>(async (ctx) => {
     inject: { context_md: contextMd },
     data: { taskIds, sectionsCount: sections.length },
   };
+  },
 });

@@ -19,6 +19,12 @@ export type {
   ConnectorTokenSource,
   ConnectorTokenResult,
   ResolvedHook,
+  // Metadata (P4-G — catalog enrichment for picker UI)
+  HookMetadata,
+  HookDefinition,
+  HookFunction,
+  HookConfigSchema,
+  HookConfigSchemaField,
 } from "./types.js";
 
 // Result schema (used by service tests + REST validation)
@@ -59,4 +65,6 @@ export { resolveHookRef, type ResolveHookRefCtx } from "./resolver.js";
 export {
   loadCanonical,
   listCanonicalHooks,
+  getCanonicalMetadata,
+  type CanonicalMetadata,
 } from "./canonical-registry.js";

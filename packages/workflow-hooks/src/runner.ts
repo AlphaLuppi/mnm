@@ -220,7 +220,21 @@ async function attemptInvokeInternal(
       globalThis.exports = globalThis.module.exports;
       globalThis.require = function (id) {
         if (id === "@mnm/workflow-hooks" || id === "@mnm/governed-workflows") {
-          return { defineHook: function (fn) { return fn; } };
+          return {
+            defineHook: function (fnOrDef) {
+              if (typeof fnOrDef === "function") return fnOrDef;
+              if (
+                fnOrDef &&
+                typeof fnOrDef === "object" &&
+                typeof fnOrDef.execute === "function"
+              ) {
+                return fnOrDef.execute;
+              }
+              throw new Error(
+                "defineHook: expected a function or { execute } object"
+              );
+            },
+          };
         }
         throw new Error("require() not available in hook sandbox: " + id);
       };

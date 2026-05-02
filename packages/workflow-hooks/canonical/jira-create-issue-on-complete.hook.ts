@@ -65,7 +65,47 @@ function mdToAdf(text: string): unknown {
   };
 }
 
-export default defineHook<ArtifactLike, JiraCreateConfig>(async (ctx) => {
+export default defineHook<ArtifactLike, JiraCreateConfig>({
+  name: "jira-create-issue-on-complete",
+  description:
+    "Creates a new Jira issue after a workflow step completes successfully. Templates summary + description from run / step / artifact tokens and posts to /rest/api/3/issue.",
+  phase: "after_step",
+  requiredScopes: ["read:jira-work", "write:jira-work"],
+  configSchema: {
+    projectKey: {
+      type: "string",
+      required: true,
+      description:
+        "Jira project key (e.g. \"PROJ\"). The new issue is created in this project.",
+    },
+    issueTypeName: {
+      type: "string",
+      description: "Jira issue type. Defaults to \"Task\".",
+    },
+    summaryTemplate: {
+      type: "string",
+      description:
+        "Mustache-light template for the issue summary. Tokens: {{step.id}}, {{run.id}}, {{run.workflow_name}}, {{run.git_tag}}, {{artifact.<path>}}.",
+    },
+    descriptionTemplate: {
+      type: "string",
+      description:
+        "Mustache-light template for the issue description (rendered into ADF).",
+    },
+    providerSlug: {
+      type: "string",
+      description: "Connector slug. Defaults to \"jira\".",
+    },
+  },
+  defaultConfig: {
+    projectKey: "PROJ",
+    issueTypeName: "Task",
+    summaryTemplate:
+      "[{{run.workflow_name}}] Step `{{step.id}}` completed in run {{run.id}}",
+    descriptionTemplate:
+      "Workflow `{{run.workflow_name}}@{{run.git_tag}}` finished step `{{step.id}}`.",
+  },
+  execute: async (ctx) => {
   const projectKey =
     typeof ctx.config.projectKey === "string" ? ctx.config.projectKey : undefined;
   if (!projectKey) {
@@ -131,4 +171,5 @@ export default defineHook<ArtifactLike, JiraCreateConfig>(async (ctx) => {
     report: `Jira API returned ${response.status} on issue create`,
     data: { projectKey, status: response.status, body: response.body },
   };
+  },
 });

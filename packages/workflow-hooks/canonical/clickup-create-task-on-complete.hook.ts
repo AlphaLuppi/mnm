@@ -55,7 +55,47 @@ function renderTemplate(
   });
 }
 
-export default defineHook<ArtifactLike, ClickUpCreateConfig>(async (ctx) => {
+export default defineHook<ArtifactLike, ClickUpCreateConfig>({
+  name: "clickup-create-task-on-complete",
+  description:
+    "Creates a new ClickUp task after a workflow step completes successfully. Templates the task name + description from run / step / artifact tokens and posts to the configured ClickUp list.",
+  phase: "after_step",
+  requiredScopes: ["read:tasks", "write:tasks"],
+  configSchema: {
+    listId: {
+      type: "string",
+      required: true,
+      description: "ClickUp list id where the new task will be created.",
+    },
+    nameTemplate: {
+      type: "string",
+      description:
+        "Mustache-light template for the task name. Tokens: {{step.id}}, {{run.id}}, {{run.workflow_name}}, {{run.git_tag}}, {{artifact.<path>}}.",
+    },
+    descriptionTemplate: {
+      type: "string",
+      description: "Mustache-light template for the task description.",
+    },
+    status: {
+      type: "string",
+      description: "Default ClickUp list status to apply (e.g. \"to do\").",
+    },
+    assignees: {
+      type: "number[]",
+      description: "Array of ClickUp user ids to assign to the new task.",
+    },
+    providerSlug: {
+      type: "string",
+      description: "Connector slug. Defaults to \"clickup\".",
+    },
+  },
+  defaultConfig: {
+    listId: "<your-list-id>",
+    nameTemplate: "[{{run.workflow_name}}] Step `{{step.id}}` completed",
+    descriptionTemplate:
+      "Completed step `{{step.id}}` in run `{{run.id}}` of workflow `{{run.workflow_name}}@{{run.git_tag}}`.",
+  },
+  execute: async (ctx) => {
   const listId =
     typeof ctx.config.listId === "string" ? ctx.config.listId : undefined;
   if (!listId) {
@@ -125,4 +165,5 @@ export default defineHook<ArtifactLike, ClickUpCreateConfig>(async (ctx) => {
     report: `ClickUp API returned ${response.status} on task create`,
     data: { listId, status: response.status, body: response.body },
   };
+  },
 });

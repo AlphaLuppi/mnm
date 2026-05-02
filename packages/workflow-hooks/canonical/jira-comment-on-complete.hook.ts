@@ -76,7 +76,39 @@ function mdToAdf(text: string): unknown {
   };
 }
 
-export default defineHook<ArtifactLike, JiraCommentConfig>(async (ctx) => {
+export default defineHook<ArtifactLike, JiraCommentConfig>({
+  name: "jira-comment-on-complete",
+  description:
+    "Posts a comment on a Jira issue when a workflow step completes successfully. Reads the issue key from config (or from a path inside the artifact data) and renders a Mustache-light template into Atlassian Document Format.",
+  phase: "after_step",
+  requiredScopes: ["read:jira-work", "write:jira-work"],
+  configSchema: {
+    issueKey: {
+      type: "string",
+      description:
+        "Jira issue key (e.g. \"PROJ-123\"). Required unless issueKeyFromArtifactPath is set.",
+    },
+    issueKeyFromArtifactPath: {
+      type: "string",
+      description:
+        "Dot-path inside artifact.data to read the issue key from (e.g. \"metadata.jira_key\").",
+    },
+    providerSlug: {
+      type: "string",
+      description: "Connector slug. Defaults to \"jira\".",
+    },
+    commentTemplate: {
+      type: "string",
+      description:
+        "Mustache-light template for the comment body. Tokens: {{step.id}}, {{run.id}}, {{run.git_tag}}, {{artifact.<path>}}.",
+    },
+  },
+  defaultConfig: {
+    issueKey: "PROJ-123",
+    commentTemplate:
+      "Step `{{step.id}}` completed in run `{{run.id}}` (workflow `{{run.workflow_name}}@{{run.git_tag}}`).",
+  },
+  execute: async (ctx) => {
   const issueKey =
     typeof ctx.config.issueKey === "string" && ctx.config.issueKey.length > 0
       ? ctx.config.issueKey
@@ -131,4 +163,5 @@ export default defineHook<ArtifactLike, JiraCommentConfig>(async (ctx) => {
     report: `Jira API returned ${response.status} for ${issueKey}`,
     data: { issueKey, status: response.status, body: response.body },
   };
+  },
 });
