@@ -52,3 +52,11 @@ export {
 // Resolver — implemented in T2.3 (this file ships in T2.2 to
 // expose the package shape; tests in T2.3 will exercise it)
 export { resolveHookRef, type ResolveHookRefCtx } from "./resolver.js";
+
+// Canonical hook registry (T2.4) — filesystem-backed loader for the 4
+// canonical hooks shipped with the package. Consumed by the resolver
+// when a ref starts with `canonical:`.
+export {
+  loadCanonical,
+  listCanonicalHooks,
+} from "./canonical-registry.js";

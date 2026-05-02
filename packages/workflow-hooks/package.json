@@ -23,7 +23,8 @@
     "types": "./dist/index.d.ts"
   },
   "files": [
-    "dist"
+    "dist",
+    "canonical"
   ],
   "scripts": {
     "build": "tsc",
