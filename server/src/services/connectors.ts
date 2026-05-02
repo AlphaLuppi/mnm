@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import * as jose from "jose";
 import type { Db } from "@mnm/db";
 import {
   oauthConnectors,
@@ -9,6 +10,109 @@ import {
 import { logger } from "../middleware/logger.js";
 import { badRequest, conflict, notFound } from "../errors.js";
 import { encryptSecret, decryptSecret } from "./secret-crypto.js";
+
+// ─── State JWT (OAuth flow) — HS256, 10 min, BETTER_AUTH_SECRET ───────────────
+
+export interface ConnectorStatePayload {
+  companyId: string;
+  connectorId: string;
+  userId: string;
+  redirectAfter?: string;
+}
+
+const STATE_TTL_SECONDS = 10 * 60;
+
+function getStateSecret(): Uint8Array {
+  const secret =
+    process.env.BETTER_AUTH_SECRET ??
+    process.env.MNM_AGENT_JWT_SECRET ??
+    (process.env.NODE_ENV === "production" ? null : "mnm-dev-secret");
+  if (!secret) {
+    throw new Error("FATAL: BETTER_AUTH_SECRET must be set in production");
+  }
+  return new TextEncoder().encode(secret);
+}
+
+export async function signConnectorState(payload: ConnectorStatePayload): Promise<string> {
+  const secret = getStateSecret();
+  return new jose.SignJWT(payload as unknown as jose.JWTPayload)
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setIssuedAt()
+    .setExpirationTime(`${STATE_TTL_SECONDS}s`)
+    .sign(secret);
+}
+
+export async function verifyConnectorState(
+  token: string,
+): Promise<ConnectorStatePayload> {
+  const secret = getStateSecret();
+  const { payload } = await jose.jwtVerify(token, secret);
+  if (
+    typeof payload.companyId !== "string" ||
+    typeof payload.connectorId !== "string" ||
+    typeof payload.userId !== "string"
+  ) {
+    throw new Error("Invalid state payload shape");
+  }
+  return {
+    companyId: payload.companyId,
+    connectorId: payload.connectorId,
+    userId: payload.userId,
+    redirectAfter:
+      typeof payload.redirectAfter === "string" ? payload.redirectAfter : undefined,
+  };
+}
+
+// ─── H1: redirect_after whitelist ─────────────────────────────────────────────
+
+/**
+ * Validates `redirectAfter` against open redirect:
+ *  - relative path beginning with `/` but NOT `//` (protocol-relative)
+ *  - absolute URL whose origin matches MNM_PUBLIC_URL exactly
+ * Returns the safe redirect path/URL or null if rejected.
+ */
+export function validateRedirectAfter(
+  redirectAfter: string | undefined,
+  publicUrl: string,
+): string | null {
+  if (!redirectAfter) return null;
+  if (redirectAfter.startsWith("/")) {
+    // Block protocol-relative `//evil.example.com`
+    if (redirectAfter.startsWith("//")) return null;
+    return redirectAfter;
+  }
+  // Absolute URL — must match MNM_PUBLIC_URL origin exactly
+  try {
+    const target = new URL(redirectAfter);
+    const allowed = new URL(publicUrl);
+    if (target.origin === allowed.origin) {
+      return redirectAfter;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildAuthorizeUrl(args: {
+  connector: typeof oauthConnectors.$inferSelect;
+  state: string;
+}): string {
+  if (!args.connector.authorizationUrl || !args.connector.clientId) {
+    throw new Error("Connector missing authorization_url or client_id");
+  }
+  const url = new URL(args.connector.authorizationUrl);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", args.connector.clientId);
+  url.searchParams.set("state", args.state);
+  if (args.connector.redirectUri) {
+    url.searchParams.set("redirect_uri", args.connector.redirectUri);
+  }
+  if (args.connector.scopes && args.connector.scopes.length > 0) {
+    url.searchParams.set("scope", args.connector.scopes.join(" "));
+  }
+  return url.toString();
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

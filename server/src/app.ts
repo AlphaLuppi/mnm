@@ -55,6 +55,8 @@ import { jiraImportRoutes } from "./routes/jira-import.js";
 import { traceRoutes } from "./routes/traces.js";
 // CONFIG-LAYERS: credentials + OAuth
 import { credentialRoutes } from "./routes/credentials.js";
+// CONNECTORS-PLATFORM: OAuth callback dispatcher (NON tenant-scoped — provider can't know companyId at redirect time)
+import { connectorsCallbackRoutes } from "./routes/connectors-callback.js";
 // POD-04: Sandbox routes (renamed from pods)
 import { sandboxRoutes } from "./routes/sandboxes.js";
 // POD-05: Sandbox exec (chat console, renamed from pod-exec)
@@ -286,6 +288,14 @@ export async function createApp(
     app.all("/api/auth/*authPath", opts.betterAuthHandler);
   }
   app.use(llmRoutes(db));
+  // Connectors OAuth callback — NON tenant-scoped (the provider redirect doesn't know companyId,
+  // we recover it from the signed state JWT). Mounted BEFORE api.use("/companies/:companyId", ...)
+  // so it doesn't inherit the company-scoped middleware chain.
+  app.use(
+    connectorsCallbackRoutes(db, {
+      publicUrl: process.env.MNM_PUBLIC_URL ?? "http://localhost:3100",
+    }),
+  );
 
   // Rate limiting — per tenant + per actor for multi-tenant isolation
   const apiRateLimiter = createRateLimiter({
