@@ -60,6 +60,17 @@ export type {
 } from "./dashboard.js";
 export type { ActivityEvent } from "./activity.js";
 export type { SidebarBadges } from "./sidebar-badges.js";
+// VISIBILITY: 3-tier model (private / tags / principals / company-enforced)
+export {
+  VISIBILITY_TIERS,
+  EMPTY_VISIBILITY_VALUE,
+  isVisibility,
+} from "./visibility.js";
+export type {
+  Visibility,
+  VisibilityResource,
+  VisibilityValue,
+} from "./visibility.js";
 export type {
   CompanyMembership,
   Invite,

@@ -40,56 +40,84 @@ CREATE TABLE <entity>_principals (
 -- ou colonne dédiée si on veut superposer "enforced + visible à un sous-groupe".
 ```
 
-## Service helper (template)
+## Service helper (implémentation)
 
-Un seul helper réutilisable pour calculer l'access :
+Un seul helper pur dans [`server/src/services/visibility.ts`](../../server/src/services/visibility.ts), générique sur les tables de jointure. Chaque feature concrète (Workflow Hooks, Step Assignments, …) fournit ses propres `hasTagIntersection` / `isPrincipalListed` pour ses tables `<entity>_tags` / `<entity>_principals` :
 
 ```ts
 // server/src/services/visibility.ts
-type VisibilityCheck = {
-  resourceId: string;
-  visibility: 'private' | 'tags' | 'principals' | 'company';
-  createdByPrincipalId: string;
+import type { VisibilityResource } from "@mnm/shared";
+
+export type VisibilityResolvers = {
+  hasTagIntersection: (resourceId: string, principalId: string) => Promise<boolean>;
+  isPrincipalListed:  (resourceId: string, principalId: string) => Promise<boolean>;
 };
 
 export async function canPrincipalAccess(
-  db: Db,
+  resource: VisibilityResource,
   principalId: string,
-  resource: VisibilityCheck,
+  resolvers: VisibilityResolvers,
 ): Promise<boolean> {
-  // Tier 3 : company-enforced > tout le reste
-  if (resource.visibility === 'company') return true;
-
-  // Tier 1 : creator
-  if (resource.createdByPrincipalId === principalId) return true;
-
-  // Tier 2b : assigné explicite
-  if (resource.visibility === 'principals') {
-    return await isPrincipalLinked(db, resource.resourceId, principalId);
+  if (resource.visibility === "company") return true;             // Tier 3
+  if (resource.createdByPrincipalId === principalId) return true; // Tier 1
+  if (resource.visibility === "principals") {
+    return resolvers.isPrincipalListed(resource.id, principalId); // Tier 2b
   }
-
-  // Tier 2a : intersection de tags
-  if (resource.visibility === 'tags') {
-    return await tagsIntersect(db, resource.resourceId, principalId);
+  if (resource.visibility === "tags") {
+    return resolvers.hasTagIntersection(resource.id, principalId); // Tier 2a
   }
+  return false;                                                   // Tier 1 (private), non créateur
+}
+```
 
-  return false;
+L'implémentation est **pure** (testable sans DB) et **court-circuite** dans l'ordre tier 3 → tier 1 → tier 2b → tier 2a — un creator sur une ressource `principals` n'entraîne aucun roundtrip DB.
+
+Côté feature, on wrap le helper avec ses queries Drizzle :
+
+```ts
+// server/src/services/workflow-hooks.ts (à venir, plan T2.6)
+import { canPrincipalAccess } from "./visibility.js";
+import { workflowHooksConfigTags, workflowHooksConfigPrincipals } from "@mnm/db";
+
+export async function canPrincipalAccessHookConfig(
+  db: Db,
+  config: VisibilityResource,
+  principalId: string,
+) {
+  return canPrincipalAccess(config, principalId, {
+    hasTagIntersection: (configId, pid) => /* SELECT ... JOIN principal_tags ... */,
+    isPrincipalListed:  (configId, pid) => /* SELECT 1 FROM workflow_hooks_config_principals WHERE ... */,
+  });
 }
 ```
 
 ## UI : `<VisibilityPicker>` partagé
 
-Composant unique dans `ui/src/components/visibility/VisibilityPicker.tsx`. Toute feature avec un partage l'utilise. Il propose les 4 options et expose les sous-pickers tag/principal nécessaires.
+Composant unique dans [`ui/src/components/visibility/VisibilityPicker.tsx`](../../ui/src/components/visibility/VisibilityPicker.tsx). Toute feature avec un partage l'utilise. Il propose les 4 options sous forme de Tabs et révèle conditionnellement le `<TagSelector>` ou `<PrincipalSelector>` selon le tier choisi.
 
 ```tsx
+import { VisibilityPicker } from "@/components/visibility/VisibilityPicker";
+import { EMPTY_VISIBILITY_VALUE, type VisibilityValue } from "@mnm/shared";
+
+const [value, setValue] = useState<VisibilityValue>(EMPTY_VISIBILITY_VALUE);
+
 <VisibilityPicker
-  value={visibility}
-  tagIds={tagIds}
-  principalIds={principalIds}
-  companyEnforced={isAdmin}    // l'option Tier 3 n'est cliquable que si l'utilisateur a la perm
-  onChange={(next) => ...}
-/>
+  value={value}
+  onChange={setValue}
+  companyId={companyId}
+  // Le tier 3 (company enforced) n'est cliquable que si l'user porte
+  // la perm `<feature>:enforce` (ex: `hooks:enforce`).
+  companyEnforcedAvailable={hasPermission("hooks:enforce")}
+/>;
 ```
+
+Pour afficher l'état dans une liste read-only, utiliser [`<VisibilityBadge>`](../../ui/src/components/visibility/VisibilityBadge.tsx) :
+
+```tsx
+<VisibilityBadge visibility={config.visibility} count={config.tagIds.length} />
+```
+
+Le composant lit ses options de membres / tags via les composants partagés [`<TagSelector>`](../../ui/src/components/principals/TagSelector.tsx) et [`<PrincipalSelector>`](../../ui/src/components/principals/PrincipalSelector.tsx) — qui consomment respectivement `tagsApi.list(companyId)` et `accessApi.listMembers(companyId)`. Les tag/principal ids sélectionnés sont conservés à travers les transitions (un toggle `tags` ↔ `principals` ne perd pas la sélection précédente).
 
 ## API : champ `effectiveAccess`
 

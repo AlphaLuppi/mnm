@@ -71,6 +71,12 @@ export {
   DEPLOYMENT_STATUSES,
   DEPLOYMENT_PROJECT_TYPES,
 } from "./types/index.js";
+// VISIBILITY: 3-tier model
+export {
+  VISIBILITY_TIERS,
+  EMPTY_VISIBILITY_VALUE,
+  isVisibility,
+} from "./types/index.js";
 
 export type {
   Company,
@@ -116,6 +122,10 @@ export type {
   DashboardBreakdown,
   ActivityEvent,
   SidebarBadges,
+  // VISIBILITY: 3-tier model
+  Visibility,
+  VisibilityResource,
+  VisibilityValue,
   CompanyMembership,
   Invite,
   JoinRequest,
