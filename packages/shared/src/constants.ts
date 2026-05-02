@@ -300,6 +300,11 @@ export const LIVE_EVENT_TYPES = [
   "thread_interaction.answered",
   "thread_interaction.expired",
   "thread_interaction.superseded",
+  // CONNECTORS-PLATFORM Sprint 2 — fire when a user's per-connector status
+  // flips (connected → disconnected → expired → revoked). Frontend consumers
+  // invalidate `queryKeys.connectors.myAccounts(companyId)`. Visibility =
+  // private (only the affected user sees it).
+  "user.connector_status_changed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

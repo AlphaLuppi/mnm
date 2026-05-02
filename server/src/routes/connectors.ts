@@ -5,6 +5,7 @@ import { requirePermission } from "../middleware/require-permission.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { connectorService, ConnectorError } from "../services/connectors.js";
 import { CONNECTOR_TEMPLATES, findTemplate } from "../services/connector-templates.js";
+import { publishLiveEvent } from "../services/live-events.js";
 import { badRequest, forbidden, notFound, unprocessable } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 
@@ -247,6 +248,12 @@ export function connectorRoutes(db: Db) {
       );
       try {
         await svc.setUserApiKey({ userId, connectorId, companyId, key });
+        publishLiveEvent({
+          companyId,
+          type: "user.connector_status_changed",
+          payload: { userId, connectorId, status: "connected" },
+          visibility: { scope: "actor-only", actorId: userId },
+        });
         res.status(204).end();
       } catch (err) {
         if (err instanceof ConnectorError) {
@@ -267,6 +274,12 @@ export function connectorRoutes(db: Db) {
       const userId = req.actor.userId!;
       try {
         await svc.disconnectUser({ userId, connectorId, companyId });
+        publishLiveEvent({
+          companyId,
+          type: "user.connector_status_changed",
+          payload: { userId, connectorId, status: "disconnected" },
+          visibility: { scope: "actor-only", actorId: userId },
+        });
         res.status(204).end();
       } catch (err) {
         mapConnectorError(err);

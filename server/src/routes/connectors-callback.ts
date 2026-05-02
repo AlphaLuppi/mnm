@@ -8,6 +8,7 @@ import {
   validateRedirectAfter,
 } from "../services/connectors.js";
 import { decryptSecret } from "../services/secret-crypto.js";
+import { publishLiveEvent } from "../services/live-events.js";
 
 interface CallbackOptions {
   publicUrl: string;
@@ -204,6 +205,21 @@ export function connectorsCallbackRoutes(db: Db, opts: CallbackOptions): Router 
             method: "oauth2",
             scopes: scopesGranted,
           },
+        });
+
+        // T8 SSE — fire `user.connector_status_changed` (actor-only) so the
+        // user's open `/settings/accounts` tab refreshes without polling.
+        // Outside the tx because publishLiveEvent doesn't depend on DB state.
+        publishLiveEvent({
+          companyId,
+          type: "user.connector_status_changed",
+          payload: {
+            userId,
+            connectorId: connector.id,
+            providerSlug: connector.providerSlug,
+            status: "connected",
+          },
+          visibility: { scope: "actor-only", actorId: userId },
         });
 
         // H1 redirect_after whitelist

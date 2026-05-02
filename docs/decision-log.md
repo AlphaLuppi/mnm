@@ -165,6 +165,24 @@ Métadonnées en DB (`workflow_hooks_config`) : credential layer id, visibility 
 
 **Code (à venir) :** `packages/workflow-hooks/`, `<workflow-repo>/hooks/`, `server/src/services/workflow-hooks.ts`. Spec : [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md).
 
+### 4.6 Connectors Platform — hub OAuth user-level (Sprint 1+2 livré 2026-05-02)
+
+**Décision :** transformer MnM en hub d'identité OAuth user-level. Les hooks, agents Claude Code via MCP et background jobs (Nightly Synthesis) consultent les tokens user pour agir au nom de l'utilisateur — invariant traçabilité humaine §1.7.
+
+**Architecture :**
+- 4 tables MnM-owned chiffrées AES-256-GCM (`oauth_connectors`, `connector_tokens`, `user_api_keys`, `oauth_connectors_audit`) — séparées de `account` BetterAuth qui stocke les tokens en clair (réservé aux flows de login natifs GitLab/Microsoft).
+- `connectorService.getUserToken(userId, providerSlug, companyId)` central — C2 cross-tenant guard obligatoire, B1 advisory lock + re-read inside lock pour le refresh OAuth concurrent, MED-B1 nullification du refresh_token sur 401 provider, HOST-ONLY (jamais sortir le token côté isolate).
+- Callback dispatcher générique `/api/connectors/callback` — state JWT HS256 (BETTER_AUTH_SECRET, 10min TTL), H1 redirect_after whitelist (`/foo` accepté, `//evil` rejeté, origin strict `MNM_PUBLIC_URL` pour absolute). HIGH-A1 cross-tenant guard via `assertUserInCompany` AVANT upsert. HIGH-A3 `db.transaction()` + `set_config(..., is_local=true)` pour pin la connexion.
+- 10 templates pré-définis (Jira, GitHub, GitLab, Microsoft, Google, Slack, ClickUp, Linear, Notion, OpenAI) — admin pick template → wizard 2 étapes → DB write.
+- 5 MCP tools (`list_connectors`, `get_connector_status`, `connect_user_to_connector`, `wait_for_connection`, `set_user_api_key`) + REST parity (10 endpoints admin + user self-service).
+- SSE event `user.connector_status_changed` (visibility actor-only) pour invalidation client-side sans polling.
+
+**Pourquoi vivant :** préalable obligatoire pour [`enterprise-pilot-foundation`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md) (les hooks Jira+ClickUp en dépendent). Architecture qui paye dès le 3e provider — hardcoder N providers = N×2j de dette.
+
+**Divergence crypto à connaître** : `secret-crypto.ts` (extrait de `credential.ts` pour le partage) chiffre des **string brutes** (tokens OAuth, API keys). `credential.ts` chiffre des **`Record<string, unknown>` JSON** (credentials structurées avec multi-fields). Les deux utilisent AES-256-GCM avec la même clé `MNM_SECRETS_KEY`. Acceptable parce que les semantics sont propres à chaque chemin (un token est string, une credential est typed structure). Le pattern partagé (helper `secret-crypto.ts`) garantit la cohérence du primitif crypto.
+
+**Code :** `server/src/services/connectors.ts`, `server/src/services/secret-crypto.ts`, `server/src/services/connector-templates.ts`, `server/src/routes/connectors.ts` + `connectors-callback.ts`, `server/src/mcp/tools/connectors.tool.ts`, `server/src/auth/dynamic-providers.ts`, `ui/src/pages/Connectors.tsx` + `SettingsAccounts.tsx`. Migration `0079_connectors_platform.sql`.
+
 ### 4.3 MCP Server — parité UI ↔ MCP, consentement granulaire
 
 **Décision :** 68 tools + 10 resources sur 14 domaines. Transport HTTP streamable + SSE legacy. OAuth 2.1 PKCE, Dynamic Client Registration, écran de consentement React granulaire (read/write/admin par domaine). Filtrage dynamique par permissions. Rate limiting + semaphore DB (15 concurrent).
