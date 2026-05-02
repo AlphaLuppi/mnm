@@ -149,7 +149,7 @@ Exclusion intentionnelle de l'identité Claude (cohérent avec la règle projet 
 
 - [x] ~~Réserver/activer un catch-all sur `@alphaluppi.fr` pour les 6 alias~~ — résolu en §6.7 : on simplifie à 1 seul email public (`tom@alphaluppi.fr`).
 - [x] ~~Générer SBOM complet (script à écrire)~~ — résolu en §6.6 : script `scripts/sbom.sh` livré.
-- [ ] Audit secret-scan une dernière fois avant `gh repo edit --visibility public`
+- [x] ~~Audit secret-scan une dernière fois avant `gh repo edit --visibility public`~~ — résolu en §6.8 : 0 vrai secret trouvé, `.gitleaksignore` figé.
 
 ### 6.5 Decision update (2026-05-02 — même jour, après §6.2)
 
@@ -220,3 +220,36 @@ Exclusion intentionnelle de l'identité Claude (cohérent avec la règle projet 
 - Si le volume de mails publics devient ingérable (>50/mois), on pourra introduire `contact@` ou `team@` comme overlay sans casser les anciennes mentions (un "Closed" auto-reply suffirait sur `tom@` qui redirige vers `contact@`).
 
 **Action effectuée** : remplacement de tous les `(security|licensing|cla|conduct|trademarks|legal)@alphaluppi.fr` par `tom@alphaluppi.fr` dans les 10 fichiers OSS publics + simplification du bloc "Contact" du `ee/LICENSE`.
+
+### 6.8 Secret-scan (gitleaks)
+
+**Outil** : `gitleaks` 8.30.1 (installé via `winget install --id gitleaks.gitleaks`).
+
+**Méthode** :
+1. Scan worktree (`gitleaks detect --no-git`) → 6 findings.
+2. Scan full history (`gitleaks detect`, 6160 commits sur ~180 MB) → 48 findings.
+3. Analyse manuelle de chaque finding (lecture des sources via `git show`).
+4. Tri faux positifs vs vrais secrets.
+
+**Résultat du tri** : **0 vrai secret**. Tous les findings sont des faux positifs catégorisés ainsi :
+
+| Catégorie | Pattern flagué | Réalité |
+|---|---|---|
+| `_bmad/_config/files-manifest.csv` (24 lignes×4 commits) | Hash haute entropie | SHA-256 de file integrity, pas une API key |
+| `_bmad/.../api-testing-patterns.md` (1 ligne×4 commits) | `expiredToken = 'eyJ...'` | JWT canonique de jwt.io pour test "should reject expired" |
+| `docs/deploy/secrets.md` (2 lignes) | `secretId: "uuid"` | Placeholder UUID dans une doc d'exemple |
+| `ui/src/api/onboarding.ts` + `jira-import.ts` (3 commits) | `// onb-s01-api-...` | Commentaires de tracking gitnexus |
+| `ui/storybook-static/assets/*.js` (2 commits) | `e.key,REDACTED` | Variable lexer Lexical dans JS minifié |
+| `server/src/__tests__/redaction.test.ts` + `heartbeat-...test.ts` (4 commits) | JWT + GitHub token | Fixtures synthétiques pour tester la redaction (l'ironie) |
+| `.env` (worktree) | `BETTER_AUTH_SECRET=...` | Vrais secrets MAIS `.env` est gitignored, jamais commité |
+
+**Vérification `.env` jamais commit** : `git log --all --oneline -- .env` → 0 ligne. ✅
+
+**Action** : création de `.gitleaksignore` qui fige les 48 fingerprints history + 6 fingerprints worktree, avec une justification commentée par catégorie. Re-scan post-`.gitleaksignore` : **0 leak en worktree, 0 leak en history**.
+
+**Suivi recommandé après publication publique** :
+- Ajouter un job CI GitHub Actions qui run `gitleaks` sur chaque PR (`.github/workflows/gitleaks.yml`).
+- Configurer Dependabot + Secret Scanning dans Settings → Code security après ouverture du repo.
+- Tom installe gitleaks en pre-commit hook local : `gitleaks protect --staged` (optionnel).
+
+**Conclusion** : le repo est **safe à publier en l'état**. Aucune réécriture d'historique nécessaire. Aucun secret à rotate.

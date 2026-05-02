@@ -1,0 +1,104 @@
+# gitleaks ignore file
+#
+# Fingerprints listed below are documented false positives confirmed during
+# the open-source readiness audit (2026-05-02 — see
+# docs/superpowers/plans/2026-05-02-open-source-audit-fixes.md §6.8).
+#
+# Re-scan the repo with: bun run sbom (no), or: gitleaks detect --source=.
+# A clean run should report 0 leaks once this file is in place.
+#
+# How to extend: append the new fingerprint and a one-line justification.
+# Format: <commit-sha>:<file>:<rule-id>:<line>  (history)
+#         <file>:<rule-id>:<line>               (worktree)
+
+# ---------------------------------------------------------------------------
+# Worktree (current files)
+# ---------------------------------------------------------------------------
+
+# Tracking comments for gitnexus (// onb-s01-api-...) flagged as high-entropy.
+ui/src/api/onboarding.ts:generic-api-key:17
+ui/src/api/jira-import.ts:generic-api-key:39
+
+# .gitnexus/ is a local code-intelligence index, fully gitignored. The "lbug"
+# file is a stale debug log that contains the same gitnexus tracking IDs.
+.gitnexus/lbug:generic-api-key:88574
+.gitnexus/lbug:generic-api-key:88733
+
+# .env contains real local-dev secrets but is gitignored — never committed.
+.env:generic-api-key:1
+.env:generic-api-key:2
+
+# ---------------------------------------------------------------------------
+# History (commits in master)
+# ---------------------------------------------------------------------------
+
+# _bmad/_config/files-manifest.csv — SHA-256 file checksums, NOT API keys.
+# (BMAD removed in commit 2026-05-01-bmad-removal-doc-rebuild)
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/_config/files-manifest.csv:generic-api-key:391
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/_config/files-manifest.csv:generic-api-key:392
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/_config/files-manifest.csv:generic-api-key:394
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/_config/files-manifest.csv:generic-api-key:410
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/_config/files-manifest.csv:generic-api-key:502
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/_config/files-manifest.csv:generic-api-key:525
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/_config/files-manifest.csv:generic-api-key:391
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/_config/files-manifest.csv:generic-api-key:392
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/_config/files-manifest.csv:generic-api-key:394
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/_config/files-manifest.csv:generic-api-key:410
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/_config/files-manifest.csv:generic-api-key:502
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/_config/files-manifest.csv:generic-api-key:525
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/_config/files-manifest.csv:generic-api-key:391
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/_config/files-manifest.csv:generic-api-key:392
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/_config/files-manifest.csv:generic-api-key:394
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/_config/files-manifest.csv:generic-api-key:410
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/_config/files-manifest.csv:generic-api-key:502
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/_config/files-manifest.csv:generic-api-key:525
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/_config/files-manifest.csv:generic-api-key:391
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/_config/files-manifest.csv:generic-api-key:392
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/_config/files-manifest.csv:generic-api-key:394
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/_config/files-manifest.csv:generic-api-key:410
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/_config/files-manifest.csv:generic-api-key:502
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/_config/files-manifest.csv:generic-api-key:525
+
+# _bmad/.../api-testing-patterns.md — synthetic JWT example for a
+# "should reject expired token" test pattern, not a real token.
+cdbc8bd6254123c2cfe2bf1dd37a34ea1d4a0336:_bmad/tea/testarch/knowledge/api-testing-patterns.md:generic-api-key:681
+d72fce3dda3162fbe29479ac2fe1ee90db8f615c:_bmad/tea/testarch/knowledge/api-testing-patterns.md:generic-api-key:681
+e40d1feb427f56be9cfc1feec80e9afa288ca5e2:_bmad/tea/testarch/knowledge/api-testing-patterns.md:generic-api-key:681
+e48189a3d7538e7aa4c33d0aa066bd447d4f4226:_bmad/tea/testarch/knowledge/api-testing-patterns.md:generic-api-key:681
+
+# docs/deploy/secrets.md — sample UUID in a doc explaining the secret_ref
+# format (secretId field with a placeholder UUID). Doc has been removed.
+02dc46e78214083acebba040e9b57833596add9d:docs/deploy/secrets.md:generic-api-key:78
+09d2ef1a37c9097b983a9705ff30f5c2225fc880:docs/deploy/secrets.md:generic-api-key:76
+
+# ui/src/api/onboarding.ts + jira-import.ts — gitnexus tracking comments
+# (// onb-s01-api-..., // onb-s03-api-...) flagged as high-entropy.
+1f5e0bc94120fd8ed9b335c4089f5461fdcb6878:ui/src/api/onboarding.ts:generic-api-key:17
+28db03983a52cd409bd4a479175b20ddbfe8262a:ui/src/api/onboarding.ts:generic-api-key:17
+401a2fed843e1779a066917068006bf846bf2ec9:ui/src/api/onboarding.ts:generic-api-key:17
+3c523f8c43555a99983ee97b4691b7ab7ec7bad8:ui/src/api/jira-import.ts:generic-api-key:39
+ceddd89cae7c85ef89262129d6479c8644fcfa19:ui/src/api/jira-import.ts:generic-api-key:39
+fc5cc9f96585b5fe73695353febe35e6b5585375:ui/src/api/jira-import.ts:generic-api-key:39
+
+# ui/storybook-static/assets/*.js — minified Storybook build output, the
+# "secrets" are Lexical editor internal variable names (e.key, etc).
+# storybook-static/ has been removed from the worktree.
+9b784875251ec9bf2f053a51cee92b09f4dc77cb:ui/storybook-static/assets/MarkdownEditor-BtfKiA3v.js:generic-api-key:51
+9b784875251ec9bf2f053a51cee92b09f4dc77cb:ui/storybook-static/assets/iframe-aoIC7NDi.js:generic-api-key:1046
+c19197581b2ec7f9e94acf2aa586c3807c8bb4fa:ui/storybook-static/assets/MarkdownEditor-BtfKiA3v.js:generic-api-key:51
+c19197581b2ec7f9e94acf2aa586c3807c8bb4fa:ui/storybook-static/assets/iframe-aoIC7NDi.js:generic-api-key:1046
+
+# server/src/__tests__/redaction.test.ts +
+# server/src/__tests__/heartbeat-active-run-output-watchdog.test.ts — synthetic
+# JWT (the canonical jwt.io example: {sub: "1234567890"}) and synthetic
+# GitHub token (ghp_1234567890abcdef...), used as test fixtures to verify
+# the log-redaction logic. Real-time irony: tests of redaction contain the
+# very tokens that need redacting.
+321b90205f8fa68b476a7591022a9249426de902:server/src/__tests__/heartbeat-active-run-output-watchdog.test.ts:jwt:219
+321b90205f8fa68b476a7591022a9249426de902:server/src/__tests__/redaction.test.ts:jwt:68
+5a0c1979cf439d434c527de4935687a178be4b8e:server/src/__tests__/heartbeat-active-run-output-watchdog.test.ts:jwt:220
+5a0c1979cf439d434c527de4935687a178be4b8e:server/src/__tests__/redaction.test.ts:jwt:68
+600839b4773ac0d4e4f5e30fc722e8cd58323382:server/src/__tests__/heartbeat-active-run-output-watchdog.test.ts:jwt:219
+600839b4773ac0d4e4f5e30fc722e8cd58323382:server/src/__tests__/redaction.test.ts:jwt:68
+e0b8c392a56d7cd866fb2f38545726d454ef594e:server/src/__tests__/heartbeat-active-run-output-watchdog.test.ts:jwt:219
+e0b8c392a56d7cd866fb2f38545726d454ef594e:server/src/__tests__/redaction.test.ts:jwt:68
