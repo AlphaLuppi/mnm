@@ -5,12 +5,15 @@ import { Loader2, Save, Trash2 } from "lucide-react";
 import {
   hooksApi,
   type CreateHookConfigPayload,
+  type HookCatalog,
+  type HookCatalogEntry,
   type HookConfig,
   type HookExecution,
   type HookPhase,
   type UpdateHookConfigPayload,
 } from "../api/hooks";
 import { queryKeys } from "../lib/queryKeys";
+import { formatApiError } from "../lib/api-errors";
 import {
   EMPTY_VISIBILITY_VALUE,
   type VisibilityValue,
@@ -73,6 +76,29 @@ export function emptyForm(): FormState {
     enforced: false,
     enforcedPhases: [],
   };
+}
+
+/**
+ * Pure helper — look up a catalog entry by full ref ("canonical:foo",
+ * "shared:bar", "local:baz"). Exported for unit tests.
+ *
+ * Returns `undefined` if the ref is invalid, the catalog hasn't loaded yet,
+ * or no entry matches. Callers fall back to `{}` for the defaultConfig
+ * placeholder in that case (P2.1 in the P4-E plan — the canonical hooks
+ * ship richer metadata in a follow-up task).
+ */
+export function findCatalogEntry(
+  catalog: HookCatalog | undefined,
+  ref: string,
+): HookCatalogEntry | undefined {
+  if (!catalog) return undefined;
+  const trimmed = ref.trim();
+  const colon = trimmed.indexOf(":");
+  if (colon < 0) return undefined;
+  const source = trimmed.slice(0, colon) as keyof HookCatalog;
+  const list = catalog[source];
+  if (!Array.isArray(list)) return undefined;
+  return list.find((e) => e.ref === trimmed);
 }
 
 export function configToForm(c: HookConfig): FormState {
@@ -180,7 +206,7 @@ export function HookConfigDetail({
       });
       onClose();
     },
-    onError: (err: Error) => setSubmitError(err.message),
+    onError: (err: unknown) => setSubmitError(formatApiError(err)),
   });
 
   const updateMutation = useMutation({
@@ -194,7 +220,7 @@ export function HookConfigDetail({
         queryKey: queryKeys.hooks.detail(companyId, editingId!),
       });
     },
-    onError: (err: Error) => setSubmitError(err.message),
+    onError: (err: unknown) => setSubmitError(formatApiError(err)),
   });
 
   const deleteMutation = useMutation({
@@ -205,8 +231,37 @@ export function HookConfigDetail({
       });
       onClose();
     },
-    onError: (err: Error) => setSubmitError(err.message),
+    onError: (err: unknown) => setSubmitError(formatApiError(err)),
   });
+
+  // ─── P2.1 — pre-fill defaultConfigJson when the user picks a hookRef ────
+  // Lazy fetch the catalog only when creating; edit mode reuses the saved
+  // defaultConfigJson. The catalog metadata is hydrated by the canonical
+  // hooks (P4-G) — when missing we fall back to `{}`.
+  const { data: catalog } = useQuery({
+    queryKey: queryKeys.hooks.catalog(companyId),
+    queryFn: () => hooksApi.catalog(companyId),
+    enabled: isCreating && !!companyId,
+  });
+
+  useEffect(() => {
+    if (!isCreating) return;
+    const ref = form.hookRef.trim();
+    if (!ref) return;
+    // Only auto-fill while the textarea still holds the empty placeholder.
+    const trimmed = form.defaultConfigJsonRaw.trim();
+    if (trimmed !== "" && trimmed !== "{}") return;
+    const entry = findCatalogEntry(catalog, ref);
+    const defaults = entry?.defaultConfig ?? {};
+    setForm((f) => ({
+      ...f,
+      defaultConfigJsonRaw: JSON.stringify(defaults, null, 2),
+    }));
+    // Intentionally omit `form.defaultConfigJsonRaw` from deps so the prefill
+    // doesn't fight the user's edits — it only fires when the ref or catalog
+    // changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreating, form.hookRef, catalog]);
 
   const payload = useMemo(() => formToCreatePayload(form), [form]);
   const canSubmit =

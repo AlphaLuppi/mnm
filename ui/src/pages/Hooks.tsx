@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Webhook, Lock } from "lucide-react";
 
 import { hooksApi, type HookConfig } from "../api/hooks";
@@ -7,17 +7,23 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { usePermissions } from "../hooks/usePermissions";
 import { queryKeys } from "../lib/queryKeys";
+import { formatApiError } from "../lib/api-errors";
 
 import { PageSkeleton } from "../components/PageSkeleton";
 import { EmptyState } from "../components/EmptyState";
 import { VisibilityBadge } from "../components/visibility/VisibilityBadge";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { HookConfigDetail } from "./HookConfigDetail";
 import { HookCatalog } from "./HookCatalog";
@@ -140,6 +146,9 @@ export function Hooks() {
                 <HookConfigRow
                   key={c.id}
                   config={c}
+                  companyId={selectedCompanyId}
+                  canManage={canManage}
+                  canEnforce={canEnforce}
                   onClick={() => setEditingConfigId(c.id)}
                 />
               ))}
@@ -180,17 +189,83 @@ export function Hooks() {
 
 function HookConfigRow({
   config,
+  companyId,
+  canManage,
+  canEnforce,
   onClick,
 }: {
   config: HookConfig;
+  companyId: string;
+  canManage: boolean;
+  canEnforce: boolean;
   onClick: () => void;
 }) {
+  const queryClient = useQueryClient();
+  const [rowError, setRowError] = useState<string | null>(null);
+
   const visibilityCount =
     config.visibility === "tags"
       ? config.tagIds.length
       : config.visibility === "principals"
         ? config.principalIds.length
         : undefined;
+
+  // Optimistic toggle for `enabled` / `enforced`. Rolls back on error.
+  const toggleMutation = useMutation({
+    mutationFn: (patch: { enabled?: boolean; enforced?: boolean }) =>
+      hooksApi.update(companyId, config.id, patch),
+    onMutate: async (patch) => {
+      setRowError(null);
+      const listKey = queryKeys.hooks.list(companyId);
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous =
+        queryClient.getQueryData<{ configs: HookConfig[] }>(listKey);
+      if (previous) {
+        queryClient.setQueryData<{ configs: HookConfig[] }>(listKey, {
+          configs: previous.configs.map((c) =>
+            c.id === config.id ? { ...c, ...patch } : c,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (err, _patch, ctx) => {
+      const listKey = queryKeys.hooks.list(companyId);
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      setRowError(formatApiError(err));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.hooks.list(companyId),
+      });
+    },
+  });
+
+  const enabledSwitch = (
+    <Switch
+      checked={config.enabled}
+      disabled={!canManage || toggleMutation.isPending}
+      onClick={(e) => e.stopPropagation()}
+      onCheckedChange={(v) => {
+        if (!canManage) return;
+        toggleMutation.mutate({ enabled: v });
+      }}
+      data-testid={`hook-config-row-enabled-${config.id}`}
+    />
+  );
+
+  const enforcedSwitch = (
+    <Switch
+      checked={config.enforced}
+      disabled={!canEnforce || toggleMutation.isPending}
+      onClick={(e) => e.stopPropagation()}
+      onCheckedChange={(v) => {
+        if (!canEnforce) return;
+        toggleMutation.mutate({ enforced: v });
+      }}
+      data-testid={`hook-config-row-enforced-${config.id}`}
+    />
+  );
 
   return (
     <Card
@@ -206,6 +281,15 @@ function HookConfigRow({
             <p className="text-xs text-muted-foreground truncate">
               <code>{config.hookRef}</code>
             </p>
+            {rowError && (
+              <p
+                className="text-xs text-destructive truncate"
+                role="alert"
+                data-testid={`hook-config-row-error-${config.id}`}
+              >
+                {rowError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -215,22 +299,59 @@ function HookConfigRow({
             count={visibilityCount}
             testId={`hooks-visibility-${config.id}`}
           />
-          {config.enforced && (
-            <Badge variant="default" data-testid={`hooks-enforced-${config.id}`}>
-              Enforced
-            </Badge>
-          )}
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={config.enabled}
-              onClick={(e) => e.stopPropagation()}
-              disabled
-              data-testid={`hooks-enabled-${config.id}`}
-            />
-            <Label className="text-xs text-muted-foreground">
-              {config.enabled ? "Actif" : "Inactif"}
-            </Label>
-          </div>
+
+          {/* Enforced toggle (gated by hooks:enforce). */}
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-2">
+              {canEnforce ? (
+                enforcedSwitch
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="inline-flex"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {enforcedSwitch}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Requires hooks:enforce permission
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <Label
+                className="text-xs text-muted-foreground"
+                data-testid={`hook-config-row-enforced-label-${config.id}`}
+              >
+                {config.enforced ? "Enforced" : "Standard"}
+              </Label>
+            </div>
+          </TooltipProvider>
+
+          {/* Enabled toggle (gated by hooks:manage). */}
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-2">
+              {canManage ? (
+                enabledSwitch
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="inline-flex"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {enabledSwitch}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Permission manquante</TooltipContent>
+                </Tooltip>
+              )}
+              <Label className="text-xs text-muted-foreground">
+                {config.enabled ? "Actif" : "Inactif"}
+              </Label>
+            </div>
+          </TooltipProvider>
         </div>
       </CardContent>
     </Card>

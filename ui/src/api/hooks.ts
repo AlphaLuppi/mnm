@@ -113,6 +113,53 @@ function qs(filters?: ListExecutionsFilters): string {
   return s ? `?${s}` : "";
 }
 
+/**
+ * Catalog query params — names mirror exactly the server-side reads in
+ * `server/src/routes/workflow-hooks.ts` (`workflow_git_sha`, `shared_branch`,
+ * `include_shared`, `include_local`).
+ *
+ * Historically the UI sent `workflow_ref` which the server silently ignored,
+ * so the shared/local resolver never saw a workflow context. Fixed in P4-E.
+ */
+export interface CatalogQuery {
+  /** Pinned commit SHA of the workflow.json that requested the catalog. */
+  workflowGitSha?: string;
+  /** Override branch for the shared hooks repo (defaults server-side). */
+  sharedBranch?: string;
+  /** Include shared:* entries (default true). */
+  includeShared?: boolean;
+  /** Include local:* entries (default false — server-side opt-in). */
+  includeLocal?: boolean;
+}
+
+/**
+ * Build the `?key=value&...` string for the catalog endpoint.
+ * Exported for unit tests so we can assert the wire format directly.
+ *
+ * Back-compat: a bare string is treated as `workflowGitSha`, so call sites
+ * still passing the legacy `workflowRef` string keep working (with the
+ * correct server-side param name now).
+ */
+export function buildCatalogQuery(q?: CatalogQuery | string): string {
+  if (!q) return "";
+  const opts: CatalogQuery = typeof q === "string" ? { workflowGitSha: q } : q;
+  const params = new URLSearchParams();
+  if (opts.workflowGitSha) {
+    params.set("workflow_git_sha", opts.workflowGitSha);
+  }
+  if (opts.sharedBranch) {
+    params.set("shared_branch", opts.sharedBranch);
+  }
+  if (typeof opts.includeShared === "boolean") {
+    params.set("include_shared", opts.includeShared ? "true" : "false");
+  }
+  if (typeof opts.includeLocal === "boolean") {
+    params.set("include_local", opts.includeLocal ? "true" : "false");
+  }
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
 export const hooksApi = {
   list: (companyId: string) =>
     api.get<{ configs: HookConfig[] }>(
@@ -140,11 +187,17 @@ export const hooksApi = {
     api.get<{ executions: HookExecution[] }>(
       `/companies/${companyId}/workflow-hooks/executions${qs(filters)}`,
     ),
-  catalog: (companyId: string, workflowRef?: string) =>
+  /**
+   * `query` accepts either:
+   *   - a `CatalogQuery` object with explicit fields
+   *   - a bare string (legacy call sites) → treated as `workflowGitSha`
+   *
+   * Both shapes serialise to the server-side names: `workflow_git_sha`,
+   * `shared_branch`, `include_shared`, `include_local`.
+   */
+  catalog: (companyId: string, query?: CatalogQuery | string) =>
     api.get<HookCatalog>(
-      `/companies/${companyId}/workflow-hooks/catalog${
-        workflowRef ? `?workflow_ref=${encodeURIComponent(workflowRef)}` : ""
-      }`,
+      `/companies/${companyId}/workflow-hooks/catalog${buildCatalogQuery(query)}`,
     ),
 };
 

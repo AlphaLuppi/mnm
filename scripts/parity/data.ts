@@ -897,7 +897,7 @@ export const parityData: ParityData = {
             status: "partial",
             since: "2026-05-02",
             notes:
-              "T2.9 UI shippé. Backend (REST + service + wire dans governed-workflows.ts) à compléter avant que la page soit fonctionnelle bout-en-bout. Monaco lazy pour default_config_json à brancher (TODO en commentaire).",
+              "T2.9 UI shippé. P4-E hardening : params catalog alignés sur le serveur (workflow_git_sha / shared_branch / include_shared / include_local), inline toggles enabled/enforced avec optimistic update + tooltips de permission, formatApiError pour messages Zod lisibles, pre-fill defaultConfigJson depuis le catalog. Backend (REST + service + wire) déjà livré (T2.6/T2.7/T2.8). Monaco lazy pour default_config_json à brancher (TODO en commentaire).",
           },
           desktop: {
             status: "missing",
