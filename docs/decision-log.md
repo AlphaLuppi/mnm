@@ -199,6 +199,26 @@ Détails complets de chaque benchmark dans le repo privé [`mnm-documentation/re
 
 ---
 
+## 7. Sécurité & defense in depth
+
+### 7.1 RLS pattern — PERMISSIVE baseline + RESTRICTIVE tenant filter (2026-05-02)
+
+**Décision :** chaque table tenant-scoped DOIT avoir DEUX policies : (1) `tenant_baseline_permissive AS PERMISSIVE FOR ALL USING (true)` qui débloque le default-deny postgres ; (2) `tenant_isolation AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid)` qui filtre par tenant.
+
+**Pourquoi vivant :** PostgreSQL exige au moins UNE policy PERMISSIVE pour qu'une row soit visible — un setup RESTRICTIVE-only est en default-deny. Le pattern dominant historique (depuis `0030_rls_policies.sql`) ne créait QUE le RESTRICTIVE, ce qui était masqué en runtime parce que l'app user (`mnm`/`postgres`) est SUPERUSER + BYPASSRLS — RLS n'était jamais appliquée. L'isolation multi-tenant était portée à 100% par les filtres applicatifs Drizzle (`eq(table.companyId, …)`), pas par la "fail-closed last line of defense" documentée.
+
+**Découvert :** Sprint 1 Connectors Phase 4, test `server/src/__tests__/connector-tokens.rls.e2e.test.ts` (commit `b43413e89`).
+
+**Fix :** migration `0080_rls_permissive_baseline.sql` ajoute la PERMISSIVE baseline sur 77 tables (73 héritées 0030–0076 + 4 du 0079 connectors).
+
+**Followup pendant** : migrer le user app vers un rôle dédié non-BYPASSRLS. Tant que l'app reste SUPERUSER, RLS reste un filet décoratif. Runbook séparé (touche connection strings, dev embedded pg, migration runner).
+
+**9 tables exclues** (a2a_messages, compaction_snapshots, traces, trace_observations, trace_lenses, trace_lens_results, gold_prompts, user_pods, artifact_deployments) ont déjà une policy PERMISSIVE qui filtre directement par `company_id` — y ajouter `USING (true)` ferait `(company_id=X) OR (true) = true`, régression de sécurité. À normaliser dans une migration ultérieure.
+
+**Fichiers concernés :** `packages/db/src/migrations/0030_rls_policies.sql` (origin), `0080_rls_permissive_baseline.sql` (fix), `0080_rls_permissive_baseline.test.ts` (regex), `server/src/__tests__/connector-tokens.rls.e2e.test.ts` (runtime), `.claude/rules/database.md` (template à jour), `docs/conventions/middleware-chain.md` (couche 5 RLS).
+
+---
+
 ## Mise à jour
 
 Si tu prends une décision qui shape durablement le code (architecture, sécurité, perf, design), ajoute une entrée ici avec : titre, décision en 1 phrase, pourquoi c'est vivant, fichiers concernés. Pas de prose, pas de PR description-style — juste la matière compressée.

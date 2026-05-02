@@ -222,7 +222,15 @@
 
 **Total Phase 4 : 16 tests ajoutés (4 + 7 + 5 RLS runtime + 4 RLS structure)**, 0 régression sur les 26 tests existants.
 
-### NEW-S1 (Phase 4 finding, architectural — out of scope)
+### NEW-S1 (Phase 4 finding, architectural — ✅ FIXED 2026-05-02)
+
+✅ **Migration `0080_rls_permissive_baseline.sql` SHIPPED** sur `feat/connectors-platform`. 77 tables couvertes (73 héritées 0030–0076 + 4 connectors 0079). 9 tables PERMISSIVE legacy exclues (a2a_messages, compaction_snapshots, 4× trace_*, gold_prompts, user_pods, artifact_deployments — à normaliser séparément). 93 regex tests pass. La connaissance vit aussi dans `docs/decision-log.md` §7.1 et `.claude/rules/database.md`.
+
+Followup pendant : changer le user app pour un rôle non-BYPASSRLS. Tant que `mnm`/`postgres` reste SUPERUSER, RLS reste décoratif en runtime. Runbook séparé (out of scope cette migration).
+
+---
+
+#### Original finding (kept for context):
 
 **Source** : test HIGH-Q3 RLS runtime
 **File** : `packages/db/src/migrations/0030_rls_policies.sql` + tous les fichiers RLS depuis (incl. 0079).

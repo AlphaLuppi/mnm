@@ -123,13 +123,14 @@ describe("Sprint 1 tables — RLS policy structure (HIGH-Q3 layer 1)", () => {
   ];
 
   it.each(tables)(
-    "%s has tenant_isolation RESTRICTIVE FORCE policy on company_id",
+    "%s has tenant_isolation RESTRICTIVE + tenant_baseline_permissive PERMISSIVE on company_id",
     async (table) => {
       const policies = await superDb.execute(
         sql`SELECT polname, polcmd::text as polcmd, polpermissive,
                    pg_get_expr(polqual, polrelid) as expr
             FROM pg_policy
-            WHERE polrelid::regclass::text = ${table}`,
+            WHERE polrelid::regclass::text = ${table}
+            ORDER BY polname`,
       );
       const rows = policies as unknown as Array<{
         polname: string;
@@ -137,12 +138,23 @@ describe("Sprint 1 tables — RLS policy structure (HIGH-Q3 layer 1)", () => {
         polpermissive: boolean;
         expr: string;
       }>;
-      expect(rows).toHaveLength(1);
-      expect(rows[0].polname).toBe("tenant_isolation");
-      expect(rows[0].polcmd).toBe("*"); // FOR ALL
-      expect(rows[0].polpermissive).toBe(false); // RESTRICTIVE
-      expect(rows[0].expr).toContain("app.current_company_id");
-      expect(rows[0].expr).toContain("company_id");
+      // Post-migration 0080 — every tenant table has TWO policies:
+      //   1. tenant_baseline_permissive (PERMISSIVE FOR ALL USING true) — unblocks default-deny
+      //   2. tenant_isolation (RESTRICTIVE FOR ALL USING company_id = ...) — narrows to tenant
+      expect(rows).toHaveLength(2);
+
+      const baseline = rows.find((p) => p.polname === "tenant_baseline_permissive");
+      expect(baseline, "expected tenant_baseline_permissive policy from 0080").toBeDefined();
+      expect(baseline?.polcmd).toBe("*");
+      expect(baseline?.polpermissive).toBe(true);
+      expect(baseline?.expr).toBe("true");
+
+      const tenantIsolation = rows.find((p) => p.polname === "tenant_isolation");
+      expect(tenantIsolation, "expected tenant_isolation policy from 0079").toBeDefined();
+      expect(tenantIsolation?.polcmd).toBe("*");
+      expect(tenantIsolation?.polpermissive).toBe(false);
+      expect(tenantIsolation?.expr).toContain("app.current_company_id");
+      expect(tenantIsolation?.expr).toContain("company_id");
 
       // Verify FORCE is enabled (relforcerowsecurity)
       const forceRow = await superDb.execute(
@@ -164,14 +176,11 @@ describe("Sprint 1 tables — RLS runtime isolation (HIGH-Q3 layers 2+3)", () =>
   let userB: { id: string };
   let connectorBId: string;
 
-  // Architectural note (see file header §3): the migration only creates a
-  // RESTRICTIVE policy. Without a paired PERMISSIVE policy, the default-deny
-  // rule prevents ANY row from being visible to non-bypass users. To exercise
-  // tenant isolation we add a temporary PERMISSIVE that grants base access;
-  // the RESTRICTIVE then narrows it to the matching tenant. The temp policy
-  // is dropped after the suite. This pattern should eventually be promoted
-  // into the migrations (separate finding, out of scope for HIGH-Q3).
-  const TENANT_TABLES = ["oauth_connectors", "connector_tokens", "user_api_keys"];
+  // Migration 0080 (NEW-S1 fix) now provides a `tenant_baseline_permissive`
+  // PERMISSIVE policy on every tenant-scoped table, replacing the temporary
+  // `rls_test_permissive_baseline` hack this suite used to inject. The
+  // RESTRICTIVE `tenant_isolation` filter narrows the baseline to the matching
+  // tenant. See packages/db/src/migrations/0080_rls_permissive_baseline.sql.
 
   beforeAll(async () => {
     // Seed
@@ -255,41 +264,17 @@ describe("Sprint 1 tables — RLS runtime isolation (HIGH-Q3 layers 2+3)", () =>
     });
 
     await superClearTenant();
-
-    // Add temporary PERMISSIVE policies so the RESTRICTIVE filter has a
-    // baseline to narrow — see the architectural note above. We use a
-    // distinct name so we can drop them safely in afterAll.
-    for (const table of TENANT_TABLES) {
-      await superDb.execute(
-        sql.raw(
-          `CREATE POLICY "rls_test_permissive_baseline" ON "${table}" AS PERMISSIVE FOR ALL USING (true)`,
-        ),
-      );
-    }
+    // Migration 0080 already provides the PERMISSIVE baseline globally — no
+    // need for a temporary policy injection here.
   }, 30_000);
 
-  afterAll(async () => {
-    for (const table of TENANT_TABLES) {
-      await superDb
-        .execute(
-          sql.raw(
-            `DROP POLICY IF EXISTS "rls_test_permissive_baseline" ON "${table}"`,
-          ),
-        )
-        .catch(() => undefined);
-    }
-  });
-
-  // Layer 2: fail-closed without temp PERMISSIVE (verified earlier in the
-  // structure suite via a clean DB; here we verify that even with the temp
-  // PERMISSIVE in place, an empty tenant ctx fails the RESTRICTIVE filter
-  // because `''::uuid` raises and the row is rejected).
+  // Layer 2: fail-closed. The PERMISSIVE baseline (from migration 0080)
+  // unblocks the row from postgres' default-deny; the RESTRICTIVE
+  // tenant_isolation policy still rejects when no tenant context is set
+  // (current_setting('app.current_company_id', true) → NULL → comparison
+  // returns NULL → RESTRICTIVE rejects → 0 rows visible).
   it("layer 2 — fail-closed: empty tenant ctx blocks SELECT (RESTRICTIVE filter)", async () => {
     const rows = await subjectSqlClient.begin(async (tx) => {
-      // Don't set the tenant — the PERMISSIVE allows but RESTRICTIVE rejects.
-      // (Actually setting it to '' would raise on ::uuid cast; we leave it
-      // unset, so current_setting(..., true) returns NULL → comparison NULL →
-      // RESTRICTIVE rejects.)
       return tx.unsafe(`SELECT id FROM connector_tokens`);
     });
     expect(rows).toHaveLength(0);

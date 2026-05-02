@@ -603,6 +603,13 @@
 			"when": 1777002400013,
 			"tag": "0079_connectors_platform",
 			"breakpoints": true
+		},
+		{
+			"idx": 80,
+			"version": "7",
+			"when": 1777002400014,
+			"tag": "0080_rls_permissive_baseline",
+			"breakpoints": true
 		}
 	]
 }
