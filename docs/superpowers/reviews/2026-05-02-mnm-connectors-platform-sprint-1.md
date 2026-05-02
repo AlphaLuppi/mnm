@@ -1,6 +1,10 @@
 # MnM Connectors Platform — Sprint 1 multi-review (2026-05-02)
 
-> **État** : Sprint 1 backend SHIPPED (5 commits, 26 tests pass, typecheck 17/17). Multi-review parallèle exécutée 2026-05-02 par 4 reviewers (sécu, archi, code-quality, bug-hunter). Verdict consolidé : **SHIP avec fixes prio HIGH avant Sprint 2**.
+> **État** : **Phase 4 SHIPPED 2026-05-02 (10 commits Sprint 1+Phase 4)**. 4 HIGH security/archi findings + 4 MED quick wins fixés ; 16 tests Phase 4 ajoutés (4 HIGH-Q1 getUserToken paths + 7 HIGH-Q2 callback msw + 9 HIGH-Q3 RLS runtime). Total : **53 Vitest pass + 14 migration regex + 17/17 typecheck**. Sprint 2 (T5-T8) prêt à démarrer.
+
+> **Mise à jour 2026-05-02 (Phase 4 close)** : Le test HIGH-Q3 RLS runtime a découvert un finding architectural NEW-S1 (cf. ci-dessous) — la pattern RLS de la codebase (depuis 0030) n'a qu'une RESTRICTIVE policy sans PERMISSIVE → default-deny postgres → l'isolation tenant ne marche que parce que l'app connecte avec un user `BYPASSRLS`. Le test contourne en ajoutant une PERMISSIVE temporaire. Bug à fixer codebase-wide en follow-up séparé.
+
+> **Multi-review original (Phase 3)** parallèle exécutée 2026-05-02 par 4 reviewers (sécu, archi, code-quality, bug-hunter). Verdict consolidé : **SHIP avec fixes prio HIGH avant Sprint 2** — ✅ effectué Phase 4.
 
 ## Contexte
 
@@ -200,22 +204,33 @@
 
 ## Plan d'action Phase 4 (priorisé)
 
-**Avant ship Sprint 2 (= HIGH bloquants, ~5h)** :
-1. **HIGH-A2** (10min) — fix cast `result.length` + test runtime
-2. **HIGH-S1** (5min) — HTTPS-only en prod
-3. **HIGH-A1** (10min) — `assertUserInCompany` dans callback
-4. **HIGH-A3** (30min) — `db.transaction` wrap callback
-5. **HIGH-Q1** (1h) — 4 tests `getUserToken` paths
-6. **HIGH-Q2** (2h) — tests callback dispatcher (msw)
-7. **HIGH-Q3** (1h) — RLS runtime test sur connector_tokens
+### ✅ Phase 4 SHIPPED (4 commits, 2026-05-02)
 
-**Quick wins (~30min)** :
-8. **MED-B1** (5min) — clear refresh tokens on 401
-9. **MED-B2** (5min) — `expires_in != null`
-10. **MED-Q1** (2min) — static import callback
-11. **MED-S1** (15min) — catch unique violation 23505
+| Finding | Fix commit | État |
+|---|---|---|
+| HIGH-S1 | `e268660e7` | ✅ HTTPS-only via `process.env.NODE_ENV === "production"` |
+| HIGH-A2 | `e268660e7` | ✅ Drizzle `select(..).from(companyMemberships).where(..).limit(1)` (remplace cast hack) |
+| HIGH-A1 | `e268660e7` | ✅ `assertUserInCompany` à l'intérieur de la tx du callback, redirect USER_NOT_IN_COMPANY |
+| HIGH-A3 | `e268660e7` | ✅ `db.transaction()` + `set_config('app.current_company_id', $1, true)` (transaction-local) |
+| MED-B1 | `e268660e7` | ✅ Sur 401 provider, null `refreshTokenIv/Ciphertext/Tag` + `lastRefreshFailedAt` |
+| MED-B2 | `e268660e7` | ✅ `typeof expires_in === "number" && expires_in > 0` |
+| MED-Q1 | `e268660e7` | ✅ Static import `decryptSecret` au top du callback |
+| MED-S1 | `e268660e7` | ✅ Catch postgres `code: "23505"` dans `createConnector` → `conflict()` |
+| HIGH-Q1 | `feecb521a` | ✅ 4 tests `getUserToken` (api_key happy / EXPIRED_NO_REFRESH / REVOKED + MED-B1 verify / concurrent already-refreshed) |
+| HIGH-Q2 | `eeb57479f` | ✅ 7 tests callback dispatcher (msw + supertest) — missing/invalid state, provider error, USER_NOT_IN_COMPANY, disabled, TOKEN_EXCHANGE_FAILED, happy path |
+| HIGH-Q3 | `b43413e89` | ✅ 9 tests RLS runtime (4 structure pg_policy + 1 fail-closed + 4 isolation) — 4 tables Sprint 1 |
 
-**Reste MED + LOW** : à traiter Sprint 2 ou en backlog post-pilote.
+**Total Phase 4 : 16 tests ajoutés (4 + 7 + 5 RLS runtime + 4 RLS structure)**, 0 régression sur les 26 tests existants.
+
+### NEW-S1 (Phase 4 finding, architectural — out of scope)
+
+**Source** : test HIGH-Q3 RLS runtime
+**File** : `packages/db/src/migrations/0030_rls_policies.sql` + tous les fichiers RLS depuis (incl. 0079).
+**Vecteur** : Le pattern RLS du repo (`tenant_isolation` AS RESTRICTIVE FOR ALL ...`) ne crée QU'UNE policy RESTRICTIVE. En postgres, RESTRICTIVE seul = default-deny — **aucune ligne n'est jamais visible** pour un user sans BYPASSRLS. La défense "RLS = fail-closed last line of defense" documentée dans `docs/conventions/middleware-chain.md` est donc une fiction tant que l'app connecte avec `mnm` (qui a `rolbypassrls=true`). En production l'isolation tenant repose ENTIÈREMENT sur les `eq(table.companyId, ...)` côté code applicatif — RLS ne fait rien.
+**Fix attendu (séparé)** :
+- Soit ajouter une `PERMISSIVE FOR ALL USING (true)` sur chaque table tenant (RESTRICTIVE narrow ensuite).
+- Soit créer un user app non-bypass ET ajouter PERMISSIVE policies (recommandé, vraie défense en profondeur).
+**Impact ship** : aucun (le test HIGH-Q3 contourne en ajoutant une PERMISSIVE temporaire dans son setup, droppée en afterAll). À traiter en chantier dédié post-Sprint 2.
 
 ## Sprint 2 (T5-T8) — encore tout à faire
 
@@ -227,21 +242,29 @@ D'après le plan v2 :
 
 ## Reprise post-/compact (mémo pour la prochaine session)
 
-**État** : Sprint 1 backend SHIPPED (5 commits), Phase 3 multi-review livrée, Phase 4 fix HIGH findings prête à attaquer.
+**État** : **Phase 4 SHIPPED 2026-05-02**. Sprint 1 + Phase 4 = 10 commits sur `feat/connectors-platform` (poussés). Prochain chantier : **Sprint 2 (T5-T8)**.
 
 **Branche** : `feat/connectors-platform`. **Dev server** : `bun run dev` (http://127.0.0.1:3100).
 
-**Étape suivante immédiate** : Phase 4 — appliquer les 7 HIGH findings (~5h estimé) puis 4 MED quick wins (~30min). Détails dans la section "Plan d'action Phase 4" ci-dessus.
+**Sprint 2 — étape suivante** :
+- **T5** REST + MCP parité (~0.5j)
+- **T6** UI admin "Connecteurs" (~1j)
+- **T7** UI user "Mes comptes connectés" (~1j)
+- **T8** Templates + helper consume + E2E + parity + decision-log §4.6 (~1.5j)
 
-**Files actifs Sprint 1** :
+**Files actifs Sprint 1 + Phase 4** :
 - `packages/db/src/schema/{oauth_connectors,connector_tokens,user_api_keys,oauth_connectors_audit}.ts`
 - `packages/db/src/migrations/0079_connectors_platform.sql` + `.test.ts`
 - `server/src/services/secret-crypto.ts`
-- `server/src/services/connectors.ts`
-- `server/src/services/__tests__/{secret-crypto,connectors-state-validation,connectors-service}.test.ts`
-- `server/src/routes/connectors-callback.ts`
+- `server/src/services/connectors.ts` (Phase 4 : Drizzle select + HTTPS-only + transactions + MED-B1/S1)
+- `server/src/services/__tests__/{secret-crypto,connectors-state-validation,connectors-service}.test.ts` (Phase 4 : +4 HIGH-Q1)
+- `server/src/routes/connectors-callback.ts` (Phase 4 : tx wrap + HIGH-A1 guard + MED-B2/Q1)
+- `server/src/routes/__tests__/connectors-callback.test.ts` (Phase 4 : NEW, 7 HIGH-Q2)
+- `server/src/__tests__/connector-tokens.rls.e2e.test.ts` (Phase 4 : NEW, 9 HIGH-Q3)
 - `server/src/auth/dynamic-providers.ts` + `__tests__/`
 - `server/src/auth/better-auth.ts` (modifié)
 - `server/src/app.ts` (modifié, mount callback)
 
-**Tests pass** : 26/26 (5 secret-crypto + 9 state-validation + 7 service-mock + 5 dynamic-providers). Migration regex : 14/14. Typecheck : 17/17 packages.
+**Tests pass post-Phase 4** : **53/53 Vitest** (5 secret-crypto + 9 state-validation + 11 service-mock + 5 dynamic-providers + 7 callback msw + 9 RLS runtime). Migration regex : 14/14. Typecheck : 17/17 packages. Suite RLS runtime requiert DB non-mnm (BYPASSRLS) — `bun run test:docker:up` ou DB dédiée embedded.
+
+**Architectural follow-up (NEW-S1)** : pattern RLS de la codebase ne marche que via BYPASSRLS du user app — chantier dédié post-Sprint 2 pour ajouter PERMISSIVE policies + user app non-bypass. Documenté dans le finding NEW-S1 ci-dessus.
