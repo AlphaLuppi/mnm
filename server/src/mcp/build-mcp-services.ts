@@ -36,6 +36,8 @@ import { threadInteractionsService } from "../services/thread-interactions.js";
 // CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
 // + T8.2: createResolveGitProvider preference path via getUserToken("gitlab")
 import { connectorService, ConnectorError } from "../services/connectors.js";
+// WORKFLOW-HOOKS T2.7 wire — service constructor for governed-workflows DI
+import { workflowHooksService } from "../services/workflow-hooks.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
@@ -546,6 +548,39 @@ export function buildMcpServices(db: Db): McpServices {
         addObservation: traces.addObservation,
         completeTrace: traces.completeTrace,
       },
+      // WORKFLOW-HOOKS T2.7 wire — when set, the orchestrator runs
+      // before_run / before_step / after_step / after_run hooks at
+      // the four standard insertion points. The service reuses the
+      // already-constructed connectorService for OAuth token lookup,
+      // and a small static provider catalog for jira/clickup base
+      // URLs (V0; per-tenant override lands in V1 via a new
+      // oauth_connectors.base_url column).
+      workflowHooks: workflowHooksService(db, {
+        connectors: connectorService(db),
+        resolveGitProvider: (args) =>
+          resolveGitProvider({ companyId: args.companyId, userId: args.userId }),
+        llm: {
+          // V0 stub: no LLM calls go through hooks until we wire a
+          // real provider in build-mcp-services. Returning a minimal
+          // implementation keeps the wire safe — `helpers.llm()`
+          // just throws a clear error when invoked, and the budget
+          // check is disabled (returns null = unbounded).
+          invoke: async () => {
+            throw new Error(
+              "LLM helper not configured for workflow hooks (V0); set ANTHROPIC_API_KEY and wire the provider in build-mcp-services.ts",
+            );
+          },
+          estimateInputTokens: (req) =>
+            Math.ceil((req.prompt.length + (req.system?.length ?? 0)) / 4),
+          tokenBudgetRemaining: () => null,
+        },
+        providerCatalog: {
+          providers: {
+            jira: { baseUrl: "https://api.atlassian.com" },
+            clickup: { baseUrl: "https://api.clickup.com" },
+          },
+        },
+      }),
     }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),

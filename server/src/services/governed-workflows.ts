@@ -17,7 +17,16 @@ import {
   type WorkflowDefinition,
   type GateContext,
   type GateBlock,
+  type HookBlock,
 } from "@mnm/governed-workflows";
+import type {
+  HookContext as WorkflowHookCtx,
+  HookEvaluationResult,
+} from "@mnm/workflow-hooks";
+import type {
+  ResolvedHookForStep,
+  WorkflowHooksService,
+} from "./workflow-hooks.js";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
 import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem, OutputPersisted } from "@mnm/shared";
@@ -132,7 +141,32 @@ export interface GovernedWorkflowServiceDeps {
       input: { status: "completed" | "failed" },
     ): Promise<unknown>;
   };
+  /**
+   * Optional workflow-hooks service (T2.7 wire). When provided, the
+   * orchestrator runs `before_run` / `before_step` / `after_step` /
+   * `after_run` hooks at the standard insertion points. When omitted
+   * (e.g. tests, or before T2.7 is wired up via DI in app.ts), hook
+   * execution is a no-op — backward compatible.
+   *
+   * Fail-modes (per phase):
+   *  - `before_run` fail → run state="failed", error HOOK_FAILED:<ref>
+   *  - `before_step` fail → step state="failed" (run cascades)
+   *  - `after_step` fail → step retro-fails (artifact already committed)
+   *  - `after_run` fail → run stays "completed", we log + audit (no
+   *    cascade; cleanup_failed flag would require a schema change V1)
+   *  - `inject` total > 100 KB → `HOOK_INJECT_TOO_LARGE`, step fail
+   *  - hook timeout 30 s → step fail (same as fail)
+   */
+  workflowHooks?: WorkflowHooksService;
 }
+
+/**
+ * Maximum total bytes of `inject.context_md` from `before_step` /
+ * `before_run` hooks merged into `prompt_context.injected_by_hooks`.
+ * Sized so a malicious or runaway hook cannot DoS the next step's LLM
+ * call by stuffing the prompt context with megabytes of text.
+ */
+const MAX_INJECT_TOTAL_BYTES = 100 * 1024;
 
 export interface GetWorkflowParsedResult {
   workflow: WorkflowDefinition;
@@ -463,6 +497,192 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   const { resolveGitProvider, shaCache } = deps;
   const heartbeatDep = deps.heartbeat;
   const traceDep = deps.traceService;
+  const hooksSvc = deps.workflowHooks;
+
+  // ─── Workflow hooks wire (T2.7) ─────────────────────────────────────────
+
+  /**
+   * Aggregated outcome of a hook batch (all hooks for one phase). Returned
+   * to the caller (launchWorkflow / launchStep / completeStep / run
+   * completion) so it can short-circuit on failure with a precise error.
+   */
+  interface HookBatchOutcome {
+    /** Did every hook in the batch succeed (ok === true) ? */
+    ok: boolean;
+    /** First failure surfaced; absent when ok=true. */
+    firstFailure?: {
+      ref: string;
+      errorCode: string;
+      report: string;
+    };
+    /** Concatenated `inject.context_md` from successful before_* hooks. */
+    injectMd: string;
+    /** Per-hook trace for audit / debug. */
+    evaluations: Array<{ ref: string; ok: boolean; errorCode?: string }>;
+  }
+
+  /**
+   * Run the hooks for a given phase sequentially. Aggregates `inject`
+   * context-md across successful before_* hooks (subject to the
+   * MAX_INJECT_TOTAL_BYTES budget — anything over → HOOK_INJECT_TOO_LARGE,
+   * batch fails). Returns the first failure encountered; subsequent hooks
+   * are skipped.
+   *
+   * If `workflowHooks` was not wired at service construction, this is a
+   * no-op returning ok:true (backward compat).
+   */
+  async function runHookPhase(args: {
+    phase: "before_run" | "before_step" | "after_step" | "after_run";
+    runId: string;
+    stepExecutionId?: string;
+    workflowGitSha: string;
+    actor: { type: AuditActorType; id: string };
+    companyId: string;
+    workflow: WorkflowDefinition;
+    step?: { id: string; hooks?: HookBlock };
+    hookCtx: WorkflowHookCtx;
+  }): Promise<HookBatchOutcome> {
+    if (!hooksSvc) {
+      return { ok: true, injectMd: "", evaluations: [] };
+    }
+    const principalId = args.actor.id;
+    const resolved = await hooksSvc.resolveHooksForStep({
+      stepHooks: args.step?.hooks,
+      runHooks: args.workflow.hooks,
+      phase: args.phase,
+      principalId,
+      companyId: args.companyId,
+    });
+    if (resolved.length === 0) {
+      return { ok: true, injectMd: "", evaluations: [] };
+    }
+
+    const evaluations: HookBatchOutcome["evaluations"] = [];
+    const injectParts: string[] = [];
+    let injectBytes = 0;
+
+    for (const r of resolved) {
+      let evaluation: HookEvaluationResult;
+      try {
+        evaluation = await hooksSvc.executeHook(r, {
+          companyId: args.companyId,
+          actorUserId: principalId,
+          runId: args.runId,
+          stepExecutionId: args.stepExecutionId,
+          workflowGitSha: args.workflowGitSha,
+          hookCtx: args.hookCtx,
+        });
+      } catch (err) {
+        // executeHook itself should not throw — but defend against
+        // unexpected runtime errors (DB transient, etc.). Treat as a
+        // hook failure for the batch.
+        const message = err instanceof Error ? err.message : String(err);
+        evaluations.push({
+          ref: r.ref,
+          ok: false,
+          errorCode: "HOOK_EXCEPTION",
+        });
+        return {
+          ok: false,
+          firstFailure: {
+            ref: r.ref,
+            errorCode: "HOOK_EXCEPTION",
+            report: `Hook execution threw: ${message}`,
+          },
+          injectMd: injectParts.join("\n\n---\n\n"),
+          evaluations,
+        };
+      }
+
+      evaluations.push({
+        ref: r.ref,
+        ok: evaluation.ok,
+        ...(evaluation.error_code ? { errorCode: evaluation.error_code } : {}),
+      });
+
+      if (!evaluation.ok) {
+        return {
+          ok: false,
+          firstFailure: {
+            ref: r.ref,
+            errorCode: evaluation.error_code ?? "HOOK_EXCEPTION",
+            report: evaluation.report,
+          },
+          injectMd: injectParts.join("\n\n---\n\n"),
+          evaluations,
+        };
+      }
+
+      // Aggregate `inject.context_md` for before_* phases.
+      if (
+        (args.phase === "before_run" || args.phase === "before_step") &&
+        evaluation.result?.inject?.context_md
+      ) {
+        const part = evaluation.result.inject.context_md;
+        const partBytes = Buffer.byteLength(part, "utf8");
+        if (injectBytes + partBytes > MAX_INJECT_TOTAL_BYTES) {
+          return {
+            ok: false,
+            firstFailure: {
+              ref: r.ref,
+              errorCode: "HOOK_INJECT_TOO_LARGE",
+              report: `Total inject bytes (${injectBytes + partBytes}) exceeds ${MAX_INJECT_TOTAL_BYTES}`,
+            },
+            injectMd: injectParts.join("\n\n---\n\n"),
+            evaluations,
+          };
+        }
+        injectParts.push(part);
+        injectBytes += partBytes;
+      }
+    }
+
+    return {
+      ok: true,
+      injectMd: injectParts.join("\n\n---\n\n"),
+      evaluations,
+    };
+  }
+
+  /**
+   * Build the `HookContext` passed to `runHookPhase`. The context
+   * matches `@mnm/workflow-hooks.HookContext` shape. `helpers` is filled
+   * by the runner; we pass an empty placeholder — the runner overrides
+   * it via `installHelpers` inside the isolate.
+   */
+  function buildHookCtx(args: {
+    phase: "before_run" | "before_step" | "after_step" | "after_run";
+    runId: string;
+    workflowName: string;
+    workflowGitTag: string;
+    runParams: Record<string, unknown>;
+    stepId?: string;
+    previousArtifacts?: Record<string, unknown>;
+    artifact?: unknown;
+    config?: Record<string, unknown>;
+  }): WorkflowHookCtx {
+    return {
+      artifact: args.artifact,
+      run: {
+        id: args.runId,
+        workflow_name: args.workflowName,
+        git_tag: args.workflowGitTag,
+        params: args.runParams,
+      },
+      step: {
+        id: args.stepId ?? "",
+        previous_artifacts: args.previousArtifacts ?? {},
+      },
+      config: args.config ?? {},
+      phase: args.phase,
+      // Real helpers are wired by the runner via installHelpers; the
+      // value here is a placeholder that satisfies the type but is
+      // never read inside the isolate (the isolate's `ctx.helpers.*`
+      // proxies are installed by the runner, separate from this host
+      // ctx object).
+      helpers: {} as never,
+    };
+  }
 
   /**
    * Detect whether a step opts into the session-bundle path by declaring
@@ -735,6 +955,50 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         gitTag: parsed.gitTag,
         gitSha: parsed.gitSha,
       };
+    }).then(async (result) => {
+      // ── T2.7: before_run hooks ───────────────────────────────────────────
+      // Wired AFTER the launch transaction commits so the run row + step
+      // executions exist (so audit FKs can target them). A failure flips
+      // the run to "failed" with HOOK_FAILED:<ref>. The run row is
+      // committed first; on hook failure we mark it failed in a follow-up
+      // tx (separate from the launch tx so audit rows survive).
+      const hookOutcome = await runHookPhase({
+        phase: "before_run",
+        runId: result.runId,
+        workflowGitSha: result.gitSha,
+        actor: args.actor,
+        companyId: args.companyId,
+        workflow: parsed.workflow,
+        hookCtx: buildHookCtx({
+          phase: "before_run",
+          runId: result.runId,
+          workflowName: parsed.workflow.name,
+          workflowGitTag: result.gitTag,
+          runParams: args.params,
+        }),
+      });
+      if (!hookOutcome.ok) {
+        // Roll the run forward to "failed" and surface a typed error.
+        // before_run hooks have no `inject` consumer (no step is running
+        // yet), so a failure here is purely diagnostic.
+        await db
+          .update(governedWorkflowRuns)
+          .set({
+            status: "failed",
+            completedAt: new Date(),
+          })
+          .where(eq(governedWorkflowRuns.id, result.runId));
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+          `before_run hook '${hookOutcome.firstFailure!.ref}' failed: ${hookOutcome.firstFailure!.report}`,
+          [
+            `Hook error_code: ${hookOutcome.firstFailure!.errorCode}`,
+            "Disable / fix the hook config or remove it from workflow.json hooks.before",
+          ],
+          { hook_ref: hookOutcome.firstFailure!.ref, hook_error: hookOutcome.firstFailure!.errorCode },
+        );
+      }
+      return result;
     });
   }
 
@@ -1148,6 +1412,80 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       launchStepGitProvider,
     );
 
+    // ── T2.7: before_step hooks ─────────────────────────────────────────────
+    // Run AFTER prompt_context interpolation and BEFORE we return to the
+    // harness. inject.context_md fragments are concatenated into the
+    // step's `prompt_context.injected_by_hooks` (one entry per hook).
+    // Hook failure → step transitions to "failed" rétroactivement, run
+    // depending on the cascade.
+    if (hooksSvc) {
+      const [stepExecRow] = await db
+        .select({ id: governedStepExecutions.id })
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+      const beforeStepOutcome = await runHookPhase({
+        phase: "before_step",
+        runId: args.runId,
+        stepExecutionId: stepExecRow?.id,
+        workflowGitSha: parsed.gitSha,
+        actor: args.actor,
+        companyId: args.companyId,
+        workflow: parsed.workflow,
+        step: { id: step.id, hooks: step.hooks },
+        hookCtx: buildHookCtx({
+          phase: "before_step",
+          runId: args.runId,
+          workflowName: parsed.workflow.name,
+          workflowGitTag: parsed.gitTag,
+          runParams: params,
+          stepId: step.id,
+          previousArtifacts,
+        }),
+      });
+      if (!beforeStepOutcome.ok) {
+        await db
+          .update(governedStepExecutions)
+          .set({ state: "failed", updatedAt: new Date() })
+          .where(
+            and(
+              eq(governedStepExecutions.runId, args.runId),
+              eq(governedStepExecutions.stepIdInJson, args.stepId),
+            ),
+          );
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+          `before_step hook '${beforeStepOutcome.firstFailure!.ref}' failed: ${beforeStepOutcome.firstFailure!.report}`,
+          [
+            `Hook error_code: ${beforeStepOutcome.firstFailure!.errorCode}`,
+            "Disable / fix the hook config or remove it from the step's hooks.before",
+          ],
+          {
+            hook_ref: beforeStepOutcome.firstFailure!.ref,
+            hook_error: beforeStepOutcome.firstFailure!.errorCode,
+          },
+        );
+      }
+      if (beforeStepOutcome.injectMd.length > 0) {
+        // Merge inject into prompt_context. The orchestrator does NOT
+        // mutate the workflow.json `step.prompt_context` template — we
+        // tag-on a sibling key so the harness sees both the original
+        // user prompt + the hook-injected content. The naming
+        // `injected_by_hooks` matches the contract documented in
+        // docs/superpowers/handoff-2026-05-02-T2-resume.md §4.
+        (promptContext as Record<string, unknown>).injected_by_hooks =
+          beforeStepOutcome.evaluations
+            .filter((e) => e.ok)
+            .map((e) => ({ hook_ref: e.ref }));
+        (promptContext as Record<string, unknown>).injected_context_md =
+          beforeStepOutcome.injectMd;
+      }
+    }
+
     const prevStepRows = await db
       .select({
         stepIdInJson: governedStepExecutions.stepIdInJson,
@@ -1370,6 +1708,18 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       } | null;
     } = { data: null };
 
+    // T2.7: data needed for post-tx after_run hooks — populated inside the
+    // tx when the run transitions to "completed", consumed below. Wrapped
+    // for cross-closure mutation tracking like pendingMerge.
+    const pendingAfterRun: {
+      data: {
+        workflow: WorkflowDefinition;
+        workflowGitSha: string;
+        workflowGitTag: string;
+        runParams: Record<string, unknown>;
+      } | null;
+    } = { data: null };
+
     const txResult = await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:complete:" + args.runId + ":" + args.stepId}))`,
@@ -1481,6 +1831,62 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         runId: args.runId,
         stepExecId: stepExec.id,
       });
+
+      // ── T2.7: after_step hooks ─────────────────────────────────────────
+      // Run AFTER the artifact is committed + state transitioned but
+      // BEFORE the exit gates evaluate. A hook failure transitions the
+      // step retro-actively to "failed" — even though the artifact has
+      // already been committed. Run state cascades via the post-tx
+      // `allDone` check (a failed step blocks runs from completing).
+      //
+      // The hook executes through the OUTER `db` connection, not the
+      // current `tx` (mirrors the F7 fix for gate_results: audit rows
+      // must survive a tx rollback so observability stays intact when
+      // the wider tx fails downstream).
+      if (hooksSvc) {
+        const afterStepOutcome = await runHookPhase({
+          phase: "after_step",
+          runId: args.runId,
+          stepExecutionId: stepExec.id,
+          workflowGitSha: parsed.gitSha,
+          actor: args.actor,
+          companyId: args.companyId,
+          workflow: parsed.workflow,
+          step: { id: step.id, hooks: step.hooks },
+          hookCtx: buildHookCtx({
+            phase: "after_step",
+            runId: args.runId,
+            workflowName: parsed.workflow.name,
+            workflowGitTag: parsed.gitTag,
+            runParams: await fetchRunParams(args.companyId, args.runId),
+            stepId: step.id,
+            previousArtifacts: await fetchSucceededArtifacts(
+              tx as unknown as Db,
+              args.runId,
+            ),
+            artifact: persistedArtifact,
+          }),
+        });
+        if (!afterStepOutcome.ok) {
+          // Step retro-fails. Note: we bail out of the tx, so the
+          // artifact + state="gate_eval"/"running" updates rollback
+          // (the F7 audit rows are already committed by executeHook
+          // outside the tx, so visibility is preserved). The harness
+          // sees WORKFLOW_GATE_FAILED with hook_error metadata.
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+            `after_step hook '${afterStepOutcome.firstFailure!.ref}' failed: ${afterStepOutcome.firstFailure!.report}`,
+            [
+              `Hook error_code: ${afterStepOutcome.firstFailure!.errorCode}`,
+              "Disable / fix the hook config or remove it from the step's hooks.after",
+            ],
+            {
+              hook_ref: afterStepOutcome.firstFailure!.ref,
+              hook_error: afterStepOutcome.firstFailure!.errorCode,
+            },
+          );
+        }
+      }
 
       const exitBlock = step.gates?.exit as GateBlock | undefined;
       if (exitBlock && exitBlock.length > 0) {
@@ -1675,6 +2081,16 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           author,
           stepsSummary: allSteps.map((s) => ({ stepId: s.stepIdInJson, state: s.state })),
         };
+
+        // T2.7: capture data for post-tx after_run hooks. We re-use the
+        // already-parsed workflow + run params; the post-tx caller does
+        // not need to re-fetch from DB.
+        pendingAfterRun.data = {
+          workflow: parsed.workflow,
+          workflowGitSha: parsed.gitSha,
+          workflowGitTag: parsed.gitTag,
+          runParams: (runForMerge?.paramsJson as Record<string, unknown>) ?? {},
+        };
       }
 
       return {
@@ -1709,6 +2125,48 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       } catch (err) {
         console.error(
           `[governed-workflows] mergeRunBranch failed for run ${args.runId} (completed): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // ── T2.7: after_run hooks ───────────────────────────────────────────
+    // Run AFTER the run is committed as "completed" but before the final
+    // return. Failure mode: log + audit, run STAYS "completed" (the hook
+    // is a "post-success cleanup" — its failure must not retro-fail the
+    // run, which would surprise users since their work succeeded). The
+    // audit row produced by executeHook captures the failure for ops.
+    if (pendingAfterRun.data && hooksSvc) {
+      const ar = pendingAfterRun.data;
+      try {
+        const afterRunOutcome = await runHookPhase({
+          phase: "after_run",
+          runId: args.runId,
+          workflowGitSha: ar.workflowGitSha,
+          actor: args.actor,
+          companyId: args.companyId,
+          workflow: ar.workflow,
+          hookCtx: buildHookCtx({
+            phase: "after_run",
+            runId: args.runId,
+            workflowName: ar.workflow.name,
+            workflowGitTag: ar.workflowGitTag,
+            runParams: ar.runParams,
+          }),
+        });
+        if (!afterRunOutcome.ok) {
+          // Run is already "completed" — we don't transition it. The
+          // hook execution audit row carries the failure detail.
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[governed-workflows] after_run hook '${afterRunOutcome.firstFailure!.ref}' failed for run ${args.runId}: ${afterRunOutcome.firstFailure!.errorCode}`,
+          );
+        }
+      } catch (err) {
+        // executeHook errors should never escape, but defend the path so
+        // a runaway hook doesn't take down the completeStep response.
+        // eslint-disable-next-line no-console
+        console.error(
+          `[governed-workflows] after_run hook execution threw for run ${args.runId}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
