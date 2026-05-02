@@ -29,6 +29,10 @@ interface MockDbState {
     principalId: string;
     companyId: string;
   }>;
+  /** Rows in the `tags` table (P0.2 — company-ownership validation). */
+  tagsCatalog: Array<{ id: string; companyId: string }>;
+  /** Rows in `company_memberships` (P0.2 — principal-ownership validation). */
+  memberships: Array<{ companyId: string; principalId: string }>;
   audit: Array<Record<string, unknown>>;
   executions: Array<Record<string, unknown>>;
 }
@@ -53,6 +57,8 @@ function buildMockDb() {
     configs: new Map(),
     configTags: [],
     configPrincipals: [],
+    tagsCatalog: [],
+    memberships: [],
     audit: [],
     executions: [],
   };
@@ -63,6 +69,18 @@ function buildMockDb() {
     typeof t === "object" && t !== null && "actorPrincipalId" in (t as object);
   const isExecutionsTable = (t: unknown) =>
     typeof t === "object" && t !== null && "phase" in (t as object) && "actorUserId" in (t as object);
+  // P0.2 — `tags` catalog table itself. Match BEFORE the join-table check.
+  const isTagsCatalogTable = (t: unknown) =>
+    typeof t === "object" &&
+    t !== null &&
+    "slug" in (t as object) &&
+    "companyId" in (t as object);
+  // P0.2 — `company_memberships`. Has `principalType` + `principalId`.
+  const isMembershipsTable = (t: unknown) =>
+    typeof t === "object" &&
+    t !== null &&
+    "principalType" in (t as object) &&
+    "principalId" in (t as object);
   const isTagsTable = (t: unknown) =>
     typeof t === "object" && t !== null && "tagId" in (t as object);
   const isPrincipalsTable = (t: unknown) =>
@@ -77,18 +95,30 @@ function buildMockDb() {
           where: () => {
             const rows = isWorkflowHooksConfigTable(table)
               ? Array.from(state.configs.values())
-              : isTagsTable(table)
-                ? state.configTags
-                : isPrincipalsTable(table)
-                  ? state.configPrincipals
-                  : isAuditTable(table)
-                    ? state.audit
-                    : isExecutionsTable(table)
-                      ? state.executions
-                      : [];
+              : isMembershipsTable(table)
+                ? state.memberships
+                : isTagsCatalogTable(table)
+                  ? state.tagsCatalog
+                  : isTagsTable(table)
+                    ? state.configTags
+                    : isPrincipalsTable(table)
+                      ? state.configPrincipals
+                      : isAuditTable(table)
+                        ? state.audit
+                        : isExecutionsTable(table)
+                          ? state.executions
+                          : [];
+            const limitable = Object.assign(Promise.resolve(rows), {
+              offset: () => Promise.resolve(rows),
+            });
+            const orderByResult = Object.assign(Promise.resolve(rows), {
+              limit: () => limitable,
+              offset: () => Promise.resolve(rows),
+            });
             const thenable = Object.assign(Promise.resolve(rows), {
-              orderBy: () => Promise.resolve(rows),
-              limit: () => Promise.resolve(rows),
+              orderBy: () => orderByResult,
+              limit: () => limitable,
+              offset: () => Promise.resolve(rows),
             });
             return thenable;
           },
@@ -400,7 +430,7 @@ describe("workflowHooksService — resolveHooksForStep [merge + visibility]", ()
 
     const resolved = await svc.resolveHooksForStep({
       stepHooks: {
-        before: [{ name: "canonical:clickup-import-task", with: { foo: 1 } }],
+        before: [{ ref: "canonical:clickup-import-task", config: { foo: 1 } }],
         after: [],
       },
       runHooks: undefined,
@@ -425,7 +455,7 @@ describe("workflowHooksService — resolveHooksForStep [merge + visibility]", ()
       runHooks: {
         before: [],
         after: [
-          { name: "canonical:jira-create-issue-on-complete", with: { projectKey: "PROJ" } },
+          { ref: "canonical:jira-create-issue-on-complete", config: { projectKey: "PROJ" } },
         ],
       },
       phase: "after_run",
@@ -462,8 +492,8 @@ describe("workflowHooksService — resolveHooksForStep [merge + visibility]", ()
         before: [],
         after: [
           {
-            name: "canonical:jira-comment-on-complete",
-            with: { fromWorkflow: true },
+            ref: "canonical:jira-comment-on-complete",
+            config: { fromWorkflow: true },
           },
         ],
       },
@@ -541,5 +571,113 @@ describe("workflowHooksService — enforced cache invalidation", () => {
     const { db } = buildMockDb();
     const svc = workflowHooksService(db, buildDeps());
     svc.invalidateEnforcedCache("co-1"); // no throw on empty cache
+  });
+});
+
+// ─── P0.1 — listExecutions visibility filter ───────────────────────────────
+
+describe("workflowHooksService — listExecutions [P0.1 visibility]", () => {
+  it("returns [] when actor has no visibility on the only stored config (private not theirs)", async () => {
+    const { db, state } = buildMockDb();
+    const svc = workflowHooksService(db, buildDeps());
+
+    state.configs.set("c-priv", {
+      id: "c-priv",
+      companyId: "co-1",
+      name: "private-jira",
+      hookRef: "canonical:jira-comment-on-complete",
+      defaultConfigJson: {},
+      visibility: "private",
+      createdByPrincipalId: "user-OWNER",
+      enabled: true,
+      enforced: false,
+      enforcedPhases: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    state.executions.push({
+      id: "exec-1",
+      companyId: "co-1",
+      configId: "c-priv",
+      hookRef: "canonical:jira-comment-on-complete",
+      runId: "run-1",
+      phase: "after_step",
+      status: "success",
+      actorUserId: "user-OWNER",
+      createdAt: new Date(),
+    });
+
+    const rows = await svc.listExecutions("co-1", "user-OTHER");
+    // Even though the row exists, user-OTHER has no visibility → []
+    expect(rows).toEqual([]);
+  });
+
+  it("returns [] when filter.configId points at a config the actor cannot see", async () => {
+    const { db, state } = buildMockDb();
+    const svc = workflowHooksService(db, buildDeps());
+
+    state.configs.set("c-priv", {
+      id: "c-priv",
+      companyId: "co-1",
+      name: "private",
+      hookRef: "canonical:jira-comment-on-complete",
+      defaultConfigJson: {},
+      visibility: "private",
+      createdByPrincipalId: "user-OWNER",
+      enabled: true,
+      enforced: false,
+      enforcedPhases: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const rows = await svc.listExecutions("co-1", "user-OTHER", {
+      configId: "c-priv",
+    });
+    expect(rows).toEqual([]);
+  });
+});
+
+// ─── P0.2 — Tag / Principal company-ownership validation ───────────────────
+
+describe("workflowHooksService — createConfig [P0.2 cross-tenant]", () => {
+  it("rejects createConfig when tagId belongs to a different company", async () => {
+    const { db, state } = buildMockDb();
+    const svc = workflowHooksService(db, buildDeps());
+
+    // Tag belongs to OTHER-CO, not co-1
+    state.tagsCatalog.push({ id: "tag-X", companyId: "other-co" });
+
+    await expect(
+      svc.createConfig(
+        "co-1",
+        {
+          name: "demo",
+          hookRef: "canonical:jira-comment-on-complete",
+          visibility: "tags",
+          tagIds: ["tag-X"],
+        },
+        { actorPrincipalId: "user-A", hasEnforcePermission: false },
+      ),
+    ).rejects.toThrow(/Tag does not belong/);
+  });
+
+  it("rejects createConfig when principalId is not a member of the company", async () => {
+    const { db } = buildMockDb();
+    const svc = workflowHooksService(db, buildDeps());
+
+    // No memberships seeded → assertion fails for any non-empty input
+    await expect(
+      svc.createConfig(
+        "co-1",
+        {
+          name: "demo",
+          hookRef: "canonical:jira-comment-on-complete",
+          visibility: "principals",
+          principalIds: ["user-NONE"],
+        },
+        { actorPrincipalId: "user-A", hasEnforcePermission: false },
+      ),
+    ).rejects.toThrow(/Principal does not belong/);
   });
 });

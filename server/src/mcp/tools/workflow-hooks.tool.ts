@@ -1,22 +1,28 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
+import { forbidden } from "../../errors.js";
 
 /**
- * WORKFLOW-HOOKS T2.8 — MCP tools (6 tools, parity with REST routes).
+ * WORKFLOW-HOOKS T2.8 — MCP tools (7 tools, parity with REST routes).
  *
  * Tools wired into the registry (`./index.ts`):
  *   - list_hook_configs           — list configs visible to the actor
  *   - get_hook_config             — read one config (with visibility check)
- *   - update_hook_config          — create/replace a config (idempotent on name)
+ *   - create_hook_config          — create a new config (POST equivalent)
+ *   - update_hook_config          — partial update of an existing config
+ *                                    (PATCH equivalent, configId required)
  *   - delete_hook_config          — remove a config + audit row
  *   - list_hook_catalog           — canonical + shared + local hooks visible
  *                                    to the actor
  *   - list_hook_executions        — runtime audit log (filterable)
  *
- * All six tools require `hooks:manage` (same as the REST admin routes).
- * Toggling `enforced=true` additionally requires `hooks:enforce` (the
- * service double-checks via `ctx.hasEnforcePermission`).
+ * All seven tools require `hooks:manage` (same as the REST admin routes).
+ * Mutating tools (create/update/delete) additionally enforce a board
+ * (human) actor via `requireBoardActor` — list/get/catalog/executions
+ * stay open to agents. Toggling `enforced=true` additionally requires
+ * `hooks:enforce` (the service double-checks via
+ * `ctx.hasEnforcePermission`).
  *
  * Tenant context is set by the MCP wrap() before the handler runs (cf.
  * `governed-workflows.md` rule). The service layer ALSO calls
@@ -46,6 +52,21 @@ const upsertConfigInputSchema = z.object({
   tagIds: z.array(z.string().uuid()).optional(),
   principalIds: z.array(z.string().min(1)).optional(),
 });
+
+const patchConfigInputSchema = upsertConfigInputSchema.partial();
+
+/**
+ * Mutating tools (create/update/delete) require a board (human) actor.
+ * Agent actors are blocked: mirrors the REST `assertBoard(req)` calls on
+ * POST/PATCH/DELETE. In the MCP layer, board users are exposed as
+ * `actor.type === "user"` (vs `"agent"` for agent JWTs) — see
+ * `registry/types.ts#McpActor`.
+ */
+function requireBoardActor(actor: { type: "user" | "agent" }): void {
+  if (actor.type !== "user") {
+    throw forbidden("Board access required");
+  }
+}
 
 export default defineMcpTools(({ tool, services }) => {
   // ─── 1. list_hook_configs ─────────────────────────────────────────────────
@@ -98,44 +119,31 @@ export default defineMcpTools(({ tool, services }) => {
     },
   });
 
-  // ─── 3. update_hook_config ────────────────────────────────────────────────
-  tool("update_hook_config", {
+  // ─── 3. create_hook_config ────────────────────────────────────────────────
+  tool("create_hook_config", {
     permissions: [PERMISSIONS.HOOKS_MANAGE],
     description:
-      "[Workflow Hooks] Create OR update a hook config. When `configId` is\n" +
-      "provided, the config is updated in place; otherwise a new config is\n" +
-      "created. Toggling enforced=true requires the hooks:enforce permission\n" +
-      "(checked server-side, not just at the tool layer). Visibility=company\n" +
-      "is required when enforced=true (admin-imposed runs apply to everyone).",
+      "[Workflow Hooks] Create a new hook config (POST equivalent). The\n" +
+      "payload is the full upsert shape. Toggling enforced=true requires\n" +
+      "the hooks:enforce permission (checked server-side, not just at the\n" +
+      "tool layer). Visibility=company is required when enforced=true\n" +
+      "(admin-imposed runs apply to everyone).\n" +
+      "Tip: call list_hook_catalog first to discover available hookRef values.",
     input: z.object({
-      configId: z
-        .string()
-        .uuid()
-        .optional()
-        .describe("Optional. When set, the existing config is updated."),
       payload: upsertConfigInputSchema,
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      requireBoardActor(actor);
       const principalId = actor.userId ?? actor.agentId ?? "";
       const hasEnforcePermission = actor.effectivePermissions.has(
         PERMISSIONS.HOOKS_ENFORCE,
       );
-      let dto;
-      if (input.configId) {
-        dto = await services.workflowHooks.updateConfig(
-          actor.companyId,
-          input.configId,
-          input.payload,
-          { actorPrincipalId: principalId, hasEnforcePermission },
-        );
-      } else {
-        dto = await services.workflowHooks.createConfig(
-          actor.companyId,
-          input.payload,
-          { actorPrincipalId: principalId, hasEnforcePermission },
-        );
-      }
+      const dto = await services.workflowHooks.createConfig(
+        actor.companyId,
+        input.payload,
+        { actorPrincipalId: principalId, hasEnforcePermission },
+      );
       return {
         content: [
           { type: "text" as const, text: JSON.stringify({ config: dto }) },
@@ -144,7 +152,45 @@ export default defineMcpTools(({ tool, services }) => {
     },
   });
 
-  // ─── 4. delete_hook_config ────────────────────────────────────────────────
+  // ─── 4. update_hook_config ────────────────────────────────────────────────
+  tool("update_hook_config", {
+    permissions: [PERMISSIONS.HOOKS_MANAGE],
+    description:
+      "[Workflow Hooks] Partial update of an existing hook config (PATCH\n" +
+      "equivalent). `configId` is REQUIRED. The payload is the upsert shape\n" +
+      "with all fields optional — only provided fields are updated.\n" +
+      "Toggling enforced=true requires the hooks:enforce permission\n" +
+      "(checked server-side, not just at the tool layer).\n" +
+      "Tip: call list_hook_catalog first to discover available hookRef values.",
+    input: z.object({
+      configId: z
+        .string()
+        .uuid()
+        .describe("Required. Id of the existing config to update."),
+      payload: patchConfigInputSchema,
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    handler: async ({ input, actor }) => {
+      requireBoardActor(actor);
+      const principalId = actor.userId ?? actor.agentId ?? "";
+      const hasEnforcePermission = actor.effectivePermissions.has(
+        PERMISSIONS.HOOKS_ENFORCE,
+      );
+      const dto = await services.workflowHooks.updateConfig(
+        actor.companyId,
+        input.configId,
+        input.payload,
+        { actorPrincipalId: principalId, hasEnforcePermission },
+      );
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ config: dto }) },
+        ],
+      };
+    },
+  });
+
+  // ─── 5. delete_hook_config ────────────────────────────────────────────────
   tool("delete_hook_config", {
     permissions: [PERMISSIONS.HOOKS_MANAGE],
     description:
@@ -156,6 +202,7 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      requireBoardActor(actor);
       const principalId = actor.userId ?? actor.agentId ?? "";
       const hasEnforcePermission = actor.effectivePermissions.has(
         PERMISSIONS.HOOKS_ENFORCE,
@@ -173,7 +220,7 @@ export default defineMcpTools(({ tool, services }) => {
     },
   });
 
-  // ─── 5. list_hook_catalog ─────────────────────────────────────────────────
+  // ─── 6. list_hook_catalog ─────────────────────────────────────────────────
   tool("list_hook_catalog", {
     permissions: [PERMISSIONS.HOOKS_MANAGE],
     description:
@@ -211,7 +258,7 @@ export default defineMcpTools(({ tool, services }) => {
     },
   });
 
-  // ─── 6. list_hook_executions ──────────────────────────────────────────────
+  // ─── 7. list_hook_executions ──────────────────────────────────────────────
   tool("list_hook_executions", {
     permissions: [PERMISSIONS.HOOKS_MANAGE],
     description:
@@ -227,8 +274,10 @@ export default defineMcpTools(({ tool, services }) => {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async ({ input, actor }) => {
+      const principalId = actor.userId ?? actor.agentId ?? "";
       const rows = await services.workflowHooks.listExecutions(
         actor.companyId,
+        principalId,
         {
           configId: input.configId,
           runId: input.runId,
