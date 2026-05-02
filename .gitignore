@@ -62,3 +62,6 @@ _qa/
 
 # Local orchestration scratch (multi-agent pipeline reports, never committed)
 .work/
+
+# SBOM artifacts (regenerated on demand via `bun run sbom`, attached to releases)
+/sbom/

@@ -49,7 +49,9 @@
     "test:e2e:isolated:headed": "node scripts/e2e-runner.mjs --headed",
     "test:e2e:report": "npx playwright show-report",
     "parity": "bun run scripts/parity/cli.ts",
-    "upstream-watch": "node scripts/upstream-watch.mjs"
+    "upstream-watch": "node scripts/upstream-watch.mjs",
+    "sbom": "bash scripts/sbom.sh",
+    "sbom:app-only": "bash scripts/sbom.sh --app-only"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

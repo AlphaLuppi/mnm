@@ -147,8 +147,8 @@ Exclusion intentionnelle de l'identité Claude (cohérent avec la règle projet 
 
 ### 6.4 Restant pour publication publique effective
 
-- [ ] Réserver/activer un catch-all sur `@alphaluppi.fr` pour les 6 alias (licensing, trademarks, security, conduct, cla, legal)
-- [ ] Générer SBOM complet (script à écrire — `bun pm ls --json` + classificateur)
+- [x] ~~Réserver/activer un catch-all sur `@alphaluppi.fr` pour les 6 alias~~ — résolu en §6.7 : on simplifie à 1 seul email public (`tom@alphaluppi.fr`).
+- [x] ~~Générer SBOM complet (script à écrire)~~ — résolu en §6.6 : script `scripts/sbom.sh` livré.
 - [ ] Audit secret-scan une dernière fois avant `gh repo edit --visibility public`
 
 ### 6.5 Decision update (2026-05-02 — même jour, après §6.2)
@@ -173,3 +173,50 @@ Exclusion intentionnelle de l'identité Claude (cohérent avec la règle projet 
 4. Contributeur poste la phrase en commentaire.
 5. Mainteneur ajoute un label `cla-signed` sur le contributeur (ou tient une liste dans un fichier privé) et merge.
 6. Plus de demande pour les PR ultérieures du même contributeur.
+
+### 6.6 SBOM (Software Bill of Materials)
+
+**Décision** : livrer un script `scripts/sbom.sh` qui génère 3 SBOMs à la demande, plutôt que de les commit dans le repo (artifacts régénérables, pollueraient l'historique).
+
+**Couverture** :
+1. **App SBOM** (mandatory) — `sbom-app.cdx.json` via `@cyclonedx/cdxgen` au format CycloneDX 1.5. Couvre tout l'arbre bun workspaces (~1100 packages npm).
+2. **Docker SBOM** (best-effort) — `sbom-docker.cdx.json` + `.spdx.json` via `syft`. Reflète exactement ce qui est dans l'image distribuée (binaires OS + npm deps installées). Skip si l'image n'est pas buildée.
+3. **GitHub-native SBOM** (best-effort) — `sbom-github.spdx.json` via `gh api /repos/.../dependency-graph/sbom`. Skip tant que le repo est privé.
+
+**Outils requis** :
+- `bun` + `bunx` (déjà requis pour MnM dev)
+- `syft` ([Anchore](https://github.com/anchore/syft)) — install à la demande
+- `gh` CLI — déjà requis dans le workflow git
+
+**Scripts package.json** :
+- `bun run sbom` — génère tout ce qui est disponible
+- `bun run sbom:app-only` — saute Docker + GitHub (utile pour CI ne build pas Docker)
+
+**Format CycloneDX 1.5** retenu (vs SPDX) car plus moderne, mieux supporté par les outils SAST/SCA enterprise (Snyk, Dependency-Track, etc.). SPDX généré aussi pour Docker (compat GitHub).
+
+**Output dans `/sbom/`** (gitignored). À attacher aux GitHub Releases comme assets le jour d'une release publique. Job CI à écrire post-publication.
+
+**Pourquoi maintenant** : les premiers prospects enterprise vont demander un SBOM dans leur audit fournisseur (SOC 2, NIS2). Avoir le script prêt évite de bricoler à la dernière minute.
+
+### 6.7 Emails simplifiés (décision 2026-05-02)
+
+**Décision** : abandonner les 6 alias par fonction (`security@`, `licensing@`, `cla@`, `conduct@`, `trademarks@`, `legal@`) et utiliser un **seul email public** : `tom@alphaluppi.fr`.
+
+**Raisons** :
+- 3 personnes physiques (Tom, Gabriel, Nicolas) → 6 alias est sur-dimensionné.
+- "Trucs globaux" (sécurité, licensing, etc.) vont chez Tom de toute façon.
+- Évite de configurer 6 redirections + un catch-all pour rien.
+- Simplifie la doc : 1 email à mémoriser, pas une liste à maintenir.
+
+**Setup résultant** :
+- `tom@alphaluppi.fr` → mailbox réelle de Tom (Cloudflare Email Routing → boîte Gmail principale)
+- `gabriel@alphaluppi.fr` → boîte Gabriel (interne, non publique)
+- `nicolas@alphaluppi.fr` → boîte Nicolas (interne, non publique)
+
+**Coût** : 0 € (Cloudflare Email Routing) + envoi via Brevo/Resend free tier si Tom veut répondre depuis l'alias.
+
+**Tradeoff accepté** :
+- Le repo public expose un email perso plutôt qu'une adresse "team@" — légitime au vu du stade pré-incorporation.
+- Si le volume de mails publics devient ingérable (>50/mois), on pourra introduire `contact@` ou `team@` comme overlay sans casser les anciennes mentions (un "Closed" auto-reply suffirait sur `tom@` qui redirige vers `contact@`).
+
+**Action effectuée** : remplacement de tous les `(security|licensing|cla|conduct|trademarks|legal)@alphaluppi.fr` par `tom@alphaluppi.fr` dans les 10 fichiers OSS publics + simplification du bloc "Contact" du `ee/LICENSE`.

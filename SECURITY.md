@@ -13,7 +13,7 @@ La sécurité de MnM est une priorité. Si vous découvrez une vulnérabilité, 
 
 Deux canaux privés sont disponibles, par ordre de préférence :
 
-1. **Email** (canal préféré) : `security@alphaluppi.fr`
+1. **Email** (canal préféré) : `tom@alphaluppi.fr`
    - Chiffrement PGP disponible sur demande.
    - Merci d'inclure : description de la vulnérabilité, étapes de reproduction, impact estimé, version concernée, et toute PoC ou patch que vous voulez bien partager.
 
@@ -69,7 +69,7 @@ Security is a top priority for MnM. If you discover a vulnerability, **please DO
 
 Two private channels are available, in order of preference:
 
-1. **Email** (preferred): `security@alphaluppi.fr`
+1. **Email** (preferred): `tom@alphaluppi.fr`
    - PGP encryption available on request.
    - Please include: description of the vulnerability, reproduction steps, estimated impact, affected version, and any PoC or patch you're willing to share.
 

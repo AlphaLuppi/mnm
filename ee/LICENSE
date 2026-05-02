@@ -78,7 +78,7 @@ purposes is permitted for up to thirty (30) days without a subscription.
 
 Production use of the Enterprise Code requires a paid commercial subscription
 with Alpha Luppi. To obtain a subscription, see `COMMERCIAL-LICENSE.md` at the
-repository root or contact `licensing@alphaluppi.fr`.
+repository root or contact `tom@alphaluppi.fr`.
 
 The subscription contract (Master Software License Agreement) takes precedence
 over this License in case of conflict.
@@ -89,7 +89,7 @@ over this License in case of conflict.
 
 Contributions to the `ee/` directory are subject to a separate Enterprise
 Contributor License Agreement (Enterprise CLA), distinct from the core CLA.
-Contact `cla@alphaluppi.fr` for the Enterprise CLA template.
+Contact `tom@alphaluppi.fr` for the Enterprise CLA template.
 
 ================================================================================
 7. TERMINATION
@@ -149,11 +149,10 @@ exclusive jurisdiction of the courts of Paris, France.
 12. CONTACT
 ================================================================================
 
-For questions about this License or to obtain a commercial subscription:
+For questions about this License (licensing, legal, trademarks) or to
+obtain a commercial subscription, contact:
 
-  - Licensing: licensing@alphaluppi.fr
-  - Legal: legal@alphaluppi.fr
-  - Trademarks: trademarks@alphaluppi.fr
+  tom@alphaluppi.fr
 
 Alpha Luppi (Studio Manifeste)
 France

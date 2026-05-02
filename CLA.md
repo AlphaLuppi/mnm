@@ -3,7 +3,7 @@
 > **Project**: MnM
 > **Steward**: Alpha Luppi (Studio Manifeste)
 > **Version**: 1.0 — 2026-04-28
-> **Contact**: cla@alphaluppi.fr
+> **Contact**: tom@alphaluppi.fr
 
 ---
 
@@ -55,7 +55,7 @@ Sauf accord contraire écrit, Vous fournissez Votre Contribution « TELLE QUELLE
 
 ### 7. Notification de changements
 
-Si Vous prenez connaissance d'un fait rendant l'une des déclarations ci-dessus inexacte (par exemple changement d'employeur, retrait d'autorisation), Vous Vous engagez à notifier Alpha Luppi à `cla@alphaluppi.fr` dans les meilleurs délais.
+Si Vous prenez connaissance d'un fait rendant l'une des déclarations ci-dessus inexacte (par exemple changement d'employeur, retrait d'autorisation), Vous Vous engagez à notifier Alpha Luppi à `tom@alphaluppi.fr` dans les meilleurs délais.
 
 ### 8. Signature
 
@@ -131,7 +131,7 @@ Unless otherwise agreed in writing, You provide Your Contribution "AS IS", witho
 
 ### 7. Notification of Changes
 
-If You become aware of any fact that makes any of the above representations inaccurate (e.g., change of employer, withdrawal of authorization), You agree to notify Alpha Luppi at `cla@alphaluppi.fr` as soon as possible.
+If You become aware of any fact that makes any of the above representations inaccurate (e.g., change of employer, withdrawal of authorization), You agree to notify Alpha Luppi at `tom@alphaluppi.fr` as soon as possible.
 
 ### 8. Signature
 

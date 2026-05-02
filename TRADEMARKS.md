@@ -1,7 +1,7 @@
 # Trademark Policy — MnM & Alpha Luppi
 
 > **Steward**: Alpha Luppi (Studio Manifeste)
-> **Contact**: trademarks@alphaluppi.fr
+> **Contact**: tom@alphaluppi.fr
 > **Version**: 1.0 — 2026-04-28
 
 ---
@@ -52,7 +52,7 @@ Exemple refusé : « MnM by Acme », « MnM Pro », « MnM Enterprise Edition »
 
 ### 5. Usages nécessitant une autorisation écrite
 
-Les usages suivants nécessitent une autorisation préalable écrite à `trademarks@alphaluppi.fr` :
+Les usages suivants nécessitent une autorisation préalable écrite à `tom@alphaluppi.fr` :
 
 - Vente de produits ou services portant le nom « MnM » ou le logo MnM.
 - Nom de domaine contenant « mnm » ou « alphaluppi » (sauf usage personnel non commercial évident).
@@ -70,7 +70,7 @@ Les usages suivants nécessitent une autorisation préalable écrite à `tradema
 
 Toute question, demande d'autorisation ou signalement d'usage abusif :
 
-`trademarks@alphaluppi.fr`
+`tom@alphaluppi.fr`
 
 Nous nous engageons à répondre sous 10 jours ouvrés.
 
@@ -122,7 +122,7 @@ Refused example: "MnM by Acme", "MnM Pro", "MnM Enterprise Edition".
 
 ### 5. Uses requiring written permission
 
-The following uses require prior written authorization at `trademarks@alphaluppi.fr`:
+The following uses require prior written authorization at `tom@alphaluppi.fr`:
 
 - Sale of products or services bearing the name "MnM" or the MnM logo.
 - Domain name containing "mnm" or "alphaluppi" (except obvious non-commercial personal use).
@@ -140,6 +140,6 @@ The following uses require prior written authorization at `trademarks@alphaluppi
 
 Any question, permission request, or abuse report:
 
-`trademarks@alphaluppi.fr`
+`tom@alphaluppi.fr`
 
 We commit to respond within 10 business days.
