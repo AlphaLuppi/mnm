@@ -79,12 +79,26 @@ A full SBOM and license summary will be generated as part of the
 open-source preparation, before public release of the repository.
 
 ================================================================================
-Known license caveats (under review)
+Known third-party license edge cases
 ================================================================================
 
-  - @codesandbox/nodebox (transitive via @mdxeditor/editor →
-    @codesandbox/sandpack-react → @codesandbox/sandpack-client → nodebox)
-    is distributed under the Sustainable Use License (SUL), a source-available
-    non-OSI license. Mixing SUL with AGPL-3.0 distribution is being assessed
-    before public release. If found incompatible, the offending dependency
-    will be replaced or vendored.
+  - @codesandbox/nodebox is present in the dependency tree as a transitive
+    of @mdxeditor/editor → @codesandbox/sandpack-react →
+    @codesandbox/sandpack-client → nodebox. It is distributed under the
+    Sustainable Use License (SUL), a source-available non-OSI license whose
+    redistribution terms are stricter than AGPL-3.0.
+
+    Status (audited 2026-05-02): MnM does NOT import any Sandpack plugin
+    anywhere in its source code. The MarkdownEditor uses CodeMirror plugins
+    only (codeBlockPlugin + codeMirrorPlugin). As a result, Vite's
+    tree-shaking eliminates the Sandpack subgraph — including
+    @codesandbox/nodebox — from the production bundle that is actually
+    distributed to end users.
+
+    Conclusion: the SUL/AGPL boundary is not crossed by the distributed
+    artifacts. The dependency remains in node_modules during development
+    (a build-time concern), but is not part of the AGPL-licensed Work that
+    ships to users. Documented here for transparency and to flag any future
+    change (e.g. enabling the Sandpack code preview plugin) that would
+    re-introduce the question and require dropping the dependency or
+    vendoring an OSI-compatible alternative.

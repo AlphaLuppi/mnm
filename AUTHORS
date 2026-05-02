@@ -1,0 +1,26 @@
+MnM — Make no Mistake
+Authors and contributors
+
+This file lists individuals who have contributed code, documentation, or
+design to the MnM project. It is maintained manually and complements the
+git history (the canonical record of authorship is `git log`).
+
+Contributors are listed in chronological order of first contribution.
+Lines follow the format: Name <email> (alias)
+
+---
+
+Tom Andrieu <andrieutom30@gmail.com> (Seeyko)
+Gabriel Desbouis <desbouis.lgabriel@gmail.com> (TarsaaL, gabrieldesbouis)
+Nicolas Bataille <63408806+NicolasBataille@users.noreply.github.com>
+
+---
+
+To get listed here, open a pull request adding your name once your first
+contribution has been merged. By contributing to MnM, you agree to the
+project's Contributor License Agreement (see CLA.md).
+
+For the full list of git authors (including bot accounts and AI tools used
+during development), run:
+
+    git log --format='%aN <%aE>' | sort -u

@@ -104,3 +104,51 @@ Dans NOTICE, supprimer la phrase "A full SBOM and license summary will be genera
 ## 5. Suivi
 
 Après merge, documenter dans le decision-log un nouveau §X "Open source readiness — état réel à 2026-05-02" avec checklist des P1/P2 restants avant publication publique effective.
+
+---
+
+## 6. Round 2 — P1 fixes (2026-05-02 même jour)
+
+Suite à validation des P0, traitement immédiat des 3 P1 restants.
+
+### 6.1 Caveat `@codesandbox/nodebox` (SUL vs AGPL)
+
+**Investigation** :
+- `@mdxeditor/editor` est utilisé dans [ui/src/components/MarkdownEditor.tsx](../../../ui/src/components/MarkdownEditor.tsx) et [ui/src/main.tsx](../../../ui/src/main.tsx) (style.css).
+- Plugins importés : `headings, lists, quote, table, link, codeBlock, codeMirror, image, markdownShortcut, thematicBreak`.
+- **Aucun import Sandpack** dans le code MnM (ni `sandpack-react`, ni `sandpack-client`, ni `nodebox` directement).
+- MnM utilise `codeMirrorPlugin` pour les blocs de code, pas Sandpack.
+
+**Conclusion** : `@codesandbox/nodebox` est une dépendance transitive **non utilisée à l'exécution**. Vite tree-shake l'arbre Sandpack hors du bundle de production puisqu'aucun symbole n'est importé. Le bundle distribué aux utilisateurs ne contient pas nodebox → la frontière SUL/AGPL n'est pas franchie au moment de la distribution.
+
+**Action** : reformuler le bloc "Known license caveats" du NOTICE en "Known third-party license edge cases" avec l'analyse documentée. Aucun changement de dépendance nécessaire à ce stade. Flag pour l'avenir : si on active un plugin Sandpack (ex : preview de code live), il faudra dropper la dépendance ou trouver une alternative OSI.
+
+### 6.2 Workflow CLA Assistant
+
+Création de [.github/workflows/cla-assistant.yml](../../../.github/workflows/cla-assistant.yml) basé sur `contributor-assistant/github-action@v2.6.1` :
+- Trigger : `pull_request_target` + `issue_comment`
+- Stockage des signatures : repo séparé `AlphaLuppi/cla-signatures` (à créer au moment de l'activation)
+- Phrase de signature : "I have read the CLA Document and I hereby sign the CLA"
+- Allowlist : bots (dependabot, renovate, github-actions) + mainteneurs core actuels (Seeyko, gabrieldesbouis, TarsaaL, NicolasBataille)
+- Comment templates bilingues FR + EN
+
+**Activation pré-publication publique** : créer `AlphaLuppi/cla-signatures` (privé OK) + ajouter un secret `PERSONAL_ACCESS_TOKEN` avec scope `repo` sur le repo de signatures.
+
+### 6.3 AUTHORS file
+
+Création de [AUTHORS](../../../AUTHORS) avec les 3 contributeurs humains identifiés via `git log --format='%aN <%aE>' | sort -u` :
+- Tom Andrieu (Seeyko)
+- Gabriel Desbouis (TarsaaL, gabrieldesbouis)
+- Nicolas Bataille
+
+Exclusion intentionnelle de l'identité Claude (cohérent avec la règle projet "Pas de Co-Authored-By Claude/AI" — l'IA est un outil de développement, pas un contributeur au sens du copyright).
+
+[COPYRIGHT](../../../COPYRIGHT) mis à jour : `the AUTHORS file (when available)` → `the AUTHORS file`.
+
+### 6.4 Restant pour publication publique effective
+
+- [ ] Réserver/activer un catch-all sur `@alphaluppi.fr` pour les 6 alias (licensing, trademarks, security, conduct, cla, legal)
+- [ ] Créer le repo `AlphaLuppi/cla-signatures` + secret PAT
+- [ ] Générer SBOM complet (script à écrire — `bun pm ls --json` + classificateur)
+- [ ] Renommer la branche par défaut si besoin (master → main, le workflow CLA pointe sur `master` actuellement)
+- [ ] Audit secret-scan une dernière fois avant `gh repo edit --visibility public`

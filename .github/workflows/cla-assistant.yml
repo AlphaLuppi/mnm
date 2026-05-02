@@ -1,0 +1,66 @@
+name: CLA Assistant
+
+# Triggers on every PR opened/synchronized AND on issue comments
+# (so contributors can sign by replying with the trigger phrase).
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: read         # for the action to read the source repo
+  pull-requests: write   # to comment on PRs and update labels
+  statuses: write        # to set the CLA status check on PRs
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    # Skip on automated bots and on the initial signing-comment chain itself
+    if: |
+      (github.event_name == 'issue_comment' && github.event.comment.body != null) ||
+      (github.event_name == 'pull_request_target')
+    steps:
+      - name: Run CLA Assistant
+        uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PERSONAL_ACCESS_TOKEN must be a PAT with `repo` scope on the
+          # signatures storage repo (configured below). Create it once and
+          # add it under repo Secrets → PERSONAL_ACCESS_TOKEN.
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        with:
+          # Where the JSON ledger of signatures lives (private repo recommended).
+          path-to-signatures: 'signatures/v1/cla.json'
+          remote-organization-name: AlphaLuppi
+          remote-repository-name: cla-signatures
+
+          # Reference to the CLA text contributors are agreeing to.
+          path-to-document: 'https://github.com/AlphaLuppi/mnm/blob/master/CLA.md'
+
+          # Branch of the signatures repo to commit the ledger updates to.
+          branch: 'main'
+
+          # Trigger phrases (English + French) — adjust if needed.
+          custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
+          custom-notsigned-prcomment: |
+            Thank you for your contribution! Before we can merge, please read
+            our [Contributor License Agreement](https://github.com/AlphaLuppi/mnm/blob/master/CLA.md)
+            and reply to this PR with the following statement on its own line:
+
+            > I have read the CLA Document and I hereby sign the CLA
+
+            ---
+
+            Merci pour votre contribution ! Avant de pouvoir merger, merci de lire
+            notre [Contributor License Agreement](https://github.com/AlphaLuppi/mnm/blob/master/CLA.md)
+            et de répondre à cette PR avec la phrase suivante seule sur sa ligne :
+
+            > I have read the CLA Document and I hereby sign the CLA
+          custom-allsigned-prcomment: 'All contributors have signed the CLA — thank you!'
+
+          # Allowlist: bots and current core maintainers (whose contributions
+          # predate the CLA and are governed directly by the project setup).
+          # Update this list as the team grows.
+          allowlist: 'dependabot[bot],renovate[bot],github-actions[bot],Seeyko,gabrieldesbouis,TarsaaL,NicolasBataille'
