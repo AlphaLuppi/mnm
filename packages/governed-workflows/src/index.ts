@@ -2,8 +2,10 @@
 export {
   GATE_ERROR_CODES,
   WORKFLOW_ERROR_CODES,
+  HOOK_ERROR_CODES,
   type GateErrorCode,
   type WorkflowErrorCode,
+  type HookErrorCode,
 } from "./errors.js";
 
 // Gate schemas + types
