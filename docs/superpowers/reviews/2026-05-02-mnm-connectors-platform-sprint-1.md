@@ -1,6 +1,6 @@
 # MnM Connectors Platform — Sprint 1 multi-review (2026-05-02)
 
-> **État** : **Phase 4 SHIPPED 2026-05-02 (10 commits Sprint 1+Phase 4)**. 4 HIGH security/archi findings + 4 MED quick wins fixés ; 16 tests Phase 4 ajoutés (4 HIGH-Q1 getUserToken paths + 7 HIGH-Q2 callback msw + 9 HIGH-Q3 RLS runtime). Total : **53 Vitest pass + 14 migration regex + 17/17 typecheck**. Sprint 2 (T5-T8) prêt à démarrer.
+> **État** : **Phase 4 SHIPPED 2026-05-02 (10 commits Sprint 1+Phase 4)**. 4 HIGH security/archi findings + 4 MED quick wins fixés ; 20 tests Phase 4 ajoutés (4 HIGH-Q1 getUserToken paths + 7 HIGH-Q2 callback msw + 9 HIGH-Q3 RLS runtime). Total : **46 Vitest pass + 14 migration regex + 17/17 typecheck**. Sprint 2 (T5-T8) prêt à démarrer.
 
 > **Mise à jour 2026-05-02 (Phase 4 close)** : Le test HIGH-Q3 RLS runtime a découvert un finding architectural NEW-S1 (cf. ci-dessous) — la pattern RLS de la codebase (depuis 0030) n'a qu'une RESTRICTIVE policy sans PERMISSIVE → default-deny postgres → l'isolation tenant ne marche que parce que l'app connecte avec un user `BYPASSRLS`. Le test contourne en ajoutant une PERMISSIVE temporaire. Bug à fixer codebase-wide en follow-up séparé.
 
@@ -265,6 +265,6 @@ D'après le plan v2 :
 - `server/src/auth/better-auth.ts` (modifié)
 - `server/src/app.ts` (modifié, mount callback)
 
-**Tests pass post-Phase 4** : **53/53 Vitest** (5 secret-crypto + 9 state-validation + 11 service-mock + 5 dynamic-providers + 7 callback msw + 9 RLS runtime). Migration regex : 14/14. Typecheck : 17/17 packages. Suite RLS runtime requiert DB non-mnm (BYPASSRLS) — `bun run test:docker:up` ou DB dédiée embedded.
+**Tests pass post-Phase 4** : **46/46 Vitest** (5 secret-crypto + 9 state-validation + 11 service-mock + 5 dynamic-providers + 7 callback msw + 9 RLS runtime). Migration regex : 14/14. Typecheck : 17/17 packages. Suite RLS runtime requiert DB non-mnm (BYPASSRLS) — `bun run test:docker:up` ou DB dédiée embedded.
 
 **Architectural follow-up (NEW-S1)** : pattern RLS de la codebase ne marche que via BYPASSRLS du user app — chantier dédié post-Sprint 2 pour ajouter PERMISSIVE policies + user app non-bypass. Documenté dans le finding NEW-S1 ci-dessus.
