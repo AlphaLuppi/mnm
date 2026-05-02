@@ -511,6 +511,38 @@ export function buildMcpServices(db: Db): McpServices {
   const traces = traceService(db);
   const heartbeat = heartbeatService(db);
 
+  // WORKFLOW-HOOKS T2.6/T2.7 service. Hoisted so both the orchestrator
+  // (via governedWorkflowService deps) and the MCP tools / REST routes
+  // (via services.workflowHooks) share a single instance — single
+  // enforced-cache, single connectorService reference, no duplicate
+  // wiring. The connector service is constructed once here and reused
+  // both as `services.connectors` and inside workflowHooks.
+  const connectors = connectorService(db);
+  const workflowHooks = workflowHooksService(db, {
+    connectors,
+    resolveGitProvider: (args) =>
+      resolveGitProvider({ companyId: args.companyId, userId: args.userId }),
+    llm: {
+      // V0 stub: hooks LLM calls throw a clear error until we wire a
+      // real Anthropic provider. Budget is unbounded (null) to keep
+      // the pre-flight check disabled.
+      invoke: async () => {
+        throw new Error(
+          "LLM helper not configured for workflow hooks (V0); wire ANTHROPIC_API_KEY in build-mcp-services.ts",
+        );
+      },
+      estimateInputTokens: (req) =>
+        Math.ceil((req.prompt.length + (req.system?.length ?? 0)) / 4),
+      tokenBudgetRemaining: () => null,
+    },
+    providerCatalog: {
+      providers: {
+        jira: { baseUrl: "https://api.atlassian.com" },
+        clickup: { baseUrl: "https://api.clickup.com" },
+      },
+    },
+  });
+
   return {
     db,
     resolveGitProvider,
@@ -548,43 +580,18 @@ export function buildMcpServices(db: Db): McpServices {
         addObservation: traces.addObservation,
         completeTrace: traces.completeTrace,
       },
-      // WORKFLOW-HOOKS T2.7 wire — when set, the orchestrator runs
-      // before_run / before_step / after_step / after_run hooks at
-      // the four standard insertion points. The service reuses the
-      // already-constructed connectorService for OAuth token lookup,
-      // and a small static provider catalog for jira/clickup base
-      // URLs (V0; per-tenant override lands in V1 via a new
-      // oauth_connectors.base_url column).
-      workflowHooks: workflowHooksService(db, {
-        connectors: connectorService(db),
-        resolveGitProvider: (args) =>
-          resolveGitProvider({ companyId: args.companyId, userId: args.userId }),
-        llm: {
-          // V0 stub: no LLM calls go through hooks until we wire a
-          // real provider in build-mcp-services. Returning a minimal
-          // implementation keeps the wire safe — `helpers.llm()`
-          // just throws a clear error when invoked, and the budget
-          // check is disabled (returns null = unbounded).
-          invoke: async () => {
-            throw new Error(
-              "LLM helper not configured for workflow hooks (V0); set ANTHROPIC_API_KEY and wire the provider in build-mcp-services.ts",
-            );
-          },
-          estimateInputTokens: (req) =>
-            Math.ceil((req.prompt.length + (req.system?.length ?? 0)) / 4),
-          tokenBudgetRemaining: () => null,
-        },
-        providerCatalog: {
-          providers: {
-            jira: { baseUrl: "https://api.atlassian.com" },
-            clickup: { baseUrl: "https://api.clickup.com" },
-          },
-        },
-      }),
+      // WORKFLOW-HOOKS T2.7 wire — see workflowHooks below for the actual
+      // service constructor. This passes the SAME instance so MCP tools
+      // and the orchestrator share a single cache + connection pool.
+      workflowHooks,
     }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),
     // CONNECTORS-PLATFORM: hub OAuth user-level + api_key store
-    connectors: connectorService(db),
+    connectors,
+    // WORKFLOW-HOOKS T2.6 service + T2.8 MCP/REST consumers — exposed
+    // here so the MCP tools file (workflow-hooks.tool.ts) and the REST
+    // routes can reach it directly via `services.workflowHooks`.
+    workflowHooks,
   };
 }

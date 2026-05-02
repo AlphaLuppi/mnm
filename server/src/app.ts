@@ -59,6 +59,8 @@ import { credentialRoutes } from "./routes/credentials.js";
 import { connectorsCallbackRoutes } from "./routes/connectors-callback.js";
 // CONNECTORS-PLATFORM: REST routes (admin + user self-service, tenant-scoped)
 import { connectorRoutes } from "./routes/connectors.js";
+// WORKFLOW-HOOKS T2.8 — REST routes (admin + audit + catalog)
+import { workflowHooksRoutes } from "./routes/workflow-hooks.js";
 // POD-04: Sandbox routes (renamed from pods)
 import { sandboxRoutes } from "./routes/sandboxes.js";
 // POD-05: Sandbox exec (chat console, renamed from pod-exec)
@@ -342,6 +344,12 @@ export async function createApp(
       redisState: opts.redisState ?? null,
     }),
   );
+  // Build the MCP services container ONCE. The same instance is reused
+  // for the MCP router (mounted below the /api block) and for REST
+  // routes that need the workflow-hooks service (T2.8). Without this
+  // hoist, REST and MCP would each construct their own
+  // workflowHooksService — duplicating the enforced-cache.
+  const mcpServices = buildMcpServices(db);
   api.use("/companies", companyRoutes(db));
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
@@ -378,6 +386,10 @@ export async function createApp(
   api.use(credentialRoutes(db));
   // CONNECTORS-PLATFORM: admin CRUD + user self-service (templates, connect, api_key)
   api.use(connectorRoutes(db));
+  // WORKFLOW-HOOKS T2.8 — admin CRUD + audit + catalog. Reuses the same
+  // workflowHooksService instance constructed by buildMcpServices() so
+  // the enforced-cache stays consistent across REST + MCP.
+  api.use(workflowHooksRoutes(db, mcpServices.workflowHooks));
   // POD-04: Sandbox routes
   api.use(sandboxRoutes(db));
   // POD-05: Sandbox exec (chat console)
@@ -469,9 +481,12 @@ export async function createApp(
   // MUST be mounted AFTER /api routes but BEFORE SPA fallback.
   // express.json() is applied globally above; the router passes req.body
   // to transport.handleRequest() explicitly since the stream is already consumed.
+  // Note : `mcpServices` is built earlier (above the /api block) so the
+  // workflow-hooks service instance is shared between REST + MCP. The
+  // build call below would have reused it.
   const mcpRouter = createMcpRouter({
     db,
-    services: buildMcpServices(db),
+    services: mcpServices,
     resolveSession: opts.resolveSession ?? (async () => null),
   });
   app.use(mcpRouter);

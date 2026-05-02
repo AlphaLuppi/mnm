@@ -17,5 +17,7 @@ import governedWorkflowTools from "./governed-workflows.tool.js";
 import threadInteractionTools from "./thread-interactions.tool.js";
 // CONNECTORS-PLATFORM Sprint 2 — list / status / connect / wait / set_api_key
 import connectorTools from "./connectors.tool.js";
+// WORKFLOW-HOOKS T2.8 — list / get / update / delete / catalog / executions
+import workflowHookTools from "./workflow-hooks.tool.js";
 
-export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools, connectorTools];
+export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools, connectorTools, workflowHookTools];
