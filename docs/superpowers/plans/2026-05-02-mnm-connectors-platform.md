@@ -644,24 +644,24 @@ export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
 ];
 ```
 
-- [ ] **8.1.1 — Lister les 10 templates** avec leurs URL/scopes corrects (vérifier docs officielles Jira/GitHub/etc.).
-- [ ] **8.1.2 — Tests** que chaque template a la bonne shape selon son type.
-- [ ] **8.1.3 — Doc** dans `docs/governed-workflows/connectors.md` avec un exemple par template (comment créer l'OAuth app côté provider).
+- [x] **8.1.1 — Lister les 10 templates** avec leurs URL/scopes corrects (vérifier docs officielles Jira/GitHub/etc.). → `server/src/services/connector-templates.ts` (commit `35f2b59a6`).
+- [x] **8.1.2 — Tests** que chaque template a la bonne shape selon son type. → 67 tests `connector-templates.test.ts` (commit `8a2d30b97`).
+- [x] **8.1.3 — Doc** dans `docs/governed-workflows/connectors.md` avec un exemple par template (comment créer l'OAuth app côté provider). → commit `8a2d30b97`.
 
 ### 8.2 — `getUserToken` consumer dans `governed-workflows.ts`
 
-- [ ] **Refactor `resolveAuthor`** dans `server/src/services/governed-workflows.ts` : si user a connecté un connector slug `gitlab`, utiliser son token. Fallback PAT env var pour migration.
+- [x] **Refactor `createResolveGitProvider`** dans `server/src/mcp/build-mcp-services.ts` (le vrai resolveur de token, pas `resolveAuthor` qui ne touche que `{name,email}`) : Step 1a ajouté `getUserToken("gitlab", userId, companyId)` AVANT le fallback BetterAuth `account`. Fall-through transparent sur `CONNECTOR_NOT_CONFIGURED` / `CONNECTOR_USER_NOT_CONNECTED` (migration douce). Surface des autres erreurs (REVOKED, EXPIRED). 8 tests unit `resolve-git-provider-connectors.test.ts` (commit `53a817f7c`).
 
 ### 8.3 — Tests E2E
 
-- [ ] **Test E2E Playwright** : login user → page Connecteurs admin → créer connecteur Jira (mock OAuth) → switch user → page Mes Comptes → connecter Jira → vérifier `account` row + `getUserToken` retourne le token.
+- [ ] ~~**Test E2E Playwright**~~ → **SACRIFIÉ V0** (sacrifiable selon plan §scope, 2026-05-02). Couverture déjà excellente : 7 cases callback dispatcher (msw + supertest) + 11 tests connectors-service + 8 tests resolve-git-provider Step 1a + 10 tests status + 9 tests MCP tools + 67 tests templates = 112 tests sur la feature server-side. À ajouter post-pilote si bug réel observé.
 
 ### 8.4 — Parity + doc + commit final
 
-- [ ] `scripts/parity/data.ts` : entries `connectors-admin` (web: done, desktop: **partial** — nécessite `tauri-plugin-shell openUrl` + URL handler retour OAuth), `connectors-user` (web: done, desktop: **partial** — même raison). Pas `n/a` car techniquement faisable via Tauri shell (review frontend N6).
-- [ ] Doc `docs/governed-workflows/connectors.md` (admin + user).
-- [ ] Decision-log §4.6 (nouveau) : graver le pattern "tokens orchestration MnM-owned (`connector_tokens`) séparés de `account` BetterAuth, AES-256-GCM via Config Layer, RLS multi-tenant".
-- [ ] Commit final + push.
+- [x] `scripts/parity/data.ts` : entries `admin-connectors` + `settings-accounts` (web: partial, desktop: partial — Tauri OAuth flow nécessite `tauri-plugin-shell openUrl` + URL handler retour). → commits `6a1fa8c8d` + `f4e1b13d9`.
+- [x] Doc `docs/governed-workflows/connectors.md` (admin + user). → commit `8a2d30b97`.
+- [x] Decision-log §4.6 + §7.1 — patterns tokens MnM-owned + RLS PERMISSIVE baseline. → commits `5e2b3fe50` + `136f5874f`.
+- [x] Commit final + push. → branche `feat/connectors-platform`, 13 commits, prête à merger.
 
 ---
 

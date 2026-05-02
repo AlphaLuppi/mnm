@@ -8,7 +8,7 @@ export const PERMISSION_CATEGORIES = [
   "agents", "issues", "stories", "projects", "users",
   "workflows", "traces", "dashboard", "admin", "chat",
   "documents", "artifacts", "folders", "sandbox", "config",
-  "feedback", "routines", "org", "inbox",
+  "feedback", "routines", "org", "inbox", "connectors",
 ] as const;
 
 export type PermissionCategory = typeof PERMISSION_CATEGORIES[number];
@@ -126,6 +126,11 @@ export const PERMISSIONS = {
   THREAD_INTERACTIONS_READ: "thread_interactions:read",
   THREAD_INTERACTIONS_CREATE: "thread_interactions:create",
   THREAD_INTERACTIONS_RESOLVE: "thread_interactions:resolve",
+  // CONNECTORS-PLATFORM (Sprint 1) — admin manages OAuth/api_key connectors,
+  // audit reads the audit log. End-user self-service (connect own account,
+  // set own API key) reuses MCP_CONNECT.
+  CONNECTORS_MANAGE: "connectors:manage",
+  CONNECTORS_AUDIT: "connectors:audit",
 } as const;
 
 export type PermissionSlug = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -233,6 +238,8 @@ export const PERMISSION_META: Record<PermissionSlug, PermissionMeta> = {
   [PERMISSIONS.THREAD_INTERACTIONS_READ]: { category: "issues", description: "Voir les interactions structurées (suggested tasks, questions, confirmations)", destructive: false },
   [PERMISSIONS.THREAD_INTERACTIONS_CREATE]: { category: "issues", description: "Créer des interactions structurées dans un thread d'issue (agents)", destructive: false },
   [PERMISSIONS.THREAD_INTERACTIONS_RESOLVE]: { category: "issues", description: "Accepter / rejeter / répondre aux interactions structurées", destructive: false },
+  [PERMISSIONS.CONNECTORS_MANAGE]: { category: "connectors", description: "Configurer les connecteurs OAuth / API key de la company", destructive: false },
+  [PERMISSIONS.CONNECTORS_AUDIT]: { category: "connectors", description: "Lire l'audit log des connecteurs", destructive: false },
 };
 
 // ── MCP Scopes ──────────────────────────────────────────────────────────────

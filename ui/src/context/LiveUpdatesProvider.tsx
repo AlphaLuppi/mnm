@@ -688,6 +688,23 @@ function handleLiveEvent(
     }
     return;
   }
+
+  // CONNECTORS-PLATFORM Sprint 2 — user's per-connector status flipped
+  // (token connected / disconnected / expired refresh / revoked / api_key set).
+  // Payload : { userId, connectorId, status, providerSlug }. Visibility =
+  // actor-only (only the affected user receives the event), so the userId
+  // check is defense-in-depth — prevents stale UI flicker if the server
+  // visibility filter ever drifted.
+  if (event.type === "user.connector_status_changed") {
+    const eventUserId = readString(payload.userId);
+    if (currentActor.userId && eventUserId && eventUserId !== currentActor.userId) {
+      return;
+    }
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.connectors.myAccounts(expectedCompanyId),
+    });
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {

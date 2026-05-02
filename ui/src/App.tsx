@@ -29,6 +29,8 @@ import { Members } from "./pages/Members";
 import AdminRoles from "./pages/AdminRoles";
 import AdminViewPresets from "./pages/AdminViewPresets";
 import { AdminTags } from "./pages/AdminTags";
+import { Connectors } from "./pages/Connectors";
+import { SettingsAccounts } from "./pages/SettingsAccounts";
 import { ConfigLayersPage } from "./pages/config-layers/ConfigLayersPage";
 import { AuditLog } from "./pages/AuditLog";
 import { Containers } from "./pages/Containers";
@@ -123,6 +125,7 @@ function boardRoutes() {
       <Route path="admin/roles" element={<RequirePermission permission="roles:read" showForbidden><AdminRoles /></RequirePermission>} />
       <Route path="admin/view-presets" element={<RequirePermission permission="roles:manage" showForbidden><AdminViewPresets /></RequirePermission>} />
       <Route path="admin/tags" element={<RequirePermission permission="tags:read" showForbidden><AdminTags /></RequirePermission>} />
+      <Route path="admin/connectors" element={<RequirePermission permission="connectors:manage" showForbidden><Connectors /></RequirePermission>} />
       <Route path="admin/sso" element={<RequirePermission permission="company:manage_sso" showForbidden><SsoConfig /></RequirePermission>} />
       <Route path="admin/config-layers" element={<RequirePermission permission="config_layers:read" showForbidden><ConfigLayersPage /></RequirePermission>} />
       <Route path="company/settings" element={<RequirePermission permission="company:manage_settings" showForbidden><CompanySettings /></RequirePermission>} />
@@ -178,6 +181,7 @@ function boardRoutes() {
       <Route path="traces/:traceId" element={<RequirePermission permission="traces:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="settings/trace-lenses" element={<RequirePermission permission="traces:manage" showForbidden><TraceSettings /></RequirePermission>} />
       <Route path="settings/profile" element={<UserProfile />} />
+      <Route path="settings/accounts" element={<RequirePermission permission="mcp:connect" showForbidden><SettingsAccounts /></RequirePermission>} />
       <Route path="routines" element={<RequirePermission permission="routines:read" showForbidden><Routines /></RequirePermission>} />
       <Route path="routines/:id" element={<RequirePermission permission="routines:read" showForbidden><RoutineDetail /></RequirePermission>} />
       <Route path="feedback" element={<RequirePermission permission="feedback:read" showForbidden><FeedbackDashboard /></RequirePermission>} />

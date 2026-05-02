@@ -34,17 +34,32 @@ Règles :
 
 ## 2. RLS policy — fail-closed obligatoire
 
-Toute nouvelle table scopée DOIT être ajoutée à une migration RLS (template ci-dessous, calqué sur `0030_rls_policies.sql`). Sans ça, la table est trouée même si le middleware est correct.
+Toute nouvelle table scopée DOIT être ajoutée à une migration RLS avec **deux policies** (template ci-dessous, calqué sur `0030_rls_policies.sql` + `0080_rls_permissive_baseline.sql`). Sans la PERMISSIVE baseline, PostgreSQL est en default-deny et 0 row n'est jamais visible (RESTRICTIVE seul = aucun unlock).
 
 ```sql
 ALTER TABLE "<table>" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "<table>" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+
+-- 1. PERMISSIVE baseline — débloque la row depuis le default-deny postgres.
+CREATE POLICY "tenant_baseline_permissive" ON "<table>" AS PERMISSIVE FOR ALL
+  USING (true);
+--> statement-breakpoint
+
+-- 2. RESTRICTIVE tenant filter — narrow par tenant via AND.
 CREATE POLICY "tenant_isolation" ON "<table>" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
 --> statement-breakpoint
 ```
 
-Pourquoi `RESTRICTIVE` + `FORCE` : `RESTRICTIVE` se cumule avec d'autres policies (AND, pas OR), `FORCE` applique aussi aux superusers et aux owners de la table. `current_setting('...', true)` retourne `NULL` si la variable n'est pas set → la comparaison échoue → 0 row visible (fail-closed). Cas spécial `company_id` nullable (ex: `invites`) : ajouter `OR company_id IS NULL` dans le `USING`.
+Pourquoi `PERMISSIVE` + `RESTRICTIVE` + `FORCE` :
+- **PERMISSIVE baseline** : sans au moins UNE policy PERMISSIVE, postgres refuse toute row à un user qui respecte RLS. `USING (true)` ne contourne rien — il rend la row éligible avant que le RESTRICTIVE filtre par tenant.
+- **RESTRICTIVE** : se cumule avec la PERMISSIVE via AND (jamais OR). C'est la couche qui bloque les autres tenants.
+- **FORCE** : applique RLS aux superusers et au owner de la table (sans, RLS reste cosmétique).
+- **`current_setting('...', true)`** : le `true` (= `missing_ok`) retourne `NULL` si la variable n'est pas set → comparaison `company_id = NULL` échoue → 0 row visible (fail-closed côté tenant).
+
+Cas spécial `company_id` nullable (ex: ancienne policy `invites`) : ajouter `OR company_id IS NULL` dans le `USING` du RESTRICTIVE — voir 0030 et 0071 pour l'historique.
+
+⚠️ **Limitation runtime — user app BYPASSRLS** : tant que la connexion app utilise un rôle SUPERUSER (`postgres`/`mnm` par défaut en dev), RLS n'est PAS appliquée du tout. La double-policy ci-dessus n'est effective qu'avec un user non-bypass. Un runbook séparé traite la migration vers un rôle dédié.
 
 La variable `app.current_company_id` est posée par `tenantContextMiddleware`. Voir `docs/conventions/middleware-chain.md`.
 

@@ -175,7 +175,29 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
   return Array.from(trustedOrigins);
 }
 
-export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
+export interface CreateBetterAuthOptions {
+  trustedOrigins?: string[];
+  /**
+   * Dynamic providers from the Connectors Platform (per-company OAuth connectors
+   * managed via `oauth_connectors` table). Merged with env-var-based providers
+   * (gitlab, microsoft) — DB wins on slug collision (T3.5 backward compat).
+   *
+   * Pass `undefined` (the default) for the legacy env-only behaviour. When
+   * supplied, each value must be a BetterAuth Generic OAuth provider config.
+   */
+  dynamicProviders?: Record<string, unknown>;
+}
+
+export function createBetterAuthInstance(
+  db: Db,
+  config: Config,
+  optsOrTrustedOrigins?: string[] | CreateBetterAuthOptions,
+): BetterAuthInstance {
+  const opts: CreateBetterAuthOptions = Array.isArray(optsOrTrustedOrigins)
+    ? { trustedOrigins: optsOrTrustedOrigins }
+    : optsOrTrustedOrigins ?? {};
+  const trustedOrigins = opts.trustedOrigins;
+  const dynamicProviders = opts.dynamicProviders ?? {};
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
   const secret =
     process.env.BETTER_AUTH_SECRET?.trim() ??
@@ -239,14 +261,16 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
         allowDifferentEmails: false,
       },
     },
-    ...(gitlabProviderConfig || microsoftProviderConfig
-      ? {
-          socialProviders: {
-            ...(gitlabProviderConfig ? { gitlab: gitlabProviderConfig } : {}),
-            ...(microsoftProviderConfig ? { microsoft: microsoftProviderConfig } : {}),
-          },
-        }
-      : {}),
+    ...(() => {
+      // T3.5 backward compat: env-based gitlab/microsoft are the fallback,
+      // DB-managed dynamic providers take precedence on slug collision.
+      const envProviders: Record<string, unknown> = {
+        ...(gitlabProviderConfig ? { gitlab: gitlabProviderConfig } : {}),
+        ...(microsoftProviderConfig ? { microsoft: microsoftProviderConfig } : {}),
+      };
+      const merged = { ...envProviders, ...dynamicProviders };
+      return Object.keys(merged).length > 0 ? { socialProviders: merged } : {};
+    })(),
     ...(isHttpOnly ? { advanced: { useSecureCookies: false } } : {}),
     ...(isE2eMode ? { rateLimit: { enabled: false } } : {}),
     // SANDBOX-AUTH-AUTOBOOTSTRAP: first user signup → auto instance_admin

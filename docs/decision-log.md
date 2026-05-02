@@ -165,6 +165,24 @@ Métadonnées en DB (`workflow_hooks_config`) : credential layer id, visibility 
 
 **Code (à venir) :** `packages/workflow-hooks/`, `<workflow-repo>/hooks/`, `server/src/services/workflow-hooks.ts`. Spec : [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md).
 
+### 4.6 Connectors Platform — hub OAuth user-level (Sprint 1+2 livré 2026-05-02)
+
+**Décision :** transformer MnM en hub d'identité OAuth user-level. Les hooks, agents Claude Code via MCP et background jobs (Nightly Synthesis) consultent les tokens user pour agir au nom de l'utilisateur — invariant traçabilité humaine §1.7.
+
+**Architecture :**
+- 4 tables MnM-owned chiffrées AES-256-GCM (`oauth_connectors`, `connector_tokens`, `user_api_keys`, `oauth_connectors_audit`) — séparées de `account` BetterAuth qui stocke les tokens en clair (réservé aux flows de login natifs GitLab/Microsoft).
+- `connectorService.getUserToken(userId, providerSlug, companyId)` central — C2 cross-tenant guard obligatoire, B1 advisory lock + re-read inside lock pour le refresh OAuth concurrent, MED-B1 nullification du refresh_token sur 401 provider, HOST-ONLY (jamais sortir le token côté isolate).
+- Callback dispatcher générique `/api/connectors/callback` — state JWT HS256 (BETTER_AUTH_SECRET, 10min TTL), H1 redirect_after whitelist (`/foo` accepté, `//evil` rejeté, origin strict `MNM_PUBLIC_URL` pour absolute). HIGH-A1 cross-tenant guard via `assertUserInCompany` AVANT upsert. HIGH-A3 `db.transaction()` + `set_config(..., is_local=true)` pour pin la connexion.
+- 10 templates pré-définis (Jira, GitHub, GitLab, Microsoft, Google, Slack, ClickUp, Linear, Notion, OpenAI) — admin pick template → wizard 2 étapes → DB write.
+- 5 MCP tools (`list_connectors`, `get_connector_status`, `connect_user_to_connector`, `wait_for_connection`, `set_user_api_key`) + REST parity (10 endpoints admin + user self-service).
+- SSE event `user.connector_status_changed` (visibility actor-only) pour invalidation client-side sans polling.
+
+**Pourquoi vivant :** préalable obligatoire pour [`enterprise-pilot-foundation`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md) (les hooks Jira+ClickUp en dépendent). Architecture qui paye dès le 3e provider — hardcoder N providers = N×2j de dette.
+
+**Divergence crypto à connaître** : `secret-crypto.ts` (extrait de `credential.ts` pour le partage) chiffre des **string brutes** (tokens OAuth, API keys). `credential.ts` chiffre des **`Record<string, unknown>` JSON** (credentials structurées avec multi-fields). Les deux utilisent AES-256-GCM avec la même clé `MNM_SECRETS_KEY`. Acceptable parce que les semantics sont propres à chaque chemin (un token est string, une credential est typed structure). Le pattern partagé (helper `secret-crypto.ts`) garantit la cohérence du primitif crypto.
+
+**Code :** `server/src/services/connectors.ts`, `server/src/services/secret-crypto.ts`, `server/src/services/connector-templates.ts`, `server/src/routes/connectors.ts` + `connectors-callback.ts`, `server/src/mcp/tools/connectors.tool.ts`, `server/src/auth/dynamic-providers.ts`, `ui/src/pages/Connectors.tsx` + `SettingsAccounts.tsx`. Migration `0079_connectors_platform.sql`.
+
 ### 4.3 MCP Server — parité UI ↔ MCP, consentement granulaire
 
 **Décision :** 68 tools + 10 resources sur 14 domaines. Transport HTTP streamable + SSE legacy. OAuth 2.1 PKCE, Dynamic Client Registration, écran de consentement React granulaire (read/write/admin par domaine). Filtrage dynamique par permissions. Rate limiting + semaphore DB (15 concurrent).
@@ -196,6 +214,26 @@ Métadonnées en DB (`workflow_hooks_config`) : credential layer id, visibility 
 | **Clash** conflict detection | Détection conflits worktrees temps réel | Multi-agent safety (à venir) |
 
 Détails complets de chaque benchmark dans le repo privé [`mnm-documentation/research/`](https://github.com/AlphaLuppi/cnm-documentation).
+
+---
+
+## 7. Sécurité & defense in depth
+
+### 7.1 RLS pattern — PERMISSIVE baseline + RESTRICTIVE tenant filter (2026-05-02)
+
+**Décision :** chaque table tenant-scoped DOIT avoir DEUX policies : (1) `tenant_baseline_permissive AS PERMISSIVE FOR ALL USING (true)` qui débloque le default-deny postgres ; (2) `tenant_isolation AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid)` qui filtre par tenant.
+
+**Pourquoi vivant :** PostgreSQL exige au moins UNE policy PERMISSIVE pour qu'une row soit visible — un setup RESTRICTIVE-only est en default-deny. Le pattern dominant historique (depuis `0030_rls_policies.sql`) ne créait QUE le RESTRICTIVE, ce qui était masqué en runtime parce que l'app user (`mnm`/`postgres`) est SUPERUSER + BYPASSRLS — RLS n'était jamais appliquée. L'isolation multi-tenant était portée à 100% par les filtres applicatifs Drizzle (`eq(table.companyId, …)`), pas par la "fail-closed last line of defense" documentée.
+
+**Découvert :** Sprint 1 Connectors Phase 4, test `server/src/__tests__/connector-tokens.rls.e2e.test.ts` (commit `b43413e89`).
+
+**Fix :** migration `0080_rls_permissive_baseline.sql` ajoute la PERMISSIVE baseline sur 77 tables (73 héritées 0030–0076 + 4 du 0079 connectors).
+
+**Followup pendant** : migrer le user app vers un rôle dédié non-BYPASSRLS. Tant que l'app reste SUPERUSER, RLS reste un filet décoratif. Runbook séparé (touche connection strings, dev embedded pg, migration runner).
+
+**9 tables exclues** (a2a_messages, compaction_snapshots, traces, trace_observations, trace_lenses, trace_lens_results, gold_prompts, user_pods, artifact_deployments) ont déjà une policy PERMISSIVE qui filtre directement par `company_id` — y ajouter `USING (true)` ferait `(company_id=X) OR (true) = true`, régression de sécurité. À normaliser dans une migration ultérieure.
+
+**Fichiers concernés :** `packages/db/src/migrations/0030_rls_policies.sql` (origin), `0080_rls_permissive_baseline.sql` (fix), `0080_rls_permissive_baseline.test.ts` (regex), `server/src/__tests__/connector-tokens.rls.e2e.test.ts` (runtime), `.claude/rules/database.md` (template à jour), `docs/conventions/middleware-chain.md` (couche 5 RLS).
 
 ---
 

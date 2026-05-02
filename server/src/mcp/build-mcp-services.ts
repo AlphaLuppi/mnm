@@ -33,6 +33,9 @@ import { a2aPermissionsService } from "../services/a2a-permissions.js";
 import { heartbeatService } from "../services/heartbeat.js";
 // PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
 import { threadInteractionsService } from "../services/thread-interactions.js";
+// CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
+// + T8.2: createResolveGitProvider preference path via getUserToken("gitlab")
+import { connectorService, ConnectorError } from "../services/connectors.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
@@ -185,6 +188,62 @@ export function createResolveGitProvider(
     // Skip entirely in local_trusted so dev flow is unaffected.
     const isAuthenticated =
       (process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted") === "authenticated";
+
+    // ── Step 1a (T8.2 — Connectors Platform preference) ───────────────────────
+    // Before falling into the legacy BetterAuth `account` lookup, try the
+    // new Connectors Platform path: if the company has configured a "gitlab"
+    // connector via /admin/connectors and the user has linked their account
+    // through /settings/accounts, we get an encrypted token from
+    // `connector_tokens` with cross-tenant guard, advisory-locked refresh,
+    // and audit logging — all wired in connectorService.getUserToken.
+    //
+    // Fall-through is transparent for the two "not migrated yet" cases
+    // (no DB connector configured, or the user simply hasn't connected): we
+    // continue to Step 1 and use the historical BetterAuth row. Other
+    // ConnectorErrors (revoked, expired-no-refresh, refresh-failed) surface
+    // — they signal a real user-facing problem the legacy path can't fix.
+    //
+    // See docs/governed-workflows/connectors.md §7 for the migration plan.
+    if (isAuthenticated && userId) {
+      const connectorsCacheKey = `${companyId}:${userId}:${rtKey}:connectors`;
+      const cachedConnectors = userCache.get(connectorsCacheKey);
+      if (cachedConnectors) {
+        if (cachedConnectors.expiresAt > Date.now()) return cachedConnectors.provider;
+        userCache.delete(connectorsCacheKey);
+      }
+
+      try {
+        const svc = connectorService(db);
+        const tok = await svc.getUserToken(userId, "gitlab", companyId);
+        const { baseUrl, projectId, paths } = await resolveGitlabCoordinates(db, companyId);
+
+        const provider = new GitlabProvider({
+          providerId: `gitlab:connector:${userId}`,
+          baseUrl,
+          projectId,
+          token: tok.accessToken,
+          tokenScheme: "bearer",
+        });
+        (provider as unknown as ProviderWithPaths).paths = paths ?? {};
+
+        const expiresAt = tok.expiresAt
+          ? tok.expiresAt.getTime()
+          : Date.now() + 3600_000;
+        userCache.set(connectorsCacheKey, { provider, expiresAt });
+        return provider;
+      } catch (err) {
+        if (
+          err instanceof ConnectorError &&
+          (err.code === "CONNECTOR_NOT_CONFIGURED" ||
+            err.code === "CONNECTOR_USER_NOT_CONNECTED")
+        ) {
+          // Legitimate fall-through: company hasn't enabled the connector
+          // or the user hasn't linked yet. Fall into Step 1 (BetterAuth).
+        } else {
+          throw err;
+        }
+      }
+    }
 
     if (isAuthenticated && userId) {
       const userCacheKey = `${companyId}:${userId}:${rtKey}`;
@@ -490,5 +549,7 @@ export function buildMcpServices(db: Db): McpServices {
     }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),
+    // CONNECTORS-PLATFORM: hub OAuth user-level + api_key store
+    connectors: connectorService(db),
   };
 }
