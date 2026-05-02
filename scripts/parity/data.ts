@@ -466,6 +466,17 @@ export const parityData: ParityData = {
           desktop: BACKEND,
         },
         {
+          id: "settings-accounts",
+          name: "My connected accounts (user self-service)",
+          web: {
+            status: "partial",
+            since: "0.1.x",
+            notes:
+              "Sprint 2 T7 — page /settings/accounts. OAuth via popup. Set API key via Dialog. Manque le SSE event user.connector_status_changed pour invalidation auto (T8).",
+          },
+          desktop: BACKEND,
+        },
+        {
           id: "company-settings",
           name: "Company settings",
           web: WEB_DONE,
