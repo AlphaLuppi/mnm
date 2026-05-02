@@ -203,14 +203,18 @@ Hardcoder Jira+ClickUp dans BetterAuth comme on a fait pour GitLab = 2j de dette
 - T8 E2E Playwright OAuth real-flow + 10 templates docs vérifiés (review backend point 8).
 - T2 sécurité augmentée (advisory lock, cross-tenant guard, tests sécu obligatoires).
 
-### Scope minimal pour pilote enterprise (7j budget)
+### Décision scope (Tom, 2026-05-02)
 
-Si la deadline pilote (7j) est non-négociable, **prioriser** :
-- **T1 + T2 + T3 + T4 + T8.2** = ~5j (hub minimal sans UI)
-- **Reporter T6 / T7 / T8.3** post-pilote → admin (toi) configure les connecteurs via API REST direct ou MCP tool, pas besoin d'UI admin V0
-- **Risque** : pas d'UI pour les autres users du pilote (tech/produit) → ils ne voient pas leur statut connecté. Acceptable si tu es le seul à manipuler les connecteurs au début.
+**Full plan retenu (option A)** : 10-11j solo avec UI admin + UI user. Les autres users du pilote (tech/produit) voient leur statut connecté et gèrent leurs comptes eux-mêmes — pas de goulot d'étranglement sur l'admin.
 
-Décision Tom : **TBD** — choisir scope minimal ou full plan post-pilote.
+**Conséquence pilote** : Connectors ship AVANT le plan Foundation (Hooks). Si la deadline pilote glisse de quelques jours pour ce plan, c'est acceptable — l'invariant traçabilité humaine §1.7 + le pattern OAuth user-level sont des fondations qu'on ne peut pas remplacer par un hack temporaire.
+
+**Ordre d'exécution** :
+1. Connectors Platform (ce plan, 10-11j) → ship en priorité.
+2. Foundation V2 Hooks (`2026-05-01-enterprise-pilot-foundation.md`, 15j) → consume `getUserToken()` du Connectors.
+3. Pilote enterprise = Foundation déployé chez le premier client.
+
+Si la deadline pilote serre vraiment, sacrifiables (dans cet ordre) : T7.2 (preview UserProfile inline → juste un lien "Gérer mes comptes connectés"), puis T6.2 audit log table (peut être ajouté post-pilote), puis T8.3 E2E Playwright (tests unitaires suffisent V0).
 
 ---
 
