@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod";
 import type { Db } from "@mnm/db";
 import { PERMISSIONS } from "@mnm/shared";
@@ -54,6 +54,35 @@ const upsertConfigSchema = z.object({
 
 const patchConfigSchema = upsertConfigSchema.partial();
 
+const phaseSchema = z.enum([
+  "before_run",
+  "before_step",
+  "after_step",
+  "after_run",
+]);
+
+/**
+ * Resolve the human principal id from `req.actor` for traceability.
+ *
+ * MnM mandates that every audit row has a non-empty `actor_user_id`
+ * (see `docs/decision-log.md §1.7` — universal human traceability).
+ *
+ * - `local_implicit` (local_trusted mode) : `actorMiddleware` already pins
+ *   `userId = "local-board"` (cf. `server/src/middleware/auth.ts`), so this
+ *   helper returns it as-is. The sentinel is documented and surfaces in the
+ *   audit log as the local admin operator.
+ * - `authenticated` mode : `userId` is the BetterAuth session userId. If it
+ *   is missing we refuse to proceed rather than silently writing an empty
+ *   string into the audit row — that would break universal traceability.
+ */
+function resolvePrincipalId(req: Request): string {
+  const userId = req.actor.userId;
+  if (!userId) {
+    throw badRequest("actorPrincipalId is required (no userId on req.actor)");
+  }
+  return userId;
+}
+
 export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
   const router = Router();
   const access = accessService(db);
@@ -96,7 +125,7 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
       assertBoard(req);
-      const principalId = req.actor.userId ?? "";
+      const principalId = resolvePrincipalId(req);
       const rows = await hooks.listConfigs(companyId, principalId);
       res.json({ configs: rows });
     },
@@ -111,7 +140,7 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
       const configId = req.params.configId as string;
       assertCompanyAccess(req, companyId);
       assertBoard(req);
-      const principalId = req.actor.userId ?? "";
+      const principalId = resolvePrincipalId(req);
       const dto = await hooks.getConfig(companyId, configId, principalId);
       if (!dto) {
         // Return 404 rather than 403 so existence stays opaque across
@@ -140,7 +169,7 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
             .join("; ")}`,
         );
       }
-      const principalId = req.actor.userId ?? "";
+      const principalId = resolvePrincipalId(req);
       const hasEnforcePermission = await actorHasEnforcePermission(req, companyId);
       const dto = await hooks.createConfig(companyId, parsed.data, {
         actorPrincipalId: principalId,
@@ -167,7 +196,7 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
             .join("; ")}`,
         );
       }
-      const principalId = req.actor.userId ?? "";
+      const principalId = resolvePrincipalId(req);
       const hasEnforcePermission = await actorHasEnforcePermission(req, companyId);
       const dto = await hooks.updateConfig(
         companyId,
@@ -188,7 +217,7 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
       const configId = req.params.configId as string;
       assertCompanyAccess(req, companyId);
       assertBoard(req);
-      const principalId = req.actor.userId ?? "";
+      const principalId = resolvePrincipalId(req);
       const hasEnforcePermission = await actorHasEnforcePermission(req, companyId);
       const removed = await hooks.deleteConfig(companyId, configId, {
         actorPrincipalId: principalId,
@@ -209,6 +238,53 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+      // P0.2 — assertBoard for parity with the 6 sibling endpoints. Without
+      // this an agent actor that somehow held hooks:manage would slip past
+      // the board-only audit log.
+      assertBoard(req);
+      const principalId = resolvePrincipalId(req);
+
+      // Date filters — parse + validate strictly so a malformed query string
+      // never silently degrades to "no filter".
+      const sinceRaw =
+        typeof req.query.since === "string" ? req.query.since : undefined;
+      const untilRaw =
+        typeof req.query.until === "string" ? req.query.until : undefined;
+      const since = sinceRaw ? new Date(sinceRaw) : undefined;
+      const until = untilRaw ? new Date(untilRaw) : undefined;
+      if (since && Number.isNaN(since.getTime())) {
+        throw badRequest("Invalid since (expected ISO 8601 date)");
+      }
+      if (until && Number.isNaN(until.getTime())) {
+        throw badRequest("Invalid until (expected ISO 8601 date)");
+      }
+
+      // Phase filter — validate against the canonical enum.
+      let phase: z.infer<typeof phaseSchema> | undefined;
+      if (typeof req.query.phase === "string") {
+        const parsedPhase = phaseSchema.safeParse(req.query.phase);
+        if (!parsedPhase.success) {
+          throw badRequest(
+            "Invalid phase (expected before_run|before_step|after_step|after_run)",
+          );
+        }
+        phase = parsedPhase.data;
+      }
+
+      // Numeric filters — clamp limit to [1, 500], offset to [0, ∞).
+      const limit =
+        typeof req.query.limit === "string"
+          ? Math.min(500, Math.max(1, Number(req.query.limit) || 100))
+          : undefined;
+      const offsetRaw =
+        typeof req.query.offset === "string" ? Number(req.query.offset) : NaN;
+      const offset = Number.isFinite(offsetRaw)
+        ? Math.max(0, Math.floor(offsetRaw))
+        : undefined;
+
+      // TODO: aligned with P4-A service patch — the service signature is
+      // `listExecutions(companyId, actorPrincipalId, filter)` and the
+      // filter type already accepts `phase`/`since`/`until`/`offset`.
       const filter = {
         configId:
           typeof req.query.config_id === "string" ? req.query.config_id : undefined,
@@ -218,12 +294,13 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
           typeof req.query.status === "string"
             ? (req.query.status as "pending" | "success" | "failed" | "timeout")
             : undefined,
-        limit:
-          typeof req.query.limit === "string"
-            ? Math.min(500, Math.max(1, Number(req.query.limit) || 100))
-            : undefined,
+        phase,
+        since,
+        until,
+        limit,
+        offset,
       };
-      const rows = await hooks.listExecutions(companyId, filter);
+      const rows = await hooks.listExecutions(companyId, principalId, filter);
       res.json({ executions: rows });
     },
   );
@@ -236,7 +313,7 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
       assertBoard(req);
-      const userId = req.actor.userId ?? "";
+      const userId = resolvePrincipalId(req);
       const workflowGitSha =
         typeof req.query.workflow_git_sha === "string"
           ? req.query.workflow_git_sha
@@ -245,7 +322,12 @@ export function workflowHooksRoutes(db: Db, hooks: WorkflowHooksService) {
         typeof req.query.shared_branch === "string"
           ? req.query.shared_branch
           : undefined;
-      const includeShared = req.query.include_shared !== "false";
+      // P1.1 — opt-in strict (mirrors include_local). Express parses
+      // `?include_shared[]=false` as `["false"]` which would slip past
+      // a `!== "false"` check, so we require the explicit string "true".
+      // Breaking change: clients that relied on the previous default-true
+      // must now send `?include_shared=true` explicitly.
+      const includeShared = req.query.include_shared === "true";
       const includeLocal = req.query.include_local === "true";
       const catalog = await hooks.listCatalog({
         companyId,

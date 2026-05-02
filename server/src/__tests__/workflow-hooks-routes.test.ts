@@ -26,10 +26,13 @@ vi.mock("../services/access.js", () => ({
   }),
 }));
 
-// authz helpers — assertCompanyAccess + assertBoard are mocked to no-ops.
+// authz helpers — assertCompanyAccess + assertBoard are spy'able no-ops so
+// we can assert they were called from each handler (incl. /executions, P0.2).
+const assertBoardSpy = vi.fn();
+const assertCompanyAccessSpy = vi.fn();
 vi.mock("../routes/authz.js", () => ({
-  assertCompanyAccess: () => undefined,
-  assertBoard: () => undefined,
+  assertCompanyAccess: (...args: unknown[]) => assertCompanyAccessSpy(...args),
+  assertBoard: (...args: unknown[]) => assertBoardSpy(...args),
 }));
 
 function makeService(over: Partial<WorkflowHooksService> = {}): WorkflowHooksService {
@@ -170,28 +173,101 @@ describe("workflow-hooks REST routes — shape", () => {
       });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ executions: [] });
-    expect(svc.listExecutions).toHaveBeenCalledWith(COMPANY, {
+    expect(svc.listExecutions).toHaveBeenCalledWith(COMPANY, "user-A", {
       configId: "00000000-0000-0000-0000-000000000005",
       runId: "00000000-0000-0000-0000-000000000006",
       status: "failed",
+      phase: undefined,
+      since: undefined,
+      until: undefined,
       limit: 50,
+      offset: undefined,
     });
   });
 
-  it("GET /catalog returns canonical/shared/local lists", async () => {
+  it("GET /executions accepts since/until/phase/offset filters", async () => {
+    const svc = makeService();
+    const res = await request(makeApp(svc))
+      .get(`/companies/${COMPANY}/workflow-hooks/executions`)
+      .query({
+        phase: "after_step",
+        since: "2026-01-01T00:00:00.000Z",
+        until: "2026-12-31T23:59:59.000Z",
+        offset: "20",
+      });
+    expect(res.status).toBe(200);
+    const call = (svc.listExecutions as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
+    // (companyId, actorPrincipalId, filter) — filter is the 3rd arg.
+    const filter = call[2] as Record<string, unknown>;
+    expect(filter.phase).toBe("after_step");
+    expect((filter.since as Date).toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    expect((filter.until as Date).toISOString()).toBe("2026-12-31T23:59:59.000Z");
+    expect(filter.offset).toBe(20);
+  });
+
+  it("GET /executions rejects invalid since", async () => {
+    const svc = makeService();
+    const res = await request(makeApp(svc))
+      .get(`/companies/${COMPANY}/workflow-hooks/executions`)
+      .query({ since: "not-a-date" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Invalid since/);
+  });
+
+  it("GET /executions rejects invalid phase", async () => {
+    const svc = makeService();
+    const res = await request(makeApp(svc))
+      .get(`/companies/${COMPANY}/workflow-hooks/executions`)
+      .query({ phase: "bogus_phase" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Invalid phase/);
+  });
+
+  it("GET /executions calls assertBoard (consistent with sibling endpoints)", async () => {
+    assertBoardSpy.mockClear();
+    const svc = makeService();
+    await request(makeApp(svc)).get(
+      `/companies/${COMPANY}/workflow-hooks/executions`,
+    );
+    expect(assertBoardSpy).toHaveBeenCalled();
+  });
+
+  it("GET /catalog returns canonical/shared/local lists (defaults are opt-in)", async () => {
     const svc = makeService();
     const res = await request(makeApp(svc)).get(
       `/companies/${COMPANY}/workflow-hooks/catalog`,
     );
     expect(res.status).toBe(200);
     expect(res.body.catalog).toEqual({ canonical: [], shared: [], local: [] });
+    // include_shared and include_local are now strict opt-in (require ?=true).
+    // No query params ⇒ both default to false.
     expect(svc.listCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: COMPANY,
         actorUserId: "user-A",
-        includeShared: true,
+        includeShared: false,
         includeLocal: false,
       }),
+    );
+  });
+
+  it("GET /catalog: include_shared is opt-in only (true required)", async () => {
+    const svc = makeService();
+    await request(makeApp(svc))
+      .get(`/companies/${COMPANY}/workflow-hooks/catalog`)
+      .query({ include_shared: "true" });
+    expect(svc.listCatalog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ includeShared: true }),
+    );
+
+    // Anything else (incl. the array form Express produces from
+    // `?include_shared[]=false`) must NOT enable it.
+    (svc.listCatalog as unknown as { mockClear: () => void }).mockClear();
+    await request(makeApp(svc))
+      .get(`/companies/${COMPANY}/workflow-hooks/catalog`)
+      .query({ "include_shared[]": "false" });
+    expect(svc.listCatalog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ includeShared: false }),
     );
   });
 });
