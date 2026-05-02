@@ -8,6 +8,7 @@ DAG de steps et gates versionnés dans Git, exécutés par le `gate-runner`, obs
 - [`scenarios.md`](scenarios.md) — Scénarios d'usage : hello-world, branching, artifact chaining, parallel gates, LLM-as-judge.
 - [`handoff-artifacts.md`](handoff-artifacts.md) — Schéma des artifacts échangés entre steps + user guide.
 - [`oauth-setup.md`](oauth-setup.md) — Setup OAuth + GitLab OIDC (consolidation OAuth setup + GitLab setup).
+- [`connectors.md`](connectors.md) — Hub Connectors Platform (admin config, user self-service, getUserToken pour les hooks/agents).
 
 ## Voir aussi
 
