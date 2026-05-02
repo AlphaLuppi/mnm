@@ -705,6 +705,31 @@ function handleLiveEvent(
     });
     return;
   }
+
+  // WORKFLOW-HOOKS T2.9 — hook config created/updated/deleted. Server emits
+  // with proper visibility filtering already applied (private → actor-only,
+  // tags/principals → tag-filtered, company → company-wide), so the UI only
+  // has to invalidate the relevant cache keys + dispatch a DOM event for
+  // pages that want a fine-grained reaction.
+  if (event.type === "hook.config.updated") {
+    const configId = readString(payload.configId);
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.hooks.list(expectedCompanyId),
+    });
+    if (configId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.hooks.detail(expectedCompanyId, configId),
+      });
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("hook_config_updated", {
+          detail: { companyId: expectedCompanyId, configId },
+        }),
+      );
+    }
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {

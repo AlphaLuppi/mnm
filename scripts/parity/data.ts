@@ -888,6 +888,35 @@ export const parityData: ParityData = {
               "Pure server feature — le wrapper desktop hérite via le backend packagé.",
           },
         },
+        {
+          id: "workflow-hooks",
+          name: "Workflow Hooks (configs UI partial — backend WIP)",
+          description:
+            "Page /hooks (Tabs My configs / Catalog) + Sheet HookConfigDetail (form + VisibilityPicker + toggle enforced gated par hooks:enforce + Textarea JSON pour default_config + table d'exécutions). API client ui/src/api/hooks.ts + queryKeys hooks.{list,detail,executions,catalog}. SSE event hook.config.updated invalide les query keys (no polling). Migration 0081 + 5 schemas Drizzle livrés (T2.5). Backend service + REST + MCP encore à faire (T2.6/T2.7/T2.8).",
+          web: {
+            status: "partial",
+            since: "2026-05-02",
+            notes:
+              "T2.9 UI shippé. Backend (REST + service + wire dans governed-workflows.ts) à compléter avant que la page soit fonctionnelle bout-en-bout. Monaco lazy pour default_config_json à brancher (TODO en commentaire).",
+          },
+          desktop: {
+            status: "missing",
+            notes:
+              "Desktop wrapper inherits backend via connection profile. Aucun blocage spécifique côté desktop — sera dispo dès que la chaîne backend est prête.",
+          },
+          todo: {
+            code: [
+              "T2.6 — server/src/services/workflow-hooks.ts (resolveHooksForStep, executeHook, CRUD)",
+              "T2.7 — wire avant launchWorkflow / launchStep / completeStep",
+              "T2.8 — REST routes + 6 MCP tools",
+              "Monaco lazy editor pour default_config_json (currently Textarea)",
+              "T2.2/T2.3/T2.4 — packages/workflow-hooks/ (runner, resolver, 4 canonical hooks)",
+            ],
+            tests: [
+              "E2E browser : créer config canonical:foo, basculer visibility, toggle enforced (perm hooks:enforce), supprimer",
+            ],
+          },
+        },
       ],
     },
   ],

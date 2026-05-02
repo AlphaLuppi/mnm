@@ -65,6 +65,7 @@ import { Button } from "./components/ui/button";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { GovernedWorkflowsList } from "./pages/GovernedWorkflowsList";
+import { Hooks } from "./pages/Hooks";
 import { GovernedWorkflowEditor } from "./pages/GovernedWorkflowEditor";
 import { GovernedWorkflowRuns } from "./pages/GovernedWorkflowRuns";
 import { GovernedWorkflowRunDetail } from "./pages/GovernedWorkflowRunDetail";
@@ -190,6 +191,8 @@ function boardRoutes() {
       <Route path="workflows/:name" element={<RequirePermission permission="workflows:read" showForbidden><WorkflowStudio /></RequirePermission>} />
       <Route path="workflows/:name/runs" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowRuns /></RequirePermission>} />
       <Route path="workflows/:name/runs/:runId" element={<RequirePermission permission="workflows:read" showForbidden><GovernedWorkflowRunDetail /></RequirePermission>} />
+      <Route path="hooks" element={<RequirePermission permission="hooks:manage" showForbidden><Hooks /></RequirePermission>} />
+      <Route path="hooks/:configId" element={<RequirePermission permission="hooks:manage" showForbidden><Hooks /></RequirePermission>} />
       <Route path="inbox" element={<RequirePermission permission="issues:read" showForbidden><Navigate to="/inbox/new" replace /></RequirePermission>} />
       <Route path="inbox/new" element={<RequirePermission permission="issues:read" showForbidden><Inbox /></RequirePermission>} />
       <Route path="inbox/all" element={<RequirePermission permission="issues:read" showForbidden><Inbox /></RequirePermission>} />
@@ -325,6 +328,8 @@ export function App() {
           <Route path="projects/:projectId/cockpit" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/agents" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/workflows" element={<UnprefixedBoardRedirect />} />
+          <Route path="hooks" element={<UnprefixedBoardRedirect />} />
+          <Route path="hooks/:configId" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/settings" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/access" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues" element={<UnprefixedBoardRedirect />} />

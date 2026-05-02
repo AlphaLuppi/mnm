@@ -319,4 +319,14 @@ export const queryKeys = {
     templates: (companyId: string) => ["connectors", companyId, "templates"] as const,
     myAccounts: (companyId: string) => ["connectors", companyId, "me", "accounts"] as const,
   },
+  // WORKFLOW-HOOKS: governed-workflow hooks management (T2.9)
+  hooks: {
+    list: (companyId: string) => ["hooks", companyId, "list"] as const,
+    detail: (companyId: string, configId: string) =>
+      ["hooks", companyId, "detail", configId] as const,
+    executions: (companyId: string, filters?: Record<string, unknown>) =>
+      ["hooks", companyId, "executions", filters ?? {}] as const,
+    catalog: (companyId: string, workflowRef?: string) =>
+      ["hooks", companyId, "catalog", workflowRef ?? "_all"] as const,
+  },
 };
