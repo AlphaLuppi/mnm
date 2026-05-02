@@ -133,3 +133,60 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
 
 export type WorkflowErrorCode =
   (typeof WORKFLOW_ERROR_CODES)[keyof typeof WORKFLOW_ERROR_CODES];
+
+/**
+ * Fail-closed error codes produced by the hook runner (`@mnm/workflow-hooks`)
+ * when a hook invocation cannot produce a user-authored result.
+ *
+ * Sandbox / runtime failures (parity with `GATE_ERROR_CODES`):
+ * - `HOOK_TIMEOUT` — isolate exceeded the hook's outer timeout (default 30 s).
+ * - `HOOK_EXCEPTION` — user code threw, OR esbuild/transform of the source
+ *   failed, OR the host failed to wire the hook before invoking.
+ * - `HOOK_INVALID_OUTPUT` — hook returned but the value did not match
+ *   `HookResult` shape (missing `ok`, wrong types, oversized `inject`).
+ * - `HOOK_SANDBOX_CRASH` — isolated-vm disposed the isolate mid-run
+ *   (typically memory-limit breach or native addon fault). Like gates,
+ *   the runner retries once before surfacing this code.
+ *
+ * Provider / connector mapping (host-side, before the isolate even starts):
+ * - `HOOK_PROVIDER_NOT_ALLOWED` — `helpers.http({provider})` referenced a slug
+ *   that has no enabled connector for the company. Maps from
+ *   `CONNECTOR_NOT_CONFIGURED`.
+ * - `HOOK_USER_NOT_CONNECTED` — the actor user has no token for the requested
+ *   provider. Maps from `CONNECTOR_USER_NOT_CONNECTED`.
+ * - `HOOK_TOKEN_EXPIRED` — token expired with no refresh available, OR refresh
+ *   failed and the upstream token is now revoked. Maps from
+ *   `CONNECTOR_TOKEN_EXPIRED_NO_REFRESH` and `CONNECTOR_TOKEN_REVOKED`. Both
+ *   conditions require the user to reconnect — same operator action.
+ * - `HOOK_USER_NOT_IN_COMPANY` — actor user is not a member of the company
+ *   the hook is running for. Maps from `CONNECTOR_USER_NOT_IN_COMPANY`. Note:
+ *   this check fires inside `getUserToken` BEFORE the connector lookup, so it
+ *   can preempt `HOOK_PROVIDER_NOT_ALLOWED` even when the provider does not
+ *   exist.
+ *
+ * Defense-in-depth:
+ * - `HOOK_SSRF_BLOCKED` — `helpers.http` URL failed `assertSafePublicUrl`
+ *   (private IP / loopback / link-local / private TLD).
+ * - `HOOK_LLM_BUDGET_EXCEEDED` — `helpers.llm` call would exceed the per-run
+ *   token budget configured by the company.
+ * - `HOOK_INJECT_TOO_LARGE` — `result.inject.context_md` exceeds the max
+ *   inject size (default 64 KiB).
+ *
+ * These codes are produced ONLY by the hook runner / host helpers. Do not
+ * emit them from gates or from the orchestrator.
+ */
+export const HOOK_ERROR_CODES = Object.freeze({
+  HOOK_TIMEOUT: "HOOK_TIMEOUT",
+  HOOK_EXCEPTION: "HOOK_EXCEPTION",
+  HOOK_INVALID_OUTPUT: "HOOK_INVALID_OUTPUT",
+  HOOK_SANDBOX_CRASH: "HOOK_SANDBOX_CRASH",
+  HOOK_PROVIDER_NOT_ALLOWED: "HOOK_PROVIDER_NOT_ALLOWED",
+  HOOK_USER_NOT_CONNECTED: "HOOK_USER_NOT_CONNECTED",
+  HOOK_TOKEN_EXPIRED: "HOOK_TOKEN_EXPIRED",
+  HOOK_USER_NOT_IN_COMPANY: "HOOK_USER_NOT_IN_COMPANY",
+  HOOK_SSRF_BLOCKED: "HOOK_SSRF_BLOCKED",
+  HOOK_LLM_BUDGET_EXCEEDED: "HOOK_LLM_BUDGET_EXCEEDED",
+  HOOK_INJECT_TOO_LARGE: "HOOK_INJECT_TOO_LARGE",
+} as const);
+
+export type HookErrorCode = (typeof HOOK_ERROR_CODES)[keyof typeof HOOK_ERROR_CODES];

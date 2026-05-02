@@ -305,6 +305,12 @@ export const LIVE_EVENT_TYPES = [
   // invalidate `queryKeys.connectors.myAccounts(companyId)`. Visibility =
   // private (only the affected user sees it).
   "user.connector_status_changed",
+  // WORKFLOW-HOOKS T2.9 — fire when a hook config is created/updated/deleted.
+  // Frontend consumers invalidate `queryKeys.hooks.list(companyId)` and the
+  // matching detail key. Visibility is decided server-side using the config's
+  // own visibility tier (private → actor-only ; tags/principals → tag-filtered ;
+  // company → company-wide).
+  "hook.config.updated",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
