@@ -8,7 +8,7 @@
 
 **⚠ Prérequis obligatoire :** [`2026-05-02-mnm-connectors-platform.md`](2026-05-02-mnm-connectors-platform.md) doit être livré AVANT ce plan. Les hooks Jira/ClickUp consument le helper `getUserToken()` exposé par Connectors Platform. Sans Connectors, les hooks n'ont pas d'auth user-level (invariant traçabilité §1.7 cassé).
 
-**Conséquence sur ce plan :** la table `workflow_hooks_providers_whitelist` n'est plus créée par la migration 0079. Elle est remplacée par une **référence** à `oauth_connectors` (table du plan Connectors). Au runtime, `helpers.http({provider: "jira"})` :
+**Conséquence sur ce plan :** la table `workflow_hooks_providers_whitelist` n'est plus créée par la migration 0080. Elle est remplacée par une **référence** à `oauth_connectors` (table du plan Connectors). Au runtime, `helpers.http({provider: "jira"})` :
 1. Lookup `oauth_connectors WHERE company_id = ... AND provider_slug = "jira" AND enabled = true`.
 2. Lookup token user via `getUserToken(actor.userId, "jira", companyId)`.
 3. Inject Authorization. Pas de table provider whitelist redondante côté hooks.
@@ -101,7 +101,7 @@
 
 21. **Cache `companyId → enforcedHooks[]`** (backend S3) : invalidé sur PATCH `workflow_hooks_config`. Sinon 200 SELECT par run avec 50 hooks × 4 phases × 5 steps.
 
-22. **Permission split** (backend) : 2 permissions distinctes seedées dans la migration 0079 :
+22. **Permission split** (backend) : 2 permissions distinctes seedées dans la migration 0080 :
     - `hooks:manage` (CRUD config)
     - `hooks:enforce` (toggle `enforced=true`)
     - (`connectors:manage` est seedé par le plan Connectors Platform, pas ici)
@@ -198,9 +198,9 @@
   - `canonical/index.ts`
 
 **DB :**
-- `packages/db/src/migrations/0079_workflow_hooks.sql` + `.test.ts`
-- `packages/db/src/migrations/0080_step_assignments.sql` + `.test.ts`
-- `packages/db/src/migrations/0081_workflow_meta_uses.sql` + `.test.ts`
+- `packages/db/src/migrations/0080_workflow_hooks.sql` + `.test.ts`
+- `packages/db/src/migrations/0081_step_assignments.sql` + `.test.ts`
+- `packages/db/src/migrations/0082_workflow_meta_uses.sql` + `.test.ts`
 - `packages/db/src/schema/workflow_hooks_config.ts`
 - `packages/db/src/schema/workflow_hooks_config_audit.ts`
 - `packages/db/src/schema/workflow_hooks_providers_whitelist.ts`
@@ -384,12 +384,12 @@
 ### 2.5 — Schema DB métadonnées + audit + providers (~0.5j)
 
 **Files :**
-- Create : `packages/db/src/migrations/0079_workflow_hooks.sql` + `.test.ts`
+- Create : `packages/db/src/migrations/0080_workflow_hooks.sql` + `.test.ts`
 - Create : 4 fichiers schema Drizzle
 - Modify : `instance_settings` schema (colonne `hooks_enabled`)
 
 ```sql
--- 0079_workflow_hooks.sql
+-- 0080_workflow_hooks.sql
 
 -- Feature flag
 ALTER TABLE "instance_settings"
@@ -615,7 +615,7 @@ const hookRefSchema = z.object({
 ### 3.1 — Schema assignment + audit (~0.5j)
 
 **Files :**
-- Create : `packages/db/src/migrations/0080_step_assignments.sql` + `.test.ts`
+- Create : `packages/db/src/migrations/0081_step_assignments.sql` + `.test.ts`
 - Create : `packages/db/src/schema/governed_step_assignments.ts`
 
 ```sql
@@ -748,7 +748,7 @@ CREATE POLICY "tenant_isolation" ON "governed_step_assignments" AS RESTRICTIVE F
 ### 5.1 — Schema + types
 
 **Files :**
-- Create : `packages/db/src/migrations/0081_workflow_meta_uses.sql` + `.test.ts`
+- Create : `packages/db/src/migrations/0082_workflow_meta_uses.sql` + `.test.ts`
 - Modify : `packages/db/src/schema/governed_step_executions.ts`
 
 ```sql
@@ -818,7 +818,7 @@ CREATE INDEX IF NOT EXISTS "governed_step_executions_root_run_idx"
 | Helpers exposent credentials en clair | CRITICAL | API `credential` SUPPRIMÉE. `http`/`llm` injectent server-side. Test `ctx.helpers.credential === undefined`. |
 | SSRF via base_url | CRITICAL | CHECK SQL `^https://` + DNS resolve + IP deny-list à l'écriture ET au runtime (rebinding mitigation). |
 | Hook tier 3 enforced cassé qui bloque tous les runs | HIGH | Fail-mode explicite : `before_step` fail = continue avec context non-enrichi. Pool worker dédié + budget CPU per-company. Kill-switch `MNM_HOOKS_ENABLED`. |
-| RLS gap sur tables jointures | HIGH | Migration SQL inline 0079 inclut RLS sur `_tags`, `_principals`. Test migration vérifie. |
+| RLS gap sur tables jointures | HIGH | Migration SQL inline 0080 inclut RLS sur `_tags`, `_principals`. Test migration vérifie. |
 | Tenant context leak entre exécutions hooks | HIGH | `setTenantContext` try/finally explicite dans `executeHook`. Critique pour `after_run` hors HTTP cycle. |
 | Audit log race entre crash et insert | MED | Pattern outbox : INSERT row status=`pending` AVANT call HTTP, UPDATE après. Crash = row reste `pending`, alert. |
 | Helper timeout 3s vs 30s incohérent | MED | Extraction `installHelpers` avec param `helperTimeoutMs`. Hooks 30s, gates 3s. Tests dédiés. |

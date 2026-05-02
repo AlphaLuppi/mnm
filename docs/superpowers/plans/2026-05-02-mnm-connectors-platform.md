@@ -8,6 +8,19 @@
 
 **Préalable obligatoire pour :** [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md`](2026-05-01-enterprise-pilot-foundation.md) — les hooks Jira/ClickUp en dépendent. Plan à shipper AVANT le plan Hooks.
 
+**V1 → V2 (changelog)** : plan refondu après review multi-agent (architect / sécu / backend / frontend). Corrections principales :
+
+- **C1 (CRITICAL)** : tokens OAuth ne vivent plus dans `account` BetterAuth (text brut, pas chiffré). Nouvelle table `connector_tokens` MnM-owned, AES-256-GCM via Config Layer + RLS RESTRICTIVE FORCE.
+- **C2 (CRITICAL)** : `getUserToken` ajout du cross-tenant guard (`userId ∈ companyId` via `company_members` EXISTS) avant toute lookup token. Empêche l'exfil cross-tenant via hook isolate malveillant.
+- **B1 (BLOCKER)** : `pg_advisory_xact_lock` autour du refresh OAuth (pattern `governed-workflows.ts:974`). Prévient race 2 hooks parallèles → 1 token rotated 2× → user déconnecté.
+- **B2 (BLOCKER)** : V0 single-process accepté explicitement (note ops "redémarrer en cluster"). V1 cible Postgres `LISTEN/NOTIFY` documenté.
+- **B5 (BLOCKER)** : migration renumérotée 0078 → **0079** (0078 déjà pris par `0078_session_bundle_runs.sql`). Plan Foundation décale ses migrations à 0080-0082.
+- **H1 (HIGH)** : `redirect_after` whitelisté (chemin relatif `/...` OU origin strict `MNM_PUBLIC_URL`). Tests `evil.example.com` + `//evil.example.com` rejetés.
+- **H3 (HIGH)** : MCP `set_user_api_key` redacte `key` dans logs (`pino-http redact: ["req.body.key"]`).
+- **Frontend** : routes sous `:companyPrefix` (cohérent App.tsx), `NavItemId` étendu, SSE event `user.connector_status_changed` publié côté serveur ET consommé `LiveUpdatesProvider`, parity desktop = `partial`.
+- **Backend** : MCP tools registry manuel (`server/src/mcp/tools/index.ts`), MSW ajouté en devDep, audit fire-and-forget (`void`), nouveau MCP tool `wait_for_connection`.
+- **Estimation** : 8j → **10-11j** (1 dev) après review. Scope minimal pilote 7j documenté.
+
 ---
 
 ## Pourquoi maintenant (vs hardcoder Jira/ClickUp)
@@ -37,19 +50,33 @@ Hardcoder Jira+ClickUp dans BetterAuth comme on a fait pour GitLab = 2j de dette
 
 4. **Storage `client_secret` via Config Layer** (existant, AES-256-GCM, advisory locks pour concurrent updates). Nouvelle colonne `client_secret_layer_id` dans `oauth_connectors`. Pattern cohérent avec les autres credentials du système.
 
-5. **Storage tokens user** : OAuth tokens vivent dans `account` (BetterAuth, déjà chiffré at-rest si Postgres pgcrypto activé), API keys vivent dans `user_api_keys` (nouvelle table, chiffrée via Config Layer pattern).
+5. **Storage tokens user — table MnM-owned `connector_tokens` chiffrée** : les tokens OAuth (`access_token`, `refresh_token`) NE vivent PAS dans `account` BetterAuth (les colonnes y sont en `text` brut, pas chiffrées — vérifié dans `packages/db/src/schema/auth.ts`). Ils vivent dans une table dédiée `connector_tokens` (NEW), chiffrée via le pattern Config Layer (AES-256-GCM, clé `MNM_SECRETS_KEY`), avec colonne `company_id` + RLS RESTRICTIVE FORCE. Cela :
+   - Lève le risque "tokens OAuth en clair en DB" (gap découvert en review sécu).
+   - Permet RLS multi-tenant (la table `account` BetterAuth n'a pas de `company_id` et ne peut pas être RLS-isolée sans casser BetterAuth).
+   - Garde `account` BetterAuth uniquement pour les sessions/SSO natifs (GitLab + Microsoft pour login MnM, pas pour les tokens d'orchestration).
+   - API keys (type=api_key) vivent dans `user_api_keys` (déjà prévu) — séparées car schéma différent (pas de refresh, pas d'expires_at).
 
-6. **Hot-reload BetterAuth instance** quand un admin créé/édite/désactive un connecteur. Pattern : la fonction `createBetterAuthInstance` reconstruit l'instance au prochain request, lookup les `oauth_connectors enabled=true` du company actor + injecte dans `socialProviders` via Generic OAuth.
+6. **Hot-reload BetterAuth instance — V0 single-process accepté** quand un admin créé/édite/désactive un connecteur. Pattern V0 : la fonction `createBetterAuthInstance` reconstruit l'instance au prochain request, lookup les `oauth_connectors enabled=true` du company actor + injecte dans `socialProviders` via Generic OAuth Plugin. Cache invalidé via SSE event `connector.updated` consommé par le process qui sert le request.
+
+   **Trade-off explicite multi-process** (B2 reviewers) : SSE est process-local. Si Express tourne en cluster (PM2 / Kubernetes replicas), l'invalidation ne se propage pas → autres processes servent une config stale jusqu'au prochain restart. **V0 = single-process accepté** (note ops : "redémarrer en cluster après changement connector"). V1 cible : Postgres `LISTEN/NOTIFY` channel `connector_updated` consommé par tous les processes (pattern non-bloquant pour pilote enterprise solo single-instance).
 
 7. **Conventions de nommage providers** : slug kebab-case (`jira`, `clickup`, `microsoft`, `gitlab-self-hosted`, `google-workspace`). Une company peut avoir 2 connecteurs avec des slugs différents pour le même service (ex: `gitlab-internal` + `gitlab-public`).
 
 8. **Templates de connecteurs prédéfinis** : pour les 10 providers majeurs (Jira, GitHub, GitLab, Microsoft, Google, Slack, ClickUp, Linear, Notion, OpenAI), ship un template prédéfini avec authorization_url/token_url/scopes pré-remplis. L'admin n'a qu'à coller son client_id/client_secret. Nouveau provider non-listé → mode "Custom" où l'admin remplit tout.
 
-9. **Helper centralisé `getUserToken(userId, providerSlug, companyId)`** dans `server/src/services/connectors.ts`. Toute feature (hooks, agents, jobs, MCP tools) doit passer par ce helper, jamais lire `account` directement. Permet d'auditer les usages, de gérer le refresh, de logguer les access.
+9. **Helper centralisé `getUserToken(userId, providerSlug, companyId)`** dans `server/src/services/connectors.ts`. Toute feature (hooks, agents, jobs, MCP tools) doit passer par ce helper, jamais lire `connector_tokens` directement. Permet d'auditer les usages, de gérer le refresh, de logguer les access.
+
+   **Invariant cross-tenant (C2 reviewers)** : le helper DOIT vérifier explicitement que `userId` appartient à `companyId` via `EXISTS (SELECT 1 FROM company_members WHERE user_id = userId AND company_id = companyId)` AVANT toute lookup token. Sans ce check, un hook isolate du tenant A peut appeler `getUserToken(victimUserIdOfTenantB, "jira", attackerCompanyId)` et exfiltrer un token cross-tenant. Test obligatoire "cross-tenant user_id → throws CONNECTOR_USER_NOT_IN_COMPANY".
+
+   **Invariant host-only (archi N1)** : ce helper ne quitte JAMAIS le host process. Les isolates (gate-runner, hooks workflow) ne reçoivent JAMAIS le token brut — uniquement le résultat HTTP injecté par `helpers.http({provider:"x"})` côté host. Pattern cohérent avec `decision-log.md` §4.4.
 
 10. **Refresh automatique** : si le token a expiré et qu'un `refresh_token` est dispo, `getUserToken` refresh transparent et update `account`. Si refresh fail (token révoqué côté provider) → throw `CONNECTOR_TOKEN_REVOKED`, le caller catch et redirige le user vers re-connecter son compte.
 
 11. **Audit log** sur toutes les opérations (`oauth_connectors_audit`) : créations, modifications, désactivations, premier connect d'un user, déconnexion d'un user, refresh failed, token utilisé (rate sampled — 1/100 pour ne pas exploser le volume).
+
+   **Volume + TTL (archi N2)** : 100 hooks/min × 100 users × sample 1/100 ≈ 144k rows/jour/company. À 10 companies = 1.4M/jour. **TTL 90 jours** : DELETE WHERE `action = 'token_used' AND created_at < now() - interval '90 days'` via cron quotidien. Les autres actions (create/update/connect/disconnect/refresh_failed) sont conservées indéfiniment pour audit forensic.
+
+   **Audit fire-and-forget (backend point 7)** : `maybeAuditTokenUsed` ne doit PAS être awaited dans le hot path de `getUserToken` (sinon latency à chaque hook). Pattern `void Promise.resolve().then(() => audit(...))`.
 
 12. **Pas d'API "user-impersonation par admin"** : un admin ne peut PAS utiliser le token d'un autre user, même en tant qu'admin. Si un user est OOO et qu'on a besoin de ses tokens, le pattern correct est : (1) demander au user de re-déléguer via OAuth dual-grant, ou (2) configurer un service account dédié hors du système Connectors (tier 3 enforced exception).
 
@@ -68,41 +95,51 @@ Hardcoder Jira+ClickUp dans BetterAuth comme on a fait pour GitLab = 2j de dette
 │                         oauth_connectors (NEW)                                │
 │  Per-company OAuth connector configs (admin-managed)                         │
 │  client_id, client_secret_layer_id, scopes, urls, type=oauth2|api_key        │
+│  RLS RESTRICTIVE FORCE on company_id                                         │
 └─────────────────────────────────────────────────────────────────────────────┘
             │
             ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│           BetterAuth instance (rebuilt on connector change)                  │
-│  socialProviders dynamiquement enrichis depuis oauth_connectors              │
-│  Generic OAuth Plugin pour providers non-natifs                              │
+│        BetterAuth instance (V0 single-process, hot-reload SSE-local)        │
+│  socialProviders dynamiquement enrichis via Generic OAuth Plugin            │
+│  OAuth callback dispatcher écrit dans connector_tokens (PAS dans account)   │
 └─────────────────────────────────────────────────────────────────────────────┘
             │                                    │
             ▼                                    ▼
 ┌─────────────────────────────┐      ┌──────────────────────────────────┐
-│   account (BetterAuth)      │      │  user_api_keys (NEW)             │
-│   user_id, provider_id,     │      │  user_id, provider_id, key_layer │
-│   access_token, refresh,    │      │  encrypted, last_used_at         │
-│   expires_at                │      │                                   │
+│  connector_tokens (NEW)     │      │  user_api_keys (NEW)             │
+│  company_id, user_id,       │      │  company_id, user_id,            │
+│  connector_id, token_layer, │      │  connector_id, key_layer_id,     │
+│  refresh_layer, expires_at, │      │  last_used_at                    │
+│  scopes_granted             │      │                                   │
+│  RLS + AES-256-GCM via      │      │  RLS + AES-256-GCM via           │
+│  Config Layer               │      │  Config Layer                    │
 └─────────────────────────────┘      └──────────────────────────────────┘
             │                                    │
             └────────────────┬───────────────────┘
                              ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │             getUserToken(userId, providerSlug, companyId)                    │
-│  - Lookup oauth_connector (active for company)                               │
-│  - Lookup account (or user_api_keys if api_key type)                         │
-│  - If expired + refresh_token → refresh + update                             │
-│  - If revoked → throw CONNECTOR_TOKEN_REVOKED                                │
-│  - Audit row sampled 1/100                                                   │
-│  - Return { access_token, expires_at, scopes }                               │
+│  - Verify userId ∈ companyId (cross-tenant guard, throws if not)            │
+│  - Lookup oauth_connector (enabled for company)                             │
+│  - Lookup connector_tokens (or user_api_keys if api_key type)               │
+│  - If expired + refresh_token → pg_advisory_xact_lock + refresh + update    │
+│  - If revoked → throw CONNECTOR_TOKEN_REVOKED                               │
+│  - Audit row sampled 1/100 (fire-and-forget, not awaited)                   │
+│  - Return { accessToken, expiresAt, scopes, type }                          │
+│  HOST-ONLY: never crosses isolate boundary (decision-log §4.4)              │
 └─────────────────────────────────────────────────────────────────────────────┘
             │                          │                         │
             ▼                          ▼                         ▼
    ┌────────────────┐       ┌─────────────────┐         ┌────────────────┐
    │  Hooks         │       │  MCP tools      │         │  Workflows     │
    │  helpers.http  │       │  agent actions  │         │  workflow steps│
+   │  (host injects │       │  (server side)  │         │  (server side) │
+   │   Authorization)│       │                 │         │                │
    └────────────────┘       └─────────────────┘         └────────────────┘
 ```
+
+> Note : `account` (BetterAuth core) reste utilisé pour les sessions et SSO natifs (login MnM via GitLab/Microsoft). Il NE porte PAS les tokens d'orchestration — séparation claire pour rendre les tokens orchestration RLS-safe et chiffrés sans casser BetterAuth upstream.
 
 ---
 
@@ -111,8 +148,9 @@ Hardcoder Jira+ClickUp dans BetterAuth comme on a fait pour GitLab = 2j de dette
 ### Created
 
 **DB :**
-- `packages/db/src/migrations/0078_connectors_platform.sql` + `.test.ts`
+- `packages/db/src/migrations/0079_connectors_platform.sql` + `.test.ts` (renuméroté depuis 0078 — 0078 déjà pris par `0078_session_bundle_runs.sql`, voir commit `824a1ddb2`. Plan Foundation décale ses migrations à 0080-0082.)
 - `packages/db/src/schema/oauth_connectors.ts`
+- `packages/db/src/schema/connector_tokens.ts` (NEW — tokens OAuth chiffrés, MnM-owned, RLS multi-tenant)
 - `packages/db/src/schema/user_api_keys.ts`
 - `packages/db/src/schema/oauth_connectors_audit.ts`
 
@@ -137,10 +175,12 @@ Hardcoder Jira+ClickUp dans BetterAuth comme on a fait pour GitLab = 2j de dette
 
 ### Modified
 
-- `server/src/auth/better-auth.ts` — `createBetterAuthInstance` accepte un `dynamicProviders[]` argument résolu par `dynamic-providers.ts`. Hot-reload sur connector change via SSE event `connector.updated` qui invalide le cached instance.
-- `packages/db/src/schema/auth.ts` — ajouter index sur `account(user_id, provider_id)` pour lookups rapides depuis `getUserToken`.
-- `server/src/services/governed-workflows.ts` — `resolveAuthor()` consume le helper `getUserToken("gitlab")` au lieu du fallback `process.env.GITLAB_PAT`. Backward compat : si pas de connecteur enabled → fallback PAT (pour migration).
-- `ui/src/App.tsx` — routes `/connectors`, `/connectors/:id`, `/settings/accounts` (companyId via context, pas dans l'URL UI — rule frontend.md §4).
+- `server/src/auth/better-auth.ts` — `createBetterAuthInstance` accepte un `dynamicProviders[]` argument résolu par `dynamic-providers.ts`. Hot-reload sur connector change via SSE event `connector.updated` qui invalide le cached instance. **Override mechanism (§3.5)** : DB connector slug `gitlab`/`microsoft` override les env vars `GITLAB_OAUTH_*` / `MICROSOFT_OAUTH_*` (DB wins, env fallback uniquement si DB rien). Test E2E obligatoire (override + fallback + DB désactivé → re-fallback env).
+- `server/src/services/governed-workflows.ts` — **11 call sites** `resolveGitProvider` (grep confirmé en review backend) consume le helper `getUserToken("gitlab")` au lieu du fallback `process.env.GITLAB_PAT`. Backward compat : si pas de connecteur enabled → fallback PAT (pour migration). Sub-task explicite Task 8.2 : "audit grep `resolveGitProvider` call sites + branch fallback PAT chacun" pour ne pas en oublier.
+- `ui/src/App.tsx` — routes ajoutées dans `boardRoutes()` sous `:companyPrefix` (cohérent avec routing existant — voir review frontend B1) : `/:companyPrefix/connectors`, `/:companyPrefix/connectors/:id`, `/:companyPrefix/settings/accounts`. Le `companyPrefix` est un slug humain résolu en `selectedCompanyId` via `useCompany()`. Bloc `UnprefixedBoardRedirect` à étendre si on veut accepter `/connectors` non-préfixé en redirect (pattern existant).
+- `ui/src/lib/nav-registry.ts` — ajouter entries `connectors` (admin, gated `connectors:manage`) et `connected-accounts` (user, no gate).
+- `packages/shared/src/types/view-preset.ts` — étendre union type `NavItemId` avec `"connectors" | "connected-accounts"` (sinon TS casse — review frontend N1).
+- `ui/src/context/LiveUpdatesProvider.tsx` — handler SSE event `user.connector_status_changed` → invalide queryKey `connectors.userAccounts(companyId)` + dispatch CustomEvent. Handler SSE event `connector.updated` → invalide `connectors.list(companyId)` côté admin. Pattern cohérent `dashboard:refresh` / `governed_run:updated` (review frontend N3).
 - `ui/src/pages/UserProfile.tsx` — section "Mes comptes connectés" qui link vers `/settings/accounts`.
 - `ui/src/lib/queryKeys.ts` — `connectors`, `userAccounts`.
 - `scripts/parity/data.ts` — entries `connectors-admin`, `connectors-user`.
@@ -155,22 +195,36 @@ Hardcoder Jira+ClickUp dans BetterAuth comme on a fait pour GitLab = 2j de dette
 
 | Sprint | Durée | Tasks | Parallélisation |
 |---|---|---|---|
-| **Sprint 1** | 4j | T1 (DB) → T2 (service) → T3 (BetterAuth dyn providers) → T4 (API keys path) | 1 dev |
-| **Sprint 2** | 4j | T5 (REST/MCP) ‖ T6 (UI admin) ‖ T7 (UI user) ‖ T8 (templates + helper + tests + parity) | 2-3 devs |
+| **Sprint 1** | 5j | T1 (DB) → T2 (service + getUserToken + refresh + callback) → T3 (BetterAuth dyn providers, refactor singleton) → T4 (API keys path) | 1 dev |
+| **Sprint 2** | 5-6j | T5 (REST/MCP) ‖ T6 (UI admin) ‖ T7 (UI user) ‖ T8 (templates + helper consume + E2E + parity) | 2-3 devs |
 
-**Total : 8j (1 dev) / ~5j (2 devs)**.
+**Total révisé après review : 10-11j (1 dev) / ~6-7j (2 devs)** — augmenté depuis estimate initial 8j à cause de :
+- T3 refactor BetterAuth singleton plus invasif que prévu (review backend point 2).
+- T8 E2E Playwright OAuth real-flow + 10 templates docs vérifiés (review backend point 8).
+- T2 sécurité augmentée (advisory lock, cross-tenant guard, tests sécu obligatoires).
+
+### Scope minimal pour pilote enterprise (7j budget)
+
+Si la deadline pilote (7j) est non-négociable, **prioriser** :
+- **T1 + T2 + T3 + T4 + T8.2** = ~5j (hub minimal sans UI)
+- **Reporter T6 / T7 / T8.3** post-pilote → admin (toi) configure les connecteurs via API REST direct ou MCP tool, pas besoin d'UI admin V0
+- **Risque** : pas d'UI pour les autres users du pilote (tech/produit) → ils ne voient pas leur statut connecté. Acceptable si tu es le seul à manipuler les connecteurs au début.
+
+Décision Tom : **TBD** — choisir scope minimal ou full plan post-pilote.
 
 ---
 
 ## Task 1 — Schema DB + migration (~0.5j)
 
 **Files :**
-- Create : `packages/db/src/migrations/0078_connectors_platform.sql` + `.test.ts`
-- Create : 3 schemas Drizzle
-- Modify : `packages/db/src/schema/auth.ts` (ajout index)
+- Create : `packages/db/src/migrations/0079_connectors_platform.sql` + `.test.ts` (renuméroté depuis 0078, voir File Map)
+- Create : 4 schemas Drizzle (oauth_connectors, **connector_tokens**, user_api_keys, oauth_connectors_audit)
+
+> Note backend point 6 : `"type"` est mot-réservé Postgres mais marche avec quotes. OK tel quel.
+> Note backend point 6 : `auth.ts` a peut-être déjà un index `account(user_id, provider_id)` natif BetterAuth. Vérifier avec grep avant migration — `IF NOT EXISTS` masquerait un doublon silencieux. Index plus nécessaire de toute façon : `getUserToken` lookup `connector_tokens`, pas `account`.
 
 ```sql
--- 0078_connectors_platform.sql
+-- 0079_connectors_platform.sql
 
 CREATE TABLE IF NOT EXISTS "oauth_connectors" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -214,6 +268,36 @@ CREATE INDEX IF NOT EXISTS "oauth_connectors_company_enabled_idx"
 ALTER TABLE "oauth_connectors" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "oauth_connectors" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "oauth_connectors" AS RESTRICTIVE FOR ALL
+  USING (company_id = current_setting('app.current_company_id', true)::uuid);
+--> statement-breakpoint
+
+-- Tokens OAuth chiffrés MnM-owned (RLS, lève C1+H2 review sécu)
+CREATE TABLE IF NOT EXISTS "connector_tokens" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" uuid NOT NULL REFERENCES "companies"("id") ON DELETE CASCADE,
+  "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "connector_id" uuid NOT NULL REFERENCES "oauth_connectors"("id") ON DELETE CASCADE,
+  "access_token_layer_id" uuid NOT NULL REFERENCES "config_layers"("id") ON DELETE RESTRICT,
+  "refresh_token_layer_id" uuid REFERENCES "config_layers"("id") ON DELETE RESTRICT,
+  "expires_at" timestamptz,
+  "scopes_granted" text[] NOT NULL DEFAULT '{}',
+  "last_used_at" timestamptz,
+  "last_refresh_at" timestamptz,
+  "last_refresh_failed_at" timestamptz,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now(),
+
+  UNIQUE ("user_id", "connector_id")
+);
+--> statement-breakpoint
+
+CREATE INDEX IF NOT EXISTS "connector_tokens_company_user_idx"
+  ON "connector_tokens"("company_id", "user_id");
+--> statement-breakpoint
+
+ALTER TABLE "connector_tokens" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "connector_tokens" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "connector_tokens" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
 --> statement-breakpoint
 
@@ -264,10 +348,7 @@ CREATE POLICY "tenant_isolation" ON "oauth_connectors_audit" AS RESTRICTIVE FOR 
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
 --> statement-breakpoint
 
--- Index sur account pour lookup rapide depuis getUserToken
-CREATE INDEX IF NOT EXISTS "account_user_provider_idx"
-  ON "account"("user_id", "provider_id");
---> statement-breakpoint
+-- (Retiré : pas d'index sur account, getUserToken lookup connector_tokens uniquement)
 
 -- Permissions
 INSERT INTO "permissions" ("company_id", "slug", "description", "category", "is_custom")
@@ -281,9 +362,10 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 --> statement-breakpoint
 ```
 
-- [ ] **1.1 — Test migration** : 3 tables + RLS + 2 permissions seedées + index account.
-- [ ] **1.2 — Schemas Drizzle** + index TS.
-- [ ] **1.3 — Migration up + tests pass + commit + push**
+- [ ] **1.1 — Test migration** : 4 tables (oauth_connectors, connector_tokens, user_api_keys, oauth_connectors_audit) + RLS RESTRICTIVE FORCE × 4 + 2 permissions seedées par company + UNIQUE constraints + CHECK conditionnel oauth_connectors.
+- [ ] **1.2 — Schemas Drizzle** + index TS pour les 4 tables.
+- [ ] **1.3 — Test cross-tenant** : INSERT connector_tokens depuis company A puis SELECT en setant `app.current_company_id = B` → 0 row (RLS fail-closed).
+- [ ] **1.4 — Migration up + tests pass + commit + push**
 
 ---
 
@@ -301,7 +383,11 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 
 ### 2.2 — `getUserToken(userId, providerSlug, companyId)` — helper central
 
-- [ ] **Test TDD** : retourne le token courant, refresh si expiré, throw `CONNECTOR_TOKEN_REVOKED` si refresh fail, throw `CONNECTOR_USER_NOT_CONNECTED` si pas d'account ou api_key, sample audit row 1/100.
+- [ ] **Test TDD** :
+  - retourne le token courant, refresh si expiré, throw `CONNECTOR_TOKEN_REVOKED` si refresh fail, throw `CONNECTOR_USER_NOT_CONNECTED` si pas de token row ou api_key, throw `CONNECTOR_NOT_CONFIGURED` si pas de connector enabled.
+  - **Cross-tenant guard (C2)** : test "userId de tenant B + companyId de tenant A → throws CONNECTOR_USER_NOT_IN_COMPANY" — obligatoire avant ship.
+  - **Refresh concurrent (B1)** : test "2 calls parallèles avec token expiré → 1 seul POST /token au provider, les 2 calls retournent le nouveau token". Mock provider counte les hits.
+  - sample audit row 1/100, fire-and-forget (non awaited).
 - [ ] **Implémenter** :
   ```ts
   export async function getUserToken(
@@ -309,6 +395,14 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
     providerSlug: string,
     companyId: string,
   ): Promise<{ accessToken: string; expiresAt: Date | null; scopes: string[]; type: "oauth2"|"api_key" }> {
+    // C2 cross-tenant guard — user must belong to companyId
+    const isMember = await db.execute(sql`
+      SELECT 1 FROM company_members
+      WHERE user_id = ${userId} AND company_id = ${companyId}
+      LIMIT 1
+    `);
+    if (!isMember.rows.length) throw new Error("CONNECTOR_USER_NOT_IN_COMPANY");
+
     const connector = await getActiveConnector(companyId, providerSlug);
     if (!connector) throw new Error("CONNECTOR_NOT_CONFIGURED");
 
@@ -316,37 +410,64 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
       const apiKey = await getUserApiKey(userId, connector.id);
       if (!apiKey) throw new Error("CONNECTOR_USER_NOT_CONNECTED");
       const decrypted = await configLayerService.decrypt(apiKey.keyLayerId);
-      maybeAuditTokenUsed(connector.id, userId);
+      void maybeAuditTokenUsed(connector.id, userId); // fire-and-forget
       return { accessToken: decrypted, expiresAt: null, scopes: [], type: "api_key" };
     }
 
-    // oauth2
-    const account = await getAccountForUserAndProvider(userId, providerSlug);
-    if (!account) throw new Error("CONNECTOR_USER_NOT_CONNECTED");
+    // oauth2 — lookup connector_tokens (MnM-owned, RLS-isolated, encrypted)
+    const tokenRow = await getConnectorToken(userId, connector.id);
+    if (!tokenRow) throw new Error("CONNECTOR_USER_NOT_CONNECTED");
 
-    if (account.expiresAt && account.expiresAt < new Date()) {
-      if (!account.refreshToken) throw new Error("CONNECTOR_TOKEN_EXPIRED_NO_REFRESH");
-      const refreshed = await refreshOAuthToken(connector, account);
+    if (tokenRow.expiresAt && tokenRow.expiresAt < new Date()) {
+      if (!tokenRow.refreshTokenLayerId) throw new Error("CONNECTOR_TOKEN_EXPIRED_NO_REFRESH");
+      // B1 advisory lock — pattern existant governed-workflows.ts:974
+      const refreshed = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('mnm:oauth_refresh:' || ${tokenRow.id}::text))`);
+        // Re-read inside lock — another concurrent call may have refreshed
+        const fresh = await getConnectorTokenForUpdate(tx, tokenRow.id);
+        if (fresh.expiresAt && fresh.expiresAt > new Date()) return fresh;
+        return await refreshOAuthToken(tx, connector, fresh);
+      });
       if (!refreshed) throw new Error("CONNECTOR_TOKEN_REVOKED");
-      account = refreshed;
+      void maybeAuditTokenUsed(connector.id, userId);
+      const accessToken = await configLayerService.decrypt(refreshed.accessTokenLayerId);
+      return { accessToken, expiresAt: refreshed.expiresAt, scopes: refreshed.scopesGranted, type: "oauth2" };
     }
-    maybeAuditTokenUsed(connector.id, userId);
-    return { accessToken: account.accessToken, expiresAt: account.expiresAt, scopes: connector.scopes, type: "oauth2" };
+
+    void maybeAuditTokenUsed(connector.id, userId);
+    const accessToken = await configLayerService.decrypt(tokenRow.accessTokenLayerId);
+    return { accessToken, expiresAt: tokenRow.expiresAt, scopes: tokenRow.scopesGranted, type: "oauth2" };
   }
   ```
 
-### 2.3 — `refreshOAuthToken(connector, account)` — refresh logic
+  **Notes** :
+  - `void` devant `maybeAuditTokenUsed` = fire-and-forget pour ne pas bloquer le hot-path (review backend point 7).
+  - `pg_advisory_xact_lock` libéré en fin de transaction → 2 appels concurrents : le 1er refresh, le 2e re-read et voit le token frais (re-check inside lock).
+  - HOST-ONLY : cette fonction tourne dans le process Express, pas dans un isolate. Le caller isolate (gate-runner / hooks) reçoit la response HTTP, jamais le token brut.
 
-- [ ] **Test TDD** : POST `connector.token_url` avec `grant_type=refresh_token + refresh_token + client_id + client_secret`, parse response, update `account`. Si 401 → audit `user_token_revoked` + return null.
+### 2.3 — `refreshOAuthToken(tx, connector, tokenRow)` — refresh logic
+
+- [ ] **Test TDD** : POST `connector.token_url` avec `grant_type=refresh_token + refresh_token + client_id + client_secret`, parse response, encrypt et UPDATE `connector_tokens`. Si 401 → audit `user_token_revoked` + return null. Reçoit la `tx` du caller (déjà sous `pg_advisory_xact_lock`).
 - [ ] **Implémenter** standard OAuth 2.0 refresh.
-- [ ] **Refresh tokens rotation** support (certains providers genre Microsoft retournent un nouveau refresh_token à chaque refresh — handle).
+- [ ] **Refresh tokens rotation** support (certains providers genre Microsoft retournent un nouveau refresh_token à chaque refresh — encrypt + UPDATE `refresh_token_layer_id` aussi).
+- [ ] **`last_refresh_at` / `last_refresh_failed_at`** updated pour debug / monitoring.
 
 ### 2.4 — OAuth callback dispatcher
 
-- [ ] **Route `GET /api/connectors/callback`** : dispatcher générique pour tous les providers OAuth. Lit le `state` (signed JWT contenant companyId + connectorId + redirect_after), vérifie, échange code → token, crée/update `account`, audit `user_connected`, redirect vers `/settings/accounts?connected=<provider>`.
+- [ ] **Route `GET /api/connectors/callback`** : dispatcher générique pour tous les providers OAuth. Lit le `state` (signed JWT HS256 avec `BETTER_AUTH_SECRET`, expire 10 min), vérifie, échange code → token, encrypte tokens via Config Layer, INSERT/UPDATE `connector_tokens` (PAS `account`), audit `user_connected`, redirect vers `redirect_after` (validé) ou défaut `/settings/accounts?connected=<provider>`.
+
+- [ ] **H1 — Validation `redirect_after` whitelist** :
+  - Le state JWT contient `redirect_after`. AVANT redirect final, le dispatcher DOIT valider :
+    - soit chemin relatif commençant par `/` (et pas `//` qui en HTTP signifie protocol-relative → open redirect),
+    - soit URL absolue dont l'origin appartient strictement à `MNM_PUBLIC_URL`.
+  - Sinon → log + redirect default `/settings/accounts?connected=<provider>`. Pas d'erreur 400 visible (UX) mais audit `redirect_after_rejected`.
+  - Test obligatoire : `redirect_after=https://evil.example.com` → ignoré, redirect default. `redirect_after=//evil.example.com` → ignoré. `redirect_after=/foo/bar` → accepté.
+
+- [ ] **Algorithme JWT signed state** : HS256 avec `BETTER_AUTH_SECRET`, claims `{ companyId, connectorId, userId, redirectAfter, iat, exp }`, expire `iat + 10min`. Embedde un snapshot du connector (client_id) — review archi mitigation hot-reload race : un connector modifié pendant le flow ne casse pas le callback en cours.
 
 ### 2.5 — Tests + commit + push
 
+- [ ] **Ajouter `msw` en devDependency** (review backend point 12 : pas installé). `bun add -d msw`.
 - [ ] Tests unitaires + intégration avec mock OAuth provider (msw).
 - [ ] Commit `feat(connectors): service + OAuth flow handler + getUserToken`.
 
@@ -362,7 +483,9 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 
 - [ ] **3.2 — Modifier `createBetterAuthInstance`** : accepte un argument `dynamicProvidersResolver: () => Promise<SocialProviders>` invoqué lazily au premier request. Reconstruction transparente.
 
-- [ ] **3.3 — Hot-reload via SSE** : event `connector.updated` côté serveur → invalide le cache de BetterAuth instance (ou rebuild forcé sur prochain request). Pattern : un `WeakMap<companyId, BetterAuthInstance>` qui se vide sur l'event.
+- [ ] **3.3 — Hot-reload via SSE (V0 single-process)** : event `connector.updated` côté serveur → invalide le cache de BetterAuth instance (rebuild forcé sur prochain request). Pattern : un `WeakMap<companyId, BetterAuthInstance>` qui se vide sur l'event.
+  - **Trade-off explicite** : SSE est process-local. En cluster (PM2 / Kubernetes replicas), invalidation ne se propage pas → autres processes servent stale. **V0 = single-process accepté** (admin doit redémarrer en cluster après changement connector).
+  - **V1 cible** (out-of-scope V0) : Postgres `LISTEN/NOTIFY` channel `connector_updated` consommé par tous processes — pattern non-bloquant pour pilote enterprise solo single-instance.
 
 - [ ] **3.4 — Tests** :
   - Connector créé enabled → next request can OAuth login via ce slug.
@@ -370,6 +493,10 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
   - Refresh token via callback dispatcher fonctionne.
 
 - [ ] **3.5 — Backward compat** : les env vars `GITLAB_OAUTH_*` et `MICROSOFT_OAUTH_*` continuent de fonctionner. Si DB connector existe avec slug `gitlab` ou `microsoft`, il **override** les env vars. Migration douce documentée.
+  - **Test E2E explicite (review archi N4)** : 3 cas
+    1. `GITLAB_OAUTH_CLIENT_ID=xxx` set + DB connector `gitlab` enabled → DB wins (vérifier `client_id` réel utilisé).
+    2. Env var set + DB connector désactivé → fallback env var.
+    3. Env var set + DB connector supprimé → fallback env var (re-init instance).
 
 - [ ] **3.6 — Commit + push**
 
@@ -380,9 +507,13 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 **Files :**
 - Modify : `server/src/services/connectors.ts` (extend with API key methods)
 
-- [ ] **4.1 — `setUserApiKey(userId, connectorId, key)`** : encrypt via Config Layer, INSERT/UPDATE row, audit `user_connected`.
-- [ ] **4.2 — `deleteUserApiKey(userId, connectorId)`** : delete row + Config Layer, audit `user_disconnected`.
-- [ ] **4.3 — Tests** : encryption roundtrip, RLS respecté, multi-user isolation.
+- [ ] **4.1 — `setUserApiKey(userId, connectorId, key, companyId)`** : C2 cross-tenant guard (user ∈ company), encrypt via Config Layer, INSERT/UPDATE row, audit `user_connected`. Logge `{...params, key: "[REDACTED]"}` (H3).
+- [ ] **4.2 — `deleteUserApiKey(userId, connectorId, companyId)`** : C2 guard, delete row + Config Layer, audit `user_disconnected`.
+- [ ] **4.3 — Tests** :
+  - Encryption roundtrip (encrypt → decrypt = original).
+  - RLS respecté (cross-tenant SELECT → 0 row).
+  - Multi-user isolation : intra-company, user A ne peut PAS lire user_api_keys de user B même via service (filter explicite `user_id = currentUserId` côté service, RLS company seul ne suffit pas).
+  - Test cross-tenant `setUserApiKey` avec userId d'une autre company → throws `CONNECTOR_USER_NOT_IN_COMPANY`.
 - [ ] **4.4 — Commit + push**
 
 ---
@@ -411,10 +542,15 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 
 ### 5.3 — MCP tools
 
-- [ ] `list_connectors({company_id?})` — admin & user.
-- [ ] `get_connector_status({connector_id})` — pour mon user.
-- [ ] `connect_user_to_connector({connector_id})` — retourne URL OAuth à ouvrir + instructions ("ouvre cette URL dans ton browser pour autoriser").
+> **Modifier `server/src/mcp/tools/index.ts`** : enregistrer les nouveaux tools dans `allToolDefiners` (registry manuel — pas d'auto-discovery par filename, review backend blocker #2).
+
+- [ ] `list_connectors({company_id?})` — admin & user. Retourne **JAMAIS** le `client_secret` ni les tokens. Juste : slug, type, enabled, display_name, scopes, `client_secret_configured: bool`.
+- [ ] `get_connector_status({connector_id})` — pour mon user. Retourne statut (connecté/non/expiré/révoqué) + scopes_granted. **JAMAIS le token**.
+- [ ] `connect_user_to_connector({connector_id})` — retourne URL OAuth signed (state JWT 10 min) + instructions ("ouvre cette URL dans ton browser pour autoriser").
+- [ ] `wait_for_connection({connector_id, timeout_s})` — long-poll côté serveur (max 60s, throttle), retourne dès que le user a complété l'OAuth flow OU timeout (review archi N3). Évite à l'agent de re-polling actif.
 - [ ] `set_user_api_key({connector_id, key})` — type=api_key only.
+  - **H3 redaction obligatoire** : le handler logge `{...params, key: "[REDACTED]"}` AVANT toute autre opération. Vérifier que le middleware `pino-http` (ou équivalent) sur la route MCP n'inclut pas le body brut dans ses access logs (whitelist body fields ou `redact: ["req.body.key", "req.body.params.key"]` côté logger).
+  - Test obligatoire : appeler le tool avec `key="test-secret-do-not-log"`, grep les logs Express → 0 occurrence.
 
 - [ ] **5.4 — Tests + commit + push**
 
@@ -432,16 +568,19 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 ### 6.1 — Page liste
 
 - [ ] **Tabs : "Mes connecteurs" / "Ajouter"**.
+- [ ] Empty state admin (0 connecteur configuré) : composant `<EmptyState icon={Plug}>` (existant, voir `GovernedWorkflowsList.tsx`) avec CTA "Ajouter un connecteur" → switch tab. Copy en français (convention user-facing repo).
 - [ ] Tab Ajouter : grille de 10 `ConnectorTemplateCard` (Jira, GitHub, GitLab, Microsoft, Google, Slack, ClickUp, Linear, Notion, OpenAI) + tile "Connecteur custom".
-- [ ] Click sur template → wizard 2 étapes : `display_name` + scopes (pre-checked recommended) → `client_id` + `client_secret` (input "set up OAuth app" lien vers doc provider).
+- [ ] Click sur template → wizard 2 étapes : `display_name` + scopes (pre-checked recommended) → `client_id` + `client_secret` (input "set up OAuth app" lien vers doc provider). **Pattern à copier** : `JiraImport.tsx` (state `currentStep` dans la même page, plus simple qu'un Stepper primitive — review frontend N2).
 - [ ] Click sur OpenAI ou autre api_key → wizard 1 étape : `display_name` + `api_key_label`.
 - [ ] Liste connecteurs existants : nom, type badge, # users connectés, last_used, toggle enabled.
+- [ ] Validation côté UI des URLs OAuth (https only, regex strict, pas IP privée). Server fait re-validation (defense-in-depth).
 
 ### 6.2 — Page détail
 
 - [ ] `<Sheet>` avec form de config + `<VisibilityPicker>` pas applicable ici (connecteur company-wide), audit log table en bas.
-- [ ] Bouton "Test connection" : tente un OAuth flow ou test API key contre `userinfo_url` ou endpoint test.
-- [ ] Bouton "Disable" / "Enable" / "Delete" (DELETE = prompt confirmation, cascade users disconnected).
+- [ ] Bouton "Test connection" : pour OAuth → HEAD `authorization_url` 200 + fetch metadata `/.well-known/openid-configuration` si OIDC. Pour api_key → l'admin n'a pas la clé du user, donc disable ce bouton (juste un "Configuration valide" check d'URL/scopes).
+- [ ] Pendant test : Loader inline. Si fail : message lisible (ex "URL invalide : doit être HTTPS" plutôt que "OAUTH_INVALID_CLIENT").
+- [ ] Bouton "Disable" / "Enable" / "Delete" (DELETE = prompt confirmation, cascade users disconnected via `ON DELETE CASCADE` sur `connector_tokens` + `user_api_keys`).
 
 ### 6.3 — Tests Vitest + tester en browser + parity + commit
 
@@ -457,9 +596,11 @@ ON CONFLICT ("company_id", "slug") DO NOTHING;
 - [ ] **7.1 — Page** : liste les connecteurs disponibles dans la company avec mon statut perso.
 - [ ] Pour chaque connector : icône provider + display_name + statut badge (Connecté ✓ / Non connecté / Expiré ⚠ / Révoqué ✗) + bouton action (Connecter / Reconnecter / Déconnecter / Set API Key).
 - [ ] Click "Connecter" pour OAuth → ouvre l'URL retournée par `/me/connect/:id` dans nouveau tab.
-- [ ] Click "Set API Key" → `<Sheet>` avec input password + bouton "Tester" → soumet.
-- [ ] Live update via SSE event `user.connector_status_changed` quand le user revient depuis le tab OAuth.
-- [ ] Empty state si aucun connecteur configuré dans la company : "Demande à ton admin de configurer un connecteur depuis Settings > Connecteurs".
+- [ ] **Retour user après OAuth** : SSE event `user.connector_status_changed` consommé par `LiveUpdatesProvider.tsx` → invalide `queryKeys.connectors.userAccounts(companyId)` → UI re-fetch automatique. Pas de polling, pas de BroadcastChannel (review frontend N4).
+- [ ] Click "Set API Key" → `<Sheet>` avec input password (autocomplete=off) + bouton "Tester" → soumet via REST `/me/api-key/:connectorId`. Le UI ne stocke jamais la clé en mémoire après submit.
+- [ ] Empty state si aucun connecteur configuré dans la company : composant `<EmptyState>` "Demande à ton admin de configurer un connecteur depuis Settings > Connecteurs".
+
+**Note** : pour qu'`user.connector_status_changed` fonctionne, le backend (Task 5.x routes user) doit publier l'event via `publishLiveEvent` après chaque connect/disconnect/refresh — review frontend N3, à intégrer dans Task 5.
 
 - [ ] **7.2 — Lien depuis `UserProfile.tsx`** : section "Comptes connectés" avec preview (3 premiers, "+N") + bouton "Gérer".
 
@@ -513,9 +654,9 @@ export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
 
 ### 8.4 — Parity + doc + commit final
 
-- [ ] `scripts/parity/data.ts` : entries `connectors-admin`, `connectors-user`.
+- [ ] `scripts/parity/data.ts` : entries `connectors-admin` (web: done, desktop: **partial** — nécessite `tauri-plugin-shell openUrl` + URL handler retour OAuth), `connectors-user` (web: done, desktop: **partial** — même raison). Pas `n/a` car techniquement faisable via Tauri shell (review frontend N6).
 - [ ] Doc `docs/governed-workflows/connectors.md` (admin + user).
-- [ ] Decision-log §1.8 ou similaire si besoin de graver le pattern Generic OAuth dynamic.
+- [ ] Decision-log §4.6 (nouveau) : graver le pattern "tokens orchestration MnM-owned (`connector_tokens`) séparés de `account` BetterAuth, AES-256-GCM via Config Layer, RLS multi-tenant".
 - [ ] Commit final + push.
 
 ---
@@ -524,14 +665,21 @@ export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
 
 | Risque | Impact | Mitigation |
 |---|---|---|
-| `client_secret` leak via list endpoint | CRITICAL | Endpoint GET ne retourne JAMAIS le secret, juste un boolean `client_secret_configured`. Update via PATCH avec nouveau secret obligatoirement. |
-| Token user volé via XSS UI | HIGH | Tokens stockés DB only, jamais en localStorage UI. UI consomme un endpoint `/me/connector-status` qui ne retourne pas les tokens. Helpers MCP qui retournent les tokens uniquement à des agents JWT légitimes (pas web sessions). |
-| Mass OAuth provider misconfiguration → users bloqués | HIGH | Bouton "Test connection" obligatoire avant enable. Validation stricte des URL (https only, pas IP privée). Journaux clairs en cas de fail. |
-| Refresh token rotation cassée (user perd accès) | MED | Test E2E spécifique sur Microsoft (qui rotate). Audit `user_refresh_failed` + email user "ton compte X s'est déconnecté, reconnecte stp". |
-| Hot-reload BetterAuth crée race condition (user en plein OAuth flow) | MED | Le state JWT signed embedded contient le connector snapshot — même si le connector change DB, le flow en cours utilise le snapshot original. |
-| 2 connecteurs avec même slug (race insert) | LOW | UNIQUE constraint DB. Service catch et retourne 409. |
-| Connecteur supprimé pendant que des users ont des tokens | LOW | ON DELETE CASCADE sur `account` via cleanup job (BetterAuth account survit, mais inutile). Audit `connector_deleted`. Documentation : "supprimer un connecteur déconnecte tous les users". |
-| RLS gap sur `user_api_keys` (cross-tenant via user_id) | HIGH | RLS RESTRICTIVE FORCE + filtre company_id. Test migration vérifie. Index sur (company_id, user_id) pas juste user_id. |
+| `client_secret` leak via list endpoint | CRITICAL | Endpoint GET ne retourne JAMAIS le secret, juste un boolean `client_secret_configured`. Update via PATCH avec nouveau secret obligatoirement. **MCP tools** `list_connectors` + `get_connector_status` filtrent pareil — JAMAIS de retour secret/token. |
+| Tokens OAuth en clair en DB (review sécu C1) | CRITICAL → résolu | Tokens NE vivent PAS dans `account` BetterAuth (text brut). Vivent dans `connector_tokens` (NEW), chiffrés AES-256-GCM via Config Layer (`MNM_SECRETS_KEY`). RLS RESTRICTIVE FORCE sur `company_id`. |
+| Cross-tenant token exfil via `getUserToken` (review sécu C2) | CRITICAL → résolu | Helper vérifie EXPLICITEMENT que `userId ∈ companyId` via `EXISTS (SELECT 1 FROM company_members …)` AVANT toute lookup token. Test obligatoire "cross-tenant userId → throws CONNECTOR_USER_NOT_IN_COMPANY". |
+| Open redirect via `redirect_after` dans state JWT (review sécu H1) | HIGH → résolu | Validation whitelist : chemin relatif `/...` (pas `//...`) OU origin strict `MNM_PUBLIC_URL`. Sinon → redirect default + audit `redirect_after_rejected`. Tests obligatoires. |
+| MCP `set_user_api_key` clé en clair dans logs Express (review sécu H3) | HIGH → résolu | Handler logge `{...params, key: "[REDACTED]"}` AVANT toute opération. Logger `pino-http` configured `redact: ["req.body.key", "req.body.params.key"]`. Test grep logs après injection clé sentinel. |
+| Refresh OAuth concurrent — 2 hooks parallèles refresh même token (review archi B1) | HIGH → résolu | `pg_advisory_xact_lock(hashtext('mnm:oauth_refresh:' || tokenRow.id))` dans transaction de `getUserToken`. Re-read inside lock → 2e call voit token frais. Pattern existant `governed-workflows.ts:974`. |
+| Hot-reload BetterAuth multi-process stale config (review archi B2) | MED | V0 = single-process accepté (note ops "redémarrer en cluster après changement"). V1 = `LISTEN/NOTIFY` Postgres. Pour pilote enterprise solo single-instance → trade-off acceptable. |
+| Token user volé via XSS UI | HIGH | Tokens stockés DB only chiffrés, jamais en localStorage UI. UI consomme un endpoint `/me/connected-accounts` qui ne retourne pas les tokens. Helpers MCP retournent les tokens uniquement aux agents host-side, jamais à des sessions web. |
+| Mass OAuth provider misconfiguration → users bloqués | HIGH | Bouton "Test connection" obligatoire avant enable. Validation stricte des URL côté UI ET serveur (https only, pas IP privée). Journaux clairs en cas de fail. |
+| Refresh token rotation cassée (user perd accès) | MED | Test E2E spécifique sur Microsoft (qui rotate). Audit `user_refresh_failed`. UI affiche statut "Reconnecte stp" avec bouton retry. |
+| Hot-reload BetterAuth crée race condition (user en plein OAuth flow) | MED | Le state JWT signed embedded contient le connector snapshot (`client_id` figé) + expire 10 min — même si le connector change DB, le flow en cours utilise le snapshot. |
+| 2 connecteurs avec même slug (race insert) | LOW | UNIQUE constraint `(company_id, provider_slug)`. Service catch et retourne 409. |
+| Connecteur supprimé pendant que des users ont des tokens | LOW | `ON DELETE CASCADE` sur `connector_tokens.connector_id` + `user_api_keys.connector_id` → tokens supprimés automatiquement. Audit `connector_deleted` retient le diff. Documentation : "supprimer un connecteur déconnecte tous les users". |
+| RLS gap sur `user_api_keys` / `connector_tokens` (cross-user intra-company via user_id) | HIGH | RLS RESTRICTIVE FORCE + filtre `company_id` (cross-tenant). **PLUS** : tous les SELECTs côté service ajoutent `AND user_id = currentUserId` (intra-company). Test cross-user obligatoire. |
+| Audit `token_used` volume explose | MED | Sample 1/100 + TTL 90 jours via cron quotidien (DELETE). Autres actions audit sans TTL. Partitioning par mois envisagé V1+ si volume dépasse 10M rows. |
 
 ---
 
@@ -556,10 +704,29 @@ export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
 
 ## Validation Tom
 
+### V1 (fonctionnel)
+
 - [ ] Pattern OAuth user-level applicable à n'importe quel provider OAuth 2.0 standard (Jira, GitHub, GitLab, Microsoft, Google, Slack, Linear, Notion, ClickUp).
 - [ ] API keys (OpenAI, Anthropic, Stripe) supportées via path séparé `user_api_keys`.
 - [ ] Helper unique `getUserToken()` consommé par hooks + agents + jobs + MCP tools.
 - [ ] Backward compat : `GITLAB_OAUTH_*` + `MICROSOFT_OAUTH_*` env vars marchent encore (migration douce).
-- [ ] Aucun secret leaké via API list (juste `client_secret_configured: bool`).
 - [ ] Test E2E end-to-end : admin créé connecteur Jira mock → user le connecte → helper retourne le token.
-- [ ] Hot-reload BetterAuth fonctionne (créer connecteur sans restart server).
+- [ ] Hot-reload BetterAuth fonctionne single-process (créer connecteur sans restart server).
+
+### V2 (sécurité — fixes review obligatoires avant ship)
+
+- [ ] **C1 résolu** : tokens OAuth chiffrés AES-256-GCM dans `connector_tokens` (pas dans `account` brut). Test : SELECT direct DB sur `connector_tokens.access_token_layer_id` retourne juste un UUID, jamais un token.
+- [ ] **C2 résolu** : `getUserToken` throw `CONNECTOR_USER_NOT_IN_COMPANY` quand `userId` ∉ `companyId`. Test cross-tenant obligatoire.
+- [ ] **B1 résolu** : `pg_advisory_xact_lock` dans `getUserToken` refresh path. Test parallèle confirme 1 seul POST `/token` au provider.
+- [ ] **B2 trade-off explicite** : V0 single-process documenté en clair pour ops.
+- [ ] **H1 résolu** : `redirect_after` whitelisté (relatif `/...` OU origin strict `MNM_PUBLIC_URL`). Tests `evil.example.com` + `//evil.example.com` rejetés.
+- [ ] **H3 résolu** : MCP `set_user_api_key` redacte `key` dans logs. Test grep sentinel.
+- [ ] Aucun secret leaké via API list/MCP tools (juste `client_secret_configured: bool`, jamais le token brut).
+- [ ] RLS `connector_tokens` testé cross-tenant + intra-company cross-user.
+
+### V2 (frontend — fixes review obligatoires)
+
+- [ ] Routes `/connectors`, `/settings/accounts` sous `:companyPrefix` (cohérent App.tsx existant).
+- [ ] `NavItemId` étendu (`packages/shared/src/types/view-preset.ts`) — sinon TS casse.
+- [ ] SSE event `user.connector_status_changed` publié côté serveur (Task 5) ET consommé `LiveUpdatesProvider.tsx` (Task 7).
+- [ ] Parity tracker desktop = `partial` (pas `n/a`).
