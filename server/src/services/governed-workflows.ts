@@ -1860,19 +1860,28 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
             workflowGitTag: parsed.gitTag,
             runParams: await fetchRunParams(args.companyId, args.runId),
             stepId: step.id,
-            previousArtifacts: await fetchSucceededArtifacts(
-              tx as unknown as Db,
-              args.runId,
-            ),
+            // P1.1 fix: read previous_artifacts via the OUTER db connection,
+            // NOT the in-flight `tx` snapshot. The tx snapshot includes the
+            // current step's row at state="gate_eval" with the just-written
+            // artifact — but those updates are uncommitted and may roll back
+            // (e.g. if this very hook phase fails right after). Reading via
+            // `db` returns the committed state — what gates / hooks actually
+            // observe in production post-tx.
+            previousArtifacts: await fetchSucceededArtifacts(db, args.runId),
             artifact: persistedArtifact,
           }),
         });
         if (!afterStepOutcome.ok) {
-          // Step retro-fails. Note: we bail out of the tx, so the
-          // artifact + state="gate_eval"/"running" updates rollback
-          // (the F7 audit rows are already committed by executeHook
-          // outside the tx, so visibility is preserved). The harness
-          // sees WORKFLOW_GATE_FAILED with hook_error metadata.
+          // P0.1 fix: persist state="failed" via the OUTER `db` connection
+          // BEFORE throwing. The throw rolls back `tx`, which would otherwise
+          // wipe the state="gate_eval" row update — leaving the step stuck in
+          // "running" forever. Writing via `db` survives the rollback so the
+          // step is correctly marked failed, mirroring the before_step pattern
+          // and the F7 gate_results / hook_executions audit-row strategy.
+          await db
+            .update(governedStepExecutions)
+            .set({ state: "failed", completedAt: new Date() })
+            .where(eq(governedStepExecutions.id, stepExec.id));
           throw new GovernedWorkflowError(
             WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
             `after_step hook '${afterStepOutcome.firstFailure!.ref}' failed: ${afterStepOutcome.firstFailure!.report}`,
@@ -2135,40 +2144,53 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     // is a "post-success cleanup" — its failure must not retro-fail the
     // run, which would surprise users since their work succeeded). The
     // audit row produced by executeHook captures the failure for ops.
+    //
+    // P0.2 fix: fire-and-forget via setImmediate. Previously this `await`ed
+    // runHookPhase, which could block the completeStep HTTP response for up
+    // to N × hook_timeout (35s default × hook count) — clients would hang
+    // even though the run is already committed as "completed" in DB. Now
+    // we schedule the hook phase on the next tick and return immediately.
+    // The audit row written by executeHook is final — observability is
+    // preserved. Errors are logged via console.warn (no logger import in
+    // this module yet).
     if (pendingAfterRun.data && hooksSvc) {
       const ar = pendingAfterRun.data;
-      try {
-        const afterRunOutcome = await runHookPhase({
+      const runId = args.runId;
+      const companyId = args.companyId;
+      setImmediate(() => {
+        runHookPhase({
           phase: "after_run",
-          runId: args.runId,
+          runId,
           workflowGitSha: ar.workflowGitSha,
           actor: args.actor,
-          companyId: args.companyId,
+          companyId,
           workflow: ar.workflow,
           hookCtx: buildHookCtx({
             phase: "after_run",
-            runId: args.runId,
+            runId,
             workflowName: ar.workflow.name,
             workflowGitTag: ar.workflowGitTag,
             runParams: ar.runParams,
           }),
-        });
-        if (!afterRunOutcome.ok) {
-          // Run is already "completed" — we don't transition it. The
-          // hook execution audit row carries the failure detail.
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[governed-workflows] after_run hook '${afterRunOutcome.firstFailure!.ref}' failed for run ${args.runId}: ${afterRunOutcome.firstFailure!.errorCode}`,
-          );
-        }
-      } catch (err) {
-        // executeHook errors should never escape, but defend the path so
-        // a runaway hook doesn't take down the completeStep response.
-        // eslint-disable-next-line no-console
-        console.error(
-          `[governed-workflows] after_run hook execution threw for run ${args.runId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+        })
+          .then((outcome) => {
+            if (!outcome.ok) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                `[governed-workflows] after_run hook '${outcome.firstFailure!.ref}' failed asynchronously for run ${runId} (company ${companyId}): ${outcome.firstFailure!.errorCode}`,
+              );
+            }
+            return undefined;
+          })
+          .catch((err) => {
+            // executeHook errors should never escape, but defend the path
+            // so a runaway hook doesn't crash the Node process.
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[governed-workflows] after_run hook phase failed asynchronously for run ${runId} (company ${companyId}): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      });
     }
 
     // ── Post-tx : finalize the client heartbeat_run if the step had one.
