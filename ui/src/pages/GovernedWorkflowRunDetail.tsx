@@ -8,7 +8,6 @@ import { governedWorkflowsApi } from "../api/governed-workflows";
 import { queryKeys } from "../lib/queryKeys";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { formatDateTime } from "../lib/utils";
-import { safeExternalHref } from "../lib/safeHref";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,16 +18,16 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  ExternalLink,
-  FileText,
-  Folder,
   Ban,
   RotateCcw,
   X,
 } from "lucide-react";
+import { RunArtifactsTree } from "@/components/runs/RunArtifactsTree";
+import { artifactPermalink } from "@/components/runs/OutputRow";
 import { useReactivateRun } from "@/hooks/useWorkflowRunActions";
 import { CancelRunDialog } from "@/components/workflows/CancelRunDialog";
 import { SessionBundleBadge } from "@/components/workflows/SessionBundleBadge";
+import { OutputRow } from "@/components/runs/OutputRow";
 import type { StepWithGates } from "../api/governed-workflows";
 import type { GateResultRow, OutputPersisted } from "@mnm/shared";
 
@@ -106,60 +105,28 @@ function GatesTable({ gates }: { gates: GateResultRow[] }) {
   );
 }
 
-function OutputRow({ output }: { output: OutputPersisted }) {
-  if (output.kind === "external_url") {
-    return (
-      <div className="flex items-center gap-2 text-sm">
-        <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-        <span className="font-medium">{output.name}</span>
-        <a
-          href={safeExternalHref(output.url)}
-          target="_blank"
-          rel="noreferrer"
-          className="text-primary hover:underline truncate"
-        >
-          {output.url}
-        </a>
-      </div>
-    );
-  }
-  if (output.kind === "git_file") {
-    return (
-      <div className="flex items-center gap-2 text-sm">
-        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-        <span className="font-medium">{output.name}</span>
-        <span className="font-mono text-xs text-muted-foreground truncate">{output.path}</span>
-        <span className="text-xs text-muted-foreground ml-auto">{output.bytes} bytes</span>
-        {/* TODO: when repoUrl is available, link to GitLab blob */}
-      </div>
-    );
-  }
-  // git_folder
-  return (
-    <div className="text-sm">
-      <div className="flex items-center gap-2">
-        <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
-        <span className="font-medium">{output.name}</span>
-        <span className="font-mono text-xs text-muted-foreground truncate">{output.path}</span>
-      </div>
-      <ul className="mt-1 ml-6 list-disc text-xs text-muted-foreground space-y-0.5">
-        {output.files.map((f) => (
-          <li key={f} className="font-mono">{f}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function StepCard({ step, index, companyId }: { step: StepWithGates; index: number; companyId: string }) {
+function StepCard({
+  step,
+  index,
+  companyId,
+  workflowName,
+  runId,
+}: {
+  step: StepWithGates;
+  index: number;
+  companyId: string;
+  workflowName: string;
+  runId: string;
+}) {
   const promptContext = step.artifactsJson?.promptContext;
   const inputContent = promptContext
     ? JSON.stringify(promptContext, null, 2)
     : "— Aucun contexte disponible —";
   const isCancelled = step.state === "cancelled";
+  const stepAnchor = `step-${encodeURIComponent(step.stepIdInJson)}`;
 
   return (
-    <Card className={`py-0${isCancelled ? " opacity-70 text-muted-foreground" : ""}`}>
+    <Card id={stepAnchor} className={`py-0${isCancelled ? " opacity-70 text-muted-foreground" : ""}`}>
       <CardHeader className="px-4 py-3 border-b">
         <div className="flex items-center gap-2">
           <StateIcon state={step.state} />
@@ -217,7 +184,16 @@ function StepCard({ step, index, companyId }: { step: StepWithGates; index: numb
                       </h4>
                       <div className="space-y-2">
                         {((step.artifactsJson as { outputs: OutputPersisted[] }).outputs).map((o) => (
-                          <OutputRow key={o.name} output={o} />
+                          <OutputRow
+                            key={o.name}
+                            output={o}
+                            permalink={artifactPermalink({
+                              workflowName,
+                              runId,
+                              stepName: step.stepIdInJson,
+                              outputName: o.name,
+                            })}
+                          />
                         ))}
                       </div>
                     </div>
@@ -373,13 +349,41 @@ export function GovernedWorkflowRunDetail() {
         onOpenChange={setCancelOpen}
       />
 
+      {/* Artifacts tree — high-density navigator across steps + outputs.
+          Recurses into composite sub-runs once T5 lands; for now degrades to
+          a flat list of step → outputs. Clicking an output scrolls to the
+          corresponding step card via the `step-<encodedName>` anchor. */}
+      {steps.length > 0 && (
+        <Card className="py-0">
+          <CardHeader className="px-4 py-3 border-b">
+            <CardTitle className="text-sm font-semibold">Livrables du run</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 py-3">
+            <RunArtifactsTree
+              steps={steps}
+              onSelect={(stepName) => {
+                const anchor = document.getElementById(`step-${encodeURIComponent(stepName)}`);
+                if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Steps timeline */}
       <div className="space-y-4">
         {steps.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun step enregistré.</p>
         ) : (
           steps.map((step, i) => (
-            <StepCard key={step.id} step={step} index={i} companyId={selectedCompanyId ?? ""} />
+            <StepCard
+              key={step.id}
+              step={step}
+              index={i}
+              companyId={selectedCompanyId ?? ""}
+              workflowName={name ?? ""}
+              runId={run.id}
+            />
           ))
         )}
       </div>
