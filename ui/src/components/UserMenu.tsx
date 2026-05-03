@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, Link2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -77,6 +77,16 @@ export function UserMenu() {
           >
             <UserIcon className="h-4 w-4" />
             Mon profil
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
+            to="/settings/accounts"
+            data-testid="mu-s06-accounts-link"
+            className="cursor-pointer"
+          >
+            <Link2 className="h-4 w-4" />
+            Mes connecteurs
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

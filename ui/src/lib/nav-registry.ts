@@ -26,6 +26,8 @@ import {
   Settings,
   KeyRound,
   Upload,
+  Plug,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 import type { NavItemId } from "@mnm/shared";
@@ -65,6 +67,8 @@ export const NAV_ITEM_REGISTRY: Record<NavItemId, NavItemDef> = {
   sso:               { to: "/admin/sso",            icon: KeyRound,            label: "SSO",              permission: "company:manage_sso" },
   "import-jira":     { to: "/import/jira",          icon: Upload,              label: "Import Jira",      permission: "projects:manage" },
   "view-presets":    { to: "/admin/view-presets",   icon: LayoutGrid,          label: "View Presets",     permission: "roles:manage" },
+  connectors:        { to: "/admin/connectors",     icon: Plug,                label: "Connectors",       permission: "connectors:manage" },
+  accounts:          { to: "/settings/accounts",    icon: Link2,               label: "Mes connecteurs",  permission: "mcp:connect" },
   "__projects__":    { to: "",                      icon: FolderKanban,        label: "Projects (dynamic)" },
   "__agents__":      { to: "",                      icon: Bot,                 label: "Agents (dynamic)" },
 };

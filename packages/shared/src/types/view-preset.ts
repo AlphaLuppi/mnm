@@ -7,6 +7,7 @@ export type NavItemId =
   | "agents" | "members" | "roles" | "tags" | "config-layers" | "feedback"
   | "org" | "costs" | "activity" | "audit" | "traces" | "containers"
   | "deployments" | "settings" | "sso" | "import-jira" | "view-presets"
+  | "connectors" | "accounts"
   | "__projects__" | "__agents__";
 
 /** A sidebar section grouping multiple nav items */
@@ -158,7 +159,7 @@ export const DEFAULT_LAYOUT: ViewPresetLayout = {
         items: [
           "members", "roles", "tags", "config-layers", "view-presets", "feedback",
           "org", "costs", "activity", "audit", "traces",
-          "containers", "deployments", "settings", "sso", "import-jira",
+          "containers", "deployments", "connectors", "settings", "sso", "import-jira",
         ],
       },
     ],
