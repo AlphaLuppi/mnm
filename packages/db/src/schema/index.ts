@@ -96,6 +96,11 @@ export { oauthRefreshTokens } from "./oauth-refresh-tokens.js";
 export { governedWorkflowDefinitions } from "./governed_workflow_definitions.js";
 export { governedWorkflowRuns, GOVERNED_RUN_STATUSES, type GovernedRunStatus, type GovernedRunRecoveryPolicy } from "./governed_workflow_runs.js";
 export { governedStepExecutions, GOVERNED_STEP_STATES, type GovernedStepState } from "./governed_step_executions.js";
+export {
+  governedStepAssignments,
+  type GovernedStepAssignmentRow,
+  type NewGovernedStepAssignment,
+} from "./governed_step_assignments.js";
 export { gateResults } from "./gate_results.js";
 // PHASE-3 (#4297): BETA Environments + lease lifecycle
 export {
