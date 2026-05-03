@@ -14,13 +14,15 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 # SEC-T10-003: Pin bun to a specific version and verify SHA256 checksum.
 # DO NOT use curl|bash — that executes untrusted code without any verification.
-# To update: change BUN_VERSION + BUN_SHA256 (from https://github.com/oven-sh/bun/releases).
+# To update: change BUN_VERSION + the per-arch SHA256s below
+# (from https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/SHASUMS256.txt).
 ENV BUN_VERSION=1.2.10
-ENV BUN_SHA256=63cf4048a74f5e37ebd53e2d2e97b54fbe3a38f76706d4ca4d42de1d2d5e98c7
+ENV BUN_SHA256_X64=68a154ff1be96851b4d1a87cc5197f027ef80ab79afa3d4587150fae5c34c36e
+ENV BUN_SHA256_AARCH64=54592fd0237e3ec91a2933dff015e15a78989d97234042e7d5334a4c0ad50603
 RUN arch="$(uname -m)"; \
     case "$arch" in \
-      x86_64)  BUN_ARCH="x64" ;; \
-      aarch64) BUN_ARCH="aarch64" ;; \
+      x86_64)  BUN_ARCH="x64";     BUN_SHA256="$BUN_SHA256_X64" ;; \
+      aarch64) BUN_ARCH="aarch64"; BUN_SHA256="$BUN_SHA256_AARCH64" ;; \
       *) echo "Unsupported arch: $arch" && exit 1 ;; \
     esac; \
     curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${BUN_ARCH}.zip" \
