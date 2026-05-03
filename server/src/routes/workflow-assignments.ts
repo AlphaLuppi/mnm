@@ -62,6 +62,16 @@ export function workflowAssignmentsRoutes(
             )
         : undefined;
 
+      // SEC P4 (HIGH #6) — apply tag-scope filter at the service layer.
+      // When the caller is tag-restricted (`!bypassTagFilter`), pass the
+      // tag set so the service narrows results to assignments whose
+      // principal carries at least one matching tag. Bypass callers
+      // (admins, local_implicit) skip the filter entirely.
+      const tagIds =
+        req.tagScope && !req.tagScope.bypassTagFilter
+          ? Array.from(req.tagScope.tagIds)
+          : undefined;
+
       const rows = await assignments.listPendingWorkFor({
         companyId,
         principalId,
@@ -69,6 +79,7 @@ export function workflowAssignmentsRoutes(
           ? { status: statusList }
           : {}),
         ...(parsed.data.limit ? { limit: parsed.data.limit } : {}),
+        ...(tagIds !== undefined ? { tagIds } : {}),
       });
 
       const items = rows.map((r) => ({

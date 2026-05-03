@@ -10,7 +10,7 @@
  *    (step_execution_id, principal_id) — re-runs ignore conflicts).
  *  - `listPendingWorkFor` : the inbox hot-path query (used by REST + MCP
  *    `list_my_pending_work` in T3.4). Joins step_executions filtered
- *    on state IN ('waiting','running') using the partial index added in
+ *    on state IN ('pending','running') using the partial index added in
  *    migration 0082.
  *
  * The service is multi-tenant : every method takes `companyId` and every
@@ -59,9 +59,18 @@ export interface SnapshotStepAssignmentsArgs {
 export interface ListPendingWorkArgs {
   companyId: string;
   principalId: string;
-  /** Optional state filter — defaults to ['waiting','running']. */
+  /** Optional state filter — defaults to ['pending','running']. */
   status?: ReadonlyArray<Extract<GovernedStepState, "pending" | "running">>;
   limit?: number;
+  /**
+   * SEC P4 (HIGH #6) — optional tag-scope filter applied at the service
+   * layer. When provided AND non-empty, the result is restricted to rows
+   * whose `principalId` (the assigned user/agent) has at least one tag in
+   * `tagIds` (intersection > 0). When `undefined` the filter is skipped
+   * (admin or `bypassTagFilter` callers). When `[]` (empty array) the
+   * filter is restrictive: no row passes — caller has zero scope.
+   */
+  tagIds?: ReadonlyArray<string>;
 }
 
 export interface PendingWorkRow {
@@ -251,11 +260,13 @@ export function governedWorkflowsAssignmentsService(db: Db) {
   /**
    * Inbox hot-path : "what work is currently waiting on this principal?".
    * Joins step_executions on the partial index added in migration 0082
-   * (state IN ('waiting','running')) for a tight bitmap scan in PG.
+   * (state IN ('pending','running')) for a tight bitmap scan in PG.
    *
-   * Cancelled runs are excluded. The caller is responsible for tag
-   * scoping the result list (the route layer applies `req.tagScope`
-   * filtering after this returns).
+   * Cancelled runs are excluded. When `tagIds` is provided (non-undefined),
+   * the result is further restricted by tag-intersection on the assigned
+   * principal — tag-scoped (non-bypass) callers see only assignments whose
+   * principal carries at least one tag in their scope. Undefined skips
+   * the filter (bypass callers).
    */
   async function listPendingWorkFor(
     args: ListPendingWorkArgs,
@@ -263,6 +274,29 @@ export function governedWorkflowsAssignmentsService(db: Db) {
     const { companyId, principalId } = args;
     const status = args.status ?? (["pending", "running"] as const);
     const limit = args.limit ?? 100;
+
+    // SEC P4 (HIGH #6) — tag-scope predicate. Defined as an optional
+    // sub-query against tag_assignments(target_type='user'). An empty
+    // tagIds set is restrictive (no row passes); undefined skips.
+    let tagPredicate;
+    if (args.tagIds !== undefined) {
+      if (args.tagIds.length === 0) {
+        tagPredicate = sql`FALSE`;
+      } else {
+        const tagIdsArr = sql.raw(
+          `ARRAY[${args.tagIds
+            .map((t) => `'${t.replace(/'/g, "''")}'`)
+            .join(",")}]::uuid[]`,
+        );
+        tagPredicate = sql`EXISTS (
+          SELECT 1 FROM tag_assignments ta
+          WHERE ta.company_id = ${companyId}
+            AND ta.target_type = 'user'
+            AND ta.target_id = ${governedStepAssignments.principalId}
+            AND ta.tag_id = ANY(${tagIdsArr})
+        )`;
+      }
+    }
 
     const rows = await db
       .select({
@@ -304,6 +338,7 @@ export function governedWorkflowsAssignmentsService(db: Db) {
           ),
           // Cancelled runs are excluded (T3.4 spec).
           sql`${governedWorkflowRuns.cancelledAt} IS NULL`,
+          ...(tagPredicate ? [tagPredicate] : []),
         ),
       )
       .orderBy(desc(governedStepAssignments.snapshotAt))
