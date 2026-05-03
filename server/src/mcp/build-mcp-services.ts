@@ -38,6 +38,8 @@ import { threadInteractionsService } from "../services/thread-interactions.js";
 import { connectorService, ConnectorError } from "../services/connectors.js";
 // WORKFLOW-HOOKS T2.7 wire — service constructor for governed-workflows DI
 import { workflowHooksService } from "../services/workflow-hooks.js";
+// WORKFLOW-ASSIGNMENTS T3.3 wire — step-assignment snapshot service.
+import { governedWorkflowsAssignmentsService } from "../services/governed-workflows-assignments.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
@@ -518,6 +520,11 @@ export function buildMcpServices(db: Db): McpServices {
   // wiring. The connector service is constructed once here and reused
   // both as `services.connectors` and inside workflowHooks.
   const connectors = connectorService(db);
+  // WORKFLOW-ASSIGNMENTS T3.3 wire. Hoisted so both the orchestrator and
+  // the future REST/MCP `list_my_pending_work` consumers (T3.4) share the
+  // same instance.
+  const workflowAssignments = governedWorkflowsAssignmentsService(db);
+
   const workflowHooks = workflowHooksService(db, {
     connectors,
     resolveGitProvider: (args) =>
@@ -584,6 +591,8 @@ export function buildMcpServices(db: Db): McpServices {
       // service constructor. This passes the SAME instance so MCP tools
       // and the orchestrator share a single cache + connection pool.
       workflowHooks,
+      // WORKFLOW-ASSIGNMENTS T3.3 wire — step-assignment snapshot service.
+      workflowAssignments,
     }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),
@@ -593,5 +602,8 @@ export function buildMcpServices(db: Db): McpServices {
     // here so the MCP tools file (workflow-hooks.tool.ts) and the REST
     // routes can reach it directly via `services.workflowHooks`.
     workflowHooks,
+    // WORKFLOW-ASSIGNMENTS T3.4 — exposed for MCP `list_my_pending_work`
+    // and the REST `/inbox/pending-workflow-steps` route.
+    workflowAssignments,
   };
 }

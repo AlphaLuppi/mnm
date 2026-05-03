@@ -4,6 +4,7 @@ import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
   governedStepExecutions,
+  governedStepAssignments,
   gateResults,
   agents,
   auditEvents,
@@ -27,6 +28,7 @@ import type {
   ResolvedHookForStep,
   WorkflowHooksService,
 } from "./workflow-hooks.js";
+import type { GovernedWorkflowsAssignmentsService } from "./governed-workflows-assignments.js";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
 import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem, OutputPersisted } from "@mnm/shared";
@@ -158,6 +160,16 @@ export interface GovernedWorkflowServiceDeps {
    *  - hook timeout 30 s → step fail (same as fail)
    */
   workflowHooks?: WorkflowHooksService;
+  /**
+   * Optional workflow-assignments service (T3.3 wire). When provided, the
+   * orchestrator snapshots step assignments at `launchWorkflow` time
+   * (initial resolution for every step in the DAG) and re-evaluates at
+   * `launchStep` time (delta INSERT — assignments are append-only).
+   *
+   * When omitted (e.g. early dev / tests), assignment is a no-op and the
+   * inbox stays empty — backward compatible.
+   */
+  workflowAssignments?: GovernedWorkflowsAssignmentsService;
 }
 
 /**
@@ -498,6 +510,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   const heartbeatDep = deps.heartbeat;
   const traceDep = deps.traceService;
   const hooksSvc = deps.workflowHooks;
+  const assignmentsSvc = deps.workflowAssignments;
 
   // ─── Workflow hooks wire (T2.7) ─────────────────────────────────────────
 
@@ -939,23 +952,85 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       // is well below human perception and below the run-level startedAt
       // granularity, so it doesn't break any audit query.
       const baseTime = Date.now();
-      await tx.insert(governedStepExecutions).values(
-        parsed.workflow.steps.map((s, idx) => ({
-          companyId: args.companyId,
-          runId: run.id,
-          stepIdInJson: s.id,
-          state: "pending" as const,
-          createdAt: new Date(baseTime + idx),
-        })),
-      );
+      const insertedSteps = await tx
+        .insert(governedStepExecutions)
+        .values(
+          parsed.workflow.steps.map((s, idx) => ({
+            companyId: args.companyId,
+            runId: run.id,
+            stepIdInJson: s.id,
+            state: "pending" as const,
+            createdAt: new Date(baseTime + idx),
+          })),
+        )
+        .returning({
+          id: governedStepExecutions.id,
+          stepIdInJson: governedStepExecutions.stepIdInJson,
+        });
 
       return {
         runId: run.id,
         firstStep: firstStep.id,
         gitTag: parsed.gitTag,
         gitSha: parsed.gitSha,
+        // Map of step-id-in-json → step_execution.id (uuid). Needed by the
+        // T3.3 assignment snapshot below.
+        stepExecIdsByName: Object.fromEntries(
+          insertedSteps.map((s) => [s.stepIdInJson, s.id]),
+        ) as Record<string, string>,
       };
     }).then(async (result) => {
+      // ── T3.3: snapshot step assignments ──────────────────────────────────
+      // Wired AFTER the launch tx commits so the (run, steps) FK targets
+      // exist. For every step that declares an `assignment`, resolve the
+      // principal set and persist a row per (step_execution, principal).
+      // Failures are best-effort: snapshotting must not block run launch
+      // (the run is already committed). We log via the live event bus
+      // instead so dashboards surface the issue.
+      if (assignmentsSvc) {
+        for (const step of parsed.workflow.steps) {
+          if (!step.assignment) continue;
+          const stepExecId = result.stepExecIdsByName[step.id];
+          if (!stepExecId) continue;
+          try {
+            const entries = await assignmentsSvc.resolveAssignment({
+              companyId: args.companyId,
+              assignment: step.assignment,
+            });
+            const inserted = await assignmentsSvc.snapshotStepAssignments({
+              companyId: args.companyId,
+              stepExecutionId: stepExecId,
+              entries,
+            });
+            // Publish step.assignment.created for every fresh row so each
+            // assigned principal gets a sidebar badge update in real time.
+            for (const row of inserted) {
+              publishLiveEvent({
+                companyId: args.companyId,
+                type: "step.assignment.created",
+                payload: {
+                  step_execution_id: row.stepExecutionId,
+                  principal_id: row.principalId,
+                  reason: row.reason,
+                  run_id: result.runId,
+                  workflow_name: parsed.workflow.name,
+                  step_name: step.id,
+                },
+                visibility: { scope: "actor-only", actorId: row.principalId },
+              });
+            }
+          } catch (err) {
+            // Swallow: snapshotting is non-critical for the launch path.
+            // eslint-disable-next-line no-console
+            console.warn(
+              "[governed-workflows] step assignment snapshot failed",
+              { runId: result.runId, stepId: step.id, err: String(err) },
+            );
+          }
+        }
+      }
+
+
       // ── T2.7: before_run hooks ───────────────────────────────────────────
       // Wired AFTER the launch transaction commits so the run row + step
       // executions exist (so audit FKs can target them). A failure flips
@@ -1268,6 +1343,68 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           eq(governedStepExecutions.stepIdInJson, args.stepId),
         ),
       );
+
+    // ── T3.3: re-evaluate step assignment (delta INSERT) ─────────────────
+    // Tags / roles may have shifted since launchWorkflow snapshotted the
+    // initial set. Re-resolve and INSERT any newly matched principal.
+    // Existing assignments are preserved (snapshots are append-only audit
+    // — never deletion). Best-effort: failures are logged but don't block
+    // the step launch.
+    if (assignmentsSvc && step.assignment) {
+      try {
+        const fresh = await assignmentsSvc.resolveAssignment({
+          companyId: args.companyId,
+          assignment: step.assignment,
+        });
+        // Read the current snapshot to compute delta.
+        const existing = await db
+          .select({ principalId: governedStepAssignments.principalId })
+          .from(governedStepAssignments)
+          .where(
+            and(
+              eq(governedStepAssignments.companyId, args.companyId),
+              eq(governedStepAssignments.stepExecutionId, launchStepExec.id),
+            ),
+          );
+        const existingSet = new Set(existing.map((e) => e.principalId));
+        const delta = fresh.filter((e) => !existingSet.has(e.principalId));
+        if (delta.length > 0) {
+          const inserted = await assignmentsSvc.snapshotStepAssignments({
+            companyId: args.companyId,
+            stepExecutionId: launchStepExec.id,
+            entries: delta.map((e) => ({
+              principalId: e.principalId,
+              reason: `delta-launchStep:${e.reason}`,
+            })),
+          });
+          for (const row of inserted) {
+            publishLiveEvent({
+              companyId: args.companyId,
+              type: "step.assignment.created",
+              payload: {
+                step_execution_id: row.stepExecutionId,
+                principal_id: row.principalId,
+                reason: row.reason,
+                run_id: args.runId,
+                workflow_name: parsed.workflow.name,
+                step_name: args.stepId,
+              },
+              visibility: { scope: "actor-only", actorId: row.principalId },
+            });
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[governed-workflows] launchStep delta-assignment failed",
+          {
+            runId: args.runId,
+            stepId: args.stepId,
+            err: String(err),
+          },
+        );
+      }
+    }
 
     // Emit step_updated so the UI can refresh the run detail panel.
     emitStepUpdated({
