@@ -123,7 +123,8 @@ describe("createResolveGitProvider — Step 1a Connectors Platform path", () => 
     expect(getUserTokenSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("falls through to legacy path on CONNECTOR_NOT_CONFIGURED", async () => {
+  it("falls through to legacy path on CONNECTOR_NOT_CONFIGURED (opt-out only)", async () => {
+    process.env.MNM_REQUIRE_USER_CONNECTOR = "false";
     getUserTokenSpy.mockRejectedValueOnce(
       new ConnectorError("CONNECTOR_NOT_CONFIGURED", "no enabled gitlab connector"),
     );
@@ -139,7 +140,8 @@ describe("createResolveGitProvider — Step 1a Connectors Platform path", () => 
     expect(getUserTokenSpy).toHaveBeenCalled();
   });
 
-  it("falls through to legacy path on CONNECTOR_USER_NOT_CONNECTED", async () => {
+  it("falls through to legacy path on CONNECTOR_USER_NOT_CONNECTED (opt-out only)", async () => {
+    process.env.MNM_REQUIRE_USER_CONNECTOR = "false";
     getUserTokenSpy.mockRejectedValueOnce(
       new ConnectorError("CONNECTOR_USER_NOT_CONNECTED", "user has not linked gitlab"),
     );

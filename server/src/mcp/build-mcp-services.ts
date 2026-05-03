@@ -244,16 +244,20 @@ export function createResolveGitProvider(
           (err.code === "CONNECTOR_NOT_CONFIGURED" ||
             err.code === "CONNECTOR_USER_NOT_CONNECTED")
         ) {
-          // Strict mode (Phase 3 of connectors-consolidation plan): when
-          // MNM_REQUIRE_USER_CONNECTOR=true, surface a 412 CONNECTOR_REQUIRED
-          // instead of silently falling back. Enforces the human-traceability
-          // invariant: a user-triggered git commit MUST go through the user's
-          // own connector token, never the company-level PAT or env var.
-          if (process.env.MNM_REQUIRE_USER_CONNECTOR === "true") {
+          // Strict mode is the default (Phase 3 of connectors-consolidation
+          // plan, flipped on 2026-05-03): surface a 412 CONNECTOR_REQUIRED
+          // instead of silently falling back to a company-level PAT.
+          // Enforces the human-traceability invariant — a user-triggered git
+          // commit MUST go through the user's own connector token.
+          //
+          // Opt out per-instance with MNM_REQUIRE_USER_CONNECTOR=false (kept
+          // for migration of pilots that still rely on a BetterAuth/PAT/env
+          // fallback). System-context calls (userId === null) are not
+          // affected — they take the legacy path further down.
+          if (process.env.MNM_REQUIRE_USER_CONNECTOR !== "false") {
             throw connectorRequired("gitlab", "GitLab");
           }
-          // Default (legacy fallback): company hasn't enabled the connector
-          // or the user hasn't linked yet. Fall into Step 1 (BetterAuth).
+          // Legacy fallback explicitly enabled: fall into Step 1 (BetterAuth).
         } else {
           throw err;
         }

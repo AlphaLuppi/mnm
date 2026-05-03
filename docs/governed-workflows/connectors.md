@@ -319,8 +319,7 @@ Test E2E obligatoire (override + fallback + DB désactivé → re-fallback env) 
 
 ### 7.1 — Strict mode (`MNM_REQUIRE_USER_CONNECTOR`)
 
-Depuis 2026-05-03, le cascade peut être passé en mode strict via la variable
-d'environnement instance-wide `MNM_REQUIRE_USER_CONNECTOR=true`. Effet :
+Depuis 2026-05-03, le cascade est en **mode strict par défaut**. Effet :
 
 - Quand `getUserToken` échoue avec `CONNECTOR_NOT_CONFIGURED` ou
   `CONNECTOR_USER_NOT_CONNECTED`, le resolver throw `connectorRequired("gitlab")`
@@ -331,9 +330,9 @@ d'environnement instance-wide `MNM_REQUIRE_USER_CONNECTOR=true`. Effet :
 - Le frontend (`ConnectorRequiredDialog.tsx`) intercepte le payload et
   redirige vers `/settings/accounts?focus={slug}` avec la card highlightée.
 
-Default `false` (legacy fallback préservé). À flipper `true` une fois que
-toutes les companies pilotes ont migré leurs users vers `/settings/accounts`,
-pour enforcer l'invariant de traçabilité humaine.
+**Opt-out** par instance avec `MNM_REQUIRE_USER_CONNECTOR=false` — réservé aux
+pilotes qui dépendent encore d'un PAT BetterAuth/env-var le temps que tous
+leurs users connectent leur compte depuis `/settings/accounts`.
 
 ---
 
