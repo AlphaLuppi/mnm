@@ -12,6 +12,29 @@ export class ApiError extends Error {
   }
 }
 
+export interface ConnectorRequiredDetail {
+  connectorSlug: string;
+  connectorLabel: string | null;
+  connectFlowUrl: string;
+}
+
+function maybeDispatchConnectorRequired(status: number, body: unknown): void {
+  if (status !== 412 || !body || typeof body !== "object") return;
+  const details = (body as { details?: { code?: string } }).details;
+  if (!details || details.code !== "CONNECTOR_REQUIRED") return;
+  const d = details as ConnectorRequiredDetail & { code: string };
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<ConnectorRequiredDetail>("connector:required", {
+      detail: {
+        connectorSlug: d.connectorSlug,
+        connectorLabel: d.connectorLabel,
+        connectFlowUrl: d.connectFlowUrl,
+      },
+    }),
+  );
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers ?? undefined);
   const body = init?.body;
@@ -26,6 +49,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => null);
+    maybeDispatchConnectorRequired(res.status, errorBody);
     throw new ApiError(
       (errorBody as { error?: string } | null)?.error ?? `Request failed: ${res.status}`,
       res.status,
@@ -42,6 +66,7 @@ async function requestText(path: string): Promise<string> {
   const res = await fetch(`${BASE}${path}`, { credentials: "include" });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => null);
+    maybeDispatchConnectorRequired(res.status, errorBody);
     throw new ApiError(
       (errorBody as { error?: string } | null)?.error ?? `Request failed: ${res.status}`,
       res.status,

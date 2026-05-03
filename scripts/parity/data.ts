@@ -474,7 +474,7 @@ export const parityData: ParityData = {
             status: "partial",
             since: "0.1.x",
             notes:
-              "Sprint 2 T7 — page /settings/accounts. OAuth via popup. Set API key via Dialog. Manque le SSE event user.connector_status_changed pour invalidation auto (T8).",
+              "Sprint 2 T7 — page /settings/accounts. OAuth via popup. Set API key via Dialog. 2026-05-03 : ajout de la nav (sidebar admin + UserMenu), focus param `?focus=<slug>` qui scroll/ring la card matching, redirect via ConnectorRequiredDialog en mode strict (MNM_REQUIRE_USER_CONNECTOR). UserProfile.tsx purgé des providers GitLab/Microsoft hardcodés. Manque toujours le SSE event user.connector_status_changed pour invalidation auto (T8).",
           },
           desktop: BACKEND,
         },

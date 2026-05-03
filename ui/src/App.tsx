@@ -70,6 +70,7 @@ import { GovernedWorkflowEditor } from "./pages/GovernedWorkflowEditor";
 import { GovernedWorkflowRuns } from "./pages/GovernedWorkflowRuns";
 import { GovernedWorkflowRunDetail } from "./pages/GovernedWorkflowRunDetail";
 import { WorkflowStudio } from "./pages/workflows/WorkflowStudio";
+import { ConnectorRequiredDialog } from "./components/ConnectorRequiredDialog";
 
 // SANDBOX-AUTH-AUTOBOOTSTRAP: no more CLI bootstrap page
 // First user signup auto-promotes to instance_admin via Better Auth databaseHooks
@@ -305,6 +306,7 @@ function UnprefixedBoardRedirect() {
 export function App() {
   return (
     <>
+      <ConnectorRequiredDialog />
       <Routes>
         <Route path="auth" element={<AuthPage />} />
         <Route path="oauth-consent" element={<OAuthConsentPage />} />

@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   Plug,
   KeyRound,
@@ -47,6 +48,9 @@ export function SettingsAccounts() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const focusSlug = searchParams.get("focus");
+  const focusedRef = useRef(false);
 
   const [apiKeyDialog, setApiKeyDialog] = useState<MyConnectedAccount | null>(null);
   const [apiKeyValue, setApiKeyValue] = useState("");
@@ -66,6 +70,23 @@ export function SettingsAccounts() {
   });
 
   const accounts = useMemo(() => data?.accounts ?? [], [data]);
+
+  // ?focus=<slug> — scroll to the matching connector card and ring it briefly.
+  // Used by ConnectorRequiredDialog when redirecting from a 412 elsewhere.
+  useEffect(() => {
+    if (!focusSlug || focusedRef.current || accounts.length === 0) return;
+    const el = document.querySelector<HTMLElement>(
+      `[data-testid="settings-accounts-row-${CSS.escape(focusSlug)}"]`,
+    );
+    if (!el) return;
+    focusedRef.current = true;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary", "ring-offset-2");
+    const t = window.setTimeout(() => {
+      el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [focusSlug, accounts]);
 
   const startConnectMutation = useMutation({
     mutationFn: (connectorId: string) =>
