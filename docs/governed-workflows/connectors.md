@@ -317,6 +317,24 @@ Avant Connectors Platform, `server/src/services/governed-workflows.ts:resolveAut
 
 Test E2E obligatoire (override + fallback + DB désactivé → re-fallback env) — voir §3.5 du plan.
 
+### 7.1 — Strict mode (`MNM_REQUIRE_USER_CONNECTOR`)
+
+Depuis 2026-05-03, le cascade peut être passé en mode strict via la variable
+d'environnement instance-wide `MNM_REQUIRE_USER_CONNECTOR=true`. Effet :
+
+- Quand `getUserToken` échoue avec `CONNECTOR_NOT_CONFIGURED` ou
+  `CONNECTOR_USER_NOT_CONNECTED`, le resolver throw `connectorRequired("gitlab")`
+  (HTTP 412, payload `{ code: "CONNECTOR_REQUIRED", connectorSlug, connectFlowUrl }`)
+  au lieu de retomber sur le fallback BetterAuth/PAT/env.
+- Les actions system-context (`userId === null`, ex: cron, scheduler) ne sont
+  pas affectées — elles tombent toujours sur la config company-level.
+- Le frontend (`ConnectorRequiredDialog.tsx`) intercepte le payload et
+  redirige vers `/settings/accounts?focus={slug}` avec la card highlightée.
+
+Default `false` (legacy fallback préservé). À flipper `true` une fois que
+toutes les companies pilotes ont migré leurs users vers `/settings/accounts`,
+pour enforcer l'invariant de traçabilité humaine.
+
 ---
 
 ## 8. Troubleshooting

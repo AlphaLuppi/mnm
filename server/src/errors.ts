@@ -32,3 +32,24 @@ export function conflict(message: string, details?: unknown) {
 export function unprocessable(message: string, details?: unknown) {
   return new HttpError(422, message, details);
 }
+
+export interface ConnectorRequiredDetails {
+  code: "CONNECTOR_REQUIRED";
+  connectorSlug: string;
+  connectorLabel: string | null;
+  connectFlowUrl: string;
+}
+
+export function connectorRequired(slug: string, label?: string | null) {
+  const details: ConnectorRequiredDetails = {
+    code: "CONNECTOR_REQUIRED",
+    connectorSlug: slug,
+    connectorLabel: label ?? null,
+    connectFlowUrl: `/settings/accounts?focus=${encodeURIComponent(slug)}`,
+  };
+  return new HttpError(
+    412,
+    `Connecteur "${slug}" requis pour cette action — l'utilisateur doit lier son compte.`,
+    details,
+  );
+}

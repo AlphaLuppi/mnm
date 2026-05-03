@@ -36,6 +36,9 @@ import { threadInteractionsService } from "../services/thread-interactions.js";
 // CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
 // + T8.2: createResolveGitProvider preference path via getUserToken("gitlab")
 import { connectorService, ConnectorError } from "../services/connectors.js";
+// Strict mode (MNM_REQUIRE_USER_CONNECTOR) surfaces 412 CONNECTOR_REQUIRED to
+// the frontend instead of falling back to legacy BetterAuth account / env-var.
+import { connectorRequired } from "../errors.js";
 // WORKFLOW-HOOKS T2.7 wire — service constructor for governed-workflows DI
 import { workflowHooksService } from "../services/workflow-hooks.js";
 // WORKFLOW-ASSIGNMENTS T3.3 wire — step-assignment snapshot service.
@@ -241,7 +244,15 @@ export function createResolveGitProvider(
           (err.code === "CONNECTOR_NOT_CONFIGURED" ||
             err.code === "CONNECTOR_USER_NOT_CONNECTED")
         ) {
-          // Legitimate fall-through: company hasn't enabled the connector
+          // Strict mode (Phase 3 of connectors-consolidation plan): when
+          // MNM_REQUIRE_USER_CONNECTOR=true, surface a 412 CONNECTOR_REQUIRED
+          // instead of silently falling back. Enforces the human-traceability
+          // invariant: a user-triggered git commit MUST go through the user's
+          // own connector token, never the company-level PAT or env var.
+          if (process.env.MNM_REQUIRE_USER_CONNECTOR === "true") {
+            throw connectorRequired("gitlab", "GitLab");
+          }
+          // Default (legacy fallback): company hasn't enabled the connector
           // or the user hasn't linked yet. Fall into Step 1 (BetterAuth).
         } else {
           throw err;

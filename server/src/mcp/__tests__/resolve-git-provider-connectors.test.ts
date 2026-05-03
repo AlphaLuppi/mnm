@@ -194,4 +194,44 @@ describe("createResolveGitProvider — Step 1a Connectors Platform path", () => 
 
     expect(getUserTokenSpy).not.toHaveBeenCalled();
   });
+
+  // Phase 3 of connectors-consolidation plan (2026-05-03) — strict mode.
+  it("throws 412 CONNECTOR_REQUIRED when MNM_REQUIRE_USER_CONNECTOR=true and user not connected", async () => {
+    process.env.MNM_REQUIRE_USER_CONNECTOR = "true";
+    getUserTokenSpy.mockRejectedValueOnce(
+      new ConnectorError("CONNECTOR_USER_NOT_CONNECTED", "user has not linked gitlab"),
+    );
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(buildEmptyDb());
+
+    await expect(
+      resolve({
+        companyId: "00000000-0000-0000-0000-000000000099",
+        userId: "user-strict",
+      }),
+    ).rejects.toMatchObject({
+      status: 412,
+      details: {
+        code: "CONNECTOR_REQUIRED",
+        connectorSlug: "gitlab",
+        connectFlowUrl: "/settings/accounts?focus=gitlab",
+      },
+    });
+  });
+
+  it("strict mode also blocks on CONNECTOR_NOT_CONFIGURED", async () => {
+    process.env.MNM_REQUIRE_USER_CONNECTOR = "true";
+    getUserTokenSpy.mockRejectedValueOnce(
+      new ConnectorError("CONNECTOR_NOT_CONFIGURED", "admin has not enabled gitlab"),
+    );
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(buildEmptyDb());
+
+    await expect(
+      resolve({
+        companyId: "00000000-0000-0000-0000-000000000098",
+        userId: "user-strict",
+      }),
+    ).rejects.toMatchObject({ status: 412 });
+  });
 });
