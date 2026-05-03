@@ -334,10 +334,48 @@ export function governedWorkflowsAssignmentsService(db: Db) {
     }));
   }
 
+  /**
+   * Cheap COUNT(*) variant of `listPendingWorkFor` for sidebar badges
+   * (T3.5). Same predicates, same partial-index hot path, no hydration
+   * of step/run/definition columns. Cancelled runs are excluded.
+   */
+  async function countPendingWorkFor(
+    args: Omit<ListPendingWorkArgs, "limit">,
+  ): Promise<number> {
+    const { companyId, principalId } = args;
+    const status = args.status ?? (["pending", "running"] as const);
+
+    const rows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(governedStepAssignments)
+      .innerJoin(
+        governedStepExecutions,
+        eq(governedStepAssignments.stepExecutionId, governedStepExecutions.id),
+      )
+      .innerJoin(
+        governedWorkflowRuns,
+        eq(governedStepExecutions.runId, governedWorkflowRuns.id),
+      )
+      .where(
+        and(
+          eq(governedStepAssignments.companyId, companyId),
+          eq(governedStepAssignments.principalId, principalId),
+          inArray(
+            governedStepExecutions.state,
+            status as ReadonlyArray<GovernedStepState> as GovernedStepState[],
+          ),
+          sql`${governedWorkflowRuns.cancelledAt} IS NULL`,
+        ),
+      );
+
+    return Number(rows[0]?.count ?? 0);
+  }
+
   return {
     resolveAssignment,
     snapshotStepAssignments,
     listPendingWorkFor,
+    countPendingWorkFor,
   };
 }
 

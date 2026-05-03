@@ -10,6 +10,7 @@ import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
 import { inboxItemsApi } from "../api/inbox-items";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
+import { workflowAssignmentsApi } from "../api/workflow-assignments";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -41,6 +42,7 @@ import {
 } from "lucide-react";
 import { Identity } from "../components/Identity";
 import { InboxItemCard } from "../components/InboxItemCard";
+import { PendingWorkflowStepCard } from "../components/PendingWorkflowStepCard";
 import { PageTabBar } from "../components/PageTabBar";
 import type { HeartbeatRun, Issue, JoinRequest, SidebarBadges, InboxItem } from "@mnm/shared";
 
@@ -58,7 +60,8 @@ type InboxCategoryFilter =
   | "failed_runs"
   | "alerts"
   | "stale_work"
-  | "notifications";
+  | "notifications"
+  | "pending_workflow_steps";
 type InboxApprovalFilter = "all" | "actionable" | "resolved";
 type SectionKey =
   | "issues_i_touched"
@@ -67,7 +70,8 @@ type SectionKey =
   | "failed_runs"
   | "alerts"
   | "stale_work"
-  | "notifications";
+  | "notifications"
+  | "pending_workflow_steps";
 
 const DISMISSED_KEY = "mnm:inbox:dismissed";
 
@@ -423,6 +427,19 @@ export function Inbox() {
   });
   const inboxItems = inboxItemsResponse?.items ?? [];
 
+  // T3.5 — Pending workflow-step assignments for the current principal.
+  // The query is invalidated by `step.assignment.created` SSE events (see
+  // LiveUpdatesProvider) so no polling is needed.
+  const {
+    data: pendingWorkflowStepsResponse,
+    isLoading: isPendingStepsLoading,
+  } = useQuery({
+    queryKey: queryKeys.governedWorkflows.pendingWork(selectedCompanyId!),
+    queryFn: () => workflowAssignmentsApi.listPending(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const pendingWorkflowSteps = pendingWorkflowStepsResponse?.items ?? [];
+
   const unreadInboxItems = useMemo(
     () => inboxItems.filter((item: InboxItem) => item.status === "unread"),
     [inboxItems],
@@ -587,11 +604,13 @@ export function Inbox() {
   const hasJoinRequests = joinRequests.length > 0;
   const hasTouchedIssues = touchedIssues.length > 0;
   const hasNotifications = visibleInboxItems.length > 0;
+  const hasPendingWorkflowSteps = pendingWorkflowSteps.length > 0;
 
   const newItemCount =
     failedRuns.length +
     staleIssues.length +
     unreadInboxItems.length +
+    pendingWorkflowSteps.length +
     (showAggregateAgentError ? 1 : 0) +
     (showBudgetAlert ? 1 : 0);
 
@@ -605,6 +624,8 @@ export function Inbox() {
   const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
   const showStaleCategory = allCategoryFilter === "everything" || allCategoryFilter === "stale_work";
   const showNotificationsCategory = allCategoryFilter === "everything" || allCategoryFilter === "notifications";
+  const showPendingWorkflowStepsCategory =
+    allCategoryFilter === "everything" || allCategoryFilter === "pending_workflow_steps";
 
   const approvalsToRender = tab === "new" ? actionableApprovals : filteredAllApprovals;
   const showTouchedSection = tab === "new" ? hasTouchedIssues : showTouchedCategory && hasTouchedIssues;
@@ -620,8 +641,13 @@ export function Inbox() {
   const showStaleSection = tab === "new" ? hasStale : showStaleCategory && hasStale;
   const showNotificationsSection =
     tab === "new" ? unreadInboxItems.length > 0 : showNotificationsCategory && hasNotifications;
+  const showPendingWorkflowStepsSection =
+    tab === "new"
+      ? hasPendingWorkflowSteps
+      : showPendingWorkflowStepsCategory && hasPendingWorkflowSteps;
 
   const visibleSections = [
+    showPendingWorkflowStepsSection ? "pending_workflow_steps" : null,
     showFailedRunsSection ? "failed_runs" : null,
     showAlertsSection ? "alerts" : null,
     showNotificationsSection ? "notifications" : null,
@@ -638,7 +664,8 @@ export function Inbox() {
     !isIssuesLoading &&
     !isTouchedIssuesLoading &&
     !isRunsLoading &&
-    !isInboxItemsLoading;
+    !isInboxItemsLoading &&
+    !isPendingStepsLoading;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
 
@@ -684,6 +711,7 @@ export function Inbox() {
                 <SelectItem value="alerts">Alerts</SelectItem>
                 <SelectItem value="stale_work">Stale work</SelectItem>
                 <SelectItem value="notifications">Notifications</SelectItem>
+                <SelectItem value="pending_workflow_steps">Workflow steps</SelectItem>
               </SelectContent>
             </Select>
 
@@ -722,6 +750,29 @@ export function Inbox() {
               : "No inbox items match these filters."
           }
         />
+      )}
+
+      {showPendingWorkflowStepsSection && (
+        <>
+          {showSeparatorBefore("pending_workflow_steps") && <Separator />}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Workflow Steps Assigned to You
+              </h3>
+              {pendingWorkflowSteps.length > 0 && (
+                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-500">
+                  {pendingWorkflowSteps.length}
+                </span>
+              )}
+            </div>
+            <div className="grid gap-3">
+              {pendingWorkflowSteps.map((step) => (
+                <PendingWorkflowStepCard key={step.step_execution_id} step={step} />
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {showApprovalsSection && (

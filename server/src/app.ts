@@ -362,7 +362,10 @@ export async function createApp(
   api.use(costRoutes(db));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
-  api.use(sidebarBadgeRoutes(db));
+  // T3.5 — sidebar badges read the pending-workflow-step count for the
+  // current principal via the same hoisted assignments service that
+  // backs the REST `inbox/pending-workflow-steps` route + the MCP tool.
+  api.use(sidebarBadgeRoutes(db, mcpServices.workflowAssignments));
   api.use(workspaceContextRoutes(db));
   api.use(driftRoutes(db));
   api.use(projectMembershipRoutes(db));

@@ -251,6 +251,8 @@ export const parityData: ParityData = {
         {
           id: "inbox",
           name: "Inbox (new / all tabs)",
+          description:
+            "Inbox aggregates approvals, failed runs, alerts, stale work, agent notifications, join requests, my recent issues, and (T3.5) pending workflow-step assignments. SSE-driven, no polling.",
           web: WEB_DONE,
           desktop: BACKEND_SSE,
         },
@@ -913,6 +915,23 @@ export const parityData: ParityData = {
             tests: [
               "E2E browser ChromeMCP : créer config canonical:foo, basculer visibility, toggle enforced (perm hooks:enforce), supprimer",
             ],
+          },
+        },
+        {
+          id: "workflow-step-assignments",
+          name: "Workflow step assignments (T3 — inbox feed + sidebar badge)",
+          description:
+            "Migration 0082 + governedStepAssignments table snapshot every step.assignment declaration at launchWorkflow / launchStep with an audit `reason` (tag-intersection / role-expansion / explicit / delta-launchStep). Inbox surfaces the pending steps via REST `GET /inbox/pending-workflow-steps` and MCP tool `list_my_pending_work` (snake_case parity). Sidebar badge `pendingWorkflowSteps` rolls into the aggregated `inbox` count. SSE event `step.assignment.created` (visibility actor-only) invalidates both query keys — zero polling.",
+          web: {
+            status: "done",
+            since: "2026-05-03",
+            notes:
+              "T3.1 → T3.5 shipped. Section visible on Inbox /new and on /all when filter category = 'pending_workflow_steps'. Card click navigates to the run detail page.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure server feature for the data + reuse of the existing Inbox web view through the desktop wrapper.",
           },
         },
       ],

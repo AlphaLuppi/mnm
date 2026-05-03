@@ -256,6 +256,9 @@ export const queryKeys = {
       ["governed-workflows", "files", companyId, name, ref ?? "latest"] as const,
     file: (companyId: string, name: string, path: string, ref?: string) =>
       ["governed-workflows", "file", companyId, name, path, ref ?? "latest"] as const,
+    // T3.5 — Inbox feed of pending step assignments for the current principal.
+    pendingWork: (companyId: string, filters?: Record<string, unknown>) =>
+      ["governed-workflows", "pending-work", companyId, filters ?? {}] as const,
   },
   // CONFIG-LAYERS
   configLayers: {

@@ -61,6 +61,7 @@ function buildPublishSpy(): SpyPublish & {
  */
 function buildStubAssignmentsService(): GovernedWorkflowsAssignmentsService & {
   _snapshots: Map<string, Set<string>>;
+  _principalCounts: Map<string, number>;
 } {
   const snapshots = new Map<string, Set<string>>(); // stepExecId -> Set<principalId>
 
@@ -111,9 +112,14 @@ function buildStubAssignmentsService(): GovernedWorkflowsAssignmentsService & {
     async listPendingWorkFor() {
       return [];
     },
+    async countPendingWorkFor() {
+      return 0;
+    },
     _snapshots: snapshots,
+    _principalCounts: new Map<string, number>(),
   } as GovernedWorkflowsAssignmentsService & {
     _snapshots: Map<string, Set<string>>;
+    _principalCounts: Map<string, number>;
   };
 }
 

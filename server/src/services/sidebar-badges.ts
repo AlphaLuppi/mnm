@@ -10,7 +10,12 @@ export function sidebarBadgeService(db: Db) {
   return {
     get: async (
       companyId: string,
-      extra?: { joinRequests?: number; unreadTouchedIssues?: number; dismissed?: Set<string> },
+      extra?: {
+        joinRequests?: number;
+        unreadTouchedIssues?: number;
+        dismissed?: Set<string>;
+        pendingWorkflowSteps?: number;
+      },
     ): Promise<SidebarBadges> => {
       const dismissed = extra?.dismissed ?? new Set<string>();
 
@@ -49,11 +54,18 @@ export function sidebarBadgeService(db: Db) {
 
       const joinRequests = extra?.joinRequests ?? 0;
       const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;
+      const pendingWorkflowSteps = extra?.pendingWorkflowSteps ?? 0;
       return {
-        inbox: actionableApprovals + failedRuns + joinRequests + unreadTouchedIssues,
+        inbox:
+          actionableApprovals +
+          failedRuns +
+          joinRequests +
+          unreadTouchedIssues +
+          pendingWorkflowSteps,
         approvals: actionableApprovals,
         failedRuns,
         joinRequests,
+        pendingWorkflowSteps,
       };
     },
   };
