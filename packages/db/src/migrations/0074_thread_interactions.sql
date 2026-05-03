@@ -62,6 +62,7 @@ ALTER TABLE "thread_interactions" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 ALTER TABLE "thread_interactions" FORCE ROW LEVEL SECURITY;
 --> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "thread_interactions";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "thread_interactions"
   AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);

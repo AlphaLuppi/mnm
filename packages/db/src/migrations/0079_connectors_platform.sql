@@ -60,6 +60,7 @@ CREATE INDEX IF NOT EXISTS "oauth_connectors_company_enabled_idx"
 
 ALTER TABLE "oauth_connectors" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "oauth_connectors" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "oauth_connectors";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "oauth_connectors" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
@@ -104,6 +105,7 @@ CREATE INDEX IF NOT EXISTS "connector_tokens_company_user_idx"
 
 ALTER TABLE "connector_tokens" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "connector_tokens" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "connector_tokens";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "connector_tokens" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
@@ -138,6 +140,7 @@ CREATE INDEX IF NOT EXISTS "user_api_keys_company_user_idx"
 
 ALTER TABLE "user_api_keys" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "user_api_keys" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "user_api_keys";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "user_api_keys" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
@@ -170,6 +173,7 @@ CREATE INDEX IF NOT EXISTS "oauth_connectors_audit_company_action_idx"
 
 ALTER TABLE "oauth_connectors_audit" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "oauth_connectors_audit" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "oauth_connectors_audit";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "oauth_connectors_audit" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 

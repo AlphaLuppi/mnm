@@ -43,6 +43,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "governed_workflow_definitions_company_name_uq
 
 ALTER TABLE "governed_workflow_definitions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "governed_workflow_definitions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "governed_workflow_definitions";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "governed_workflow_definitions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 -- 2b. governed_workflow_runs — one per launchWorkflow call. workflow_git_tag/sha
@@ -71,6 +72,7 @@ CREATE INDEX IF NOT EXISTS "governed_workflow_runs_def_started_idx"
 
 ALTER TABLE "governed_workflow_runs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "governed_workflow_runs" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "governed_workflow_runs";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "governed_workflow_runs" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 -- 2c. governed_step_executions — one row per step per run.
@@ -97,6 +99,7 @@ CREATE INDEX IF NOT EXISTS "governed_step_executions_run_state_idx"
 
 ALTER TABLE "governed_step_executions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "governed_step_executions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "governed_step_executions";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "governed_step_executions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 -- 2d. gate_results — one row per evaluated gate. kind is open text (NOT an enum)
@@ -124,6 +127,7 @@ CREATE INDEX IF NOT EXISTS "gate_results_company_kind_idx"
 
 ALTER TABLE "gate_results" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "gate_results" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "gate_results";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "gate_results" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 -- All subsequent DDL added in later tasks of this plan.

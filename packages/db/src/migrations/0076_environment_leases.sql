@@ -40,5 +40,6 @@ CREATE INDEX IF NOT EXISTS "environment_leases_provider_lease_idx"
 
 ALTER TABLE "environment_leases" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "environment_leases" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "environment_leases";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "environment_leases" AS RESTRICTIVE FOR ALL
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
