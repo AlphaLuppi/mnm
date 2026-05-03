@@ -44,11 +44,14 @@ COPY ui/package.json ui/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY packages/adapter-utils/package.json packages/adapter-utils/
+COPY packages/execution-target/package.json packages/execution-target/
 COPY packages/gate-runner/package.json packages/gate-runner/
 COPY packages/git-provider/package.json packages/git-provider/
 COPY packages/governed-workflows/package.json packages/governed-workflows/
+COPY packages/isolate-runtime/package.json packages/isolate-runtime/
 COPY packages/mnm-plugin/package.json packages/mnm-plugin/
 COPY packages/test-utils/package.json packages/test-utils/
+COPY packages/workflow-hooks/package.json packages/workflow-hooks/
 COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
 COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
 COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
