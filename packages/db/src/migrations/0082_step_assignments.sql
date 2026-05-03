@@ -7,7 +7,7 @@
 --       (company_id, principal_id, snapshot_at DESC) — ranks "my pending work"
 --       chronologically per principal, per tenant.
 --   * governed_step_executions_company_state_partial_idx
---       partial index on (company_id, state) WHERE state IN ('waiting','running')
+--       partial index on (company_id, state) WHERE state IN ('pending','running')
 --       — speeds up the join executed by listPendingWorkFor().
 --
 -- ─── principal_id typing — no FK ────────────────────────────────────────────
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS "governed_step_assignments_principal_snapshot_idx"
 
 CREATE INDEX IF NOT EXISTS "governed_step_executions_company_state_partial_idx"
   ON "governed_step_executions"("company_id", "state")
-  WHERE "state" IN ('waiting','running');
+  WHERE "state" IN ('pending','running');
 --> statement-breakpoint
 
 ALTER TABLE "governed_step_assignments" ENABLE ROW LEVEL SECURITY;

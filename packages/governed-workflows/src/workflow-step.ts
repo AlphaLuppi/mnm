@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { gateBlockSchema } from "./gate-block.js";
 import { hookBlockSchema } from "./hook-ref.js";
+import { stepAssignmentSchema } from "./assignment.js";
 
 /**
  * A single step in a workflow.json `steps` array. Gates is an open record
@@ -23,6 +24,7 @@ export const workflowStepSchema = z.object({
   prompt_context: z.record(z.unknown()).default({}).describe("Contexte/prompt passé à l'agent sous forme d'objet structuré"),
   gates: z.record(z.string().min(1), gateBlockSchema).optional().describe("Gates indexées par kind (entry, exit) — valident l'état avant/après l'étape"),
   hooks: hookBlockSchema.optional().describe("Hooks { before, after } pour ce step — exécutés autour des gates entry/exit"),
+  assignment: stepAssignmentSchema.optional().describe("Assignment principals (T3.2) — tags (AND), roles (OR), principals (explicit)"),
   required_tools: z.array(z.string()).optional().describe("Outils MCP requis pour que l'étape puisse s'exécuter"),
 });
 

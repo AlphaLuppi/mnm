@@ -29,6 +29,12 @@ export {
   type HookBlock,
 } from "./hook-ref.js";
 
+// Step assignment schema (T3.2)
+export {
+  stepAssignmentSchema,
+  type StepAssignment,
+} from "./assignment.js";
+
 // JSON Schema (for Monaco editor autocomplete + live validation)
 export { workflowJsonSchema } from "./workflow.jsonschema.js";
 

@@ -41,9 +41,9 @@ describe("migration 0082_step_assignments", () => {
     );
   });
 
-  it("creates partial index on governed_step_executions(company_id, state) WHERE waiting/running", () => {
+  it("creates partial index on governed_step_executions(company_id, state) WHERE pending/running", () => {
     expect(sql).toMatch(
-      /CREATE INDEX[\s\S]+?"governed_step_executions_company_state_partial_idx"[\s\S]+?"company_id"[\s\S]+?"state"[\s\S]+?WHERE\s+"state"\s+IN\s*\(\s*'waiting'\s*,\s*'running'\s*\)/i,
+      /CREATE INDEX[\s\S]+?"governed_step_executions_company_state_partial_idx"[\s\S]+?"company_id"[\s\S]+?"state"[\s\S]+?WHERE\s+"state"\s+IN\s*\(\s*'pending'\s*,\s*'running'\s*\)/i,
     );
   });
 
