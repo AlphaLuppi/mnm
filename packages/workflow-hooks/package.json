@@ -1,0 +1,59 @@
+{
+  "name": "@mnm/workflow-hooks",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./*": {
+        "types": "./dist/*.d.ts",
+        "import": "./dist/*.js"
+      }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts"
+  },
+  "files": [
+    "dist",
+    "canonical"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mnm/governed-workflows": "workspace:*",
+    "@mnm/git-provider": "workspace:*",
+    "@mnm/isolate-runtime": "workspace:*",
+    "esbuild": "^0.27.3",
+    "isolated-vm": "^6.1.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": "Alpha Luppi (Studio Manifeste)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlphaLuppi/mnm.git",
+    "directory": "packages/workflow-hooks"
+  },
+  "homepage": "https://github.com/AlphaLuppi/mnm",
+  "bugs": {
+    "url": "https://github.com/AlphaLuppi/mnm/issues"
+  }
+}

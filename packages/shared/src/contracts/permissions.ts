@@ -9,6 +9,7 @@ export const PERMISSION_CATEGORIES = [
   "workflows", "traces", "dashboard", "admin", "chat",
   "documents", "artifacts", "folders", "sandbox", "config",
   "feedback", "routines", "org", "inbox", "connectors",
+  "hooks",
 ] as const;
 
 export type PermissionCategory = typeof PERMISSION_CATEGORIES[number];
@@ -131,6 +132,11 @@ export const PERMISSIONS = {
   // set own API key) reuses MCP_CONNECT.
   CONNECTORS_MANAGE: "connectors:manage",
   CONNECTORS_AUDIT: "connectors:audit",
+  // WORKFLOW-HOOKS T2 — admin manages hook configs (CRUD + visibility),
+  // enforce flips the `enforced=true` bit (admin-imposed runs apply to
+  // everyone in the company).
+  HOOKS_MANAGE: "hooks:manage",
+  HOOKS_ENFORCE: "hooks:enforce",
 } as const;
 
 export type PermissionSlug = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -240,6 +246,8 @@ export const PERMISSION_META: Record<PermissionSlug, PermissionMeta> = {
   [PERMISSIONS.THREAD_INTERACTIONS_RESOLVE]: { category: "issues", description: "Accepter / rejeter / répondre aux interactions structurées", destructive: false },
   [PERMISSIONS.CONNECTORS_MANAGE]: { category: "connectors", description: "Configurer les connecteurs OAuth / API key de la company", destructive: false },
   [PERMISSIONS.CONNECTORS_AUDIT]: { category: "connectors", description: "Lire l'audit log des connecteurs", destructive: false },
+  [PERMISSIONS.HOOKS_MANAGE]: { category: "hooks", description: "Gérer les configs de workflow hooks (CRUD + visibilité)", destructive: false },
+  [PERMISSIONS.HOOKS_ENFORCE]: { category: "hooks", description: "Activer enforced=true sur un hook (admin-imposed)", destructive: false },
 };
 
 // ── MCP Scopes ──────────────────────────────────────────────────────────────

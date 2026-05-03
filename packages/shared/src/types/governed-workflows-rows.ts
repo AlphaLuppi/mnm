@@ -53,6 +53,21 @@ export interface GovernedStepExecutionRow {
   launchedByActorId: string | null;
   /** Set when the step launched a client-mode heartbeat_run (session-bundle path). */
   heartbeatRunId: string | null;
+  /**
+   * T5 — composite (meta-workflow) linkage. Null for non-composite (leaf
+   * agent) steps and for composite steps that have not yet expanded.
+   *
+   * - `parentStepExecutionId` — the step in the PARENT run that triggered
+   *   this expansion (set on every step inside a composite sub-run).
+   * - `compositeRunId` — set on the composite parent step itself, points
+   *   to the sub-run launched by it. The UI uses this to navigate
+   *   parent → child and to lazy-load the tree.
+   * - `rootRunId` — top-most run in the chain (= the run launched by the
+   *   human actor). Propagated downward for O(1) fan-out cap lookups.
+   */
+  parentStepExecutionId: string | null;
+  compositeRunId: string | null;
+  rootRunId: string | null;
   createdAt: string;
   updatedAt: string;
 }

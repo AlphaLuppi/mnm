@@ -251,6 +251,8 @@ export const parityData: ParityData = {
         {
           id: "inbox",
           name: "Inbox (new / all tabs)",
+          description:
+            "Inbox aggregates approvals, failed runs, alerts, stale work, agent notifications, join requests, my recent issues, and (T3.5) pending workflow-step assignments. SSE-driven, no polling.",
           web: WEB_DONE,
           desktop: BACKEND_SSE,
         },
@@ -461,7 +463,7 @@ export const parityData: ParityData = {
             status: "partial",
             since: "0.1.x",
             notes:
-              "Sprint 2 T6 — admin page (list + add tab + 10 templates + 2-step wizard). Pas encore de page détail Sheet ni d'audit log table — à finaliser.",
+              "Sprint 2 T6 — admin page (list + add tab + 10 templates + 2-step wizard). 2026-05-03: ajout d'une carte « Connecteur custom » + wizard 3 étapes (basics / endpoints / credentials) qui expose le mode sans templateSlug pour brancher n'importe quelle API OAuth 2.0 ou Bearer/API-key. Pas encore de page détail Sheet ni d'audit log table — à finaliser.",
           },
           desktop: BACKEND,
         },
@@ -886,6 +888,96 @@ export const parityData: ParityData = {
             status: "n/a",
             notes:
               "Pure server feature — le wrapper desktop hérite via le backend packagé.",
+          },
+        },
+        {
+          id: "workflow-hooks",
+          name: "Workflow Hooks (T2 + P4 hardening shipped)",
+          description:
+            "Hooks système full-stack : runner V8 sandboxed (packages/workflow-hooks), 4 canonical hooks (Jira create/comment, ClickUp create/import), resolver canonical/shared/local, service backend (server/src/services/workflow-hooks.ts) avec CRUD + executeHook + resolveHooksForStep, wire 4 phases (before/after launchWorkflow + before/after launchStep + before/after completeStep) dans governed-workflows.ts, REST routes + 6 MCP tools, UI page /hooks (Tabs configs/catalog + Sheet detail + inline toggles + VisibilityPicker), migration 0081 + 5 schemas Drizzle (RLS double-policy fail-closed + perms seeded). Hardening P4 livré : sandbox headers/timeout/body cap/retry, REST principalId + assertBoard, UI optimistic toggles + formatApiError, catalog metadata (description/phase/configSchema/defaultConfig).",
+          web: {
+            status: "done",
+            since: "2026-05-02",
+            notes:
+              "T2 (T2.1 → T2.9) + P4 (A → G) shippé. SSE event hook.config.updated invalide les query keys (no polling). Backend wire fire-and-forget pour after_run (P4-B). Tests : runner 35, host-helpers, resolver, canonical-hooks, service backend 684 LOC, REST routes 273 LOC, wire test 380 LOC. TODO mineur : Monaco lazy editor pour default_config_json (currently Textarea).",
+          },
+          desktop: {
+            status: "missing",
+            notes:
+              "Desktop wrapper inherits backend via connection profile. Aucun blocage spécifique côté desktop — sera dispo dès que la chaîne backend packagée est prête.",
+          },
+          todo: {
+            code: [
+              "Monaco lazy editor pour default_config_json (currently Textarea)",
+              "V1 — HookProviderCatalog migré vers oauth_connectors.base_url (P3 finding)",
+              "V1 — durcissement SSRF DNS rebind (rebind-protected fetch)",
+            ],
+            tests: [
+              "E2E browser ChromeMCP : créer config canonical:foo, basculer visibility, toggle enforced (perm hooks:enforce), supprimer",
+            ],
+          },
+        },
+        {
+          id: "artifact-viewer",
+          name: "Artifact viewer (T4 — human review of governed run outputs)",
+          description:
+            "Three-component stack for reviewing run artifacts: OutputRow (extracted shared row, supports onClick / selected / Copy permalink), RunArtifactsTree (recursive tree across step → outputs, lazy-loads composite sub-runs once T5 ships, gracefully degrades to a flat list pre-T5), ArtifactViewer (mime-aware wrapper that dispatches markdown via MarkdownBody, code via lazy Monaco read-only, plain text via <pre>, external_url via card, git_folder via file list). The run detail page switches to a 2-column review layout when the URL carries `?step=<name>` (set by Inbox `pending_workflow_step` cards). Permalinks: stable URL `/workflows/<name>/runs/<runId>/artifacts/<step>/<output>` with full URI encoding (step may contain `/`). Zero polling — the page reuses the existing `useGovernedRunEvents` SSE subscription.",
+          web: {
+            status: "done",
+            since: "2026-05-03",
+            notes:
+              "T4.1 → T4.3 shipped. 22 unit tests across OutputRow / RunArtifactsTree / ArtifactViewer / review resolver. Monaco lazy-loaded (frontend rule §6). PendingWorkflowStepCard now navigates with `?step=...` so the user lands in review mode directly.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure UI feature reused via the desktop wrapper webview; no IPC required.",
+          },
+          todo: {
+            tests: [
+              "Playwright browser test: complete a step with a markdown output → click from Inbox → verify 2-col layout + Copy permalink (T6).",
+            ],
+          },
+        },
+        {
+          id: "composite-workflows",
+          name: "Composite workflows (T5 — meta-workflow `uses:`)",
+          description:
+            "A workflow step can be `type: 'composite'` and reference another workflow via `uses: workflows/<name>@<ref>`. At launchStep, the orchestrator expands the composite step into a brand-new sub-run (governedWorkflowsCompositeService.launchCompositeStep) linking the parent step row via parent_step_execution_id + composite_run_id and propagating root_run_id for fan-out cap (1000 step_executions per chain). Cycle detection runs at launchRun via static DFS; depth guard at 32. completeStep on a composite step copies the sub-run's terminal artifact into the parent's artifactsJson once every sub-step has succeeded. Migration 0083 adds the 3 columns + partial index governed_step_executions_root_run_idx. SSE events step.composite.launched / step.composite.completed invalidate runDetail. New REST endpoint GET /governed-workflows/runs/:runId/steps for sub-run drill-down.",
+          web: {
+            status: "done",
+            since: "2026-05-03",
+            notes:
+              "T5.1 → T5.3 shipped. RunArtifactsTree now lazy-loads sub-run children via governedWorkflowsApi.getRunStepsById. StepCard shows a 'composite' badge when compositeRunId is set. Run detail page wires loadSubRun in both review (2-col) and overview modes.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure server feature + UI changes reused via the desktop wrapper webview; no IPC required.",
+          },
+          todo: {
+            tests: [
+              "E2E Playwright (T6): launch a composite workflow with depth=2, verify the parent step shows the badge, expand the tree, verify drill-down fetches the sub-run.",
+            ],
+            notes:
+              "Documentation under docs/governed-workflows/composite.md is queued for T6.",
+          },
+        },
+        {
+          id: "workflow-step-assignments",
+          name: "Workflow step assignments (T3 — inbox feed + sidebar badge)",
+          description:
+            "Migration 0082 + governedStepAssignments table snapshot every step.assignment declaration at launchWorkflow / launchStep with an audit `reason` (tag-intersection / role-expansion / explicit / delta-launchStep). Inbox surfaces the pending steps via REST `GET /inbox/pending-workflow-steps` and MCP tool `list_my_pending_work` (snake_case parity). Sidebar badge `pendingWorkflowSteps` rolls into the aggregated `inbox` count. SSE event `step.assignment.created` (visibility actor-only) invalidates both query keys — zero polling.",
+          web: {
+            status: "done",
+            since: "2026-05-03",
+            notes:
+              "T3.1 → T3.5 shipped. Section visible on Inbox /new and on /all when filter category = 'pending_workflow_steps'. Card click navigates to the run detail page.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure server feature for the data + reuse of the existing Inbox web view through the desktop wrapper.",
           },
         },
       ],

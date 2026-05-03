@@ -766,6 +766,38 @@ export function governedWorkflowUiRoutes(db: Db) {
     },
   );
 
+  // ── GET /governed-workflows/runs/:runId/steps ──────────────────────────────
+  // T5.3 — composite sub-run drill-down. The UI's RunArtifactsTree calls this
+  // when expanding a composite step's sub-run. Returns the same RunWithSteps
+  // payload as the named-workflow endpoint, but takes only `runId` (the
+  // sub-run's workflow name is internal to the chain — the caller doesn't
+  // need to know it). Tenant scoped via companyId in the path; getRunWithSteps
+  // already returns null when the run doesn't belong to the company, which
+  // we surface as 404 (no cross-tenant existence leak).
+  router.get(
+    "/runs/:runId/steps",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_READ),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const runId = req.params.runId as string;
+        const result = await getRunWithSteps(db, { companyId, runId });
+        if (!result) {
+          return apiError(
+            res,
+            404,
+            WORKFLOW_ERROR_CODES.WORKFLOW_RUN_NOT_FOUND,
+            `Run '${runId}' not found`,
+            ["Verify the runId — sub-runs only exist after launchStep on a composite parent."],
+          );
+        }
+        res.json(result);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
   // ── GET /governed-workflows/runs/:runId/liveness ───────────────────────────
   // Phase 4 — Liveness snapshot for the UI (LiveRunWidget) + watchdog status
   // probes. Returns:

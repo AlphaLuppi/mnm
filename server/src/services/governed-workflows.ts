@@ -4,6 +4,7 @@ import {
   governedWorkflowDefinitions,
   governedWorkflowRuns,
   governedStepExecutions,
+  governedStepAssignments,
   gateResults,
   agents,
   auditEvents,
@@ -17,7 +18,23 @@ import {
   type WorkflowDefinition,
   type GateContext,
   type GateBlock,
+  type HookBlock,
 } from "@mnm/governed-workflows";
+import {
+  launchCompositeStep,
+  completeCompositeStep,
+  parseCompositeUses,
+  detectCycle,
+} from "./governed-workflows-composite.js";
+import type {
+  HookContext as WorkflowHookCtx,
+  HookEvaluationResult,
+} from "@mnm/workflow-hooks";
+import type {
+  ResolvedHookForStep,
+  WorkflowHooksService,
+} from "./workflow-hooks.js";
+import type { GovernedWorkflowsAssignmentsService } from "./governed-workflows-assignments.js";
 import { GitProviderError } from "@mnm/git-provider";
 import type { GitProvider, ShaCache } from "@mnm/git-provider";
 import type { ArtifactInput, ArtifactPersisted, AuditActorType, Handoff, MergedConfigItem, OutputPersisted } from "@mnm/shared";
@@ -64,22 +81,14 @@ const compiledCache = new CompiledCache();
  * Domain error raised by the governed workflow service. Mapped to the MCP
  * uniform error contract by the tool layer. `code` is always a member of
  * `WORKFLOW_ERROR_CODES`.
+ *
+ * The class itself lives in `./governed-workflows-error.ts` so satellite
+ * modules (T5 composite resolver, future workflows-X services) can throw
+ * the canonical error type WITHOUT importing the full main service —
+ * which would create a cycle for any module the main service depends on.
  */
-export class GovernedWorkflowError extends Error {
-  constructor(
-    public readonly code: (typeof WORKFLOW_ERROR_CODES)[keyof typeof WORKFLOW_ERROR_CODES],
-    message: string,
-    public readonly hints: string[] = [],
-    /**
-     * Optional structured data to include in the MCP error response. Used
-     * for AGENTS_STALE (fresh content) and MISSING_TOOLS (which tools).
-     */
-    public readonly data?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "GovernedWorkflowError";
-  }
-}
+export { GovernedWorkflowError } from "./governed-workflows-error.js";
+import { GovernedWorkflowError } from "./governed-workflows-error.js";
 
 export interface GovernedWorkflowServiceDeps {
   /**
@@ -132,7 +141,42 @@ export interface GovernedWorkflowServiceDeps {
       input: { status: "completed" | "failed" },
     ): Promise<unknown>;
   };
+  /**
+   * Optional workflow-hooks service (T2.7 wire). When provided, the
+   * orchestrator runs `before_run` / `before_step` / `after_step` /
+   * `after_run` hooks at the standard insertion points. When omitted
+   * (e.g. tests, or before T2.7 is wired up via DI in app.ts), hook
+   * execution is a no-op — backward compatible.
+   *
+   * Fail-modes (per phase):
+   *  - `before_run` fail → run state="failed", error HOOK_FAILED:<ref>
+   *  - `before_step` fail → step state="failed" (run cascades)
+   *  - `after_step` fail → step retro-fails (artifact already committed)
+   *  - `after_run` fail → run stays "completed", we log + audit (no
+   *    cascade; cleanup_failed flag would require a schema change V1)
+   *  - `inject` total > 100 KB → `HOOK_INJECT_TOO_LARGE`, step fail
+   *  - hook timeout 30 s → step fail (same as fail)
+   */
+  workflowHooks?: WorkflowHooksService;
+  /**
+   * Optional workflow-assignments service (T3.3 wire). When provided, the
+   * orchestrator snapshots step assignments at `launchWorkflow` time
+   * (initial resolution for every step in the DAG) and re-evaluates at
+   * `launchStep` time (delta INSERT — assignments are append-only).
+   *
+   * When omitted (e.g. early dev / tests), assignment is a no-op and the
+   * inbox stays empty — backward compatible.
+   */
+  workflowAssignments?: GovernedWorkflowsAssignmentsService;
 }
+
+/**
+ * Maximum total bytes of `inject.context_md` from `before_step` /
+ * `before_run` hooks merged into `prompt_context.injected_by_hooks`.
+ * Sized so a malicious or runaway hook cannot DoS the next step's LLM
+ * call by stuffing the prompt context with megabytes of text.
+ */
+const MAX_INJECT_TOTAL_BYTES = 100 * 1024;
 
 export interface GetWorkflowParsedResult {
   workflow: WorkflowDefinition;
@@ -206,11 +250,14 @@ export interface LaunchStepArgs {
 }
 
 export interface LaunchStepResult {
-  agentName: string;
-  promptContext: Record<string, unknown>;
-  subagentType: string;
-  handoffs: Handoff[];
-  runBranch: string;
+  // ── agent-step branch (existing) — fields are populated when the step's
+  //    type is "agent" (default). The harness dispatches subagentType and
+  //    consumes promptContext + handoffs.
+  agentName?: string;
+  promptContext?: Record<string, unknown>;
+  subagentType?: string;
+  handoffs?: Handoff[];
+  runBranch?: string;
   /**
    * Set when the step's exit gates include the canonical
    * session-file-bundled gate. The harness MUST resolve the path_template
@@ -218,6 +265,19 @@ export interface LaunchStepResult {
    * .jsonl into artifact.data.session_file at completeStep.
    */
   sessionCapture?: import("./session-bundle/index.js").SessionCaptureConfig;
+  // ── composite-step branch (T5.3) — populated when the step's type is
+  //    "composite". The harness should treat the sub-run as the next launch
+  //    target: navigate to it and call launchStep on its `firstStep`. There
+  //    is no agent to dispatch on the parent run for this step.
+  composite?: {
+    subRunId: string;
+    rootRunId: string;
+    /** First step of the sub-workflow (the entry into the DAG). */
+    firstStep: string;
+    /** Sub-workflow git tag/sha (pinned at expansion time). */
+    subWorkflowGitTag: string;
+    subWorkflowGitSha: string;
+  };
 }
 
 export interface CompleteStepArgs {
@@ -463,6 +523,193 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
   const { resolveGitProvider, shaCache } = deps;
   const heartbeatDep = deps.heartbeat;
   const traceDep = deps.traceService;
+  const hooksSvc = deps.workflowHooks;
+  const assignmentsSvc = deps.workflowAssignments;
+
+  // ─── Workflow hooks wire (T2.7) ─────────────────────────────────────────
+
+  /**
+   * Aggregated outcome of a hook batch (all hooks for one phase). Returned
+   * to the caller (launchWorkflow / launchStep / completeStep / run
+   * completion) so it can short-circuit on failure with a precise error.
+   */
+  interface HookBatchOutcome {
+    /** Did every hook in the batch succeed (ok === true) ? */
+    ok: boolean;
+    /** First failure surfaced; absent when ok=true. */
+    firstFailure?: {
+      ref: string;
+      errorCode: string;
+      report: string;
+    };
+    /** Concatenated `inject.context_md` from successful before_* hooks. */
+    injectMd: string;
+    /** Per-hook trace for audit / debug. */
+    evaluations: Array<{ ref: string; ok: boolean; errorCode?: string }>;
+  }
+
+  /**
+   * Run the hooks for a given phase sequentially. Aggregates `inject`
+   * context-md across successful before_* hooks (subject to the
+   * MAX_INJECT_TOTAL_BYTES budget — anything over → HOOK_INJECT_TOO_LARGE,
+   * batch fails). Returns the first failure encountered; subsequent hooks
+   * are skipped.
+   *
+   * If `workflowHooks` was not wired at service construction, this is a
+   * no-op returning ok:true (backward compat).
+   */
+  async function runHookPhase(args: {
+    phase: "before_run" | "before_step" | "after_step" | "after_run";
+    runId: string;
+    stepExecutionId?: string;
+    workflowGitSha: string;
+    actor: { type: AuditActorType; id: string };
+    companyId: string;
+    workflow: WorkflowDefinition;
+    step?: { id: string; hooks?: HookBlock };
+    hookCtx: WorkflowHookCtx;
+  }): Promise<HookBatchOutcome> {
+    if (!hooksSvc) {
+      return { ok: true, injectMd: "", evaluations: [] };
+    }
+    const principalId = args.actor.id;
+    const resolved = await hooksSvc.resolveHooksForStep({
+      stepHooks: args.step?.hooks,
+      runHooks: args.workflow.hooks,
+      phase: args.phase,
+      principalId,
+      companyId: args.companyId,
+    });
+    if (resolved.length === 0) {
+      return { ok: true, injectMd: "", evaluations: [] };
+    }
+
+    const evaluations: HookBatchOutcome["evaluations"] = [];
+    const injectParts: string[] = [];
+    let injectBytes = 0;
+
+    for (const r of resolved) {
+      let evaluation: HookEvaluationResult;
+      try {
+        evaluation = await hooksSvc.executeHook(r, {
+          companyId: args.companyId,
+          actorUserId: principalId,
+          runId: args.runId,
+          stepExecutionId: args.stepExecutionId,
+          workflowGitSha: args.workflowGitSha,
+          hookCtx: args.hookCtx,
+        });
+      } catch (err) {
+        // executeHook itself should not throw — but defend against
+        // unexpected runtime errors (DB transient, etc.). Treat as a
+        // hook failure for the batch.
+        const message = err instanceof Error ? err.message : String(err);
+        evaluations.push({
+          ref: r.ref,
+          ok: false,
+          errorCode: "HOOK_EXCEPTION",
+        });
+        return {
+          ok: false,
+          firstFailure: {
+            ref: r.ref,
+            errorCode: "HOOK_EXCEPTION",
+            report: `Hook execution threw: ${message}`,
+          },
+          injectMd: injectParts.join("\n\n---\n\n"),
+          evaluations,
+        };
+      }
+
+      evaluations.push({
+        ref: r.ref,
+        ok: evaluation.ok,
+        ...(evaluation.error_code ? { errorCode: evaluation.error_code } : {}),
+      });
+
+      if (!evaluation.ok) {
+        return {
+          ok: false,
+          firstFailure: {
+            ref: r.ref,
+            errorCode: evaluation.error_code ?? "HOOK_EXCEPTION",
+            report: evaluation.report,
+          },
+          injectMd: injectParts.join("\n\n---\n\n"),
+          evaluations,
+        };
+      }
+
+      // Aggregate `inject.context_md` for before_* phases.
+      if (
+        (args.phase === "before_run" || args.phase === "before_step") &&
+        evaluation.result?.inject?.context_md
+      ) {
+        const part = evaluation.result.inject.context_md;
+        const partBytes = Buffer.byteLength(part, "utf8");
+        if (injectBytes + partBytes > MAX_INJECT_TOTAL_BYTES) {
+          return {
+            ok: false,
+            firstFailure: {
+              ref: r.ref,
+              errorCode: "HOOK_INJECT_TOO_LARGE",
+              report: `Total inject bytes (${injectBytes + partBytes}) exceeds ${MAX_INJECT_TOTAL_BYTES}`,
+            },
+            injectMd: injectParts.join("\n\n---\n\n"),
+            evaluations,
+          };
+        }
+        injectParts.push(part);
+        injectBytes += partBytes;
+      }
+    }
+
+    return {
+      ok: true,
+      injectMd: injectParts.join("\n\n---\n\n"),
+      evaluations,
+    };
+  }
+
+  /**
+   * Build the `HookContext` passed to `runHookPhase`. The context
+   * matches `@mnm/workflow-hooks.HookContext` shape. `helpers` is filled
+   * by the runner; we pass an empty placeholder — the runner overrides
+   * it via `installHelpers` inside the isolate.
+   */
+  function buildHookCtx(args: {
+    phase: "before_run" | "before_step" | "after_step" | "after_run";
+    runId: string;
+    workflowName: string;
+    workflowGitTag: string;
+    runParams: Record<string, unknown>;
+    stepId?: string;
+    previousArtifacts?: Record<string, unknown>;
+    artifact?: unknown;
+    config?: Record<string, unknown>;
+  }): WorkflowHookCtx {
+    return {
+      artifact: args.artifact,
+      run: {
+        id: args.runId,
+        workflow_name: args.workflowName,
+        git_tag: args.workflowGitTag,
+        params: args.runParams,
+      },
+      step: {
+        id: args.stepId ?? "",
+        previous_artifacts: args.previousArtifacts ?? {},
+      },
+      config: args.config ?? {},
+      phase: args.phase,
+      // Real helpers are wired by the runner via installHelpers; the
+      // value here is a placeholder that satisfies the type but is
+      // never read inside the isolate (the isolate's `ctx.helpers.*`
+      // proxies are installed by the runner, separate from this host
+      // ctx object).
+      helpers: {} as never,
+    };
+  }
 
   /**
    * Detect whether a step opts into the session-bundle path by declaring
@@ -679,6 +926,35 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       );
     }
 
+    // SEC P4 (CRITICAL #1) — static cycle detection over the composite
+    // `uses:` graph. Refuses any workflow.json that closes a cycle (A→A or
+    // A→B→A) BEFORE we create sub-runs. No-op for leaf workflows with no
+    // composite steps. Resolver loads referenced sub-workflows via
+    // getWorkflowParsed at the same companyId.
+    await detectCycle({
+      workflow: parsed.workflow,
+      resolveWorkflow: async (ref) => {
+        const refMatch = /^workflows\/([^@]+)@(.+)$/.exec(ref);
+        if (!refMatch) return null;
+        const subName = refMatch[1];
+        const subRef = refMatch[2];
+        try {
+          const sub = await getWorkflowParsed({
+            companyId: args.companyId,
+            name: subName,
+            gitTag: subRef,
+            userId: args.actor.type === "user" ? args.actor.id : null,
+          });
+          return sub.workflow;
+        } catch {
+          // Resolver returns null on any lookup failure — detectCycle then
+          // throws WORKFLOW_COMPOSITE_USES_NOT_FOUND for unknown sub-workflows
+          // (the contract we want for missing refs).
+          return null;
+        }
+      },
+    });
+
     return await db.transaction(async (tx) => {
       // Advisory lock: disambiguate namespace with a prefix so we don't
       // collide with other lock users. Scope per-definition so unrelated
@@ -719,22 +995,128 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       // is well below human perception and below the run-level startedAt
       // granularity, so it doesn't break any audit query.
       const baseTime = Date.now();
-      await tx.insert(governedStepExecutions).values(
-        parsed.workflow.steps.map((s, idx) => ({
-          companyId: args.companyId,
-          runId: run.id,
-          stepIdInJson: s.id,
-          state: "pending" as const,
-          createdAt: new Date(baseTime + idx),
-        })),
-      );
+      const insertedSteps = await tx
+        .insert(governedStepExecutions)
+        .values(
+          parsed.workflow.steps.map((s, idx) => ({
+            companyId: args.companyId,
+            runId: run.id,
+            stepIdInJson: s.id,
+            state: "pending" as const,
+            createdAt: new Date(baseTime + idx),
+          })),
+        )
+        .returning({
+          id: governedStepExecutions.id,
+          stepIdInJson: governedStepExecutions.stepIdInJson,
+        });
 
       return {
         runId: run.id,
         firstStep: firstStep.id,
         gitTag: parsed.gitTag,
         gitSha: parsed.gitSha,
+        // Map of step-id-in-json → step_execution.id (uuid). Needed by the
+        // T3.3 assignment snapshot below.
+        stepExecIdsByName: Object.fromEntries(
+          insertedSteps.map((s) => [s.stepIdInJson, s.id]),
+        ) as Record<string, string>,
       };
+    }).then(async (result) => {
+      // ── T3.3: snapshot step assignments ──────────────────────────────────
+      // Wired AFTER the launch tx commits so the (run, steps) FK targets
+      // exist. For every step that declares an `assignment`, resolve the
+      // principal set and persist a row per (step_execution, principal).
+      // Failures are best-effort: snapshotting must not block run launch
+      // (the run is already committed). We log via the live event bus
+      // instead so dashboards surface the issue.
+      if (assignmentsSvc) {
+        for (const step of parsed.workflow.steps) {
+          if (!step.assignment) continue;
+          const stepExecId = result.stepExecIdsByName[step.id];
+          if (!stepExecId) continue;
+          try {
+            const entries = await assignmentsSvc.resolveAssignment({
+              companyId: args.companyId,
+              assignment: step.assignment,
+            });
+            const inserted = await assignmentsSvc.snapshotStepAssignments({
+              companyId: args.companyId,
+              stepExecutionId: stepExecId,
+              entries,
+            });
+            // Publish step.assignment.created for every fresh row so each
+            // assigned principal gets a sidebar badge update in real time.
+            for (const row of inserted) {
+              publishLiveEvent({
+                companyId: args.companyId,
+                type: "step.assignment.created",
+                payload: {
+                  step_execution_id: row.stepExecutionId,
+                  principal_id: row.principalId,
+                  reason: row.reason,
+                  run_id: result.runId,
+                  workflow_name: parsed.workflow.name,
+                  step_name: step.id,
+                },
+                visibility: { scope: "actor-only", actorId: row.principalId },
+              });
+            }
+          } catch (err) {
+            // Swallow: snapshotting is non-critical for the launch path.
+            // eslint-disable-next-line no-console
+            console.warn(
+              "[governed-workflows] step assignment snapshot failed",
+              { runId: result.runId, stepId: step.id, err: String(err) },
+            );
+          }
+        }
+      }
+
+
+      // ── T2.7: before_run hooks ───────────────────────────────────────────
+      // Wired AFTER the launch transaction commits so the run row + step
+      // executions exist (so audit FKs can target them). A failure flips
+      // the run to "failed" with HOOK_FAILED:<ref>. The run row is
+      // committed first; on hook failure we mark it failed in a follow-up
+      // tx (separate from the launch tx so audit rows survive).
+      const hookOutcome = await runHookPhase({
+        phase: "before_run",
+        runId: result.runId,
+        workflowGitSha: result.gitSha,
+        actor: args.actor,
+        companyId: args.companyId,
+        workflow: parsed.workflow,
+        hookCtx: buildHookCtx({
+          phase: "before_run",
+          runId: result.runId,
+          workflowName: parsed.workflow.name,
+          workflowGitTag: result.gitTag,
+          runParams: args.params,
+        }),
+      });
+      if (!hookOutcome.ok) {
+        // Roll the run forward to "failed" and surface a typed error.
+        // before_run hooks have no `inject` consumer (no step is running
+        // yet), so a failure here is purely diagnostic.
+        await db
+          .update(governedWorkflowRuns)
+          .set({
+            status: "failed",
+            completedAt: new Date(),
+          })
+          .where(eq(governedWorkflowRuns.id, result.runId));
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+          `before_run hook '${hookOutcome.firstFailure!.ref}' failed: ${hookOutcome.firstFailure!.report}`,
+          [
+            `Hook error_code: ${hookOutcome.firstFailure!.errorCode}`,
+            "Disable / fix the hook config or remove it from workflow.json hooks.before",
+          ],
+          { hook_ref: hookOutcome.firstFailure!.ref, hook_error: hookOutcome.firstFailure!.errorCode },
+        );
+      }
+      return result;
     });
   }
 
@@ -917,13 +1299,113 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       }
     }
 
+    // ── T5.3 — composite branch: expand the step into a sub-run ────────
+    // Composite steps don't dispatch an agent — they launch a sub-run of
+    // another workflow. The harness then drives the sub-run as if it were
+    // a brand-new top-level run (calling launchStep on the sub-run's
+    // firstStep). The parent step row stays in `running` state until
+    // completeStep is called on it (after the sub-run completes).
+    if (step.type === "composite") {
+      if (!step.uses) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_USES_INVALID,
+          `composite step '${args.stepId}' is missing uses:`,
+        );
+      }
+      const { name: subName, ref: subRef } = parseCompositeUses(step.uses);
+      const subParsed = await getWorkflowParsed({
+        companyId: args.companyId,
+        name: subName,
+        gitTag: subRef,
+        userId: args.actor.type === "user" ? args.actor.id : null,
+      });
+      const subDef = await getDefinition({ companyId: args.companyId, name: subName });
+      if (!subDef) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_COMPOSITE_USES_NOT_FOUND,
+          `composite step '${args.stepId}' references unknown workflow '${step.uses}'`,
+        );
+      }
+      const subFirstStep = subParsed.workflow.steps.find((s) => s.deps.length === 0);
+      if (!subFirstStep) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND,
+          `Sub-workflow '${subName}' has no step with empty deps — cannot expand composite`,
+        );
+      }
+
+      // Mark parent composite step running before launching sub-run so
+      // observers see the transition, not a stale "pending".
+      await db
+        .update(governedStepExecutions)
+        .set({
+          state: "running",
+          startedAt: new Date(),
+          launchedByActorType: args.actor.type,
+          launchedByActorId: args.actor.id,
+        })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+      const [parentStepRow] = await db
+        .select({ id: governedStepExecutions.id })
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+
+      const launched = await launchCompositeStep(db, {
+        parentStepExecutionId: parentStepRow.id,
+        parentRunId: args.runId,
+        subWorkflow: subParsed.workflow,
+        subWorkflowGitTag: subParsed.gitTag,
+        subWorkflowGitSha: subParsed.gitSha,
+        subWorkflowDefId: subDef.id,
+        params: (step.params ?? {}) as Record<string, unknown>,
+        actor: args.actor,
+        companyId: args.companyId,
+      });
+
+      publishLiveEvent({
+        companyId: args.companyId,
+        type: "step.composite.launched",
+        payload: {
+          run_id: args.runId,
+          step_id: args.stepId,
+          step_execution_id: parentStepRow.id,
+          sub_run_id: launched.subRunId,
+          root_run_id: launched.rootRunId,
+          sub_workflow_name: subName,
+          sub_workflow_git_tag: subParsed.gitTag,
+        },
+        visibility: { scope: "company-wide" },
+      });
+
+      return {
+        composite: {
+          subRunId: launched.subRunId,
+          rootRunId: launched.rootRunId,
+          firstStep: subFirstStep.id,
+          subWorkflowGitTag: subParsed.gitTag,
+          subWorkflowGitSha: subParsed.gitSha,
+        },
+      };
+    }
     // ── T6 self-correction: detect stale local agents ──────────────────
-    // Every step references exactly one agent (step.agent). Compare its
-    // canonical sha against what the harness reports in currentAgents.
+    // Every agent step references exactly one agent (step.agent). Compare
+    // its canonical sha against what the harness reports in currentAgents.
     // Mismatch -> short-circuit with AGENTS_STALE; harness writes the
     // updated content and retries.
+    // After this guard, step.agent is guaranteed defined (Zod superRefine
+    // enforces it for type=agent).
     if (args.currentAgents !== undefined) {
-      const required = step.agent;
+      const required = step.agent!;
       const namespacedName = `mnm--${required}`;
       const canonical = await loadCanonicalAgent(
         args.companyId,
@@ -1004,6 +1486,68 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           eq(governedStepExecutions.stepIdInJson, args.stepId),
         ),
       );
+
+    // ── T3.3: re-evaluate step assignment (delta INSERT) ─────────────────
+    // Tags / roles may have shifted since launchWorkflow snapshotted the
+    // initial set. Re-resolve and INSERT any newly matched principal.
+    // Existing assignments are preserved (snapshots are append-only audit
+    // — never deletion). Best-effort: failures are logged but don't block
+    // the step launch.
+    if (assignmentsSvc && step.assignment) {
+      try {
+        const fresh = await assignmentsSvc.resolveAssignment({
+          companyId: args.companyId,
+          assignment: step.assignment,
+        });
+        // Read the current snapshot to compute delta.
+        const existing = await db
+          .select({ principalId: governedStepAssignments.principalId })
+          .from(governedStepAssignments)
+          .where(
+            and(
+              eq(governedStepAssignments.companyId, args.companyId),
+              eq(governedStepAssignments.stepExecutionId, launchStepExec.id),
+            ),
+          );
+        const existingSet = new Set(existing.map((e) => e.principalId));
+        const delta = fresh.filter((e) => !existingSet.has(e.principalId));
+        if (delta.length > 0) {
+          const inserted = await assignmentsSvc.snapshotStepAssignments({
+            companyId: args.companyId,
+            stepExecutionId: launchStepExec.id,
+            entries: delta.map((e) => ({
+              principalId: e.principalId,
+              reason: `delta-launchStep:${e.reason}`,
+            })),
+          });
+          for (const row of inserted) {
+            publishLiveEvent({
+              companyId: args.companyId,
+              type: "step.assignment.created",
+              payload: {
+                step_execution_id: row.stepExecutionId,
+                principal_id: row.principalId,
+                reason: row.reason,
+                run_id: args.runId,
+                workflow_name: parsed.workflow.name,
+                step_name: args.stepId,
+              },
+              visibility: { scope: "actor-only", actorId: row.principalId },
+            });
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[governed-workflows] launchStep delta-assignment failed",
+          {
+            runId: args.runId,
+            stepId: args.stepId,
+            err: String(err),
+          },
+        );
+      }
+    }
 
     // Emit step_updated so the UI can refresh the run detail panel.
     emitStepUpdated({
@@ -1148,6 +1692,80 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       launchStepGitProvider,
     );
 
+    // ── T2.7: before_step hooks ─────────────────────────────────────────────
+    // Run AFTER prompt_context interpolation and BEFORE we return to the
+    // harness. inject.context_md fragments are concatenated into the
+    // step's `prompt_context.injected_by_hooks` (one entry per hook).
+    // Hook failure → step transitions to "failed" rétroactivement, run
+    // depending on the cascade.
+    if (hooksSvc) {
+      const [stepExecRow] = await db
+        .select({ id: governedStepExecutions.id })
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+      const beforeStepOutcome = await runHookPhase({
+        phase: "before_step",
+        runId: args.runId,
+        stepExecutionId: stepExecRow?.id,
+        workflowGitSha: parsed.gitSha,
+        actor: args.actor,
+        companyId: args.companyId,
+        workflow: parsed.workflow,
+        step: { id: step.id, hooks: step.hooks },
+        hookCtx: buildHookCtx({
+          phase: "before_step",
+          runId: args.runId,
+          workflowName: parsed.workflow.name,
+          workflowGitTag: parsed.gitTag,
+          runParams: params,
+          stepId: step.id,
+          previousArtifacts,
+        }),
+      });
+      if (!beforeStepOutcome.ok) {
+        await db
+          .update(governedStepExecutions)
+          .set({ state: "failed", updatedAt: new Date() })
+          .where(
+            and(
+              eq(governedStepExecutions.runId, args.runId),
+              eq(governedStepExecutions.stepIdInJson, args.stepId),
+            ),
+          );
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+          `before_step hook '${beforeStepOutcome.firstFailure!.ref}' failed: ${beforeStepOutcome.firstFailure!.report}`,
+          [
+            `Hook error_code: ${beforeStepOutcome.firstFailure!.errorCode}`,
+            "Disable / fix the hook config or remove it from the step's hooks.before",
+          ],
+          {
+            hook_ref: beforeStepOutcome.firstFailure!.ref,
+            hook_error: beforeStepOutcome.firstFailure!.errorCode,
+          },
+        );
+      }
+      if (beforeStepOutcome.injectMd.length > 0) {
+        // Merge inject into prompt_context. The orchestrator does NOT
+        // mutate the workflow.json `step.prompt_context` template — we
+        // tag-on a sibling key so the harness sees both the original
+        // user prompt + the hook-injected content. The naming
+        // `injected_by_hooks` matches the contract documented in
+        // docs/superpowers/handoff-2026-05-02-T2-resume.md §4.
+        (promptContext as Record<string, unknown>).injected_by_hooks =
+          beforeStepOutcome.evaluations
+            .filter((e) => e.ok)
+            .map((e) => ({ hook_ref: e.ref }));
+        (promptContext as Record<string, unknown>).injected_context_md =
+          beforeStepOutcome.injectMd;
+      }
+    }
+
     const prevStepRows = await db
       .select({
         stepIdInJson: governedStepExecutions.stepIdInJson,
@@ -1168,7 +1786,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         const agentRow = await db
           .select({ id: agents.id })
           .from(agents)
-          .where(and(eq(agents.companyId, args.companyId), eq(agents.name, step.agent)))
+          .where(and(eq(agents.companyId, args.companyId), eq(agents.name, step.agent!)))
           .then((rows) => rows[0]);
 
         if (agentRow) {
@@ -1208,9 +1826,9 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     return {
-      agentName: step.agent,
+      agentName: step.agent!,
       promptContext,
-      subagentType: `mnm--${step.agent}`,
+      subagentType: `mnm--${step.agent!}`,
       handoffs,
       runBranch: runBranchName(args.runId),
       sessionCapture,
@@ -1370,6 +1988,18 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       } | null;
     } = { data: null };
 
+    // T2.7: data needed for post-tx after_run hooks — populated inside the
+    // tx when the run transitions to "completed", consumed below. Wrapped
+    // for cross-closure mutation tracking like pendingMerge.
+    const pendingAfterRun: {
+      data: {
+        workflow: WorkflowDefinition;
+        workflowGitSha: string;
+        workflowGitTag: string;
+        runParams: Record<string, unknown>;
+      } | null;
+    } = { data: null };
+
     const txResult = await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:complete:" + args.runId + ":" + args.stepId}))`,
@@ -1441,6 +2071,117 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         );
       }
 
+      // ── T5.3 — composite branch: consume the sub-run's final outputs ────
+      // The parent composite step has no agent and never persists a fresh
+      // artifact via commitHandoffArtifacts. Instead we copy the LAST step's
+      // artifactsJson from the sub-run (captures the workflow's terminal
+      // output) and mark the parent step succeeded.
+      //
+      // This branch deliberately runs BEFORE the agent-step path (gates,
+      // hooks, git commit) — none of those apply to a composite parent.
+      if (step.type === "composite") {
+        if (!stepExec.compositeRunId) {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+            `composite step '${args.stepId}' has no sub-run yet (launchStep was not called or failed)`,
+          );
+        }
+        // Read every step in the sub-run; refuse if any is not yet succeeded.
+        const subSteps = await tx
+          .select({
+            stepIdInJson: governedStepExecutions.stepIdInJson,
+            state: governedStepExecutions.state,
+            artifactsJson: governedStepExecutions.artifactsJson,
+            createdAt: governedStepExecutions.createdAt,
+          })
+          .from(governedStepExecutions)
+          .where(
+            and(
+              eq(governedStepExecutions.runId, stepExec.compositeRunId),
+              eq(governedStepExecutions.companyId, args.companyId),
+            ),
+          )
+          .orderBy(governedStepExecutions.createdAt);
+        if (subSteps.length === 0) {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+            `composite sub-run for '${args.stepId}' has no steps`,
+          );
+        }
+        const notSucceeded = subSteps.filter((s) => s.state !== "succeeded");
+        if (notSucceeded.length > 0) {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_DEPENDENCY_UNMET,
+            `cannot complete composite step '${args.stepId}': sub-run has ${notSucceeded.length} step(s) not yet succeeded`,
+            [
+              `Pending sub-steps: ${notSucceeded.map((s) => s.stepIdInJson).join(", ")}`,
+              "Run the sub-run to completion before completing the parent composite step.",
+            ],
+          );
+        }
+        const finalLeaf = subSteps[subSteps.length - 1];
+        const finalOutputs = (finalLeaf.artifactsJson ?? {}) as Record<string, unknown>;
+        await completeCompositeStep(tx as unknown as Db, {
+          parentStepExecutionId: stepExec.id,
+          finalOutputs,
+        });
+        // Bump run's last_useful_action_at so the liveness watchdog accounts
+        // for this composite step closure as forward progress.
+        const stepCompletedAt = new Date();
+        await tx
+          .update(governedWorkflowRuns)
+          .set({
+            lastUsefulActionAt: stepCompletedAt,
+            nextActionHint: `composite step '${args.stepId}' completed`,
+            updatedAt: stepCompletedAt,
+          })
+          .where(eq(governedWorkflowRuns.id, args.runId));
+
+        publishLiveEvent({
+          companyId: args.companyId,
+          type: "step.composite.completed",
+          payload: {
+            run_id: args.runId,
+            step_id: args.stepId,
+            step_execution_id: stepExec.id,
+            sub_run_id: stepExec.compositeRunId,
+          },
+          visibility: { scope: "company-wide" },
+        });
+        emitStepUpdated({
+          publish: publishLiveEvent,
+          companyId: args.companyId,
+          runId: args.runId,
+          stepExecId: stepExec.id,
+        });
+
+        // Mirror the agent path's allDone check so a composite step that is
+        // the LAST step of its parent run still flips the run to "completed".
+        // Skip the git mergeRunBranch / after_run capture — those are agent-
+        // step concerns. If the composite was the last step, the harness
+        // will see runStatus="completed" and stop.
+        const pending = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(governedStepExecutions)
+          .where(
+            and(
+              eq(governedStepExecutions.runId, args.runId),
+              sql`state != 'succeeded'`,
+            ),
+          );
+        const allDone = pending[0]!.count === 0;
+        if (allDone) {
+          await tx
+            .update(governedWorkflowRuns)
+            .set({ status: "completed", completedAt: stepCompletedAt })
+            .where(eq(governedWorkflowRuns.id, args.runId));
+        }
+        return {
+          stepState: "succeeded" as const,
+          runStatus: allDone ? ("completed" as const) : ("active" as const),
+        };
+      }
+
       // Resolve commit author and git provider, then commit inline outputs to Git
       // before persisting. If git commit fails the tx rolls back, keeping the
       // step in its current state for a clean retry.
@@ -1481,6 +2222,71 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         runId: args.runId,
         stepExecId: stepExec.id,
       });
+
+      // ── T2.7: after_step hooks ─────────────────────────────────────────
+      // Run AFTER the artifact is committed + state transitioned but
+      // BEFORE the exit gates evaluate. A hook failure transitions the
+      // step retro-actively to "failed" — even though the artifact has
+      // already been committed. Run state cascades via the post-tx
+      // `allDone` check (a failed step blocks runs from completing).
+      //
+      // The hook executes through the OUTER `db` connection, not the
+      // current `tx` (mirrors the F7 fix for gate_results: audit rows
+      // must survive a tx rollback so observability stays intact when
+      // the wider tx fails downstream).
+      if (hooksSvc) {
+        const afterStepOutcome = await runHookPhase({
+          phase: "after_step",
+          runId: args.runId,
+          stepExecutionId: stepExec.id,
+          workflowGitSha: parsed.gitSha,
+          actor: args.actor,
+          companyId: args.companyId,
+          workflow: parsed.workflow,
+          step: { id: step.id, hooks: step.hooks },
+          hookCtx: buildHookCtx({
+            phase: "after_step",
+            runId: args.runId,
+            workflowName: parsed.workflow.name,
+            workflowGitTag: parsed.gitTag,
+            runParams: await fetchRunParams(args.companyId, args.runId),
+            stepId: step.id,
+            // P1.1 fix: read previous_artifacts via the OUTER db connection,
+            // NOT the in-flight `tx` snapshot. The tx snapshot includes the
+            // current step's row at state="gate_eval" with the just-written
+            // artifact — but those updates are uncommitted and may roll back
+            // (e.g. if this very hook phase fails right after). Reading via
+            // `db` returns the committed state — what gates / hooks actually
+            // observe in production post-tx.
+            previousArtifacts: await fetchSucceededArtifacts(db, args.runId),
+            artifact: persistedArtifact,
+          }),
+        });
+        if (!afterStepOutcome.ok) {
+          // P0.1 fix: persist state="failed" via the OUTER `db` connection
+          // BEFORE throwing. The throw rolls back `tx`, which would otherwise
+          // wipe the state="gate_eval" row update — leaving the step stuck in
+          // "running" forever. Writing via `db` survives the rollback so the
+          // step is correctly marked failed, mirroring the before_step pattern
+          // and the F7 gate_results / hook_executions audit-row strategy.
+          await db
+            .update(governedStepExecutions)
+            .set({ state: "failed", completedAt: new Date() })
+            .where(eq(governedStepExecutions.id, stepExec.id));
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_GATE_FAILED,
+            `after_step hook '${afterStepOutcome.firstFailure!.ref}' failed: ${afterStepOutcome.firstFailure!.report}`,
+            [
+              `Hook error_code: ${afterStepOutcome.firstFailure!.errorCode}`,
+              "Disable / fix the hook config or remove it from the step's hooks.after",
+            ],
+            {
+              hook_ref: afterStepOutcome.firstFailure!.ref,
+              hook_error: afterStepOutcome.firstFailure!.errorCode,
+            },
+          );
+        }
+      }
 
       const exitBlock = step.gates?.exit as GateBlock | undefined;
       if (exitBlock && exitBlock.length > 0) {
@@ -1675,6 +2481,16 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           author,
           stepsSummary: allSteps.map((s) => ({ stepId: s.stepIdInJson, state: s.state })),
         };
+
+        // T2.7: capture data for post-tx after_run hooks. We re-use the
+        // already-parsed workflow + run params; the post-tx caller does
+        // not need to re-fetch from DB.
+        pendingAfterRun.data = {
+          workflow: parsed.workflow,
+          workflowGitSha: parsed.gitSha,
+          workflowGitTag: parsed.gitTag,
+          runParams: (runForMerge?.paramsJson as Record<string, unknown>) ?? {},
+        };
       }
 
       return {
@@ -1711,6 +2527,61 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           `[governed-workflows] mergeRunBranch failed for run ${args.runId} (completed): ${err instanceof Error ? err.message : String(err)}`,
         );
       }
+    }
+
+    // ── T2.7: after_run hooks ───────────────────────────────────────────
+    // Run AFTER the run is committed as "completed" but before the final
+    // return. Failure mode: log + audit, run STAYS "completed" (the hook
+    // is a "post-success cleanup" — its failure must not retro-fail the
+    // run, which would surprise users since their work succeeded). The
+    // audit row produced by executeHook captures the failure for ops.
+    //
+    // P0.2 fix: fire-and-forget via setImmediate. Previously this `await`ed
+    // runHookPhase, which could block the completeStep HTTP response for up
+    // to N × hook_timeout (35s default × hook count) — clients would hang
+    // even though the run is already committed as "completed" in DB. Now
+    // we schedule the hook phase on the next tick and return immediately.
+    // The audit row written by executeHook is final — observability is
+    // preserved. Errors are logged via console.warn (no logger import in
+    // this module yet).
+    if (pendingAfterRun.data && hooksSvc) {
+      const ar = pendingAfterRun.data;
+      const runId = args.runId;
+      const companyId = args.companyId;
+      setImmediate(() => {
+        runHookPhase({
+          phase: "after_run",
+          runId,
+          workflowGitSha: ar.workflowGitSha,
+          actor: args.actor,
+          companyId,
+          workflow: ar.workflow,
+          hookCtx: buildHookCtx({
+            phase: "after_run",
+            runId,
+            workflowName: ar.workflow.name,
+            workflowGitTag: ar.workflowGitTag,
+            runParams: ar.runParams,
+          }),
+        })
+          .then((outcome) => {
+            if (!outcome.ok) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                `[governed-workflows] after_run hook '${outcome.firstFailure!.ref}' failed asynchronously for run ${runId} (company ${companyId}): ${outcome.firstFailure!.errorCode}`,
+              );
+            }
+            return undefined;
+          })
+          .catch((err) => {
+            // executeHook errors should never escape, but defend the path
+            // so a runaway hook doesn't crash the Node process.
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[governed-workflows] after_run hook phase failed asynchronously for run ${runId} (company ${companyId}): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      });
     }
 
     // ── Post-tx : finalize the client heartbeat_run if the step had one.

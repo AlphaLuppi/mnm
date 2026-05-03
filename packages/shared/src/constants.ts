@@ -305,6 +305,28 @@ export const LIVE_EVENT_TYPES = [
   // invalidate `queryKeys.connectors.myAccounts(companyId)`. Visibility =
   // private (only the affected user sees it).
   "user.connector_status_changed",
+  // WORKFLOW-HOOKS T2.9 — fire when a hook config is created/updated/deleted.
+  // Frontend consumers invalidate `queryKeys.hooks.list(companyId)` and the
+  // matching detail key. Visibility is decided server-side using the config's
+  // own visibility tier (private → actor-only ; tags/principals → tag-filtered ;
+  // company → company-wide).
+  "hook.config.updated",
+  "hook.config.deleted",
+  // WORKFLOW-ASSIGNMENTS T3.3 — fire when an assignment row is snapshot-ed
+  // for a step execution (initial or delta). Frontend consumers invalidate
+  // `queryKeys.sidebarBadges` and `queryKeys.inboxItems` so the assigned
+  // principal sees a pulsing badge in real time. Visibility = private to
+  // the principal that just got assigned (T3.3.4).
+  "step.assignment.created",
+  // WORKFLOW-COMPOSITE T5.3 — fire when a composite step launches its
+  // sub-run (step.composite.launched) and again when the sub-run completes
+  // and the parent step is marked succeeded (step.composite.completed).
+  // Frontend consumers invalidate `queryKeys.governedWorkflows.runDetail`
+  // for the affected run so the composite badge + sub-run breadcrumb
+  // refresh in real time. Visibility = company-wide (run details respect
+  // run-level RBAC; nothing user-private).
+  "step.composite.launched",
+  "step.composite.completed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plug, Plus, Trash2, ExternalLink, KeyRound } from "lucide-react";
+import { Plug, Plus, Trash2, ExternalLink, KeyRound, Wrench } from "lucide-react";
 import {
   connectorsApi,
   type Connector,
   type ConnectorTemplate,
+  type ConnectorType,
   type CreateConnectorPayload,
 } from "../api/connectors";
 import { useCompany } from "../context/CompanyContext";
@@ -20,6 +21,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -28,29 +36,59 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type WizardStep = "details" | "credentials";
+type WizardMode = "template" | "custom";
+type WizardStep = "basics" | "endpoints" | "details" | "credentials";
 
 interface WizardState {
   open: boolean;
+  mode: WizardMode;
   template: ConnectorTemplate | null;
   step: WizardStep;
+  // shared
+  type: ConnectorType;
   displayName: string;
   scopes: string[];
   clientId: string;
   clientSecret: string;
   apiKeyLabel: string;
+  // custom-only
+  providerSlug: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  userinfoUrl: string;
+  redirectUri: string;
+  scopesText: string;
+  refreshSupported: boolean;
 }
 
 const wizardInitial: WizardState = {
   open: false,
+  mode: "template",
   template: null,
   step: "details",
+  type: "oauth2",
   displayName: "",
   scopes: [],
   clientId: "",
   clientSecret: "",
   apiKeyLabel: "",
+  providerSlug: "",
+  authorizationUrl: "",
+  tokenUrl: "",
+  userinfoUrl: "",
+  redirectUri: "",
+  scopesText: "",
+  refreshSupported: true,
 };
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+function splitScopes(input: string): string[] {
+  return input
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
 export function Connectors() {
   const { selectedCompanyId } = useCompany();
@@ -118,25 +156,58 @@ export function Connectors() {
 
   function openWizardFromTemplate(template: ConnectorTemplate) {
     setWizard({
+      ...wizardInitial,
       open: true,
+      mode: "template",
       template,
       step: "details",
+      type: template.type,
       displayName: template.displayName,
       scopes: [...(template.scopes ?? [])],
-      clientId: "",
-      clientSecret: "",
       apiKeyLabel: template.apiKeyLabel ?? "",
     });
   }
 
+  function openCustomWizard() {
+    setWizard({
+      ...wizardInitial,
+      open: true,
+      mode: "custom",
+      step: "basics",
+    });
+  }
+
   function submitWizard() {
-    if (!wizard.template) return;
+    if (wizard.mode === "template") {
+      if (!wizard.template) return;
+      const payload: CreateConnectorPayload = {
+        templateSlug: wizard.template.slug,
+        displayName: wizard.displayName.trim() || wizard.template.displayName,
+        scopes: wizard.scopes,
+      };
+      if (wizard.template.type === "oauth2") {
+        payload.clientId = wizard.clientId.trim();
+        payload.clientSecret = wizard.clientSecret.trim();
+      } else {
+        payload.apiKeyLabel = wizard.apiKeyLabel.trim();
+      }
+      createMutation.mutate(payload);
+      return;
+    }
+
+    // custom mode
     const payload: CreateConnectorPayload = {
-      templateSlug: wizard.template.slug,
-      displayName: wizard.displayName.trim() || wizard.template.displayName,
-      scopes: wizard.scopes,
+      providerSlug: wizard.providerSlug.trim(),
+      displayName: wizard.displayName.trim(),
+      type: wizard.type,
     };
-    if (wizard.template.type === "oauth2") {
+    if (wizard.type === "oauth2") {
+      payload.authorizationUrl = wizard.authorizationUrl.trim() || null;
+      payload.tokenUrl = wizard.tokenUrl.trim() || null;
+      payload.userinfoUrl = wizard.userinfoUrl.trim() || null;
+      payload.redirectUri = wizard.redirectUri.trim() || null;
+      payload.scopes = splitScopes(wizard.scopesText);
+      payload.refreshSupported = wizard.refreshSupported;
       payload.clientId = wizard.clientId.trim();
       payload.clientSecret = wizard.clientSecret.trim();
     } else {
@@ -148,12 +219,38 @@ export function Connectors() {
   if (!selectedCompanyId) return <PageSkeleton />;
   if (isLoadingConnectors) return <PageSkeleton />;
 
-  const canSubmitWizard =
-    wizard.template?.type === "api_key"
-      ? wizard.displayName.trim().length > 0 && wizard.apiKeyLabel.trim().length > 0
-      : wizard.displayName.trim().length > 0 &&
-        wizard.clientId.trim().length > 0 &&
-        wizard.clientSecret.trim().length > 0;
+  const slugValid =
+    wizard.mode === "template" || SLUG_RE.test(wizard.providerSlug.trim());
+
+  const canSubmitWizard = (() => {
+    if (wizard.mode === "template") {
+      return wizard.template?.type === "api_key"
+        ? wizard.displayName.trim().length > 0 && wizard.apiKeyLabel.trim().length > 0
+        : wizard.displayName.trim().length > 0 &&
+          wizard.clientId.trim().length > 0 &&
+          wizard.clientSecret.trim().length > 0;
+    }
+    // custom
+    if (!slugValid || wizard.displayName.trim().length === 0) return false;
+    if (wizard.type === "api_key") {
+      return wizard.apiKeyLabel.trim().length > 0;
+    }
+    return (
+      wizard.authorizationUrl.trim().length > 0 &&
+      wizard.tokenUrl.trim().length > 0 &&
+      wizard.clientId.trim().length > 0 &&
+      wizard.clientSecret.trim().length > 0
+    );
+  })();
+
+  const customBasicsValid =
+    slugValid &&
+    wizard.providerSlug.trim().length > 0 &&
+    wizard.displayName.trim().length > 0;
+
+  const customEndpointsValid =
+    wizard.type === "api_key" ||
+    (wizard.authorizationUrl.trim().length > 0 && wizard.tokenUrl.trim().length > 0);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -205,15 +302,48 @@ export function Connectors() {
           )}
         </TabsContent>
 
-        <TabsContent value="add" className="mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((t) => (
-              <TemplateCard
-                key={t.slug}
-                template={t}
-                onClick={() => openWizardFromTemplate(t)}
-              />
-            ))}
+        <TabsContent value="add" className="mt-6 space-y-6">
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+              Connecteur custom
+            </h2>
+            <Card
+              className="cursor-pointer hover:border-primary transition-colors border-dashed"
+              onClick={openCustomWizard}
+              data-testid="connectors-template-custom"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Wrench className="h-4 w-4" />
+                    OAuth 2.0 / API Key custom
+                  </CardTitle>
+                  <Badge variant="outline">Avancé</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-xs">
+                  N'importe quelle API qui suit OAuth 2.0 (RFC 6749) ou un Bearer
+                  token / API key. Tu fournis les URLs d'authorize / token et les
+                  scopes — le serveur fait le reste.
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+              Templates pré-configurés
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {templates.map((t) => (
+                <TemplateCard
+                  key={t.slug}
+                  template={t}
+                  onClick={() => openWizardFromTemplate(t)}
+                />
+              ))}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
@@ -226,18 +356,172 @@ export function Connectors() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              Configurer {wizard.template?.displayName ?? "le connecteur"}
+              {wizard.mode === "custom"
+                ? "Connecteur custom"
+                : `Configurer ${wizard.template?.displayName ?? "le connecteur"}`}
             </DialogTitle>
             <DialogDescription>
-              {wizard.template?.type === "api_key"
-                ? "Le connecteur utilisera une clé API que chaque utilisateur fournira après la création."
-                : "Le connecteur OAuth nécessite un client_id et un client_secret obtenus auprès du fournisseur."}
+              {wizard.mode === "custom"
+                ? "Configure un connecteur OAuth 2.0 ou API key vers n'importe quel fournisseur."
+                : wizard.template?.type === "api_key"
+                  ? "Le connecteur utilisera une clé API que chaque utilisateur fournira après la création."
+                  : "Le connecteur OAuth nécessite un client_id et un client_secret obtenus auprès du fournisseur."}
             </DialogDescription>
           </DialogHeader>
 
-          {wizard.step === "details" && (
+          {/* ── Custom: basics step ──────────────────────────────────────── */}
+          {wizard.mode === "custom" && wizard.step === "basics" && (
             <div className="space-y-4 py-2">
-              <div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customType">Type</Label>
+                <Select
+                  value={wizard.type}
+                  onValueChange={(v) =>
+                    setWizard((w) => ({ ...w, type: v as ConnectorType }))
+                  }
+                >
+                  <SelectTrigger
+                    id="customType"
+                    data-testid="connectors-wizard-custom-type"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="oauth2">OAuth 2.0</SelectItem>
+                    <SelectItem value="api_key">API Key / Bearer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customSlug">Slug fournisseur</Label>
+                <Input
+                  id="customSlug"
+                  data-testid="connectors-wizard-custom-slug"
+                  placeholder="acme-crm"
+                  value={wizard.providerSlug}
+                  onChange={(e) =>
+                    setWizard((w) => ({
+                      ...w,
+                      providerSlug: e.target.value.toLowerCase(),
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Identifiant unique dans la company. Lettres minuscules, chiffres,
+                  tirets uniquement.
+                </p>
+                {wizard.providerSlug.length > 0 && !slugValid && (
+                  <p className="text-xs text-destructive mt-1">
+                    Slug invalide — pattern attendu : a-z, 0-9, tirets.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customDisplayName">Nom affiché</Label>
+                <Input
+                  id="customDisplayName"
+                  data-testid="connectors-wizard-display-name"
+                  placeholder="ACME CRM"
+                  value={wizard.displayName}
+                  onChange={(e) =>
+                    setWizard((w) => ({ ...w, displayName: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── Custom: endpoints step (oauth2 only) ─────────────────────── */}
+          {wizard.mode === "custom" &&
+            wizard.step === "endpoints" &&
+            wizard.type === "oauth2" && (
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="authorizationUrl">Authorization URL</Label>
+                  <Input
+                    id="authorizationUrl"
+                    data-testid="connectors-wizard-authorization-url"
+                    placeholder="https://provider.example.com/oauth/authorize"
+                    value={wizard.authorizationUrl}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, authorizationUrl: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tokenUrl">Token URL</Label>
+                  <Input
+                    id="tokenUrl"
+                    data-testid="connectors-wizard-token-url"
+                    placeholder="https://provider.example.com/oauth/token"
+                    value={wizard.tokenUrl}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, tokenUrl: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="userinfoUrl">Userinfo URL (optionnel)</Label>
+                  <Input
+                    id="userinfoUrl"
+                    data-testid="connectors-wizard-userinfo-url"
+                    placeholder="https://provider.example.com/api/me"
+                    value={wizard.userinfoUrl}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, userinfoUrl: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="redirectUri">Redirect URI (optionnel)</Label>
+                  <Input
+                    id="redirectUri"
+                    data-testid="connectors-wizard-redirect-uri"
+                    placeholder="laisser vide pour utiliser MNM_PUBLIC_URL"
+                    value={wizard.redirectUri}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, redirectUri: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="scopesText">Scopes</Label>
+                  <Input
+                    id="scopesText"
+                    data-testid="connectors-wizard-scopes"
+                    placeholder="read write offline_access"
+                    value={wizard.scopesText}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, scopesText: e.target.value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Séparés par espace ou virgule.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="refreshSupported">Supporte refresh_token</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Désactive si le fournisseur ne renvoie pas de refresh_token.
+                    </p>
+                  </div>
+                  <Switch
+                    id="refreshSupported"
+                    data-testid="connectors-wizard-refresh-supported"
+                    checked={wizard.refreshSupported}
+                    onCheckedChange={(v) =>
+                      setWizard((w) => ({ ...w, refreshSupported: v }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+          {/* ── Template: details step ──────────────────────────────────── */}
+          {wizard.mode === "template" && wizard.step === "details" && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="displayName">Nom affiché</Label>
                 <Input
                   id="displayName"
@@ -250,7 +534,7 @@ export function Connectors() {
               </div>
 
               {wizard.template?.type === "oauth2" && (
-                <div>
+                <div className="space-y-1.5">
                   <Label>Scopes recommandés</Label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {(wizard.template.scopes ?? []).map((scope) => {
@@ -278,7 +562,7 @@ export function Connectors() {
               )}
 
               {wizard.template?.type === "api_key" && (
-                <div>
+                <div className="space-y-1.5">
                   <Label htmlFor="apiKeyLabel">Libellé clé (env var)</Label>
                   <Input
                     id="apiKeyLabel"
@@ -293,44 +577,70 @@ export function Connectors() {
             </div>
           )}
 
-          {wizard.step === "credentials" && wizard.template?.type === "oauth2" && (
-            <div className="space-y-4 py-2">
-              <div>
-                <Label htmlFor="clientId">Client ID</Label>
-                <Input
-                  id="clientId"
-                  data-testid="connectors-wizard-client-id"
-                  value={wizard.clientId}
-                  onChange={(e) =>
-                    setWizard((w) => ({ ...w, clientId: e.target.value }))
-                  }
-                />
+          {/* ── Credentials step (shared template oauth + custom oauth) ──── */}
+          {wizard.step === "credentials" &&
+            ((wizard.mode === "template" && wizard.template?.type === "oauth2") ||
+              (wizard.mode === "custom" && wizard.type === "oauth2")) && (
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="clientId">Client ID</Label>
+                  <Input
+                    id="clientId"
+                    data-testid="connectors-wizard-client-id"
+                    value={wizard.clientId}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, clientId: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="clientSecret">Client Secret</Label>
+                  <Input
+                    id="clientSecret"
+                    data-testid="connectors-wizard-client-secret"
+                    type="password"
+                    value={wizard.clientSecret}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, clientSecret: e.target.value }))
+                    }
+                  />
+                </div>
+                {wizard.mode === "template" && wizard.template?.docsUrl && (
+                  <a
+                    href={wizard.template.docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:underline"
+                  >
+                    Configurer une OAuth app{" "}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </div>
-              <div>
-                <Label htmlFor="clientSecret">Client Secret</Label>
-                <Input
-                  id="clientSecret"
-                  data-testid="connectors-wizard-client-secret"
-                  type="password"
-                  value={wizard.clientSecret}
-                  onChange={(e) =>
-                    setWizard((w) => ({ ...w, clientSecret: e.target.value }))
-                  }
-                />
+            )}
+
+          {/* ── Custom api_key credentials step ─────────────────────────── */}
+          {wizard.mode === "custom" &&
+            wizard.step === "credentials" &&
+            wizard.type === "api_key" && (
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="apiKeyLabel">Libellé clé (env var)</Label>
+                  <Input
+                    id="apiKeyLabel"
+                    data-testid="connectors-wizard-api-key-label"
+                    placeholder="ACME_API_KEY"
+                    value={wizard.apiKeyLabel}
+                    onChange={(e) =>
+                      setWizard((w) => ({ ...w, apiKeyLabel: e.target.value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Étiquette affichée à l'utilisateur quand il fournira sa clé.
+                  </p>
+                </div>
               </div>
-              {wizard.template?.docsUrl && (
-                <a
-                  href={wizard.template.docsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:underline"
-                >
-                  Configurer une OAuth app{" "}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          )}
+            )}
 
           <DialogFooter>
             <Button
@@ -341,18 +651,55 @@ export function Connectors() {
               Annuler
             </Button>
 
-            {wizard.template?.type === "oauth2" && wizard.step === "details" && (
+            {/* Template oauth2 — details → credentials */}
+            {wizard.mode === "template" &&
+              wizard.template?.type === "oauth2" &&
+              wizard.step === "details" && (
+                <Button
+                  onClick={() => setWizard((w) => ({ ...w, step: "credentials" }))}
+                  data-testid="connectors-wizard-next"
+                  disabled={wizard.displayName.trim().length === 0}
+                >
+                  Suivant
+                </Button>
+              )}
+
+            {/* Custom — basics → (endpoints if oauth2, else credentials) */}
+            {wizard.mode === "custom" && wizard.step === "basics" && (
               <Button
-                onClick={() => setWizard((w) => ({ ...w, step: "credentials" }))}
+                onClick={() =>
+                  setWizard((w) => ({
+                    ...w,
+                    step: w.type === "oauth2" ? "endpoints" : "credentials",
+                  }))
+                }
                 data-testid="connectors-wizard-next"
-                disabled={wizard.displayName.trim().length === 0}
+                disabled={!customBasicsValid}
               >
                 Suivant
               </Button>
             )}
 
-            {(wizard.template?.type === "api_key" ||
-              (wizard.template?.type === "oauth2" && wizard.step === "credentials")) && (
+            {/* Custom — endpoints → credentials */}
+            {wizard.mode === "custom" && wizard.step === "endpoints" && (
+              <Button
+                onClick={() => setWizard((w) => ({ ...w, step: "credentials" }))}
+                data-testid="connectors-wizard-next-2"
+                disabled={!customEndpointsValid}
+              >
+                Suivant
+              </Button>
+            )}
+
+            {/* Final submit:
+                - template api_key (single step)
+                - template oauth2 on credentials
+                - custom on credentials */}
+            {((wizard.mode === "template" &&
+              (wizard.template?.type === "api_key" ||
+                (wizard.template?.type === "oauth2" &&
+                  wizard.step === "credentials"))) ||
+              (wizard.mode === "custom" && wizard.step === "credentials")) && (
               <Button
                 onClick={submitWizard}
                 disabled={!canSubmitWizard || createMutation.isPending}

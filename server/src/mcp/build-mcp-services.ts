@@ -36,6 +36,10 @@ import { threadInteractionsService } from "../services/thread-interactions.js";
 // CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
 // + T8.2: createResolveGitProvider preference path via getUserToken("gitlab")
 import { connectorService, ConnectorError } from "../services/connectors.js";
+// WORKFLOW-HOOKS T2.7 wire — service constructor for governed-workflows DI
+import { workflowHooksService } from "../services/workflow-hooks.js";
+// WORKFLOW-ASSIGNMENTS T3.3 wire — step-assignment snapshot service.
+import { governedWorkflowsAssignmentsService } from "../services/governed-workflows-assignments.js";
 import type { McpServices } from "./registry/types.js";
 
 /**
@@ -509,6 +513,43 @@ export function buildMcpServices(db: Db): McpServices {
   const traces = traceService(db);
   const heartbeat = heartbeatService(db);
 
+  // WORKFLOW-HOOKS T2.6/T2.7 service. Hoisted so both the orchestrator
+  // (via governedWorkflowService deps) and the MCP tools / REST routes
+  // (via services.workflowHooks) share a single instance — single
+  // enforced-cache, single connectorService reference, no duplicate
+  // wiring. The connector service is constructed once here and reused
+  // both as `services.connectors` and inside workflowHooks.
+  const connectors = connectorService(db);
+  // WORKFLOW-ASSIGNMENTS T3.3 wire. Hoisted so both the orchestrator and
+  // the future REST/MCP `list_my_pending_work` consumers (T3.4) share the
+  // same instance.
+  const workflowAssignments = governedWorkflowsAssignmentsService(db);
+
+  const workflowHooks = workflowHooksService(db, {
+    connectors,
+    resolveGitProvider: (args) =>
+      resolveGitProvider({ companyId: args.companyId, userId: args.userId }),
+    llm: {
+      // V0 stub: hooks LLM calls throw a clear error until we wire a
+      // real Anthropic provider. Budget is unbounded (null) to keep
+      // the pre-flight check disabled.
+      invoke: async () => {
+        throw new Error(
+          "LLM helper not configured for workflow hooks (V0); wire ANTHROPIC_API_KEY in build-mcp-services.ts",
+        );
+      },
+      estimateInputTokens: (req) =>
+        Math.ceil((req.prompt.length + (req.system?.length ?? 0)) / 4),
+      tokenBudgetRemaining: () => null,
+    },
+    providerCatalog: {
+      providers: {
+        jira: { baseUrl: "https://api.atlassian.com" },
+        clickup: { baseUrl: "https://api.clickup.com" },
+      },
+    },
+  });
+
   return {
     db,
     resolveGitProvider,
@@ -546,10 +587,23 @@ export function buildMcpServices(db: Db): McpServices {
         addObservation: traces.addObservation,
         completeTrace: traces.completeTrace,
       },
+      // WORKFLOW-HOOKS T2.7 wire — see workflowHooks below for the actual
+      // service constructor. This passes the SAME instance so MCP tools
+      // and the orchestrator share a single cache + connection pool.
+      workflowHooks,
+      // WORKFLOW-ASSIGNMENTS T3.3 wire — step-assignment snapshot service.
+      workflowAssignments,
     }),
     // PAPERCLIP-PHASE2: structured thread interactions
     threadInteractions: threadInteractionsService(db),
     // CONNECTORS-PLATFORM: hub OAuth user-level + api_key store
-    connectors: connectorService(db),
+    connectors,
+    // WORKFLOW-HOOKS T2.6 service + T2.8 MCP/REST consumers — exposed
+    // here so the MCP tools file (workflow-hooks.tool.ts) and the REST
+    // routes can reach it directly via `services.workflowHooks`.
+    workflowHooks,
+    // WORKFLOW-ASSIGNMENTS T3.4 — exposed for MCP `list_my_pending_work`
+    // and the REST `/inbox/pending-workflow-steps` route.
+    workflowAssignments,
   };
 }

@@ -6,9 +6,13 @@ import { sidebarBadgeService } from "../services/sidebar-badges.js";
 import { issueService } from "../services/issues.js";
 import { accessService } from "../services/access.js";
 import { dashboardService } from "../services/dashboard.js";
+import type { GovernedWorkflowsAssignmentsService } from "../services/governed-workflows-assignments.js";
 import { assertCompanyAccess } from "./authz.js";
 
-export function sidebarBadgeRoutes(db: Db) {
+export function sidebarBadgeRoutes(
+  db: Db,
+  assignments: GovernedWorkflowsAssignmentsService,
+) {
   const router = Router();
   const svc = sidebarBadgeService(db);
   const issueSvc = issueService(db);
@@ -31,7 +35,18 @@ export function sidebarBadgeRoutes(db: Db) {
       canApproveJoins = await access.hasPermission(companyId, "agent", req.actor.agentId, "joins:approve");
     }
 
-    const [joinRequestCount, dismissedRows] = await Promise.all([
+    // T3.5 — pending workflow-step assignments for the current principal
+    // (board user or agent JWT). The aggregate `inbox` total below already
+    // factors this in via sidebarBadgeService.get(). When no principal id
+    // can be resolved (rare — instance-admin without a userId), fall back
+    // to 0 so the badge degrades gracefully instead of leaking another
+    // user's count.
+    const principalId = req.actor.userId ?? req.actor.agentId ?? null;
+    const pendingWorkflowStepsPromise = principalId
+      ? assignments.countPendingWorkFor({ companyId, principalId })
+      : Promise.resolve(0);
+
+    const [joinRequestCount, dismissedRows, pendingWorkflowSteps] = await Promise.all([
       canApproveJoins
         ? db
           .select({ count: sql<number>`count(*)` })
@@ -45,11 +60,16 @@ export function sidebarBadgeRoutes(db: Db) {
           .from(inboxDismissals)
           .where(and(eq(inboxDismissals.companyId, companyId), eq(inboxDismissals.userId, userId)))
         : Promise.resolve([]),
+      pendingWorkflowStepsPromise,
     ]);
 
     const dismissed = new Set(dismissedRows.map((r) => r.itemKey));
 
-    const badges = await svc.get(companyId, { joinRequests: joinRequestCount, dismissed });
+    const badges = await svc.get(companyId, {
+      joinRequests: joinRequestCount,
+      dismissed,
+      pendingWorkflowSteps,
+    });
     const [summary, staleIds] = await Promise.all([
       dashboard.summary(companyId),
       issueSvc.staleIds(companyId, 24 * 60),
@@ -61,7 +81,13 @@ export function sidebarBadgeRoutes(db: Db) {
       (summary.agents.error > 0 && !hasFailedRuns && !dismissed.has("alert:agent-errors") ? 1 : 0) +
       (summary.costs.monthBudgetCents > 0 && summary.costs.monthUtilizationPercent >= 80 && !dismissed.has("alert:budget") ? 1 : 0);
 
-    badges.inbox = badges.failedRuns + alertsCount + staleIssueCount + joinRequestCount + badges.approvals;
+    badges.inbox =
+      badges.failedRuns +
+      alertsCount +
+      staleIssueCount +
+      joinRequestCount +
+      badges.approvals +
+      badges.pendingWorkflowSteps;
 
     res.json(badges);
   });

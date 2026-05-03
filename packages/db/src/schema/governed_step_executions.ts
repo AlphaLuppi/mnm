@@ -6,6 +6,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { AuditActorType } from "@mnm/shared";
 import { companies } from "./companies.js";
@@ -36,6 +37,12 @@ export const governedStepExecutions = pgTable(
     launchedByActorType: text("launched_by_actor_type").$type<AuditActorType>(),
     launchedByActorId: text("launched_by_actor_id"),
     heartbeatRunId: uuid("heartbeat_run_id").references(() => heartbeatRuns.id, { onDelete: "set null" }),
+    // WORKFLOW-COMPOSITE T5.1 — meta-workflow `uses:` linking columns. NULL
+    // for non-composite (leaf agent) steps. See migration 0083 header for
+    // semantics + cap-the-fanout rationale.
+    parentStepExecutionId: uuid("parent_step_execution_id").references((): AnyPgColumn => governedStepExecutions.id, { onDelete: "set null" }),
+    compositeRunId: uuid("composite_run_id").references(() => governedWorkflowRuns.id, { onDelete: "set null" }),
+    rootRunId: uuid("root_run_id").references(() => governedWorkflowRuns.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -46,5 +53,7 @@ export const governedStepExecutions = pgTable(
       .on(table.runId, table.state),
     heartbeatRunIdx: index("governed_step_executions_heartbeat_run_id_idx")
       .on(table.heartbeatRunId),
+    rootRunIdx: index("governed_step_executions_root_run_idx")
+      .on(table.companyId, table.rootRunId),
   }),
 );

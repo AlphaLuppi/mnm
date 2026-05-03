@@ -96,6 +96,11 @@ export { oauthRefreshTokens } from "./oauth-refresh-tokens.js";
 export { governedWorkflowDefinitions } from "./governed_workflow_definitions.js";
 export { governedWorkflowRuns, GOVERNED_RUN_STATUSES, type GovernedRunStatus, type GovernedRunRecoveryPolicy } from "./governed_workflow_runs.js";
 export { governedStepExecutions, GOVERNED_STEP_STATES, type GovernedStepState } from "./governed_step_executions.js";
+export {
+  governedStepAssignments,
+  type GovernedStepAssignmentRow,
+  type NewGovernedStepAssignment,
+} from "./governed_step_assignments.js";
 export { gateResults } from "./gate_results.js";
 // PHASE-3 (#4297): BETA Environments + lease lifecycle
 export {
@@ -135,3 +140,39 @@ export { oauthConnectors } from "./oauth_connectors.js";
 export { connectorTokens } from "./connector_tokens.js";
 export { userApiKeys } from "./user_api_keys.js";
 export { oauthConnectorsAudit } from "./oauth_connectors_audit.js";
+// WORKFLOW-HOOKS: per-company hook configs + 3-tier sharing + admin audit + runtime audit
+export { workflowHooksConfig } from "./workflow_hooks_config.js";
+export type {
+  WorkflowHookConfigRow,
+  NewWorkflowHookConfig,
+} from "./workflow_hooks_config.js";
+export { workflowHooksConfigTags } from "./workflow_hooks_config_tags.js";
+export type {
+  WorkflowHookConfigTagRow,
+  NewWorkflowHookConfigTag,
+} from "./workflow_hooks_config_tags.js";
+export { workflowHooksConfigPrincipals } from "./workflow_hooks_config_principals.js";
+export type {
+  WorkflowHookConfigPrincipalRow,
+  NewWorkflowHookConfigPrincipal,
+} from "./workflow_hooks_config_principals.js";
+export {
+  workflowHooksConfigAudit,
+  WORKFLOW_HOOK_CONFIG_AUDIT_ACTIONS,
+} from "./workflow_hooks_config_audit.js";
+export type {
+  WorkflowHookConfigAuditRow,
+  NewWorkflowHookConfigAudit,
+  WorkflowHookConfigAuditAction,
+} from "./workflow_hooks_config_audit.js";
+export {
+  workflowHookExecutions,
+  WORKFLOW_HOOK_PHASES,
+  WORKFLOW_HOOK_EXECUTION_STATUSES,
+} from "./workflow_hook_executions.js";
+export type {
+  WorkflowHookExecutionRow,
+  NewWorkflowHookExecution,
+  WorkflowHookPhase,
+  WorkflowHookExecutionStatus,
+} from "./workflow_hook_executions.js";

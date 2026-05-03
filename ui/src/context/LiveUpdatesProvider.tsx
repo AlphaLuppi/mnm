@@ -705,6 +705,53 @@ function handleLiveEvent(
     });
     return;
   }
+
+  // WORKFLOW-ASSIGNMENTS T3.5 — a new step was assigned to the current
+  // principal. The server already filtered visibility to `actor-only` so
+  // by the time the event lands here it concerns "us". Refresh the
+  // sidebar badge + the inbox feed query so the new card slides in
+  // without polling.
+  if (event.type === "step.assignment.created") {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.sidebarBadges(expectedCompanyId),
+    });
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey as unknown[];
+        return (
+          key[0] === "governed-workflows" &&
+          key[1] === "pending-work" &&
+          key[2] === expectedCompanyId
+        );
+      },
+    });
+    return;
+  }
+
+  // WORKFLOW-HOOKS T2.9 — hook config created/updated/deleted. Server emits
+  // with proper visibility filtering already applied (private → actor-only,
+  // tags/principals → tag-filtered, company → company-wide), so the UI only
+  // has to invalidate the relevant cache keys + dispatch a DOM event for
+  // pages that want a fine-grained reaction.
+  if (event.type === "hook.config.updated") {
+    const configId = readString(payload.configId);
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.hooks.list(expectedCompanyId),
+    });
+    if (configId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.hooks.detail(expectedCompanyId, configId),
+      });
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("hook_config_updated", {
+          detail: { companyId: expectedCompanyId, configId },
+        }),
+      );
+    }
+    return;
+  }
 }
 
 export function LiveUpdatesProvider({ children }: { children: ReactNode }) {

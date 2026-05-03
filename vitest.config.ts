@@ -7,6 +7,8 @@ export default defineConfig({
       "packages/governed-workflows",
       "packages/git-provider",
       "packages/gate-runner",
+      "packages/isolate-runtime",
+      "packages/workflow-hooks",
       "packages/execution-target",
       "packages/adapters/opencode-local",
       "server",
