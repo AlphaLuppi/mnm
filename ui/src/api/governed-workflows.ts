@@ -265,6 +265,17 @@ export const governedWorkflowsApi = {
   },
 
   /**
+   * T5.3 — composite sub-run drill-down. Fetch a run by id alone (no
+   * workflow name required). Used by `RunArtifactsTree` to lazy-load the
+   * children of a composite step. Tenant-scoped server-side.
+   */
+  getRunStepsById(companyId: string, runId: string) {
+    return api.get<RunWithSteps>(
+      `${BASE(companyId)}/runs/${encodeURIComponent(runId)}/steps`,
+    );
+  },
+
+  /**
    * Launch a new run for a workflow.
    */
   launchRun(

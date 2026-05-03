@@ -134,6 +134,19 @@ function StepCard({
           <CardTitle className="text-sm font-semibold">
             {index + 1}. {step.stepIdInJson}
           </CardTitle>
+          {step.compositeRunId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="text-xs">
+                  composite
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                Cette étape lance un sous-workflow (sub-run {step.compositeRunId.slice(0, 8)}…).
+                Cliquer pour explorer l'arbre.
+              </TooltipContent>
+            </Tooltip>
+          )}
           {isCancelled ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -257,6 +270,7 @@ function ReviewLayout({
   onSelect,
   onExitReview,
   buildBlobUrl,
+  loadSubRun,
 }: {
   steps: StepWithGates[];
   selectedStep: string | null;
@@ -264,6 +278,7 @@ function ReviewLayout({
   onSelect: (stepName: string, output: OutputPersisted) => void;
   onExitReview: () => void;
   buildBlobUrl?: (output: Extract<OutputPersisted, { kind: "git_file" }>) => string | null;
+  loadSubRun?: (parentStep: StepWithGates) => Promise<StepWithGates[]>;
 }) {
   // Resolve the selected output by walking the step list.
   const targetStep = steps.find((s) => s.stepIdInJson === selectedStep);
@@ -299,6 +314,7 @@ function ReviewLayout({
                 : null
             }
             onSelect={onSelect}
+            loadSubRun={loadSubRun}
           />
         </CardContent>
       </Card>
@@ -371,6 +387,25 @@ export function GovernedWorkflowRunDetail() {
         name,
       )}/runs/${runId}/artifacts/blob?path=${encodeURIComponent(output.path)}`;
   }, [selectedCompanyId, name, runId]);
+
+  /**
+   * T5.3 — composite sub-run drill-down. Resolves a parent step's
+   * `compositeRunId` to the sub-run's full step list. Returns [] when the
+   * step has no compositeRunId yet (the user expanded a composite step
+   * whose sub-run has not been launched). Errors are surfaced through the
+   * RunArtifactsTree's local `loadError` UI state.
+   */
+  const loadSubRun = useMemo(() => {
+    if (!selectedCompanyId) return undefined;
+    return async (parentStep: StepWithGates): Promise<StepWithGates[]> => {
+      if (!parentStep.compositeRunId) return [];
+      const sub = await governedWorkflowsApi.getRunStepsById(
+        selectedCompanyId,
+        parentStep.compositeRunId,
+      );
+      return sub.steps;
+    };
+  }, [selectedCompanyId]);
 
   if (isLoading) return <PageSkeleton variant="detail" />;
 
@@ -481,6 +516,7 @@ export function GovernedWorkflowRunDetail() {
             });
           }}
           buildBlobUrl={buildBlobUrl}
+          loadSubRun={loadSubRun}
         />
       ) : (
         <>
@@ -496,6 +532,7 @@ export function GovernedWorkflowRunDetail() {
               <CardContent className="px-4 py-3">
                 <RunArtifactsTree
                   steps={steps}
+                  loadSubRun={loadSubRun}
                   onSelect={(stepName) => {
                     const anchor = document.getElementById(
                       `step-${encodeURIComponent(stepName)}`,

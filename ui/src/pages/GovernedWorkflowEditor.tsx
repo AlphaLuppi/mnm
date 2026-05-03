@@ -55,7 +55,7 @@ const DEFAULT_DEFINITION = JSON.stringify(
     name: "my-workflow",
     description: "",
     variables: {},
-    steps: [{ id: "step-1", deps: [], agent: "my-agent", prompt_context: {} }],
+    steps: [{ id: "step-1", type: "agent", deps: [], agent: "my-agent", prompt_context: {} }],
   } satisfies WorkflowDefinition,
   null,
   2,

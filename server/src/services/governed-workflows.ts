@@ -20,6 +20,11 @@ import {
   type GateBlock,
   type HookBlock,
 } from "@mnm/governed-workflows";
+import {
+  launchCompositeStep,
+  completeCompositeStep,
+  parseCompositeUses,
+} from "./governed-workflows-composite.js";
 import type {
   HookContext as WorkflowHookCtx,
   HookEvaluationResult,
@@ -244,11 +249,14 @@ export interface LaunchStepArgs {
 }
 
 export interface LaunchStepResult {
-  agentName: string;
-  promptContext: Record<string, unknown>;
-  subagentType: string;
-  handoffs: Handoff[];
-  runBranch: string;
+  // ── agent-step branch (existing) — fields are populated when the step's
+  //    type is "agent" (default). The harness dispatches subagentType and
+  //    consumes promptContext + handoffs.
+  agentName?: string;
+  promptContext?: Record<string, unknown>;
+  subagentType?: string;
+  handoffs?: Handoff[];
+  runBranch?: string;
   /**
    * Set when the step's exit gates include the canonical
    * session-file-bundled gate. The harness MUST resolve the path_template
@@ -256,6 +264,19 @@ export interface LaunchStepResult {
    * .jsonl into artifact.data.session_file at completeStep.
    */
   sessionCapture?: import("./session-bundle/index.js").SessionCaptureConfig;
+  // ── composite-step branch (T5.3) — populated when the step's type is
+  //    "composite". The harness should treat the sub-run as the next launch
+  //    target: navigate to it and call launchStep on its `firstStep`. There
+  //    is no agent to dispatch on the parent run for this step.
+  composite?: {
+    subRunId: string;
+    rootRunId: string;
+    /** First step of the sub-workflow (the entry into the DAG). */
+    firstStep: string;
+    /** Sub-workflow git tag/sha (pinned at expansion time). */
+    subWorkflowGitTag: string;
+    subWorkflowGitSha: string;
+  };
 }
 
 export interface CompleteStepArgs {
@@ -1248,22 +1269,109 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
       }
     }
 
+    // ── T5.3 — composite branch: expand the step into a sub-run ────────
+    // Composite steps don't dispatch an agent — they launch a sub-run of
+    // another workflow. The harness then drives the sub-run as if it were
+    // a brand-new top-level run (calling launchStep on the sub-run's
+    // firstStep). The parent step row stays in `running` state until
+    // completeStep is called on it (after the sub-run completes).
+    if (step.type === "composite") {
+      if (!step.uses) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_USES_INVALID,
+          `composite step '${args.stepId}' is missing uses:`,
+        );
+      }
+      const { name: subName, ref: subRef } = parseCompositeUses(step.uses);
+      const subParsed = await getWorkflowParsed({
+        companyId: args.companyId,
+        name: subName,
+        gitTag: subRef,
+        userId: args.actor.type === "user" ? args.actor.id : null,
+      });
+      const subDef = await getDefinition({ companyId: args.companyId, name: subName });
+      if (!subDef) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_COMPOSITE_USES_NOT_FOUND,
+          `composite step '${args.stepId}' references unknown workflow '${step.uses}'`,
+        );
+      }
+      const subFirstStep = subParsed.workflow.steps.find((s) => s.deps.length === 0);
+      if (!subFirstStep) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.WORKFLOW_NOT_FOUND,
+          `Sub-workflow '${subName}' has no step with empty deps — cannot expand composite`,
+        );
+      }
+
+      // Mark parent composite step running before launching sub-run so
+      // observers see the transition, not a stale "pending".
+      await db
+        .update(governedStepExecutions)
+        .set({
+          state: "running",
+          startedAt: new Date(),
+          launchedByActorType: args.actor.type,
+          launchedByActorId: args.actor.id,
+        })
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+      const [parentStepRow] = await db
+        .select({ id: governedStepExecutions.id })
+        .from(governedStepExecutions)
+        .where(
+          and(
+            eq(governedStepExecutions.runId, args.runId),
+            eq(governedStepExecutions.stepIdInJson, args.stepId),
+          ),
+        );
+
+      const launched = await launchCompositeStep(db, {
+        parentStepExecutionId: parentStepRow.id,
+        parentRunId: args.runId,
+        subWorkflow: subParsed.workflow,
+        subWorkflowGitTag: subParsed.gitTag,
+        subWorkflowGitSha: subParsed.gitSha,
+        subWorkflowDefId: subDef.id,
+        params: (step.params ?? {}) as Record<string, unknown>,
+        actor: args.actor,
+        companyId: args.companyId,
+      });
+
+      publishLiveEvent({
+        companyId: args.companyId,
+        type: "step.composite.launched",
+        payload: {
+          run_id: args.runId,
+          step_id: args.stepId,
+          step_execution_id: parentStepRow.id,
+          sub_run_id: launched.subRunId,
+          root_run_id: launched.rootRunId,
+          sub_workflow_name: subName,
+          sub_workflow_git_tag: subParsed.gitTag,
+        },
+        visibility: { scope: "company-wide" },
+      });
+
+      return {
+        composite: {
+          subRunId: launched.subRunId,
+          rootRunId: launched.rootRunId,
+          firstStep: subFirstStep.id,
+          subWorkflowGitTag: subParsed.gitTag,
+          subWorkflowGitSha: subParsed.gitSha,
+        },
+      };
+    }
     // ── T6 self-correction: detect stale local agents ──────────────────
     // Every agent step references exactly one agent (step.agent). Compare
     // its canonical sha against what the harness reports in currentAgents.
     // Mismatch -> short-circuit with AGENTS_STALE; harness writes the
     // updated content and retries.
-    //
-    // T5.1: skip the entire agent-specific block when step.type === "composite".
-    // Composite steps don't have an `agent` — they expand into a sub-run
-    // (handled in T5.3 launchStep wiring). Until then, refuse so the harness
-    // gets a clear "not yet implemented" rather than a confusing AGENTS_STALE.
-    if (step.type === "composite") {
-      throw new GovernedWorkflowError(
-        WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
-        `step '${args.stepId}' is type=composite — wired in T5.3, not yet executable`,
-      );
-    }
     // After this guard, step.agent is guaranteed defined (Zod superRefine
     // enforces it for type=agent).
     if (args.currentAgents !== undefined) {
@@ -1931,6 +2039,117 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
           WORKFLOW_ERROR_CODES.WORKFLOW_STEP_NOT_FOUND,
           `Step '${args.stepId}' not in workflow`,
         );
+      }
+
+      // ── T5.3 — composite branch: consume the sub-run's final outputs ────
+      // The parent composite step has no agent and never persists a fresh
+      // artifact via commitHandoffArtifacts. Instead we copy the LAST step's
+      // artifactsJson from the sub-run (captures the workflow's terminal
+      // output) and mark the parent step succeeded.
+      //
+      // This branch deliberately runs BEFORE the agent-step path (gates,
+      // hooks, git commit) — none of those apply to a composite parent.
+      if (step.type === "composite") {
+        if (!stepExec.compositeRunId) {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+            `composite step '${args.stepId}' has no sub-run yet (launchStep was not called or failed)`,
+          );
+        }
+        // Read every step in the sub-run; refuse if any is not yet succeeded.
+        const subSteps = await tx
+          .select({
+            stepIdInJson: governedStepExecutions.stepIdInJson,
+            state: governedStepExecutions.state,
+            artifactsJson: governedStepExecutions.artifactsJson,
+            createdAt: governedStepExecutions.createdAt,
+          })
+          .from(governedStepExecutions)
+          .where(
+            and(
+              eq(governedStepExecutions.runId, stepExec.compositeRunId),
+              eq(governedStepExecutions.companyId, args.companyId),
+            ),
+          )
+          .orderBy(governedStepExecutions.createdAt);
+        if (subSteps.length === 0) {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+            `composite sub-run for '${args.stepId}' has no steps`,
+          );
+        }
+        const notSucceeded = subSteps.filter((s) => s.state !== "succeeded");
+        if (notSucceeded.length > 0) {
+          throw new GovernedWorkflowError(
+            WORKFLOW_ERROR_CODES.WORKFLOW_DEPENDENCY_UNMET,
+            `cannot complete composite step '${args.stepId}': sub-run has ${notSucceeded.length} step(s) not yet succeeded`,
+            [
+              `Pending sub-steps: ${notSucceeded.map((s) => s.stepIdInJson).join(", ")}`,
+              "Run the sub-run to completion before completing the parent composite step.",
+            ],
+          );
+        }
+        const finalLeaf = subSteps[subSteps.length - 1];
+        const finalOutputs = (finalLeaf.artifactsJson ?? {}) as Record<string, unknown>;
+        await completeCompositeStep(tx as unknown as Db, {
+          parentStepExecutionId: stepExec.id,
+          finalOutputs,
+        });
+        // Bump run's last_useful_action_at so the liveness watchdog accounts
+        // for this composite step closure as forward progress.
+        const stepCompletedAt = new Date();
+        await tx
+          .update(governedWorkflowRuns)
+          .set({
+            lastUsefulActionAt: stepCompletedAt,
+            nextActionHint: `composite step '${args.stepId}' completed`,
+            updatedAt: stepCompletedAt,
+          })
+          .where(eq(governedWorkflowRuns.id, args.runId));
+
+        publishLiveEvent({
+          companyId: args.companyId,
+          type: "step.composite.completed",
+          payload: {
+            run_id: args.runId,
+            step_id: args.stepId,
+            step_execution_id: stepExec.id,
+            sub_run_id: stepExec.compositeRunId,
+          },
+          visibility: { scope: "company-wide" },
+        });
+        emitStepUpdated({
+          publish: publishLiveEvent,
+          companyId: args.companyId,
+          runId: args.runId,
+          stepExecId: stepExec.id,
+        });
+
+        // Mirror the agent path's allDone check so a composite step that is
+        // the LAST step of its parent run still flips the run to "completed".
+        // Skip the git mergeRunBranch / after_run capture — those are agent-
+        // step concerns. If the composite was the last step, the harness
+        // will see runStatus="completed" and stop.
+        const pending = await tx
+          .select({ count: sql<number>`count(*)::int` })
+          .from(governedStepExecutions)
+          .where(
+            and(
+              eq(governedStepExecutions.runId, args.runId),
+              sql`state != 'succeeded'`,
+            ),
+          );
+        const allDone = pending[0]!.count === 0;
+        if (allDone) {
+          await tx
+            .update(governedWorkflowRuns)
+            .set({ status: "completed", completedAt: stepCompletedAt })
+            .where(eq(governedWorkflowRuns.id, args.runId));
+        }
+        return {
+          stepState: "succeeded" as const,
+          runStatus: allDone ? ("completed" as const) : ("active" as const),
+        };
       }
 
       // Resolve commit author and git provider, then commit inline outputs to Git

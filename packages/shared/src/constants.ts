@@ -318,6 +318,15 @@ export const LIVE_EVENT_TYPES = [
   // principal sees a pulsing badge in real time. Visibility = private to
   // the principal that just got assigned (T3.3.4).
   "step.assignment.created",
+  // WORKFLOW-COMPOSITE T5.3 — fire when a composite step launches its
+  // sub-run (step.composite.launched) and again when the sub-run completes
+  // and the parent step is marked succeeded (step.composite.completed).
+  // Frontend consumers invalidate `queryKeys.governedWorkflows.runDetail`
+  // for the affected run so the composite badge + sub-run breadcrumb
+  // refresh in real time. Visibility = company-wide (run details respect
+  // run-level RBAC; nothing user-private).
+  "step.composite.launched",
+  "step.composite.completed",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

@@ -937,8 +937,30 @@ export const parityData: ParityData = {
             tests: [
               "Playwright browser test: complete a step with a markdown output → click from Inbox → verify 2-col layout + Copy permalink (T6).",
             ],
+          },
+        },
+        {
+          id: "composite-workflows",
+          name: "Composite workflows (T5 — meta-workflow `uses:`)",
+          description:
+            "A workflow step can be `type: 'composite'` and reference another workflow via `uses: workflows/<name>@<ref>`. At launchStep, the orchestrator expands the composite step into a brand-new sub-run (governedWorkflowsCompositeService.launchCompositeStep) linking the parent step row via parent_step_execution_id + composite_run_id and propagating root_run_id for fan-out cap (1000 step_executions per chain). Cycle detection runs at launchRun via static DFS; depth guard at 32. completeStep on a composite step copies the sub-run's terminal artifact into the parent's artifactsJson once every sub-step has succeeded. Migration 0083 adds the 3 columns + partial index governed_step_executions_root_run_idx. SSE events step.composite.launched / step.composite.completed invalidate runDetail. New REST endpoint GET /governed-workflows/runs/:runId/steps for sub-run drill-down.",
+          web: {
+            status: "done",
+            since: "2026-05-03",
             notes:
-              "Composite sub-run lazy-loading is wired but a no-op until T5 (`uses:` meta-workflow) lands the composite_run_id schema column.",
+              "T5.1 → T5.3 shipped. RunArtifactsTree now lazy-loads sub-run children via governedWorkflowsApi.getRunStepsById. StepCard shows a 'composite' badge when compositeRunId is set. Run detail page wires loadSubRun in both review (2-col) and overview modes.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure server feature + UI changes reused via the desktop wrapper webview; no IPC required.",
+          },
+          todo: {
+            tests: [
+              "E2E Playwright (T6): launch a composite workflow with depth=2, verify the parent step shows the badge, expand the tree, verify drill-down fetches the sub-run.",
+            ],
+            notes:
+              "Documentation under docs/governed-workflows/composite.md is queued for T6.",
           },
         },
         {
