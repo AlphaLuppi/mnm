@@ -277,10 +277,16 @@ interface SuccArtifactRow {
  * Visited set on `runId` guards against pathological cases (a sub-run
  * being referenced from two different parents — shouldn't happen, but
  * cheap defence).
+ *
+ * Multi-tenant: every BFS query is scoped by `companyId`. Defense-in-depth
+ * against BYPASSRLS connections — if a stale `compositeRunId` ever pointed
+ * at a run in another tenant, the WHERE clause silently returns no rows and
+ * the BFS does not descend further (cf. SEC P4).
  */
 export async function fetchSucceededArtifactsRecursive(
   db: Db,
   rootRunId: string,
+  companyId: string,
 ): Promise<Record<string, unknown>> {
   const visited = new Set<string>();
   const queue: string[] = [rootRunId];
@@ -301,6 +307,7 @@ export async function fetchSucceededArtifactsRecursive(
       .where(
         and(
           eq(governedStepExecutions.runId, runId),
+          eq(governedStepExecutions.companyId, companyId),
           sql`${governedStepExecutions.state} = 'succeeded'`,
         ),
       ) as SuccArtifactRow[];
@@ -312,7 +319,18 @@ export async function fetchSucceededArtifactsRecursive(
         out[r.stepId] = r.artifacts;
       }
       if (r.compositeRunId && !visited.has(r.compositeRunId)) {
-        queue.push(r.compositeRunId);
+        // Defense in depth: confirm the child run belongs to the same
+        // tenant before descending. A mis-stamped compositeRunId pointing
+        // at another tenant's run would be silently filtered by the
+        // companyId predicate above too, but stopping the BFS here means
+        // we don't even enqueue it.
+        const [childRun] = await db
+          .select({ companyId: governedWorkflowRuns.companyId })
+          .from(governedWorkflowRuns)
+          .where(eq(governedWorkflowRuns.id, r.compositeRunId));
+        if (childRun && childRun.companyId === companyId) {
+          queue.push(r.compositeRunId);
+        }
       }
     }
   }
@@ -367,15 +385,24 @@ export async function launchCompositeStep(
   }
   const rootRunId = parentStep.rootRunId ?? parentStep.runId;
 
-  // Fan-out cap check (runtime — every launchCompositeStep counts).
-  await enforceFanoutCap({
-    db,
-    companyId: args.companyId,
-    rootRunId,
-    cap: COMPOSITE_FANOUT_CAP,
-  });
-
   return await db.transaction(async (tx) => {
+    // SEC P4 (HIGH #4) — TOCTOU race: COUNT must be inside the same
+    // transaction as the INSERTs, otherwise concurrent launchCompositeStep
+    // calls can both read N < cap and both insert K rows for a final size
+    // of N + 2K. We serialise with a per-root-run advisory lock so only
+    // one expansion proceeds at a time, then re-count under the lock.
+    // Lock key namespace mirrors `mnm:launch:<def_id>` in launchWorkflow.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${"mnm:composite-fanout:" + rootRunId}))`,
+    );
+
+    await enforceFanoutCap({
+      db: tx as unknown as Db,
+      companyId: args.companyId,
+      rootRunId,
+      cap: COMPOSITE_FANOUT_CAP,
+    });
+
     const launchedAt = new Date();
     const [subRun] = await tx
       .insert(governedWorkflowRuns)

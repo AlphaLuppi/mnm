@@ -24,6 +24,7 @@ import {
   launchCompositeStep,
   completeCompositeStep,
   parseCompositeUses,
+  detectCycle,
 } from "./governed-workflows-composite.js";
 import type {
   HookContext as WorkflowHookCtx,
@@ -924,6 +925,35 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         `Workflow '${args.name}' has no step with empty deps — cannot launch`,
       );
     }
+
+    // SEC P4 (CRITICAL #1) — static cycle detection over the composite
+    // `uses:` graph. Refuses any workflow.json that closes a cycle (A→A or
+    // A→B→A) BEFORE we create sub-runs. No-op for leaf workflows with no
+    // composite steps. Resolver loads referenced sub-workflows via
+    // getWorkflowParsed at the same companyId.
+    await detectCycle({
+      workflow: parsed.workflow,
+      resolveWorkflow: async (ref) => {
+        const refMatch = /^workflows\/([^@]+)@(.+)$/.exec(ref);
+        if (!refMatch) return null;
+        const subName = refMatch[1];
+        const subRef = refMatch[2];
+        try {
+          const sub = await getWorkflowParsed({
+            companyId: args.companyId,
+            name: subName,
+            gitTag: subRef,
+            userId: args.actor.type === "user" ? args.actor.id : null,
+          });
+          return sub.workflow;
+        } catch {
+          // Resolver returns null on any lookup failure — detectCycle then
+          // throws WORKFLOW_COMPOSITE_USES_NOT_FOUND for unknown sub-workflows
+          // (the contract we want for missing refs).
+          return null;
+        }
+      },
+    });
 
     return await db.transaction(async (tx) => {
       // Advisory lock: disambiguate namespace with a prefix so we don't
