@@ -171,32 +171,61 @@ CREATE INDEX IF NOT EXISTS "user_mcp_credentials_expiring_idx" ON "user_mcp_cred
 
 ALTER TABLE "config_layers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "config_layers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "config_layers";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "config_layers" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 ALTER TABLE "config_layer_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "config_layer_items" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "config_layer_items";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "config_layer_items" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 ALTER TABLE "config_layer_files" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "config_layer_files" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "config_layer_files";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "config_layer_files" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 ALTER TABLE "config_layer_revisions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "config_layer_revisions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "config_layer_revisions";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "config_layer_revisions" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
 ALTER TABLE "agent_config_layers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "agent_config_layers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "agent_config_layers";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "agent_config_layers" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
 
-ALTER TABLE "workflow_template_stage_layers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "workflow_template_stage_layers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "workflow_template_stage_layers" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
+-- 2026-04-30 idempotency: workflow_template_stage_layers / workflow_stage_config_layers
+-- are created conditionally above (skipped post 0066_nuke_legacy_workflows). Wrap RLS
+-- enablement so the migration replays cleanly on a DB where the tables don't exist.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'workflow_template_stage_layers'
+  ) THEN
+    EXECUTE 'ALTER TABLE "workflow_template_stage_layers" ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'ALTER TABLE "workflow_template_stage_layers" FORCE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "tenant_isolation" ON "workflow_template_stage_layers"';
+    EXECUTE 'CREATE POLICY "tenant_isolation" ON "workflow_template_stage_layers" AS RESTRICTIVE FOR ALL USING (company_id = current_setting(''app.current_company_id'', true)::uuid)';
+  END IF;
+END
+$$;--> statement-breakpoint
 
-ALTER TABLE "workflow_stage_config_layers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "workflow_stage_config_layers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "workflow_stage_config_layers" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'workflow_stage_config_layers'
+  ) THEN
+    EXECUTE 'ALTER TABLE "workflow_stage_config_layers" ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'ALTER TABLE "workflow_stage_config_layers" FORCE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "tenant_isolation" ON "workflow_stage_config_layers"';
+    EXECUTE 'CREATE POLICY "tenant_isolation" ON "workflow_stage_config_layers" AS RESTRICTIVE FOR ALL USING (company_id = current_setting(''app.current_company_id'', true)::uuid)';
+  END IF;
+END
+$$;--> statement-breakpoint
 
 ALTER TABLE "user_mcp_credentials" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "user_mcp_credentials" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+DROP POLICY IF EXISTS "tenant_isolation" ON "user_mcp_credentials";--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "user_mcp_credentials" AS RESTRICTIVE FOR ALL USING (company_id = current_setting('app.current_company_id', true)::uuid);--> statement-breakpoint
