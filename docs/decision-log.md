@@ -163,7 +163,33 @@ Métadonnées en DB (`workflow_hooks_config`) : credential layer id, visibility 
 
 **Pourquoi vivant :** permet à n'importe quel self-hoster d'écrire ses hooks sans toucher au code MnM, tout en gardant la sandbox SaaS-safe. Cohérence avec les gates : même runner, mêmes helpers étendus, même resolution. Le tier 3 (enforced) est l'inflexion enterprise : DSI/sécurité impose un audit hook que personne ne peut désactiver, même les auteurs de workflow.
 
-**Code (à venir) :** `packages/workflow-hooks/`, `<workflow-repo>/hooks/`, `server/src/services/workflow-hooks.ts`. Spec : [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md).
+**Code (T2 + P4 livré 2026-05-02 → 2026-05-03) :** `packages/workflow-hooks/` (runner + 4 canonical hooks + resolver), `server/src/services/workflow-hooks.ts` (CRUD + executeHook + resolveHooksForStep wired aux 4 phases launch/complete), routes REST + 6 MCP tools, page UI `/hooks`, migration `0081_workflow_hooks.sql` (5 schemas Drizzle + RLS double-policy + perms seedées). Doc utilisateur : [`docs/governed-workflows/hooks.md`](governed-workflows/hooks.md). API `helpers.credential` **supprimée** (avait été initialement spec'd, retirée pour fermer le risque "credentials en clair côté isolate"). Plan : [`docs/superpowers/plans/2026-05-01-enterprise-pilot-foundation.md`](superpowers/plans/2026-05-01-enterprise-pilot-foundation.md).
+
+### 4.4.1 Workflow step assignments — inbox feed user-driven (T3 livré 2026-05-03)
+
+**Décision :** étendre le DSL d'un step avec un bloc `assignment: { tags?, principals?, roles? }`. Au launchWorkflow / launchStep, le resolver expand les 3 champs en principals concrets (intersection tags, expansion rôles dynamiques, principals explicites), snapshote les rows `governed_step_assignments` avec un `reason` audit (`tag-intersection` / `role-expansion` / `explicit` / `delta-launchStep`), et émet `step.assignment.created` (visibility actor-only) pour invalider l'Inbox SSE — zero polling.
+
+**Pourquoi vivant :** la délégation par tags découple le `workflow.json` de la composition de l'équipe (un nouveau membre tagué `produit` voit immédiatement les steps "produit" dans son Inbox sans toucher un seul workflow). C'est la même logique que la 3-tier visibility §1.6, appliquée à l'assignment.
+
+**Code :** migration `0082_workflow_step_assignments.sql`, `server/src/services/governed-workflows-assignments.ts`, REST `GET /inbox/pending-workflow-steps` + MCP `list_my_pending_work` (snake_case parité), Inbox UI section + sidebar badge `pendingWorkflowSteps`. Doc utilisateur : [`docs/governed-workflows/assignments.md`](governed-workflows/assignments.md).
+
+### 4.4.2 Composite workflows — `type: composite` + `uses:` (T5 livré 2026-05-03)
+
+**Décision :** un step peut être `type: "composite"` avec `uses: "workflows/<name>@<ref>"` au lieu d'un agent. Au runtime, le runner expand le step en un sub-run lifté à part entière (`parent_step_execution_id` + `composite_run_id` + `root_run_id` propagé). L'artifact terminal du sub-run est copié dans l'artifact du step composite parent à completeStep ; le DAG parent continue normalement.
+
+**Garde-fous :** cycle detection statique (DFS) au launchRun + re-vérif au launchCompositeStep, depth max 32, fan-out cap 1000 step_executions par `root_run_id`. Échecs avec error_codes dédiés (`WORKFLOW_COMPOSITE_CYCLE`, `WORKFLOW_COMPOSITE_DEPTH_EXCEEDED`, `WORKFLOW_COMPOSITE_FANOUT_EXCEEDED`, `WORKFLOW_COMPOSITE_USES_NOT_FOUND`).
+
+**Pourquoi vivant :** factorisation de sous-workflows réutilisables (release-engineering, qa-fullstack, security-scan) sans dupliquer leurs DAGs. Versionné via `@<ref>` immutable (tag) — pattern d'import package transposé au DAG.
+
+**Code :** migration `0083_composite_workflows.sql` (3 colonnes + index partial root_run), `server/src/services/governed-workflows-composite.ts`, REST `GET /governed-workflows/runs/:runId/steps`, UI badge "composite" + RunArtifactsTree lazy-load via `getRunStepsById`. SSE events `step.composite.launched` / `step.composite.completed`. Doc utilisateur : [`docs/governed-workflows/composite.md`](governed-workflows/composite.md).
+
+### 4.4.3 Artifact viewer + permalinks (T4 livré 2026-05-03)
+
+**Décision :** trois composants dédiés à la review humaine des outputs governed runs : `OutputRow` (extracted shared), `RunArtifactsTree` (recursive tree avec lazy-load des sub-runs composite), `ArtifactViewer` (mime-aware wrapper — markdown via MarkdownBody, code via Monaco lazy read-only, plain text via <pre>, external_url via card, git_folder via file list). La page run-detail bascule en layout 2-col review quand l'URL contient `?step=<name>` (set par les cards Inbox `pending_workflow_step`). Permalinks stables `/workflows/<name>/runs/<runId>/artifacts/<step>/<output>` avec encoding URI complet.
+
+**Pourquoi vivant :** un step "human-in-the-loop" assigné dans l'Inbox doit ouvrir directement l'artifact en mode review, pas un dashboard générique. Les permalinks rendent partageables les outputs (debug, post-mortem, doc).
+
+**Code :** `ui/src/components/run-detail/OutputRow.tsx`, `RunArtifactsTree.tsx`, `ArtifactViewer.tsx`, `ui/src/pages/governed-workflows/RunDetail.tsx` (review mode). 22 tests unit. Frontend rule §6 lazy-load Monaco respectée.
 
 ### 4.6 Connectors Platform — hub OAuth user-level (Sprint 1+2 livré 2026-05-02)
 
