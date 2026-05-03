@@ -61,6 +61,7 @@ import { connectorsCallbackRoutes } from "./routes/connectors-callback.js";
 import { connectorRoutes } from "./routes/connectors.js";
 // WORKFLOW-HOOKS T2.8 — REST routes (admin + audit + catalog)
 import { workflowHooksRoutes } from "./routes/workflow-hooks.js";
+import { workflowAssignmentsRoutes } from "./routes/workflow-assignments.js";
 // POD-04: Sandbox routes (renamed from pods)
 import { sandboxRoutes } from "./routes/sandboxes.js";
 // POD-05: Sandbox exec (chat console, renamed from pod-exec)
@@ -390,6 +391,11 @@ export async function createApp(
   // workflowHooksService instance constructed by buildMcpServices() so
   // the enforced-cache stays consistent across REST + MCP.
   api.use(workflowHooksRoutes(db, mcpServices.workflowHooks));
+  // WORKFLOW-ASSIGNMENTS T3.4 — `GET /inbox/pending-workflow-steps`. Reuses
+  // the same service instance constructed by buildMcpServices so the
+  // MCP tool `list_my_pending_work` and the REST route share a single
+  // db pool reference.
+  api.use(workflowAssignmentsRoutes(db, mcpServices.workflowAssignments));
   // POD-04: Sandbox routes
   api.use(sandboxRoutes(db));
   // POD-05: Sandbox exec (chat console)

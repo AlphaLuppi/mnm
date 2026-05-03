@@ -19,5 +19,7 @@ import threadInteractionTools from "./thread-interactions.tool.js";
 import connectorTools from "./connectors.tool.js";
 // WORKFLOW-HOOKS T2.8 — list / get / create / update / delete / catalog / executions
 import workflowHookTools from "./workflow-hooks.tool.js";
+// WORKFLOW-ASSIGNMENTS T3.4 — list_my_pending_work
+import workflowAssignmentTools from "./workflow-assignments.tool.js";
 
-export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools, connectorTools, workflowHookTools];
+export const allToolDefiners = [issueTools, agentTools, contextTools, configLayerTools, traceTools, sandboxTools, usersTools, adminTools, a2aTools, chatTools, documentsTools, foldersTools, artifactsTools, projectTools, governedWorkflowTools, threadInteractionTools, connectorTools, workflowHookTools, workflowAssignmentTools];
