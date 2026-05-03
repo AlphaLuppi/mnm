@@ -463,7 +463,7 @@ export const parityData: ParityData = {
             status: "partial",
             since: "0.1.x",
             notes:
-              "Sprint 2 T6 — admin page (list + add tab + 10 templates + 2-step wizard). Pas encore de page détail Sheet ni d'audit log table — à finaliser.",
+              "Sprint 2 T6 — admin page (list + add tab + 10 templates + 2-step wizard). 2026-05-03: ajout d'une carte « Connecteur custom » + wizard 3 étapes (basics / endpoints / credentials) qui expose le mode sans templateSlug pour brancher n'importe quelle API OAuth 2.0 ou Bearer/API-key. Pas encore de page détail Sheet ni d'audit log table — à finaliser.",
           },
           desktop: BACKEND,
         },
