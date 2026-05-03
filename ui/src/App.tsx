@@ -341,6 +341,7 @@ export function App() {
           <Route path="admin/tags" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/sso" element={<UnprefixedBoardRedirect />} />
           <Route path="admin/config-layers" element={<UnprefixedBoardRedirect />} />
+          <Route path="admin/connectors" element={<UnprefixedBoardRedirect />} />
           <Route path="company/settings" element={<UnprefixedBoardRedirect />} />
           <Route path="audit" element={<UnprefixedBoardRedirect />} />
           <Route path="containers" element={<UnprefixedBoardRedirect />} />
@@ -372,6 +373,7 @@ export function App() {
           <Route path="workflows/:name/runs/:runId" element={<UnprefixedBoardRedirect />} />
           <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
           <Route path="settings/profile" element={<UnprefixedBoardRedirect />} />
+          <Route path="settings/accounts" element={<UnprefixedBoardRedirect />} />
           <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
