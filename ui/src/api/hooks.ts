@@ -196,9 +196,11 @@ export const hooksApi = {
    * `shared_branch`, `include_shared`, `include_local`.
    */
   catalog: (companyId: string, query?: CatalogQuery | string) =>
-    api.get<HookCatalog>(
-      `/companies/${companyId}/workflow-hooks/catalog${buildCatalogQuery(query)}`,
-    ),
+    api
+      .get<{ catalog: HookCatalog }>(
+        `/companies/${companyId}/workflow-hooks/catalog${buildCatalogQuery(query)}`,
+      )
+      .then((r) => r.catalog),
 };
 
 // ─── Pure helpers (exported for unit tests) ────────────────────────────────
