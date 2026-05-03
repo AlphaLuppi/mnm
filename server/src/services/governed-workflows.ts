@@ -75,22 +75,14 @@ const compiledCache = new CompiledCache();
  * Domain error raised by the governed workflow service. Mapped to the MCP
  * uniform error contract by the tool layer. `code` is always a member of
  * `WORKFLOW_ERROR_CODES`.
+ *
+ * The class itself lives in `./governed-workflows-error.ts` so satellite
+ * modules (T5 composite resolver, future workflows-X services) can throw
+ * the canonical error type WITHOUT importing the full main service —
+ * which would create a cycle for any module the main service depends on.
  */
-export class GovernedWorkflowError extends Error {
-  constructor(
-    public readonly code: (typeof WORKFLOW_ERROR_CODES)[keyof typeof WORKFLOW_ERROR_CODES],
-    message: string,
-    public readonly hints: string[] = [],
-    /**
-     * Optional structured data to include in the MCP error response. Used
-     * for AGENTS_STALE (fresh content) and MISSING_TOOLS (which tools).
-     */
-    public readonly data?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "GovernedWorkflowError";
-  }
-}
+export { GovernedWorkflowError } from "./governed-workflows-error.js";
+import { GovernedWorkflowError } from "./governed-workflows-error.js";
 
 export interface GovernedWorkflowServiceDeps {
   /**
@@ -1257,12 +1249,25 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     // ── T6 self-correction: detect stale local agents ──────────────────
-    // Every step references exactly one agent (step.agent). Compare its
-    // canonical sha against what the harness reports in currentAgents.
+    // Every agent step references exactly one agent (step.agent). Compare
+    // its canonical sha against what the harness reports in currentAgents.
     // Mismatch -> short-circuit with AGENTS_STALE; harness writes the
     // updated content and retries.
+    //
+    // T5.1: skip the entire agent-specific block when step.type === "composite".
+    // Composite steps don't have an `agent` — they expand into a sub-run
+    // (handled in T5.3 launchStep wiring). Until then, refuse so the harness
+    // gets a clear "not yet implemented" rather than a confusing AGENTS_STALE.
+    if (step.type === "composite") {
+      throw new GovernedWorkflowError(
+        WORKFLOW_ERROR_CODES.WORKFLOW_INVALID_INPUT,
+        `step '${args.stepId}' is type=composite — wired in T5.3, not yet executable`,
+      );
+    }
+    // After this guard, step.agent is guaranteed defined (Zod superRefine
+    // enforces it for type=agent).
     if (args.currentAgents !== undefined) {
-      const required = step.agent;
+      const required = step.agent!;
       const namespacedName = `mnm--${required}`;
       const canonical = await loadCanonicalAgent(
         args.companyId,
@@ -1643,7 +1648,7 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
         const agentRow = await db
           .select({ id: agents.id })
           .from(agents)
-          .where(and(eq(agents.companyId, args.companyId), eq(agents.name, step.agent)))
+          .where(and(eq(agents.companyId, args.companyId), eq(agents.name, step.agent!)))
           .then((rows) => rows[0]);
 
         if (agentRow) {
@@ -1683,9 +1688,9 @@ export function governedWorkflowService(db: Db, deps: GovernedWorkflowServiceDep
     }
 
     return {
-      agentName: step.agent,
+      agentName: step.agent!,
       promptContext,
-      subagentType: `mnm--${step.agent}`,
+      subagentType: `mnm--${step.agent!}`,
       handoffs,
       runBranch: runBranchName(args.runId),
       sessionCapture,

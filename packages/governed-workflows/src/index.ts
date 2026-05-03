@@ -15,7 +15,11 @@ export { gateOutputSchema, type GateOutput } from "./gate-output.js";
 export type { GateContext } from "./gate-context.js";
 
 // Workflow schemas + types
-export { workflowStepSchema, type WorkflowStep } from "./workflow-step.js";
+export {
+  workflowStepSchema,
+  COMPOSITE_USES_REGEX,
+  type WorkflowStep,
+} from "./workflow-step.js";
 export {
   workflowDefinitionSchema,
   type WorkflowDefinition,

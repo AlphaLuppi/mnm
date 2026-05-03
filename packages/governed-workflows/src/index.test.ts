@@ -5,13 +5,19 @@ describe("public barrel", () => {
   it("exposes the expected runtime exports", () => {
     const exported = Object.keys(pkg).sort();
     expect(exported).toEqual([
+      "COMPOSITE_USES_REGEX",
       "GATE_ERROR_CODES",
+      "HOOK_ERROR_CODES",
       "WORKFLOW_ERROR_CODES",
       "defineGate",
+      "defineHook",
       "defineWorkflow",
       "gateBlockSchema",
       "gateItemSchema",
       "gateOutputSchema",
+      "hookBlockSchema",
+      "hookRefSchema",
+      "stepAssignmentSchema",
       "workflowDefinitionSchema",
       "workflowJsonSchema",
       "workflowStepSchema",

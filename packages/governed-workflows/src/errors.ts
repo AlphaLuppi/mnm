@@ -129,6 +129,27 @@ export const WORKFLOW_ERROR_CODES = Object.freeze({
   // WORKFLOW_VALIDATION (zod failure on a workflow definition body) — this
   // is a per-call argument validation, not a definition body validation.
   WORKFLOW_INVALID_INPUT: "WORKFLOW_INVALID_INPUT",
+  // ── T5 — composite (meta-workflow) error codes ─────────────────────────
+  // Emitted by parseCompositeUses when a composite step's `uses:` reference
+  // doesn't match the canonical `workflows/<name>@<ref>` shape. Should not
+  // happen in practice (the Zod schema already enforces the regex) but the
+  // runtime check is fail-closed for paths that bypass parsing.
+  WORKFLOW_USES_INVALID: "WORKFLOW_USES_INVALID",
+  // Emitted by detectCycle when the static `uses:` graph walk closes a cycle
+  // (A → B → A). Refused at launchRun time, never reaches runtime expansion.
+  WORKFLOW_COMPOSITE_CYCLE: "WORKFLOW_COMPOSITE_CYCLE",
+  // Emitted by detectCycle when a referenced sub-workflow is not registered
+  // in the company's workflow set at the pinned ref. Distinct from
+  // WORKFLOW_NOT_FOUND on the root workflow.
+  WORKFLOW_COMPOSITE_USES_NOT_FOUND: "WORKFLOW_COMPOSITE_USES_NOT_FOUND",
+  // Emitted by detectCycle when the composite chain exceeds maxDepth (32).
+  // Belt-and-braces against pathological resolvers; the regex already
+  // prevents anything outside `workflows/<name>@<ref>`.
+  WORKFLOW_COMPOSITE_DEPTH_EXCEEDED: "WORKFLOW_COMPOSITE_DEPTH_EXCEEDED",
+  // Emitted by enforceFanoutCap when a root_run_id chain reaches the
+  // configured cap (default 1000 step_executions across descendants).
+  // Mitigates M4 — denial-of-wallet via runaway sub-run expansion.
+  WORKFLOW_COMPOSITE_FANOUT_EXCEEDED: "WORKFLOW_COMPOSITE_FANOUT_EXCEEDED",
 } as const);
 
 export type WorkflowErrorCode =
