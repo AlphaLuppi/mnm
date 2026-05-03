@@ -918,6 +918,30 @@ export const parityData: ParityData = {
           },
         },
         {
+          id: "artifact-viewer",
+          name: "Artifact viewer (T4 — human review of governed run outputs)",
+          description:
+            "Three-component stack for reviewing run artifacts: OutputRow (extracted shared row, supports onClick / selected / Copy permalink), RunArtifactsTree (recursive tree across step → outputs, lazy-loads composite sub-runs once T5 ships, gracefully degrades to a flat list pre-T5), ArtifactViewer (mime-aware wrapper that dispatches markdown via MarkdownBody, code via lazy Monaco read-only, plain text via <pre>, external_url via card, git_folder via file list). The run detail page switches to a 2-column review layout when the URL carries `?step=<name>` (set by Inbox `pending_workflow_step` cards). Permalinks: stable URL `/workflows/<name>/runs/<runId>/artifacts/<step>/<output>` with full URI encoding (step may contain `/`). Zero polling — the page reuses the existing `useGovernedRunEvents` SSE subscription.",
+          web: {
+            status: "done",
+            since: "2026-05-03",
+            notes:
+              "T4.1 → T4.3 shipped. 22 unit tests across OutputRow / RunArtifactsTree / ArtifactViewer / review resolver. Monaco lazy-loaded (frontend rule §6). PendingWorkflowStepCard now navigates with `?step=...` so the user lands in review mode directly.",
+          },
+          desktop: {
+            status: "n/a",
+            notes:
+              "Pure UI feature reused via the desktop wrapper webview; no IPC required.",
+          },
+          todo: {
+            tests: [
+              "Playwright browser test: complete a step with a markdown output → click from Inbox → verify 2-col layout + Copy permalink (T6).",
+            ],
+            notes:
+              "Composite sub-run lazy-loading is wired but a no-op until T5 (`uses:` meta-workflow) lands the composite_run_id schema column.",
+          },
+        },
+        {
           id: "workflow-step-assignments",
           name: "Workflow step assignments (T3 — inbox feed + sidebar badge)",
           description:

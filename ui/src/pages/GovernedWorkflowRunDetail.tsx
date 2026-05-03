@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams } from "@/lib/router";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { RunArtifactsTree } from "@/components/runs/RunArtifactsTree";
+import { ArtifactViewer } from "@/components/runs/ArtifactViewer";
 import { artifactPermalink } from "@/components/runs/OutputRow";
 import { useReactivateRun } from "@/hooks/useWorkflowRunActions";
 import { CancelRunDialog } from "@/components/workflows/CancelRunDialog";
@@ -236,6 +237,94 @@ function StepCard({
   );
 }
 
+/**
+ * 2-column review layout shown when the URL carries `?step=<name>` (e.g.
+ * the user came from an Inbox `pending_workflow_step` card).
+ *
+ * - Left column: RunArtifactsTree, scrollable, with the selected (step,
+ *   output) highlighted.
+ * - Right column: ArtifactViewer for the selected artifact, or an empty
+ *   state when nothing is picked yet.
+ *
+ * Wired through query params (no local state) so the URL remains the
+ * single source of truth and the permalink button keeps producing
+ * shareable links.
+ */
+function ReviewLayout({
+  steps,
+  selectedStep,
+  selectedOutput,
+  onSelect,
+  onExitReview,
+  buildBlobUrl,
+}: {
+  steps: StepWithGates[];
+  selectedStep: string | null;
+  selectedOutput: string | null;
+  onSelect: (stepName: string, output: OutputPersisted) => void;
+  onExitReview: () => void;
+  buildBlobUrl?: (output: Extract<OutputPersisted, { kind: "git_file" }>) => string | null;
+}) {
+  // Resolve the selected output by walking the step list.
+  const targetStep = steps.find((s) => s.stepIdInJson === selectedStep);
+  const targetOutput =
+    targetStep && selectedOutput
+      ? (() => {
+          const outputs = targetStep.artifactsJson &&
+            typeof targetStep.artifactsJson === "object"
+            ? ((targetStep.artifactsJson as { outputs?: unknown }).outputs as
+                | OutputPersisted[]
+                | undefined)
+            : undefined;
+          return Array.isArray(outputs) ? outputs.find((o) => o.name === selectedOutput) : undefined;
+        })()
+      : undefined;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+      {/* Left — tree */}
+      <Card className="py-0 self-start lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
+        <CardHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-semibold">Livrables</CardTitle>
+          <Button variant="ghost" size="sm" onClick={onExitReview} className="h-7 text-xs">
+            Vue complète
+          </Button>
+        </CardHeader>
+        <CardContent className="px-3 py-3">
+          <RunArtifactsTree
+            steps={steps}
+            selected={
+              selectedStep && selectedOutput
+                ? { stepName: selectedStep, outputName: selectedOutput }
+                : null
+            }
+            onSelect={onSelect}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Right — viewer */}
+      <div className="min-w-0">
+        {targetOutput ? (
+          <ArtifactViewer output={targetOutput} buildBlobUrl={buildBlobUrl} />
+        ) : (
+          <Card className="py-0">
+            <CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">
+              {selectedStep && !targetStep ? (
+                <>Step <span className="font-mono">{selectedStep}</span> introuvable.</>
+              ) : selectedStep && !selectedOutput ? (
+                <>Sélectionnez un livrable dans l'arbre à gauche.</>
+              ) : (
+                <>Aucun livrable sélectionné.</>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function GovernedWorkflowRunDetail() {
   const { name, runId } = useParams<{ name: string; runId: string }>();
   const { selectedCompanyId } = useCompany();
@@ -264,6 +353,24 @@ export function GovernedWorkflowRunDetail() {
   // the banner / action bar which themselves only render once `data` exists.
   const reactivate = useReactivateRun(runId ?? "");
   const [cancelOpen, setCancelOpen] = useState(false);
+
+  // Review mode — when the URL carries `?step=<name>` (e.g. arrived from
+  // an Inbox `pending_workflow_step` card), the page switches to a 2-column
+  // layout: RunArtifactsTree on the left, ArtifactViewer on the right. An
+  // optional `&output=<name>` selects a specific artifact within the step.
+  // The search-params API is preserved across refetches by react-router.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const stepFromQuery = searchParams.get("step");
+  const outputFromQuery = searchParams.get("output");
+  const reviewMode = !!stepFromQuery;
+
+  const buildBlobUrl = useMemo(() => {
+    if (!selectedCompanyId || !name || !runId) return undefined;
+    return (output: { kind: "git_file"; path: string }) =>
+      `/api/companies/${selectedCompanyId}/governed-workflows/${encodeURIComponent(
+        name,
+      )}/runs/${runId}/artifacts/blob?path=${encodeURIComponent(output.path)}`;
+  }, [selectedCompanyId, name, runId]);
 
   if (isLoading) return <PageSkeleton variant="detail" />;
 
@@ -349,44 +456,76 @@ export function GovernedWorkflowRunDetail() {
         onOpenChange={setCancelOpen}
       />
 
-      {/* Artifacts tree — high-density navigator across steps + outputs.
-          Recurses into composite sub-runs once T5 lands; for now degrades to
-          a flat list of step → outputs. Clicking an output scrolls to the
-          corresponding step card via the `step-<encodedName>` anchor. */}
-      {steps.length > 0 && (
-        <Card className="py-0">
-          <CardHeader className="px-4 py-3 border-b">
-            <CardTitle className="text-sm font-semibold">Livrables du run</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 py-3">
-            <RunArtifactsTree
-              steps={steps}
-              onSelect={(stepName) => {
-                const anchor = document.getElementById(`step-${encodeURIComponent(stepName)}`);
-                if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {reviewMode ? (
+        /* Review mode (2-column) — driven by `?step=&output=` query params.
+           Left: RunArtifactsTree across all steps. Right: ArtifactViewer
+           on the currently-selected (step, output). */
+        <ReviewLayout
+          steps={steps}
+          selectedStep={stepFromQuery}
+          selectedOutput={outputFromQuery}
+          onSelect={(stepName, output) => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set("step", stepName);
+              next.set("output", output.name);
+              return next;
+            });
+          }}
+          onExitReview={() => {
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete("step");
+              next.delete("output");
+              return next;
+            });
+          }}
+          buildBlobUrl={buildBlobUrl}
+        />
+      ) : (
+        <>
+          {/* Artifacts tree — high-density navigator across steps + outputs.
+              Recurses into composite sub-runs once T5 lands; for now degrades
+              to a flat list of step → outputs. Clicking an output scrolls to
+              the step card via the `step-<encodedName>` anchor. */}
+          {steps.length > 0 && (
+            <Card className="py-0">
+              <CardHeader className="px-4 py-3 border-b">
+                <CardTitle className="text-sm font-semibold">Livrables du run</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 py-3">
+                <RunArtifactsTree
+                  steps={steps}
+                  onSelect={(stepName) => {
+                    const anchor = document.getElementById(
+                      `step-${encodeURIComponent(stepName)}`,
+                    );
+                    if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Steps timeline */}
-      <div className="space-y-4">
-        {steps.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun step enregistré.</p>
-        ) : (
-          steps.map((step, i) => (
-            <StepCard
-              key={step.id}
-              step={step}
-              index={i}
-              companyId={selectedCompanyId ?? ""}
-              workflowName={name ?? ""}
-              runId={run.id}
-            />
-          ))
-        )}
-      </div>
+          {/* Steps timeline */}
+          <div className="space-y-4">
+            {steps.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun step enregistré.</p>
+            ) : (
+              steps.map((step, i) => (
+                <StepCard
+                  key={step.id}
+                  step={step}
+                  index={i}
+                  companyId={selectedCompanyId ?? ""}
+                  workflowName={name ?? ""}
+                  runId={run.id}
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

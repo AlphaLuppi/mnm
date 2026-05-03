@@ -40,7 +40,10 @@ function shortAssignmentReason(reason: string): string {
 }
 
 export function PendingWorkflowStepCard({ step }: PendingWorkflowStepCardProps) {
-  const href = `/workflows/${encodeURIComponent(step.workflow_name)}/runs/${step.run_id}`;
+  // Navigate with `?step=<name>` so the run detail switches to the 2-column
+  // review layout (RunArtifactsTree on left, ArtifactViewer on right) — the
+  // user lands directly on the step they are expected to review.
+  const href = `/workflows/${encodeURIComponent(step.workflow_name)}/runs/${step.run_id}?step=${encodeURIComponent(step.step_name)}`;
   const reasonLabel = shortAssignmentReason(step.assignment_reason);
 
   return (
