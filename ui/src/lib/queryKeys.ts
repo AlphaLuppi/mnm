@@ -321,6 +321,9 @@ export const queryKeys = {
       ["connectors", companyId, "audit", connectorId] as const,
     templates: (companyId: string) => ["connectors", companyId, "templates"] as const,
     myAccounts: (companyId: string) => ["connectors", companyId, "me", "accounts"] as const,
+    // GITHUB-PROVIDER Phase 5 — per-connector GitHub App config + installations.
+    githubApp: (companyId: string, connectorId: string) =>
+      ["connectors", companyId, "github-app", connectorId] as const,
   },
   // WORKFLOW-HOOKS: governed-workflow hooks management (T2.9)
   hooks: {

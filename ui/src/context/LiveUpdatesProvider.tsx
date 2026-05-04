@@ -706,6 +706,35 @@ function handleLiveEvent(
     return;
   }
 
+  // GITHUB-PROVIDER Phase 5 — a new GitHub App installation just landed
+  // (org admin clicked « Installer » sur github.com et le callback a fire).
+  // Payload : { connectorId, installationId, accountLogin }. Invalidate the
+  // matching githubApp query so the wizard / sheet refreshes the list of
+  // installations in real time without polling. Also dispatch a DOM event for
+  // narrowly-scoped subscribers (the wizard's "Terminer" button enables when
+  // at least 1 installation exists).
+  if (event.type === "connector.github_app_installation_added") {
+    const connectorId = readString(payload.connectorId);
+    if (connectorId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.connectors.githubApp(expectedCompanyId, connectorId),
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("github_app_installation:added", {
+            detail: {
+              companyId: expectedCompanyId,
+              connectorId,
+              installationId: readString(payload.installationId),
+              accountLogin: readString(payload.accountLogin),
+            },
+          }),
+        );
+      }
+    }
+    return;
+  }
+
   // WORKFLOW-ASSIGNMENTS T3.5 — a new step was assigned to the current
   // principal. The server already filtered visibility to `actor-only` so
   // by the time the event lands here it concerns "us". Refresh the
