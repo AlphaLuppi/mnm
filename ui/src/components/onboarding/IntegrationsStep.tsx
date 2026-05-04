@@ -276,14 +276,14 @@ function GitCard({ companyId }: { companyId: string }) {
   return (
     <Card
       icon={<GitBranch className="h-4 w-4" />}
-      title="Git for workflow versioning"
-      description="Where MnM commits workflow definitions and run artifacts. Skip to use the in-process git store."
+      title="Git provider — workflows, agents, run history"
+      description="Source of truth for workflow definitions, custom gates, agent definitions, and every run's artifacts (committed on mnm-runs/<run_id> branches, then merged). Skip to use the in-process git store."
       status={state}
       summary={
         state === "configured"
           ? `${provider} configured — ${baseUrl}`
           : state === "skipped"
-            ? "Skipped — using in-process git store (workflows still work locally)"
+            ? "Skipped — using in-process git store (everything still works locally)"
             : "Not configured — using in-process git store by default"
       }
     >
@@ -359,10 +359,10 @@ function GitCard({ companyId }: { companyId: string }) {
       ) : (
         <div className="flex gap-2">
           <Button size="sm" onClick={() => setState("configuring")}>
-            Set up git
+            Connect a git provider
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setState("skipped")}>
-            Skip — use local git
+            Skip — use in-process git
           </Button>
         </div>
       )}
