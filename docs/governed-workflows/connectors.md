@@ -164,7 +164,7 @@ Un agent peut aider l'utilisateur à se connecter via les MCP tools :
 - Settings → Developer settings → **OAuth Apps** → New OAuth App.
 - Authorization callback URL : `{MNM_PUBLIC_URL}/api/connectors/callback`.
 - Scopes : `repo`, `read:user`, `user:email`.
-- Refresh : ❌ pas supporté (OAuth Apps issue long-lived tokens). Utiliser une **GitHub App** si refresh requis (flow différent, hors V0).
+- Refresh : ❌ pas supporté (OAuth Apps issue long-lived tokens). Pour les private orgs / SSO SAML / scopes per-repo, configurer en plus une **GitHub App** sur le même connector — voir [§9 GitHub : OAuth seul vs App optionnelle](#9-github--oauth-seul-vs-app-optionnelle).
 - Doc : https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app
 
 ### GitLab (gitlab.com ou self-hosted)
@@ -362,11 +362,88 @@ Connu. V0 = single-process accepté. Si Express tourne en cluster (PM2 / Kuberne
 
 ---
 
+## 9. GitHub : OAuth seul vs App optionnelle
+
+> Chantier `feat/github-provider` (plan : [`2026-05-04-github-provider.md`](../superpowers/plans/2026-05-04-github-provider.md), decisions D1-D7). Le connector `github` est unifié (D6) : **un seul tile**, OAuth obligatoire, GitHub App **optionnelle** ajoutée par-dessus pour débloquer les private orgs.
+
+### 9.1 Quand prendre OAuth seul, quand ajouter une App
+
+| Scénario | Recommandé | Pourquoi |
+| --- | --- | --- |
+| Repo public, usage perso | **OAuth seul** | Aucune friction setup, le user clique "Connecter" et c'est fini. |
+| Repo privée standalone (compte perso) | **OAuth seul** | OAuth user-level suffit, scope `repo` couvre les repos privées du user. |
+| Org publique (mix repos public/privé), pas de SSO | **OAuth seul** | L'org admin doit accorder l'autorisation OAuth une fois, ensuite chaque user connecte son compte sans config supplémentaire. |
+| Org privée avec repos privées et **SSO SAML** | **App** | OAuth force chaque user à autoriser le token per-org SSO (friction × N users). L'App s'installe une fois côté org admin et fonctionne pour tout le monde. |
+| Multi-org (CAO qui gère des repos sur plusieurs orgs) | **App** | Une App par org, chaque installation isolée. Permissions per-repo granulaires (`contents=write`, `pull_requests=write`, `metadata=read`). |
+| Compliance enterprise (audit fail-closed, scopes minimaux) | **App** | Permissions limitées au strict nécessaire par installation, jamais de token user-wide. Webhook ingestion future-ready (open follow-up). |
+
+> Règle simple : si tu vois "SSO SAML enforced" ou "private org" dans le contexte client → App. Sinon OAuth seul suffit.
+
+### 9.2 Onboarding admin — ajouter une GitHub App à un connector existant
+
+Prérequis : permission `connectors:manage` sur la company + connector `github` déjà créé en OAuth (§4 ci-dessus).
+
+1. Aller sur `/admin/connectors`, cliquer sur le tile **GitHub**.
+2. Le wizard adaptatif s'ouvre. Étape 1 (OAuth) est déjà complétée → étape 2 affiche une banner "Tu accèdes à des private orgs ? Configurer une GitHub App". Cliquer **Configurer la App**.
+3. **Sub-step 3a — créer l'App côté GitHub** : le bouton "Ouvrir GitHub" pré-remplit l'URL `https://github.com/settings/apps/new` avec les paramètres requis (`name`, `callback_urls`, `webhook_url`, `request_oauth_on_install=true`, permissions `contents=write`, `metadata=read`, `pull_requests=write`, `actions=read`, `issues=write`). _Screenshot attendu : page GitHub "Create a new GitHub App" avec les champs préremplis._
+4. **Sub-step 3b — paste credentials dans MnM** : revenir sur MnM, coller `App ID` (ex `1234567`) + `Private Key` (.pem complet, BEGIN/END headers inclus) + optionnel `Webhook Secret`. Soumettre. Le serveur valide via un `POST /app` JWT-signé à api.github.com avant persistence (échec → 422 "Private key invalide ou App ID incorrect"). _Screenshot attendu : panel MnM "Coller les identifiants de l'App" avec les 3 champs._
+5. **Sub-step 3c — installer sur une org** : cliquer "Installer sur une org" → deep-link `https://github.com/apps/{app_slug}/installations/new`. L'org admin sélectionne les repos accessibles, valide. GitHub redirige sur `/api/connectors/github/app-install/callback?installation_id=…&setup_action=install`. La row `github_app_installations` est upsertée et l'event SSE `connector.github_app_installation_added` refresh la liste dans la Sheet **sans polling**. _Screenshot attendu : Sheet MnM avec la table des installations actives, chaque row montre `account_login`, `account_type`, `repository_selection`, `created_at`._
+
+À la fin du flow, le connector `github` a deux modes auth disponibles : OAuth user (déjà actif) + App (nouveau). Le résolveur côté serveur dispatche automatiquement : si une App est configurée et qu'une installation matche le `repoOwner` du target → mode App, sinon mode OAuth user (D6 + Phase 3 du plan).
+
+### 9.3 D7 — commits "Unverified" en mode App (par design)
+
+> Avertissement important pour les reviewers humains : les commits faits par MnM en mode App apparaissent avec un **badge gris "Unverified"** dans l'UI GitHub.
+
+C'est intentionnel. La règle D7 du plan impose `author = committer = user humain` (jamais "MnM-AppName[bot]") pour préserver la traçabilité §1.7. Comme la signature GPG côté serveur n'est pas implémentée en V0, GitHub ne peut pas vérifier l'origine cryptographique du commit → badge gris.
+
+Le commit est **fonctionnellement identique** à un commit signé : même contenu, même tree, même auteur lisible, même historique. Seul le badge visuel change. Pour un reviewer, vérifier l'auteur est l'identité humaine MnM attendue + le SHA matche le run dans MnM = preuve d'origine.
+
+**Open follow-up V1** : signature GPG per-company (clé chiffrée AES-256-GCM, signature au moment du `git.createCommit`). ~1.5j. Opt-in par company (sinon "Unverified" reste le défaut).
+
+### 9.4 Runbook — l'App a été suspendue
+
+**Symptôme** : un governed workflow qui marche d'habitude échoue avec `401 Bad credentials` ou `403 Resource not accessible by integration` côté `mintInstallationToken` ou un appel Octokit.
+
+**Cause** : l'org admin a suspendu l'App depuis `https://github.com/organizations/{org}/settings/installations`. MnM ne le sait pas immédiatement (pas de webhook ingestion en V0, c'est un open follow-up — cf. R3 du plan). La détection est **lazy** : on s'en aperçoit au prochain appel API.
+
+**Fix** :
+
+1. Identifier l'installation suspendue : ouvrir le Sheet du connector `github`, regarder la table des installations. Si une row montre `suspended_at != null` après le re-sync → c'est elle.
+2. Côté GitHub : aller sur `https://github.com/organizations/{org}/settings/installations`, cliquer l'App MnM, **Unsuspend**.
+3. Côté MnM : cliquer **Re-sync** sur la Sheet (bouton `gh-app-sheet-sync`) pour rafraîchir le statut. La row passe à `suspended_at = null`, les workflows reprennent au prochain run.
+4. Si la suspension est permanente (l'org veut sortir MnM), désinstaller proprement côté MnM via le bouton **Désinstaller la App** (soft-delete, garde l'OAuth actif).
+
+### 9.5 Runbook — renouveler la private key
+
+**Quand** : la private key d'une App a une durée de vie illimitée mais doit être rotée si compromise (laptop volé, leak Slack, etc.) ou périodiquement (best practice : tous les 6 mois en prod enterprise).
+
+**Étapes** :
+
+1. **Générer une nouvelle key côté GitHub** : aller sur `https://github.com/settings/apps/{app-name}` (ou `https://github.com/organizations/{org}/settings/apps/{app-name}` pour une org App), section "Private keys" → **Generate a private key**. GitHub télécharge automatiquement un fichier `.pem`.
+2. **(Optionnel) Révoquer l'ancienne key** côté GitHub si vraiment compromise : section "Private keys" → bouton trash sur l'ancienne entry. Attention : tout client qui utilise encore l'ancienne key échouera immédiatement après.
+3. **Coller la nouvelle key dans MnM** : ouvrir la Sheet du connector `github`, cliquer **Reconfigurer** (bouton `gh-app-reconfigure`), repasser dans le sub-panel `paste credentials`, coller le contenu du `.pem`. Submit. Le serveur revalide via `POST /app` JWT-signé avant persistence.
+4. **Vérifier** : lancer un workflow stub ou cliquer **Re-sync** pour confirmer que `mintInstallationToken` retourne un token utilisable (pas de 401).
+
+> La private key est chiffrée AES-256-GCM via `secret-crypto.ts` avant stockage (R1 du plan). Jamais loggée, jamais retournée en clair par les routes REST (réponse masquée).
+
+### 9.6 Suivis ouverts (post-V0)
+
+- **Webhook ingestion** (`installation.suspended`, `pull_request.*`, `push`) — débloque la détection immédiate des suspensions et les CAO live triggers. Plan : R3.
+- **GitHub Enterprise Server** (GHES self-hosted) — V0 = github.com only (D2). Refacto trivial : ajouter `instanceBaseUrl` au template + paramétrer le baseURL d'Octokit.
+- **Migration helper GitLab → GitHub** pour les workflows existants — ops doc d'abord (D4).
+- **Signature GPG** per-company pour les commits "Verified" — voir §9.3.
+- **Parity desktop** : les composants `GitHubConnectorWizard` et `GitHubConnectorSheet` sont actuellement marqués `desktop: dev-only` dans `scripts/parity/data.ts` (héritage du tile générique). Quand le wrapper Tauri intègre le webview admin, basculer en `done`.
+
+---
+
 ## Voir aussi
 
 - [`decision-log.md §4.6`](../decision-log.md) — Connectors Platform decisions
+- [`decision-log.md §4.7`](../decision-log.md) — GitHub Provider unifié (OAuth + App optionnelle)
 - [`decision-log.md §1.7`](../decision-log.md) — invariant traçabilité humaine
 - [`decision-log.md §4.4`](../decision-log.md) — host-only invariant pour les isolates
-- Plan Superpowers : [`2026-05-02-mnm-connectors-platform.md`](../superpowers/plans/2026-05-02-mnm-connectors-platform.md)
+- Plan Superpowers Connectors Platform : [`2026-05-02-mnm-connectors-platform.md`](../superpowers/plans/2026-05-02-mnm-connectors-platform.md)
+- Plan Superpowers GitHub Provider : [`2026-05-04-github-provider.md`](../superpowers/plans/2026-05-04-github-provider.md)
 - [`oauth-setup.md`](oauth-setup.md) — setup OAuth historique (gitlab/microsoft env vars, pre-Connectors)
-- Code : `server/src/services/connectors.ts`, `routes/connectors.ts`, `routes/connectors-callback.ts`, `mcp/tools/connectors.tool.ts`
+- Code : `server/src/services/connectors.ts`, `routes/connectors.ts`, `routes/connectors-callback.ts`, `mcp/tools/connectors.tool.ts`, `services/github-app.ts`, `routes/github-app.ts`, `packages/git-provider/src/github-provider.ts`, `services/commit-identity.ts`

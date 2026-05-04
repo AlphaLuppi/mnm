@@ -981,8 +981,9 @@ export const parityData: ParityData = {
             tests: [
               "E2E Playwright (T6): launch a composite workflow with depth=2, verify the parent step shows the badge, expand the tree, verify drill-down fetches the sub-run.",
             ],
-            notes:
+            notes: [
               "Documentation under docs/governed-workflows/composite.md is queued for T6.",
+            ],
           },
         },
         {
