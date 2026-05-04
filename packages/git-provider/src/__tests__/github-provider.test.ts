@@ -482,6 +482,38 @@ describe("GitHubProvider.createTag", () => {
     expect(tagBody.tagger.email).toBe("tom@noreply");
   });
 
+  it("createTag uses provided tagger when supplied (D7 — App-installation mode)", async () => {
+    // In app-installation mode `/user` would return the App[bot] identity.
+    // The caller passes the resolved MnM user identity instead — provider
+    // must skip the /user roundtrip and use what was given.
+    const mintToken = vi.fn().mockResolvedValue("ghs_app_installation_token");
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { sha: "commit-sha" })) // resolveRef
+      // NO /user call here — the provider must use the supplied identity directly.
+      .mockResolvedValueOnce(jsonResponse(201, { sha: "tag-obj-sha" })) // createTag
+      .mockResolvedValueOnce(jsonResponse(201, { ref: "refs/tags/v1" })); // createRef
+    const provider = makeProvider({ auth: { mode: "app-installation", mintToken } });
+    const result = await provider.createTag({
+      name: "v1",
+      ref: "main",
+      message: "Release v1",
+      taggerName: "Tom A.",
+      taggerEmail: "tom@example.com",
+    });
+    expect(result.sha).toBe("commit-sha");
+    // Exactly 3 fetches — no /user call was made.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // None of the fetched URLs is /user.
+    for (const [url] of fetchMock.mock.calls) {
+      expect(String(url)).not.toContain("/user");
+    }
+    const [, createTagInit] = fetchMock.mock.calls[1]!;
+    const tagBody = JSON.parse((createTagInit as RequestInit).body as string);
+    expect(tagBody.tag).toBe("v1");
+    expect(tagBody.tagger.name).toBe("Tom A.");
+    expect(tagBody.tagger.email).toBe("tom@example.com");
+  });
+
   it("maps 422 conflict on duplicate tag", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { sha: "commit-sha" }))

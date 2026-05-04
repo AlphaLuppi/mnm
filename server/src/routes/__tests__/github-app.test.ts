@@ -176,10 +176,10 @@ describe("GET /companies/:companyId/connectors/:connectorId/github/app", () => {
         installationId: "999",
         accountLogin: "acme",
         accountType: "Organization",
-        // bigint serializes to error in res.json — return null in this stub.
-        // The route forwards whatever the service returns; conversion happens
-        // upstream in real DB land.
-        accountId: null,
+        // MEDIUM-1 — service now returns accountId as a decimal string (not
+        // bigint) so JSON.stringify in res.json() never throws TypeError on
+        // a real installation row. The route forwards this verbatim.
+        accountId: "123456789012345",
         repositorySelection: "all",
         suspendedAt: null,
         createdAt: new Date(),
@@ -195,6 +195,8 @@ describe("GET /companies/:companyId/connectors/:connectorId/github/app", () => {
     expect(res.body.app.appSlug).toBe("mnm-app");
     expect(res.body.installations).toHaveLength(1);
     expect(res.body.installations[0].accountLogin).toBe("acme");
+    // accountId reaches the wire as a string — proves no BigInt → JSON crash.
+    expect(res.body.installations[0].accountId).toBe("123456789012345");
   });
 });
 

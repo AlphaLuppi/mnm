@@ -170,9 +170,28 @@ export class LocalBareRepoProvider implements GitProvider {
       const sha = await this.resolveRef({ ref: args.ref });
       // Create an annotated tag if a message is provided, otherwise lightweight.
       if (args.message) {
+        // D7 — when caller supplies an explicit identity, pass it via
+        // `-c user.name`/`-c user.email` so `git tag -a` records the right
+        // tagger. Without overrides, git uses the repo/global config (which
+        // in the test bare repo is set up by the LocalBareRepoProvider
+        // factory). Both must be present, otherwise we fall back.
+        const identityArgs: string[] =
+          args.taggerName !== undefined && args.taggerEmail !== undefined
+            ? ["-c", `user.name=${args.taggerName}`, "-c", `user.email=${args.taggerEmail}`]
+            : [];
         await execFileAsync(
           "git",
-          ["--git-dir", this.repoDir, "tag", "-a", args.name, sha, "-m", args.message],
+          [
+            ...identityArgs,
+            "--git-dir",
+            this.repoDir,
+            "tag",
+            "-a",
+            args.name,
+            sha,
+            "-m",
+            args.message,
+          ],
         );
       } else {
         await execFileAsync(

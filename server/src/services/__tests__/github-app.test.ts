@@ -408,7 +408,7 @@ describe("githubAppService.assertInstallationActive", () => {
     const db = buildDb({ selectQueue: [{ rows: [] }] });
     const svc = githubAppService(db);
     await expect(
-      svc.assertInstallationActive("app-1", "inst-1"),
+      svc.assertInstallationActive(COMPANY_ID, "app-1", "inst-1"),
     ).rejects.toMatchObject({ status: 404 });
   });
 
@@ -420,7 +420,7 @@ describe("githubAppService.assertInstallationActive", () => {
     });
     const svc = githubAppService(db);
     await expect(
-      svc.assertInstallationActive("app-1", "inst-1"),
+      svc.assertInstallationActive(COMPANY_ID, "app-1", "inst-1"),
     ).rejects.toMatchObject({ status: 409 });
   });
 
@@ -430,7 +430,7 @@ describe("githubAppService.assertInstallationActive", () => {
     });
     const svc = githubAppService(db);
     await expect(
-      svc.assertInstallationActive("app-1", "inst-1"),
+      svc.assertInstallationActive(COMPANY_ID, "app-1", "inst-1"),
     ).resolves.toBeUndefined();
   });
 });

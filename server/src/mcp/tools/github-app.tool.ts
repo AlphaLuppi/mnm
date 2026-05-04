@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { PERMISSIONS } from "@mnm/shared";
 import { defineMcpTools } from "../registry/define-mcp-tools.js";
-import { setTenantContext } from "../../middleware/tenant-context.js";
+import { setTenantContext, clearTenantContext } from "../../middleware/tenant-context.js";
 import { logger } from "../../middleware/logger.js";
 import { HttpError } from "../../errors.js";
 
@@ -129,6 +129,11 @@ export default defineMcpTools(({ tool, services }) => {
         };
       } catch (err) {
         return safeError(err);
+      } finally {
+        // HIGH-A3 — clear `app.current_company_id` before the postgres-js
+        // connection returns to the pool. Without this cleanup the next
+        // request that gets that connection inherits a stale tenant context.
+        await clearTenantContext(services.db).catch(() => {});
       }
     },
   });
@@ -198,6 +203,8 @@ export default defineMcpTools(({ tool, services }) => {
         };
       } catch (err) {
         return safeError(err);
+      } finally {
+        await clearTenantContext(services.db).catch(() => {});
       }
     },
   });
@@ -243,6 +250,8 @@ export default defineMcpTools(({ tool, services }) => {
         };
       } catch (err) {
         return safeError(err);
+      } finally {
+        await clearTenantContext(services.db).catch(() => {});
       }
     },
   });
@@ -303,6 +312,8 @@ export default defineMcpTools(({ tool, services }) => {
         };
       } catch (err) {
         return safeError(err);
+      } finally {
+        await clearTenantContext(services.db).catch(() => {});
       }
     },
   });

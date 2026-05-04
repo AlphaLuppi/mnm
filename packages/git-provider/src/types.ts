@@ -47,6 +47,25 @@ export interface CreateTagArgs {
   ref: string;
   /** Optional message for annotated tags. */
   message?: string;
+  /**
+   * D7 strict identity for annotated tags. When BOTH `taggerName` and
+   * `taggerEmail` are supplied, providers MUST use them as the tag's
+   * `tagger` (so the tag is attributed to the MnM user even when
+   * authenticating with a GitHub App installation token, which would
+   * otherwise default to the App[bot] identity from `/user`).
+   *
+   * Provider support:
+   * - GitHubProvider: honored fully via the Git Data API (`POST /git/tags`).
+   * - LocalBareRepoProvider: honored via `git -c user.name -c user.email tag -a`.
+   * - GitlabProvider: NOT honored (the GitLab `POST /repository/tags` endpoint
+   *   does not expose a `tagger` override; the tagger is always the API token
+   *   owner). Documented as a no-op there.
+   *
+   * Lightweight tags (no `message`) ignore these fields — git lightweight
+   * tags carry no tagger metadata.
+   */
+  taggerName?: string;
+  taggerEmail?: string;
 }
 
 export interface CreateTagResult {

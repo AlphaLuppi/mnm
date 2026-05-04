@@ -187,6 +187,12 @@ export class GitlabProvider implements GitProvider {
     if (args.message) {
       payload.message = args.message;
     }
+    // D7 LIMITATION — GitLab's `POST /projects/:id/repository/tags` endpoint
+    // does NOT expose any `tagger` / `committer` override. The tag's tagger
+    // is always the API token's owner. `args.taggerName` / `args.taggerEmail`
+    // are accepted by the GitProvider contract but ignored here. To preserve
+    // human attribution on GitLab the calling token must already belong to
+    // the MnM user (OAuth federation) — same constraint we enforce on commits.
 
     let res: Response;
     try {

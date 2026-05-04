@@ -36,7 +36,12 @@ export interface GitHubAppInstallationRow {
   installationId: string;
   accountLogin: string;
   accountType: "User" | "Organization";
-  accountId: bigint | null;
+  /**
+   * GitHub account id, returned as a decimal string so the row can be
+   * `JSON.stringify`-d safely. The DB column is `bigint`; we convert at the
+   * service boundary because `JSON.stringify(bigint)` throws TypeError.
+   */
+  accountId: string | null;
   repositorySelection: "all" | "selected" | null;
   suspendedAt: Date | null;
   createdAt: Date;
@@ -499,7 +504,9 @@ export function githubAppService(db: Db, deps: GitHubAppServiceDeps = {}) {
       installationId: r.installationId,
       accountLogin: r.accountLogin,
       accountType: r.accountType as "User" | "Organization",
-      accountId: r.accountId,
+      // MEDIUM-1 — convert bigint → string so JSON.stringify never throws
+      // TypeError downstream (route serializer, MCP payload, audit diffJson).
+      accountId: r.accountId !== null ? r.accountId.toString() : null,
       repositorySelection: r.repositorySelection as "all" | "selected" | null,
       suspendedAt: r.suspendedAt,
       createdAt: r.createdAt,
@@ -507,7 +514,13 @@ export function githubAppService(db: Db, deps: GitHubAppServiceDeps = {}) {
   }
 
   // ── assertInstallationActive — 409 if suspended_at IS NOT NULL ────────────
+  // HIGH-2 — `companyId` is part of the WHERE filter as defense-in-depth
+  // ("ceinture + bretelles") on top of RLS. NEW-S1 means RLS only applies a
+  // RESTRICTIVE policy to the app role — a caller passing a foreign App's id
+  // (e.g. a guessed UUID from another tenant) MUST be rejected here even if
+  // the connection has not yet asserted tenant context.
   async function assertInstallationActive(
+    companyId: string,
     githubAppId: string,
     installationId: string,
   ): Promise<void> {
@@ -516,6 +529,7 @@ export function githubAppService(db: Db, deps: GitHubAppServiceDeps = {}) {
       .from(githubAppInstallations)
       .where(
         and(
+          eq(githubAppInstallations.companyId, companyId),
           eq(githubAppInstallations.githubAppId, githubAppId),
           eq(githubAppInstallations.installationId, installationId),
         ),

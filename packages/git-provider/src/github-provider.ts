@@ -332,17 +332,17 @@ export class GitHubProvider implements GitProvider {
   }
 
   /**
-   * Create a tag. With `args.message`, an annotated tag with `tagger` =
-   * the token-owning user (resolved via `/user`); without, a lightweight
-   * tag pointing directly at the resolved commit sha.
+   * Create a tag. With `args.message`, an annotated tag whose `tagger` is
+   * the supplied identity (`taggerName` + `taggerEmail`) when both are
+   * provided, otherwise the token-owning user resolved via `/user`. Without
+   * `args.message`, a lightweight tag pointing directly at the resolved
+   * commit sha.
    *
-   * D7 note: GitHub's tag object accepts a `tagger` field for annotated
-   * tags. We use the token-owning user here — which in OAuth mode is the
-   * MnM user. In App-installation mode this is the App[bot] (no way to
-   * forge a different tagger via Git Data API V3). For App-mode annotated
-   * tags requiring user identity, the caller should resolve the user via
-   * `commit-identity` (Phase 4) and pass it in via a future contract
-   * extension.
+   * D7 note: in `app-installation` mode the `/user` endpoint returns the
+   * App[bot] identity, which violates D7 (tag must be attributed to the MnM
+   * user). Callers in App mode MUST pass `taggerName` + `taggerEmail` to
+   * preserve human attribution. In `user-oauth` mode, omitting the fields
+   * is fine — `/user` returns the human user.
    */
   async createTag(args: CreateTagArgs): Promise<CreateTagResult> {
     const commitSha = await this.resolveRef({ ref: args.ref });
@@ -365,7 +365,13 @@ export class GitHubProvider implements GitProvider {
     }
 
     // Annotated tag — createTag + createRef.
-    const tagger = await this.fetchTokenUserIdentity();
+    // D7 — if the caller supplied an explicit identity (typical in
+    // app-installation mode), use it; otherwise fall back to /user (the
+    // legacy behavior, correct in user-oauth mode).
+    const tagger =
+      args.taggerName !== undefined && args.taggerEmail !== undefined
+        ? { name: args.taggerName, email: args.taggerEmail }
+        : await this.fetchTokenUserIdentity();
     const tagObjectUrl = `${this.repoPath()}/git/tags`;
     const tagObjectRes = await this.request(
       tagObjectUrl,
