@@ -2,7 +2,7 @@
 # =============================================================================
 # MnM — Multi-stage Dockerfile (CI/CD optimized)
 # =============================================================================
-# Build stages: base -> deps -> build -> production
+# Build stages: base -> deps + prod-deps -> build -> production
 # Optimized for Docker layer caching and BuildKit cache mounts.
 # Story: TECH-08 — CI/CD Pipeline
 # =============================================================================
@@ -10,7 +10,7 @@
 
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git unzip \
+  && apt-get install -y --no-install-recommends ca-certificates curl git unzip gosu \
   && rm -rf /var/lib/apt/lists/*
 # SEC-T10-003: Pin bun to a specific version and verify SHA256 checksum.
 # DO NOT use curl|bash — that executes untrusted code without any verification.
@@ -34,9 +34,12 @@ RUN arch="$(uname -m)"; \
     && rm -rf /tmp/bun.zip "/tmp/bun-linux-${BUN_ARCH}"
 ENV PATH="/usr/local/bin:$PATH"
 
-FROM base AS deps
+# -----------------------------------------------------------------------------
+# Workspace manifests stage — isolated to maximize cache reuse.
+# Touching any source file does NOT invalidate this layer (only manifest edits do).
+# -----------------------------------------------------------------------------
+FROM base AS manifests
 WORKDIR /app
-# Copy only package manifests + lock for optimal layer caching
 COPY package.json bun.lock .npmrc ./
 COPY cli/package.json cli/
 COPY server/package.json server/
@@ -58,32 +61,74 @@ COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
 COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
 
-# Use BuildKit cache mount for bun cache to speed up CI builds
+# -----------------------------------------------------------------------------
+# Full dependency install (incl. dev deps) — used by the build stage.
+# -----------------------------------------------------------------------------
+FROM manifests AS deps
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-  bun install
+  bun install --frozen-lockfile
 
+# -----------------------------------------------------------------------------
+# Production-only dependency install — used by the final image (no vitest, no
+# msw, no tsc, no supertest…). Runs in parallel with `deps` under BuildKit.
+# -----------------------------------------------------------------------------
+FROM manifests AS prod-deps
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile --production
+
+# -----------------------------------------------------------------------------
+# Build stage — produces ui/dist + server/dist.
+# -----------------------------------------------------------------------------
 FROM base AS build
 WORKDIR /app
 COPY --from=deps /app /app
 COPY . .
-RUN bun run --filter @mnm/ui build
-RUN bun run --filter @mnm/server build
+RUN --mount=type=cache,target=/app/ui/node_modules/.vite \
+    --mount=type=cache,target=/root/.bun/install/cache \
+    bun run --filter @mnm/ui build
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun run --filter @mnm/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
+# -----------------------------------------------------------------------------
+# Production runtime image.
+# -----------------------------------------------------------------------------
 FROM base AS production
 WORKDIR /app
-COPY --from=build /app /app
+
+# Pinned global tools — bump via build args (or edit defaults) and BuildKit will
+# only invalidate this layer when the version actually changes.
+ARG TSX_VERSION=4.21.0
+ARG CLAUDE_CODE_VERSION=2.1.126
+ARG CODEX_VERSION=0.128.0
+ARG OPENCODE_AI_VERSION=1.14.33
 # tsx is needed at runtime because workspace packages (e.g. @mnm/db) export .ts files
-RUN npm install --global tsx @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --global \
+      tsx@${TSX_VERSION} \
+      @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
+      @openai/codex@${CODEX_VERSION} \
+      opencode-ai@${OPENCODE_AI_VERSION}
 
 # Docker CLI (for docker exec into sandbox containers via /var/run/docker.sock)
-RUN curl -fsSL https://download.docker.com/linux/static/stable/$(uname -m)/docker-27.5.1.tgz \
+ARG DOCKER_CLI_VERSION=27.5.1
+RUN curl -fsSL https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz \
   | tar xz --strip-components=1 -C /usr/local/bin docker/docker
 
 # Non-root user so Claude Code accepts --dangerously-skip-permissions
-RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/* \
-  && groupadd -r mnm && useradd -r -g mnm -d /mnm -s /bin/bash mnm \
+RUN groupadd -r mnm && useradd -r -g mnm -d /mnm -s /bin/bash mnm \
   && mkdir -p /mnm && chown -R mnm:mnm /mnm
+
+# Production node_modules (no dev deps), then build artifacts + workspace
+# package sources (some, e.g. @mnm/db, are loaded as .ts via tsx at runtime).
+COPY --from=prod-deps /app/node_modules /app/node_modules
+COPY --from=prod-deps /app/package.json /app/bun.lock /app/.npmrc ./
+COPY --from=build /app/server/package.json /app/server/package.json
+COPY --from=build /app/server/dist /app/server/dist
+COPY --from=build /app/ui/package.json /app/ui/package.json
+COPY --from=build /app/ui/dist /app/ui/dist
+COPY --from=build /app/cli /app/cli
+COPY --from=build /app/packages /app/packages
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh

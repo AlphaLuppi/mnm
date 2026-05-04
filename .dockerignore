@@ -1,6 +1,7 @@
 node_modules
 **/node_modules
 .git
+.github
 .env
 .env.*
 *.stackdump
@@ -10,3 +11,31 @@ dist
 **/dist
 .turbo
 **/.turbo
+
+# Docs / website / static assets not needed by the runtime image
+docs
+evals
+skills
+plugins
+releases
+proto-features.html
+
+# Tests / fixtures / coverage
+playwright.config.ts
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+coverage
+**/coverage
+
+# Tooling / editor / vendor metadata
+.claude
+.gitleaksignore
+*.log
+.DS_Store
+
+# Markdown noise (server/CHANGELOG.md is whitelisted because it's published)
+*.md
+!server/CHANGELOG.md
