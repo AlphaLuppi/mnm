@@ -4,6 +4,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.agent
+      cache_from:
+        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/agent:buildcache
+      cache_to:
+        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/agent:buildcache,mode=max
     image: mnm-agent:latest
     deploy:
       replicas: 0  # Never run — just build the image
@@ -36,6 +40,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # BuildKit registry cache — survives runner restarts and shares cache
+      # across deploys. Requires DOCKER_BUILDKIT=1 (default in modern docker)
+      # and the registry pointed to by CI_REGISTRY_IMAGE to be writable.
+      cache_from:
+        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/server:buildcache
+      cache_to:
+        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/server:buildcache,mode=max
     image: ${CI_REGISTRY_IMAGE:-mnm}/server:${APP_VERSION:-latest}
     depends_on:
       agent:
