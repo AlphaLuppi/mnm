@@ -26,9 +26,12 @@ type ResolveGitProviderFn = (args: {
  *    `agentName`. `stepId` is not a column on traces; omitted.
  *  - `checkWorkflowExists(name)` — trivial existence check against
  *    `governed_workflow_definitions`.
- *  - `getMergeRequestApprovals({projectId, mrIid})` — live GitLab API
- *    call routed through the company's GitProvider (token + baseUrl).
- *    Lets gates verify approvals at evaluation time instead of trusting
+ *  - `getCodeReviewState(reference)` — live API call routed through the
+ *    company's GitProvider (token + baseUrl) to fetch current code review
+ *    state of a GitLab MR (`{kind:"gitlab", projectId, mrIid}`) or GitHub
+ *    PR (`{kind:"github", owner, repo, pullNumber}`). Returns a
+ *    provider-agnostic `CodeReviewState` shape. Lets gates verify
+ *    approvals at evaluation time instead of trusting
  *    `artifact.approvals_count`. The provider is resolved with
  *    `resourceType: "workflow"` so it picks up the company-scoped
  *    config; userId stays null because gates run after the run is
@@ -93,35 +96,51 @@ export function buildGateHelpers(deps: {
     return !!row;
   }
 
-  async function getMergeRequestApprovals(args: {
-    projectId: string;
-    mrIid: number;
-  }) {
+  async function getCodeReviewState(args: unknown) {
     if (!resolveGitProvider) {
       throw new Error(
-        "getMergeRequestApprovals helper unavailable: resolveGitProvider not wired",
+        "getCodeReviewState helper unavailable: resolveGitProvider not wired",
       );
     }
-    if (typeof args?.projectId !== "string" || args.projectId.length === 0) {
-      throw new Error("getMergeRequestApprovals: projectId (string) required");
+    const ref = args as Record<string, unknown> | null | undefined;
+    if (!ref || typeof ref !== "object") {
+      throw new Error(
+        'getCodeReviewState: reference object required ({kind:"gitlab",projectId,mrIid} or {kind:"github",owner,repo,pullNumber})',
+      );
     }
-    if (typeof args?.mrIid !== "number" || !Number.isFinite(args.mrIid)) {
-      throw new Error("getMergeRequestApprovals: mrIid (number) required");
+    if (ref.kind === "gitlab") {
+      if (typeof ref.projectId !== "string" || ref.projectId.length === 0) {
+        throw new Error("getCodeReviewState: gitlab.projectId (string) required");
+      }
+      if (typeof ref.mrIid !== "number" || !Number.isFinite(ref.mrIid)) {
+        throw new Error("getCodeReviewState: gitlab.mrIid (number) required");
+      }
+    } else if (ref.kind === "github") {
+      if (typeof ref.owner !== "string" || ref.owner.length === 0) {
+        throw new Error("getCodeReviewState: github.owner (string) required");
+      }
+      if (typeof ref.repo !== "string" || ref.repo.length === 0) {
+        throw new Error("getCodeReviewState: github.repo (string) required");
+      }
+      if (typeof ref.pullNumber !== "number" || !Number.isFinite(ref.pullNumber)) {
+        throw new Error("getCodeReviewState: github.pullNumber (number) required");
+      }
+    } else {
+      throw new Error(
+        `getCodeReviewState: unsupported kind="${String(ref.kind)}" — expected "gitlab" or "github"`,
+      );
     }
     const provider = await resolveGitProvider({
       companyId,
       userId: null,
       resourceType: "workflow",
     });
-    if (typeof provider.getMergeRequestApprovals !== "function") {
+    if (typeof provider.getCodeReviewState !== "function") {
       throw new Error(
-        "getMergeRequestApprovals: current GitProvider does not implement live approvals (only GitlabProvider does today)",
+        "getCodeReviewState: current GitProvider does not implement live code review state",
       );
     }
-    return provider.getMergeRequestApprovals({
-      projectId: args.projectId,
-      mrIid: args.mrIid,
-    });
+    return provider.getCodeReviewState(ref as Parameters<NonNullable<typeof provider.getCodeReviewState>>[0]);
   }
 
   async function fetchHandoff(args: { git_sha: string; path: string }) {
@@ -144,5 +163,5 @@ export function buildGateHelpers(deps: {
     return provider.fetchBlob({ ref: args.git_sha, path: args.path });
   }
 
-  return { queryTraces, checkWorkflowExists, getMergeRequestApprovals, fetchHandoff };
+  return { queryTraces, checkWorkflowExists, getCodeReviewState, fetchHandoff };
 }

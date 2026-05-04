@@ -20,8 +20,13 @@ export type {
   TreeEntry,
   CommitMultipleFilesArgs,
   CommitMultipleFilesResult,
-  GetMrApprovalsArgs,
-  MrApprovalsResult,
+  CodeReviewReference,
+  CodeReviewer,
+  CodeReviewerState,
+  CodeReviewState,
+  MergeBranchArgs,
+  MergeBranchResult,
+  DeleteBranchArgs,
 } from "./types.js";
 
 export { ShaCache, type ShaCacheOptions } from "./sha-cache.js";
