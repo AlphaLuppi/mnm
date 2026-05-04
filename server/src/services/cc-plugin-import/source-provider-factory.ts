@@ -1,18 +1,21 @@
-import { GitlabProvider, type GitProvider } from "@mnm/git-provider";
+import { GitlabProvider, GitHubProvider, type GitProvider } from "@mnm/git-provider";
 import { eq, and, isNull } from "drizzle-orm";
 import { configLayers, configLayerItems, authAccounts, type Db } from "@mnm/db";
+import { connectorService, ConnectorError } from "../connectors.js";
 
 export interface BuildSourceProviderInput {
   db: Db;
   companyId: string;
   /**
    * The full HTTPS URL of the plugin repo, e.g.
-   * https://gitlab.example.com/example-org/hub/creation/lint-pack
+   * - https://gitlab.example.com/example-org/hub/creation/lint-pack (GitLab)
+   * - https://github.com/alphaluppi/lint-pack (GitHub)
    */
   url: string;
   /** BetterAuth user id. When provided in `authenticated` mode, the resolver
-   * first tries the user's GitLab OAuth token before falling back to the
-   * company PAT — same pattern as createResolveGitProvider Step 1. */
+   * first tries the user's per-provider OAuth token (Connectors Platform for
+   * github, BetterAuth account row for gitlab) before falling back to the
+   * company PAT. Same pattern as createResolveGitProvider Step 1a / 1. */
   userId?: string | null;
 }
 
@@ -29,6 +32,34 @@ export function parseGitlabRepoUrl(url: string): ParsedRepoUrl {
     throw new Error(`Cannot parse GitLab project path from URL: ${url}`);
   }
   return { baseUrl, projectPath };
+}
+
+export interface ParsedGitHubRepo {
+  baseUrl: string;
+  owner: string;
+  repo: string;
+}
+
+/**
+ * Parse a github.com plugin URL into `{baseUrl, owner, repo}`. Accepts the
+ * standard form `https://github.com/<owner>/<repo>` with optional `.git`
+ * suffix and trailing slash. V0 (D2): rejects anything that isn't a
+ * github.com host — no GitHub Enterprise Server support yet.
+ */
+export function parseGitHubRepoUrl(url: string): ParsedGitHubRepo {
+  const u = new URL(url);
+  const baseUrl = `${u.protocol}//${u.host}`;
+  if (u.host !== "github.com") {
+    throw new Error(
+      `Plugin URL host (${u.host}) is not github.com. V0 only supports github.com (D2 — no GHES).`,
+    );
+  }
+  const path = u.pathname.replace(/^\/+/, "").replace(/\.git$/, "").replace(/\/+$/, "");
+  const segments = path.split("/");
+  if (segments.length < 2 || !segments[0] || !segments[1]) {
+    throw new Error(`Cannot parse GitHub owner/repo from URL: ${url}`);
+  }
+  return { baseUrl, owner: segments[0], repo: segments[1] };
 }
 
 /**
@@ -49,8 +80,6 @@ export function parseGitlabRepoUrl(url: string): ParsedRepoUrl {
 export async function buildSourceProvider(
   input: BuildSourceProviderInput,
 ): Promise<GitProvider> {
-  const { baseUrl: parsedBaseUrl, projectPath } = parseGitlabRepoUrl(input.url);
-
   // Always look up the company git_provider config first — used for the
   // same-instance check on both paths, and as the PAT fallback when OAuth
   // doesn't apply or fails.
@@ -77,13 +106,31 @@ export async function buildSourceProvider(
     kind?: string;
     baseUrl?: string;
     token?: string;
+    owner?: string;
+    repo?: string;
   };
 
-  if (config.kind !== "gitlab") {
-    throw new Error(
-      `Source provider build only supports kind=gitlab in V1, got kind=${config.kind ?? "unknown"}`,
-    );
+  if (config.kind === "gitlab") {
+    return buildGitlabSourceProvider(input, config);
   }
+  if (config.kind === "github") {
+    return buildGithubSourceProvider(input, config);
+  }
+  throw new Error(
+    `Source provider build only supports kind=gitlab|github, got kind=${config.kind ?? "unknown"}`,
+  );
+}
+
+/**
+ * GitLab plugin source provider. Same-instance check against the company's
+ * GitLab base URL; per-user OAuth via BetterAuth `account` row with silent
+ * refresh, fallback to company PAT.
+ */
+async function buildGitlabSourceProvider(
+  input: BuildSourceProviderInput,
+  config: { baseUrl?: string; token?: string },
+): Promise<GitProvider> {
+  const { baseUrl: parsedBaseUrl, projectPath } = parseGitlabRepoUrl(input.url);
   if (!config.baseUrl) {
     throw new Error("GIT_PROVIDER_MISCONFIG: kind=gitlab but baseUrl missing");
   }
@@ -120,9 +167,6 @@ export async function buildSourceProvider(
       let userToken = row.accessToken!;
       let tokenExpiresAt: Date | null = row.accessTokenExpiresAt;
 
-      // Silent refresh: if access_token is expired (or expires within 30 s)
-      // and a refresh_token is on file, swap for a fresh access_token via
-      // GitLab's /oauth/token endpoint.
       const REFRESH_BUFFER_MS = 30_000;
       const isStale =
         !tokenExpiresAt ||
@@ -140,8 +184,6 @@ export async function buildSourceProvider(
         }
       }
 
-      // Post-refresh check: only trust the token if it's no longer stale.
-      // Otherwise fall through to company-level PAT fallback.
       const stillStale =
         !tokenExpiresAt || tokenExpiresAt.getTime() <= Date.now();
       if (!stillStale) {
@@ -150,8 +192,6 @@ export async function buildSourceProvider(
           baseUrl: config.baseUrl,
           projectId: projectPath,
           token: userToken,
-          // OAuth access_tokens MUST go via Authorization: Bearer.
-          // PRIVATE-TOKEN is reserved for PATs and 401s on OAuth tokens.
           tokenScheme: "bearer",
         });
       }
@@ -168,6 +208,59 @@ export async function buildSourceProvider(
     baseUrl: config.baseUrl,
     projectId: projectPath,
     token: config.token,
+  });
+}
+
+/**
+ * GitHub plugin source provider. The plugin URL must point at github.com (V0
+ * D2 — no GHES). Per-user OAuth via Connectors Platform `getUserToken("github")`
+ * (D7-strict identity), fallback to company PAT in the config layer item.
+ */
+async function buildGithubSourceProvider(
+  input: BuildSourceProviderInput,
+  config: { token?: string; owner?: string; repo?: string },
+): Promise<GitProvider> {
+  const { owner: pluginOwner, repo: pluginRepo } = parseGitHubRepoUrl(input.url);
+
+  // ── Step 1a: Per-user OAuth token via Connectors Platform ─────────────────
+  // Same pattern as createResolveGitProvider Step 1a — preserves D7 (the
+  // user's GitHub identity is the committer of any commit made through
+  // this provider, not a bot).
+  const isAuthenticated =
+    (process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted") === "authenticated";
+  if (isAuthenticated && input.userId) {
+    try {
+      const svc = connectorService(input.db);
+      const tok = await svc.getUserToken(input.userId, "github", input.companyId);
+      return new GitHubProvider({
+        providerId: `github:user:${input.userId}:${pluginOwner}/${pluginRepo}`,
+        owner: pluginOwner,
+        repo: pluginRepo,
+        auth: { mode: "user-oauth", token: tok.accessToken },
+      });
+    } catch (err) {
+      // CONNECTOR_NOT_CONFIGURED / CONNECTOR_USER_NOT_CONNECTED → fall through
+      // to PAT. Other ConnectorErrors (REVOKED, EXPIRED_NO_REFRESH) surface.
+      if (
+        err instanceof ConnectorError &&
+        err.code !== "CONNECTOR_NOT_CONFIGURED" &&
+        err.code !== "CONNECTOR_USER_NOT_CONNECTED"
+      ) {
+        throw err;
+      }
+      // Fall through to PAT.
+    }
+  }
+
+  // ── Step 2: Fallback to company PAT (config_layer_item.token) ─────────────
+  if (!config.token) {
+    throw new Error("GIT_PROVIDER_MISCONFIG: github PAT missing for fallback");
+  }
+  return new GitHubProvider({
+    providerId: `github:plugin-source:${pluginOwner}/${pluginRepo}`,
+    owner: pluginOwner,
+    repo: pluginRepo,
+    auth: { mode: "user-oauth", token: config.token },
   });
 }
 

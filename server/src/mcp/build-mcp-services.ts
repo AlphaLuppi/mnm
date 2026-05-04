@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { authAccounts, configLayerItems, configLayers, type Db } from "@mnm/db";
 import type { ResourceType, ProviderWithPaths } from "../services/git-resource-path.js";
-import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
+import { GitlabProvider, GitHubProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { projectService } from "../services/projects.js";
@@ -179,6 +179,58 @@ async function refreshGitlabAccessToken(
  *   or env-var fallback. This preserves the existing dev flow (PUT
  *   /git-provider-config with a PAT) unchanged.
  */
+/**
+ * Possible `kind` values declared on a company's git_provider config layer
+ * item. `null` means no item is configured — caller defaults to `"gitlab"`
+ * for backwards compatibility with pilots set up before D6.
+ */
+type GitProviderKind = "gitlab" | "github" | "local";
+
+/**
+ * Read the company's git_provider `kind` from `config_layer_items`. Used to
+ * dispatch Step 1a (Connectors Platform) onto the right `getUserToken(slug)`
+ * + provider class. Cached per `${companyId}:${rtKey}` for the resolver's
+ * lifetime to avoid an extra DB roundtrip on every resolve call.
+ *
+ * Returns `null` when no enforced company `git_provider` item exists — the
+ * caller treats this as "default to gitlab" (legacy pilots).
+ */
+async function readCompanyGitProviderKind(
+  db: Db,
+  companyId: string,
+  rtPathKey: "agents" | "workflows" | undefined,
+): Promise<GitProviderKind | null> {
+  const rows = await db
+    .select({ configJson: configLayerItems.configJson })
+    .from(configLayerItems)
+    .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+    .where(
+      and(
+        eq(configLayerItems.companyId, companyId),
+        eq(configLayerItems.itemType, "git_provider"),
+        eq(configLayerItems.enabled, true),
+        eq(configLayers.scope, "company"),
+        eq(configLayers.enforced, true),
+        isNull(configLayers.archivedAt),
+      ),
+    )
+    .orderBy(asc(configLayerItems.createdAt), asc(configLayerItems.id));
+  if (rows.length === 0) return null;
+
+  // Mirror the resourceType-aware selection logic from Step 2 below — when a
+  // resource type is provided, prefer items whose paths.<type> field is set.
+  const candidate = (rtPathKey
+    ? rows.find(
+        (r) =>
+          (r.configJson as Record<string, unknown> & { paths?: Record<string, string> })
+            .paths?.[rtPathKey] !== undefined,
+      )
+    : undefined) ?? rows[0]!;
+  const cfg = candidate.configJson as { kind?: string };
+  if (cfg.kind === "gitlab" || cfg.kind === "github" || cfg.kind === "local") return cfg.kind;
+  return null;
+}
+
 export function createResolveGitProvider(
   db: Db,
 ): (args: ResolveGitProviderArgs) => Promise<GitProvider> {
@@ -186,10 +238,29 @@ export function createResolveGitProvider(
   const companyCache = new Map<string, GitProvider>();
   // Cache for per-user providers. Key = `${companyId}:${userId}:${resourceType ?? "default"}`.
   const userCache = new Map<string, UserProviderCacheEntry>();
+  // Cache for the company's declared git_provider kind. Avoids re-querying
+  // config_layer_items on every resolve call. Invalidated by process
+  // restart only — same lifetime as `companyCache` (D6 — companies don't
+  // hot-swap providers).
+  const kindCache = new Map<string, GitProviderKind | null>();
 
   return async function resolveGitProvider(args: ResolveGitProviderArgs): Promise<GitProvider> {
     const { companyId, userId, resourceType } = args;
     const rtKey = resourceType ?? "default";
+    const rtPathKey =
+      resourceType === "agent" ? "agents" : resourceType === "workflow" ? "workflows" : undefined;
+
+    // ── Step 0: determine the company's declared git_provider kind ────────────
+    // Used by Step 1a to dispatch onto getUserToken("gitlab") vs
+    // getUserToken("github") + the matching provider class. Defaults to
+    // "gitlab" when no item is configured (backwards compat).
+    const kindCacheKey = `${companyId}:${rtKey}`;
+    let cachedKind = kindCache.get(kindCacheKey);
+    if (cachedKind === undefined) {
+      cachedKind = await readCompanyGitProviderKind(db, companyId, rtPathKey);
+      kindCache.set(kindCacheKey, cachedKind);
+    }
+    const effectiveKind: GitProviderKind = cachedKind ?? "gitlab";
 
     // ── Step 1: Per-user token (authenticated mode only) ──────────────────────
     // Skip entirely in local_trusted so dev flow is unaffected.
@@ -211,7 +282,7 @@ export function createResolveGitProvider(
     // — they signal a real user-facing problem the legacy path can't fix.
     //
     // See docs/governed-workflows/connectors.md §7 for the migration plan.
-    if (isAuthenticated && userId) {
+    if (isAuthenticated && userId && (effectiveKind === "gitlab" || effectiveKind === "github")) {
       const connectorsCacheKey = `${companyId}:${userId}:${rtKey}:connectors`;
       const cachedConnectors = userCache.get(connectorsCacheKey);
       if (cachedConnectors) {
@@ -221,16 +292,30 @@ export function createResolveGitProvider(
 
       try {
         const svc = connectorService(db);
-        const tok = await svc.getUserToken(userId, "gitlab", companyId);
-        const { baseUrl, projectId, paths } = await resolveGitlabCoordinates(db, companyId);
+        const tok = await svc.getUserToken(userId, effectiveKind, companyId);
 
-        const provider = new GitlabProvider({
-          providerId: `gitlab:connector:${userId}`,
-          baseUrl,
-          projectId,
-          token: tok.accessToken,
-          tokenScheme: "bearer",
-        });
+        let provider: GitProvider;
+        let paths: ProviderWithPaths["paths"] | undefined;
+        if (effectiveKind === "gitlab") {
+          const coords = await resolveGitlabCoordinates(db, companyId);
+          paths = coords.paths;
+          provider = new GitlabProvider({
+            providerId: `gitlab:connector:${userId}`,
+            baseUrl: coords.baseUrl,
+            projectId: coords.projectId,
+            token: tok.accessToken,
+            tokenScheme: "bearer",
+          });
+        } else {
+          const coords = await resolveGitHubCoordinates(db, companyId);
+          paths = coords.paths;
+          provider = new GitHubProvider({
+            providerId: `github:connector:${userId}`,
+            owner: coords.owner,
+            repo: coords.repo,
+            auth: { mode: "user-oauth", token: tok.accessToken },
+          });
+        }
         (provider as unknown as ProviderWithPaths).paths = paths ?? {};
 
         const expiresAt = tok.expiresAt
@@ -255,7 +340,9 @@ export function createResolveGitProvider(
           // fallback). System-context calls (userId === null) are not
           // affected — they take the legacy path further down.
           if (process.env.MNM_REQUIRE_USER_CONNECTOR !== "false") {
-            throw connectorRequired("gitlab", "GitLab");
+            const slug = effectiveKind;
+            const label = effectiveKind === "github" ? "GitHub" : "GitLab";
+            throw connectorRequired(slug, label);
           }
           // Legacy fallback explicitly enabled: fall into Step 1 (BetterAuth).
         } else {
@@ -396,7 +483,7 @@ export function createResolveGitProvider(
 
     // When resourceType is provided, prefer items whose paths.<type> field is
     // explicitly set. Fallback to the first item (legacy single-item layout).
-    const rtPathKey = resourceType === "agent" ? "agents" : resourceType === "workflow" ? "workflows" : undefined;
+    // `rtPathKey` was declared at the top of resolveGitProvider — reuse it.
     const candidate = (rtPathKey
       ? rows.find((r) => (r.configJson as Record<string, unknown> & { paths?: Record<string, string> }).paths?.[rtPathKey] !== undefined)
       : undefined) ?? rows[0]!;
@@ -415,6 +502,30 @@ export function createResolveGitProvider(
         );
       }
       provider = new GitlabProvider({ providerId, baseUrl, projectId, token });
+    } else if (cfg.kind === "github") {
+      // PAT-style fallback (Step 2) for github. Used only when strict mode
+      // is OFF (MNM_REQUIRE_USER_CONNECTOR=false) — strict mode short-circuits
+      // earlier with `connectorRequired("github", "GitHub")`. The token here
+      // is a fine-grained PAT or classic PAT supplied via the config layer.
+      // V0 D2: github.com only — `baseUrl` defaults to api.github.com inside
+      // GitHubProvider when omitted.
+      const { providerId, owner, repo, token, baseUrl } = cfg as {
+        providerId?: string; owner?: string; repo?: string; token?: string; baseUrl?: string;
+      };
+      if (!providerId || !owner || !repo || !token) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
+          `Company ${companyId} git_provider item is missing required github fields.`,
+          ["Set providerId, owner, repo, token on the git_provider config layer item."],
+        );
+      }
+      provider = new GitHubProvider({
+        providerId,
+        owner,
+        repo,
+        auth: { mode: "user-oauth", token },
+        ...(baseUrl ? { baseUrl } : {}),
+      });
     } else if (cfg.kind === "local") {
       const { providerId, repoDir } = cfg as { providerId?: string; repoDir?: string };
       if (!providerId || !repoDir) {
@@ -429,7 +540,7 @@ export function createResolveGitProvider(
       throw new GovernedWorkflowError(
         WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
         `Company ${companyId} git_provider item has unknown kind: ${String(cfg.kind)}`,
-        ["Supported kinds are 'gitlab' and 'local'."],
+        ["Supported kinds are 'gitlab', 'github' and 'local'."],
       );
     }
 
@@ -492,6 +603,56 @@ async function resolveGitlabCoordinates(
   const baseUrl = process.env.GITLAB_OAUTH_ISSUER_URL ?? process.env.GITLAB_BASE_URL ?? "https://gitlab.com";
   const projectId = process.env.GITLAB_PROJECT_ID ?? "";
   return { baseUrl, projectId, paths: {} };
+}
+
+/**
+ * Resolve the GitHub repo coordinates (owner + repo) for a user-scoped
+ * provider, mirroring `resolveGitlabCoordinates`. Reads the company's
+ * git_provider config_layer_item — the user OAuth token must have access
+ * to the repo declared there.
+ *
+ * V0 (D2): no GitHub Enterprise Server support — `baseUrl` is implicit
+ * (`https://api.github.com` inside GitHubProvider). Future: add
+ * `instanceBaseUrl` to the config item.
+ */
+async function resolveGitHubCoordinates(
+  db: Db,
+  companyId: string,
+): Promise<{ owner: string; repo: string; paths: ProviderWithPaths["paths"] }> {
+  const rows = await db
+    .select({ configJson: configLayerItems.configJson })
+    .from(configLayerItems)
+    .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+    .where(
+      and(
+        eq(configLayerItems.companyId, companyId),
+        eq(configLayerItems.itemType, "git_provider"),
+        eq(configLayerItems.enabled, true),
+        eq(configLayers.scope, "company"),
+        eq(configLayers.enforced, true),
+        isNull(configLayers.archivedAt),
+      ),
+    )
+    .limit(1);
+
+  if (rows.length > 0) {
+    const cfg = rows[0]!.configJson as { kind?: string; paths?: Record<string, string> } & Record<string, unknown>;
+    if (cfg.kind === "github") {
+      const { owner, repo } = cfg as { owner?: string; repo?: string };
+      if (owner && repo) {
+        return { owner, repo, paths: (cfg.paths ?? {}) as ProviderWithPaths["paths"] };
+      }
+    }
+  }
+
+  // Env-var fallback (dev / local bootstrap). For github we accept a single
+  // `GITHUB_REPO` env var in the canonical "owner/repo" form, or two
+  // separate vars.
+  const repoEnv = process.env.GITHUB_REPO ?? "";
+  const [envOwner, envRepo] = repoEnv.includes("/")
+    ? (repoEnv.split("/", 2) as [string, string])
+    : [process.env.GITHUB_OWNER ?? "", process.env.GITHUB_REPO_NAME ?? ""];
+  return { owner: envOwner, repo: envRepo, paths: {} };
 }
 
 function buildEnvFallbackProvider(): GitProvider {

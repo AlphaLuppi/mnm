@@ -237,3 +237,133 @@ describe("createResolveGitProvider — Step 1a Connectors Platform path", () => 
     ).rejects.toMatchObject({ status: 412 });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3 of github-provider plan (D6 — unified github template, auto-dispatch
+// based on company's git_provider config_layer_item kind).
+//
+// When the company config declares `kind: "github"`, the resolver MUST call
+// `getUserToken(userId, "github", companyId)` and instantiate a GitHubProvider
+// instead of the default GitlabProvider.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildDbWithGithubConfig() {
+  // Mocked db.select(...).from(...).innerJoin(...).where(...).orderBy(...) and
+  // .limit() chains all resolve to a single github config layer item, so both
+  // `readCompanyGitProviderKind` and `resolveGitHubCoordinates` get the same
+  // row. Build-mcp-services also queries authAccounts (BetterAuth) — we leave
+  // those queries returning empty since Step 1 is gitlab-only.
+  const githubRow = {
+    configJson: {
+      kind: "github",
+      providerId: "github:alphaluppi/mnm",
+      owner: "alphaluppi",
+      repo: "mnm",
+      paths: { workflows: "workflows", agents: "agents" },
+    },
+  };
+  const fromChain = (): unknown => ({
+    where: () =>
+      Object.assign(Promise.resolve([githubRow]), {
+        orderBy: () => Promise.resolve([githubRow]),
+        limit: () => Promise.resolve([githubRow]),
+      }),
+    innerJoin: () => ({
+      where: () =>
+        Object.assign(Promise.resolve([githubRow]), {
+          orderBy: () => Promise.resolve([githubRow]),
+          limit: () => Promise.resolve([githubRow]),
+        }),
+    }),
+  });
+  return {
+    select: () => ({ from: fromChain }),
+    update: () => ({
+      set: () => ({ where: () => Promise.resolve() }),
+    }),
+    execute: () => Promise.resolve([]),
+  } as unknown as import("@mnm/db").Db;
+}
+
+describe("createResolveGitProvider — github auto-dispatch (Phase 3)", () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+    process.env.MNM_DEPLOYMENT_MODE = "authenticated";
+    getUserTokenSpy.mockReset();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("calls getUserToken('github') when company config layer kind is github", async () => {
+    getUserTokenSpy.mockResolvedValueOnce({
+      accessToken: "github-oauth-token-from-connectors",
+      expiresAt: new Date(Date.now() + 3600_000),
+      scopes: ["repo", "read:user"],
+      type: "oauth2",
+    });
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(buildDbWithGithubConfig());
+    const provider = await resolve({
+      companyId: "00000000-0000-0000-0000-0000000000g1",
+      userId: "user-gh-1",
+    });
+
+    expect(provider.constructor.name).toBe("GitHubProvider");
+    expect(getUserTokenSpy).toHaveBeenCalledWith(
+      "user-gh-1",
+      "github",
+      "00000000-0000-0000-0000-0000000000g1",
+    );
+    expect((provider as unknown as { providerId: string }).providerId).toBe(
+      "github:connector:user-gh-1",
+    );
+  });
+
+  it("strict mode throws CONNECTOR_REQUIRED with slug=github when user not connected", async () => {
+    process.env.MNM_REQUIRE_USER_CONNECTOR = "true";
+    getUserTokenSpy.mockRejectedValueOnce(
+      new ConnectorError("CONNECTOR_USER_NOT_CONNECTED", "user has not linked github"),
+    );
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(buildDbWithGithubConfig());
+
+    await expect(
+      resolve({
+        companyId: "00000000-0000-0000-0000-0000000000g2",
+        userId: "user-gh-strict",
+      }),
+    ).rejects.toMatchObject({
+      status: 412,
+      details: {
+        code: "CONNECTOR_REQUIRED",
+        connectorSlug: "github",
+        connectFlowUrl: "/settings/accounts?focus=github",
+      },
+    });
+  });
+
+  it("propagates the company kind to the cache key (no leak into the gitlab path)", async () => {
+    getUserTokenSpy.mockResolvedValue({
+      accessToken: "stable-github-token",
+      expiresAt: new Date(Date.now() + 3600_000),
+      scopes: [],
+      type: "oauth2",
+    });
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(buildDbWithGithubConfig());
+    const args = { companyId: "company-gh", userId: "user-gh-cache", resourceType: "workflow" as const };
+    const p1 = await resolve(args);
+    const p2 = await resolve(args);
+
+    expect(p1).toBe(p2);
+    expect(p1.constructor.name).toBe("GitHubProvider");
+    // Cache hit: getUserToken called once even after two resolve() calls.
+    expect(getUserTokenSpy).toHaveBeenCalledTimes(1);
+    // The single call was for the "github" slug, not "gitlab".
+    expect(getUserTokenSpy).toHaveBeenCalledWith("user-gh-cache", "github", "company-gh");
+  });
+});
