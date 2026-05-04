@@ -116,10 +116,28 @@ const cancelRunBodySchema = z.object({
   reason: z.string().min(5, "Cancellation reason must be at least 5 characters."),
 });
 
-// Body for PUT /git-provider-config — sets the per-company git_provider
+// Body for PUT /git-provider-config — upserts a per-company git_provider
 // config_layer_item used by createResolveGitProvider (see build-mcp-services).
-// The config is idempotent: rerunning with new values updates the row in place.
-// Server restart required after change (resolveGitProvider cache is process-lifetime).
+//
+// `itemName` distinguishes named items inside the same layer (default:
+// "default"). To split workflows + agents across two repos, send two PUTs
+// with `itemName: "workflows"` (paths.workflows set) and
+// `itemName: "agents"` (paths.agents set) — the resolver picks the right
+// one off `resourceType` (see build-mcp-services.ts:399).
+//
+// `paths` are subtree prefixes inside the configured repo. Empty/omitted
+// = files live at the repo root (default).
+//
+// The config is idempotent: rerunning with new values updates the row in
+// place. Server restart required after change (resolveGitProvider cache
+// is process-lifetime).
+const gitProviderPathsSchema = z
+  .object({
+    workflows: z.string().optional(),
+    agents: z.string().optional(),
+  })
+  .optional();
+
 const gitProviderConfigSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("gitlab"),
@@ -127,11 +145,15 @@ const gitProviderConfigSchema = z.discriminatedUnion("kind", [
     baseUrl: z.string().url(),
     projectId: z.string().min(1),
     token: z.string().min(1),
+    paths: gitProviderPathsSchema,
+    itemName: z.string().min(1).max(64).default("default"),
   }),
   z.object({
     kind: z.literal("local"),
     providerId: z.string().min(1).default("local:dev"),
     repoDir: z.string().min(1),
+    paths: gitProviderPathsSchema,
+    itemName: z.string().min(1).max(64).default("default"),
   }),
 ]);
 
@@ -195,6 +217,59 @@ export function governedWorkflowUiRoutes(db: Db) {
           : undefined;
         const rows = await svc.listDefinitions({ companyId, enabled });
         res.json({ items: rows, total: rows.length });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── GET /governed-workflows/git-provider-config ────────────────────────────
+  // Defined BEFORE GET /:name so Express matches the literal path first
+  // (otherwise "/:name" would capture "git-provider-config").
+  // Returns the list of currently-configured git_provider items for the
+  // company. Tokens are NEVER included — the UI only needs metadata to
+  // render existing configuration.
+  router.get(
+    "/git-provider-config",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_READ),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const rows = await db
+          .select({
+            itemId: configLayerItems.id,
+            name: configLayerItems.name,
+            displayName: configLayerItems.displayName,
+            configJson: configLayerItems.configJson,
+            enabled: configLayerItems.enabled,
+          })
+          .from(configLayerItems)
+          .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+          .where(
+            and(
+              eq(configLayerItems.companyId, companyId),
+              eq(configLayerItems.itemType, "git_provider"),
+              eq(configLayers.scope, "company"),
+              eq(configLayers.enforced, true),
+              isNull(configLayers.archivedAt),
+            ),
+          );
+
+        const items = rows.map((row) => {
+          const cfg = row.configJson as Record<string, unknown>;
+          // Strip the secret. Everything else is safe to expose to admins.
+          const { token: _stripped, ...safe } = cfg;
+          return {
+            itemId: row.itemId,
+            itemName: row.name,
+            displayName: row.displayName,
+            enabled: row.enabled,
+            hasToken: typeof _stripped === "string" && _stripped.length > 0,
+            config: safe,
+          };
+        });
+
+        res.json({ items });
       } catch (err) {
         next(err);
       }
@@ -337,7 +412,10 @@ export function governedWorkflowUiRoutes(db: Db) {
           layerId = created!.id;
         }
 
-        // 2. Upsert the git_provider item in that layer.
+        // 2. Upsert the git_provider item in that layer (keyed by itemName so
+        // a company can hold multiple items, e.g. one for workflows + one
+        // for agents).
+        const itemName = parsed.data.itemName;
         const existingItems = await db
           .select({ id: configLayerItems.id })
           .from(configLayerItems)
@@ -345,16 +423,22 @@ export function governedWorkflowUiRoutes(db: Db) {
             and(
               eq(configLayerItems.layerId, layerId),
               eq(configLayerItems.itemType, "git_provider"),
-              eq(configLayerItems.name, "default"),
+              eq(configLayerItems.name, itemName),
             ),
           )
           .limit(1);
+
+        const displayName =
+          itemName === "default"
+            ? `Git Provider (${parsed.data.kind})`
+            : `Git Provider — ${itemName} (${parsed.data.kind})`;
 
         if (existingItems.length > 0) {
           await db
             .update(configLayerItems)
             .set({
               configJson: parsed.data,
+              displayName,
               enabled: true,
               updatedAt: new Date(),
             })
@@ -364,8 +448,8 @@ export function governedWorkflowUiRoutes(db: Db) {
             companyId,
             layerId,
             itemType: "git_provider",
-            name: "default",
-            displayName: `Git Provider (${parsed.data.kind})`,
+            name: itemName,
+            displayName,
             configJson: parsed.data,
             enabled: true,
           });
@@ -374,11 +458,56 @@ export function governedWorkflowUiRoutes(db: Db) {
         res.json({
           ok: true,
           kind: parsed.data.kind,
+          itemName,
           layerId,
           restartRequired: true,
           hint:
             "The resolveGitProvider cache is process-lifetime — restart the MnM dev server once for this change to take effect.",
         });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── DELETE /governed-workflows/git-provider-config/:itemName ───────────────
+  // Removes a single git_provider item by its name. The "Git Provider"
+  // config layer itself is left in place so re-adding an item later is
+  // a single PUT.
+  router.delete(
+    "/git-provider-config/:itemName",
+    requirePermission(db, PERMISSIONS.WORKFLOWS_CREATE),
+    async (req, res, next) => {
+      try {
+        const companyId = req.params.companyId as string;
+        const itemName = req.params.itemName as string;
+        const layers = await db
+          .select({ id: configLayers.id })
+          .from(configLayers)
+          .where(
+            and(
+              eq(configLayers.companyId, companyId),
+              eq(configLayers.scope, "company"),
+              eq(configLayers.enforced, true),
+              eq(configLayers.name, "Git Provider"),
+              isNull(configLayers.archivedAt),
+            ),
+          )
+          .limit(1);
+        if (layers.length === 0) {
+          return res.json({ ok: true, removed: 0 });
+        }
+        const removed = await db
+          .delete(configLayerItems)
+          .where(
+            and(
+              eq(configLayerItems.layerId, layers[0]!.id),
+              eq(configLayerItems.itemType, "git_provider"),
+              eq(configLayerItems.name, itemName),
+            ),
+          )
+          .returning({ id: configLayerItems.id });
+        res.json({ ok: true, removed: removed.length, restartRequired: true });
       } catch (err) {
         next(err);
       }

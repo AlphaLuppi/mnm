@@ -25,6 +25,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { api } from "../../api/client";
+import { GitProviderConfigPanel } from "./GitProviderConfigPanel";
 
 type LlmProvider = "anthropic" | "openai";
 
@@ -241,37 +242,6 @@ function LlmCard() {
 
 function GitCard({ companyId }: { companyId: string }) {
   const [state, setState] = useState<CardState>("idle");
-  const [provider, setProvider] = useState<"gitlab" | "github">("gitlab");
-  const [baseUrl, setBaseUrl] = useState("https://gitlab.com");
-  const [token, setToken] = useState("");
-  const [namespace, setNamespace] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSave() {
-    if (!token.trim()) {
-      setError("A personal access token is required");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      // The existing per-company git-provider endpoint accepts this shape.
-      // If the route shape differs the user can re-enter from Settings.
-      await api.put(`/companies/${companyId}/git-provider-config`, {
-        provider,
-        baseUrl: baseUrl.trim(),
-        token: token.trim(),
-        namespace: namespace.trim() || undefined,
-      });
-      setState("configured");
-      setToken("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save git config");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <Card
@@ -280,81 +250,23 @@ function GitCard({ companyId }: { companyId: string }) {
       description="Source of truth for workflow definitions, custom gates, agent definitions, and every run's artifacts (committed on mnm-runs/<run_id> branches, then merged). Skip to use the in-process git store."
       status={state}
       summary={
-        state === "configured"
-          ? `${provider} configured — ${baseUrl}`
+        state === "configuring" || state === "configured"
+          ? "Choose one repo for everything (with optional sub-paths) or split workflows / agents across two repos."
           : state === "skipped"
             ? "Skipped — using in-process git store (everything still works locally)"
             : "Not configured — using in-process git store by default"
       }
     >
-      {state === "configuring" ? (
+      {state === "configuring" || state === "configured" ? (
         <div className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Provider</label>
-            <select
-              value={provider}
-              onChange={(e) => {
-                const p = e.target.value as "gitlab" | "github";
-                setProvider(p);
-                setBaseUrl(p === "github" ? "https://github.com" : "https://gitlab.com");
-              }}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="gitlab">GitLab (self-hosted or .com)</option>
-              <option value="github">GitHub</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Base URL</label>
-            <input
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring font-mono"
-              placeholder="https://gitlab.example.com"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Personal access token{" "}
-              <span className="text-muted-foreground/60">
-                (scopes: api, read_repository, write_repository)
-              </span>
-            </label>
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring font-mono"
-              placeholder="glpat-… or ghp_…"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
-              Namespace / org (optional)
-            </label>
-            <input
-              value={namespace}
-              onChange={(e) => setNamespace(e.target.value)}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-              placeholder="my-team"
-            />
-          </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleSave} disabled={saving || !token.trim()}>
-              {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
-              Save
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setState("idle")} disabled={saving}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : state === "configured" ? (
-        <div className="flex items-center gap-2 text-sm">
-          <Check className="h-4 w-4 text-emerald-500" />
-          <span className="font-medium">{provider}</span>
-          <span className="text-xs text-muted-foreground">{baseUrl}</span>
+          <GitProviderConfigPanel companyId={companyId} compact />
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setState("idle")}
+          >
+            Hide
+          </button>
         </div>
       ) : (
         <div className="flex gap-2">
