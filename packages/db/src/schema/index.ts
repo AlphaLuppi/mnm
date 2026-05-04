@@ -81,6 +81,15 @@ export { configLayerRevisions } from "./config_layer_revisions.js";
 // ROUTINES: Recurring task definitions
 export { routines, routineTriggers, routineRuns } from "./routines.js";
 export type { RoutineVariable } from "./routines.js";
+// WORKFLOW-TRIGGERS: Phase 1 — autonomous triggers for Governed Workflows
+export {
+  workflowTriggers,
+  workflowTriggerAudit,
+  type WorkflowTriggerRow,
+  type NewWorkflowTrigger,
+  type WorkflowTriggerAuditRow,
+  type NewWorkflowTriggerAudit,
+} from "./workflow_triggers.js";
 // FEEDBACK: Vote on agent output quality
 export { feedbackVotes } from "./feedback_votes.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation

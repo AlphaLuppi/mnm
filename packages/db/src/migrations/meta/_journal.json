@@ -617,6 +617,13 @@
 			"when": 1777002400015,
 			"tag": "0081_workflow_hooks",
 			"breakpoints": true
+		},
+		{
+			"idx": 84,
+			"version": "7",
+			"when": 1777002400084,
+			"tag": "0084_workflow_triggers",
+			"breakpoints": true
 		}
 	]
 }
