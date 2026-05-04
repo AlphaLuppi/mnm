@@ -55,6 +55,7 @@ export const PERMISSIONS = {
   WORKFLOWS_READ: "workflows:read",
   WORKFLOWS_ENFORCE: "workflows:enforce",
   WORKFLOWS_CANCEL_RUN: "workflows:cancel_run",
+  WORKFLOWS_MANAGE_TRIGGERS: "workflows:manage_triggers",
   // Traces / Observability
   TRACES_READ: "traces:read",
   TRACES_WRITE: "traces:write",
@@ -185,6 +186,7 @@ export const PERMISSION_META: Record<PermissionSlug, PermissionMeta> = {
   [PERMISSIONS.WORKFLOWS_READ]: { category: "workflows", description: "Voir les workflows", destructive: false },
   [PERMISSIONS.WORKFLOWS_ENFORCE]: { category: "workflows", description: "Activer/désactiver l'enforcement", destructive: false },
   [PERMISSIONS.WORKFLOWS_CANCEL_RUN]: { category: "workflows", description: "Annuler ou réactiver les runs de workflow", destructive: false },
+  [PERMISSIONS.WORKFLOWS_MANAGE_TRIGGERS]: { category: "workflows", description: "CRUD sur les triggers autonomes (schedule/webhook/issue)", destructive: false },
   [PERMISSIONS.TRACES_READ]: { category: "traces", description: "Voir les traces", destructive: false },
   [PERMISSIONS.TRACES_WRITE]: { category: "traces", description: "Écrire des traces", destructive: false },
   [PERMISSIONS.TRACES_MANAGE]: { category: "traces", description: "Gérer les prompts gold, lenses", destructive: false },
