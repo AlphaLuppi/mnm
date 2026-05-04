@@ -4,10 +4,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.agent
-      cache_from:
-        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/agent:buildcache
-      cache_to:
-        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/agent:buildcache,mode=max
+      # Registry-backed BuildKit cache is intentionally NOT enabled here:
+      # the default Docker driver on Dokploy does not support `cache_to`.
+      # To enable, switch the runner to docker-buildx with the docker-container
+      # driver, or turn on the containerd image store, then add:
+      #   cache_from: [type=registry,ref=${CI_REGISTRY_IMAGE}/agent:buildcache]
+      #   cache_to:   [type=registry,ref=${CI_REGISTRY_IMAGE}/agent:buildcache,mode=max]
     image: mnm-agent:latest
     deploy:
       replicas: 0  # Never run — just build the image
@@ -40,13 +42,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # BuildKit registry cache — survives runner restarts and shares cache
-      # across deploys. Requires DOCKER_BUILDKIT=1 (default in modern docker)
-      # and the registry pointed to by CI_REGISTRY_IMAGE to be writable.
-      cache_from:
-        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/server:buildcache
-      cache_to:
-        - type=registry,ref=${CI_REGISTRY_IMAGE:-mnm}/server:buildcache,mode=max
+      # Registry-backed BuildKit cache is intentionally NOT enabled here:
+      # the default Docker driver on Dokploy does not support `cache_to`
+      # ("Cache export is not supported for the docker driver").
+      # In-Dockerfile `--mount=type=cache` mounts (bun, vite, npm) still work
+      # against the runner's local BuildKit cache.
+      # To enable a registry-backed cache, switch the runner to docker-buildx
+      # with the docker-container driver, or turn on the containerd image
+      # store, then add:
+      #   cache_from: [type=registry,ref=${CI_REGISTRY_IMAGE}/server:buildcache]
+      #   cache_to:   [type=registry,ref=${CI_REGISTRY_IMAGE}/server:buildcache,mode=max]
     image: ${CI_REGISTRY_IMAGE:-mnm}/server:${APP_VERSION:-latest}
     depends_on:
       agent:
