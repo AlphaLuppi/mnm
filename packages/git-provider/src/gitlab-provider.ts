@@ -14,8 +14,9 @@ import type {
   TreeEntry,
   CommitMultipleFilesArgs,
   CommitMultipleFilesResult,
-  GetMrApprovalsArgs,
-  MrApprovalsResult,
+  CodeReviewReference,
+  CodeReviewState,
+  CodeReviewer,
   MergeBranchArgs,
   MergeBranchResult,
   DeleteBranchArgs,
@@ -336,20 +337,51 @@ export class GitlabProvider implements GitProvider {
   }
 
   /**
-   * Live approvals fetch on a project the provider isn't necessarily
-   * pinned to. Same token works across projects on the same instance,
-   * so we just rebuild the URL with the caller-supplied projectId
-   * instead of `this.projectId`.
+   * Live code review state fetch on a GitLab MR. The project may differ
+   * from `this.projectId` — same token works across projects on the same
+   * instance, so we rebuild the URL with the caller-supplied projectId.
+   *
+   * Maps GitLab's `/merge_requests/:iid/approvals` payload to the
+   * provider-agnostic `CodeReviewState` shape:
+   * - `approvals_required` → `requiredApprovals`
+   * - `approved_by.length` → `currentApprovals`
+   * - `approved_by[].user.username` → `reviewers[]` with `state: "approved"`
+   * - `raw` = the original GitLab payload (escape-hatch for advanced gates)
+   *
+   * Note: gates that previously read `approved: true` should NOT trust
+   * `currentApprovals > 0` alone — measure `currentApprovals >= requiredApprovals`.
+   * GitLab returns `approved: true` even when `approvals_required: 0` (no rule
+   * blocks merging), which does NOT mean a human approved.
    */
-  async getMergeRequestApprovals(
-    args: GetMrApprovalsArgs,
-  ): Promise<MrApprovalsResult> {
+  async getCodeReviewState(args: CodeReviewReference): Promise<CodeReviewState> {
+    if (args.kind !== "gitlab") {
+      throw new GitProviderError(
+        "unauthorized",
+        `GitlabProvider.getCodeReviewState rejects kind="${args.kind}" — use a GitHubProvider for GitHub PRs`,
+      );
+    }
     const url = `${this.baseUrl}/api/v4/projects/${encodeURIComponent(
       args.projectId,
     )}/merge_requests/${args.mrIid}/approvals`;
-    const res = await this.request(url, { method: "GET" }, "getMergeRequestApprovals");
-    const body = (await res.json()) as MrApprovalsResult;
-    return body;
+    const res = await this.request(url, { method: "GET" }, "getCodeReviewState");
+    const body = (await res.json()) as {
+      approved?: boolean;
+      approvals_required?: number;
+      approved_by?: Array<{
+        user: { id: number; username: string; name?: string };
+      }>;
+    };
+    const approvedBy = body.approved_by ?? [];
+    const reviewers: CodeReviewer[] = approvedBy.map((a) => ({
+      login: a.user.username,
+      state: "approved",
+    }));
+    return {
+      requiredApprovals: body.approvals_required ?? 0,
+      currentApprovals: approvedBy.length,
+      reviewers,
+      raw: body,
+    };
   }
 
   async mergeBranch(args: MergeBranchArgs): Promise<MergeBranchResult> {
