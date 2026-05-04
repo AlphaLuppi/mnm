@@ -184,7 +184,7 @@ async function refreshGitlabAccessToken(
  * item. `null` means no item is configured — caller defaults to `"gitlab"`
  * for backwards compatibility with pilots set up before D6.
  */
-type GitProviderKind = "gitlab" | "github" | "local";
+export type GitProviderKind = "gitlab" | "github" | "local";
 
 /**
  * Read the company's git_provider `kind` from `config_layer_items`. Used to
@@ -195,7 +195,7 @@ type GitProviderKind = "gitlab" | "github" | "local";
  * Returns `null` when no enforced company `git_provider` item exists — the
  * caller treats this as "default to gitlab" (legacy pilots).
  */
-async function readCompanyGitProviderKind(
+export async function readCompanyGitProviderKind(
   db: Db,
   companyId: string,
   rtPathKey: "agents" | "workflows" | undefined,
@@ -722,6 +722,11 @@ export function buildMcpServices(db: Db): McpServices {
       providers: {
         jira: { baseUrl: "https://api.atlassian.com" },
         clickup: { baseUrl: "https://api.clickup.com" },
+        // github user-OAuth slug → matches the `github` connector template;
+        // hooks calling helpers.http("github", ...) get the user's bearer
+        // token injected automatically (D7 — request runs with the user's
+        // identity, not an App[bot]).
+        github: { baseUrl: "https://api.github.com" },
       },
     },
   });

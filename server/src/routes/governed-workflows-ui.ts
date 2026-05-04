@@ -29,12 +29,17 @@ import {
   getRunLiveness,
   recoverRun,
 } from "../services/governed-workflows-liveness.js";
-import { createResolveGitProvider } from "../mcp/build-mcp-services.js";
+import {
+  createResolveGitProvider,
+  readCompanyGitProviderKind,
+} from "../mcp/build-mcp-services.js";
 import { ShaCache } from "@mnm/git-provider";
 import { configLayers, configLayerItems, authUsers } from "@mnm/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { runImport, PluginImportError } from "../services/cc-plugin-import/orchestrator.js";
 import { buildSourceProvider } from "../services/cc-plugin-import/source-provider-factory.js";
+import { connectorService } from "../services/connectors.js";
+import { commitIdentityService } from "../services/commit-identity.js";
 
 // ── Error helpers ────────────────────────────────────────────────────────────
 
@@ -157,18 +162,62 @@ const gitProviderConfigSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-// ── Author identity from actor ───────────────────────────────────────────────
-// Produces the {name, email} stamp written on each git commit the workflow
-// route triggers. In authenticated mode we look up the real BetterAuth user
-// record so commits in the GitLab history carry the user's real identity
-// (not an opaque uuid@mnm.local). Agents and local_trusted keep their
-// synthesized identities — those are never a real person.
+// ── Author identity from actor (D7 strict) ───────────────────────────────────
+// Produces the {name, email} stamp written on EACH git commit the workflow
+// route triggers — used for BOTH `author` and `committer` of the commit
+// (D7, plan 2026-05-04-github-provider.md). Resolution order for a board
+// actor:
+//   1. Provider-level identity via `commit-identity` (fetches /user from
+//      the company's configured git provider with the user's OAuth token,
+//      cached 24h). Yields `{name, email}` matching what the user already
+//      publishes externally on GitHub/GitLab.
+//   2. BetterAuth row fallback (when no provider connector or 401 on
+//      /user). Then synthesized fallback if even the user row is missing.
+// Agents and local_trusted keep their synthesized identities — those are
+// never a real person and the commit identity must be unambiguous.
+
+// Lazy-cached singletons keyed by `db` reference. The route factory calls
+// `governedWorkflowUiRoutes(db)` once per process so the WeakMap effectively
+// reuses the same connector and identity service across requests.
+const resolveAuthorDeps = new WeakMap<
+  Db,
+  {
+    connectorSvc: ReturnType<typeof connectorService>;
+    identitySvc: ReturnType<typeof commitIdentityService>;
+  }
+>();
+
+function getResolveAuthorDeps(db: Db) {
+  let cached = resolveAuthorDeps.get(db);
+  if (!cached) {
+    const connectorSvc = connectorService(db);
+    const identitySvc = commitIdentityService(db, { connectors: connectorSvc });
+    cached = { connectorSvc, identitySvc };
+    resolveAuthorDeps.set(db, cached);
+  }
+  return cached;
+}
 
 export async function resolveAuthor(
   db: Db,
   req: import("express").Request,
 ): Promise<{ name: string; email: string }> {
   if (req.actor.type === "board" && req.actor.userId) {
+    const companyId = (req.params.companyId as string | undefined) ?? null;
+    if (companyId) {
+      // Determine the active provider kind for this company; only github /
+      // gitlab support a /user fetch, "local" + null fall through to BA.
+      const kind = await readCompanyGitProviderKind(db, companyId, undefined);
+      if (kind === "github" || kind === "gitlab") {
+        const { identitySvc } = getResolveAuthorDeps(db);
+        return identitySvc.resolveCommitIdentity({
+          userId: req.actor.userId,
+          companyId,
+          providerKind: kind,
+        });
+      }
+    }
+    // No company / unsupported provider kind — fall back to BetterAuth.
     const [row] = await db
       .select({ name: authUsers.name, email: authUsers.email })
       .from(authUsers)

@@ -412,6 +412,47 @@ describe("GitHubProvider.commitFile + commitMultipleFiles — D7 strict identity
       }),
     ).rejects.toMatchObject({ code: "unknown" });
   });
+
+  // D7 regression guard (plan 2026-05-04-github-provider.md, §Phase 4 step 7).
+  // Strict: the createCommit JSON body MUST satisfy
+  //   author.name === committer.name && author.email === committer.email
+  // for EVERY mode. A future change that decouples them (e.g. setting
+  // committer = App[bot] in app-installation mode) breaks here. Run for both
+  // modes to make the invariant explicit.
+  for (const mode of ["user-oauth", "app-installation"] as const) {
+    it(`D7: createCommit body has author === committer (mode=${mode})`, async () => {
+      const auth =
+        mode === "user-oauth"
+          ? ({ mode: "user-oauth", token: TOKEN } as const)
+          : ({
+              mode: "app-installation",
+              mintToken: vi.fn().mockResolvedValue("ghs_inst_token"),
+            } as const);
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse(200, { object: { sha: "head-sha" } }))
+        .mockResolvedValueOnce(jsonResponse(200, { tree: { sha: "tree-sha" } }))
+        .mockResolvedValueOnce(jsonResponse(201, { sha: "blob-sha" }))
+        .mockResolvedValueOnce(jsonResponse(201, { sha: "new-tree-sha" }))
+        .mockResolvedValueOnce(jsonResponse(201, { sha: "new-commit-sha" }))
+        .mockResolvedValueOnce(jsonResponse(200, {}));
+      const provider = makeProvider({ auth });
+      await provider.commitMultipleFiles({
+        branch: "main",
+        commitMessage: "msg",
+        authorName: "Tom",
+        authorEmail: "tom@example.com",
+        actions: [{ path: "a", content: "b" }],
+      });
+      const [, createCommitInit] = fetchMock.mock.calls[4]!;
+      const body = JSON.parse((createCommitInit as RequestInit).body as string);
+      // Body invariant — strict equality on the two fields D7 cares about.
+      expect(body.author.email === body.committer.email).toBe(true);
+      expect(body.author.name === body.committer.name).toBe(true);
+      // Sanity: identity must match what we passed in (not the App bot).
+      expect(body.author.name).toBe("Tom");
+      expect(body.author.email).toBe("tom@example.com");
+    });
+  }
 });
 
 describe("GitHubProvider.createTag", () => {

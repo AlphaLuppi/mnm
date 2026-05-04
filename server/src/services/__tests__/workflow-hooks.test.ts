@@ -255,6 +255,7 @@ function buildDeps(over: Partial<WorkflowHooksServiceDeps> = {}): WorkflowHooksS
       providers: {
         jira: { baseUrl: "https://api.atlassian.com" },
         clickup: { baseUrl: "https://api.clickup.com" },
+        github: { baseUrl: "https://api.github.com" },
       },
     },
     ...over,
