@@ -58,6 +58,10 @@ const issueApprovalsSvc = vi.hoisted(() => ({
   list: vi.fn(),
 }));
 
+const routinesSvc = vi.hoisted(() => ({
+  syncRunStatusForIssue: vi.fn().mockResolvedValue(null),
+}));
+
 const tagFilterSvc = vi.hoisted(() => ({
   isIssueVisible: vi.fn().mockResolvedValue(true),
 }));
@@ -70,6 +74,7 @@ vi.mock("../services/index.js", () => ({
   projectService: () => projectsSvc,
   goalService: () => goalsSvc,
   issueApprovalService: () => issueApprovalsSvc,
+  routineService: () => routinesSvc,
   emitAudit: vi.fn(),
   logActivity: vi.fn(),
 }));

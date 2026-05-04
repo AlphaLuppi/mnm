@@ -24,6 +24,7 @@ import {
   issueService,
   logActivity,
   projectService,
+  routineService,
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
@@ -51,6 +52,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   const projectsSvc = projectService(db);
   const goalsSvc = goalService(db);
   const issueApprovalsSvc = issueApprovalService(db);
+  const routinesSvc = routineService(db);
   const tagFilter = tagFilterService(db);
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -762,6 +764,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       existing.status === "backlog" &&
       issue.status !== "backlog" &&
       req.body.status !== undefined;
+
+    // ROUTINE-LINK: when a routine-spawned issue reaches a terminal status,
+    // mirror the transition onto the linked routine_run. Fire-and-forget
+    // (the service itself no-ops for non-routine issues and non-terminal statuses).
+    if (req.body.status !== undefined && req.body.status !== existing.status) {
+      void routinesSvc
+        .syncRunStatusForIssue(issue.id)
+        .catch((err) => logger.warn({ err, issueId: issue.id }, "failed to sync routine run status from issue update"));
+    }
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {

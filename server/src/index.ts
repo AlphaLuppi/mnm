@@ -27,7 +27,7 @@ import { logger } from "./middleware/logger.js";
 import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
-import { heartbeatService, subscribeDashboardRefreshEvents } from "./services/index.js";
+import { heartbeatService, routineService, subscribeDashboardRefreshEvents } from "./services/index.js";
 import { startCaoWatchdog } from "./services/cao-watchdog.js";
 import { startLivenessWatchdog } from "./services/governed-workflows-liveness.js";
 import { setTenantContext as setLivenessTenantContext } from "./middleware/tenant-context.js";
@@ -675,6 +675,36 @@ const stopLivenessWatchdog = startLivenessWatchdog({
   // autoRecover left undefined → reads LIVENESS_AUTO_RECOVERY env at tick time
 });
 process.on("beforeExit", () => stopLivenessWatchdog());
+
+// ROUTINE-TICK: Schedule the cron tick that fires due routine_triggers (kind=schedule).
+// Single-leader assumption (mono-instance) — tickInFlight guard prevents overlap on
+// long ticks. Multi-instance deployments will need an advisory-lock, tracked in the
+// workflow_triggers unification plan (2026-05-04-workflow-autonomous-triggers.md §0.1).
+if (process.env.MNM_DISABLE_AUTO_TRIGGERS === "1") {
+  logger.warn("Routine schedule tick disabled (MNM_DISABLE_AUTO_TRIGGERS=1)");
+} else {
+  const routineTickMs = Number(process.env.MNM_ROUTINE_TICK_MS ?? 30_000);
+  const routines = routineService(db as any);
+  let routineTickInFlight = false;
+  setInterval(() => {
+    if (routineTickInFlight) return;
+    routineTickInFlight = true;
+    void routines
+      .tickScheduledTriggers()
+      .then((results) => {
+        if (results.length > 0) {
+          logger.info({ fired: results.length, results }, "routine schedule tick fired triggers");
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "routine schedule tick failed");
+      })
+      .finally(() => {
+        routineTickInFlight = false;
+      });
+  }, routineTickMs);
+  logger.info({ intervalMs: routineTickMs }, "Routine schedule tick enabled");
+}
 
 // PERM-BACKFILL: Ensure all companies have up-to-date permission slugs (roles are NOT force-created)
 void backfillPermissions(db as any).catch((err) => {
