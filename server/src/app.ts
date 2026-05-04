@@ -61,6 +61,7 @@ import { connectorsCallbackRoutes } from "./routes/connectors-callback.js";
 import { instanceConfigRoutes } from "./routes/instance-config.js";
 // CONNECTORS-PLATFORM: REST routes (admin + user self-service, tenant-scoped)
 import { connectorRoutes } from "./routes/connectors.js";
+import { githubAppRoutes } from "./routes/github-app.js";
 // WORKFLOW-HOOKS T2.8 — REST routes (admin + audit + catalog)
 import { workflowHooksRoutes } from "./routes/workflow-hooks.js";
 import { workflowAssignmentsRoutes } from "./routes/workflow-assignments.js";
@@ -394,6 +395,10 @@ export async function createApp(
   api.use(credentialRoutes(db));
   // CONNECTORS-PLATFORM: admin CRUD + user self-service (templates, connect, api_key)
   api.use(connectorRoutes(db));
+  // GITHUB-PROVIDER Phase 1 — per-company GitHub App config attached to a
+  // `github` connector. Mounted under /companies/:companyId/connectors/:id/github/app
+  // (paths declared inside the router).
+  api.use(githubAppRoutes(db));
   // WORKFLOW-HOOKS T2.8 — admin CRUD + audit + catalog. Reuses the same
   // workflowHooksService instance constructed by buildMcpServices() so
   // the enforced-cache stays consistent across REST + MCP.

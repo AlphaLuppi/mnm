@@ -36,6 +36,7 @@ import { threadInteractionsService } from "../services/thread-interactions.js";
 // CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
 // + T8.2: createResolveGitProvider preference path via getUserToken("gitlab")
 import { connectorService, ConnectorError } from "../services/connectors.js";
+import { githubAppService } from "../services/github-app.js";
 // Strict mode (MNM_REQUIRE_USER_CONNECTOR) surfaces 412 CONNECTOR_REQUIRED to
 // the frontend instead of falling back to legacy BetterAuth account / env-var.
 import { connectorRequired } from "../errors.js";
@@ -696,6 +697,11 @@ export function buildMcpServices(db: Db): McpServices {
   // wiring. The connector service is constructed once here and reused
   // both as `services.connectors` and inside workflowHooks.
   const connectors = connectorService(db);
+  // GITHUB-PROVIDER Phase 1 — per-company GitHub App service. Hoisted so the
+  // MCP tools (github-app.tool.ts), the REST routes (github-app.ts) and the
+  // resolver auto-dispatch (createResolveGitProvider Step 1a) all share the
+  // same in-memory installation-token cache.
+  const githubApps = githubAppService(db);
   // WORKFLOW-ASSIGNMENTS T3.3 wire. Hoisted so both the orchestrator and
   // the future REST/MCP `list_my_pending_work` consumers (T3.4) share the
   // same instance.
@@ -779,6 +785,8 @@ export function buildMcpServices(db: Db): McpServices {
     threadInteractions: threadInteractionsService(db),
     // CONNECTORS-PLATFORM: hub OAuth user-level + api_key store
     connectors,
+    // GITHUB-PROVIDER Phase 1 — per-company GitHub App service.
+    githubApps,
     // WORKFLOW-HOOKS T2.6 service + T2.8 MCP/REST consumers — exposed
     // here so the MCP tools file (workflow-hooks.tool.ts) and the REST
     // routes can reach it directly via `services.workflowHooks`.
