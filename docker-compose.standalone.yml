@@ -1,0 +1,73 @@
+# =============================================================================
+# MnM — Standalone (zero-config) Docker Compose
+# =============================================================================
+# Goal: hand this repo to a colleague, they run `docker compose -f
+# docker-compose.standalone.yml up`, complete the in-app onboarding wizard,
+# and every workflow / agent feature is reachable. No .env editing, no API
+# keys, no external connectors required.
+#
+# What it sets up:
+#   - Single MnM container (server + UI)
+#   - Embedded PostgreSQL inside the container (persisted on the `mnm-data`
+#     volume — first boot creates it, subsequent boots reuse it).
+#   - `authenticated` deployment mode (multi-user friendly), with
+#     auto-generated secrets on first boot via docker/entrypoint.sh.
+#   - LLM provider, git provider for workflow versioning, and external
+#     connectors are all OPTIONAL and configurable from the in-app
+#     onboarding wizard ("Integrations" step) or the admin settings.
+#
+# Usage:
+#   docker compose -f docker-compose.standalone.yml up
+#   open http://localhost:3100
+#
+# The first user to sign up becomes the instance admin (board claim).
+# =============================================================================
+
+services:
+  mnm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mnm:standalone
+    restart: unless-stopped
+    ports:
+      - "${MNM_PORT:-3100}:3100"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3100"
+      SERVE_UI: "true"
+      MNM_HOME: "/mnm"
+      MNM_INSTANCE_ID: "default"
+
+      # Standalone mode: enables zero-config bootstrap (auto-generated secrets,
+      # graceful no-LLM fallbacks, "configure later" defaults in onboarding).
+      MNM_STANDALONE: "true"
+
+      # Authenticated deployment so the colleague can sign up and invite
+      # teammates. Standalone mode just removes the manual env-var setup.
+      MNM_DEPLOYMENT_MODE: "authenticated"
+      MNM_DEPLOYMENT_EXPOSURE: "private"
+
+      MNM_PUBLIC_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
+      BETTER_AUTH_URL: "${MNM_PUBLIC_URL:-http://localhost:3100}"
+      MNM_ALLOWED_HOSTNAMES: "localhost,127.0.0.1"
+      MNM_MIGRATION_AUTO_APPLY: "true"
+
+      # Optional integrations — all left empty on purpose. They can be set
+      # from the in-app onboarding wizard once the colleague signs in.
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      GITLAB_OAUTH_CLIENT_ID: "${GITLAB_OAUTH_CLIENT_ID:-}"
+      GITLAB_OAUTH_CLIENT_SECRET: "${GITLAB_OAUTH_CLIENT_SECRET:-}"
+      GITLAB_OAUTH_ISSUER_URL: "${GITLAB_OAUTH_ISSUER_URL:-}"
+    volumes:
+      - "mnm-data:/mnm"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3100/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+volumes:
+  mnm-data:

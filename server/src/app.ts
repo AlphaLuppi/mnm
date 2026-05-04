@@ -57,6 +57,8 @@ import { traceRoutes } from "./routes/traces.js";
 import { credentialRoutes } from "./routes/credentials.js";
 // CONNECTORS-PLATFORM: OAuth callback dispatcher (NON tenant-scoped — provider can't know companyId at redirect time)
 import { connectorsCallbackRoutes } from "./routes/connectors-callback.js";
+// STANDALONE: instance-level config (LLM provider, etc.) settable from onboarding/admin UI
+import { instanceConfigRoutes } from "./routes/instance-config.js";
 // CONNECTORS-PLATFORM: REST routes (admin + user self-service, tenant-scoped)
 import { connectorRoutes } from "./routes/connectors.js";
 // WORKFLOW-HOOKS T2.8 — REST routes (admin + audit + catalog)
@@ -382,6 +384,8 @@ export async function createApp(
   api.use(ssoAuthRoutes(db));
   // onb-s01-barrel-app
   api.use(onboardingRoutes(db));
+  // STANDALONE: instance config (LLM provider, etc.) settable from onboarding/admin UI
+  api.use(instanceConfigRoutes(db));
   // onb-s03-barrel-app
   api.use(jiraImportRoutes(db));
   // TRACE-03: Trace routes

@@ -29,6 +29,7 @@ import {
 } from "./governed-workflows.js";
 import { listWorkflowFiles } from "./governed-workflow-files.js";
 import { rejectTraversal } from "./git-resource-path.js";
+import { getActiveLlmKey } from "./instance-llm-config.js";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -530,13 +531,17 @@ export async function* streamWorkflowAiChat(
     })
     .catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
-      const isMissingKey = /ANTHROPIC_API_KEY/.test(message);
+      const isMissingKey = /ANTHROPIC_API_KEY|LLM_NOT_CONFIGURED/.test(message);
       push({
         type: "error",
         error_code: isMissingKey ? "ANTHROPIC_NOT_CONFIGURED" : "LLM_ERROR",
-        message,
+        message: isMissingKey
+          ? "No LLM provider is configured for this instance. The AI Assistant is disabled until you add a provider."
+          : message,
         hints: isMissingKey
-          ? ["Set ANTHROPIC_API_KEY in your .mnm/instances/default/.env"]
+          ? [
+              "Set ANTHROPIC_API_KEY in your env, or open Settings → Integrations to paste a key from the UI.",
+            ]
           : undefined,
       });
     })
@@ -598,10 +603,11 @@ const MAX_TOKENS = 8_192;
 export async function defaultAnthropicStreaming(
   args: AnthropicStreamingArgs,
 ): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is not set");
+  const active = getActiveLlmKey();
+  if (!active || active.provider !== "anthropic") {
+    throw new Error("LLM_NOT_CONFIGURED");
   }
+  const apiKey = active.apiKey;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

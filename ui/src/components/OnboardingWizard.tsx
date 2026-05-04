@@ -34,8 +34,9 @@ import {
   Monitor,
 } from "lucide-react";
 import { ClaudeTokenSetup } from "./ClaudeTokenSetup";
+import { IntegrationsStep } from "./onboarding/IntegrationsStep";
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6;
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 // ---------------------------------------------------------------------------
 // Role presets
@@ -469,7 +470,8 @@ export function OnboardingWizard() {
       else if (step === 3) setStep(4);
       else if (step === 4) setStep(5);
       else if (step === 5) setStep(6);
-      else if (step === 6) handleComplete();
+      else if (step === 6) setStep(7);
+      else if (step === 7) handleComplete();
     }
   }
 
@@ -515,10 +517,10 @@ export function OnboardingWizard() {
                 <Sparkles className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Get Started</span>
                 <span data-testid="onb-s01-step-title" className="text-sm text-muted-foreground/60">
-                  Step {step} of 6
+                  Step {step} of 7
                 </span>
               </div>
-              <OnboardingProgressBar currentStep={step} totalSteps={6} />
+              <OnboardingProgressBar currentStep={step} totalSteps={7} />
             </div>
 
             {/* ============================================================ */}
@@ -1070,9 +1072,19 @@ export function OnboardingWizard() {
             )}
 
             {/* ============================================================ */}
-            {/* STEP 6: Done / Summary */}
+            {/* STEP 6: Optional integrations (LLM / Git / Connectors) */}
             {/* ============================================================ */}
-            {step === 6 && (
+            {step === 6 && createdCompanyId && (
+              <IntegrationsStep
+                companyId={createdCompanyId}
+                onContinue={() => setStep(7)}
+              />
+            )}
+
+            {/* ============================================================ */}
+            {/* STEP 7: Done / Summary */}
+            {/* ============================================================ */}
+            {step === 7 && (
               <div className="space-y-5">
                 <StepHeader
                   icon={Rocket}
@@ -1211,8 +1223,8 @@ export function OnboardingWizard() {
                     {agentMode === "sandbox" && !claudeTokenDone ? "Skip token & Continue" : "Next"}
                   </Button>
                 )}
-                {/* Step 4 has its own buttons */}
-                {step === 6 && (
+                {/* Step 4 and Step 6 have their own buttons */}
+                {step === 7 && (
                   <Button
                     data-testid="onb-s01-complete"
                     size="sm"

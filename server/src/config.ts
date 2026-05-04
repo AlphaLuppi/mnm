@@ -63,6 +63,7 @@ export interface Config {
   forceLocalExecution: boolean;
   companyDeletionEnabled: boolean;
   redisUrl: string | undefined;
+  standalone: boolean;
 }
 
 export function loadConfig(): Config {
@@ -251,5 +252,6 @@ export function loadConfig(): Config {
     forceLocalExecution: process.env.MNM_FORCE_LOCAL_EXECUTION === "true",
     companyDeletionEnabled,
     redisUrl: process.env.REDIS_URL?.trim() || undefined,
+    standalone: process.env.MNM_STANDALONE === "true",
   };
 }

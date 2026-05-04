@@ -16,9 +16,16 @@ import { chatMessages, agents, chatChannels, artifacts, folders } from "@mnm/db"
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { logger as parentLogger } from "../middleware/logger.js";
 import { artifactService } from "./artifact.js";
+import { getActiveLlmKey } from "./instance-llm-config.js";
 
 const execFileAsync = promisify(execFile);
 const logger = parentLogger.child({ module: "chat-completion" });
+
+function resolveAnthropicKey(): string | undefined {
+  const active = getActiveLlmKey();
+  if (active && active.provider === "anthropic") return active.apiKey;
+  return undefined;
+}
 
 // ─── Error Types ──────────────────────────────────────────────────────────
 
@@ -42,7 +49,6 @@ export class ChatCompletionError extends Error {
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const LLM_ENDPOINT = process.env.MNM_LLM_SUMMARY_ENDPOINT;
 const LLM_API_KEY = process.env.MNM_LLM_SUMMARY_API_KEY;
 const CHAT_MODEL = process.env.CHAT_MODEL || "claude-sonnet-4-20250514";
@@ -363,9 +369,10 @@ export function chatCompletionService(db: Db) {
       const { systemPrompt, messages } = await prepareContext(companyId, channelId, userMessage);
 
       // Only Anthropic direct API supports streaming
-      if (ANTHROPIC_API_KEY) {
+      const anthropicKey = resolveAnthropicKey();
+      if (anthropicKey) {
         try {
-          const result = await callAnthropicApiStreaming(systemPrompt, messages, ANTHROPIC_API_KEY, onChunk);
+          const result = await callAnthropicApiStreaming(systemPrompt, messages, anthropicKey, onChunk);
           if (result) return result;
         } catch (err) {
           logger.warn({ err }, "Anthropic streaming failed, falling back to non-streaming");
@@ -391,8 +398,9 @@ export function chatCompletionService(db: Db) {
       oauthToken?: string | null,
     ): Promise<string> {
       // Only use tool_use path when Anthropic API key is available
-      if (!ANTHROPIC_API_KEY) {
-        logger.debug("No ANTHROPIC_API_KEY, falling back to streaming (block-based artifacts)");
+      const anthropicKey = resolveAnthropicKey();
+      if (!anthropicKey) {
+        logger.debug("No Anthropic key configured, falling back to streaming (block-based artifacts)");
         return this.generateResponseStreaming(
           companyId,
           channelId,
@@ -426,7 +434,7 @@ export function chatCompletionService(db: Db) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_API_KEY,
+            "x-api-key": anthropicKey,
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
@@ -643,9 +651,10 @@ async function callLlm(
   oauthToken?: string | null,
 ): Promise<string> {
   // Strategy 1: Direct Anthropic API
-  if (ANTHROPIC_API_KEY) {
+  const anthropicKey = resolveAnthropicKey();
+  if (anthropicKey) {
     try {
-      const result = await callAnthropicApi(systemPrompt, messages, ANTHROPIC_API_KEY);
+      const result = await callAnthropicApi(systemPrompt, messages, anthropicKey);
       if (result) return result;
     } catch (err) {
       logger.warn({ err }, "Anthropic API call failed, trying next strategy");
@@ -675,7 +684,7 @@ async function callLlm(
   throw new ChatCompletionError(
     "All LLM backends failed or returned empty",
     "NO_BACKEND",
-    "Aucun backend LLM disponible. Configurez ANTHROPIC_API_KEY ou connectez Claude CLI dans Paramètres.",
+    "Aucun backend LLM disponible. Ouvrez Paramètres → Intégrations pour configurer un fournisseur (Anthropic / OpenAI), ou connectez Claude CLI.",
   );
 }
 

@@ -131,6 +131,12 @@ export const parityData: ParityData = {
           desktop: BACKEND,
         },
         {
+          id: "standalone-mode",
+          name: "Standalone mode — zero-config docker compose + integrations onboarding step",
+          web: WEB_DONE,
+          desktop: BACKEND,
+        },
+        {
           id: "invite-landing",
           name: "Invite landing page (magic link)",
           web: WEB_DONE,

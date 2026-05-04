@@ -124,6 +124,18 @@ MnM en production sur des équipes pluri-disciplinaires, les 3 piliers opératio
 
 ## Essayer MnM
 
+### Standalone (zero-config, à passer à un collègue)
+
+```bash
+# Prerequis : Docker
+docker compose -f docker-compose.standalone.yml up
+# puis ouvrir http://localhost:3100 et compléter l'onboarding
+```
+
+Aucun `.env` à éditer, aucune clé API requise. Le conteneur génère automatiquement les secrets au premier boot, persiste les données dans un volume Docker, et l'onboarding propose d'ajouter (ou de skip) chaque intégration optionnelle : provider LLM, git pour le versioning des workflows, connecteurs externes (Jira, Slack, etc.). Tout peut être configuré ou ajouté plus tard depuis Settings.
+
+Le premier utilisateur qui s'inscrit devient instance admin. Pour partager avec un collègue : passe-lui ce dépôt, il lance la commande, et l'expérience est identique.
+
 ### Full local (dev solo)
 
 ```bash
