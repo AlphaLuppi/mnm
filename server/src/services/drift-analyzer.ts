@@ -3,6 +3,7 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { logger } from "../middleware/logger.js";
 import { buildDriftPrompt } from "./drift-prompts.js";
+import { getActiveLlmKey } from "./instance-llm-config.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -121,7 +122,8 @@ export async function analyzeDrift(
   targetContent: string,
   customInstructions?: string,
 ): Promise<DriftResultItem[]> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const active = getActiveLlmKey();
+  const apiKey = active && active.provider === "anthropic" ? active.apiKey : undefined;
 
   const { system, user } = buildDriftPrompt(
     sourceDoc,

@@ -6,6 +6,7 @@ import { createUserWidgetSchema, updateUserWidgetSchema, ContentDocument } from 
 import { badRequest, notFound, forbidden } from "../errors.js";
 import { buildWidgetGenerationPrompt } from "../services/cao-widget-prompt.js";
 import { logger } from "../middleware/logger.js";
+import { getActiveLlmKey } from "../services/instance-llm-config.js";
 
 export function userWidgetRoutes(db: Db) {
   const router = Router();
@@ -163,7 +164,8 @@ export function userWidgetRoutes(db: Db) {
     // Call LLM (Anthropic API → claude -p fallback)
     let rawResponse: string | null = null;
 
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    const activeLlm = getActiveLlmKey();
+    const anthropicKey = activeLlm && activeLlm.provider === "anthropic" ? activeLlm.apiKey : undefined;
     const llmEndpoint = process.env.MNM_LLM_SUMMARY_ENDPOINT;
     const llmApiKey = process.env.MNM_LLM_SUMMARY_API_KEY;
     const model = process.env.MNM_LLM_WIDGET_MODEL ?? "claude-3-haiku-20240307";

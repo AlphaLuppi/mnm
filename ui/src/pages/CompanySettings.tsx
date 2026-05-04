@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Settings, Sun, Moon, Monitor, Key } from "lucide-react";
 import { ClaudeTokenSetup } from "../components/ClaudeTokenSetup";
+import { GitProviderConfigPanel } from "../components/onboarding/GitProviderConfigPanel";
 import { sandboxesApi } from "../api/sandboxes";
 import { useQuery } from "@tanstack/react-query";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
@@ -200,6 +201,7 @@ export function CompanySettings() {
 
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="claude">Claude</TabsTrigger>
+          <TabsTrigger value="git">Git provider</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
 
@@ -478,6 +480,22 @@ export function CompanySettings() {
                 onSuccess={() => sandboxQuery.refetch()}
               />
             </div>
+          </div>
+        </TabsContent>
+
+        {/* ──── Git provider Tab ──── */}
+        <TabsContent value="git" className="space-y-6">
+          <div className="space-y-4">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Git provider — workflows, agents, run history
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The git backend stores workflow definitions, custom gates, agent definitions, and every run's artifacts (committed on <code className="font-mono bg-muted px-1 rounded">mnm-runs/&lt;run_id&gt;</code> branches and merged on completion). Configure one repo for everything (with optional sub-paths), or split workflows / agents across two repos.
+            </p>
+            <GitProviderConfigPanel companyId={selectedCompanyId!} />
+            <p className="text-[11px] text-muted-foreground/70">
+              Server restart required after a change — the resolveGitProvider cache is process-lifetime.
+            </p>
           </div>
         </TabsContent>
 
