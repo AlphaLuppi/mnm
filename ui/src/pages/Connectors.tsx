@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plug, Plus, Trash2, ExternalLink, KeyRound, Wrench } from "lucide-react";
+import { Plug, Plus, Trash2, ExternalLink, KeyRound, Wrench, Info, Settings2 } from "lucide-react";
 import {
   connectorsApi,
   type Connector,
@@ -13,6 +13,8 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { EmptyState } from "../components/EmptyState";
+import { GitHubConnectorWizard } from "../components/connectors/GitHubConnectorWizard";
+import { GitHubConnectorSheet } from "../components/connectors/GitHubConnectorSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +37,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type WizardMode = "template" | "custom";
 type WizardStep = "basics" | "endpoints" | "details" | "credentials";
@@ -98,6 +106,14 @@ export function Connectors() {
   const [activeTab, setActiveTab] = useState<"mine" | "add">("mine");
   const [wizard, setWizard] = useState<WizardState>(wizardInitial);
   const [deleteTarget, setDeleteTarget] = useState<Connector | null>(null);
+  // GITHUB-PROVIDER Phase 5 — separate wizard state for the github tile so we
+  // can dispatch to the dedicated GitHubConnectorWizard (D6 : single tile,
+  // adaptive flow that handles OAuth + optional GitHub App).
+  const [githubWizardTemplate, setGithubWizardTemplate] = useState<ConnectorTemplate | null>(null);
+  const [githubSheet, setGithubSheet] = useState<{
+    connector: Connector;
+    template: ConnectorTemplate;
+  } | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Admin" }, { label: "Connecteurs" }]);
@@ -155,6 +171,13 @@ export function Connectors() {
   });
 
   function openWizardFromTemplate(template: ConnectorTemplate) {
+    // GITHUB-PROVIDER Phase 5 (D6) — github gets its own adaptive wizard that
+    // handles the optional App configuration after OAuth setup. The single
+    // template tile in the grid is preserved ; only the wizard differs.
+    if (template.slug === "github") {
+      setGithubWizardTemplate(template);
+      return;
+    }
     setWizard({
       ...wizardInitial,
       open: true,
@@ -166,6 +189,16 @@ export function Connectors() {
       scopes: [...(template.scopes ?? [])],
       apiKeyLabel: template.apiKeyLabel ?? "",
     });
+  }
+
+  /**
+   * GITHUB-PROVIDER Phase 5 — open the GitHub-specific Sheet for an existing
+   * connector. Callers : the « Configurer » button on the github row.
+   */
+  function openGithubSheet(connector: Connector) {
+    const template = templates.find((t) => t.slug === "github");
+    if (!template) return;
+    setGithubSheet({ connector, template });
   }
 
   function openCustomWizard() {
@@ -296,6 +329,11 @@ export function Connectors() {
                     updateMutation.mutate({ id: c.id, enabled })
                   }
                   onDelete={() => setDeleteTarget(c)}
+                  onConfigure={
+                    c.providerSlug === "github"
+                      ? () => openGithubSheet(c)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -750,6 +788,46 @@ export function Connectors() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* GITHUB-PROVIDER Phase 5 — adaptive wizard for the github tile.
+          Adaptive : if the connector already exists (e.g. user re-opens the
+          Sheet via the "Reconfigurer" button), the wizard skips OAuth and
+          jumps to the App banner / paste / install flow. */}
+      <Dialog
+        open={!!githubWizardTemplate}
+        onOpenChange={(o) => !o && setGithubWizardTemplate(null)}
+      >
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configurer GitHub</DialogTitle>
+            <DialogDescription>
+              OAuth pour les comptes utilisateurs + GitHub App optionnelle pour
+              les organisations privées.
+            </DialogDescription>
+          </DialogHeader>
+          {githubWizardTemplate && (
+            <GitHubConnectorWizard
+              template={githubWizardTemplate}
+              existingConnector={
+                connectors.find((c) => c.providerSlug === "github") ?? null
+              }
+              onClose={() => setGithubWizardTemplate(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* GITHUB-PROVIDER Phase 5 — connector detail Sheet for the github
+          provider. Shows the OAuth section + the optional App section with
+          installations management. Reuses the wizard inline for «Reconfigurer». */}
+      {githubSheet && (
+        <GitHubConnectorSheet
+          open
+          onOpenChange={(o) => !o && setGithubSheet(null)}
+          connector={githubSheet.connector}
+          template={githubSheet.template}
+        />
+      )}
     </div>
   );
 }
@@ -761,7 +839,12 @@ function TemplateCard({
   template: ConnectorTemplate;
   onClick: () => void;
 }) {
-  return (
+  // GITHUB-PROVIDER Phase 5 (D6) — single tile for github, with a tooltip
+  // pointing out the optional GitHub App for private orgs. No second tile —
+  // the App is configured inside the same wizard.
+  const isGithub = template.slug === "github";
+
+  const card = (
     <Card
       className="cursor-pointer hover:border-primary transition-colors"
       onClick={onClick}
@@ -769,7 +852,15 @@ function TemplateCard({
     >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">{template.displayName}</CardTitle>
+          <CardTitle className="text-base flex items-center gap-1.5">
+            {template.displayName}
+            {isGithub && (
+              <Info
+                className="h-3.5 w-3.5 text-muted-foreground"
+                data-testid="gh-app-tile-info-icon"
+              />
+            )}
+          </CardTitle>
           <Badge variant={template.type === "oauth2" ? "default" : "secondary"}>
             {template.type === "oauth2" ? "OAuth" : "API Key"}
           </Badge>
@@ -780,16 +871,36 @@ function TemplateCard({
       </CardContent>
     </Card>
   );
+
+  if (!isGithub) return card;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{card}</TooltipTrigger>
+        <TooltipContent side="top">
+          Supporte les organisations privées via GitHub App optionnelle
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 function ConnectorRow({
   connector,
   onToggleEnabled,
   onDelete,
+  onConfigure,
 }: {
   connector: Connector;
   onToggleEnabled: (enabled: boolean) => void;
   onDelete: () => void;
+  /**
+   * GITHUB-PROVIDER Phase 5 — when the connector has a provider-specific
+   * detail Sheet (e.g. github), parent passes a callback to open it. Other
+   * connectors hide the button (`undefined`).
+   */
+  onConfigure?: () => void;
 }) {
   return (
     <Card data-testid={`connectors-row-${connector.providerSlug}`}>
@@ -825,6 +936,17 @@ function ConnectorRow({
               {connector.enabled ? "Activé" : "Désactivé"}
             </Label>
           </div>
+          {onConfigure && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onConfigure}
+              data-testid={`connectors-configure-${connector.providerSlug}`}
+              title="Configurer"
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
