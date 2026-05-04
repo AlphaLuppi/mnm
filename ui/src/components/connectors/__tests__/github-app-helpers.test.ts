@@ -10,6 +10,7 @@ import {
   buildGitHubAppCreateUrl,
   buildGitHubAppInstallUrl,
   buildInstallationViewUrl,
+  initialWizardStep,
   isValidAppId,
   looksLikePemPrivateKey,
   nextStepAfter,
@@ -168,6 +169,44 @@ describe("buildInstallationViewUrl", () => {
     expect(buildInstallationViewUrl("Organization", "ac me", "12 34")).toBe(
       "https://github.com/organizations/ac%20me/settings/installations/12%2034",
     );
+  });
+});
+
+describe("initialWizardStep — useState initializer logic", () => {
+  it("uses the explicit `entry` when provided (Sheet « Reconfigurer » jumps straight to app-paste)", () => {
+    expect(
+      initialWizardStep({ entry: "app-paste", hasExistingConnector: true }),
+    ).toBe("app-paste");
+  });
+
+  it("returns app-banner when the connector already exists and no entry override", () => {
+    expect(initialWizardStep({ hasExistingConnector: true })).toBe(
+      "app-banner",
+    );
+  });
+
+  it("returns oauth-credentials for a fresh install (no connector, no entry)", () => {
+    expect(initialWizardStep({ hasExistingConnector: false })).toBe(
+      "oauth-credentials",
+    );
+  });
+
+  it("`entry` overrides even an existing connector", () => {
+    expect(
+      initialWizardStep({
+        entry: "app-install",
+        hasExistingConnector: true,
+      }),
+    ).toBe("app-install");
+  });
+
+  it("`entry` overrides even when no connector exists", () => {
+    expect(
+      initialWizardStep({
+        entry: "app-create",
+        hasExistingConnector: false,
+      }),
+    ).toBe("app-create");
   });
 });
 

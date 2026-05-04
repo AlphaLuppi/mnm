@@ -101,7 +101,7 @@ test.describe("Group 2 -- GitHub wizard surface", () => {
     expect(content).toContain('data-testid="gh-app-wizard-step-3c"');
     expect(content).toContain('data-testid="gh-app-install-deeplink"');
     expect(content).toContain('data-testid="gh-app-finish"');
-    expect(content).toMatch(/data-testid=\{?`gh-app-install-row-\$\{/);
+    expect(content).toMatch(/data-testid=\{?`gh-app-installation-row-\$\{/);
   });
 });
 

@@ -136,6 +136,27 @@ export type WizardStep =
   | "app-paste" // step 3b — paste appId + privateKey + webhookSecret?
   | "app-install"; // step 3c — deep-link install + wait for SSE
 
+/**
+ * Compute the wizard's initial step from the props passed by the parent.
+ *
+ * Rules (mirrors `useState<WizardStep>` initializer in GitHubConnectorWizard) :
+ *  1. An explicit `entry` from the caller wins — used by the Sheet's
+ *     « Reconfigurer » button to jump straight to `app-paste`.
+ *  2. Otherwise, if the connector already exists, the OAuth step is done →
+ *     start at the `app-banner` (« configure or skip ? »).
+ *  3. Otherwise (fresh install), start at `oauth-credentials`.
+ *
+ * Pure function so vitest can exercise the branching without React.
+ */
+export function initialWizardStep(params: {
+  entry?: WizardStep;
+  hasExistingConnector: boolean;
+}): WizardStep {
+  if (params.entry) return params.entry;
+  if (params.hasExistingConnector) return "app-banner";
+  return "oauth-credentials";
+}
+
 export function nextStepAfter(step: WizardStep, choice?: "configure" | "skip"): WizardStep | null {
   switch (step) {
     case "oauth-credentials":

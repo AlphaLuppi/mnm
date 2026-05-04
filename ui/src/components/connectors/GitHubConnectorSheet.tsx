@@ -227,6 +227,16 @@ export function GitHubConnectorSheet({
                     value={new Date(appDetails.createdAt).toLocaleDateString()}
                   />
 
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid="gh-app-unverified-notice"
+                  >
+                    Note : les commits effectués via la App apparaîtront comme
+                    « Unverified » dans l'UI GitHub (badge gris). C'est attendu
+                    — la traçabilité MnM (author = committer = l'utilisateur)
+                    prime sur le badge. La signature GPG est prévue en V1.
+                  </p>
+
                   <div className="rounded-md border">
                     <div className="px-3 py-2 border-b flex items-center justify-between">
                       <p className="text-sm font-medium">

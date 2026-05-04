@@ -28,6 +28,7 @@ import { useCompany } from "@/context/CompanyContext";
 import {
   buildGitHubAppCreateUrl,
   buildGitHubAppInstallUrl,
+  initialWizardStep,
   isValidAppId,
   looksLikePemPrivateKey,
   type WizardStep,
@@ -87,11 +88,9 @@ export function GitHubConnectorWizard({
   const queryClient = useQueryClient();
 
   // Wizard state — the active step + per-step form data.
-  const [step, setStep] = useState<WizardStep>(() => {
-    if (entry) return entry;
-    if (existingConnector) return "app-banner";
-    return "oauth-credentials";
-  });
+  const [step, setStep] = useState<WizardStep>(() =>
+    initialWizardStep({ entry, hasExistingConnector: Boolean(existingConnector) }),
+  );
   const [connector, setConnector] = useState<Connector | null>(
     existingConnector ?? null,
   );
@@ -340,6 +339,16 @@ export function GitHubConnectorWizard({
             </AlertDescription>
           </Alert>
 
+          <p
+            className="text-xs text-muted-foreground"
+            data-testid="gh-app-unverified-notice"
+          >
+            Note : les commits effectués via la App apparaîtront comme
+            « Unverified » dans l'UI GitHub (badge gris). C'est attendu — la
+            traçabilité MnM (author = committer = l'utilisateur) prime sur le
+            badge. La signature GPG est prévue en V1.
+          </p>
+
           <div className="space-y-1.5">
             <Label htmlFor="gh-app-id-input">App ID</Label>
             <Input
@@ -563,7 +572,7 @@ function AppInstallStep({
             {appDetails!.installations.map((inst) => (
               <li
                 key={inst.installationId}
-                data-testid={`gh-app-install-row-${inst.installationId}`}
+                data-testid={`gh-app-installation-row-${inst.installationId}`}
                 className="flex items-center justify-between text-sm"
               >
                 <span>

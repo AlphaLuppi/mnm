@@ -943,6 +943,7 @@ function ConnectorRow({
               onClick={onConfigure}
               data-testid={`connectors-configure-${connector.providerSlug}`}
               title="Configurer"
+              aria-label={`Configurer ${connector.displayName}`}
             >
               <Settings2 className="h-4 w-4" />
             </Button>
@@ -952,6 +953,7 @@ function ConnectorRow({
             size="icon"
             onClick={onDelete}
             data-testid={`connectors-delete-${connector.providerSlug}`}
+            aria-label={`Supprimer ${connector.displayName}`}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
