@@ -5,7 +5,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { authAccounts, configLayerItems, configLayers, type Db } from "@mnm/db";
+import { authAccounts, configLayerItems, configLayers, githubAppInstallations, type Db } from "@mnm/db";
 import type { ResourceType, ProviderWithPaths } from "../services/git-resource-path.js";
 import { GitlabProvider, GitHubProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
@@ -232,9 +232,27 @@ export async function readCompanyGitProviderKind(
   return null;
 }
 
+/**
+ * Options for `createResolveGitProvider`. Test seam — production callers
+ * pass nothing and the resolver lazily wires `githubAppService(db)`. Tests
+ * pass a fully-mocked service to control the auto-dispatch decision in
+ * Step 1a of the github branch (Phase 3 compléter, plan 2026-05-04).
+ */
+export interface ResolveGitProviderDeps {
+  /**
+   * If provided, the github branch consults this service to decide whether
+   * to dispatch to mode `app-installation` (App configured + matching
+   * installation) vs falling through to mode `user-oauth`. Defaults to
+   * `githubAppService(db)`.
+   */
+  githubApps?: ReturnType<typeof githubAppService>;
+}
+
 export function createResolveGitProvider(
   db: Db,
+  deps: ResolveGitProviderDeps = {},
 ): (args: ResolveGitProviderArgs) => Promise<GitProvider> {
+  const githubApps = deps.githubApps ?? githubAppService(db);
   // Cache for company-level providers. Key = `${companyId}:${resourceType ?? "default"}`.
   const companyCache = new Map<string, GitProvider>();
   // Cache for per-user providers. Key = `${companyId}:${userId}:${resourceType ?? "default"}`.
@@ -293,11 +311,12 @@ export function createResolveGitProvider(
 
       try {
         const svc = connectorService(db);
-        const tok = await svc.getUserToken(userId, effectiveKind, companyId);
 
         let provider: GitProvider;
         let paths: ProviderWithPaths["paths"] | undefined;
+
         if (effectiveKind === "gitlab") {
+          const tok = await svc.getUserToken(userId, "gitlab", companyId);
           const coords = await resolveGitlabCoordinates(db, companyId);
           paths = coords.paths;
           provider = new GitlabProvider({
@@ -307,18 +326,87 @@ export function createResolveGitProvider(
             token: tok.accessToken,
             tokenScheme: "bearer",
           });
-        } else {
-          const coords = await resolveGitHubCoordinates(db, companyId);
-          paths = coords.paths;
-          provider = new GitHubProvider({
-            providerId: `github:connector:${userId}`,
-            owner: coords.owner,
-            repo: coords.repo,
-            auth: { mode: "user-oauth", token: tok.accessToken },
-          });
+          (provider as unknown as ProviderWithPaths).paths = paths ?? {};
+          const expiresAt = tok.expiresAt
+            ? tok.expiresAt.getTime()
+            : Date.now() + 3600_000;
+          userCache.set(connectorsCacheKey, { provider, expiresAt });
+          return provider;
         }
-        (provider as unknown as ProviderWithPaths).paths = paths ?? {};
 
+        // ── github branch — auto-dispatch App vs OAuth (Phase 3 compléter) ──
+        const coords = await resolveGitHubCoordinates(db, companyId);
+        paths = coords.paths;
+
+        // Look up the connector first (we need its id to find a possible App).
+        const connector = await svc.getActiveConnectorBySlug(companyId, "github");
+
+        // If a per-company App is attached AND has an installation matching
+        // the target repoOwner (NOT suspended), dispatch to mode app-installation.
+        // Otherwise fall through to mode user-oauth (current behavior).
+        let appProvider: GitProvider | null = null;
+        let appExpiresAt: number | null = null;
+        if (connector) {
+          const appRow = await githubApps.getGitHubAppByConnector(companyId, connector.id);
+          if (appRow) {
+            const matching = await db
+              .select({
+                installationId: githubAppInstallations.installationId,
+              })
+              .from(githubAppInstallations)
+              .where(
+                and(
+                  eq(githubAppInstallations.companyId, companyId),
+                  eq(githubAppInstallations.githubAppId, appRow.id),
+                  eq(githubAppInstallations.accountLogin, coords.owner),
+                  isNull(githubAppInstallations.suspendedAt),
+                ),
+              )
+              .limit(1);
+            if (matching.length > 0) {
+              const installationId = matching[0]!.installationId;
+              appProvider = new GitHubProvider({
+                providerId: `github:app:${userId}`,
+                owner: coords.owner,
+                repo: coords.repo,
+                auth: {
+                  mode: "app-installation",
+                  // The closure forwards to mintInstallationToken so the
+                  // service handles JWT signing + cache + advisory lock.
+                  mintToken: () =>
+                    githubApps.mintInstallationToken({
+                      companyId,
+                      githubAppId: appRow.id,
+                      installationId,
+                    }),
+                },
+              });
+              // Installation tokens TTL ≈ 1h; we cache the provider for 55min
+              // so callers re-resolve before the next mint anyway.
+              appExpiresAt = Date.now() + 55 * 60 * 1000;
+            }
+          }
+        }
+
+        if (appProvider) {
+          (appProvider as unknown as ProviderWithPaths).paths = paths ?? {};
+          userCache.set(connectorsCacheKey, {
+            provider: appProvider,
+            expiresAt: appExpiresAt!,
+          });
+          return appProvider;
+        }
+
+        // Fall through to user-OAuth mode. svc.getUserToken throws
+        // ConnectorError handled below if no connector / no user link.
+        const tok = await svc.getUserToken(userId, "github", companyId);
+        provider = new GitHubProvider({
+          providerId: `github:connector:${userId}`,
+          owner: coords.owner,
+          repo: coords.repo,
+          auth: { mode: "user-oauth", token: tok.accessToken },
+        });
+        (provider as unknown as ProviderWithPaths).paths = paths ?? {};
         const expiresAt = tok.expiresAt
           ? tok.expiresAt.getTime()
           : Date.now() + 3600_000;
@@ -681,7 +769,11 @@ function buildEnvFallbackProvider(): GitProvider {
 }
 
 export function buildMcpServices(db: Db): McpServices {
-  const resolveGitProvider = createResolveGitProvider(db);
+  // GITHUB-PROVIDER Phase 1 — hoisted before createResolveGitProvider so the
+  // resolver shares the SAME githubAppService instance (single in-memory
+  // installation token cache across REST + MCP + governed-workflows).
+  const githubApps = githubAppService(db);
+  const resolveGitProvider = createResolveGitProvider(db, { githubApps });
   const shaCache = new ShaCache();
   // Hoist services that are passed by reference into governedWorkflowService
   // so the governed-workflow service shares the same heartbeat + trace
@@ -697,11 +789,8 @@ export function buildMcpServices(db: Db): McpServices {
   // wiring. The connector service is constructed once here and reused
   // both as `services.connectors` and inside workflowHooks.
   const connectors = connectorService(db);
-  // GITHUB-PROVIDER Phase 1 — per-company GitHub App service. Hoisted so the
-  // MCP tools (github-app.tool.ts), the REST routes (github-app.ts) and the
-  // resolver auto-dispatch (createResolveGitProvider Step 1a) all share the
-  // same in-memory installation-token cache.
-  const githubApps = githubAppService(db);
+  // (GITHUB-PROVIDER Phase 1: `githubApps` is hoisted at the top of this
+  // function so it can be passed into createResolveGitProvider — see above.)
   // WORKFLOW-ASSIGNMENTS T3.3 wire. Hoisted so both the orchestrator and
   // the future REST/MCP `list_my_pending_work` consumers (T3.4) share the
   // same instance.

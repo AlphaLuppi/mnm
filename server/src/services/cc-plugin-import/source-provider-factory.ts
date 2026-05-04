@@ -1,7 +1,14 @@
 import { GitlabProvider, GitHubProvider, type GitProvider } from "@mnm/git-provider";
 import { eq, and, isNull } from "drizzle-orm";
-import { configLayers, configLayerItems, authAccounts, type Db } from "@mnm/db";
+import {
+  configLayers,
+  configLayerItems,
+  authAccounts,
+  githubAppInstallations,
+  type Db,
+} from "@mnm/db";
 import { connectorService, ConnectorError } from "../connectors.js";
+import { githubAppService } from "../github-app.js";
 
 export interface BuildSourceProviderInput {
   db: Db;
@@ -222,6 +229,54 @@ async function buildGithubSourceProvider(
 ): Promise<GitProvider> {
   const { owner: pluginOwner, repo: pluginRepo } = parseGitHubRepoUrl(input.url);
 
+  // ── Step 0: Per-company App auto-dispatch (GITHUB-PROVIDER Phase 3 compl.)
+  // If the company has a GitHub App registered on its `github` connector AND
+  // an installation matching `pluginOwner` exists (NOT suspended), use mode
+  // `app-installation` and bypass user OAuth entirely. This is the same
+  // dispatch logic as `createResolveGitProvider` — D7 still holds because
+  // commits made through this provider take their author/committer from the
+  // commit-identity service.
+  const githubAppsService = githubAppService(input.db);
+  const connSvc = connectorService(input.db);
+  const ghConnector = await connSvc.getActiveConnectorBySlug(input.companyId, "github");
+  if (ghConnector) {
+    const appRow = await githubAppsService.getGitHubAppByConnector(
+      input.companyId,
+      ghConnector.id,
+    );
+    if (appRow) {
+      const matching = await input.db
+        .select({ installationId: githubAppInstallations.installationId })
+        .from(githubAppInstallations)
+        .where(
+          and(
+            eq(githubAppInstallations.companyId, input.companyId),
+            eq(githubAppInstallations.githubAppId, appRow.id),
+            eq(githubAppInstallations.accountLogin, pluginOwner),
+            isNull(githubAppInstallations.suspendedAt),
+          ),
+        )
+        .limit(1);
+      if (matching.length > 0) {
+        const installationId = matching[0]!.installationId;
+        return new GitHubProvider({
+          providerId: `github:app:${input.userId ?? "system"}:${pluginOwner}/${pluginRepo}`,
+          owner: pluginOwner,
+          repo: pluginRepo,
+          auth: {
+            mode: "app-installation",
+            mintToken: () =>
+              githubAppsService.mintInstallationToken({
+                companyId: input.companyId,
+                githubAppId: appRow.id,
+                installationId,
+              }),
+          },
+        });
+      }
+    }
+  }
+
   // ── Step 1a: Per-user OAuth token via Connectors Platform ─────────────────
   // Same pattern as createResolveGitProvider Step 1a — preserves D7 (the
   // user's GitHub identity is the committer of any commit made through
@@ -230,8 +285,7 @@ async function buildGithubSourceProvider(
     (process.env.MNM_DEPLOYMENT_MODE ?? "local_trusted") === "authenticated";
   if (isAuthenticated && input.userId) {
     try {
-      const svc = connectorService(input.db);
-      const tok = await svc.getUserToken(input.userId, "github", input.companyId);
+      const tok = await connSvc.getUserToken(input.userId, "github", input.companyId);
       return new GitHubProvider({
         providerId: `github:user:${input.userId}:${pluginOwner}/${pluginRepo}`,
         owner: pluginOwner,

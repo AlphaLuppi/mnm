@@ -10,6 +10,11 @@ import { ConnectorError } from "../../services/connectors.js";
 // connectors-service.test.ts and resolve-git-provider.test.ts.
 
 const getUserTokenSpy = vi.fn();
+// Phase 3 compl. — auto-dispatch reads `getActiveConnectorBySlug` from the
+// connector service before deciding to mint an installation token. We default
+// to "no connector configured" (returns null) so existing tests behave as
+// before; the new App-dispatch test cases override per-test.
+const getActiveConnectorBySlugSpy = vi.fn(async () => null);
 
 vi.mock("../../services/connectors.js", async () => {
   const actual = await vi.importActual<typeof import("../../services/connectors.js")>(
@@ -19,9 +24,22 @@ vi.mock("../../services/connectors.js", async () => {
     ...actual,
     connectorService: () => ({
       getUserToken: getUserTokenSpy,
+      getActiveConnectorBySlug: getActiveConnectorBySlugSpy,
     }),
   };
 });
+
+// Phase 3 compl. — mock the github-app service so we can drive the dispatch
+// decision (App configured + matching install OR not).
+const getGitHubAppByConnectorSpy = vi.fn(async () => null);
+const mintInstallationTokenSpy = vi.fn(async () => "ghs_inst_token");
+
+vi.mock("../../services/github-app.js", () => ({
+  githubAppService: () => ({
+    getGitHubAppByConnector: getGitHubAppByConnectorSpy,
+    mintInstallationToken: mintInstallationTokenSpy,
+  }),
+}));
 
 // Drizzle ORM is used by build-mcp-services for the legacy BetterAuth path
 // and the company-level config_layer_items lookup. We stub `db` to surface
@@ -365,5 +383,171 @@ describe("createResolveGitProvider — github auto-dispatch (Phase 3)", () => {
     expect(getUserTokenSpy).toHaveBeenCalledTimes(1);
     // The single call was for the "github" slug, not "gitlab".
     expect(getUserTokenSpy).toHaveBeenCalledWith("user-gh-cache", "github", "company-gh");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3 compl. — App vs OAuth auto-dispatch in the github branch.
+//
+// When a GitHub App is configured on the company's connector AND has an
+// installation matching the resolved repo owner (NOT suspended), the resolver
+// MUST instantiate GitHubProvider in mode `app-installation` with a
+// mintToken closure forwarding to the github-app service. Otherwise it
+// falls through to mode `user-oauth` (existing behavior).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildDbForAppDispatch(opts: {
+  // installationRows is what `db.select(...).from(githubAppInstallations)
+  //   .where(...).limit(1)` returns when the App auto-dispatch checks for
+  //   a matching install. Default: [] (no matching install).
+  installationRows: unknown[];
+}) {
+  const githubRow = {
+    configJson: {
+      kind: "github",
+      providerId: "github:alphaluppi/mnm",
+      owner: "alphaluppi",
+      repo: "mnm",
+      paths: { workflows: "workflows", agents: "agents" },
+    },
+  };
+  // Two distinct query shapes get hit on the github branch :
+  //   1. config_layer_items (.from(...).innerJoin(...).where(...)) — returns githubRow
+  //   2. github_app_installations (.from(...).where(...).limit(1)) — returns installationRows
+  // The mock dispatches by the order of `from(...)` calls within a single
+  // resolve(): config first, then (only if appRow non-null) installations.
+  let fromCallCount = 0;
+  return {
+    select: () => ({
+      from: (): unknown => {
+        const callIdx = fromCallCount++;
+        // Heuristic: first 2-3 `.from(...)` calls in a resolve() are
+        // config_layer_items lookups (kind detection + coordinates). Later
+        // ones are our installation lookup. We treat the LAST call as the
+        // installation lookup if `installationRows` was provided.
+        const isInstallationCall = callIdx >= 2;
+        const rows = isInstallationCall ? opts.installationRows : [githubRow];
+        return {
+          where: () =>
+            Object.assign(Promise.resolve(rows), {
+              orderBy: () => Promise.resolve(rows),
+              limit: () => Promise.resolve(rows),
+            }),
+          innerJoin: () => ({
+            where: () =>
+              Object.assign(Promise.resolve([githubRow]), {
+                orderBy: () => Promise.resolve([githubRow]),
+                limit: () => Promise.resolve([githubRow]),
+              }),
+          }),
+        };
+      },
+    }),
+    update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+    execute: () => Promise.resolve([]),
+  } as unknown as import("@mnm/db").Db;
+}
+
+describe("createResolveGitProvider — github App auto-dispatch (Phase 3 compl.)", () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+    process.env.MNM_DEPLOYMENT_MODE = "authenticated";
+    getUserTokenSpy.mockReset();
+    getActiveConnectorBySlugSpy.mockReset();
+    getGitHubAppByConnectorSpy.mockReset();
+    mintInstallationTokenSpy.mockReset();
+    // Defaults: connector exists, but no App configured.
+    getActiveConnectorBySlugSpy.mockResolvedValue({
+      id: "connector-1",
+      providerSlug: "github",
+    } as never);
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("dispatches to mode app-installation when App configured + installation matches owner", async () => {
+    getGitHubAppByConnectorSpy.mockResolvedValueOnce({
+      id: "app-1",
+      appId: "12345",
+      appSlug: "mnm-app",
+      createdAt: new Date(),
+      revokedAt: null,
+    } as never);
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(
+      buildDbForAppDispatch({
+        installationRows: [{ installationId: "9999" }],
+      }),
+    );
+    const provider = await resolve({
+      companyId: "00000000-0000-0000-0000-0000000000a1",
+      userId: "user-app-1",
+    });
+
+    expect(provider.constructor.name).toBe("GitHubProvider");
+    // Provider id reveals the dispatch decision (app vs connector vs user).
+    expect((provider as unknown as { providerId: string }).providerId).toBe(
+      "github:app:user-app-1",
+    );
+    // user-OAuth is NOT consulted when App matches.
+    expect(getUserTokenSpy).not.toHaveBeenCalled();
+  });
+
+  it("falls through to mode user-oauth when App configured but no matching installation", async () => {
+    getGitHubAppByConnectorSpy.mockResolvedValueOnce({
+      id: "app-1",
+      appId: "12345",
+      appSlug: "mnm-app",
+      createdAt: new Date(),
+      revokedAt: null,
+    } as never);
+    getUserTokenSpy.mockResolvedValueOnce({
+      accessToken: "user-oauth-token",
+      expiresAt: new Date(Date.now() + 3600_000),
+      scopes: [],
+      type: "oauth2",
+    });
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(
+      buildDbForAppDispatch({ installationRows: [] }), // No matching install
+    );
+    const provider = await resolve({
+      companyId: "00000000-0000-0000-0000-0000000000a2",
+      userId: "user-app-2",
+    });
+
+    expect(provider.constructor.name).toBe("GitHubProvider");
+    expect((provider as unknown as { providerId: string }).providerId).toBe(
+      "github:connector:user-app-2",
+    );
+    expect(getUserTokenSpy).toHaveBeenCalledWith("user-app-2", "github", expect.any(String));
+  });
+
+  it("falls through to mode user-oauth when no App configured at all", async () => {
+    // App lookup returns null → straight to user-OAuth.
+    getGitHubAppByConnectorSpy.mockResolvedValueOnce(null);
+    getUserTokenSpy.mockResolvedValueOnce({
+      accessToken: "oauth-token",
+      expiresAt: new Date(Date.now() + 3600_000),
+      scopes: [],
+      type: "oauth2",
+    });
+    const { createResolveGitProvider } = await import("../build-mcp-services.js");
+    const resolve = createResolveGitProvider(
+      buildDbForAppDispatch({ installationRows: [] }),
+    );
+    const provider = await resolve({
+      companyId: "00000000-0000-0000-0000-0000000000a3",
+      userId: "user-app-3",
+    });
+
+    expect(provider.constructor.name).toBe("GitHubProvider");
+    expect((provider as unknown as { providerId: string }).providerId).toBe(
+      "github:connector:user-app-3",
+    );
   });
 });
