@@ -469,7 +469,7 @@ export const parityData: ParityData = {
             status: "partial",
             since: "0.1.x",
             notes:
-              "Sprint 2 T6 — admin page (list + add tab + 10 templates + 2-step wizard). 2026-05-03: ajout d'une carte « Connecteur custom » + wizard 3 étapes (basics / endpoints / credentials) qui expose le mode sans templateSlug pour brancher n'importe quelle API OAuth 2.0 ou Bearer/API-key. Pas encore de page détail Sheet ni d'audit log table — à finaliser.",
+              "Sprint 2 T6 — admin page (list + add tab + 10 templates + 2-step wizard). 2026-05-03: ajout d'une carte « Connecteur custom » + wizard 3 étapes (basics / endpoints / credentials) qui expose le mode sans templateSlug pour brancher n'importe quelle API OAuth 2.0 ou Bearer/API-key. 2026-05-05: ConnectorRow responsive (flex-col → sm:flex-row, label « Activé/Désactivé » masqué sur mobile, truncate sur le secondary text). Pas encore de page détail Sheet générique ni d'audit log table — à finaliser.",
           },
           desktop: BACKEND,
         },
@@ -486,6 +486,14 @@ export const parityData: ParityData = {
           name: "GitHub connector detail Sheet",
           description:
             "GITHUB-PROVIDER Phase 5 — Sheet (shadcn) opened from the github connector row. OAuth section (read-only Client ID / redirect URL / status) + optional App section (appId / appSlug / installations table with deep-links to GitHub) + Désinstaller dialog (soft-deletes the App config server-side, keeps OAuth active). Live updates via the same SSE event as the wizard — no polling.",
+          web: { status: "done", since: "0.1.x" },
+          desktop: BACKEND,
+        },
+        {
+          id: "settings-git-provider",
+          name: "Git provider config (workflows / agents / runs source of truth)",
+          description:
+            "CompanySettings → Git provider tab + onboarding integrations step (GitProviderConfigPanel). Single repo / Separate repos topology, gitlab + github kinds (Select picker — base URL auto-swaps with the kind's default), shadcn Input/Label/Button/Select/AlertDialog throughout. Subtree path prefixes behind « Advanced ». Server restart required after a change (resolveGitProvider cache is process-lifetime — annotated in the panel).",
           web: { status: "done", since: "0.1.x" },
           desktop: BACKEND,
         },

@@ -904,16 +904,16 @@ function ConnectorRow({
 }) {
   return (
     <Card data-testid={`connectors-row-${connector.providerSlug}`}>
-      <CardContent className="flex items-center justify-between py-4">
-        <div className="flex items-center gap-3">
+      <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
           {connector.type === "api_key" ? (
-            <KeyRound className="h-5 w-5 text-muted-foreground" />
+            <KeyRound className="h-5 w-5 text-muted-foreground shrink-0" />
           ) : (
-            <Plug className="h-5 w-5 text-muted-foreground" />
+            <Plug className="h-5 w-5 text-muted-foreground shrink-0" />
           )}
-          <div>
-            <p className="font-medium">{connector.displayName}</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="min-w-0">
+            <p className="font-medium truncate">{connector.displayName}</p>
+            <p className="text-xs text-muted-foreground truncate">
               {connector.providerSlug}
               {connector.type === "oauth2" && connector.clientSecretConfigured
                 ? " · client_secret configuré"
@@ -922,7 +922,7 @@ function ConnectorRow({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
           <Badge variant={connector.type === "oauth2" ? "default" : "secondary"}>
             {connector.type === "oauth2" ? "OAuth" : "API Key"}
           </Badge>
@@ -931,8 +931,13 @@ function ConnectorRow({
               checked={connector.enabled}
               onCheckedChange={onToggleEnabled}
               data-testid={`connectors-toggle-${connector.providerSlug}`}
+              aria-label={
+                connector.enabled
+                  ? `Désactiver ${connector.displayName}`
+                  : `Activer ${connector.displayName}`
+              }
             />
-            <Label className="text-xs text-muted-foreground">
+            <Label className="hidden sm:inline-block text-xs text-muted-foreground">
               {connector.enabled ? "Activé" : "Désactivé"}
             </Label>
           </div>

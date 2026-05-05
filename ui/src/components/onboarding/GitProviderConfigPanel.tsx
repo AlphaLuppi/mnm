@@ -23,17 +23,61 @@
  *
  * The panel reads existing config via GET /git-provider-config and
  * upserts via PUT /git-provider-config (one PUT per item).
+ *
+ * Both `gitlab` and `github` kinds are supported — backend provider
+ * selection happens in `resolveGitProvider` based on the stored kind.
  */
 
 import { useEffect, useState, useCallback } from "react";
+import { Check, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "../../lib/utils";
-import { Check, Loader2, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 
-type Kind = "gitlab";
+type Kind = "gitlab" | "github";
+
+const KIND_OPTIONS: Array<{ value: Kind; label: string; defaultBaseUrl: string; tokenPlaceholder: string; tokenScopes: string }> = [
+  {
+    value: "gitlab",
+    label: "GitLab",
+    defaultBaseUrl: "https://gitlab.com",
+    tokenPlaceholder: "glpat-…",
+    tokenScopes: "api, read_repository, write_repository",
+  },
+  {
+    value: "github",
+    label: "GitHub",
+    defaultBaseUrl: "https://github.com",
+    tokenPlaceholder: "ghp_… or github_pat_…",
+    tokenScopes: "repo (full), workflow",
+  },
+];
+
+function kindMeta(kind: Kind) {
+  return KIND_OPTIONS.find((k) => k.value === kind) ?? KIND_OPTIONS[0]!;
+}
 
 interface ProviderItemPublic {
   itemId: string;
@@ -70,7 +114,7 @@ interface Props {
 const EMPTY_FORM = (itemName: string): FormState => ({
   itemName,
   kind: "gitlab",
-  baseUrl: "https://gitlab.com",
+  baseUrl: kindMeta("gitlab").defaultBaseUrl,
   projectId: "",
   token: "",
   pathsWorkflows: "",
@@ -207,8 +251,8 @@ function SingleRepoForm({
     setSavedNotice(null);
     try {
       const body: Record<string, unknown> = {
-        kind: "gitlab",
-        providerId: "gitlab:primary",
+        kind: form.kind,
+        providerId: `${form.kind}:primary`,
         baseUrl: form.baseUrl.trim(),
         projectId: form.projectId.trim(),
         itemName: "default",
@@ -236,10 +280,10 @@ function SingleRepoForm({
   return (
     <div className="space-y-3">
       {existing && (
-        <div className="flex items-center gap-2 text-sm">
-          <Check className="h-4 w-4 text-emerald-500" />
-          <span className="font-medium">{existing.config.kind ?? "gitlab"}</span>
-          <span className="text-xs text-muted-foreground">{existing.config.baseUrl}</span>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+          <span className="font-medium">{kindLabel(existing.config.kind)}</span>
+          <span className="text-xs text-muted-foreground break-all">{existing.config.baseUrl}</span>
           <Badge variant="secondary" className="text-[10px]">Configured</Badge>
         </div>
       )}
@@ -253,13 +297,15 @@ function SingleRepoForm({
       <FormFields form={form} setForm={setForm} hasExistingToken={Boolean(existing?.hasToken)} />
 
       <div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          className="px-0 h-auto text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           {showAdvanced ? "▾ Hide advanced (subtree paths)" : "▸ Advanced — subtree paths"}
-        </button>
+        </Button>
         {showAdvanced && (
           <div className="mt-2 space-y-2 rounded-md border border-border/60 p-3">
             <p className="text-[11px] text-muted-foreground/80">
@@ -286,7 +332,7 @@ function SingleRepoForm({
       {error && <p className="text-xs text-destructive">{error}</p>}
       {savedNotice && <p className="text-xs text-emerald-600 dark:text-emerald-400">{savedNotice}</p>}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
           {existing ? "Update" : "Save"}
@@ -342,8 +388,8 @@ function SeparateRepoForm({
     setSavedNotice(null);
     try {
       const body: Record<string, unknown> = {
-        kind: "gitlab",
-        providerId: `gitlab:${itemName}`,
+        kind: form.kind,
+        providerId: `${form.kind}:${itemName}`,
         baseUrl: form.baseUrl.trim(),
         projectId: form.projectId.trim(),
         itemName,
@@ -402,7 +448,7 @@ function SeparateRepoForm({
       {error && <p className="text-xs text-destructive">{error}</p>}
       {savedNotice && <p className="text-xs text-emerald-600 dark:text-emerald-400">{savedNotice}</p>}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
           {existing ? "Update" : "Save"}
@@ -428,42 +474,76 @@ function FormFields({
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   hasExistingToken: boolean;
 }) {
+  const meta = kindMeta(form.kind);
+
+  function handleKindChange(next: Kind) {
+    setForm((f) => {
+      const prevDefault = kindMeta(f.kind).defaultBaseUrl;
+      const nextMeta = kindMeta(next);
+      // If the user hadn't customised the base URL away from the previous
+      // kind's default, swap it for the new kind's default ; otherwise keep
+      // their input untouched.
+      const baseUrl =
+        f.baseUrl.trim() === "" || f.baseUrl.trim() === prevDefault
+          ? nextMeta.defaultBaseUrl
+          : f.baseUrl;
+      return { ...f, kind: next, baseUrl };
+    });
+  }
+
   return (
-    <div className="space-y-2">
-      <p className="text-[11px] text-muted-foreground/70">
-        GitLab only for now (self-hosted or .com). GitHub support is on the roadmap via the Connectors Platform.
-      </p>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Base URL</label>
-        <input
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor={`gitprov-kind-${form.itemName}`}>Provider</Label>
+        <Select value={form.kind} onValueChange={(v) => handleKindChange(v as Kind)}>
+          <SelectTrigger id={`gitprov-kind-${form.itemName}`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {KIND_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`gitprov-baseurl-${form.itemName}`}>Base URL</Label>
+        <Input
+          id={`gitprov-baseurl-${form.itemName}`}
+          className="font-mono"
           value={form.baseUrl}
           onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
-          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring font-mono"
-          placeholder="https://gitlab.example.com"
+          placeholder={meta.defaultBaseUrl}
         />
       </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Project ID / repo path</label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor={`gitprov-projectid-${form.itemName}`}>
+          {form.kind === "github" ? "Repo (owner/name)" : "Project ID / repo path"}
+        </Label>
+        <Input
+          id={`gitprov-projectid-${form.itemName}`}
+          className="font-mono"
           value={form.projectId}
           onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}
-          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring font-mono"
-          placeholder="12345 or org/repo"
+          placeholder={form.kind === "github" ? "org/repo" : "12345 or org/repo"}
         />
       </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">
+      <div className="space-y-1.5">
+        <Label htmlFor={`gitprov-token-${form.itemName}`}>
           Personal access token{" "}
-          <span className="text-muted-foreground/60">
-            (scopes: api, read_repository, write_repository)
+          <span className="text-muted-foreground/60 font-normal">
+            (scopes: {meta.tokenScopes})
           </span>
-        </label>
-        <input
+        </Label>
+        <Input
+          id={`gitprov-token-${form.itemName}`}
           type="password"
+          className="font-mono"
           value={form.token}
           onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))}
-          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring font-mono"
-          placeholder={hasExistingToken ? "•••••••• (leave empty to keep current)" : "glpat-… or ghp_…"}
+          placeholder={hasExistingToken ? "•••••••• (leave empty to keep current)" : meta.tokenPlaceholder}
         />
       </div>
     </div>
@@ -484,15 +564,15 @@ function PathField({
   example: string;
 }) {
   return (
-    <div>
-      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
-      <input
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input
+        className="font-mono"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring font-mono"
         placeholder={placeholder}
       />
-      <p className="text-[11px] text-muted-foreground/60 mt-1 font-mono">→ {example}</p>
+      <p className="text-[11px] text-muted-foreground/60 mt-1 font-mono break-all">→ {example}</p>
     </div>
   );
 }
@@ -507,27 +587,56 @@ function DeleteButton({
   onDeleted: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  async function handleConfirm() {
+    setBusy(true);
+    try {
+      await api.delete(
+        `/companies/${companyId}/governed-workflows/git-provider-config/${encodeURIComponent(itemName)}`,
+      );
+      await onDeleted();
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={busy}
-      onClick={async () => {
-        if (!confirm(`Remove the "${itemName}" git provider configuration?`)) return;
-        setBusy(true);
-        try {
-          await api.delete(
-            `/companies/${companyId}/governed-workflows/git-provider-config/${encodeURIComponent(itemName)}`,
-          );
-          await onDeleted();
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-    </Button>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline" size="sm" disabled={busy}>
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove the "{itemName}" git provider configuration?</AlertDialogTitle>
+          <AlertDialogDescription>
+            The stored token will be wiped. Workflows and agents that rely on this provider will fail until you re-configure or restore another item. A server restart is required for the change to take full effect.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              void handleConfirm();
+            }}
+            disabled={busy}
+          >
+            {busy ? "Removing…" : "Remove"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
+}
+
+function kindLabel(kind: Kind | "local" | undefined): string {
+  if (kind === "github") return "GitHub";
+  if (kind === "local") return "local";
+  return "GitLab";
 }
 
 function initFromItem(
@@ -536,10 +645,13 @@ function initFromItem(
 ): FormState {
   if (!item) return EMPTY_FORM(itemName);
   const cfg = item.config;
+  // Only the editable kinds are surfaced — `local` falls back to gitlab in
+  // the form (rare path, only used for dev-fixtures companies).
+  const kind: Kind = cfg.kind === "github" ? "github" : "gitlab";
   return {
     itemName: item.itemName,
-    kind: "gitlab",
-    baseUrl: cfg.baseUrl ?? "https://gitlab.com",
+    kind,
+    baseUrl: cfg.baseUrl ?? kindMeta(kind).defaultBaseUrl,
     projectId: cfg.projectId ?? "",
     token: "",
     pathsWorkflows: cfg.paths?.workflows ?? "",
