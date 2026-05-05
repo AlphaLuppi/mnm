@@ -1,5 +1,4 @@
 import { and, eq, desc, sql, lte, asc, inArray } from "drizzle-orm";
-import crypto from "node:crypto";
 import type { Db } from "@mnm/db";
 import {
   routines,
@@ -19,294 +18,17 @@ import {
   type UpdateRoutineTrigger,
   type RunRoutine,
 } from "@mnm/shared";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
-import { notFound, conflict, unprocessable, badRequest } from "../errors.js";
+import { notFound, conflict, unprocessable } from "../errors.js";
 import { publishLiveEvent } from "./live-events.js";
-
-// ── Webhook secret encryption (SEC-T11-04) ──────────────────────────────────
-// Secrets are encrypted at rest with AES-256-GCM using the same master key
-// as the local-encrypted secrets provider (MNM_SECRETS_MASTER_KEY env var or
-// data/secrets/master.key file).  The column keeps its text type; encrypted
-// blobs are prefixed with "enc:" so legacy plaintext rows degrade gracefully
-// (they are returned as-is and will be re-encrypted on next rotation).
-
-const WEBHOOK_SECRET_ENC_PREFIX = "enc:";
-
-function loadWebhookMasterKey(): Buffer {
-  const envKeyRaw = process.env.MNM_SECRETS_MASTER_KEY;
-  if (envKeyRaw && envKeyRaw.trim().length > 0) {
-    const t = envKeyRaw.trim();
-    if (/^[A-Fa-f0-9]{64}$/.test(t)) return Buffer.from(t, "hex");
-    const b64 = Buffer.from(t, "base64");
-    if (b64.length === 32) return b64;
-    const utf8buf = Buffer.from(t, "utf8");
-    if (utf8buf.length === 32) return utf8buf;
-    throw new Error("Invalid MNM_SECRETS_MASTER_KEY — expected 32-byte hex/base64/utf8");
-  }
-  const keyPath = (process.env.MNM_SECRETS_MASTER_KEY_FILE ?? "").trim()
-    || `${process.cwd()}/data/secrets/master.key`;
-  if (existsSync(keyPath)) {
-    const raw = readFileSync(keyPath, "utf8").trim();
-    if (/^[A-Fa-f0-9]{64}$/.test(raw)) return Buffer.from(raw, "hex");
-    const b64 = Buffer.from(raw, "base64");
-    if (b64.length === 32) return b64;
-    throw new Error(`Invalid secrets master key at ${keyPath}`);
-  }
-  // Auto-generate and persist (first-run bootstrap)
-  const dir = keyPath.substring(0, keyPath.lastIndexOf("/"));
-  mkdirSync(dir, { recursive: true });
-  const generated = crypto.randomBytes(32);
-  writeFileSync(keyPath, generated.toString("base64"), { encoding: "utf8", mode: 0o600 });
-  try { chmodSync(keyPath, 0o600); } catch { /* best effort */ }
-  return generated;
-}
-
-function encryptWebhookSecret(plaintext: string): string {
-  const masterKey = loadWebhookMasterKey();
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", masterKey, iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return WEBHOOK_SECRET_ENC_PREFIX + JSON.stringify({
-    iv: iv.toString("base64"),
-    tag: tag.toString("base64"),
-    ct: ciphertext.toString("base64"),
-  });
-}
-
-function decryptWebhookSecret(stored: string): string {
-  if (!stored.startsWith(WEBHOOK_SECRET_ENC_PREFIX)) {
-    // Legacy plaintext row — return as-is so existing webhooks keep working.
-    return stored;
-  }
-  const masterKey = loadWebhookMasterKey();
-  const payload = JSON.parse(stored.slice(WEBHOOK_SECRET_ENC_PREFIX.length)) as {
-    iv: string; tag: string; ct: string;
-  };
-  const iv = Buffer.from(payload.iv, "base64");
-  const tag = Buffer.from(payload.tag, "base64");
-  const ct = Buffer.from(payload.ct, "base64");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", masterKey, iv);
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
-}
-
-// ── Cron parsing ────────────────────────────────────────────────────────────
-
-interface CronFields {
-  minutes: number[];
-  hours: number[];
-  daysOfMonth: number[];
-  months: number[];
-  daysOfWeek: number[];
-}
-
-function parseCronField(field: string, min: number, max: number): number[] {
-  const values = new Set<number>();
-
-  for (const part of field.split(",")) {
-    const stepParts = part.split("/");
-    const rangePart = stepParts[0]!;
-    const step = stepParts[1] ? parseInt(stepParts[1], 10) : 1;
-
-    let start: number;
-    let end: number;
-
-    if (rangePart === "*") {
-      start = min;
-      end = max;
-    } else if (rangePart.includes("-")) {
-      const [lo, hi] = rangePart.split("-");
-      start = parseInt(lo!, 10);
-      end = parseInt(hi!, 10);
-    } else {
-      start = parseInt(rangePart, 10);
-      end = start;
-    }
-
-    if (isNaN(start) || isNaN(end) || isNaN(step)) continue;
-    start = Math.max(start, min);
-    end = Math.min(end, max);
-
-    for (let i = start; i <= end; i += step) {
-      values.add(i);
-    }
-  }
-
-  return [...values].sort((a, b) => a - b);
-}
-
-function parseCron(expression: string): CronFields {
-  const parts = expression.trim().split(/\s+/);
-  if (parts.length !== 5) {
-    throw badRequest(`Invalid cron expression: expected 5 fields, got ${parts.length}`);
-  }
-  return {
-    minutes: parseCronField(parts[0]!, 0, 59),
-    hours: parseCronField(parts[1]!, 0, 23),
-    daysOfMonth: parseCronField(parts[2]!, 1, 31),
-    months: parseCronField(parts[3]!, 1, 12),
-    daysOfWeek: parseCronField(parts[4]!, 0, 6),
-  };
-}
-
-/**
- * Convert a Date to the components in a given timezone using Intl.DateTimeFormat.
- */
-function dateInTz(date: Date, timezone: string) {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(
-    fmt.formatToParts(date).map((p) => [p.type, p.value]),
-  );
-  return {
-    year: parseInt(parts.year!, 10),
-    month: parseInt(parts.month!, 10),
-    day: parseInt(parts.day!, 10),
-    hour: parseInt(parts.hour!, 10),
-    minute: parseInt(parts.minute!, 10),
-    second: parseInt(parts.second!, 10),
-  };
-}
-
-/**
- * Create a Date from components in a given timezone.
- */
-function dateFromTz(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  second: number,
-  timezone: string,
-): Date {
-  // Build an ISO-ish string and use the tz offset to invert
-  const isoBase = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
-
-  // Estimate: create a date in UTC, then adjust by the offset
-  const estimateUtc = new Date(`${isoBase}Z`);
-  const inTz = dateInTz(estimateUtc, timezone);
-  const offsetMinutes =
-    (inTz.hour * 60 + inTz.minute) - (estimateUtc.getUTCHours() * 60 + estimateUtc.getUTCMinutes());
-  const adjusted = new Date(estimateUtc.getTime() - offsetMinutes * 60_000);
-
-  // Verify and correct (DST edge cases)
-  const check = dateInTz(adjusted, timezone);
-  if (check.hour !== hour || check.minute !== minute) {
-    const delta = (hour - check.hour) * 60 + (minute - check.minute);
-    return new Date(adjusted.getTime() + delta * 60_000);
-  }
-  return adjusted;
-}
-
-/**
- * Compute the next cron tick strictly after `after` in the given timezone.
- * Searches forward up to 366 days.
- */
-export function nextCronTick(
-  expression: string,
-  timezone: string,
-  after: Date = new Date(),
-): Date {
-  const cron = parseCron(expression);
-  const maxIterations = 366 * 24 * 60; // safety cap
-  const tz = dateInTz(after, timezone);
-
-  let year = tz.year;
-  let month = tz.month;
-  let day = tz.day;
-  let hour = tz.hour;
-  let minute = tz.minute + 1; // strictly after
-
-  for (let i = 0; i < maxIterations; i++) {
-    // Normalize overflow
-    if (minute > 59) {
-      minute = 0;
-      hour++;
-    }
-    if (hour > 23) {
-      hour = 0;
-      day++;
-    }
-    const daysInMonth = new Date(year, month, 0).getDate();
-    if (day > daysInMonth) {
-      day = 1;
-      month++;
-    }
-    if (month > 12) {
-      month = 1;
-      year++;
-    }
-
-    // Check month
-    if (!cron.months.includes(month)) {
-      day = 1;
-      hour = 0;
-      minute = 0;
-      month++;
-      continue;
-    }
-
-    // Check day of month
-    if (!cron.daysOfMonth.includes(day)) {
-      hour = 0;
-      minute = 0;
-      day++;
-      continue;
-    }
-
-    // Check day of week
-    const candidate = dateFromTz(year, month, day, hour, minute, 0, timezone);
-    const candidateDow = candidate.getDay();
-    if (!cron.daysOfWeek.includes(candidateDow)) {
-      hour = 0;
-      minute = 0;
-      day++;
-      continue;
-    }
-
-    // Check hour
-    if (!cron.hours.includes(hour)) {
-      minute = 0;
-      hour++;
-      continue;
-    }
-
-    // Check minute
-    if (!cron.minutes.includes(minute)) {
-      minute++;
-      continue;
-    }
-
-    // All fields match — build the final date
-    const result = dateFromTz(year, month, day, hour, minute, 0, timezone);
-    if (result.getTime() > after.getTime()) {
-      return result;
-    }
-    // Edge case: DST made us not actually be after `after`
-    minute++;
-  }
-
-  throw unprocessable("Could not compute next cron tick within 366 days");
-}
-
-// ── Timing-safe string comparison ──────────────────────────────────────────
-
-function timingSafeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const bufA = Buffer.from(a, "utf8");
-  const bufB = Buffer.from(b, "utf8");
-  return crypto.timingSafeEqual(bufA, bufB);
-}
+import { nextCronTick } from "./_cron.js";
+import {
+  encryptWebhookSecret,
+  decryptWebhookSecret,
+  generatePublicId,
+  generateWebhookSecret,
+  verifyBearerSecret,
+  verifyHmacSignature,
+} from "./_webhook-signing.js";
 
 // ── Actor type ──────────────────────────────────────────────────────────────
 
@@ -836,8 +558,8 @@ export function routineService(db: Db) {
       // SEC-T11-04: encrypt webhook secrets at rest
       let webhookPlaintextSecret: string | undefined;
       if (data.kind === "webhook") {
-        values.publicId = crypto.randomBytes(16).toString("hex");
-        webhookPlaintextSecret = crypto.randomBytes(32).toString("hex");
+        values.publicId = generatePublicId();
+        webhookPlaintextSecret = generateWebhookSecret();
         values.secretHash = encryptWebhookSecret(webhookPlaintextSecret);
         values.signingMode = data.signingMode;
         values.replayWindowSec = data.replayWindowSec;
@@ -1123,33 +845,15 @@ export function routineService(db: Db) {
       const secret = decryptWebhookSecret(trigger.secretHash!);
 
       if (trigger.signingMode === "bearer") {
-        const token = headers.authorization?.replace(/^Bearer\s+/i, "");
-        if (!token || !timingSafeCompare(token, secret)) {
-          throw badRequest("Invalid bearer token");
-        }
+        verifyBearerSecret(headers.authorization, secret);
       } else if (trigger.signingMode === "hmac_sha256") {
-        const signature = headers["x-routine-signature"];
-        const timestamp = headers["x-routine-timestamp"];
-        if (!signature || !timestamp) {
-          throw badRequest("Missing signature or timestamp headers");
-        }
-
-        // Replay protection
-        const tsNumber = parseInt(timestamp, 10);
-        const windowSec = trigger.replayWindowSec ?? 300;
-        const nowSec = Math.floor(Date.now() / 1000);
-        if (Math.abs(nowSec - tsNumber) > windowSec) {
-          throw badRequest("Timestamp outside replay window");
-        }
-
-        const expected = crypto
-          .createHmac("sha256", secret)
-          .update(`${timestamp}.${rawBody}`)
-          .digest("hex");
-
-        if (!timingSafeCompare(signature, expected)) {
-          throw badRequest("Invalid HMAC signature");
-        }
+        verifyHmacSignature({
+          signature: headers["x-routine-signature"],
+          timestamp: headers["x-routine-timestamp"],
+          rawBody,
+          secret,
+          replayWindowSec: trigger.replayWindowSec ?? 300,
+        });
       }
 
       // Dispatch the run

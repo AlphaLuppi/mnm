@@ -86,6 +86,7 @@ import { folderRoutes } from "./routes/folders.js";
 import { feedbackRoutes } from "./routes/feedback.js";
 // ROUTINES: Routine routes
 import { routineRoutes } from "./routes/routines.js";
+import { workflowTriggersRoutes } from "./routes/workflow-triggers.js";
 // PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
 import { threadInteractionRoutes } from "./routes/thread-interactions.js";
 // VIEW-PRESETS: Persona-based dashboard & navigation
@@ -427,6 +428,8 @@ export async function createApp(
   api.use(feedbackRoutes(db));
   // ROUTINES: Routine routes
   api.use(routineRoutes(db));
+  // WORKFLOW-TRIGGERS Phase 2: Unified autonomous triggers (schedule/webhook/issue)
+  api.use(workflowTriggersRoutes(db));
   // PAPERCLIP-PHASE2: Inbox Interactive — structured thread interactions
   api.use(threadInteractionRoutes(db));
   // VIEW-PRESETS: Persona-based dashboard & navigation

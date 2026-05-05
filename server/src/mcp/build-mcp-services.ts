@@ -41,6 +41,7 @@ import { connectorService, ConnectorError } from "../services/connectors.js";
 import { connectorRequired } from "../errors.js";
 // WORKFLOW-HOOKS T2.7 wire — service constructor for governed-workflows DI
 import { workflowHooksService } from "../services/workflow-hooks.js";
+import { workflowTriggersService } from "../services/workflow-triggers.js";
 // WORKFLOW-ASSIGNMENTS T3.3 wire — step-assignment snapshot service.
 import { governedWorkflowsAssignmentsService } from "../services/governed-workflows-assignments.js";
 import type { McpServices } from "./registry/types.js";
@@ -620,5 +621,13 @@ export function buildMcpServices(db: Db): McpServices {
     // WORKFLOW-ASSIGNMENTS T3.4 — exposed for MCP `list_my_pending_work`
     // and the REST `/inbox/pending-workflow-steps` route.
     workflowAssignments,
+    // WORKFLOW-TRIGGERS Phase 2 — unified autonomous triggers, exposed
+    // so the MCP tools file (workflow-triggers.tool.ts) can reach it.
+    // The CRUD path is the same instance the REST router uses; the
+    // public fire path lives only on REST (no MCP fire — agents don't
+    // proxy webhooks).
+    workflowTriggers: workflowTriggersService(db, {
+      governed: governedWorkflowService(db, { resolveGitProvider, shaCache }),
+    }),
   };
 }

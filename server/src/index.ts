@@ -28,6 +28,10 @@ import { createRedisClient, disconnectRedis } from "./redis.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { setupChatWebSocketServer } from "./realtime/chat-ws.js";
 import { heartbeatService, routineService, subscribeDashboardRefreshEvents } from "./services/index.js";
+import { governedWorkflowService } from "./services/governed-workflows.js";
+import { tickWorkflowTriggers } from "./services/workflow-triggers-tick.js";
+import { createResolveGitProvider } from "./mcp/build-mcp-services.js";
+import { ShaCache } from "@mnm/git-provider";
 import { startCaoWatchdog } from "./services/cao-watchdog.js";
 import { startLivenessWatchdog } from "./services/governed-workflows-liveness.js";
 import { setTenantContext as setLivenessTenantContext } from "./middleware/tenant-context.js";
@@ -704,6 +708,44 @@ if (process.env.MNM_DISABLE_AUTO_TRIGGERS === "1") {
       });
   }, routineTickMs);
   logger.info({ intervalMs: routineTickMs }, "Routine schedule tick enabled");
+}
+
+// WORKFLOW-TRIGGER-TICK: Phase 2 — fire due workflow_triggers (kind=schedule).
+// Same kill switch / interval shape as the routine tick above. Constructs the
+// Governed Workflows service once at startup and reuses it across ticks.
+if (process.env.MNM_DISABLE_AUTO_TRIGGERS === "1") {
+  logger.warn("Workflow trigger schedule tick disabled (MNM_DISABLE_AUTO_TRIGGERS=1)");
+} else {
+  const workflowTriggerTickMs = Number(
+    process.env.MNM_WORKFLOW_TRIGGER_TICK_MS ?? process.env.MNM_ROUTINE_TICK_MS ?? 30_000,
+  );
+  const wtResolveGitProvider = createResolveGitProvider(db);
+  const wtShaCache = new ShaCache();
+  const wtGoverned = governedWorkflowService(db as any, {
+    resolveGitProvider: wtResolveGitProvider,
+    shaCache: wtShaCache,
+  });
+  let workflowTriggerTickInFlight = false;
+  setInterval(() => {
+    if (workflowTriggerTickInFlight) return;
+    workflowTriggerTickInFlight = true;
+    void tickWorkflowTriggers(db as any, wtGoverned)
+      .then((results) => {
+        if (results.length > 0) {
+          logger.info({ fired: results.length, results }, "workflow trigger schedule tick fired");
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "workflow trigger schedule tick failed");
+      })
+      .finally(() => {
+        workflowTriggerTickInFlight = false;
+      });
+  }, workflowTriggerTickMs);
+  logger.info(
+    { intervalMs: workflowTriggerTickMs },
+    "Workflow trigger schedule tick enabled",
+  );
 }
 
 // PERM-BACKFILL: Ensure all companies have up-to-date permission slugs (roles are NOT force-created)

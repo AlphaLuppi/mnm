@@ -124,33 +124,72 @@ export interface DeleteBranchArgs {
 }
 
 /**
- * Arguments to `getMergeRequestApprovals`. `projectId` may differ from the
- * provider's default project (e.g. the workflow repo is `org/mnm-demo` but
- * the MR being checked is on `org/app-being-developed`). Same token works
- * across both projects on the same instance.
+ * Provider-agnostic reference to a code review (GitLab MR or GitHub PR).
+ * The `kind` discriminator lets the gate target a project that may differ
+ * from the provider's default (same token works across projects on the
+ * same instance for both providers).
  */
-export interface GetMrApprovalsArgs {
-  projectId: string;
-  /** Merge request iid (project-scoped, not global). */
-  mrIid: number;
+export type CodeReviewReference =
+  | {
+      kind: "gitlab";
+      /** Numeric or URL-encoded GitLab project id. */
+      projectId: string;
+      /** Merge request iid (project-scoped, not global). */
+      mrIid: number;
+    }
+  | {
+      kind: "github";
+      /** Repo owner login (user or org). */
+      owner: string;
+      /** Repo name. */
+      repo: string;
+      /** Pull request number. */
+      pullNumber: number;
+    };
+
+export type CodeReviewerState =
+  | "approved"
+  | "changes_requested"
+  | "commented"
+  | "pending"
+  | "dismissed";
+
+/**
+ * One reviewer's current state on a code review. `submittedAt` is ISO-8601
+ * when present; absent for `pending` (review requested but no submission yet).
+ */
+export interface CodeReviewer {
+  /** Provider-side login (`username` on GitLab, `login` on GitHub). */
+  login: string;
+  state: CodeReviewerState;
+  submittedAt?: string;
 }
 
 /**
- * Subset of GitLab's `/merge_requests/:iid/approvals` payload that gates
- * actually consume. Note: `approved: true` with `approvals_required: 0`
- * does NOT mean a human approved — only that no rule blocks merging.
- * Gate authors must measure `approved_by.length`, not `approved`.
+ * Provider-agnostic snapshot of a code review's current approval status.
+ * Returned by `GitProvider.getCodeReviewState` for both GitLab MRs and
+ * GitHub PRs.
+ *
+ * Gate authors should measure `currentApprovals >= requiredApprovals` rather
+ * than reading `raw` — `raw` is escape-hatch for provider-specific gates that
+ * need fields not surfaced in the abstraction.
+ *
+ * Mappings:
+ * - GitLab: `requiredApprovals = approvals_required`,
+ *   `currentApprovals = approved_by.length`,
+ *   `reviewers = approved_by.map(u => ({ login: u.user.username, state: "approved" }))`,
+ *   `raw = original /approvals payload`.
+ * - GitHub: `requiredApprovals = branch protection's required_approving_review_count` (best-effort),
+ *   `currentApprovals = unique reviewers in APPROVED state`,
+ *   `reviewers = pulls.listReviews + listRequestedReviewers merged`,
+ *   `raw = { reviews, branchProtection? }`.
  */
-export interface MrApprovalsResult {
-  approved: boolean;
-  approvals_required: number;
-  approved_by: Array<{
-    user: {
-      id: number;
-      username: string;
-      name?: string;
-    };
-  }>;
+export interface CodeReviewState {
+  requiredApprovals: number;
+  currentApprovals: number;
+  reviewers: CodeReviewer[];
+  /** Provider-specific payload for gates that need fields beyond the abstraction. */
+  raw: unknown;
 }
 
 /**
@@ -187,12 +226,18 @@ export interface GitProvider {
    */
   commitMultipleFiles(args: CommitMultipleFilesArgs): Promise<CommitMultipleFilesResult>;
   /**
-   * Live-fetch approvals on a merge request. Used by gates that verify
-   * human review at evaluation time, bypassing whatever the subagent
-   * claimed in the artifact. Optional because LocalBareRepoProvider has
-   * no notion of merge requests — it throws when called.
+   * Live-fetch the current code review state of a merge request (GitLab) or
+   * pull request (GitHub). Used by gates that verify human review at
+   * evaluation time, bypassing whatever the subagent claimed in the
+   * artifact. Optional because `LocalBareRepoProvider` has no notion of
+   * code reviews — it throws when called.
+   *
+   * The `kind` discriminator on `args` selects the provider path; an
+   * implementation MUST throw `unauthorized` (not crash) when called with a
+   * `kind` it doesn't support — `GitlabProvider` rejects `kind: "github"`
+   * and vice-versa.
    */
-  getMergeRequestApprovals?(args: GetMrApprovalsArgs): Promise<MrApprovalsResult>;
+  getCodeReviewState?(args: CodeReviewReference): Promise<CodeReviewState>;
   /**
    * Merge `sourceBranch` into `targetBranch`. With `noFf: true` (default),
    * a merge commit is always created — useful for preserving the boundary

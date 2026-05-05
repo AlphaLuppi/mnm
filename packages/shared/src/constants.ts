@@ -192,6 +192,12 @@ export const LIVE_EVENT_TYPES = [
   "workflow.paused",
   "workflow.failed",
   "workflow.terminated",
+  // Workflow autonomous triggers (Phase 2)
+  "workflow_trigger.created",
+  "workflow_trigger.updated",
+  "workflow_trigger.deleted",
+  "workflow_trigger.secret_rotated",
+  "workflow_trigger.fired",
   "stage.transitioned",
   "stage.initialized",
   "stage.started",
