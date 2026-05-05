@@ -474,6 +474,22 @@ export const parityData: ParityData = {
           desktop: BACKEND,
         },
         {
+          id: "admin-connectors-github-wizard",
+          name: "GitHub connector wizard (OAuth + optional GitHub App)",
+          description:
+            "GITHUB-PROVIDER Phase 5 (D6) — single GitHub tile in the template grid with an adaptive wizard : OAuth credentials (step 1) → optional App banner (step 2) → deep-link create on github.com (step 3a) → paste appId/privateKey (step 3b) → install on org with SSE-driven installations list (step 3c). All shadcn primitives, French copy, data-testid `gh-app-*`, no polling (relies on `connector.github_app_installation_added` SSE event).",
+          web: { status: "done", since: "0.1.x" },
+          desktop: BACKEND,
+        },
+        {
+          id: "admin-connectors-github-sheet",
+          name: "GitHub connector detail Sheet",
+          description:
+            "GITHUB-PROVIDER Phase 5 — Sheet (shadcn) opened from the github connector row. OAuth section (read-only Client ID / redirect URL / status) + optional App section (appId / appSlug / installations table with deep-links to GitHub) + Désinstaller dialog (soft-deletes the App config server-side, keeps OAuth active). Live updates via the same SSE event as the wizard — no polling.",
+          web: { status: "done", since: "0.1.x" },
+          desktop: BACKEND,
+        },
+        {
           id: "settings-accounts",
           name: "My connected accounts (user self-service)",
           web: {
@@ -965,8 +981,9 @@ export const parityData: ParityData = {
             tests: [
               "E2E Playwright (T6): launch a composite workflow with depth=2, verify the parent step shows the badge, expand the tree, verify drill-down fetches the sub-run.",
             ],
-            notes:
+            notes: [
               "Documentation under docs/governed-workflows/composite.md is queued for T6.",
+            ],
           },
         },
         {

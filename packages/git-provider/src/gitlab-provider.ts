@@ -120,6 +120,16 @@ export class GitlabProvider implements GitProvider {
     const exists = await this.pathExists({ path: args.path, ref: args.branch });
     const action = exists ? "update" : "create";
 
+    // D7 note (plan 2026-05-04-github-provider.md): GitLab's
+    // /repository/commits API accepts `author_name` + `author_email` only.
+    // The `committer` of a GitLab commit IS the token owner — there is no
+    // `committer_name`/`committer_email` field on this endpoint. So D7
+    // symmetry on GitLab is "best-effort": if the OAuth user IS the commit
+    // author (authorName/Email = the user's identity from `commit-identity`)
+    // and the token belongs to that same user (Connectors Platform user
+    // OAuth, the default in `MNM_REQUIRE_USER_CONNECTOR=true`), then
+    // token owner == author == committer — D7 is satisfied transitively.
+    // No API change needed here.
     const url = `${this.projectPath()}/repository/commits`;
     const payload = {
       branch: args.branch,
@@ -177,6 +187,12 @@ export class GitlabProvider implements GitProvider {
     if (args.message) {
       payload.message = args.message;
     }
+    // D7 LIMITATION — GitLab's `POST /projects/:id/repository/tags` endpoint
+    // does NOT expose any `tagger` / `committer` override. The tag's tagger
+    // is always the API token's owner. `args.taggerName` / `args.taggerEmail`
+    // are accepted by the GitProvider contract but ignored here. To preserve
+    // human attribution on GitLab the calling token must already belong to
+    // the MnM user (OAuth federation) — same constraint we enforce on commits.
 
     let res: Response;
     try {

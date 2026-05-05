@@ -311,6 +311,13 @@ export const LIVE_EVENT_TYPES = [
   // invalidate `queryKeys.connectors.myAccounts(companyId)`. Visibility =
   // private (only the affected user sees it).
   "user.connector_status_changed",
+  // GITHUB-PROVIDER Phase 1 — fire when a GitHub App installation callback is
+  // received (org admin installs the company App on a new org). Payload :
+  // { connectorId, installationId, accountLogin }. Frontend consumers
+  // invalidate the company's GitHub App detail query so the installations
+  // list refreshes in real time without polling. Visibility = company-wide
+  // (admins managing the connector need to see installs as they land).
+  "connector.github_app_installation_added",
   // WORKFLOW-HOOKS T2.9 — fire when a hook config is created/updated/deleted.
   // Frontend consumers invalidate `queryKeys.hooks.list(companyId)` and the
   // matching detail key. Visibility is decided server-side using the config's

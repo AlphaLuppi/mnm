@@ -149,6 +149,9 @@ export { oauthConnectors } from "./oauth_connectors.js";
 export { connectorTokens } from "./connector_tokens.js";
 export { userApiKeys } from "./user_api_keys.js";
 export { oauthConnectorsAudit } from "./oauth_connectors_audit.js";
+// GITHUB-PROVIDER Phase 1 — per-company GitHub App + per-org installations
+export { githubApps } from "./github_apps.js";
+export { githubAppInstallations } from "./github_app_installations.js";
 // WORKFLOW-HOOKS: per-company hook configs + 3-tier sharing + admin audit + runtime audit
 export { workflowHooksConfig } from "./workflow_hooks_config.js";
 export type {

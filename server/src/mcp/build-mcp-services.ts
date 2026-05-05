@@ -5,9 +5,9 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { authAccounts, configLayerItems, configLayers, type Db } from "@mnm/db";
+import { authAccounts, configLayerItems, configLayers, githubAppInstallations, type Db } from "@mnm/db";
 import type { ResourceType, ProviderWithPaths } from "../services/git-resource-path.js";
-import { GitlabProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
+import { GitlabProvider, GitHubProvider, LocalBareRepoProvider, ShaCache, type GitProvider } from "@mnm/git-provider";
 import { governedWorkflowService, GovernedWorkflowError } from "../services/governed-workflows.js";
 import { WORKFLOW_ERROR_CODES } from "@mnm/governed-workflows";
 import { projectService } from "../services/projects.js";
@@ -36,6 +36,7 @@ import { threadInteractionsService } from "../services/thread-interactions.js";
 // CONNECTORS-PLATFORM Sprint 2 — MCP tools list/get/connect/wait/set_api_key
 // + T8.2: createResolveGitProvider preference path via getUserToken("gitlab")
 import { connectorService, ConnectorError } from "../services/connectors.js";
+import { githubAppService } from "../services/github-app.js";
 // Strict mode (MNM_REQUIRE_USER_CONNECTOR) surfaces 412 CONNECTOR_REQUIRED to
 // the frontend instead of falling back to legacy BetterAuth account / env-var.
 import { connectorRequired } from "../errors.js";
@@ -180,17 +181,106 @@ async function refreshGitlabAccessToken(
  *   or env-var fallback. This preserves the existing dev flow (PUT
  *   /git-provider-config with a PAT) unchanged.
  */
+/**
+ * Possible `kind` values declared on a company's git_provider config layer
+ * item. `null` means no item is configured — caller defaults to `"gitlab"`
+ * for backwards compatibility with pilots set up before D6.
+ */
+export type GitProviderKind = "gitlab" | "github" | "local";
+
+/**
+ * Read the company's git_provider `kind` from `config_layer_items`. Used to
+ * dispatch Step 1a (Connectors Platform) onto the right `getUserToken(slug)`
+ * + provider class. Cached per `${companyId}:${rtKey}` for the resolver's
+ * lifetime to avoid an extra DB roundtrip on every resolve call.
+ *
+ * Returns `null` when no enforced company `git_provider` item exists — the
+ * caller treats this as "default to gitlab" (legacy pilots).
+ */
+export async function readCompanyGitProviderKind(
+  db: Db,
+  companyId: string,
+  rtPathKey: "agents" | "workflows" | undefined,
+): Promise<GitProviderKind | null> {
+  const rows = await db
+    .select({ configJson: configLayerItems.configJson })
+    .from(configLayerItems)
+    .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+    .where(
+      and(
+        eq(configLayerItems.companyId, companyId),
+        eq(configLayerItems.itemType, "git_provider"),
+        eq(configLayerItems.enabled, true),
+        eq(configLayers.scope, "company"),
+        eq(configLayers.enforced, true),
+        isNull(configLayers.archivedAt),
+      ),
+    )
+    .orderBy(asc(configLayerItems.createdAt), asc(configLayerItems.id));
+  if (rows.length === 0) return null;
+
+  // Mirror the resourceType-aware selection logic from Step 2 below — when a
+  // resource type is provided, prefer items whose paths.<type> field is set.
+  const candidate = (rtPathKey
+    ? rows.find(
+        (r) =>
+          (r.configJson as Record<string, unknown> & { paths?: Record<string, string> })
+            .paths?.[rtPathKey] !== undefined,
+      )
+    : undefined) ?? rows[0]!;
+  const cfg = candidate.configJson as { kind?: string };
+  if (cfg.kind === "gitlab" || cfg.kind === "github" || cfg.kind === "local") return cfg.kind;
+  return null;
+}
+
+/**
+ * Options for `createResolveGitProvider`. Test seam — production callers
+ * pass nothing and the resolver lazily wires `githubAppService(db)`. Tests
+ * pass a fully-mocked service to control the auto-dispatch decision in
+ * Step 1a of the github branch (Phase 3 compléter, plan 2026-05-04).
+ */
+export interface ResolveGitProviderDeps {
+  /**
+   * If provided, the github branch consults this service to decide whether
+   * to dispatch to mode `app-installation` (App configured + matching
+   * installation) vs falling through to mode `user-oauth`. Defaults to
+   * `githubAppService(db)`.
+   */
+  githubApps?: ReturnType<typeof githubAppService>;
+}
+
 export function createResolveGitProvider(
   db: Db,
+  deps: ResolveGitProviderDeps = {},
 ): (args: ResolveGitProviderArgs) => Promise<GitProvider> {
+  const githubApps = deps.githubApps ?? githubAppService(db);
   // Cache for company-level providers. Key = `${companyId}:${resourceType ?? "default"}`.
   const companyCache = new Map<string, GitProvider>();
   // Cache for per-user providers. Key = `${companyId}:${userId}:${resourceType ?? "default"}`.
   const userCache = new Map<string, UserProviderCacheEntry>();
+  // Cache for the company's declared git_provider kind. Avoids re-querying
+  // config_layer_items on every resolve call. Invalidated by process
+  // restart only — same lifetime as `companyCache` (D6 — companies don't
+  // hot-swap providers).
+  const kindCache = new Map<string, GitProviderKind | null>();
 
   return async function resolveGitProvider(args: ResolveGitProviderArgs): Promise<GitProvider> {
     const { companyId, userId, resourceType } = args;
     const rtKey = resourceType ?? "default";
+    const rtPathKey =
+      resourceType === "agent" ? "agents" : resourceType === "workflow" ? "workflows" : undefined;
+
+    // ── Step 0: determine the company's declared git_provider kind ────────────
+    // Used by Step 1a to dispatch onto getUserToken("gitlab") vs
+    // getUserToken("github") + the matching provider class. Defaults to
+    // "gitlab" when no item is configured (backwards compat).
+    const kindCacheKey = `${companyId}:${rtKey}`;
+    let cachedKind = kindCache.get(kindCacheKey);
+    if (cachedKind === undefined) {
+      cachedKind = await readCompanyGitProviderKind(db, companyId, rtPathKey);
+      kindCache.set(kindCacheKey, cachedKind);
+    }
+    const effectiveKind: GitProviderKind = cachedKind ?? "gitlab";
 
     // ── Step 1: Per-user token (authenticated mode only) ──────────────────────
     // Skip entirely in local_trusted so dev flow is unaffected.
@@ -212,7 +302,7 @@ export function createResolveGitProvider(
     // — they signal a real user-facing problem the legacy path can't fix.
     //
     // See docs/governed-workflows/connectors.md §7 for the migration plan.
-    if (isAuthenticated && userId) {
+    if (isAuthenticated && userId && (effectiveKind === "gitlab" || effectiveKind === "github")) {
       const connectorsCacheKey = `${companyId}:${userId}:${rtKey}:connectors`;
       const cachedConnectors = userCache.get(connectorsCacheKey);
       if (cachedConnectors) {
@@ -222,18 +312,102 @@ export function createResolveGitProvider(
 
       try {
         const svc = connectorService(db);
-        const tok = await svc.getUserToken(userId, "gitlab", companyId);
-        const { baseUrl, projectId, paths } = await resolveGitlabCoordinates(db, companyId);
 
-        const provider = new GitlabProvider({
-          providerId: `gitlab:connector:${userId}`,
-          baseUrl,
-          projectId,
-          token: tok.accessToken,
-          tokenScheme: "bearer",
+        let provider: GitProvider;
+        let paths: ProviderWithPaths["paths"] | undefined;
+
+        if (effectiveKind === "gitlab") {
+          const tok = await svc.getUserToken(userId, "gitlab", companyId);
+          const coords = await resolveGitlabCoordinates(db, companyId);
+          paths = coords.paths;
+          provider = new GitlabProvider({
+            providerId: `gitlab:connector:${userId}`,
+            baseUrl: coords.baseUrl,
+            projectId: coords.projectId,
+            token: tok.accessToken,
+            tokenScheme: "bearer",
+          });
+          (provider as unknown as ProviderWithPaths).paths = paths ?? {};
+          const expiresAt = tok.expiresAt
+            ? tok.expiresAt.getTime()
+            : Date.now() + 3600_000;
+          userCache.set(connectorsCacheKey, { provider, expiresAt });
+          return provider;
+        }
+
+        // ── github branch — auto-dispatch App vs OAuth (Phase 3 compléter) ──
+        const coords = await resolveGitHubCoordinates(db, companyId);
+        paths = coords.paths;
+
+        // Look up the connector first (we need its id to find a possible App).
+        const connector = await svc.getActiveConnectorBySlug(companyId, "github");
+
+        // If a per-company App is attached AND has an installation matching
+        // the target repoOwner (NOT suspended), dispatch to mode app-installation.
+        // Otherwise fall through to mode user-oauth (current behavior).
+        let appProvider: GitProvider | null = null;
+        let appExpiresAt: number | null = null;
+        if (connector) {
+          const appRow = await githubApps.getGitHubAppByConnector(companyId, connector.id);
+          if (appRow) {
+            const matching = await db
+              .select({
+                installationId: githubAppInstallations.installationId,
+              })
+              .from(githubAppInstallations)
+              .where(
+                and(
+                  eq(githubAppInstallations.companyId, companyId),
+                  eq(githubAppInstallations.githubAppId, appRow.id),
+                  eq(githubAppInstallations.accountLogin, coords.owner),
+                  isNull(githubAppInstallations.suspendedAt),
+                ),
+              )
+              .limit(1);
+            if (matching.length > 0) {
+              const installationId = matching[0]!.installationId;
+              appProvider = new GitHubProvider({
+                providerId: `github:app:${userId}`,
+                owner: coords.owner,
+                repo: coords.repo,
+                auth: {
+                  mode: "app-installation",
+                  // The closure forwards to mintInstallationToken so the
+                  // service handles JWT signing + cache + advisory lock.
+                  mintToken: () =>
+                    githubApps.mintInstallationToken({
+                      companyId,
+                      githubAppId: appRow.id,
+                      installationId,
+                    }),
+                },
+              });
+              // Installation tokens TTL ≈ 1h; we cache the provider for 55min
+              // so callers re-resolve before the next mint anyway.
+              appExpiresAt = Date.now() + 55 * 60 * 1000;
+            }
+          }
+        }
+
+        if (appProvider) {
+          (appProvider as unknown as ProviderWithPaths).paths = paths ?? {};
+          userCache.set(connectorsCacheKey, {
+            provider: appProvider,
+            expiresAt: appExpiresAt!,
+          });
+          return appProvider;
+        }
+
+        // Fall through to user-OAuth mode. svc.getUserToken throws
+        // ConnectorError handled below if no connector / no user link.
+        const tok = await svc.getUserToken(userId, "github", companyId);
+        provider = new GitHubProvider({
+          providerId: `github:connector:${userId}`,
+          owner: coords.owner,
+          repo: coords.repo,
+          auth: { mode: "user-oauth", token: tok.accessToken },
         });
         (provider as unknown as ProviderWithPaths).paths = paths ?? {};
-
         const expiresAt = tok.expiresAt
           ? tok.expiresAt.getTime()
           : Date.now() + 3600_000;
@@ -256,7 +430,9 @@ export function createResolveGitProvider(
           // fallback). System-context calls (userId === null) are not
           // affected — they take the legacy path further down.
           if (process.env.MNM_REQUIRE_USER_CONNECTOR !== "false") {
-            throw connectorRequired("gitlab", "GitLab");
+            const slug = effectiveKind;
+            const label = effectiveKind === "github" ? "GitHub" : "GitLab";
+            throw connectorRequired(slug, label);
           }
           // Legacy fallback explicitly enabled: fall into Step 1 (BetterAuth).
         } else {
@@ -397,7 +573,7 @@ export function createResolveGitProvider(
 
     // When resourceType is provided, prefer items whose paths.<type> field is
     // explicitly set. Fallback to the first item (legacy single-item layout).
-    const rtPathKey = resourceType === "agent" ? "agents" : resourceType === "workflow" ? "workflows" : undefined;
+    // `rtPathKey` was declared at the top of resolveGitProvider — reuse it.
     const candidate = (rtPathKey
       ? rows.find((r) => (r.configJson as Record<string, unknown> & { paths?: Record<string, string> }).paths?.[rtPathKey] !== undefined)
       : undefined) ?? rows[0]!;
@@ -416,6 +592,30 @@ export function createResolveGitProvider(
         );
       }
       provider = new GitlabProvider({ providerId, baseUrl, projectId, token });
+    } else if (cfg.kind === "github") {
+      // PAT-style fallback (Step 2) for github. Used only when strict mode
+      // is OFF (MNM_REQUIRE_USER_CONNECTOR=false) — strict mode short-circuits
+      // earlier with `connectorRequired("github", "GitHub")`. The token here
+      // is a fine-grained PAT or classic PAT supplied via the config layer.
+      // V0 D2: github.com only — `baseUrl` defaults to api.github.com inside
+      // GitHubProvider when omitted.
+      const { providerId, owner, repo, token, baseUrl } = cfg as {
+        providerId?: string; owner?: string; repo?: string; token?: string; baseUrl?: string;
+      };
+      if (!providerId || !owner || !repo || !token) {
+        throw new GovernedWorkflowError(
+          WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
+          `Company ${companyId} git_provider item is missing required github fields.`,
+          ["Set providerId, owner, repo, token on the git_provider config layer item."],
+        );
+      }
+      provider = new GitHubProvider({
+        providerId,
+        owner,
+        repo,
+        auth: { mode: "user-oauth", token },
+        ...(baseUrl ? { baseUrl } : {}),
+      });
     } else if (cfg.kind === "local") {
       const { providerId, repoDir } = cfg as { providerId?: string; repoDir?: string };
       if (!providerId || !repoDir) {
@@ -430,7 +630,7 @@ export function createResolveGitProvider(
       throw new GovernedWorkflowError(
         WORKFLOW_ERROR_CODES.GIT_PROVIDER_MISCONFIG,
         `Company ${companyId} git_provider item has unknown kind: ${String(cfg.kind)}`,
-        ["Supported kinds are 'gitlab' and 'local'."],
+        ["Supported kinds are 'gitlab', 'github' and 'local'."],
       );
     }
 
@@ -495,6 +695,56 @@ async function resolveGitlabCoordinates(
   return { baseUrl, projectId, paths: {} };
 }
 
+/**
+ * Resolve the GitHub repo coordinates (owner + repo) for a user-scoped
+ * provider, mirroring `resolveGitlabCoordinates`. Reads the company's
+ * git_provider config_layer_item — the user OAuth token must have access
+ * to the repo declared there.
+ *
+ * V0 (D2): no GitHub Enterprise Server support — `baseUrl` is implicit
+ * (`https://api.github.com` inside GitHubProvider). Future: add
+ * `instanceBaseUrl` to the config item.
+ */
+async function resolveGitHubCoordinates(
+  db: Db,
+  companyId: string,
+): Promise<{ owner: string; repo: string; paths: ProviderWithPaths["paths"] }> {
+  const rows = await db
+    .select({ configJson: configLayerItems.configJson })
+    .from(configLayerItems)
+    .innerJoin(configLayers, eq(configLayerItems.layerId, configLayers.id))
+    .where(
+      and(
+        eq(configLayerItems.companyId, companyId),
+        eq(configLayerItems.itemType, "git_provider"),
+        eq(configLayerItems.enabled, true),
+        eq(configLayers.scope, "company"),
+        eq(configLayers.enforced, true),
+        isNull(configLayers.archivedAt),
+      ),
+    )
+    .limit(1);
+
+  if (rows.length > 0) {
+    const cfg = rows[0]!.configJson as { kind?: string; paths?: Record<string, string> } & Record<string, unknown>;
+    if (cfg.kind === "github") {
+      const { owner, repo } = cfg as { owner?: string; repo?: string };
+      if (owner && repo) {
+        return { owner, repo, paths: (cfg.paths ?? {}) as ProviderWithPaths["paths"] };
+      }
+    }
+  }
+
+  // Env-var fallback (dev / local bootstrap). For github we accept a single
+  // `GITHUB_REPO` env var in the canonical "owner/repo" form, or two
+  // separate vars.
+  const repoEnv = process.env.GITHUB_REPO ?? "";
+  const [envOwner, envRepo] = repoEnv.includes("/")
+    ? (repoEnv.split("/", 2) as [string, string])
+    : [process.env.GITHUB_OWNER ?? "", process.env.GITHUB_REPO_NAME ?? ""];
+  return { owner: envOwner, repo: envRepo, paths: {} };
+}
+
 function buildEnvFallbackProvider(): GitProvider {
   // In local_trusted (dev) mode, default to a local bare repo at the seed
   // script's canonical path (`~/.mnm/dev-workflows-bare/repo.git`). Devs can
@@ -520,7 +770,11 @@ function buildEnvFallbackProvider(): GitProvider {
 }
 
 export function buildMcpServices(db: Db): McpServices {
-  const resolveGitProvider = createResolveGitProvider(db);
+  // GITHUB-PROVIDER Phase 1 — hoisted before createResolveGitProvider so the
+  // resolver shares the SAME githubAppService instance (single in-memory
+  // installation token cache across REST + MCP + governed-workflows).
+  const githubApps = githubAppService(db);
+  const resolveGitProvider = createResolveGitProvider(db, { githubApps });
   const shaCache = new ShaCache();
   // Hoist services that are passed by reference into governedWorkflowService
   // so the governed-workflow service shares the same heartbeat + trace
@@ -536,6 +790,8 @@ export function buildMcpServices(db: Db): McpServices {
   // wiring. The connector service is constructed once here and reused
   // both as `services.connectors` and inside workflowHooks.
   const connectors = connectorService(db);
+  // (GITHUB-PROVIDER Phase 1: `githubApps` is hoisted at the top of this
+  // function so it can be passed into createResolveGitProvider — see above.)
   // WORKFLOW-ASSIGNMENTS T3.3 wire. Hoisted so both the orchestrator and
   // the future REST/MCP `list_my_pending_work` consumers (T3.4) share the
   // same instance.
@@ -562,6 +818,11 @@ export function buildMcpServices(db: Db): McpServices {
       providers: {
         jira: { baseUrl: "https://api.atlassian.com" },
         clickup: { baseUrl: "https://api.clickup.com" },
+        // github user-OAuth slug → matches the `github` connector template;
+        // hooks calling helpers.http("github", ...) get the user's bearer
+        // token injected automatically (D7 — request runs with the user's
+        // identity, not an App[bot]).
+        github: { baseUrl: "https://api.github.com" },
       },
     },
   });
@@ -614,6 +875,8 @@ export function buildMcpServices(db: Db): McpServices {
     threadInteractions: threadInteractionsService(db),
     // CONNECTORS-PLATFORM: hub OAuth user-level + api_key store
     connectors,
+    // GITHUB-PROVIDER Phase 1 — per-company GitHub App service.
+    githubApps,
     // WORKFLOW-HOOKS T2.6 service + T2.8 MCP/REST consumers — exposed
     // here so the MCP tools file (workflow-hooks.tool.ts) and the REST
     // routes can reach it directly via `services.workflowHooks`.

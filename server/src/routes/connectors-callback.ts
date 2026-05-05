@@ -9,6 +9,7 @@ import {
 } from "../services/connectors.js";
 import { decryptSecret } from "../services/secret-crypto.js";
 import { publishLiveEvent } from "../services/live-events.js";
+import { githubAppService } from "../services/github-app.js";
 
 interface CallbackOptions {
   publicUrl: string;
@@ -260,6 +261,114 @@ export function connectorsCallbackRoutes(db: Db, opts: CallbackOptions): Router 
       return res.redirect(result.url);
     }
     return res.status(result.status).send(result.body);
+  });
+
+  // ── GitHub App install callback (Phase 1 step 5) ──────────────────────────
+  // GitHub redirects here after the org admin clicks "Install" / "Configure".
+  // Query params:
+  //   ?installation_id=<id>&setup_action=install|update[&state=<jwt>]
+  // The optional `state` JWT carries the same shape as the OAuth callback
+  // (companyId + connectorId + userId). When the App was created with
+  // `request_oauth_on_install: true`, GitHub also forwards `?code=` for a
+  // user-OAuth exchange — we ignore that here (Phase 5 wizard configures
+  // the App separately from the connector OAuth flow).
+  router.get("/api/connectors/github/app-install/callback", async (req, res) => {
+    const installationId =
+      typeof req.query.installation_id === "string" ? req.query.installation_id : null;
+    const setupAction =
+      typeof req.query.setup_action === "string" ? req.query.setup_action : null;
+    const state = typeof req.query.state === "string" ? req.query.state : null;
+
+    if (!installationId) {
+      return res.status(400).send("Missing installation_id");
+    }
+    if (!state) {
+      return res.status(400).send("Missing state");
+    }
+
+    let payload;
+    try {
+      payload = await verifyConnectorState(state);
+    } catch (err) {
+      logger.warn(
+        { err: (err as Error).message },
+        "[github-app] install callback state verify failed",
+      );
+      return res.status(400).send("Invalid or expired state");
+    }
+    const { companyId, connectorId, userId } = payload;
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT set_config('app.current_company_id', ${companyId}, true)`,
+        );
+        const txConnectors = connectorService(tx as unknown as Db);
+        // C2 cross-tenant guard before any write.
+        await txConnectors.assertUserInCompany(userId, companyId);
+
+        const githubApp = await txConnectors.getConnectorById(connectorId, companyId)
+          .then(() =>
+            githubAppService(tx as unknown as Db).getGitHubAppByConnector(
+              companyId,
+              connectorId,
+            ),
+          );
+        if (!githubApp) {
+          logger.warn(
+            { connectorId, companyId, installationId },
+            "[github-app] install callback for connector with no App row — ignoring",
+          );
+          return;
+        }
+
+        // Sync the installation metadata from GitHub (account_login, type,
+        // repository_selection). This also handles "update" setup_action by
+        // refreshing the row.
+        const upserted = await githubAppService(tx as unknown as Db).upsertInstallationFromCallback({
+          companyId,
+          githubAppId: githubApp.id,
+          installationId,
+        });
+
+        // Audit + SSE event (outside the tx-state mutation but still under the
+        // pinned tenant context).
+        await txConnectors.recordAudit({
+          companyId,
+          connectorId,
+          actorUserId: userId,
+          action: "connector_updated",
+          diffJson: {
+            change: "github_app_installation_added",
+            installationId,
+            accountLogin: upserted.accountLogin,
+            setupAction,
+          },
+        });
+
+        publishLiveEvent({
+          companyId,
+          type: "connector.github_app_installation_added",
+          payload: {
+            connectorId,
+            installationId,
+            accountLogin: upserted.accountLogin,
+          },
+        });
+      });
+    } catch (err) {
+      logger.error(
+        { err, connectorId, userId, companyId, installationId },
+        "[github-app] install callback transaction failed",
+      );
+      return res.redirect(
+        `${opts.publicUrl}/admin/connectors/${encodeURIComponent(connectorId)}?error=${encodeURIComponent("INSTALL_CALLBACK_FAILED")}`,
+      );
+    }
+
+    return res.redirect(
+      `${opts.publicUrl}/admin/connectors/${encodeURIComponent(connectorId)}?focus=app-installations`,
+    );
   });
 
   return router;

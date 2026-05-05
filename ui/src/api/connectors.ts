@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, ApiError } from "./client";
 
 // CONNECTORS-PLATFORM Sprint 2 — Task 6/7 UI client. Wraps the 10 endpoints
 // shipped in `server/src/routes/connectors.ts` (T5).
@@ -95,6 +95,33 @@ export interface UpdateConnectorPayload {
   enabled?: boolean;
 }
 
+// GITHUB-PROVIDER Phase 5 — GitHub App config attached to a github connector.
+// Mirrors the backend contract from Phase 1 (server/src/routes/github-app.ts):
+// the private key is never echoed back, only metadata + the list of active
+// installations synced from GitHub.
+
+export interface GitHubAppInstallation {
+  installationId: string;
+  accountLogin: string;
+  accountType: "User" | "Organization";
+  repositorySelection: "all" | "selected";
+  suspendedAt: string | null;
+  createdAt: string;
+}
+
+export interface GitHubAppDetails {
+  appId: string;
+  appSlug: string;
+  createdAt: string;
+  installations: GitHubAppInstallation[];
+}
+
+export interface CreateGitHubAppPayload {
+  appId: string;
+  privateKey: string;
+  webhookSecret?: string;
+}
+
 export const connectorsApi = {
   // Admin
   list: (companyId: string) =>
@@ -135,5 +162,54 @@ export const connectorsApi = {
   disconnect: (companyId: string, connectorId: string) =>
     api.delete<void>(
       `/companies/${companyId}/me/connected-accounts/${encodeURIComponent(connectorId)}`,
+    ),
+
+  // GITHUB-PROVIDER Phase 5 — per-connector GitHub App config (D6 : the App is
+  // an OPTIONAL section attached to the existing github connector entity, not a
+  // separate template). Backend routes are mounted under
+  // /companies/:companyId/connectors/:connectorId/github/app.
+  createGitHubApp: (
+    companyId: string,
+    connectorId: string,
+    payload: CreateGitHubAppPayload,
+  ) =>
+    api.post<GitHubAppDetails>(
+      `/companies/${companyId}/connectors/${encodeURIComponent(
+        connectorId,
+      )}/github/app`,
+      payload,
+    ),
+  /**
+   * Fetch the GitHub App config for a connector. Returns `null` on 404 (no App
+   * configured yet) instead of throwing so callers can render the
+   * "Configurer la App" banner without try/catch.
+   */
+  getGitHubApp: async (
+    companyId: string,
+    connectorId: string,
+  ): Promise<GitHubAppDetails | null> => {
+    try {
+      return await api.get<GitHubAppDetails>(
+        `/companies/${companyId}/connectors/${encodeURIComponent(
+          connectorId,
+        )}/github/app`,
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  },
+  syncGitHubAppInstallations: (companyId: string, connectorId: string) =>
+    api.post<GitHubAppDetails>(
+      `/companies/${companyId}/connectors/${encodeURIComponent(
+        connectorId,
+      )}/github/app/installations/sync`,
+      {},
+    ),
+  deleteGitHubApp: (companyId: string, connectorId: string) =>
+    api.delete<void>(
+      `/companies/${companyId}/connectors/${encodeURIComponent(
+        connectorId,
+      )}/github/app`,
     ),
 };

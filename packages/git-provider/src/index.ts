@@ -37,3 +37,9 @@ export {
 } from "./local-bare-repo-provider.js";
 
 export { GitlabProvider, type GitlabProviderOptions } from "./gitlab-provider.js";
+
+export {
+  GitHubProvider,
+  type GitHubProviderOptions,
+  type GitHubProviderAuth,
+} from "./github-provider.js";
