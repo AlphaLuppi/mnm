@@ -439,6 +439,19 @@ export const parityData: ParityData = {
       name: "Admin & Company Settings",
       features: [
         {
+          id: "sound-settings",
+          name: "Configuration des sons d'events (mute, volume, son par tonalité, upload)",
+          description:
+            "Page /settings/sounds : son joué par tonalité de toast (info/success/warn/error), mute + volume global, bibliothèque intégrée + upload perso. Settings en DB par user (RLS).",
+          web: WEB_DONE,
+          desktop: DESKTOP_MISSING,
+          todo: {
+            code: [
+              "Desktop (Tauri): vérifier lecture audio (new Audio) + endpoint /me/sounds dans le webview packagé",
+            ],
+          },
+        },
+        {
           id: "members",
           name: "Members management",
           web: WEB_DONE,
