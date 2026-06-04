@@ -118,6 +118,20 @@ export {
 } from "./asset.js";
 
 export {
+  soundRefSchema,
+  tonesSchema,
+  updateSoundSettingsSchema,
+  DEFAULT_SOUND_SETTINGS,
+  TONE_KEYS,
+} from "./sound-settings.js";
+export type {
+  SoundTones,
+  ToneKey,
+  UpdateSoundSettings,
+  SoundSettings,
+} from "./sound-settings.js";
+
+export {
   workflowStageTemplateDefSchema,
   createWorkflowTemplateSchema,
   updateWorkflowTemplateSchema,
