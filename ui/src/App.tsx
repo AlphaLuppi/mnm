@@ -46,6 +46,7 @@ import { TraceDetail } from "./pages/TraceDetail";
 import { TraceTimelineDemo } from "./pages/TraceTimelineDemo";
 import { TraceSettings } from "./pages/TraceSettings";
 import UserProfile from "./pages/UserProfile";
+import { SoundSettingsPage } from "./pages/SoundSettingsPage";
 // POD-06: Workspace page (deprecated — auth moved to Settings > Claude)
 // import { Workspace } from "./pages/Workspace";
 // DEPLOY-06: Deployments page
@@ -183,6 +184,7 @@ function boardRoutes() {
       <Route path="traces/:traceId" element={<RequirePermission permission="traces:read" showForbidden><TraceDetail /></RequirePermission>} />
       <Route path="settings/trace-lenses" element={<RequirePermission permission="traces:manage" showForbidden><TraceSettings /></RequirePermission>} />
       <Route path="settings/profile" element={<UserProfile />} />
+      <Route path="settings/sounds" element={<SoundSettingsPage />} />
       <Route path="settings/accounts" element={<RequirePermission permission="mcp:connect" showForbidden><SettingsAccounts /></RequirePermission>} />
       <Route path="routines" element={<RequirePermission permission="routines:read" showForbidden><Routines /></RequirePermission>} />
       <Route path="routines/:id" element={<RequirePermission permission="routines:read" showForbidden><RoutineDetail /></RequirePermission>} />
@@ -375,6 +377,7 @@ export function App() {
           <Route path="workflows/:name/runs/:runId" element={<UnprefixedBoardRedirect />} />
           <Route path="design-guide" element={<UnprefixedBoardRedirect />} />
           <Route path="settings/profile" element={<UnprefixedBoardRedirect />} />
+          <Route path="settings/sounds" element={<UnprefixedBoardRedirect />} />
           <Route path="settings/accounts" element={<UnprefixedBoardRedirect />} />
           <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path=":companyPrefix" element={<Layout />}>

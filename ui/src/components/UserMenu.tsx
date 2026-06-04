@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogOut, User as UserIcon, Link2 } from "lucide-react";
+import { LogOut, User as UserIcon, Link2, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -87,6 +87,12 @@ export function UserMenu() {
           >
             <Link2 className="h-4 w-4" />
             Mes connecteurs
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/settings/sounds" data-testid="mu-s06-sounds-link" className="cursor-pointer">
+            <Volume2 className="h-4 w-4" />
+            Sons
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
