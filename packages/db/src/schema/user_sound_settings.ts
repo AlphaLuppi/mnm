@@ -10,7 +10,9 @@ export const userSoundSettings = pgTable(
   "user_sound_settings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull(),
     enabled: boolean("enabled").notNull().default(true),
     volume: integer("volume").notNull().default(70),

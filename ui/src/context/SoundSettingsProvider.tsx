@@ -35,7 +35,9 @@ export function SoundSettingsProvider({ children }: { children: React.ReactNode 
   // Keep latest settings in a ref so the stable `play` callback reads fresh values.
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  const lastPlayedRef = useRef(0);
+  // Throttle per tone so a distinct cue (e.g. error) is never swallowed by a
+  // recent one of another tone (e.g. success) firing within the window.
+  const lastPlayedRef = useRef<Record<ToneKey, number>>({ info: 0, success: 0, warn: 0, error: 0 });
   const unlockedRef = useRef(false);
 
   // Browser autoplay policy: unlock audio on first user gesture.
@@ -61,7 +63,7 @@ export function SoundSettingsProvider({ children }: { children: React.ReactNode 
       if (!shouldPlay(s, tone)) return;
 
       const now = Date.now();
-      if (now - lastPlayedRef.current < THROTTLE_MS) return;
+      if (now - lastPlayedRef.current[tone] < THROTTLE_MS) return;
 
       const url = resolveSoundUrl(s.tones[tone], {
         companyId: selectedCompanyId,
@@ -70,7 +72,7 @@ export function SoundSettingsProvider({ children }: { children: React.ReactNode 
       });
       if (!url) return; // graceful fallback (missing builtin / deleted asset)
 
-      lastPlayedRef.current = now;
+      lastPlayedRef.current[tone] = now;
       const audio = new Audio(url);
       audio.volume = Math.min(1, Math.max(0, s.volume / 100));
       audio.play().catch(() => {
