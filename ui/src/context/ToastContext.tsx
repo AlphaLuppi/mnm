@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useSoundSettings } from "./SoundSettingsProvider";
 
 export type ToastTone = "info" | "success" | "warn" | "error";
 
@@ -68,6 +69,7 @@ function generateToastId() {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { play } = useSoundSettings();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const timersRef = useRef(new Map<string, number>());
   const dedupeRef = useRef(new Map<string, number>());
@@ -134,13 +136,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         return [nextToast, ...withoutCurrent].slice(0, MAX_TOASTS);
       });
 
+      play(tone);
+
       const timeout = window.setTimeout(() => {
         dismissToast(id);
       }, ttlMs);
       timersRef.current.set(id, timeout);
       return id;
     },
-    [clearTimer, dismissToast],
+    [clearTimer, dismissToast, play],
   );
 
   useEffect(() => () => {

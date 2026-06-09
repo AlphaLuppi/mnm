@@ -335,4 +335,7 @@ export const queryKeys = {
     catalog: (companyId: string, workflowRef?: string) =>
       ["hooks", companyId, "catalog", workflowRef ?? "_all"] as const,
   },
+  soundSettings: {
+    me: (companyId: string) => ["sound-settings", companyId, "me"] as const,
+  },
 };
