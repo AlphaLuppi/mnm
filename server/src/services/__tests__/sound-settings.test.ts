@@ -60,9 +60,9 @@ describe("soundSettingsService", () => {
       const result = await svc().get(company.id, user.id);
       expect(result.volume).toBe(30);
       expect(result.tones.success).toBe("builtin:chime");
-      expect(result.tones.info).toBe("none"); // untouched
-      expect(result.tones.warn).toBe("none"); // untouched
-      expect(result.tones.error).toBe("none"); // untouched
+      expect(result.tones.info).toBe(DEFAULT_SOUND_SETTINGS.tones.info); // untouched
+      expect(result.tones.warn).toBe(DEFAULT_SOUND_SETTINGS.tones.warn); // untouched
+      expect(result.tones.error).toBe(DEFAULT_SOUND_SETTINGS.tones.error); // untouched
     });
   });
 

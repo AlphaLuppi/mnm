@@ -39,5 +39,12 @@ export interface SoundSettings {
 export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   enabled: true,
   volume: 70,
-  tones: { info: "none", success: "none", warn: "none", error: "none" },
+  // Out-of-the-box mapping to built-in sounds (ui/src/sounds/manifest.ts). Each
+  // tone can be switched to another built-in, an uploaded "asset:<uuid>", or "none".
+  tones: {
+    info: "builtin:pop",
+    success: "builtin:success",
+    warn: "builtin:warn",
+    error: "builtin:error",
+  },
 };

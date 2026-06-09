@@ -442,7 +442,7 @@ export const parityData: ParityData = {
           id: "sound-settings",
           name: "Configuration des sons d'events (mute, volume, son par tonalité, upload)",
           description:
-            "Page /settings/sounds : son joué par tonalité de toast (info/success/warn/error), mute + volume global, bibliothèque intégrée + upload perso. Settings en DB par user (RLS).",
+            "Page /settings/sounds : son joué par tonalité de toast (info/success/warn/error), mute + volume global, bibliothèque intégrée (6 sons WAV générés, mappés par défaut) + upload perso. Settings en DB par user (RLS).",
           web: WEB_DONE,
           desktop: DESKTOP_MISSING,
           todo: {

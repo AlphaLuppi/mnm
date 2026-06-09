@@ -16,6 +16,10 @@ export const userSoundSettings = pgTable(
     userId: text("user_id").notNull(),
     enabled: boolean("enabled").notNull().default(true),
     volume: integer("volume").notNull().default(70),
+    // Storage default only — the app never inserts without `tones` (upsert always
+    // sets them) and falls back to DEFAULT_SOUND_SETTINGS (@mnm/shared) when no row
+    // exists. That shared constant is the real runtime default (maps tones to
+    // built-in sounds); this column default is a never-hit fallback kept silent.
     tones: jsonb("tones")
       .notNull()
       .$type<{ info: string; success: string; warn: string; error: string }>()

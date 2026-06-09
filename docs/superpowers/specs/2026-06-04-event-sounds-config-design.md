@@ -26,7 +26,7 @@ Les fichiers de sons par défaut seront fournis ultérieurement par le mainteneu
 | 6 | **Référence son = string** : `"none"` \| `"builtin:<id>"` \| `"asset:<uuid>"` | Une seule colonne, pas de jointure, fallback trivial |
 | 7 | **Pas de nouvelle table pour les fichiers uploadés** | Réutilise `assets` (storage abstraction + `createdByUserId` déjà en place) |
 | 8 | **Pas de polling** | Config lue une fois au montage ; édition mono-appareil → pas besoin d'event live |
-| 9 | **Défaut initial = toutes les tonalités à `"none"`** | Silencieux tant qu'aucun son n'est choisi / aucun fichier déposé |
+| 9 | **Défaut initial = chaque tonalité mappée à un son intégré** (`info→pop`, `success→success`, `warn→warn`, `error→error`) | Sons fournis (synthétisés, possédés par le repo) → l'app sonne dès l'install. *Révisé le 2026-06-09* (était : silencieux par défaut). L'unlock autoplay + throttle 300 ms évitent le matraquage ; chaque user peut repasser une tonalité à « Aucun ». La source de vérité runtime est `DEFAULT_SOUND_SETTINGS` (@mnm/shared) — le défaut de colonne DB reste `"none"` (jamais lu : `upsert` écrit toujours `tones` explicitement). |
 | 10 | **Permission = self-scope** (auth + appartenance company, pas de RBAC dédié) | La route ne lit/écrit que les settings du `userId` courant ; clé exacte confirmée au plan |
 
 ---
@@ -129,11 +129,14 @@ Les **fichiers uploadés** vivent dans la table `assets` existante (namespace `"
 
 ---
 
-## 8. Bibliothèque par défaut (assets à venir)
+## 8. Bibliothèque par défaut (livrée le 2026-06-09)
 
-- Manifest `ui/src/sounds/manifest.ts` : liste `{ id, label, file }` des sons intégrés.
-- Fichiers dans `ui/public/sounds/`.
-- Les fichiers seront fournis plus tard → le manifest démarre **vide/placeholder** ; la feature marche dès que les fichiers sont déposés (aucun changement de code requis).
+- **6 sons WAV** synthétisés (synthèse additive sinus), générés par `scripts/sounds/generate-sounds.mjs` (`bun run sounds:generate`) → **possédés par le repo, aucune licence tierce** (contrainte repo public).
+- **Format-agnostic** : un built-in peut être `.wav` / `.mp3` / `.ogg` / `.webm` (même whitelist que l'upload). Le runtime (`new Audio` + service statique) joue n'importe lequel ; seul le `file` du manifest change.
+- Les **défauts synthétisés sont en WAV** à dessein : à cette durée (< 0,7 s) les fichiers restent minuscules (8–60 Ko, < 200 Ko) et jouent **sans latence d'amorce** (meilleur pour un cue d'UI réactif) ; aucun encodeur natif requis. Un mp3 « prêt à l'emploi » (ex. son plus long/riche) se dépose directement et se registre — sans script.
+- Fichiers dans `ui/public/sounds/` ; manifest `ui/src/sounds/manifest.ts` : `{ id, label, file }`.
+- Bibliothèque : `pop`, `ping`, `chime`, `success`, `warn`, `error`. Mapping par défaut des 4 tonalités : voir décision #9.
+- Garde-fou : `ui/src/sounds/manifest.test.ts` (chaque fichier existe, extension supportée, en-tête audio reconnu, < 200 Ko ; chaque défaut pointe vers un built-in présent).
 
 ---
 
