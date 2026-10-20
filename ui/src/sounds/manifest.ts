@@ -29,6 +29,14 @@ export const BUILTIN_SOUNDS: BuiltinSound[] = [
   { id: "success", label: "Succès", file: "success.wav" },
   { id: "warn", label: "Alerte", file: "warn.wav" },
   { id: "error", label: "Erreur", file: "error.wav" },
+  // Rendered from the earshot sound bank (MIT, pure DSP — no recorded audio) by
+  // `scripts/sounds/render-earshot-sounds.py`.
+  { id: "soft-pop", label: "Pop doux", file: "soft-pop.wav" },
+  { id: "glass-ping", label: "Ping cristal", file: "glass-ping.wav" },
+  { id: "bell-chime", label: "Cloche", file: "bell-chime.wav" },
+  { id: "rise-chime", label: "Arpège montant", file: "rise-chime.wav" },
+  { id: "double-ding", label: "Double ding", file: "double-ding.wav" },
+  { id: "low-sweep", label: "Glissando grave", file: "low-sweep.wav" },
 ];
 
 export function builtinSoundUrl(file: string): string {
