@@ -32,6 +32,7 @@ import { dashboardRoutes } from "./routes/dashboard.js";
 import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
+import { soundSettingsRoutes } from "./routes/sound-settings.js";
 import { accessRoutes } from "./routes/access.js";
 import { workspaceContextRoutes } from "./routes/workspace-context.js";
 import { driftRoutes } from "./routes/drift.js";
@@ -358,6 +359,7 @@ export async function createApp(
   api.use("/companies", companyRoutes(db));
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
+  api.use(soundSettingsRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
   api.use(issueRoutes(db, opts.storageService));
   api.use(goalRoutes(db));

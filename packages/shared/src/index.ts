@@ -732,6 +732,16 @@ export {
   addContextLinkSchema,
   type CreateShare,
   type AddContextLink,
+  // SOUND: sound settings validators
+  soundRefSchema,
+  tonesSchema,
+  updateSoundSettingsSchema,
+  DEFAULT_SOUND_SETTINGS,
+  TONE_KEYS,
+  type SoundTones,
+  type ToneKey,
+  type UpdateSoundSettings,
+  type SoundSettings,
 } from "./validators/index.js";
 
 // ROUTINES: types

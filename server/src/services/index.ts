@@ -87,3 +87,4 @@ export {
   type ThreadInteractionsService,
   type ThreadInteractionActor,
 } from "./thread-interactions.js";
+export { soundSettingsService, type UploadedSound } from "./sound-settings.js";
