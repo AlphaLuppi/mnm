@@ -1,4 +1,4 @@
-import { and, eq, like, sql } from "drizzle-orm";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
 import type { Db } from "@mnm/db";
 import { userSoundSettings, assets } from "@mnm/db";
 import {
@@ -29,25 +29,56 @@ export function soundSettingsService(db: Db) {
     userId: string,
     patch: UpdateSoundSettings,
   ): Promise<SoundSettings> {
-    const current = await get(companyId, userId);
-    const next: SoundSettings = {
-      enabled: patch.enabled ?? current.enabled,
-      volume: patch.volume ?? current.volume,
-      tones: { ...current.tones, ...(patch.tones ?? {}) },
+    // Insert path: defaults merged with the patch. Conflict path: the merge happens
+    // in SQL against the stored row, so concurrent partial PUTs (e.g. volume + a
+    // tone from two tabs) can't overwrite each other's fields (no read-modify-write).
+    const initial: SoundSettings = {
+      enabled: patch.enabled ?? DEFAULT_SOUND_SETTINGS.enabled,
+      volume: patch.volume ?? DEFAULT_SOUND_SETTINGS.volume,
+      tones: { ...DEFAULT_SOUND_SETTINGS.tones, ...(patch.tones ?? {}) },
     };
-    await db
+    const [row] = await db
       .insert(userSoundSettings)
-      .values({ companyId, userId, enabled: next.enabled, volume: next.volume, tones: next.tones })
+      .values({ companyId, userId, ...initial })
       .onConflictDoUpdate({
         target: [userSoundSettings.companyId, userSoundSettings.userId],
         set: {
-          enabled: next.enabled,
-          volume: next.volume,
-          tones: next.tones,
+          ...(patch.enabled !== undefined && { enabled: patch.enabled }),
+          ...(patch.volume !== undefined && { volume: patch.volume }),
+          ...(patch.tones && {
+            tones: sql`${userSoundSettings.tones} || ${JSON.stringify(patch.tones)}::jsonb`,
+          }),
           updatedAt: sql`now()`,
         },
-      });
-    return next;
+      })
+      .returning();
+    return { enabled: row!.enabled, volume: row!.volume, tones: row!.tones };
+  }
+
+  /**
+   * Asset ids among `assetIds` that are NOT sounds uploaded by this user in this
+   * company. Used to reject `asset:<uuid>` refs pointing at someone else's file,
+   * a non-sound asset, or nothing at all.
+   */
+  async function foreignSoundIds(
+    companyId: string,
+    userId: string,
+    assetIds: string[],
+  ): Promise<string[]> {
+    if (assetIds.length === 0) return [];
+    const owned = await db
+      .select({ id: assets.id })
+      .from(assets)
+      .where(
+        and(
+          eq(assets.companyId, companyId),
+          eq(assets.createdByUserId, userId),
+          like(assets.objectKey, "sounds/%"),
+          inArray(assets.id, assetIds),
+        ),
+      );
+    const ownedIds = new Set(owned.map((a) => a.id));
+    return assetIds.filter((id) => !ownedIds.has(id));
   }
 
   /** Uploaded sound assets for this user (namespace "sounds/" prefix in object key). */
@@ -69,5 +100,5 @@ export function soundSettingsService(db: Db) {
     }));
   }
 
-  return { get, upsert, listUserSounds };
+  return { get, upsert, foreignSoundIds, listUserSounds };
 }

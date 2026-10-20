@@ -9,6 +9,7 @@ import { soundSettingsApi, type UploadedSound } from "@/api/sound-settings";
 import { queryKeys } from "@/lib/queryKeys";
 import { BUILTIN_SOUNDS, builtinSoundUrl } from "@/sounds/manifest";
 import { resolveSoundUrl } from "@/sounds/play";
+import { toAudioVolume } from "@/context/SoundSettingsProvider";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -43,19 +44,32 @@ export function SoundSettingsPage() {
   });
 
   const [draft, setDraft] = useState<SoundSettings>(DEFAULT_SOUND_SETTINGS);
-  useEffect(() => {
-    if (data?.settings) setDraft(data.settings);
-  }, [data]);
 
   const sounds: UploadedSound[] = useMemo(() => data?.sounds ?? [], [data]);
 
   const save = useMutation({
     mutationFn: (next: SoundSettings) => soundSettingsApi.update(selectedCompanyId!, next),
+    // Serialize saves so rapid changes can't land out of order server-side.
+    scope: { id: "sound-settings" },
     onSuccess: (res) => {
-      setDraft(res.settings);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.soundSettings.me(selectedCompanyId!) });
+      // Update the cache only: the draft stays the source of truth while editing,
+      // so a late response can't overwrite a newer local change.
+      queryClient.setQueryData<typeof data>(
+        queryKeys.soundSettings.me(selectedCompanyId!),
+        (prev) => (prev ? { ...prev, settings: res.settings } : prev),
+      );
+    },
+    onError: () => {
+      // Roll back to the last known server state.
+      if (data?.settings) setDraft(data.settings);
     },
   });
+
+  // Sync the draft from the server only when no save is in flight, so a refetch
+  // (focus, invalidation) never resets a value the user is editing.
+  useEffect(() => {
+    if (data?.settings && !save.isPending) setDraft(data.settings);
+  }, [data, save.isPending]);
 
   const uploadMut = useMutation({
     mutationFn: (file: File) => soundSettingsApi.upload(selectedCompanyId!, file),
@@ -78,7 +92,7 @@ export function SoundSettingsPage() {
     });
     if (!url) return;
     const audio = new Audio(url);
-    audio.volume = Math.min(1, Math.max(0, draft.volume / 100));
+    audio.volume = toAudioVolume(draft.volume);
     void audio.play().catch(() => {});
   };
 
@@ -97,14 +111,20 @@ export function SoundSettingsPage() {
       <Card className="p-5 space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-base">Activer les sons</Label>
+            <Label htmlFor="sound-enabled" className="text-base">Activer les sons</Label>
             <p className="text-sm text-muted-foreground">Jouer un son à chaque notification.</p>
           </div>
-          <Switch checked={draft.enabled} onCheckedChange={(v) => update({ enabled: v })} />
+          <Switch
+            id="sound-enabled"
+            checked={draft.enabled}
+            onCheckedChange={(v) => update({ enabled: v })}
+          />
         </div>
         <div className="space-y-2">
-          <Label>Volume — {draft.volume}%</Label>
+          <Label htmlFor="sound-volume">Volume — {draft.volume}%</Label>
           <Slider
+            id="sound-volume"
+            aria-valuetext={`${draft.volume} %`}
             value={[draft.volume]}
             min={0}
             max={100}
@@ -113,26 +133,38 @@ export function SoundSettingsPage() {
             onValueCommit={([v]) => update({ volume: v })}
           />
         </div>
+        {save.isError && (
+          <p className="text-sm text-destructive">
+            Échec de l'enregistrement — vos réglages précédents ont été restaurés.
+          </p>
+        )}
       </Card>
 
       <Card className="p-5 space-y-4">
         <Label className="text-base">Son par type de notification</Label>
         {TONE_KEYS.map((tone) => (
           <div key={tone} className="flex items-center gap-3">
-            <span className="w-32 text-sm">{TONE_LABELS[tone]}</span>
+            <span id={`sound-tone-${tone}`} className="w-32 text-sm">{TONE_LABELS[tone]}</span>
             <Select
               value={draft.tones[tone]}
               onValueChange={(v) => update({ tones: { ...draft.tones, [tone]: v } })}
             >
-              <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="flex-1" aria-labelledby={`sound-tone-${tone}`}>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {options.map((o) => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => preview(draft.tones[tone])}>
-              ▶ Aperçu
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={`Aperçu du son ${TONE_LABELS[tone]}`}
+              onClick={() => preview(draft.tones[tone])}
+            >
+              <span aria-hidden="true">▶</span> Aperçu
             </Button>
           </div>
         ))}

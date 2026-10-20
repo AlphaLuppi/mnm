@@ -5,6 +5,7 @@ import { updateSoundSettingsSchema } from "@mnm/shared";
 import type { StorageService } from "../storage/types.js";
 import { soundSettingsService, assetService } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { unprocessable } from "../errors.js";
 
 const MAX_SOUND_BYTES = Number(process.env.MNM_SOUND_MAX_BYTES) || 2 * 1024 * 1024;
 const ALLOWED_SOUND_CONTENT_TYPES = new Set([
@@ -49,6 +50,11 @@ export function soundSettingsRoutes(db: Db, storage: StorageService) {
       res.status(400).json({ error: "Invalid sound settings", details: parsed.error.issues });
       return;
     }
+    const assetIds = Object.values(parsed.data.tones ?? {})
+      .filter((ref): ref is string => typeof ref === "string" && ref.startsWith("asset:"))
+      .map((ref) => ref.slice("asset:".length));
+    const foreign = await svc.foreignSoundIds(companyId, userId, [...new Set(assetIds)]);
+    if (foreign.length > 0) throw unprocessable("Unknown sound asset", { assetIds: foreign });
     const settings = await svc.upsert(companyId, userId, parsed.data);
     res.json({ settings });
   });

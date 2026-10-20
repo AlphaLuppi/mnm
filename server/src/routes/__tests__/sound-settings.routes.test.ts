@@ -91,6 +91,24 @@ describe("sound-settings routes", () => {
     expect(list.body.sounds[0].label).toBe("ding.mp3");
   });
 
+  it("PUT accepts a tone pointing at the user's own uploaded sound", async () => {
+    const list = await request(buildApp()).get(`/companies/${company.id}/me/sounds`);
+    const ownId = list.body.sounds[0].id as string;
+    const res = await request(buildApp())
+      .put(`/companies/${company.id}/me/sound-settings`)
+      .send({ tones: { info: `asset:${ownId}` } });
+    expect(res.status).toBe(200);
+    expect(res.body.settings.tones.info).toBe(`asset:${ownId}`);
+    expect(res.body.settings.volume).toBe(42); // untouched by the partial PUT
+  });
+
+  it("PUT rejects a tone pointing at an unknown / foreign asset", async () => {
+    const res = await request(buildApp())
+      .put(`/companies/${company.id}/me/sound-settings`)
+      .send({ tones: { error: "asset:00000000-0000-4000-8000-000000000000" } });
+    expect(res.status).toBe(422);
+  });
+
   it("POST rejects a non-audio file", async () => {
     const res = await request(buildApp())
       .post(`/companies/${company.id}/me/sounds`)
